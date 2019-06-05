@@ -51,7 +51,10 @@
   <buildtool_depend>catkin</buildtool_depend>
   <buildtool_depend>roscpp</buildtool_depend>
   <buildtool_depend>tf2</buildtool_depend>
-  <buildtool_depend>cv_bridge</buildtool_depend>
+  <buildtool_depend>message_runtime</run_depend>
+  <buildtool_depend>image_transport</buildtool_depend>
+  <buildtool_depend>sensor_msgs</buildtool_depend>
+  <buildtool_depend>mrs_msgs</buildtool_depend>
   <buildtool_depend>opencv</buildtool_depend>
 
 
