@@ -5,7 +5,7 @@ FILE(GLOB_RECURSE HEADER_FILES include *.h)
 FILE(GLOB_RECURSE LAUNCHER_FILES include *.launch)
 FILE(GLOB_RECURSE YAML_FILES include *.yaml)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-diagnostics-color -fmessage-length=0 -std=c++11")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-diagnostics-color -fmessage-length=0 -std=c++17 -Wno-return-type")
 
 find_package(catkin REQUIRED COMPONENTS
   cv_bridge
@@ -14,19 +14,23 @@ find_package(catkin REQUIRED COMPONENTS
   sensor_msgs
   std_msgs
   mrs_msgs
-  mav_manager
   tf2
   tf_conversions
   )
 
-find_package(Eigen3)
-if(NOT EIGEN3_FOUND)
-  # Fallback to cmake_modules
-  find_package(cmake_modules REQUIRED)
-  find_package(Eigen REQUIRED)
-  set(EIGEN3_INCLUDE_DIRS ${EIGEN_INCLUDE_DIRS})
-  set(EIGEN3_LIBRARIES ${EIGEN_LIBRARIES})
-endif()
+# find_package(Eigen3)
+# if(NOT EIGEN3_FOUND)
+#   # Fallback to cmake_modules
+#   find_package(cmake_modules REQUIRED)
+#   find_package(Eigen REQUIRED)
+#   set(EIGEN3_INCLUDE_DIRS ${EIGEN_INCLUDE_DIRS})
+#   set(EIGEN3_LIBRARIES ${EIGEN_LIBRARIES})
+# endif()
+
+# include Eigen3
+find_package(Eigen3 REQUIRED)
+set(Eigen_INCLUDE_DIRS ${EIGEN3_INCLUDE_DIRS})
+set(Eigen_LIBRARIES ${Eigen_LIBRARIES})
 
 find_package(OpenCV REQUIRED HINTS /usr/local/lib)
 
@@ -61,7 +65,7 @@ find_package(OpenCV REQUIRED HINTS /usr/local/lib)
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
  INCLUDE_DIRS include
-  CATKIN_DEPENDS cv_bridge image_transport roscpp sensor_msgs std_msgs message_runtime ht3dbt
+  CATKIN_DEPENDS cv_bridge image_transport roscpp sensor_msgs std_msgs message_runtime
   DEPENDS Eigen
 )
 
@@ -78,26 +82,33 @@ include_directories(
   )
 
 
-add_library(HT3DBT src/ht3d.cpp)
-add_library(uvLedDetect_fast src/uvLedDetect_fast.cpp)
+add_library(ht3dbt include/ht3dbt/ht3d.cpp)
+add_library(uvLedDetect_fast include/detect/uvLedDetect_fast.cpp)
 
 target_link_libraries(uvLedDetect_fast 
   debug ${OpenCV_LIBRARIES} ${catkin_LIBRARIES})
 
-add_executable(uv_detector_node src/main_detector.cpp)
+add_executable(uv_detector_node src/detector.cpp)
 add_dependencies(uv_detector_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
-add_executable(uv_follower_node src/main_follower.cpp include/undistortfunctions/ocam_functions.cpp)
+add_executable(uv_follower_node src/follower.cpp include/OCamCalib/ocam_functions.cpp include/slider/slider.cpp)
 add_dependencies(uv_follower_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+
+add_executable(blink_processor_node src/blink_processor.cpp)
+add_dependencies(blink_processor_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 add_custom_target(headers SOURCES ${HEADER_FILES} ${LAUNCHER_FILES} ${YAML_FILES})
 
 target_link_libraries(uv_detector_node
   ${catkin_LIBRARIES}
   ${OpenCV_LIBRARIES}
-  ${EIGEN3_LIBRARIES}
-
   uvLedDetect_fast
+  )
+
+target_link_libraries(blink_processor_node
+  ${catkin_LIBRARIES}
+  ${OpenCV_LIBRARIES}
+  ht3dbt
   )
 
 target_link_libraries(uv_follower_node
