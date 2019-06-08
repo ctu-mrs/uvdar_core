@@ -600,11 +600,13 @@ double HT3DBlinkerTracker::retrieveFreqency(cv::Point originPoint, double &avgYa
     return -666.0;
   }
 
-  std::cout << "Before culling" << std::endl;
-  for (int i = 0; i < positiveCountAccum.size(); i++) {
-    std::cout << positiveCountAccum[i];
-  }
+  if (DEBUG){
+    std::cout << "Before culling" << std::endl;
+    for (int i = 0; i < positiveCountAccum.size(); i++) {
+      std::cout << positiveCountAccum[i];
+    }
   std::cout << std::endl;
+  }
 
   avgYaw                      = angMeanXY(positivePointAccum);
   std::vector< bool > correct = std::vector< bool >(positivePointAccum.size(), true);
@@ -718,6 +720,7 @@ double HT3DBlinkerTracker::retrieveFreqency(cv::Point originPoint, double &avgYa
     return -4;
   }
 
+  if (DEBUG){
   std::cout << "After culling" << std::endl;
   for (int i = 0; i < positiveCountAccum.size(); i++) {
     std::cout << positiveCountAccum[i];
@@ -727,6 +730,7 @@ double HT3DBlinkerTracker::retrieveFreqency(cv::Point originPoint, double &avgYa
   /* std::cout << "count is " << cntPeriod << std::endl; */
   /* std::cout << framerate << std::endl; */
   std::cout << "Frequency: " << (double)framerate / periodAvg << std::endl;
+  }
   return (double)framerate / periodAvg;
 }
 

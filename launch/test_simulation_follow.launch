@@ -124,7 +124,7 @@
       <remap from="~pointsSeen" to="/$(arg uav_name)/uvPointsSeen"/>
     </node>
     <node name="blink_processor" pkg="nodelet" type="nodelet" args="$(arg nodelet) uvdar/BlinkProcessor $(arg nodelet_manager)" output="screen" respawn="true"> 
-        <param name="DEBUG"		type="bool" value="false"/> 
+        <param name="DEBUG"		type="bool" value="$(arg DEBUG)"/> 
         <param name="VisDEBUG"		type="bool" value="$(arg VisDEBUG)"/> 
         <param name="GUI"             type="bool" value="$(arg gui)"/>
         <param name="CameraImageompressed"    type="bool" value="false"/>

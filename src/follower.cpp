@@ -112,14 +112,14 @@ public:
 
     if (trajectoryControl) {
       target_thread = std::thread(&Follower::TargetThreadTrajectory, this);
-      client        = node.serviceClient< mrs_msgs::TrackerTrajectorySrv >(
-          (std::string("/") + std::string(uav_name) + std::string("/trackers_manager/mpc_tracker/set_trajectory")).c_str());
+      /* client        = node.serviceClient< mrs_msgs::TrackerTrajectorySrv >( */
+      /*     (std::string("/") + std::string(uav_name) + std::string("/control_manager/mpc_tracker/set_trajectory")).c_str()); */
       trajectoryPub = node.advertise< mrs_msgs::TrackerTrajectory >(
-          (std::string("/") + std::string(uav_name) + std::string("/trackers_manager/mpc_tracker/desired_trajectory")).c_str(), 1);
+          (std::string("/") + std::string(uav_name) + std::string("/control_manager/mpc_tracker/set_trajectory")).c_str(), 1);
     } else {
       target_thread = std::thread(&Follower::TargetThreadSimple, this);
       client        = node.serviceClient< mrs_msgs::Vec4 >(
-          (std::string("/") + std::string(uav_name) + std::string("/trackers_manager/mpc_tracker/goToRelative")).c_str());
+          (std::string("/") + std::string(uav_name) + std::string("/control_manager/mpc_tracker/goto_relative")).c_str());
     }
   }
 
