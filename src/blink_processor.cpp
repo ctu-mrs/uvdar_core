@@ -6,13 +6,14 @@
 #define max_frequency 36.0
 #define boundary_ratio 0.7
 
+#include <ros/ros.h>
+#include <nodelet/nodelet.h>
 
 #include <cv_bridge/cv_bridge.h>
 #include <geometry_msgs/Twist.h>
 #include <ht3dbt/ht3d.h>
 #include <image_transport/image_transport.h>
 #include <nav_msgs/Odometry.h>
-#include <ros/ros.h>
 #include <sensor_msgs/CameraInfo.h>
 #include <sensor_msgs/Imu.h>
 #include <std_msgs/Float32.h>
@@ -29,43 +30,47 @@
 
 namespace enc = sensor_msgs::image_encodings;
 
-class BlinkProcessor {
+namespace uvdar {
+
+class BlinkProcessor : public nodelet::Nodelet {
 public:
-  BlinkProcessor(ros::NodeHandle& node) {
-    ros::NodeHandle private_node_handle("~");
-    private_node_handle.param("DEBUG", DEBUG, bool(false));
-    private_node_handle.param("VisDEBUG", VisDEBUG, bool(false));
-    private_node_handle.param("GUI", GUI, bool(false));
+  void onInit() {
 
-    private_node_handle.param("accumulatorLength", accumulatorLength, int(23));
-    private_node_handle.param("pitchSteps", pitchSteps, int(16));
-    private_node_handle.param("yawSteps", yawSteps, int(8));
-    private_node_handle.param("maxPixelShift", maxPixelShift, int(1));
+    ros::NodeHandle nh_ = nodelet::Nodelet::getMTPrivateNodeHandle();
 
-    private_node_handle.param("publishVisualization", publishVisualization, bool(false));
-    private_node_handle.param("visualizationRate", visualizatinRate, int(5));
+    nh_.param("DEBUG", DEBUG, bool(false));
+    nh_.param("VisDEBUG", VisDEBUG, bool(false));
+    nh_.param("GUI", GUI, bool(false));
+
+    nh_.param("accumulatorLength", accumulatorLength, int(23));
+    nh_.param("pitchSteps", pitchSteps, int(16));
+    nh_.param("yawSteps", yawSteps, int(8));
+    nh_.param("maxPixelShift", maxPixelShift, int(1));
+
+    nh_.param("publishVisualization", publishVisualization, bool(false));
+    nh_.param("visualizationRate", visualizatinRate, int(5));
 
     ht3dbt = new HT3DBlinkerTracker(accumulatorLength, pitchSteps, yawSteps, maxPixelShift, cv::Size(752, 480));
 
     ht3dbt->setDebug(DEBUG, VisDEBUG);
 
-    private_node_handle.param("processRate", processRate, int(10));
+    nh_.param("processRate", processRate, int(10));
     processSpinRate = new ros::Rate((double)processRate);
 
-    pointsSubscriber = node.subscribe("pointsSeen", 1, &BlinkProcessor::InsertPoints, this);
-    pointsPublisher  = private_node_handle.advertise<std_msgs::Int32MultiArray>("blinkersSeen", 1);
+    pointsSubscriber = nh_.subscribe("pointsSeen", 1, &BlinkProcessor::InsertPoints, this);
+    pointsPublisher  = nh_.advertise<std_msgs::Int32MultiArray>("blinkersSeen", 1);
 
-    private_node_handle.param("CameraImageCompressed", ImgCompressed, bool(false));
-    private_node_handle.param("InvertedPoints", InvertedPoints, bool(false));
+    nh_.param("CameraImageCompressed", ImgCompressed, bool(false));
+    nh_.param("InvertedPoints", InvertedPoints, bool(false));
 
     currImage = cv::Mat(cv::Size(752, 480), CV_8UC3, cv::Scalar(0, 0, 0));
     viewImage = currImage.clone();
     if (ImgCompressed) {
       ROS_INFO("compressed");
-      ImageSubscriber = node.subscribe("camera", 1, &BlinkProcessor::ProcessCompressed, this);
+      ImageSubscriber = nh_.subscribe("camera", 1, &BlinkProcessor::ProcessCompressed, this);
     } else {
       ROS_INFO("raw");
-      ImageSubscriber = node.subscribe("camera", 1, &BlinkProcessor::ProcessRaw, this);
+      ImageSubscriber = nh_.subscribe("camera", 1, &BlinkProcessor::ProcessRaw, this);
     }
 
     process_thread = std::thread(&BlinkProcessor::ProcessThread, this);
@@ -74,7 +79,7 @@ public:
     }
     if (publishVisualization) {
       visualization_thread = std::thread(&BlinkProcessor::VisualizeThread, this);
-      image_transport::ImageTransport it(node);
+      image_transport::ImageTransport it(nh_);
       imPub = it.advertise("visualization", 1);
     }
 
@@ -84,7 +89,7 @@ public:
     framerateEstim = 72;
 
 
-    private_node_handle.param("frequencyCount", frequencyCount, int(4));
+    nh_.param("frequencyCount", frequencyCount, int(4));
     /* if (frequencyCount != 2){ */
     /*   ROS_ERROR("HEYYY"); */
     /*   return; */
@@ -92,27 +97,27 @@ public:
     int tempFreq;
 
     if (frequencySet.size() < frequencyCount) {
-      private_node_handle.param("frequency1", tempFreq, int(6));
+      nh_.param("frequency1", tempFreq, int(6));
       frequencySet.push_back(double(tempFreq));
     }
     if (frequencySet.size() < frequencyCount) {
-      private_node_handle.param("frequency2", tempFreq, int(10));
+      nh_.param("frequency2", tempFreq, int(10));
       frequencySet.push_back(double(tempFreq));
     }
     if (frequencySet.size() < frequencyCount) {
-      private_node_handle.param("frequency3", tempFreq, int(15));
+      nh_.param("frequency3", tempFreq, int(15));
       frequencySet.push_back(double(tempFreq));
     }
     if (frequencySet.size() < frequencyCount) {
-      private_node_handle.param("frequency4", tempFreq, int(30));
+      nh_.param("frequency4", tempFreq, int(30));
       frequencySet.push_back(double(tempFreq));
     }
     if (frequencySet.size() < frequencyCount) {
-      private_node_handle.param("frequency5", tempFreq, int(8));
+      nh_.param("frequency5", tempFreq, int(8));
       frequencySet.push_back(double(tempFreq));
     }
     if (frequencySet.size() < frequencyCount) {
-      private_node_handle.param("frequency6", tempFreq, int(12));
+      nh_.param("frequency6", tempFreq, int(12));
       frequencySet.push_back(double(tempFreq));
     }
 
@@ -475,20 +480,25 @@ private:
   int frequencyCount;
 };
 
-int main(int argc, char** argv) {
-  ros::init(argc, argv, "blink_processor");
-  ROS_INFO("Starting the Blink processor node");
-  ros::NodeHandle nodeA;
-  BlinkProcessor  bp(nodeA);
+/* int main(int argc, char** argv) { */
+/*   ros::init(argc, argv, "blink_processor"); */
+/*   ROS_INFO("Starting the Blink processor node"); */
+/*   ros::NodeHandle nodeA; */
+/*   BlinkProcessor  bp(nodeA); */
 
-  ROS_INFO("Blink processor node initiated");
+/*   ROS_INFO("Blink processor node initiated"); */
 
-  ros::spin();
-  /* ros::MultiThreadedSpinner spinner(4); */
-  /* spinner.spin(); */
-  /* while (ros::ok()) */
-  /* { */
-  /*   ros::getGlobalCallbackQueue()->callAvailable(ros::WallDuration(0.001)); */
-  /* } */
-  return 0;
-}
+/*   ros::spin(); */
+/*   /1* ros::MultiThreadedSpinner spinner(4); *1/ */
+/*   /1* spinner.spin(); *1/ */
+/*   /1* while (ros::ok()) *1/ */
+/*   /1* { *1/ */
+/*   /1*   ros::getGlobalCallbackQueue()->callAvailable(ros::WallDuration(0.001)); *1/ */
+/*   /1* } *1/ */
+/*   return 0; */
+/* } */
+
+} //namsepace uvdar
+
+#include <pluginlib/class_list_macros.h>
+PLUGINLIB_EXPORT_CLASS(uvdar::BlinkProcessor, nodelet::Nodelet)

@@ -1,11 +1,12 @@
 #define camera_delay 0.50
 
+#include <ros/ros.h>
+#include <nodelet/nodelet.h>
 
 #include <cv_bridge/cv_bridge.h>
 #include <geometry_msgs/Twist.h>
 #include <image_transport/image_transport.h>
 #include <nav_msgs/Odometry.h>
-#include <ros/ros.h>
 #include <sensor_msgs/CameraInfo.h>
 #include <sensor_msgs/Imu.h>
 #include <std_msgs/Float32.h>
@@ -23,40 +24,44 @@
 
 namespace enc = sensor_msgs::image_encodings;
 
-class UVDetector {
+namespace uvdar {
+class UVDetector : public nodelet::Nodelet{
 public:
-  UVDetector(ros::NodeHandle& node) {
-    ros::NodeHandle private_node_handle("~");
-    private_node_handle.param("uav_name", uav_name, std::string());
 
-    private_node_handle.param("justReport", justReport, false);
-    private_node_handle.param("threshold", threshVal, 200);
+  void onInit() {
+
+    ros::NodeHandle nh_ = nodelet::Nodelet::getMTPrivateNodeHandle();
+
+    nh_.param("uav_name", uav_name, std::string());
+
+    nh_.param("justReport", justReport, false);
+    nh_.param("threshold", threshVal, 200);
     if (justReport)
       ROS_INFO("Thresh: %d", threshVal);
 
 
-    private_node_handle.param("FromBag", FromBag, bool(true));
-    private_node_handle.param("FromCamera", FromCamera, bool(false));
-    private_node_handle.param("Flip", Flip, bool(false));
+    nh_.param("FromBag", FromBag, bool(true));
+    nh_.param("FromCamera", FromCamera, bool(false));
+    nh_.param("Flip", Flip, bool(false));
 
-    private_node_handle.param("camNum", camNum, int(0));
+    nh_.param("camNum", camNum, int(0));
 
-    private_node_handle.param("GPU", useGpu, bool(false));
+    nh_.param("GPU", useGpu, bool(false));
 
-    private_node_handle.param("cellSize", cellSize, int(32));
-    private_node_handle.param("cellOverlay", cellOverlay, int(8));
-    private_node_handle.param("surroundRadius", surroundRadius, int(4));
+    nh_.param("cellSize", cellSize, int(32));
+    nh_.param("cellOverlay", cellOverlay, int(8));
+    nh_.param("surroundRadius", surroundRadius, int(4));
 
-    private_node_handle.param("DEBUG", DEBUG, bool(false));
-
-
-    private_node_handle.param("SamplePointSize", samplePointSize, int(8));
+    nh_.param("DEBUG", DEBUG, bool(false));
 
 
-    private_node_handle.param("gui", gui, bool(false));
-    private_node_handle.param("publish", publish, bool(true));
+    nh_.param("SamplePointSize", samplePointSize, int(8));
 
-    private_node_handle.param("useOdom", useOdom, bool(false));
+
+    nh_.param("gui", gui, bool(false));
+    nh_.param("publish", publish, bool(true));
+
+    nh_.param("useOdom", useOdom, bool(false));
 
     ROS_INFO("UseOdom? %s", useOdom ? "true" : "false");
     if (useOdom) {
@@ -66,22 +71,22 @@ public:
       pitchRate = 0.0;
       rollRate  = 0.0;
       /* listener = new tf::TransformListener(); */
-      TiltSubscriber = private_node_handle.subscribe("imu", 1, &UVDetector::TiltCallback, this, ros::TransportHints().tcpNoDelay());
+      TiltSubscriber = nh_.subscribe("imu", 1, &UVDetector::TiltCallback, this, ros::TransportHints().tcpNoDelay());
     }
 
     bool ImgCompressed;
-    private_node_handle.param("CameraImageCompressed", ImgCompressed, bool(false));
+    nh_.param("CameraImageCompressed", ImgCompressed, bool(false));
 
 
-    private_node_handle.param("silentDebug", silent_debug, bool(false));
+    nh_.param("silentDebug", silent_debug, bool(false));
 
 
-    private_node_handle.param("storeVideo", storeVideo, bool(false));
+    nh_.param("storeVideo", storeVideo, bool(false));
 
 
-    private_node_handle.param("cameraRotated", cameraRotated, bool(false));
-    // private_node_handle.getParam("camera_rotation_matrix/data", camRot);
-    private_node_handle.getParam("alpha", gamma);
+    nh_.param("cameraRotated", cameraRotated, bool(false));
+    // nh_.getParam("camera_rotation_matrix/data", camRot);
+    nh_.getParam("alpha", gamma);
 
 
     gotCamInfo = false;
@@ -92,8 +97,8 @@ public:
       begin = ros::Time::now();
     }
 
-    private_node_handle.param("lines", lines, bool(false));
-    private_node_handle.param("accumLength", accumLength, int(5));
+    nh_.param("lines", lines, bool(false));
+    nh_.param("accumLength", accumLength, int(5));
 
     if (true) {
       ROS_INFO("Initializing FAST-based marker detection");
@@ -106,15 +111,15 @@ public:
       stopped = false;
       if (ImgCompressed) {
         ROS_INFO("Source is COMPRESSEd");
-        ImageSubscriber = node.subscribe("camera", 1, &UVDetector::ProcessCompressed, this);
+        ImageSubscriber = nh_.subscribe("camera", 1, &UVDetector::ProcessCompressed, this);
       } else {
         ROS_INFO("Source is RAW");
-        ImageSubscriber = node.subscribe("camera", 1, &UVDetector::ProcessRaw, this);
+        ImageSubscriber = nh_.subscribe("camera", 1, &UVDetector::ProcessRaw, this);
       }
     }
 
     if (justReport) {
-      PointsPublisher = private_node_handle.advertise< std_msgs::UInt32MultiArray >("pointsSeen", 1);
+      PointsPublisher = nh_.advertise< std_msgs::UInt32MultiArray >("pointsSeen", 1);
     }
   }
 
@@ -368,14 +373,18 @@ private:
   std::vector< sensor_msgs::Imu > imu_register;
 };
 
-int main(int argc, char** argv) {
-  ros::init(argc, argv, "uv_marker_detector");
-  ros::NodeHandle nodeA;
-  UVDetector   uvd(nodeA);
+/* int main(int argc, char** argv) { */
+/*   ros::init(argc, argv, "uv_marker_detector"); */
+/*   ros::NodeHandle nodeA; */
+/*   UVDetector   uvd(nodeA); */
 
-  ROS_INFO("UV LED marker detector node initiated");
+/*   ROS_INFO("UV LED marker detector node initiated"); */
 
-  ros::spin();
+/*   ros::spin(); */
 
-  return 0;
-}
+/*   return 0; */
+/* } */
+
+} //namespace uvdar
+#include <pluginlib/class_list_macros.h>
+PLUGINLIB_EXPORT_CLASS(uvdar::UVDetector, nodelet::Nodelet)

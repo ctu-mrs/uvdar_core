@@ -46,8 +46,6 @@
 #include <thread>
 #include "slider/slider.h"
 
-/* #include "UVDD/uvLedDetect_cpu.h" */
-/* #include "UVDD/uvLedDetect_gpu.h" */
 
 namespace enc = sensor_msgs::image_encodings;
 
@@ -84,7 +82,7 @@ public:
 
     char calib_path[100];
 
-    sprintf(calib_path, "%s/config/calib_results.txt", ros::package::getPath("uvdd").c_str());
+    sprintf(calib_path, "%s/include/OCamCalib/config/calib_results.txt", ros::package::getPath("uvdar").c_str());
 
     get_ocam_model(&oc_model, calib_path);
 
@@ -926,11 +924,11 @@ private:
 
 
 int main(int argc, char** argv) {
-  ros::init(argc, argv, "UVDD");
+  ros::init(argc, argv, "uvdar_follower");
   ros::NodeHandle nodeA;
-  Follower        dd(nodeA);
+  Follower        df(nodeA);
 
-  ROS_INFO("Oriented follower node initiated");
+  ROS_INFO("Directed follower node initiated");
 
   ros::spin();
 

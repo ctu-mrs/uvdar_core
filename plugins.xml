@@ -1,0 +1,10 @@
+<library path="lib/libUVDetector">
+  <class name="uvdar/UVDetector" type="uvdar::UVDetector" base_class_type="nodelet::Nodelet">
+    <description>the UV LED detector nodelet</description>
+  </class>
+</library>
+<library path="lib/libBlinkProcessor">
+  <class name="uvdar/BlinkProcessor" type="uvdar::BlinkProcessor" base_class_type="nodelet::Nodelet">
+    <description>the UVDAR blinking marker processing nodelet</description>
+  </class>
+</library>

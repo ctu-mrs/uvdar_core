@@ -1,6 +1,12 @@
 <launch>
   <arg name="uav_name" default="$(optenv UAV_NAME uav2)"/>
 
+  <arg name="standalone" default="false"/>
+
+  <arg unless="$(arg standalone)" name="nodelet" value="load"/>
+  <arg     if="$(arg standalone)" name="nodelet" value="standalone"/>
+  <arg unless="$(arg standalone)" name="nodelet_manager" value="$(arg uav_name)_uvdar_nodelet_manager"/>
+  <arg     if="$(arg standalone)" name="nodelet_manager" value=""/>
 
   <arg name="threshold" default="50"/>
 
@@ -81,9 +87,13 @@
   <!--Usage: static_transform_publisher x y z yaw pitch roll frame_id child_frame_id  period(milliseconds)-->
 <!-- OR -->
   <group ns="$(arg uav_name)">
+  
+    <node pkg="nodelet" type="nodelet" name="$(arg uav_name)_uvdar_nodelet_manager" args="manager" output="screen">
+      <param name="num_worker_threads" value="8" />
+    </node>
 
-    <node name="uvdd_detect" pkg="uvdar" type="uv_detector_node" output="screen"> 
-      <!-- <node name="uvdd_detect" pkg="uvdar" type="uv_detector_node" output="screen" launch-prefix="urxvt -e gdb -q -x /home/viktor/gdb.cmds -/-args"> -->
+    <node name="uv_detect" pkg="nodelet" type="nodelet" args="$(arg nodelet) uvdar/UVDetector $(arg nodelet_manager)" output="screen" respawn="true"> 
+      <!-- <node name="uv_detect" pkg="uvdar" type="uv_detector_node" output="screen" launch-prefix="urxvt -e gdb -q -x /home/viktor/gdb.cmds -/-args"> -->
       <param name="uav_name" type = "string" value="$(arg uav_name)"/>
       <param name="DEBUG"		type="bool" value="$(arg DEBUG)"/> 
       <param name="gui"             type="bool" value="false"/>
@@ -108,12 +118,34 @@
       <param name="threshold" type="int" value="$(arg threshold)"/>
       <param name="CameraImageCompressed" type="bool" value="false"/>
 
-      <remap from="odometry" to="/$(arg uav_name)/mrs_odometry/new_odom"/>
-      <remap from="camera" to="/$(arg uav_name)/bluefox/image_raw"/>
+      <remap from="~odometry" to="/$(arg uav_name)/mrs_odometry/new_odom"/>
+      <remap from="~camera" to="/$(arg uav_name)/uvdar_bluefox/image_raw"/>
       <remap from="~imu" to="mavros/imu/data"/>
       <remap from="~pointsSeen" to="/$(arg uav_name)/uvPointsSeen"/>
-      <rosparam command="load" file="$(find uvdar)/yaml/bluefox_fisheye.yaml" />
     </node>
+    <node name="blink_processor" pkg="nodelet" type="nodelet" args="$(arg nodelet) uvdar/BlinkProcessor $(arg nodelet_manager)" output="screen" respawn="true"> 
+        <param name="DEBUG"		type="bool" value="false"/> 
+        <param name="VisDEBUG"		type="bool" value="$(arg VisDEBUG)"/> 
+        <param name="GUI"             type="bool" value="$(arg gui)"/>
+        <param name="CameraImageompressed"    type="bool" value="false"/>
+        <param name="InvertedPoints"    type="bool" value="false"/>
+        <param name="frequencyCount" type="int" value="2"/>
+        <param name="frequency1" type="int" value="6"/>
+        <param name="frequency2" type="int" value="15"/>
+
+      <param name="processRate"         type="int" value="$(arg processRate)"/>
+
+      <param name="accumulatorLength"         type="int" value="$(arg accumulatorLength)"/>
+      <param name="pitchSteps"         type="int" value="$(arg pitchSteps)"/>
+      <param name="yawSteps"         type="int" value="$(arg yawSteps)"/>
+      <param name="maxPixelShift"         type="int" value="$(arg maxPixelShift)"/>
+
+        <remap from="~camera" to="/$(arg uav_name)/uvdar_bluefox/image_raw"/>
+        <remap from="~pointsSeen" to="/$(arg uav_name)/uvPointsSeen"/>
+        <remap from="~blinkersSeen" to="/$(arg uav_name)/blinkersSeen"/>
+
+      </node>
+      
     <node name="blink_follow" pkg="uvdar" type="uv_follower_node" output="screen"> 
       <param name="uav_name" type = "string" value="$(arg uav_name)"/>
 
@@ -134,36 +166,11 @@
       <param name="justReport" type="bool" value="true"/>
 
 
-      <remap from="odometry" to="/$(arg uav_name)/mrs_odometry/new_odom"/>
-      <remap from="diagnostics" to="/$(arg uav_name)/trackers_manager/mpc_tracker/diagnostics"/>
+      <remap from="~odometry" to="/$(arg uav_name)/mrs_odometry/new_odom"/>
+      <remap from="~diagnostics" to="/$(arg uav_name)/trackers_manager/mpc_tracker/diagnostics"/>
       <remap from="~imu" to="mavros/imu/data"/>
-      <remap from="blinkersSeen" to="/$(arg uav_name)/blinkersSeen"/>
-      <rosparam command="load" file="$(find uvdar)/yaml/bluefox_fisheye.yaml" />
+      <remap from="~blinkersSeen" to="/$(arg uav_name)/blinkersSeen"/>
     </node>
-    <node name="blink_processor" pkg="uvdar" type="blink_processor_node" output="screen"  > 
-        <param name="DEBUG"		type="bool" value="false"/> 
-        <param name="VisDEBUG"		type="bool" value="$(arg VisDEBUG)"/> 
-        <param name="GUI"             type="bool" value="$(arg gui)"/>
-        <param name="CameraImageompressed"    type="bool" value="false"/>
-        <param name="InvertedPoints"    type="bool" value="false"/>
-        <param name="frequencyCount" type="int" value="2"/>
-        <param name="frequency1" type="int" value="6"/>
-        <param name="frequency2" type="int" value="15"/>
-
-      <param name="processRate"         type="int" value="$(arg processRate)"/>
-
-      <param name="accumulatorLength"         type="int" value="$(arg accumulatorLength)"/>
-      <param name="pitchSteps"         type="int" value="$(arg pitchSteps)"/>
-      <param name="yawSteps"         type="int" value="$(arg yawSteps)"/>
-      <param name="maxPixelShift"         type="int" value="$(arg maxPixelShift)"/>
-
-        <remap from="camera" to="/$(arg uav_name)/bluefox/image_raw"/>
-        <remap from="pointsSeen" to="/$(arg uav_name)/uvPointsSeen"/>
-        <remap from="~blinkersSeen" to="/$(arg uav_name)/blinkersSeen"/>
-
-        <rosparam command="load" file="$(find uvdar)/yaml/bluefox_fisheye.yaml" />
-
-      </node>
     </group>
 
   <!-- </group> -->

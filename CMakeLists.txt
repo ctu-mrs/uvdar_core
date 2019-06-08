@@ -8,9 +8,10 @@ FILE(GLOB_RECURSE YAML_FILES include *.yaml)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-diagnostics-color -fmessage-length=0 -std=c++17 -Wno-return-type")
 
 find_package(catkin REQUIRED COMPONENTS
+  roscpp
+  nodelet
   cv_bridge
   image_transport
-  roscpp
   sensor_msgs
   std_msgs
   mrs_msgs
@@ -88,24 +89,24 @@ add_library(uvLedDetect_fast include/detect/uvLedDetect_fast.cpp)
 target_link_libraries(uvLedDetect_fast 
   debug ${OpenCV_LIBRARIES} ${catkin_LIBRARIES})
 
-add_executable(uv_detector_node src/detector.cpp)
-add_dependencies(uv_detector_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+add_library(UVDetector src/detector.cpp)
+add_dependencies(UVDetector ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+
+add_library(BlinkProcessor src/blink_processor.cpp)
+add_dependencies(BlinkProcessor ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 add_executable(uv_follower_node src/follower.cpp include/OCamCalib/ocam_functions.cpp include/slider/slider.cpp)
 add_dependencies(uv_follower_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
-add_executable(blink_processor_node src/blink_processor.cpp)
-add_dependencies(blink_processor_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-
 add_custom_target(headers SOURCES ${HEADER_FILES} ${LAUNCHER_FILES} ${YAML_FILES})
 
-target_link_libraries(uv_detector_node
+target_link_libraries(UVDetector
   ${catkin_LIBRARIES}
   ${OpenCV_LIBRARIES}
   uvLedDetect_fast
   )
 
-target_link_libraries(blink_processor_node
+target_link_libraries(BlinkProcessor
   ${catkin_LIBRARIES}
   ${OpenCV_LIBRARIES}
   ht3dbt
