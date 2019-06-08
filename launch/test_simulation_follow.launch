@@ -146,7 +146,7 @@
 
       </node>
       
-    <node name="blink_follow" pkg="uvdar" type="uv_follower_node" output="screen"> 
+    <node name="uvdar_follow" pkg="uvdar" type="uv_follower_node" output="screen"> 
       <param name="uav_name" type = "string" value="$(arg uav_name)"/>
 
       <param name="followDistance" type="double" value="$(arg followDistance)"/>
