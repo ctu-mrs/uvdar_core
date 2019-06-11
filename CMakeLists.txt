@@ -5,7 +5,7 @@ FILE(GLOB_RECURSE HEADER_FILES include *.h)
 FILE(GLOB_RECURSE LAUNCHER_FILES include *.launch)
 FILE(GLOB_RECURSE YAML_FILES include *.yaml)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-diagnostics-color -fmessage-length=0 -std=c++17 -Wno-return-type")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-diagnostics-color -fmessage-length=0 -std=c++17 -Wno-return-type -Wno-unused-result")
 
 find_package(catkin REQUIRED COMPONENTS
   roscpp
@@ -82,6 +82,7 @@ include_directories(
   ${EIGEN3_INCLUDE_DIRS}
   )
 
+add_library(OCamCalib include/OCamCalib/ocam_functions.cpp )
 
 add_library(ht3dbt include/ht3dbt/ht3d.cpp)
 add_library(uvLedDetect_fast include/detect/uvLedDetect_fast.cpp)
@@ -98,8 +99,11 @@ add_dependencies(unscented ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED
 add_library(BlinkProcessor src/blink_processor.cpp)
 add_dependencies(BlinkProcessor ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
-add_executable(uv_follower_node src/follower.cpp include/OCamCalib/ocam_functions.cpp include/slider/slider.cpp)
+add_executable(uv_follower_node src/follower.cpp include/slider/slider.cpp)
 add_dependencies(uv_follower_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+
+add_executable(uv_reporter_node src/poseReporter.cpp)
+add_dependencies(uv_reporter_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 add_custom_target(headers SOURCES ${HEADER_FILES} ${LAUNCHER_FILES} ${YAML_FILES})
 
@@ -119,5 +123,14 @@ target_link_libraries(uv_follower_node
   ${catkin_LIBRARIES}
   ${OpenCV_LIBRARIES}
   ${EIGEN3_LIBRARIES}
+  OCamCalib
+  unscented
+  )
+
+target_link_libraries(uv_reporter_node
+  ${catkin_LIBRARIES}
+  ${OpenCV_LIBRARIES}
+  ${EIGEN3_LIBRARIES}
+  OCamCalib
   unscented
   )
