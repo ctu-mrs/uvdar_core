@@ -184,7 +184,7 @@ public:
                                 (sqrt(3.0) * B + 3.0));
 
 
-      double gamma      = CV_PI - (delta + Alpha);
+      /* double gamma      = CV_PI - (delta + Alpha); */
 
       /* double distMiddle = sin(gamma) * armLength / sin(Alpha); */
       double distMiddle=(armLength*sin(M_PI-(delta+Alpha)))/(sin(Alpha));
@@ -216,7 +216,7 @@ public:
         C=-C;
       double t=acos(V1.dot(V3));
 
-      double Omega1=asin(max(-1,min(1.0,(c/t)*(2*sqrt(3)))));
+      double Omega1=asin(fmax(-1.0,fmin(1.0,(C/t)*(2.0*sqrt(3.0)))));
 
       /* Eigen::Vector3d Pv = V2.cross(V1).normalized(); */
       /* Rc = makehgtform('axisrotate',norm13,epsilon); */
@@ -279,8 +279,8 @@ public:
             relyaw=(-M_PI/2)+ambig;
       }
 
-      double latnorm=sqrt(sqr(Yt(2))+sqr(Yt(3)));
-      double Gamma=atan2(Yt(1),latnorm);
+      double latnorm=sqrt(sqr(Yt(1))+sqr(Yt(3)));
+      double Gamma=atan2(Yt(2),latnorm);
       Eigen::Vector3d obs_normal =V3.cross(V1); //not exact, but in practice changes very little
       obs_normal=obs_normal/(obs_normal.norm());
       Eigen::Vector3d latComp;
@@ -323,7 +323,7 @@ public:
       double tpitch=atan2(ta,tc);
       double troll=atan2(tb,tc);
 
-      Y << relyaw,tpitch,troll;
+      Y << Y,relyaw,tpitch,troll;
       return Y;
   }
 
@@ -444,20 +444,18 @@ public:
       Eigen::Transform< double, 3, Eigen::Affine > Rp(Eigen::AngleAxis< double >(-alpha1, Pv));
       /* Rc = makehgtform('axisrotate',cross(v2,v1),-alpha1); */
       Eigen::Vector3d Vc=Rp*V1;
-      Eigen::Vector3d Xt=l*Vc;
+      Eigen::Vector3d Yt=l*Vc;
 
-      centerEstimInCam = distanceFiltered * Vc;
+      std::cout << "Estimated center in CAM: " << Yt << std::endl;
+      /* geometry_msgs::Pose p; */
+      /* p.position.x = centerEstimInCam.x(); */
+      /* p.position.y = centerEstimInCam.y(); */
+      /* p.position.z = centerEstimInCam.z(); */
+      /* targetInCamPub.publish(p); */
+      /* foundTarget = true; */
+      /* lastSeen    = ros::Time::now(); */
 
-      std::cout << "Estimated center in CAM: " << centerEstimInCam << std::endl;
-      geometry_msgs::Pose p;
-      p.position.x = centerEstimInCam.x();
-      p.position.y = centerEstimInCam.y();
-      p.position.z = centerEstimInCam.z();
-      targetInCamPub.publish(p);
-      foundTarget = true;
-      lastSeen    = ros::Time::now();
-
-      double relyaw
+      double relyaw;
 
       if (expFrequencies.size() == 2)
         if     ((id(0)==ids[0]) && (id(2)==ids[0]))
@@ -485,6 +483,49 @@ public:
           else
             relyaw=ambig+delta;
         
+      double latang=atan2(Vc(1),Vc(3));
+
+      double relyaw_view=relyaw;
+      relyaw=relyaw+latang;
+
+      double latnorm=sqrt(sqr(Yt(1))+sqr(Yt(3)));
+      double Gamma=atan2(Yt(2),latnorm);
+      double tilt_perp=Yt(8);
+      Eigen::Vector3d obs_normal=V2.cross(V1);
+      obs_normal=obs_normal/(obs_normal.norm());
+      Eigen::Vector3d latComp;
+      latComp << 0,Vc(1),-Vc(3);
+      latComp = latComp/(latComp.norm());
+
+      Eigen::Transform< double, 3, Eigen::Affine > Re(Eigen::AngleAxis< double >( Gamma+M_PI/2,Vc.cross(latComp)));
+      Eigen::Vector3d exp_normal=Re*Vc;
+      /* Ro = makehgtform('axisrotate',cross(vc,obs_normal),Gamma); */
+      Eigen::Transform< double, 3, Eigen::Affine > Ro(Eigen::AngleAxis< double >( Gamma,Vc.cross(obs_normal)));
+      obs_normal=Ro*obs_normal;
+      /* Re = makehgtform('axisrotate',cross(vc,latComp),Gamma+pi/2); */
+      double tilt_par=acos(obs_normal.dot(exp_normal));
+      if (V1(2)>V2(2))
+        tilt_par=-tilt_par;
+
+      double dist = Yt.norm();
+      Eigen::VectorXd Y;
+      Y << Yt*((dist-xl)/dist);
+      Y(2)=Y(2)-xl*sin(Gamma+tilt_perp)*cos(tilt_par);
+      Y(1)=Y(1)-xl*sin(Gamma+tilt_perp)*sin(tilt_par)*cos(latang)+xl*cos(Gamma+tilt_perp)*sin(latang);
+      Y(3)=Y(3)+xl*sin(Gamma+tilt_perp)*sin(tilt_par)*sin(latang)+xl*cos(Gamma+tilt_perp)*cos(latang);
+
+
+      double reltilt_abs=atan(sqrt(sqr(tan(tilt_perp))+sqr(tan(tilt_par))));
+      double tiltdir=atan2(-tan(tilt_par),tan(tilt_perp));
+      double tiltdir_adj=tiltdir-relyaw_view;
+      double ta=cos(tiltdir_adj);
+      double tb=-sin(tiltdir_adj);
+      double tc=cot(reltilt_abs);
+      double tpitch=atan2(ta,tc);
+      double troll=atan2(tb,tc);
+
+      Y << Y,reldeb,tpitch,troll;
+
        
     }
 
