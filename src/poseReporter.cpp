@@ -335,6 +335,60 @@ public:
       return Y;
   }
 
+  static Eigen::Matrix3d rotate_covariance(const Eigen::Matrix3d& covariance, const Eigen::Matrix3d& rotation) {
+    return rotation * covariance * rotation.transpose();  // rotate the covariance to point in direction of est. position
+  }
+
+  //Courtesy of Matous Vrba
+  static Eigen::Matrix3d calc_position_covariance(const Eigen::Vector3d& position_sf, const double xy_covariance_coeff, const double z_covariance_coeff) {
+    /* Calculates the corresponding covariance matrix of the estimated 3D position */
+    Eigen::Matrix3d pos_cov = Eigen::Matrix3d::Identity();  // prepare the covariance matrix
+    const double tol = 1e-9;
+    pos_cov(0, 0) = pos_cov(1, 1) = xy_covariance_coeff;
+
+    pos_cov(2, 2) = position_sf(2) * sqrt(position_sf(2)) * z_covariance_coeff;
+    if (pos_cov(2, 2) < 0.33 * z_covariance_coeff)
+      pos_cov(2, 2) = 0.33 * z_covariance_coeff;
+
+    // Find the rotation matrix to rotate the covariance to point in the direction of the estimated position
+    const Eigen::Vector3d a(0.0, 0.0, 1.0);
+    const Eigen::Vector3d b = position_sf.normalized();
+    const Eigen::Vector3d v = a.cross(b);
+    const double sin_ab = v.norm();
+    const double cos_ab = a.dot(b);
+    Eigen::Matrix3d vec_rot = Eigen::Matrix3d::Identity();
+    if (sin_ab < tol)  // unprobable, but possible - then it is identity or 180deg
+    {
+      if (cos_ab + 1.0 < tol)  // that would be 180deg
+      {
+        vec_rot << -1.0, 0.0, 0.0, 0.0, -1.0, 0.0, 0.0, 0.0, 1.0;
+      }     // otherwise its identity
+    } else  // otherwise just construct the matrix
+    {
+      Eigen::Matrix3d v_x;
+      v_x << 0.0, -v(2), v(1), v(2), 0.0, -v(0), -v(1), v(0), 0.0;
+      vec_rot = Eigen::Matrix3d::Identity() + v_x + (1 - cos_ab) / (sin_ab * sin_ab) * (v_x * v_x);
+    }
+    pos_cov = rotate_covariance(pos_cov, vec_rot);  // rotate the covariance to point in direction of est. position
+    return pos_cov;
+  }
+
+  unscented::measurement uvdarHexarotorPose1p_meas(Eigen::Vector2d X,double tubewidth, double meanDist){
+    double v1[3];
+    double x[2] = {X.y(),X.x()};
+    cam2world(v1, x, &oc_model);
+    Eigen::Vector3d V1(v1[1], v1[0], -v1[2]);
+    V1 = V1*meanDist;
+
+    unscented::measurement ms;
+    ms.x << V1,0,0,0; 
+    Eigen::MatrixXd temp;
+    temp.setIdentity(6,6);
+    ms.C = temp*20;//large covariance for angles in radians
+    ms.C.topLeftCorner(3, 3) = calc_position_covariance(V1,tubewidth,meanDist);
+
+  }
+
   Eigen::VectorXd uvdarHexarotorPose2p(Eigen::VectorXd X, Eigen::VectorXd expFrequencies){
 
       cv::Point3i a;
@@ -718,31 +772,14 @@ public:
     }
 
     else if (points.size() == 1) {
-      implement later
-        std::cout << "Only single point visible - no distance information" << std::endl;
+      std::cout << "Only single point visible - no distance information" << std::endl;
       angleDist = 0.0;
       std::cout << "led: " << points[0] << std::endl;
-      double v1[3];
-      double va[2] = {double(points[0].y), double(points[0].x)};
-      cam2world(v1, va, &oc_model);
 
-      Eigen::Vector3d V1(v1[1], v1[0], -v1[2]);
 
-      if (first) {
-        distanceSlider.filterInit(farDistance, filterDistLength);
-        orientationSlider.filterInit(0.0, filterOrientationLength);
-        first = false;
-      }
-      orientationSlider.filterPush(0.0);
+      ms = uvdarHexarotorPose1p_meas(Eigen::Vector2d(points[0].x,points[0].y),1.0,8.0);
 
-      double distanceFiltered = distanceSlider.filterSlide();
-      centerEstimInCam        = distanceSlider.filterSlide() * V1;
-      std::cout << "Estimated center in CAM: " << centerEstimInCam << std::endl;
-      geometry_msgs::Pose p;
-      p.position.x = centerEstimInCam.x();
-      p.position.y = centerEstimInCam.y();
-      p.position.z = centerEstimInCam.z();
-      targetInCamPub.publish(p);
+
       foundTarget = true;
       lastSeen    = ros::Time::now();
     } else {
