@@ -725,7 +725,7 @@ public:
 
 
       Eigen::VectorXd X;
-      Eigen::MatrixXd Pm2, Pm3;
+      Eigen::MatrixXd Pm2(9,9), Pm3(11,11);
       unscented::measurement ms;
 
       double perr=0.2/framerateEstim;
@@ -748,13 +748,16 @@ public:
         0,0,0,0,0,0,0,0,sqr(perr),0,
         0,0,0,0,0,0,0,0,0,sqr(2*M_PI/3)
         ;
-      boost::function<void()> callback;
-      callback=boost::bind(&PoseReporter::uvdarHexarotorPose3p,this);
-      ms = unscented::unscentedTransform(X,Px3,callback,6,10,-1);
+      boost::function<Eigen::VectorXd(Eigen::VectorXd,Eigen::VectorXd)> callback;
+      callback=boost::bind(&PoseReporter::uvdarHexarotorPose3p,this,_1,_2);
+      ms = unscented::unscentedTransform(X,Pm3,callback,6,10,-1);
     }
 
     else if (points.size() == 2) {
-      X << points[0].x ,points[0].y, points[1].x ,points[1].y;
+      X <<
+        points[0].x ,points[0].y,points[0].z,
+        points[1].x ,points[1].y,points[1].z,
+        0,0,0;
       Pm2 <<
         0.25,0,0,0,0,0,0,0,0,
         0,0.25,0,0,0,0,0,0,0,
@@ -766,8 +769,8 @@ public:
         0,0,0,0,0,0,0,sqr(deg2rad(30)),0,
         0,0,0,0,0,0,0,0,sqr(deg2rad(10))
         ;
-      boost::function<void()> callback;
-      callback=boost::bind(&PoseReporter::uvdarHexarotorPose2p,this);
+      boost::function<Eigen::VectorXd(Eigen::VectorXd,Eigen::VectorXd)> callback;
+      callback=boost::bind(&PoseReporter::uvdarHexarotorPose2p,this,_1,_2);
       ms = unscented::unscentedTransform(X,Pm2,callback,6,10,-1);
     }
 

@@ -5,7 +5,7 @@
 #include <Eigen/Geometry>
 #include <unsupported/Eigen/MatrixFunctions>
 
-using namespace unscented;
+/* using namespace unscented; */
 
 /* namespace unscented { */
 /* namespace e = Eigen; */
@@ -16,7 +16,7 @@ double angdiff(double x,double y){
   return fmod(d+M_PI,2*M_PI)-M_PI;
 }
 
-measurement unscentedTransform(e::VectorXd x,e::MatrixXd Px, boost::function<e::VectorXd(e::VectorXd,e::VectorXd)> const &fcn,double fleft,double fright, double fcenter){
+unscented::measurement unscented::unscentedTransform(e::VectorXd x,e::MatrixXd Px, const boost::function<e::VectorXd(e::VectorXd,e::VectorXd)> &fcn,double fleft,double fright, double fcenter){
   // Alpha = double(0.5);
   int L = x.rows();
   /* L = size(x,1); */
