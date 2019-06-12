@@ -3,21 +3,12 @@
 
 #define camera_delay 0.50
 #define armLength 0.2775
-/* #define followDistance 6.0 */
-#define farDistance 5.0
-/* #define tailingCoeff 1.0 */
-/* #define trajcoeff 0.5 */
-/* #define yawcoeff 0.1 */
 #define maxSpeed 2.0
-
-#define maxTrajSteps 20
-
-#define maxFollowDistDeviation 2.0
 
 /* #include <std_srvs/Trigger.h> */
 #include <cv_bridge/cv_bridge.h>
 #include <geometry_msgs/Twist.h>
-#include <image_transport/image_transport.h>
+/* #include <image_transport/image_transport.h> */
 #include <mrs_msgs/Vec4.h>
 #include <mrs_msgs/TrackerDiagnostics.h>
 /* #include <mrs_msgs/TrackerTrajectorySrv.h> */
@@ -46,6 +37,9 @@
 #include <thread>
 #include "unscented/unscented.h"
 
+static double sqr(double a){
+  return a*a;
+}
 
 
 namespace enc = sensor_msgs::image_encodings;
@@ -118,19 +112,22 @@ public:
   ~PoseReporter() {
   }
 
-  Eigen::VectorXd uvdarHexarotorPose3p(Eigen::VectorXd X, int ids[3]){
+  Eigen::VectorXd uvdarHexarotorPose3p(Eigen::VectorXd X, Eigen::VectorXd expFrequencies){
       cv::Point3i tmp;
-      cv::Point3i a(X(0),X(1),ids[0]);
-      cv::Point3i b(X(2),X(3),ids[1]);
-      cv::Point3i c(X(4),X(5),ids[2]);
+      cv::Point3i a(X(0),X(1),X(2));
+      cv::Point3i b(X(3),X(4),X(5));
+      cv::Point3i c(X(6),X(7),X(8));
+      double ambig = X(9);
 
-      if ((points[2].x) < (points[0].x)) {
-        a = points[2];
-        c = points[0];
+      if ((c.x) < (a.x)) {
+        tmp = a;
+        a = c;
+        c = tmp;
       }
-      if ((points[1].x) < (a.x)) {
+      if ((b.x) < (a.x)) {
+        tmp = b;
         b = a;
-        a = points[1];
+        a = tmp;
       }
       if ((b.x) > (c.x)) {
         tmp = c;
@@ -138,23 +135,16 @@ public:
         b   = tmp;
       }
       std::cout << "central led: " << b << std::endl;
-
-
-      if ((a.z == leftID) && (b.z == leftID) && (c.z == leftID)) {
-        angleDist = CV_PI * (1.5 / 3.0);
-      } else if ((a.z == leftID) && (b.z == leftID) && (c.z == rightID)) {
-        angleDist = CV_PI * (0.5 / 3.0);
-      } else if ((a.z == leftID) && (b.z == rightID) && (c.z == rightID)) {
-        angleDist = -CV_PI * (0.5 / 3.0);
-      } else if ((a.z == rightID) && (b.z == rightID) && (c.z == rightID)) {
-        angleDist = -CV_PI * (1.5 / 3.0);
-      } else if ((a.z == rightID) && (b.z == leftID) && (c.z == leftID)) {
-        angleDist = CV_PI * (2.5 / 3.0);
-      } else if ((a.z == rightID) && (b.z == rightID) && (c.z == leftID)) {
-        angleDist = -CV_PI * (2.5 / 3.0);
-      } else {
-        angleDist = 0.0;
-      }
+      Eigen::Vector3i ids;
+      ids << 0,1,2;
+      Eigen::Vector3d expPeriods;
+      expPeriods = expFrequencies.cwiseInverse(); 
+      Eigen::Vector3d periods;
+      periods << a.z,b.z,c.z;
+      Eigen::Vector3d id;
+      id(0) = ((expPeriods.array()-(periods(0))).cwiseAbs()).minCoeff();
+      id(1) = ((expPeriods.array()-(periods(1))).cwiseAbs()).minCoeff();
+      id(2) = ((expPeriods.array()-(periods(2))).cwiseAbs()).minCoeff();
 
       double pixDist = (cv::norm(b - a) + cv::norm(c - b)) * 0.5;
       double v1[3], v2[3], v3[3];
@@ -170,45 +160,64 @@ public:
       Eigen::Vector3d V2(v2[1], v2[0], -v2[2]);
       Eigen::Vector3d V3(v3[1], v3[0], -v3[2]);
 
+      Eigen::Vector3d norm13=V3.cross(V1);
+      norm13=norm13/norm13.norm();
+      double dist132=V2.dot(norm13);
+      Eigen::Vector3d V2_c=V2-dist132*norm13;
+      V2_c=V2_c/V2_c.norm();
 
-      double alpha = acos(V1.dot(V2));
-      double beta  = acos(V2.dot(V3));
+      double Alpha = acos(V1.dot(V2_c));
+      double Beta  = acos(V2_c.dot(V3));
 
-      double A = 1.0 / tan(alpha);
-      double B = 1.0 / tan(beta);
-      std::cout << "alpha: " << alpha << " beta: " << beta << std::endl;
+      double A = 1.0 / tan(Alpha);
+      double B = 1.0 / tan(Beta);
+      std::cout << "alpha: " << Alpha << " beta: " << Beta << std::endl;
       std::cout << "A: " << A << " B: " << B << std::endl;
 
-      double longOperand = (A * A - A * B + sqrt(3.0) * A + B * B + sqrt(3.0) * B + 3.0);
-      std::cout << "long operand: " << longOperand << std::endl;
-      double delta = 2.0 * atan(((B * (2.0 * sqrt(longOperand / (B * B + 2.0 * sqrt(3.0) + 3.0)) - 1.0)) +
-                                 (6.0 * sqrt(longOperand / ((sqrt(3.0) * B + 3.0) * (sqrt(3.0) * B + 3.0)))) + (2.0 * A + sqrt(3.0))) /
+      double O = (A * A - A * B + sqrt(3.0) * A + B * B + sqrt(3.0) * B + 3.0);
+      /* std::cout << "long operand: " << O << std::endl; */
+      double delta = 2.0 * atan(((B * (2.0 * sqrt(O / (B * B + 2.0 * sqrt(3.0) + 3.0)) - 1.0)) +
+                                 (6.0 * sqrt(O / ((sqrt(3.0) * B + 3.0) * (sqrt(3.0) * B + 3.0)))) + (2.0 * A + sqrt(3.0))) /
                                 (sqrt(3.0) * B + 3.0));
 
-      double gamma      = CV_PI - (delta + alpha);
-      double distMiddle = sin(gamma) * armLength / sin(alpha);
+
+      double gamma      = CV_PI - (delta + Alpha);
+
+      /* double distMiddle = sin(gamma) * armLength / sin(Alpha); */
+      double distMiddle=(armLength*sin(M_PI-(delta+Alpha)))/(sin(Alpha));
 
 
-      double distance = sqrt(fmax(0.1, distMiddle * distMiddle + armLength * armLength - 2 * distMiddle * armLength * cos(delta + (CV_PI / 3.0))));
+      double l = sqrt(fmax(0.1, distMiddle * distMiddle + armLength * armLength - 2 * distMiddle * armLength * cos(delta + (CV_PI / 3.0))));
       if (first) {
         first = false;
       }
 
-      double phi = asin(sin(delta + (CV_PI / 3.0)) * (armLength / distanceFiltered));
+      double Epsilon=asin((armLength/l)*sin(delta+M_PI/3));
+      /* phi=asin((b/l)*sin(delta+pi/3)); */
+
+      /* double phi = asin(sin(delta + (CV_PI / 3.0)) * (armLength / l)); */
+      double phi = asin(sin(delta + (CV_PI / 3.0)) * (distMiddle / l));
       std::cout << "delta: " << delta << std::endl;
-      std::cout << "Estimated distance: " << distance << std::endl;
-      std_msgs::Float32 dM, fdM;
-      dM.data  = distance;
-      fdM.data = distanceFiltered;
-      measuredDist.publish(dM);
-      filteredDist.publish(fdM);
+      std::cout << "Estimated distance: " << l << std::endl;
+      /* std_msgs::Float32 dM, fdM; */
+      /* dM.data  = distance; */
+      /* fdM.data = distanceFiltered; */
+      /* measuredDist.publish(dM); */
+      /* filteredDist.publish(fdM); */
 
       std::cout << "Estimated angle from mid. LED: " << phi * (180.0 / CV_PI) << std::endl;
 
+      double C=acos(V2_c.dot(V2));
+      Eigen::Vector3d V2_d=V2_c-V2;
+      if (V2_d(1)<0)
+        C=-C;
+      double t=acos(V1.dot(V3));
 
-      Eigen::Vector3d Pv = V3.cross(V1).normalized();
-      Eigen::Transform< double, 3, Eigen::Affine > Rp(Eigen::AngleAxis< double >(phi, Pv));
-      centerEstimInCam = distanceFiltered * (V2);
+      double Omega1=asin(max(-1,min(1.0,(c/t)*(2*sqrt(3)))));
+
+      Rc = makehgtform('axisrotate',norm13,epsilon);
+      vc=Rc(1:3,1:3)*v2_c;
+Xt=l*vc;
       /* goalInCam        = (distanceFiltered - followDistance) * (Rp * V2); */
       /* tf::Vector3 centerEstimInCamTF; */
       /* tf::vectorEigenToTF(centerEstimInCam, centerEstimInCamTF); */
@@ -217,10 +226,53 @@ public:
       /* tf::vectorTFToEigen(centerEstimInBaseTF, centerEstimInBase); */
 
 
+
       std::cout << "Estimated center in CAM: " << centerEstimInCam << std::endl;
+
+      double relyaw
+
+      if (expFrequencies.size() == 2){
+        if     ((id(0)==ids[0]) && (id(1)==ids[0]) && (id(2)==ids[0]))
+          relyaw=(M_PI/2);
+        else if ((id(0)==ids[1]) && (id(1)==ids[1]) && (id(2)==ids[1]))
+        relyaw=(-M_PI/2);
+        else if ((id(0)==ids[0]) && (id(1)==ids[0]) && (id(2)==ids[1]))
+        relyaw=(M_PI/6);
+        else if ((id(0)==ids[0]) && (id(1)==ids[1]) && (id(2)==ids[1]))
+        relyaw=(-M_PI/6);
+        else if ((id(0)==ids[1]) && (id(1)==ids[1]) && (id(2)==ids[0]))
+        relyaw=(-5*M_PI/6);
+        else if ((id(0)==ids[1]) && (id(1)==ids[0]) && (id(2)==ids[0]))
+        relyaw=(5*M_PI/6);
+        else
+          if (id(0)==ids[0])
+            relyaw=(M_PI/2)+ambig;
+          else
+            relyaw=(-M_PI/2)+ambig;
+      }
+      else {
+        if     ((id(0)==ids[2]) && (id(1)==ids[0]) && (id(2)==ids[0]))
+          relyaw=(M_PI/2);
+        else if ((id(0)==ids[1]) && (id(1)==ids[1]) && (id(2)==ids[2]))
+        relyaw=(-M_PI/2);
+        else if ((id(0)==ids[0]) && (id(1)==ids[0]) && (id(2)==ids[1]))
+        relyaw=(M_PI/6);
+        else if ((id(0)==ids[0]) && (id(1)==ids[1]) && (id(2)==ids[1]))
+        relyaw=(-M_PI/6);
+        else if ((id(0)==ids[1]) && (id(1)==ids[2]) && (id(2)==ids[2]))
+        relyaw=(-5*M_PI/6);
+        else if ((id(0)==ids[2]) && (id(1)==ids[2]) && (id(2)==ids[0]))
+          relyaw=(5*M_PI/6);
+        else
+          if (id(0)==ids[0])
+            relyaw=(M_PI/2)+ambig;
+          else
+            relyaw=(-M_PI/2)+ambig;
+      }
+
   }
 
-  Eigen::VectorXd uvdarHexarotorPose2p(Eigen::VectorXd X, double fleft, double fright, double fcenter){
+  Eigen::VectorXd uvdarHexarotorPose2p(Eigen::VectorXd X, Eigen::VectorXd expFrequencies){
 
       cv::Point3i a;
       cv::Point3i b;
@@ -232,54 +284,154 @@ public:
         a = cv::Point3i(X(2),X(3),-1);
         b = cv::Point3i(X(0),X(1),-1);
       }
-
-      if ((a.z == leftID) && (b.z == leftID)) {
-        angleDist = CV_PI * (1.5 / 3.0);
-      } else if ((a.z == leftID) && (b.z == rightID)) {
-        angleDist = 0;
-      } else if ((a.z == rightID) && (b.z == rightID)) {
-        angleDist = -CV_PI * (1.5 / 3.0);
-      } else if ((a.z == rightID) && (b.z == leftID)) {
-        angleDist = CV_PI;
-      } else {  // should never happen
-        angleDist = 0.0;
-      }
-
+      double ambig=X(7);
+      double delta=X(6);
 
       std::cout << "right led: " << b << std::endl;
-      cv::Point3d central = (points[0] + points[1]) / 2.0;
+      Eigen::Vector3i ids;
+      ids << 0,1,2;
+      Eigen::Vector3d expPeriods;
+      expPeriods = expFrequencies.cwiseInverse(); 
+      Eigen::Vector3d periods;
+      periods << a.z,b.z;
+      Eigen::Vector3d id;
+      id(0) = ((expPeriods.array()-(periods(0))).cwiseAbs()).minCoeff();
+      id(1) = ((expPeriods.array()-(periods(1))).cwiseAbs()).minCoeff();
+
+
+
+
+
+      cv::Point3d central = (a+b) / 2.0;
       double      v1[3], v2[3];
       double      va[2] = {double(a.y), double(a.x)};
       double      vb[2] = {double(b.y), double(b.x)};
       ;
       cam2world(v1, va, &oc_model);
       cam2world(v2, vb, &oc_model);
-      double vc[3];
-      double pc[2] = {central.y, central.x};
-      cam2world(vc, pc, &oc_model);
+      /* double vc[3]; */
+      /* double pc[2] = {central.y, central.x}; */
+      /* cam2world(vc, pc, &oc_model); */
 
       Eigen::Vector3d V1(v1[1], v1[0], -v1[2]);
       Eigen::Vector3d V2(v2[1], v2[0], -v2[2]);
-      Eigen::Vector3d Vc(vc[1], vc[0], -vc[2]);
+      /* Eigen::Vector3d Vc(vc[1], vc[0], -vc[2]); */
 
       double alpha = acos(V1.dot(V2));
 
       double vd = sqrt(0.75 * armLength);
 
-      double distance = (armLength / 2.0) / tan(alpha / 2.0) + vd;
-      if (first) {
-        distanceSlider.filterInit(distance, filterDistLength);
-        orientationSlider.filterInit(angleDist, filterOrientationLength);
-        first = false;
-      }
-      distanceSlider.filterPush(distance);
-      orientationSlider.filterPush(angleDist);
-      double distanceFiltered    = distanceSlider.filterSlide();
-      double orientationFiltered = orientationSlider.filterSlide();
+      /* double distance = (armLength / 2.0) / tan(alpha / 2.0) + vd; */
+      /* if (first) { */
+      /*   distanceSlider.filterInit(distance, filterDistLength); */
+      /*   orientationSlider.filterInit(angleDist, filterOrientationLength); */
+      /*   first = false; */
+      /* } */
+      double d = armLength;
+      double v=d*sqrt(3/4);
+      double sqv=v*v;
+      double sqd=d*d;
+      double csAlpha = (V1.dot(V2));
+      double Alpha=acos(csAlpha);
+      double Alpha2=Alpha*Alpha;
+      double snAlpha =sin(Alpha);
+      double sndelta =sin(delta);
+      double sn2delta =sin(2*delta);
+      double csdelta =cos(delta);
+      double cs2delta =cos(2*delta);
 
-      std::cout << "Estimated distance: " << distance << std::endl;
-      std::cout << "Filtered distance: " << distanceFiltered << std::endl;
-  }
+      double l =
+        (4*d*v*Alpha - 
+         sqd*csAlpha - sqd*cos(Alpha - 2*delta) - 
+         6*d*v*snAlpha - 2*d*v*sin(Alpha - 2*delta) + 
+         sqd*Alpha*sn2delta + 4*sqv*Alpha*sn2delta - 
+         sqrt(2)*sqrt(
+           sqr(d*csdelta - 2*v*sndelta)*
+           (
+            sqd - sqd*Alpha2 - 4*sqv*Alpha2 - 4*d*v*Alpha*csAlpha + 
+            4*d*v*Alpha*cos(Alpha - 2*delta) + 
+            sqd*cos(2*(Alpha - delta)) - 
+            sqd*Alpha2*cs2delta + 
+            4*sqv*Alpha2*cs2delta + 
+            2*sqd*Alpha*snAlpha + 
+            2*sqd*Alpha*sin(Alpha - 2*delta) - 
+            4*d*v*Alpha2*sn2delta)))
+        /
+        (4*d*csdelta*(Alpha - 2*snAlpha) + 8*v*Alpha*sndelta);
+
+      /* distanceSlider.filterPush(distance); */
+      /* orientationSlider.filterPush(angleDist); */
+
+      std::cout << "Estimated distance: " << l << std::endl;
+      /* std::cout << "Filtered distance: " << distanceFiltered << std::endl; */
+
+      /* std::cout << "Estimated direction in CAM: " << (Rp*V2) << std::endl; */
+      /* std::cout << "Central LED direction in CAM: " << (V2) << std::endl; */
+      /* std::cout << "Rotation: " << Rp.matrix()   << std::endl; */
+
+      /* foundTarget = true; */
+      /* lastSeen    = ros::Time::now(); */
+
+      /* std_msgs::Float32 dM, fdM; */
+      /* dM.data  = distance; */
+      /* fdM.data = distanceFiltered; */
+      /* measuredDist.publish(dM); */
+      /* filteredDist.publish(fdM); */
+
+
+
+      double kappa = M_PI/2-delta;
+      double d1=(d/2)+v*tan(delta);
+      double xl=v/cos(delta);
+      double yl=l-xl;
+      double alpha1=atan((d1*sin(kappa))/(yl-d1*cos(kappa)));
+      Eigen::Vector3d Pv = V2.cross(V1).normalized();
+      Eigen::Transform< double, 3, Eigen::Affine > Rp(Eigen::AngleAxis< double >(-alpha1, Pv));
+      /* Rc = makehgtform('axisrotate',cross(v2,v1),-alpha1); */
+      Eigen::Vector3d Vc=Rp*V1;
+      Eigen::Vector3d Xt=l*Vc;
+
+      centerEstimInCam = distanceFiltered * Vc;
+
+      std::cout << "Estimated center in CAM: " << centerEstimInCam << std::endl;
+      geometry_msgs::Pose p;
+      p.position.x = centerEstimInCam.x();
+      p.position.y = centerEstimInCam.y();
+      p.position.z = centerEstimInCam.z();
+      targetInCamPub.publish(p);
+      foundTarget = true;
+      lastSeen    = ros::Time::now();
+
+      double relyaw
+
+      if (expFrequencies.size() == 2)
+        if     ((id(0)==ids[0]) && (id(2)==ids[0]))
+          relyaw=(M_PI/2)+ambig+delta;
+        else if ((id(0)==ids[1]) && (id(2)==ids[1]))
+          relyaw=(-M_PI/2)+ambig+delta;
+        else if ((id(0)==ids[0]) && (id(2)==ids[1]))
+          relyaw=0+delta;
+        else
+          relyaw=M_PI+delta;
+
+        else 
+          if     ((id(0)==ids[0]) && (id(2)==ids[0]))
+            relyaw=(M_PI/3)+delta;
+          else if ((id(0)==ids[1]) && (id(2)==ids[1]))
+            relyaw=(-M_PI/3)+delta;
+          else if ((id(0)==ids[0]) && (id(2)==ids[1]))
+            relyaw=0+delta;
+          else if ((id(0)==ids[1]) && (id(2)==ids[2]))
+            relyaw=(-2*M_PI/3)+delta;
+          else if ((id(0)==ids[2]) && (id(2)==ids[0]))
+            relyaw=(2*M_PI/3)+delta;
+          else if ((id(0)==ids[2]) && (id(2)==ids[2]))
+            relyaw=(M_PI)+delta;
+          else
+            relyaw=ambig+delta;
+        
+       
+    }
 
 
   bool toggleReady(std_srvs::SetBool::Request& req, std_srvs::SetBool::Response& res) {
@@ -416,48 +568,48 @@ public:
       X <<
         points[0].x ,points[0].y, points[0].z,
         points[1].x ,points[1].y, points[1].z,
-        points[2].x, points[2].y, points[2].z;
+        points[2].x, points[2].y, points[2].z,
+        0;  //to account for ambiguity
       perr=0.2/framerate;
       Pm3 <<
-        0.25,0,0,0,0,0,0,0,0,0;...
-        0,0.25,0,0,0,0,0,0,0,0;...
-        0,0,perr^2,0,0,0,0,0,0,0;...
-        0,0,0,0.25,0,0,0,0,0,0;...
-        0,0,0,0,0.25,0,0,0,0,0;...
-        0,0,0,0,0,perr^2,0,0,0,0;...
-        0,0,0,0,0,0,0.25,0,0,0;...
-        0,0,0,0,0,0,0,0.25,0,0;...
-        0,0,0,0,0,0,0,0,perr^2,0;...
-        0,0,0,0,0,0,0,0,0,(2*pi/3)^2;...
+        0.25,0,0,0,0,0,0,0,0,0,
+        0,0.25,0,0,0,0,0,0,0,0,
+        0,0,perr^2,0,0,0,0,0,0,0,
+        0,0,0,0.25,0,0,0,0,0,0,
+        0,0,0,0,0.25,0,0,0,0,0,
+        0,0,0,0,0,perr^2,0,0,0,0,
+        0,0,0,0,0,0,0.25,0,0,0,
+        0,0,0,0,0,0,0,0.25,0,0,
+        0,0,0,0,0,0,0,0,perr^2,0,
+        0,0,0,0,0,0,0,0,0,(2*M_PI/3)^2
         ;
       ms = unscented::unscentedTransform(X,Px3,&uvdarHexarotorPose3p);
     }
 
     else if (points.size() == 2) {
       X << points[0].x ,points[0].y, points[1].x ,points[1].y;
-    perr=0.2/framerate;
-    Pm2 <<
-      0.25,0,0,0,0,0,0,0,0;...
-      0,0.25,0,0,0,0,0,0,0;...
-      0,0,perr^2,0,0,0,0,0,0;...
-      0,0,0,0.25,0,0,0,0,0;...
-      0,0,0,0,0.25,0,0,0,0;...
-      0,0,0,0,0,perr^2,0,0,0;...
-      0,0,0,0,0,0,deg2rad(8)^2,0,0;...
-      0,0,0,0,0,0,0,deg2rad(30)^2,0;...
-      0,0,0,0,0,0,0,0,deg2rad(10)^2;...
-      ;
-
+      perr=0.2/framerate;
+      Pm2 <<
+        0.25,0,0,0,0,0,0,0,0,
+        0,0.25,0,0,0,0,0,0,0,
+        0,0,perr^2,0,0,0,0,0,0,
+        0,0,0,0.25,0,0,0,0,0,
+        0,0,0,0,0.25,0,0,0,0,
+        0,0,0,0,0,perr^2,0,0,0,
+        0,0,0,0,0,0,deg2rad(8)^2,0,0,
+        0,0,0,0,0,0,0,deg2rad(30)^2,0,
+        0,0,0,0,0,0,0,0,deg2rad(10)^2
+        ;
       ms = unscented::unscentedTransform(X,Px,&uvdarHexarotorPose2p,{points[0].z,points[1].z,points[2].z});
     }
 
     else if (points.size() == 1) {
-      std::cout << "Only single point visible - no distance information" << std::endl;
+      implement later
+        std::cout << "Only single point visible - no distance information" << std::endl;
       angleDist = 0.0;
       std::cout << "led: " << points[0] << std::endl;
       double v1[3];
       double va[2] = {double(points[0].y), double(points[0].x)};
-      ;
       cam2world(v1, va, &oc_model);
 
       Eigen::Vector3d V1(v1[1], v1[0], -v1[2]);
@@ -496,32 +648,6 @@ public:
     }
 
 
-      /* std::cout << "Estimated direction in CAM: " << (Rp*V2) << std::endl; */
-      /* std::cout << "Central LED direction in CAM: " << (V2) << std::endl; */
-      /* std::cout << "Rotation: " << Rp.matrix()   << std::endl; */
-
-      foundTarget = true;
-      lastSeen    = ros::Time::now();
-
-      std_msgs::Float32 dM, fdM;
-      dM.data  = distance;
-      fdM.data = distanceFiltered;
-      measuredDist.publish(dM);
-      filteredDist.publish(fdM);
-
-
-      centerEstimInCam = distanceFiltered * Vc;
-
-      std::cout << "Estimated center in CAM: " << centerEstimInCam << std::endl;
-      geometry_msgs::Pose p;
-      p.position.x = centerEstimInCam.x();
-      p.position.y = centerEstimInCam.y();
-      p.position.z = centerEstimInCam.z();
-      targetInCamPub.publish(p);
-      foundTarget = true;
-      lastSeen    = ros::Time::now();
-
-    }
 
     tf::Vector3 goalInCamTF, centerEstimInCamTF;
     tf::vectorEigenToTF(goalInCam, goalInCamTF);
@@ -574,6 +700,8 @@ public:
   }
 
 private:
+
+
   std::stringstream VideoPath;
 
   std::stringstream MaskPath;
