@@ -16,7 +16,7 @@ double angdiff(double x,double y){
   return fmod(d+M_PI,2*M_PI)-M_PI;
 }
 
-measurement unscentedTransform(e::VectorXd x,e::MatrixXd Px, e::VectorXd (*fcn)(e::MatrixXd,double,double,double),double fleft,double fright, double fcenter){
+measurement unscentedTransform(e::VectorXd x,e::MatrixXd Px, boost::function<e::VectorXd(e::VectorXd,e::VectorXd)> const &fcn,double fleft,double fright, double fcenter){
   // Alpha = double(0.5);
   int L = x.rows();
   /* L = size(x,1); */
@@ -42,8 +42,15 @@ measurement unscentedTransform(e::VectorXd x,e::MatrixXd Px, e::VectorXd (*fcn)(
   }
   // tst = 1./X([3,6,9],:)
   e::MatrixXd Y;
+  
+  e::VectorXd expFrequencies;
+  if (fcenter>0)
+    expFrequencies << fleft,fright,fcenter;
+  else 
+    expFrequencies << fleft,fright;
+  
   for (int i=0; i<(1+2*L); i++){
-    Y << (( *fcn )(X.col(i),fleft,fright,fcenter)); //this is weird, check please
+    Y << (fcn(X.col(i),expFrequencies)); //this is weird, check please
     
   }
   e::Vector3d mr;

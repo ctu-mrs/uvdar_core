@@ -694,7 +694,9 @@ public:
         0,0,0,0,0,0,0,0,sqr(perr),0,
         0,0,0,0,0,0,0,0,0,sqr(2*M_PI/3)
         ;
-      ms = unscented::unscentedTransform(X,Px3,&uvdarHexarotorPose3p);
+      boost::function<void()> callback;
+      callback=boost::bind(&PoseReporter::uvdarHexarotorPose3p,this);
+      ms = unscented::unscentedTransform(X,Px3,callback,6,10,-1);
     }
 
     else if (points.size() == 2) {
@@ -710,7 +712,9 @@ public:
         0,0,0,0,0,0,0,sqr(deg2rad(30)),0,
         0,0,0,0,0,0,0,0,sqr(deg2rad(10))
         ;
-      ms = unscented::unscentedTransform(X,Px,&uvdarHexarotorPose2p,{points[0].z,points[1].z,points[2].z});
+      boost::function<void()> callback;
+      callback=boost::bind(&PoseReporter::uvdarHexarotorPose2p,this);
+      ms = unscented::unscentedTransform(X,Pm2,callback,6,10,-1);
     }
 
     else if (points.size() == 1) {

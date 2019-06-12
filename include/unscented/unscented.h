@@ -1,6 +1,7 @@
 #ifndef _UNSCENTED_H_
 #define _UNSCENTED_H_
 #include <Eigen/Core>
+#include <boost/function.hpp>
 
 namespace unscented {
 
@@ -11,7 +12,7 @@ struct measurement {
   e::MatrixXd C;
 } ;
 
-struct measurement unscentedTransform(e::VectorXd x,e::MatrixXd Px, e::VectorXd (*fcn)(e::MatrixXd,double,double,double),double fleft,double fright, double fcenter);
+measurement unscentedTransform(e::VectorXd x,e::MatrixXd Px, boost::function<e::VectorXd(e::VectorXd,e::VectorXd)> const &fcn,double fleft,double fright, double fcenter);
   // Alpha = double(0.5);
 
 }
