@@ -41,6 +41,9 @@ static double sqr(double a){
   return a*a;
 }
 
+static double cot(double input) {
+  return cos(input) / sin(input);
+}
 
 namespace enc = sensor_msgs::image_encodings;
 
@@ -215,9 +218,13 @@ public:
 
       double Omega1=asin(max(-1,min(1.0,(c/t)*(2*sqrt(3)))));
 
-      Rc = makehgtform('axisrotate',norm13,epsilon);
-      vc=Rc(1:3,1:3)*v2_c;
-Xt=l*vc;
+      /* Eigen::Vector3d Pv = V2.cross(V1).normalized(); */
+      /* Rc = makehgtform('axisrotate',norm13,epsilon); */
+      Eigen::Transform< double, 3, Eigen::Affine > Rc(Eigen::AngleAxis< double >(Epsilon, norm13));
+      /* vc=Rc(1:3,1:3)*v2_c; */
+      Eigen::Vector3d Vc = Rc*V2_c;
+
+      Eigen::VectorXd Yt=l*Vc;
       /* goalInCam        = (distanceFiltered - followDistance) * (Rp * V2); */
       /* tf::Vector3 centerEstimInCamTF; */
       /* tf::vectorEigenToTF(centerEstimInCam, centerEstimInCamTF); */
@@ -227,9 +234,11 @@ Xt=l*vc;
 
 
 
-      std::cout << "Estimated center in CAM: " << centerEstimInCam << std::endl;
+      std::cout << "Estimated center in CAM: " << Yt << std::endl;
 
-      double relyaw
+      double tilt_perp=Omega1+atan2(Vc(2),sqrt(sqr(Vc(3))+sqr(Vc(1))));
+
+      double relyaw;
 
       if (expFrequencies.size() == 2){
         if     ((id(0)==ids[0]) && (id(1)==ids[0]) && (id(2)==ids[0]))
@@ -270,6 +279,52 @@ Xt=l*vc;
             relyaw=(-M_PI/2)+ambig;
       }
 
+      double latnorm=sqrt(sqr(Yt(2))+sqr(Yt(3)));
+      double Gamma=atan2(Yt(1),latnorm);
+      Eigen::Vector3d obs_normal =V3.cross(V1); //not exact, but in practice changes very little
+      obs_normal=obs_normal/(obs_normal.norm());
+      Eigen::Vector3d latComp;
+      latComp << 0,Vc(1),-Vc(3);
+      latComp = latComp/(latComp.norm());
+
+      /* Re = makehgtform('axisrotate',cross(vc,latComp),Gamma+pi/2); */
+      Eigen::Transform< double, 3, Eigen::Affine > Re(Eigen::AngleAxis< double >( Gamma+M_PI/2,Vc.cross(latComp)));
+      Eigen::Vector3d exp_normal=Re*Vc;
+      /* Ro = makehgtform('axisrotate',cross(vc,obs_normal),Gamma); */
+      Eigen::Transform< double, 3, Eigen::Affine > Ro(Eigen::AngleAxis< double >( Gamma,Vc.cross(obs_normal)));
+      obs_normal=Ro*obs_normal;
+      /* obs_normal=Ro(1:3,1:3)*obs_normal; */
+      /* exp_normal=Re(1:3,1:3)*vc; */
+      double tilt_par=acos(obs_normal.dot(exp_normal));
+      if (V1(2)>V2(2))
+        tilt_par=-tilt_par;
+
+      double relyaw_view=relyaw+phi;
+      relyaw=relyaw+atan2(Vc(1),Vc(3))+phi;
+
+      double xl=(armLength/2)*cos(phi);
+      double dist = Yt.norm();
+      /* % X(1:3)=Xt(1:3) */
+      Eigen::VectorXd Y;
+      Y << Yt*((dist-xl)/dist);
+      latnorm=sqrt(sqr(Y(1))+sqr(Y(3)));
+      double latang=atan2(Y(1),Y(3));
+      Y(2)=Y(2)-xl*sin(tilt_perp)*cos(tilt_par);
+      Y(1)=Y(1)-xl*sin(tilt_perp)*sin(tilt_par)*cos(latang)+xl*cos(tilt_perp)*sin(latang);
+      Y(3)=Y(3)+xl*sin(tilt_perp)*sin(tilt_par)*sin(latang)+xl*cos(tilt_perp)*cos(latang);
+
+
+      double reltilt_abs=atan(sqrt(sqr(tan(tilt_perp))+sqr(tan(tilt_par))));
+      double tiltdir=atan2(-tan(tilt_par),tan(tilt_perp));
+      double tiltdir_adj=tiltdir-relyaw_view;
+      double ta=cos(tiltdir_adj);
+      double tb=-sin(tiltdir_adj);
+      double tc=cot(reltilt_abs);
+      double tpitch=atan2(ta,tc);
+      double troll=atan2(tb,tc);
+
+      Y << relyaw,tpitch,troll;
+      return Y;
   }
 
   Eigen::VectorXd uvdarHexarotorPose2p(Eigen::VectorXd X, Eigen::VectorXd expFrequencies){
