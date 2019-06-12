@@ -60,6 +60,8 @@ public:
     pointsSubscriber = nh_.subscribe("pointsSeen", 1, &BlinkProcessor::InsertPoints, this);
     pointsPublisher  = nh_.advertise<std_msgs::Int32MultiArray>("blinkersSeen", 1);
 
+    frameratePublisher  = nh_.advertise<std_msgs::Float32>("estimatedFramerate", 1);
+
     nh_.param("CameraImageCompressed", ImgCompressed, bool(false));
     nh_.param("InvertedPoints", InvertedPoints, bool(false));
 
@@ -244,6 +246,11 @@ private:
 
       msg.data = msgdata;
       pointsPublisher.publish(msg);
+
+      std_msgs::Float32 msgFramerate;
+      msgFramerate.data = framerateEstim;
+      frameratePublisher.publish(msgFramerate);
+
 
       processSpinRate->sleep();
     }
@@ -448,6 +455,7 @@ private:
   std::mutex               mutex_show;
   ros::Subscriber          pointsSubscriber;
   ros::Publisher           pointsPublisher;
+  ros::Publisher           frameratePublisher;
   ros::Subscriber          ImageSubscriber;
   bool publishVisualization;
   int visualizatinRate;

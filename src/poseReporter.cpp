@@ -45,6 +45,10 @@ static double cot(double input) {
   return cos(input) / sin(input);
 }
 
+static double deg2rad(double input) {
+  return input*0.01745329251;
+}
+
 namespace enc = sensor_msgs::image_encodings;
 
 class PoseReporter {
@@ -100,6 +104,10 @@ public:
 
     first            = true;
     pointsSubscriber = node.subscribe("blinkersSeen", 1, &PoseReporter::ProcessPoints, this);
+
+
+    framerateEstim = 0.0;
+    pointsSubscriber = node.subscribe("estimatedFramerate", 1, &PoseReporter::GetFramerate, this);
 
     foundTarget = false;
 
@@ -524,7 +532,9 @@ public:
       double tpitch=atan2(ta,tc);
       double troll=atan2(tb,tc);
 
-      Y << Y,reldeb,tpitch,troll;
+      Y << Y,relyaw,tpitch,troll;
+
+      return Y;
 
        
     }
@@ -602,6 +612,9 @@ public:
     /* ROS_INFO("Reached target"); */
   }
 
+  void GetFramerate(const std_msgs::Float32ConstPtr& msg) {
+    framerateEstim = msg->data;
+  }
 
   void ProcessPoints(const std_msgs::Int32MultiArrayConstPtr& msg) {
     int                        countSeen;
@@ -657,8 +670,11 @@ public:
     }
 
 
-      Eigen::VectorXd X,Y;
+      Eigen::VectorXd X;
+      Eigen::MatrixXd Pm2, Pm3;
       unscented::measurement ms;
+
+      double perr=0.2/framerateEstim;
 
     if (points.size() == 3) {
       X <<
@@ -666,35 +682,33 @@ public:
         points[1].x ,points[1].y, points[1].z,
         points[2].x, points[2].y, points[2].z,
         0;  //to account for ambiguity
-      perr=0.2/framerate;
       Pm3 <<
         0.25,0,0,0,0,0,0,0,0,0,
         0,0.25,0,0,0,0,0,0,0,0,
-        0,0,perr^2,0,0,0,0,0,0,0,
+        0,0,sqr(perr),0,0,0,0,0,0,0,
         0,0,0,0.25,0,0,0,0,0,0,
         0,0,0,0,0.25,0,0,0,0,0,
-        0,0,0,0,0,perr^2,0,0,0,0,
+        0,0,0,0,0,sqr(perr),0,0,0,0,
         0,0,0,0,0,0,0.25,0,0,0,
         0,0,0,0,0,0,0,0.25,0,0,
-        0,0,0,0,0,0,0,0,perr^2,0,
-        0,0,0,0,0,0,0,0,0,(2*M_PI/3)^2
+        0,0,0,0,0,0,0,0,sqr(perr),0,
+        0,0,0,0,0,0,0,0,0,sqr(2*M_PI/3)
         ;
       ms = unscented::unscentedTransform(X,Px3,&uvdarHexarotorPose3p);
     }
 
     else if (points.size() == 2) {
       X << points[0].x ,points[0].y, points[1].x ,points[1].y;
-      perr=0.2/framerate;
       Pm2 <<
         0.25,0,0,0,0,0,0,0,0,
         0,0.25,0,0,0,0,0,0,0,
-        0,0,perr^2,0,0,0,0,0,0,
+        0,0,sqr(perr),0,0,0,0,0,0,
         0,0,0,0.25,0,0,0,0,0,
         0,0,0,0,0.25,0,0,0,0,
-        0,0,0,0,0,perr^2,0,0,0,
-        0,0,0,0,0,0,deg2rad(8)^2,0,0,
-        0,0,0,0,0,0,0,deg2rad(30)^2,0,
-        0,0,0,0,0,0,0,0,deg2rad(10)^2
+        0,0,0,0,0,sqr(perr),0,0,0,
+        0,0,0,0,0,0,sqr(deg2rad(8)),0,0,
+        0,0,0,0,0,0,0,sqr(deg2rad(30)),0,
+        0,0,0,0,0,0,0,0,sqr(deg2rad(10))
         ;
       ms = unscented::unscentedTransform(X,Px,&uvdarHexarotorPose2p,{points[0].z,points[1].z,points[2].z});
     }
@@ -798,6 +812,9 @@ public:
 private:
 
 
+  double framerateEstim;
+
+
   std::stringstream VideoPath;
 
   std::stringstream MaskPath;
@@ -816,6 +833,7 @@ private:
   ros::Time RangeRecTime;
 
   ros::Subscriber pointsSubscriber;
+  ros::Subscriber framerateSubscriber;
 
   tf::TransformListener listener;
   tf::StampedTransform  transformCam2Base;
