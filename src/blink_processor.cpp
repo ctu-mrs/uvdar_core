@@ -57,6 +57,8 @@ public:
     nh_.param("processRate", processRate, int(10));
     processSpinRate = new ros::Rate((double)processRate);
 
+    nh_.param("returnFrequencies", returnFrequencies, bool(false));
+
     pointsSubscriber = nh_.subscribe("pointsSeen", 1, &BlinkProcessor::InsertPoints, this);
     pointsPublisher  = nh_.advertise<std_msgs::Int32MultiArray>("blinkersSeen", 1);
 
@@ -241,7 +243,10 @@ private:
       for (int i = 0; i < retrievedBlinkers.size(); i++) {
         msgdata.push_back(retrievedBlinkers[i].x);
         msgdata.push_back(retrievedBlinkers[i].y);
-        msgdata.push_back(findMatch(retrievedBlinkers[i].z));
+        if (returnFrequencies)
+          msgdata.push_back(retrievedBlinkers[i].z);
+        else
+          msgdata.push_back(findMatch(retrievedBlinkers[i].z));
       }
 
       msg.data = msgdata;
@@ -467,6 +472,8 @@ private:
   ros::Time                lastSignal;
   int                      timeSamples;
   double                   timeSum;
+
+  bool returnFrequencies;
 
   double framerateEstim;
 

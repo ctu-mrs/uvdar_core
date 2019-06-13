@@ -1,5 +1,6 @@
 #include "unscented.h"
 
+#include <iostream>
 #include <cmath>
 #include <Eigen/Dense>
 #include <Eigen/Geometry>
@@ -17,11 +18,12 @@ double angdiff(double x,double y){
 }
 
 unscented::measurement unscented::unscentedTransform(e::VectorXd x,e::MatrixXd Px, const boost::function<e::VectorXd(e::VectorXd,e::VectorXd)> &fcn,double fleft,double fright, double fcenter){
+  /* std::cout << "unscented x: " << x << std::endl; */
   // Alpha = double(0.5);
   int L = x.rows();
   /* L = size(x,1); */
   // kappa = double(10/(Alpha^2)-L)/2
-  double W0=1/3;
+  double W0=1.0/3.0;
   // kappa = 0;
   // lambda = double((Alpha^2)*(L+kappa)-L);
   /* X = Eigen::MatrixXf::Ones(L,2*L+1); */
@@ -35,26 +37,37 @@ unscented::measurement unscented::unscentedTransform(e::VectorXd x,e::MatrixXd P
   Eigen::VectorXd W(2*L+1);
   W =e::VectorXd::Ones(2*L+1)*((1-W0)/(2*L));
   W(0)=W0;
-  // Wm = [W(1)+(1-1/Alpha);W(2:end)/Alpha];
-  // Wc = [W/(Alpha^2)];
+
+  std::cout << "unscented W: "<< std::endl;
+  std::cout << W << std::endl;
+
+  // Wm = [W(1)+(1-1/Alpha);W(2:end)/Alpha]; Wc = [W/(Alpha^2)];
+  std::cout << "Px: " << std::endl;
+  std::cout << Px << std::endl;
   e::MatrixXd sf = ((L/(1-W0))*Px).sqrt();
   for (int i=0; i<L; i++){
-    X.col(i*2) = (x+(sf.row(i)).transpose());
-    X.col(1+i*2) = (x-(sf.row(i)).transpose());// check
+    X.col(i*2+1) = (x+(sf.row(i)).transpose());
+    X.col(i*2+2) = (x-(sf.row(i)).transpose());// check
   }
   // tst = 1./X([3,6,9],:)
-  e::MatrixXd Y;
+  e::MatrixXd Y(6,2*L+1);
   
   e::VectorXd expFrequencies;
-  if (fcenter>0)
+  if (fcenter>0){
+    expFrequencies = e::VectorXd(3);
     expFrequencies << fleft,fright,fcenter;
-  else 
+  }
+  else {
+    expFrequencies = e::VectorXd(2);
     expFrequencies << fleft,fright;
+  }
   
   for (int i=0; i<(1+2*L); i++){
-    Y << (fcn(X.col(i),expFrequencies)); //this is weird, check please
-    
+    /* std::cout << "unscented X[" << i << "]: " << X.col(i) << std::endl; */
+    Y.col(i)=fcn(X.col(i),expFrequencies); //this is weird, check please
   }
+  std::cout << "unscented Y: "<< std::endl;
+  std::cout << Y << std::endl;
   e::Vector3d mr;
     mr << 0,0,0;
   /* mr = [0;0;0]; */
@@ -81,9 +94,9 @@ unscented::measurement unscented::unscentedTransform(e::VectorXd x,e::MatrixXd P
   /* end */
   // 1./X([3,6,9],:)
 
-  e::VectorXd Ye = (Y-y.replicate(1,2*L+1));
+  e::MatrixXd Ye = (Y-y.replicate(1,2*L+1));
   // [rad2deg(Y(5,:));rad2deg(Ye(5,:))]
-  e::MatrixXd Py = ((Ye*W.diagonal())*Ye.transpose());
+  e::MatrixXd Py = ((Ye*W.asDiagonal())*Ye.transpose());
 
   for (int i=0; i<3; i++){
     if (mr(i)==1){
