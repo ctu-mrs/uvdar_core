@@ -415,7 +415,7 @@ private:
       /* } */
       /* ROS_INFO("W:%d, H:%d", viewImage.size().width,viewImage.size().height); */
       if (!VisDEBUG && GUI)
-        cv::imshow("blink_retrieval", viewImage);
+        cv::imshow("ocv_blink_retrieval", viewImage);
 
       if (!VisDEBUG)
         cv::waitKey(1000.0 / 25.0);

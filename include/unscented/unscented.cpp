@@ -26,13 +26,15 @@ unscented::measurement unscented::unscentedTransform(e::VectorXd x,e::MatrixXd P
   // lambda = double((Alpha^2)*(L+kappa)-L);
   /* X = Eigen::MatrixXf::Ones(L,2*L+1); */
   /* X(all,0) = x; */
-  Eigen::MatrixXd X;
-  X << x,Eigen::MatrixXd::Ones(L,2*L);
+  Eigen::MatrixXd X(L,2*L+1);
+  X.leftCols(1) = x;
+  X.rightCols(2*L).Ones(L,2*L);
 
   /* W = ((1-W0)/(2*L))*ones(2*L+1,1); */
   /* W(0,0 = W0; */
-  Eigen::VectorXd W;
-  W << W0,e::VectorXd::Ones(2*L)*((1-W0)/(2*L));
+  Eigen::VectorXd W(2*L+1);
+  W =e::VectorXd::Ones(2*L+1)*((1-W0)/(2*L));
+  W(0)=W0;
   // Wm = [W(1)+(1-1/Alpha);W(2:end)/Alpha];
   // Wc = [W/(Alpha^2)];
   e::MatrixXd sf = ((L/(1-W0))*Px).sqrt();

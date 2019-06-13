@@ -13,7 +13,7 @@
 #include <mrs_msgs/TrackerDiagnostics.h>
 /* #include <mrs_msgs/TrackerTrajectorySrv.h> */
 #include <mrs_msgs/Vec1.h>
-#include <nav_msgs/Odometry.h>
+/* #include <nav_msgs/Odometry.h> */
 #include <ros/package.h>
 #include <ros/ros.h>
 #include <sensor_msgs/CameraInfo.h>
@@ -58,27 +58,15 @@ public:
     followTriggered = false;
     ros::NodeHandle private_node_handle("~");
     private_node_handle.param("uav_name", uav_name, std::string());
-
-    private_node_handle.param("followDistance", followDistance, double(6.0));
-    private_node_handle.param("trajCoeff", trajcoeff, double(0.5));
-    private_node_handle.param("yawCoeff", yawcoeff, double(0.1));
-    private_node_handle.param("tailingCoeff", tailingCoeff, double(1.0));
-
-    private_node_handle.param("filterDistLength", filterDistLength, int(3));
-    private_node_handle.param("filterOrientationLength", filterOrientationLength, int(3));
+    /* ROS_INFO("UAV_NAME: %s",uav_name.c_str()); */
 
     private_node_handle.param("DEBUG", DEBUG, bool(false));
 
     private_node_handle.param("gui", gui, bool(false));
     private_node_handle.param("publish", publish, bool(true));
 
-    private_node_handle.param("useOdom", useOdom, bool(false));
-
-    ROS_INFO("FOL: UseOdom? %s", useOdom ? "true" : "false");
 
     gotCamInfo = false;
-
-    private_node_handle.param("accumLength", accumLength, int(5));
 
     char calib_path[100];
 
@@ -88,16 +76,15 @@ public:
 
     targetInCamPub    = node.advertise< geometry_msgs::Pose >("targetInCam", 1);
     targetInBasePub   = node.advertise< geometry_msgs::Pose >("targetInBase", 1);
-    goalposInWorldPub = node.advertise< geometry_msgs::Pose >("goalposInWorld", 1);
-    goalposInBasePub  = node.advertise< geometry_msgs::Pose >("goalposInBase", 1);
     yawdiffPub        = node.advertise< std_msgs::Float32 >("yawDifference", 1);
     yawodomPub        = node.advertise< std_msgs::Float32 >("yawOdom", 1);
     setpointPub       = node.advertise< geometry_msgs::Pose >("relativeSetpoint", 1);
     setyawPub         = node.advertise< std_msgs::Float32 >("relativeSetyaw", 1);
 
     measuredDist = node.advertise< std_msgs::Float32 >("measuredDist", 1);
-    filteredDist = node.advertise< std_msgs::Float32 >("filteredDist", 1);
 
+    X2 = Eigen::VectorXd(9,9);
+    X3 = Eigen::VectorXd(10,10);
     Px2 = Eigen::MatrixXd(9,9);
     Px3 = Eigen::MatrixXd(11,11);
 
@@ -107,16 +94,12 @@ public:
 
 
     framerateEstim = 0.0;
-    pointsSubscriber = node.subscribe("estimatedFramerate", 1, &PoseReporter::GetFramerate, this);
+    framerateSubscriber = node.subscribe("estimatedFramerate", 1, &PoseReporter::GetFramerate, this);
 
     foundTarget = false;
 
 
-    OdomSubscriber = node.subscribe("odometry", 1, &PoseReporter::odomAngleCallback, this);
-    DiagSubscriber = node.subscribe("diagnostics", 1, &PoseReporter::diagnosticsCallback, this);
-
     tf_thread   = std::thread(&PoseReporter::TfThread, this);
-    ser_trigger = private_node_handle.advertiseService("toggle_uv_follow", &PoseReporter::toggleReady, this);
 
   }
 
@@ -381,7 +364,7 @@ public:
     V1 = V1*meanDist;
 
     unscented::measurement ms;
-    ms.x << V1,0,0,0; 
+    ms.x << V1.x(),V1.y(),V1.z(),0,0,0; 
     Eigen::MatrixXd temp;
     temp.setIdentity(6,6);
     ms.C = temp*20;//large covariance for angles in radians
@@ -594,29 +577,6 @@ public:
     }
 
 
-  bool toggleReady(std_srvs::SetBool::Request& req, std_srvs::SetBool::Response& res) {
-
-    bool response = req.data;
-
-    res.success = true;
-    res.message = (response ? "Following enabled" : "Following disabled");
-
-    if (response) {
-
-      followTriggered = true;
-      ROS_INFO("Following enabled.");
-
-    } else {
-
-      followTriggered = false;
-      ROS_INFO("Following disabled");
-    }
-
-    return true;
-  }
-
-
-
 
   void TfThread() {
     ros::Rate transformRate(1.0);
@@ -650,21 +610,7 @@ public:
     }
   }
 
-  void odomAngleCallback(const nav_msgs::Odometry odom_msg) {
-    // roll_old = roll; pitch_old = pitch; yaw_old = yaw;
-    // ypr_old_time = ypr_time;
 
-    tf::Quaternion bt;
-    tf::quaternionMsgToTF(odom_msg.pose.pose.orientation, bt);
-    tf::Matrix3x3(bt).getRPY(roll, pitch, yaw);
-    /* ROS_INFO("Yaw: %4.2f", yaw); */
-  }
-
-  void diagnosticsCallback(const mrs_msgs::TrackerDiagnostics diag_msg) {
-    if (!(diag_msg.tracking_trajectory))
-      reachedTarget = true;
-    /* ROS_INFO("Reached target"); */
-  }
 
   void GetFramerate(const std_msgs::Float32ConstPtr& msg) {
     framerateEstim = msg->data;
@@ -724,19 +670,17 @@ public:
     }
 
 
-      Eigen::VectorXd X;
-      Eigen::MatrixXd Pm2(9,9), Pm3(11,11);
       unscented::measurement ms;
 
       double perr=0.2/framerateEstim;
 
     if (points.size() == 3) {
-      X <<
+      X3 <<
         points[0].x ,points[0].y, points[0].z,
         points[1].x ,points[1].y, points[1].z,
         points[2].x, points[2].y, points[2].z,
         0;  //to account for ambiguity
-      Pm3 <<
+      Px3 <<
         0.25,0,0,0,0,0,0,0,0,0,
         0,0.25,0,0,0,0,0,0,0,0,
         0,0,sqr(perr),0,0,0,0,0,0,0,
@@ -750,15 +694,15 @@ public:
         ;
       boost::function<Eigen::VectorXd(Eigen::VectorXd,Eigen::VectorXd)> callback;
       callback=boost::bind(&PoseReporter::uvdarHexarotorPose3p,this,_1,_2);
-      ms = unscented::unscentedTransform(X,Pm3,callback,6,10,-1);
+      ms = unscented::unscentedTransform(X3,Px3,callback,6,15,-1);
     }
 
     else if (points.size() == 2) {
-      X <<
-        points[0].x ,points[0].y,points[0].z,
-        points[1].x ,points[1].y,points[1].z,
-        0,0,0;
-      Pm2 <<
+      X2 <<
+        (double)(points[0].x) ,(double)(points[0].y),(double)(points[0].z),
+        (double)(points[1].x) ,(double)(points[1].y),(double)(points[1].z),
+        0.0,0.0,0.0;
+      Px2 <<
         0.25,0,0,0,0,0,0,0,0,
         0,0.25,0,0,0,0,0,0,0,
         0,0,sqr(perr),0,0,0,0,0,0,
@@ -771,7 +715,7 @@ public:
         ;
       boost::function<Eigen::VectorXd(Eigen::VectorXd,Eigen::VectorXd)> callback;
       callback=boost::bind(&PoseReporter::uvdarHexarotorPose2p,this,_1,_2);
-      ms = unscented::unscentedTransform(X,Pm2,callback,6,10,-1);
+      ms = unscented::unscentedTransform(X2,Px2,callback,6,15,-1);
     }
 
     else if (points.size() == 1) {
@@ -793,9 +737,6 @@ public:
       centerEstimInBase.x() = 0;
       centerEstimInBase.y() = 0;
       centerEstimInBase.z() = 0;
-      goalInBase.x()        = 0;
-      goalInBase.y()        = 0;
-      goalInBase.z()        = 0;
       tailingComponent      = 0;
       foundTarget           = false;
       return;
@@ -821,20 +762,8 @@ public:
     Eigen::Vector3d CEBFlat(centerEstimInBase);
     double          flatLen = sqrt(CEBFlat.x() * CEBFlat.x() + CEBFlat.y() * CEBFlat.y());
     CEBFlat                 = CEBFlat / flatLen;
-    goalInBase              = (flatLen - followDistance) * (CEBFlat);
-    goalInBase.z()          = centerEstimInBase.z();
 
-    tailingComponent = angleDist * flatLen * tailingCoeff;
-
-    std::cout << "Tailing component: " << tailingComponent << std::endl;
-
-    /* std::cout << "Goal in CAM: " << goalInCam << std::endl; */
-    std::cout << "Goal in BASE: " << goalInBase << std::endl;
     geometry_msgs::Pose p;
-    p.position.x = goalInBase.x();
-    p.position.y = goalInBase.y();
-    p.position.z = goalInBase.z();
-    goalposInBasePub.publish(p);
     std::cout << "Center in BASE: " << centerEstimInBase << std::endl;
     p.position.x = centerEstimInBase.x();
     p.position.y = centerEstimInBase.y();
@@ -923,18 +852,11 @@ private:
 
   double tailingComponent;
 
-  bool gui, publish, useOdom;
+  bool gui, publish;
 
   int numberOfBins;
 
   bool cameraRotated;
-
-  int accumLength;
-
-  int   RansacNumOfChosen;
-  int   RansacNumOfIter;
-  float RansacThresholdRadSq;
-  bool  Allsac;
 
   double     rollRate, pitchRate, yawRate;
   std::mutex mutex_imu;
@@ -952,12 +874,6 @@ private:
   int    lastSpeedsSize;
   double analyseDuration;
 
-
-
-  double followDistance;
-  double trajcoeff;
-  double yawcoeff;
-  double tailingCoeff;
 
   /* uvLedDetect_gpu *uvdg; */
 
@@ -979,6 +895,7 @@ private:
   double angleDist;  // how large is the angle around the target between us and the tail
 
   Eigen::MatrixXd Px2,Px3;
+  Eigen::VectorXd X2,X3;
 
 
   ros::Subscriber OdomSubscriber;
@@ -991,26 +908,22 @@ private:
 
   ros::Publisher targetInCamPub;
   ros::Publisher targetInBasePub;
-  ros::Publisher goalposInWorldPub;
-  ros::Publisher goalposInBasePub;
   ros::Publisher yawdiffPub;
   ros::Publisher setyawPub;
   ros::Publisher yawodomPub;
   ros::Publisher setpointPub;
   ros::Publisher measuredDist;
-  ros::Publisher filteredDist;
 
 
-  int    filterDistLength, filterOrientationLength;
 };
 
 
 int main(int argc, char** argv) {
-  ros::init(argc, argv, "uvdar_follower");
+  ros::init(argc, argv, "uvdar_reporter");
   ros::NodeHandle nodeA;
   PoseReporter        pr(nodeA);
 
-  ROS_INFO("Directed follower node initiated");
+  ROS_INFO("UVDAR Pose reporter node initiated");
 
   ros::spin();
 
