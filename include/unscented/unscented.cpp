@@ -38,8 +38,8 @@ unscented::measurement unscented::unscentedTransform(e::VectorXd x,e::MatrixXd P
   W =e::VectorXd::Ones(2*L+1)*((1-W0)/(2*L));
   W(0)=W0;
 
-  std::cout << "unscented W: "<< std::endl;
-  std::cout << W << std::endl;
+  /* std::cout << "unscented W: "<< std::endl; */
+  /* std::cout << W << std::endl; */
 
   // Wm = [W(1)+(1-1/Alpha);W(2:end)/Alpha]; Wc = [W/(Alpha^2)];
   std::cout << "Px: " << std::endl;

@@ -302,7 +302,7 @@ public:
       Eigen::VectorXd Y(6);
       Yt = Yt*((dist-xl)/dist);
       latnorm=sqrt(sqr(Y(1))+sqr(Y(3)));
-      double latang=atan2(Y(1),Y(3));
+      double latang=atan2(Yt(1),Yt(3));
       Y(2)=Yt(2)-xl*sin(tilt_perp)*cos(tilt_par);
       Y(1)=Yt(1)-xl*sin(tilt_perp)*sin(tilt_par)*cos(latang)+xl*cos(tilt_perp)*sin(latang);
       Y(3)=Yt(3)+xl*sin(tilt_perp)*sin(tilt_par)*sin(latang)+xl*cos(tilt_perp)*cos(latang);
@@ -317,7 +317,7 @@ public:
       double tpitch=atan2(ta,tc);
       double troll=atan2(tb,tc);
 
-      Y << Yt.x(),Yt.y(),Yt.z(),relyaw,tpitch,troll;
+      Y << Yt.x(),Yt.y(),Yt.z(),troll,tpitch,relyaw;
       return Y;
   }
 
@@ -374,7 +374,7 @@ public:
     Eigen::MatrixXd temp;
     temp.setIdentity(6,6);
     ms.C = temp*20;//large covariance for angles in radians
-    ms.C.topLeftCorner(3, 3) = calc_position_covariance(V1,tubewidth,meanDist);
+    ms.C.topLeftCorner(3, 3) = calc_position_covariance(V1,tubewidth,meanDist/3);
 
     /* std::cout << "ms.C: " << ms.C << std::endl; */
 
@@ -408,9 +408,11 @@ public:
       Eigen::Vector3d periods;
       periods << a.z,b.z;
       Eigen::Vector3d id;
-      id(0) = ((expPeriods.array()-(periods(0))).cwiseAbs()).minCoeff();
-      id(1) = ((expPeriods.array()-(periods(1))).cwiseAbs()).minCoeff();
-
+      Eigen::MatrixXd::Index   minIndex;
+      ((expPeriods.array()-(periods(0))).cwiseAbs()).minCoeff(&minIndex);
+      id(0) = minIndex-1;
+      ((expPeriods.array()-(periods(1))).cwiseAbs()).minCoeff(&minIndex);
+      id(1) = minIndex-1;
 
 
 
@@ -547,7 +549,12 @@ public:
       double latang=atan2(Vc(1),Vc(3));
 
       double relyaw_view=relyaw;
+
+      ROS_INFO_STREAM("id: " << id);
+      ROS_INFO("relyaw_orig: %f",relyaw);
       relyaw=relyaw+latang;
+      ROS_INFO_STREAM("Vc: " << Vc);
+      ROS_INFO("latang: %f",latang);
 
       double latnorm=sqrt(sqr(Yt(1))+sqr(Yt(3)));
       double Gamma=atan2(Yt(2),latnorm);
@@ -585,7 +592,7 @@ public:
       double troll=atan2(tb,tc);
 
       Eigen::VectorXd Y(6);
-      Y << Yt.x(),Yt.y(),Yt.z(),relyaw,tpitch,troll;
+      Y << Yt.x(),Yt.y(),Yt.z(),troll,tpitch,relyaw;
 
       return Y;
 
@@ -704,14 +711,14 @@ public:
         points[2].x, points[2].y, points[2].z,
         0;  //to account for ambiguity
       Px3 <<
-        0.25,0,0,0,0,0,0,0,0,0,
-        0,0.25,0,0,0,0,0,0,0,0,
+        0.5,0,0,0,0,0,0,0,0,0,
+        0,0.5,0,0,0,0,0,0,0,0,
         0,0,sqr(perr),0,0,0,0,0,0,0,
-        0,0,0,0.25,0,0,0,0,0,0,
-        0,0,0,0,0.25,0,0,0,0,0,
+        0,0,0,0.5,0,0,0,0,0,0,
+        0,0,0,0,0.5,0,0,0,0,0,
         0,0,0,0,0,sqr(perr),0,0,0,0,
-        0,0,0,0,0,0,0.25,0,0,0,
-        0,0,0,0,0,0,0,0.25,0,0,
+        0,0,0,0,0,0,0.5,0,0,0,
+        0,0,0,0,0,0,0,0.5,0,0,
         0,0,0,0,0,0,0,0,sqr(perr),0,
         0,0,0,0,0,0,0,0,0,sqr(2*M_PI/3)
         ;
@@ -726,11 +733,11 @@ public:
         (double)(points[1].x) ,(double)(points[1].y),(double)(points[1].z),
         0.0,0.0,0.0;
       Px2 <<
-        0.25,0,0,0,0,0,0,0,0,
-        0,0.25,0,0,0,0,0,0,0,
+        0.5,0,0,0,0,0,0,0,0,
+        0,0.5,0,0,0,0,0,0,0,
         0,0,sqr(perr),0,0,0,0,0,0,
-        0,0,0,0.25,0,0,0,0,0,
-        0,0,0,0,0.25,0,0,0,0,
+        0,0,0,0.5,0,0,0,0,0,
+        0,0,0,0,0.5,0,0,0,0,
         0,0,0,0,0,sqr(perr),0,0,0,
         0,0,0,0,0,0,sqr(deg2rad(8)),0,0,
         0,0,0,0,0,0,0,sqr(deg2rad(30)),0,
@@ -749,7 +756,7 @@ public:
       std::cout << "led: " << points[0] << std::endl;
 
 
-      ms = uvdarHexarotorPose1p_meas(Eigen::Vector2d(points[0].x,points[0].y),1.0,8.0);
+      ms = uvdarHexarotorPose1p_meas(Eigen::Vector2d(points[0].x,points[0].y),armLength,10.0);
 
 
       foundTarget = true;
@@ -779,7 +786,7 @@ public:
     msgPose->pose.pose.position.y = ms.x(1);
     msgPose->pose.pose.position.z = ms.x(2);
     tf2::Quaternion qtemp;
-    qtemp.setRPY(ms.x(5), ms.x(4), ms.x(3));
+    qtemp.setRPY(-ms.x(5), -ms.x(4), ms.x(3));
     msgPose->pose.pose.orientation.x = qtemp.x();
     msgPose->pose.pose.orientation.y = qtemp.y();
     msgPose->pose.pose.orientation.z = qtemp.z();
