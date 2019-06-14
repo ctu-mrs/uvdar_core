@@ -278,19 +278,20 @@ public:
       Eigen::Vector3d obs_normal =V3.cross(V1); //not exact, but in practice changes very little
       obs_normal=obs_normal/(obs_normal.norm());
       Eigen::Vector3d latComp;
-      latComp << 0,Vc(1),-Vc(3);
+      latComp << Vc(0),0,Vc(3);
       latComp = latComp/(latComp.norm());
+      if (Vc(1)<0) latComp = -latComp;
 
       /* Re = makehgtform('axisrotate',cross(vc,latComp),Gamma+pi/2); */
-      Eigen::Transform< double, 3, Eigen::Affine > Re(Eigen::AngleAxis< double >( Gamma+M_PI/2,(Vc.cross(latComp)).normalized()));
+      Eigen::Transform< double, 3, Eigen::Affine > Re(Eigen::AngleAxis< double >( -Gamma+(M_PI/2),(Vc.cross(latComp)).normalized()));
       Eigen::Vector3d exp_normal=Re*Vc;
       /* Ro = makehgtform('axisrotate',cross(vc,obs_normal),Gamma); */
-      Eigen::Transform< double, 3, Eigen::Affine > Ro(Eigen::AngleAxis< double >( Gamma,(Vc.cross(obs_normal)).normalized()));
+      Eigen::Transform< double, 3, Eigen::Affine > Ro(Eigen::AngleAxis< double >( -Gamma,(Vc.cross(obs_normal)).normalized()));
       obs_normal=Ro*obs_normal;
       /* obs_normal=Ro(1:3,1:3)*obs_normal; */
       /* exp_normal=Re(1:3,1:3)*vc; */
       double tilt_par=acos(obs_normal.dot(exp_normal));
-      if (V1(1)>V2(1))
+      if (V1(1)<V2(1))
         tilt_par=-tilt_par;
 
 
@@ -569,22 +570,23 @@ public:
       latComp << Vc(0),0,Vc(2);
       latComp = latComp/(latComp.norm());
 
-      ROS_INFO_STREAM("cross: " << Vc.cross(latComp));
+      if (Vc(1)<0) latComp = -latComp;
+      /* ROS_INFO_STREAM("cross: " << Vc.cross(latComp)); */
 
-      Eigen::Transform< double, 3, Eigen::Affine > Re(Eigen::AngleAxis< double >( Gamma+(M_PI/2),(Vc.cross(latComp)).normalized()));
+      Eigen::Transform< double, 3, Eigen::Affine > Re(Eigen::AngleAxis< double >( -Gamma+(M_PI/2),(Vc.cross(latComp)).normalized()));
       Eigen::Vector3d exp_normal=Re*Vc;
       /* Ro = makehgtform('axisrotate',cross(vc,obs_normal),Gamma); */
-      Eigen::Transform< double, 3, Eigen::Affine > Ro(Eigen::AngleAxis< double >( Gamma,(Vc.cross(obs_normal)).normalized()));
+      Eigen::Transform< double, 3, Eigen::Affine > Ro(Eigen::AngleAxis< double >( -Gamma,(Vc.cross(obs_normal)).normalized()));
       obs_normal=Ro*obs_normal;
       /* Re = makehgtform('axisrotate',cross(vc,latComp),Gamma+pi/2); */
       double tilt_par=acos(obs_normal.dot(exp_normal));
-      if (V1(2)>V2(2))
+      if (V1(1)<V2(1))
         tilt_par=-tilt_par;
 
 
-      ROS_INFO_STREAM("exp_normal: " << exp_normal);
-      ROS_INFO_STREAM("obs_normal: " << obs_normal);
-      ROS_INFO_STREAM("tilt_par: " << tilt_par);
+/*       ROS_INFO_STREAM("exp_normal: " << exp_normal); */
+/*       ROS_INFO_STREAM("obs_normal: " << obs_normal); */
+/*       ROS_INFO_STREAM("tilt_par: " << tilt_par); */
 
       double dist = Yt.norm();
       Yt= Yt*((dist-xl)/dist);
@@ -613,8 +615,10 @@ public:
 
 
   void TfThread() {
+    gotCam2Base = false;
     ros::Rate transformRate(1.0);
     while (true) {
+      transformRate.sleep();
       try {
         listener.waitForTransform("fcu_" + uav_name, "uvcam", ros::Time::now(), ros::Duration(1.0));
         mutex_tf.lock();
@@ -627,21 +631,10 @@ public:
         ros::Duration(1.0).sleep();
         continue;
       }
-      try {
-        listener.waitForTransform("local_origin", "fcu_" + uav_name, ros::Time::now(), ros::Duration(1.0));
-        mutex_tf.lock();
-        listener.lookupTransform("local_origin", "fcu_" + uav_name, ros::Time(0), transformBase2World);
-        mutex_tf.unlock();
-      }
-      catch (tf::TransformException ex) {
-        ROS_ERROR("TF: %s", ex.what());
-        mutex_tf.unlock();
-        ros::Duration(1.0).sleep();
-        continue;
-      }
-      transformRate.sleep();
+      break;;
       /* ROS_INFO("TF next"); */
     }
+    gotCam2Base = true;
   }
 
 
@@ -662,6 +655,10 @@ public:
     }
     if (framerateEstim < 0) {
       ROS_INFO("Framerate is not yet estimated. Waiting...");
+      return;
+    }
+    if (!gotCam2Base) {
+      ROS_INFO("Transformation to base is missing...");
       return;
     }
 
@@ -796,8 +793,12 @@ public:
     msgPose->pose.pose.position.x = ms.x(0);
     msgPose->pose.pose.position.y = ms.x(1);
     msgPose->pose.pose.position.z = ms.x(2);
-    tf2::Quaternion qtemp;
-    qtemp.setRPY(-ms.x(4), ms.x(5), ms.x(3));
+    tf::Quaternion qtemp;
+    qtemp.setRPY(ms.x(3), ms.x(4), ms.x(5));
+    qtemp=(transformCam2Base.getRotation().inverse())*qtemp;
+    /* Eigen::Affine3d aTtemp; */
+    /* tf::transformTFToEigen(transformCam2Base, aTtemp); */
+    /* qtemp = aTtemp*qtemp; */
     msgPose->pose.pose.orientation.x = qtemp.x();
     msgPose->pose.pose.orientation.y = qtemp.y();
     msgPose->pose.pose.orientation.z = qtemp.z();
@@ -943,6 +944,8 @@ private:
 
   int    lastSpeedsSize;
   double analyseDuration;
+
+  bool gotCam2Base;
 
 
   /* uvLedDetect_gpu *uvdg; */
