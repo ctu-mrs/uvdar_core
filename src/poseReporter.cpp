@@ -139,9 +139,14 @@ public:
       Eigen::Vector3d periods;
       periods << a.z,b.z,c.z;
       Eigen::Vector3d id;
-      id(0) = ((expPeriods.array()-(periods(0))).cwiseAbs()).minCoeff();
-      id(1) = ((expPeriods.array()-(periods(1))).cwiseAbs()).minCoeff();
-      id(2) = ((expPeriods.array()-(periods(2))).cwiseAbs()).minCoeff();
+      Eigen::MatrixXd::Index   minIndex;
+      ((expPeriods.array()-(periods(0))).cwiseAbs()).minCoeff(&minIndex);
+      id(0) = minIndex;
+      ((expPeriods.array()-(periods(1))).cwiseAbs()).minCoeff(&minIndex);
+      id(1) = minIndex;
+      ((expPeriods.array()-(periods(2))).cwiseAbs()).minCoeff(&minIndex);
+      id(2) = minIndex;
+
 
       double pixDist = (cv::norm(b - a) + cv::norm(c - b)) * 0.5;
       double v1[3], v2[3], v3[3];
@@ -230,7 +235,7 @@ public:
 
       /* std::cout << "Estimated center in CAM: " << Yt << std::endl; */
 
-      double tilt_perp=Omega1+atan2(Vc(2),sqrt(sqr(Vc(3))+sqr(Vc(1))));
+      double tilt_perp=Omega1+atan2(Vc(1),sqrt(sqr(Vc(2))+sqr(Vc(0))));
 
       double relyaw;
 
@@ -294,6 +299,11 @@ public:
       if (V1(1)<V2(1))
         tilt_par=-tilt_par;
 
+
+      ROS_INFO_STREAM("exp_normal: " << exp_normal);
+      ROS_INFO_STREAM("obs_normal: " << obs_normal);
+      ROS_INFO_STREAM("tilt_par: " << tilt_par);
+      ROS_INFO_STREAM("tilt_perp: " << tilt_perp);
 
       double relyaw_view=relyaw+phi;
       relyaw=relyaw+atan2(Vc(0),Vc(2))+phi;
