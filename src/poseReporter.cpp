@@ -110,10 +110,10 @@ public:
   }
 
   Eigen::VectorXd uvdarHexarotorPose3p(Eigen::VectorXd X, Eigen::VectorXd expFrequencies){
-      cv::Point3i tmp;
-      cv::Point3i a(X(0),X(1),X(2));
-      cv::Point3i b(X(3),X(4),X(5));
-      cv::Point3i c(X(6),X(7),X(8));
+      cv::Point3d tmp;
+      cv::Point3d a(X(0),X(1),X(2));
+      cv::Point3d b(X(3),X(4),X(5));
+      cv::Point3d c(X(6),X(7),X(8));
       double ambig = X(9);
 
       if ((c.x) < (a.x)) {
@@ -282,30 +282,31 @@ public:
       latComp = latComp/(latComp.norm());
 
       /* Re = makehgtform('axisrotate',cross(vc,latComp),Gamma+pi/2); */
-      Eigen::Transform< double, 3, Eigen::Affine > Re(Eigen::AngleAxis< double >( Gamma+M_PI/2,Vc.cross(latComp)));
+      Eigen::Transform< double, 3, Eigen::Affine > Re(Eigen::AngleAxis< double >( Gamma+M_PI/2,(Vc.cross(latComp)).normalized()));
       Eigen::Vector3d exp_normal=Re*Vc;
       /* Ro = makehgtform('axisrotate',cross(vc,obs_normal),Gamma); */
-      Eigen::Transform< double, 3, Eigen::Affine > Ro(Eigen::AngleAxis< double >( Gamma,Vc.cross(obs_normal)));
+      Eigen::Transform< double, 3, Eigen::Affine > Ro(Eigen::AngleAxis< double >( Gamma,(Vc.cross(obs_normal)).normalized()));
       obs_normal=Ro*obs_normal;
       /* obs_normal=Ro(1:3,1:3)*obs_normal; */
       /* exp_normal=Re(1:3,1:3)*vc; */
       double tilt_par=acos(obs_normal.dot(exp_normal));
-      if (V1(2)>V2(2))
+      if (V1(1)>V2(1))
         tilt_par=-tilt_par;
 
+
       double relyaw_view=relyaw+phi;
-      relyaw=relyaw+atan2(Vc(1),Vc(3))+phi;
+      relyaw=relyaw+atan2(Vc(0),Vc(2))+phi;
 
       double xl=(armLength/2)*cos(phi);
       double dist = Yt.norm();
       /* % X(1:3)=Xt(1:3) */
       Eigen::VectorXd Y(6);
       Yt = Yt*((dist-xl)/dist);
-      latnorm=sqrt(sqr(Y(1))+sqr(Y(3)));
-      double latang=atan2(Yt(1),Yt(3));
-      Y(2)=Yt(2)-xl*sin(tilt_perp)*cos(tilt_par);
-      Y(1)=Yt(1)-xl*sin(tilt_perp)*sin(tilt_par)*cos(latang)+xl*cos(tilt_perp)*sin(latang);
-      Y(3)=Yt(3)+xl*sin(tilt_perp)*sin(tilt_par)*sin(latang)+xl*cos(tilt_perp)*cos(latang);
+      latnorm=sqrt(sqr(Y(0))+sqr(Y(2)));
+      double latang=atan2(Yt(0),Yt(2));
+      Y(1)=Yt(1)-xl*sin(tilt_perp)*cos(tilt_par);
+      Y(0)=Yt(0)-xl*sin(tilt_perp)*sin(tilt_par)*cos(latang)+xl*cos(tilt_perp)*sin(latang);
+      Y(2)=Yt(2)+xl*sin(tilt_perp)*sin(tilt_par)*sin(latang)+xl*cos(tilt_perp)*cos(latang);
 
 
       double reltilt_abs=atan(sqrt(sqr(tan(tilt_perp))+sqr(tan(tilt_par))));
@@ -387,15 +388,15 @@ public:
 
     /* ROS_INFO_STREAM("X: " << X); */
 
-      cv::Point3i a;
-      cv::Point3i b;
+      cv::Point3d a;
+      cv::Point3d b;
 
-      if ((X(0)) < (X(2))) {
-        a = cv::Point3i(X(0),X(1),-1);
-        b = cv::Point3i(X(3),X(4),-1);
+      if ((X(0)) < (X(3))) {
+        a = cv::Point3d(X(0),X(1),X(2));
+        b = cv::Point3d(X(3),X(4),X(5));
       } else {
-        a = cv::Point3i(X(3),X(4),-1);
-        b = cv::Point3i(X(0),X(1),-1);
+        a = cv::Point3d(X(3),X(4),X(5));
+        b = cv::Point3d(X(0),X(1),X(2));
       }
       double ambig=X(7);
       double delta=X(6);
@@ -410,9 +411,9 @@ public:
       Eigen::Vector3d id;
       Eigen::MatrixXd::Index   minIndex;
       ((expPeriods.array()-(periods(0))).cwiseAbs()).minCoeff(&minIndex);
-      id(0) = minIndex-1;
+      id(0) = minIndex;
       ((expPeriods.array()-(periods(1))).cwiseAbs()).minCoeff(&minIndex);
-      id(1) = minIndex-1;
+      id(1) = minIndex;
 
 
 
@@ -546,40 +547,50 @@ public:
           else
             relyaw=ambig+delta;
         
-      double latang=atan2(Vc(1),Vc(3));
+      double latang=atan2(Vc(0),Vc(2));
 
       double relyaw_view=relyaw;
 
-      ROS_INFO_STREAM("id: " << id);
-      ROS_INFO("relyaw_orig: %f",relyaw);
-      relyaw=relyaw+latang;
-      ROS_INFO_STREAM("Vc: " << Vc);
-      ROS_INFO("latang: %f",latang);
+      /* ROS_INFO_STREAM("expFrequencies: " << expFrequencies); */
+      /* ROS_INFO_STREAM("expPeriods: " << expPeriods); */
+      /* ROS_INFO_STREAM("periods: " << periods); */
+      /* ROS_INFO_STREAM("id: " << id); */
+      /* ROS_INFO("relyaw_orig: %f",relyaw); */
+      /* relyaw=relyaw+latang; */
+      /* ROS_INFO_STREAM("Vc: " << Vc); */
+      /* ROS_INFO("latang: %f",latang); */
 
-      double latnorm=sqrt(sqr(Yt(1))+sqr(Yt(3)));
-      double Gamma=atan2(Yt(2),latnorm);
+      double latnorm=sqrt(sqr(Yt(0))+sqr(Yt(2)));
+      double Gamma=atan2(Yt(1),latnorm);
       double tilt_perp=X(8);
       Eigen::Vector3d obs_normal=V2.cross(V1);
       obs_normal=obs_normal/(obs_normal.norm());
       Eigen::Vector3d latComp;
-      latComp << 0,Vc(1),-Vc(3);
+      latComp << Vc(0),0,Vc(2);
       latComp = latComp/(latComp.norm());
 
-      Eigen::Transform< double, 3, Eigen::Affine > Re(Eigen::AngleAxis< double >( Gamma+M_PI/2,Vc.cross(latComp)));
+      ROS_INFO_STREAM("cross: " << Vc.cross(latComp));
+
+      Eigen::Transform< double, 3, Eigen::Affine > Re(Eigen::AngleAxis< double >( Gamma+(M_PI/2),(Vc.cross(latComp)).normalized()));
       Eigen::Vector3d exp_normal=Re*Vc;
       /* Ro = makehgtform('axisrotate',cross(vc,obs_normal),Gamma); */
-      Eigen::Transform< double, 3, Eigen::Affine > Ro(Eigen::AngleAxis< double >( Gamma,Vc.cross(obs_normal)));
+      Eigen::Transform< double, 3, Eigen::Affine > Ro(Eigen::AngleAxis< double >( Gamma,(Vc.cross(obs_normal)).normalized()));
       obs_normal=Ro*obs_normal;
       /* Re = makehgtform('axisrotate',cross(vc,latComp),Gamma+pi/2); */
       double tilt_par=acos(obs_normal.dot(exp_normal));
       if (V1(2)>V2(2))
         tilt_par=-tilt_par;
 
+
+      ROS_INFO_STREAM("exp_normal: " << exp_normal);
+      ROS_INFO_STREAM("obs_normal: " << obs_normal);
+      ROS_INFO_STREAM("tilt_par: " << tilt_par);
+
       double dist = Yt.norm();
       Yt= Yt*((dist-xl)/dist);
-      Yt(2)=Yt(2)-xl*sin(Gamma+tilt_perp)*cos(tilt_par);
-      Yt(1)=Yt(1)-xl*sin(Gamma+tilt_perp)*sin(tilt_par)*cos(latang)+xl*cos(Gamma+tilt_perp)*sin(latang);
-      Yt(3)=Yt(3)+xl*sin(Gamma+tilt_perp)*sin(tilt_par)*sin(latang)+xl*cos(Gamma+tilt_perp)*cos(latang);
+      Yt(1)=Yt(1)-xl*sin(Gamma+tilt_perp)*cos(tilt_par);
+      Yt(0)=Yt(0)-xl*sin(Gamma+tilt_perp)*sin(tilt_par)*cos(latang)+xl*cos(Gamma+tilt_perp)*sin(latang);
+      Yt(2)=Yt(2)+xl*sin(Gamma+tilt_perp)*sin(tilt_par)*sin(latang)+xl*cos(Gamma+tilt_perp)*cos(latang);
 
 
       double reltilt_abs=atan(sqrt(sqr(tan(tilt_perp))+sqr(tan(tilt_par))));
@@ -706,9 +717,9 @@ public:
     if (points.size() == 3) {
       ROS_INFO_STREAM("ponts: " << points);
       X3 <<
-        points[0].x ,points[0].y, points[0].z,
-        points[1].x ,points[1].y, points[1].z,
-        points[2].x, points[2].y, points[2].z,
+        points[0].x ,points[0].y, 1.0/(double)(points[0].z),
+        points[1].x ,points[1].y, 1.0/(double)(points[1].z),
+        points[2].x, points[2].y, 1.0/(double)(points[2].z),
         0;  //to account for ambiguity
       Px3 <<
         0.5,0,0,0,0,0,0,0,0,0,
@@ -729,8 +740,8 @@ public:
     else if (points.size() == 2) {
       ROS_INFO_STREAM("ponts: " << points);
       X2 <<
-        (double)(points[0].x) ,(double)(points[0].y),(double)(points[0].z),
-        (double)(points[1].x) ,(double)(points[1].y),(double)(points[1].z),
+        (double)(points[0].x) ,(double)(points[0].y),1.0/(double)(points[0].z),
+        (double)(points[1].x) ,(double)(points[1].y),1.0/(double)(points[1].z),
         0.0,0.0,0.0;
       Px2 <<
         0.5,0,0,0,0,0,0,0,0,
@@ -786,7 +797,7 @@ public:
     msgPose->pose.pose.position.y = ms.x(1);
     msgPose->pose.pose.position.z = ms.x(2);
     tf2::Quaternion qtemp;
-    qtemp.setRPY(-ms.x(5), -ms.x(4), ms.x(3));
+    qtemp.setRPY(-ms.x(4), ms.x(5), ms.x(3));
     msgPose->pose.pose.orientation.x = qtemp.x();
     msgPose->pose.pose.orientation.y = qtemp.y();
     msgPose->pose.pose.orientation.z = qtemp.z();
