@@ -745,7 +745,7 @@ public:
         ;
       boost::function<Eigen::VectorXd(Eigen::VectorXd,Eigen::VectorXd)> callback;
       callback=boost::bind(&PoseReporter::uvdarHexarotorPose3p,this,_1,_2);
-      ms = unscented::unscentedTransform(X3,Px3,callback,6,15,-1);
+      ms = unscented::unscentedTransform(X3,Px3,callback,15,30,-1);
     }
     else if (points.size() == 2) {
       ROS_INFO_STREAM("ponts: " << points);
@@ -768,7 +768,7 @@ public:
       ROS_INFO_STREAM("X2: " << X2);
       boost::function<Eigen::VectorXd(Eigen::VectorXd,Eigen::VectorXd)> callback;
       callback=boost::bind(&PoseReporter::uvdarHexarotorPose2p,this,_1,_2);
-      ms = unscented::unscentedTransform(X2,Px2,callback,6,15,-1);
+      ms = unscented::unscentedTransform(X2,Px2,callback,15,30,-1);
     }
 
     else if (points.size() == 1) {
