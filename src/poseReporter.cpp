@@ -170,7 +170,7 @@ public:
 
       double Alpha = acos(V1.dot(V2_c));
       double Beta  = acos(V2_c.dot(V3));
-
+  
       double A = 1.0 / tan(Alpha);
       double B = 1.0 / tan(Beta);
       std::cout << "alpha: " << Alpha << " beta: " << Beta << std::endl;
@@ -278,20 +278,20 @@ public:
             relyaw=(-M_PI/2)+ambig;
       }
 
-      double latnorm=sqrt(sqr(Yt(1))+sqr(Yt(3)));
-      double Gamma=atan2(Yt(2),latnorm);
+      double latnorm=sqrt(sqr(Yt(0))+sqr(Yt(2)));
+      double Gamma=atan2(Yt(1),latnorm);
       Eigen::Vector3d obs_normal =V3.cross(V1); //not exact, but in practice changes very little
       obs_normal=obs_normal/(obs_normal.norm());
       Eigen::Vector3d latComp;
-      latComp << Vc(0),0,Vc(3);
+      latComp << Vc(0),0,Vc(2);
       latComp = latComp/(latComp.norm());
       if (Vc(1)<0) latComp = -latComp;
 
       /* Re = makehgtform('axisrotate',cross(vc,latComp),Gamma+pi/2); */
-      Eigen::Transform< double, 3, Eigen::Affine > Re(Eigen::AngleAxis< double >( -Gamma+(M_PI/2),(Vc.cross(latComp)).normalized()));
+      Eigen::Transform< double, 3, Eigen::Affine > Re(Eigen::AngleAxis< double >( Gamma+(M_PI/2),(Vc.cross(latComp)).normalized()));
       Eigen::Vector3d exp_normal=Re*Vc;
       /* Ro = makehgtform('axisrotate',cross(vc,obs_normal),Gamma); */
-      Eigen::Transform< double, 3, Eigen::Affine > Ro(Eigen::AngleAxis< double >( -Gamma,(Vc.cross(obs_normal)).normalized()));
+      Eigen::Transform< double, 3, Eigen::Affine > Ro(Eigen::AngleAxis< double >( Gamma,(Vc.cross(obs_normal)).normalized()));
       obs_normal=Ro*obs_normal;
       /* obs_normal=Ro(1:3,1:3)*obs_normal; */
       /* exp_normal=Re(1:3,1:3)*vc; */
@@ -300,6 +300,9 @@ public:
         tilt_par=-tilt_par;
 
 
+      ROS_INFO_STREAM("latComp: " << latComp);
+      ROS_INFO_STREAM("Vc: " << Vc);
+      ROS_INFO_STREAM("Gamma: " << Gamma);
       ROS_INFO_STREAM("exp_normal: " << exp_normal);
       ROS_INFO_STREAM("obs_normal: " << obs_normal);
       ROS_INFO_STREAM("tilt_par: " << tilt_par);
@@ -567,7 +570,7 @@ public:
       /* ROS_INFO_STREAM("periods: " << periods); */
       /* ROS_INFO_STREAM("id: " << id); */
       /* ROS_INFO("relyaw_orig: %f",relyaw); */
-      /* relyaw=relyaw+latang; */
+      relyaw=relyaw+latang;
       /* ROS_INFO_STREAM("Vc: " << Vc); */
       /* ROS_INFO("latang: %f",latang); */
 
@@ -583,10 +586,10 @@ public:
       if (Vc(1)<0) latComp = -latComp;
       /* ROS_INFO_STREAM("cross: " << Vc.cross(latComp)); */
 
-      Eigen::Transform< double, 3, Eigen::Affine > Re(Eigen::AngleAxis< double >( -Gamma+(M_PI/2),(Vc.cross(latComp)).normalized()));
+      Eigen::Transform< double, 3, Eigen::Affine > Re(Eigen::AngleAxis< double >( Gamma+(M_PI/2),(Vc.cross(latComp)).normalized()));
       Eigen::Vector3d exp_normal=Re*Vc;
       /* Ro = makehgtform('axisrotate',cross(vc,obs_normal),Gamma); */
-      Eigen::Transform< double, 3, Eigen::Affine > Ro(Eigen::AngleAxis< double >( -Gamma,(Vc.cross(obs_normal)).normalized()));
+      Eigen::Transform< double, 3, Eigen::Affine > Ro(Eigen::AngleAxis< double >( Gamma,(Vc.cross(obs_normal)).normalized()));
       obs_normal=Ro*obs_normal;
       /* Re = makehgtform('axisrotate',cross(vc,latComp),Gamma+pi/2); */
       double tilt_par=acos(obs_normal.dot(exp_normal));
@@ -729,14 +732,14 @@ public:
         points[2].x, points[2].y, 1.0/(double)(points[2].z),
         0;  //to account for ambiguity
       Px3 <<
-        0.5,0,0,0,0,0,0,0,0,0,
-        0,0.5,0,0,0,0,0,0,0,0,
+        1.0,0,0,0,0,0,0,0,0,0,
+        0,1.0,0,0,0,0,0,0,0,0,
         0,0,sqr(perr),0,0,0,0,0,0,0,
-        0,0,0,0.5,0,0,0,0,0,0,
-        0,0,0,0,0.5,0,0,0,0,0,
+        0,0,0,1.0,0,0,0,0,0,0,
+        0,0,0,0,1.0,0,0,0,0,0,
         0,0,0,0,0,sqr(perr),0,0,0,0,
-        0,0,0,0,0,0,0.5,0,0,0,
-        0,0,0,0,0,0,0,0.5,0,0,
+        0,0,0,0,0,0,1.0,0,0,0,
+        0,0,0,0,0,0,0,1.0,0,0,
         0,0,0,0,0,0,0,0,sqr(perr),0,
         0,0,0,0,0,0,0,0,0,sqr(2*M_PI/3)
         ;
@@ -751,11 +754,11 @@ public:
         (double)(points[1].x) ,(double)(points[1].y),1.0/(double)(points[1].z),
         0.0,0.0,0.0;
       Px2 <<
-        0.5,0,0,0,0,0,0,0,0,
-        0,0.5,0,0,0,0,0,0,0,
+        1.0,0,0,0,0,0,0,0,0,
+        0,1.0,0,0,0,0,0,0,0,
         0,0,sqr(perr),0,0,0,0,0,0,
-        0,0,0,0.5,0,0,0,0,0,
-        0,0,0,0,0.5,0,0,0,0,
+        0,0,0,1.0,0,0,0,0,0,
+        0,0,0,0,1.0,0,0,0,0,
         0,0,0,0,0,sqr(perr),0,0,0,
         0,0,0,0,0,0,sqr(deg2rad(8)),0,0,
         0,0,0,0,0,0,0,sqr(deg2rad(30)),0,
