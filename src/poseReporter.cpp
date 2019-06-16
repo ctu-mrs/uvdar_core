@@ -239,6 +239,8 @@ public:
 
       double relyaw;
 
+      ROS_INFO_STREAM("leds: " << id);
+
       if (expFrequencies.size() == 2){
         if     ((id(0)==ids[0]) && (id(1)==ids[0]) && (id(2)==ids[0]))
           relyaw=(M_PI/2);
