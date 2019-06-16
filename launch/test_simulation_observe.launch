@@ -120,7 +120,7 @@
       <remap from="~odometry" to="/$(arg uav_name)/mrs_odometry/new_odom"/>
       <remap from="~camera" to="/$(arg uav_name)/uvdar_bluefox/image_raw"/>
       <remap from="~imu" to="mavros/imu/data"/>
-      <remap from="~pointsSeen" to="/$(arg uav_name)/uvPointsSeen"/>
+      <remap from="~pointsSeen" to="/$(arg uav_name)/uvdar/uvPointsSeen"/>
     </node>
     <node name="blink_processor" pkg="nodelet" type="nodelet" args="$(arg nodelet) uvdar/BlinkProcessor $(arg nodelet_manager)" output="screen" respawn="true"> 
         <param name="DEBUG"		type="bool" value="$(arg DEBUG)"/> 
@@ -141,9 +141,9 @@
       <param name="returnFrequencies"         type="bool" value="true"/>
 
       <remap from="~camera" to="/$(arg uav_name)/uvdar_bluefox/image_raw"/>
-      <remap from="~pointsSeen" to="/$(arg uav_name)/uvPointsSeen"/>
-      <remap from="~blinkersSeen" to="/$(arg uav_name)/blinkersSeen"/>
-      <remap from="~estimatedFramerate" to="/$(arg uav_name)/estimatedFramerate"/>
+      <remap from="~pointsSeen" to="/$(arg uav_name)/uvdar/uvPointsSeen"/>
+      <remap from="~blinkersSeen" to="/$(arg uav_name)/uvdar/blinkersSeen"/>
+      <remap from="~estimatedFramerate" to="/$(arg uav_name)/uvdar/estimatedFramerate"/>
 
       </node>
       
@@ -154,10 +154,25 @@
       <param name="gui"             type="bool" value="$(arg gui)"/>
       <param name="publish"         type="bool" value="$(arg publish)"/>
 
-      <remap from="~blinkersSeen" to="/$(arg uav_name)/blinkersSeen"/>
-      <remap from="~estimatedFramerate" to="/$(arg uav_name)/estimatedFramerate"/>
+      <remap from="blinkersSeen" to="/$(arg uav_name)/uvdar/blinkersSeen"/>
+      <remap from="estimatedFramerate" to="/$(arg uav_name)/uvdar/estimatedFramerate"/>
+      <remap from="measuredPose" to="/$(arg uav_name)/uvdar/measuredPose"/>
     </node>
     </group>
+  <node pkg="robot_pose_ekf" type="robot_pose_ekf" name="target_pose_ekf">
+    <param name="output_frame" value="uvcam"/>
+    <param name="freq" value="30.0"/>
+    <param name="sensor_timeout" value="1.0"/>
+    <param name="odom_used" value="false"/>
+    <param name="imu_used" value="false"/>
+    <param name="vo_used" value="true"/>
+    <param name="debug" value="false"/>
+    <param name="self_diagnose" value="false"/>
+
+    <remap from="vo" to="/$(arg uav_name)/uvdar/measuredPose"/>
+    <remap from="target_pose_ekf/odom_combined" to="/$(arg uav_name)/uvdar/filteredPose"/>
+  </node>
+
 
   <!-- </group> -->
 

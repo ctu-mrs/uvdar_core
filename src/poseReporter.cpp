@@ -8,7 +8,9 @@
 /* #include <std_srvs/Trigger.h> */
 #include <cv_bridge/cv_bridge.h>
 #include <geometry_msgs/Twist.h>
-#include <geometry_msgs/PoseWithCovarianceStamped.h>
+/* #include <geometry_msgs/PoseWithCovarianceStamped.h> */
+#include <geometry_msgs/PoseWithCovariance.h>
+#include <nav_msgs/Odometry.h>
 /* #include <image_transport/image_transport.h> */
 #include <mrs_msgs/Vec4.h>
 #include <mrs_msgs/TrackerDiagnostics.h>
@@ -37,6 +39,7 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <thread>
 #include "unscented/unscented.h"
+/* #include <mrs_lib/mrs_lib/Lkf.h> */
 
 static double sqr(double a){
   return a*a;
@@ -67,6 +70,12 @@ public:
     private_node_handle.param("publish", publish, bool(true));
 
 
+    for (int i=0; i<2;i++){
+      targetAcquired[i]=false;
+    }
+
+
+
     gotCamInfo = false;
 
     char calib_path[100];
@@ -84,7 +93,8 @@ public:
 
     measuredDist = node.advertise< std_msgs::Float32 >("measuredDist", 1);
 
-    measuredPose = node.advertise< geometry_msgs::PoseWithCovarianceStamped >("measuredPose", 1);
+    measuredPose = node.advertise<nav_msgs::Odometry>("measuredPose", 1);
+    /* measuredPose = node.advertise< geometry_msgs::PoseWithCovarianceStamped >("measuredPose", 1); */
 
     X2 = Eigen::VectorXd(9,9);
     X3 = Eigen::VectorXd(10,10);
@@ -190,9 +200,6 @@ public:
 
 
       double l = sqrt(fmax(0.1, distMiddle * distMiddle + armLength * armLength - 2 * distMiddle * armLength * cos(delta + (CV_PI / 3.0))));
-      if (first) {
-        first = false;
-      }
 
       double Epsilon=asin((armLength/l)*sin(delta+M_PI/3));
       /* phi=asin((b/l)*sin(delta+pi/3)); */
@@ -677,6 +684,13 @@ public:
       return;
     }
 
+    if (first) {
+      /* trackers[1]= new Lkf::Lkf(6, const int m, const int p, const Eigen::MatrixXd& A, const Eigen::MatrixXd& B, const Eigen::MatrixXd& R, const Eigen::MatrixXd& Q, */
+      targetAcquired[1]=true;
+      first = false;
+      }
+
+
     Eigen::Vector3d centerEstimInCam;
     Eigen::Vector3d goalInCam;
 
@@ -801,30 +815,53 @@ public:
     /* std::cout << "Py: " << ms.C << std::endl; */
     ROS_INFO_STREAM("Py: \n" << ms.C );
 
+    msgOdom = boost::make_shared<nav_msgs::Odometry>();;
+    msgOdom->twist.covariance = msgOdom->pose.covariance;
 
-    geometry_msgs::PoseWithCovarianceStampedPtr msgPose = boost::make_shared<geometry_msgs::PoseWithCovarianceStamped>();;
-    msgPose->header.frame_id ="uvcam";
-    msgPose->header.stamp = ros::Time::now();
-    msgPose->pose.pose.position.x = ms.x(0);
-    msgPose->pose.pose.position.y = ms.x(1);
-    msgPose->pose.pose.position.z = ms.x(2);
+    /* geometry_msgs::PoseWithCovarianceStampedPtr msgPose = boost::make_shared<geometry_msgs::PoseWithCovarianceStamped>();; */
+    /* geometry_msgs::PoseWithCovariancePtr msgPose = boost::make_shared<geometry_msgs::PoseWithCovariance>();; */
+    /* msgPose->header.frame_id ="uvcam"; */
+    /* msgPose->header.stamp = ros::Time::now(); */
+    msgOdom->pose.pose.position.x = ms.x(0);
+    msgOdom->pose.pose.position.y = ms.x(1);
+    msgOdom->pose.pose.position.z = ms.x(2);
     tf::Quaternion qtemp;
     qtemp.setRPY(ms.x(3), ms.x(4), ms.x(5));
     qtemp=(transformCam2Base.getRotation().inverse())*qtemp;
     /* Eigen::Affine3d aTtemp; */
     /* tf::transformTFToEigen(transformCam2Base, aTtemp); */
     /* qtemp = aTtemp*qtemp; */
-    msgPose->pose.pose.orientation.x = qtemp.x();
-    msgPose->pose.pose.orientation.y = qtemp.y();
-    msgPose->pose.pose.orientation.z = qtemp.z();
-    msgPose->pose.pose.orientation.w = qtemp.w();
+    msgOdom->pose.pose.orientation.x = qtemp.x();
+    msgOdom->pose.pose.orientation.y = qtemp.y();
+    msgOdom->pose.pose.orientation.z = qtemp.z();
+    msgOdom->pose.pose.orientation.w = qtemp.w();
     for (int i=0; i<ms.C.cols(); i++){
       for (int j=0; j<ms.C.rows(); j++){
-        msgPose->pose.covariance[ms.C.cols()*j+i] =  ms.C(j,i);
+        msgOdom->pose.covariance[ms.C.cols()*j+i] =  ms.C(j,i);
       }
     }
 
-    measuredPose.publish(msgPose);
+    msgOdom->header.frame_id ="uvcam";
+    msgOdom->header.stamp = ros::Time::now();
+    /* msgOdom->pose = *(msgPose); */
+
+    msgOdom->twist.twist.linear.x = 0.0;
+    msgOdom->twist.twist.linear.y = 0.0;
+    msgOdom->twist.twist.linear.z = 0.0;
+    msgOdom->twist.twist.angular.x = 0.0;
+    msgOdom->twist.twist.angular.y = 0.0;
+    msgOdom->twist.twist.angular.z = 0.0;
+    
+    /* msgOdom->twist.covariance = { */
+    /*   4,0,0,0,0,0, */
+    /*   0,4,0,0,0,0, */
+    /*   0,0,4,0,0,0, */
+    /*   0,0,0,2,0,0, */
+    /*   0,0,0,0,2,0, */
+    /*   0,0,0,0,0,2}; */
+
+
+    measuredPose.publish(msgOdom);
 
 
 
@@ -1004,7 +1041,10 @@ private:
 
   ros::Publisher measuredPose;
 
+  bool               targetAcquired[2];
+  /* Lkf* trackers[2]; */
 
+  nav_msgs::OdometryPtr msgOdom;
 };
 
 
