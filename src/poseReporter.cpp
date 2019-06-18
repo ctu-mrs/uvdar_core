@@ -68,9 +68,37 @@ public:
 
     private_node_handle.param("gui", gui, bool(false));
 
-    private_node_handle.param("frequencyCount", IDcount, int(4));
-  1
+    private_node_handle.param("frequenciesPerTarget", frequenciesPerTarget, int(4));
+    private_node_handle.param("targetCount", targetCount, int(4));
 
+      
+    if (frequencySet.size() < frequencyCount) {
+      nh_.param("frequency1", tempFreq, int(6));
+      frequencySet.push_back(double(tempFreq));
+    }
+    if (frequencySet.size() < frequencyCount) {
+      nh_.param("frequency2", tempFreq, int(10));
+      frequencySet.push_back(double(tempFreq));
+    }
+    if (frequencySet.size() < frequencyCount) {
+      nh_.param("frequency3", tempFreq, int(15));
+      frequencySet.push_back(double(tempFreq));
+    }
+    if (frequencySet.size() < frequencyCount) {
+      nh_.param("frequency4", tempFreq, int(30));
+      frequencySet.push_back(double(tempFreq));
+    }
+    if (frequencySet.size() < frequencyCount) {
+      nh_.param("frequency5", tempFreq, int(8));
+      frequencySet.push_back(double(tempFreq));
+    }
+    if (frequencySet.size() < frequencyCount) {
+      nh_.param("frequency6", tempFreq, int(12));
+      frequencySet.push_back(double(tempFreq));
+    }
+
+
+    prepareFrequencyClassifiers();
 
     for (int i=0; i<2;i++){
       targetAcquired[i]=false;
@@ -116,7 +144,7 @@ public:
 
     tf_thread   = std::thread(&PoseReporter::TfThread, this);
 
-    for (int i = 0; i < IDcount; i++) {
+    for (int i = 0; i < targetCount; i++) {
       separatedPoints.push_back(std::vector< cv::Point3i >());
     }
   
@@ -698,16 +726,36 @@ public:
       first = false;
       }
 
-
-    Eigen::Vector3d centerEstimInCam;
-    Eigen::Vector3d goalInCam;
-
-
     for (int i = 0; i < countSeen; i++) {
       if (msg->data[(i * 3) + 2] <= 200) {
         points.push_back(cv::Point3i(msg->data[(i * 3)], msg->data[(i * 3) + 1], msg->data[(i * 3) + 2]));
       }
     }
+
+    for (int i = 0; i < targetCount; i++) {
+      separatedPoints[i].clear();
+    }
+
+    if (points.size() > 1) {
+
+      for (int i = 0; i < points.size(); i++) {
+        if (points[i].z >= 0) {
+          separatedPoints[points[i].z].push_back(classifyMatch(findMatch(points[i].z)));
+        }
+      }
+
+      for (int i = 0; i < targetCount; i++) {
+        extractSingleRelative(separatedPoints[i], i);
+      }
+    }
+  }
+
+  void extractSingleRelative(std::vector< cv::Point3i > points, int target) {
+    Eigen::Vector3d centerEstimInCam;
+    double          maxDist = 100.0;
+
+    int countSeen = (int)(points.size());
+
 
     if (points.size() > 1) {
       double maxDist = 100.0;
@@ -913,6 +961,41 @@ public:
     return (T(0) < val) - (val < T(0));
   }
 
+  int findMatch(double i_frequency) {
+    double period = 1.0 / i_frequency;
+    for (int i = 0; i < periodSet.size(); i++) {
+      /* std::cout << period << " " <<  periodBoundsTop[i] << " " << periodBoundsBottom[i] << " " << periodSet[i] << std::endl; */
+      if ((period > periodBoundsBottom[i]) && (period < periodBoundsTop[i])) {
+        return i;
+      }
+    }
+    return -1;
+  }
+
+  int classifyMatch(int ID) {
+    return ID/frequenciesPerTarget;
+  }
+
+  void prepareFrequencyClassifiers() {
+    for (int i = 0; i < frequencySet.size(); i++) {
+      periodSet.push_back(1.0 / frequencySet[i]);
+    }
+    for (int i = 0; i < frequencySet.size() - 1; i++) {
+      periodBoundsBottom.push_back((periodSet[i] * (1.0 - boundary_ratio) + periodSet[i + 1] * boundary_ratio));
+    }
+    periodBoundsBottom.push_back(1.0 / max_frequency);
+
+
+    periodBoundsTop.push_back(1.0 / min_frequency);
+    for (int i = 1; i < frequencySet.size(); i++) {
+      periodBoundsTop.push_back((periodSet[i] * boundary_ratio + periodSet[i - 1] * (1.0 - boundary_ratio)));
+    }
+
+
+    /* periodBoundsTop.back()           = 0.5 * periodSet.back() + 0.5 * periodSet[secondToLast]; */
+    /* periodBoundsBottom[secondToLast] = 0.5 * periodSet.back() + 0.5 * periodSet[secondToLast]; */
+  }
+
 private:
 
 
@@ -1055,8 +1138,13 @@ private:
   /* nav_msgs::OdometryPtr msgOdom; */
   geometry_msgs::PoseWithCovarianceStampedPtr msgOdom;
 
-  int IDcount;
+  int frequenciesPerTarget;
+  int targetCount;
   std::vector< std::vector< cv::Point3i > > separatedPoints;
+  std::vector<double> frequencySet;
+  std::vector<double> periodSet;
+  std::vector<double> periodBoundsTop;
+  std::vector<double> periodBoundsBottom;
 };
 
 

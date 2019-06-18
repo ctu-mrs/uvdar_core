@@ -156,6 +156,8 @@
       <param name="DEBUG"		type="bool" value="true"/> 
       <param name="gui"             type="bool" value="$(arg gui)"/>
       <param name="publish"         type="bool" value="$(arg publish)"/>
+      <param name="frequenciesPerTarget" type="int" value="2"/>
+      <param name="targetCount" type="int" value="2"/>
 
       <remap from="blinkersSeen" to="/$(arg uav_name)/uvdar/blinkersSeen"/>
       <remap from="estimatedFramerate" to="/$(arg uav_name)/uvdar/estimatedFramerate"/>
