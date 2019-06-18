@@ -67,7 +67,9 @@ public:
     private_node_handle.param("DEBUG", DEBUG, bool(false));
 
     private_node_handle.param("gui", gui, bool(false));
-    private_node_handle.param("publish", publish, bool(true));
+
+    private_node_handle.param("frequencyCount", IDcount, int(4));
+  1
 
 
     for (int i=0; i<2;i++){
@@ -113,6 +115,12 @@ public:
 
 
     tf_thread   = std::thread(&PoseReporter::TfThread, this);
+
+    for (int i = 0; i < IDcount; i++) {
+      separatedPoints.push_back(std::vector< cv::Point3i >());
+    }
+  
+
 
   }
 
@@ -975,7 +983,7 @@ private:
 
   double tailingComponent;
 
-  bool gui, publish;
+  bool gui;
 
   int numberOfBins;
 
@@ -1046,6 +1054,9 @@ private:
 
   /* nav_msgs::OdometryPtr msgOdom; */
   geometry_msgs::PoseWithCovarianceStampedPtr msgOdom;
+
+  int IDcount;
+  std::vector< std::vector< cv::Point3i > > separatedPoints;
 };
 
 
