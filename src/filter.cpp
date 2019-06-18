@@ -1,28 +1,35 @@
 #include <ros/ros.h>
-#include <geometry_msgs/PoseWithCovarianceStampedPtr.h>
+#include <nav_msgs/Odometry.h>
+#include <geometry_msgs/PoseWithCovarianceStamped.h>
 #include <mrs_lib/Lkf.h>
+#include <Eigen/Geometry>
 
-#define freq 30;
+#define freq 30.0
 
+
+namespace e = Eigen;
 
 class UvdarKalman {
-  namespace e = Eigen;
 
   public:
   UvdarKalman(ros::NodeHandle nh) {
 
-  A.resize(9,9);
-  B.resize(0,0);
-  R.resize(9,9);
-  Q.resize(6,6);
-  P.resize(6,9);
+    dt = 1.0/freq;
+    gotMeasurement = false;
 
-  measSubscriber = nh.subscribe("measuredPose", 10, &UvdarKalman::measurementCallback, this);
+    A.resize(9,9);
+    B.resize(0,0);
+    R.resize(9,9);
+    Q.resize(6,6);
+    P.resize(6,9);
+
+    filtPublisher = nh.advertise<nav_msgs::Odometry>("filteredPose", 1);
+    measSubscriber = nh.subscribe("measuredPose", 1, &UvdarKalman::measurementCallback, this);
 
     A <<
-      1,0,0,1.0/freq,0,       0,       0,0,0,
-      0,1,0,0,       1.0/freq,0,       0,0,0,
-      0,0,1,0,       0,       1.0/freq,0,0,0,
+      1,0,0,dt,0,       0,       0,0,0,
+      0,1,0,0,       dt,0,       0,0,0,
+      0,0,1,0,       0,       dt,0,0,0,
       0,0,0,1,       0,       0,       0,0,0,
       0,0,0,0,       1,       0,       0,0,0,
       0,0,0,0,       0,       1,       0,0,0,
@@ -56,50 +63,118 @@ class UvdarKalman {
       0,0,0,0,0,0,0,1,0,
       0,0,0,0,0,0,0,0,1;
 
-    
-    currKalman = new Lkf(9, 0, 6, A, B, R, Q, P);
 
-    timer = nh_private.createTimer(ros::Duration(1.0/max(freq,1.0)), &UvdarKalman::spin, this);
+    currKalman = new mrs_lib::Lkf(9, 0, 6, A, B, R, Q, P);
+
+    timer = nh.createTimer(ros::Duration(1.0/fmax(freq,1.0)), &UvdarKalman::spin, this);
 
   }
 
   ~UvdarKalman(){
-    delete Lkf;
+    delete currKalman;
   }
 
   private:
 
-  measurementCallback(const PoseWithCovarianceStampedPtr& meas){
+  void measurementCallback(const geometry_msgs::PoseWithCovarianceStampedPtr& meas){
+    ROS_INFO_STREAM("Geting message: ");
+    ROS_INFO_STREAM("" << meas->pose.pose.position);
 
-    e::Quaternion qtemp;
-    qtemp.x()= meas->pose.pose.orientation.x ;
-    qtemp.y()= meas->pose.pose.orientation.y ;
-    qtemp.z()= meas->pose.pose.orientation.z ;
-    qtemp.w()= meas->pose.pose.orientation.w ;
-    for (int i=0; i<ms.C.cols(); i++){
-      for (int j=0; j<ms.C.rows(); j++){
-        msgOdom->pose.covariance[ms.C.cols()*j+i] =  ms.C(j,i);
+    e::Quaternion qtemp(meas->pose.pose.orientation.w, meas->pose.pose.orientation.x, meas->pose.pose.orientation.y, meas->pose.pose.orientation.z );
+
+    e::VectorXd mes(6); 
+
+    mes(1) = meas->pose.pose.position.x;
+    mes(2) = meas->pose.pose.position.y;
+    mes(3) = meas->pose.pose.position.z;
+    mes.bottomRows(3) = qtemp.toRotationMatrix().eulerAngles(0, 1, 2);
+
+
+    for (int i=0; i<Q.cols(); i++){
+      for (int j=0; j<Q.rows(); j++){
+        Q(j,i) = meas->pose.covariance[Q.cols()*j+i] ;
       }
     }
 
+
+    currKalman->setMeasurement(mes,Q);
+
+    gotMeasurement =true;
   }
 
-  spin(const ros::TimerEvent& e){
-    if (gotMeasurement)
-      currKalman.iterate();
+  void spin(const ros::TimerEvent& e){
+    if (gotMeasurement){
+      currKalman->iterate();
+      gotMeasurement = false;
+    }
     else
-      currKalman.iterateWithoutMeasurement();
+      currKalman->iterateWithoutCorrection();
+
+
+    pubPose = boost::make_shared<nav_msgs::Odometry>();
+
+    pubPose->pose.pose.position.x = currKalman->getState(0);
+    pubPose->pose.pose.position.y = currKalman->getState(1);
+    pubPose->pose.pose.position.z = currKalman->getState(2);
+    e::Quaternion qtemp = e::AngleAxisd(currKalman->getState(6), e::Vector3d::UnitX()) * e::AngleAxisd(currKalman->getState(7), e::Vector3d::UnitY()) * e::AngleAxisd(currKalman->getState(8), e::Vector3d::UnitZ());
+    /* qtemp.setRPY(currKalman->getState(6), currKalman->getState(7), currKalman->getState(8)); */
+    /* qtemp=(transformCam2Base.getRotation().inverse())*qtemp; */
+    pubPose->pose.pose.orientation.x = qtemp.x();
+    pubPose->pose.pose.orientation.y = qtemp.y();
+    pubPose->pose.pose.orientation.z = qtemp.z();
+    pubPose->pose.pose.orientation.w = qtemp.w();
+    e::MatrixXd C = currKalman->getCovariance();
+    for (int i=0; i<3; i++){
+      for (int j=0; j<3; j++){
+        pubPose->pose.covariance[C.cols()*j+i] =  C(j,i);
+      }
+    }
+    for (int i=6; i<9; i++){
+      for (int j=6; j<9; j++){
+        pubPose->pose.covariance[C.cols()*(j-6)+(i-6)] =  C(j,i);
+      }
+    }
+
+    pubPose->twist.twist.linear.x = currKalman->getState(3);
+    pubPose->twist.twist.linear.y = currKalman->getState(4);
+    pubPose->twist.twist.linear.z = currKalman->getState(5);
+
+    for (int i=3; i<6; i++){
+      for (int j=3; j<6; j++){
+        pubPose->twist.covariance[C.cols()*(j-3)+(i-3)] =  C(j,i);
+      }
+    }
+
+    for (int i=6; i<9; i++){
+      for (int j=6; j<9; j++){
+        if (i == j)
+          pubPose->twist.covariance[C.cols()*(j-6)+(i-6)] =  1.0;
+        else
+          pubPose->twist.covariance[C.cols()*(j-6)+(i-6)] =  0;
+      }
+    }
+
+    pubPose->header.frame_id ="uvcam";
+    pubPose->header.stamp = ros::Time::now();
+
+    filtPublisher.publish(pubPose);
+
 
   }
 
 
   e::MatrixXd A,B,R,Q,P;
-  Lkf *currKalman;
+  mrs_lib::Lkf *currKalman;
 
   ros::Timer timer;
 
+  double dt;
 
+  bool gotMeasurement;
   ros::Subscriber measSubscriber;
+  ros::Publisher filtPublisher;
+
+  nav_msgs::OdometryPtr pubPose;
 };
 
 int main(int argc, char** argv) {

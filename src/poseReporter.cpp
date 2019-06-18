@@ -8,7 +8,7 @@
 /* #include <std_srvs/Trigger.h> */
 #include <cv_bridge/cv_bridge.h>
 #include <geometry_msgs/Twist.h>
-/* #include <geometry_msgs/PoseWithCovarianceStamped.h> */
+#include <geometry_msgs/PoseWithCovarianceStamped.h>
 #include <geometry_msgs/PoseWithCovariance.h>
 #include <nav_msgs/Odometry.h>
 /* #include <image_transport/image_transport.h> */
@@ -93,8 +93,8 @@ public:
 
     measuredDist = node.advertise< std_msgs::Float32 >("measuredDist", 1);
 
-    measuredPose = node.advertise<nav_msgs::Odometry>("measuredPose", 1);
-    /* measuredPose = node.advertise< geometry_msgs::PoseWithCovarianceStamped >("measuredPose", 1); */
+    /* measuredPose = node.advertise<nav_msgs::Odometry>("measuredPose", 1); */
+    measuredPose = node.advertise< geometry_msgs::PoseWithCovarianceStamped >("measuredPose", 1);
 
     X2 = Eigen::VectorXd(9,9);
     X3 = Eigen::VectorXd(10,10);
@@ -815,8 +815,8 @@ public:
     /* std::cout << "Py: " << ms.C << std::endl; */
     ROS_INFO_STREAM("Py: \n" << ms.C );
 
-    msgOdom = boost::make_shared<nav_msgs::Odometry>();;
-    msgOdom->twist.covariance = msgOdom->pose.covariance;
+    msgOdom = boost::make_shared<geometry_msgs::PoseWithCovarianceStamped>();;
+    /* msgOdom->twist.covariance = msgOdom->pose.covariance; */
 
     /* geometry_msgs::PoseWithCovarianceStampedPtr msgPose = boost::make_shared<geometry_msgs::PoseWithCovarianceStamped>();; */
     /* geometry_msgs::PoseWithCovariancePtr msgPose = boost::make_shared<geometry_msgs::PoseWithCovariance>();; */
@@ -845,12 +845,12 @@ public:
     msgOdom->header.stamp = ros::Time::now();
     /* msgOdom->pose = *(msgPose); */
 
-    msgOdom->twist.twist.linear.x = 0.0;
-    msgOdom->twist.twist.linear.y = 0.0;
-    msgOdom->twist.twist.linear.z = 0.0;
-    msgOdom->twist.twist.angular.x = 0.0;
-    msgOdom->twist.twist.angular.y = 0.0;
-    msgOdom->twist.twist.angular.z = 0.0;
+    /* msgOdom->twist.twist.linear.x = 0.0; */
+    /* msgOdom->twist.twist.linear.y = 0.0; */
+    /* msgOdom->twist.twist.linear.z = 0.0; */
+    /* msgOdom->twist.twist.angular.x = 0.0; */
+    /* msgOdom->twist.twist.angular.y = 0.0; */
+    /* msgOdom->twist.twist.angular.z = 0.0; */
     
     /* msgOdom->twist.covariance = { */
     /*   4,0,0,0,0,0, */
@@ -1044,7 +1044,8 @@ private:
   bool               targetAcquired[2];
   /* Lkf* trackers[2]; */
 
-  nav_msgs::OdometryPtr msgOdom;
+  /* nav_msgs::OdometryPtr msgOdom; */
+  geometry_msgs::PoseWithCovarianceStampedPtr msgOdom;
 };
 
 

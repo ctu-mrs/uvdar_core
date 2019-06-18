@@ -106,6 +106,9 @@ add_dependencies(uv_follower_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_E
 add_executable(uv_reporter_node src/poseReporter.cpp)
 add_dependencies(uv_reporter_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
+add_executable(uvdar_kalman_node src/filter.cpp)
+add_dependencies(uvdar_kalman_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+
 add_custom_target(headers SOURCES ${HEADER_FILES} ${LAUNCHER_FILES} ${YAML_FILES})
 
 target_link_libraries(UVDetector
@@ -134,4 +137,10 @@ target_link_libraries(uv_reporter_node
   ${EIGEN3_LIBRARIES}
   OCamCalib
   unscented
+  )
+
+target_link_libraries(uvdar_kalman_node
+  ${catkin_LIBRARIES}
+  ${OpenCV_LIBRARIES}
+  ${EIGEN3_LIBRARIES}
   )
