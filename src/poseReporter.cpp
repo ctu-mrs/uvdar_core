@@ -318,7 +318,7 @@ public:
       ROS_INFO_STREAM("tilt_perp: " << tilt_perp);
 
       double relyaw_view=relyaw+phi;
-      relyaw=relyaw+atan2(Vc(0),Vc(2))+phi;
+      relyaw=relyaw-atan2(Vc(0),Vc(2))+phi;
 
       double xl=(armLength/2)*cos(phi);
       double dist = Yt.norm();
@@ -397,7 +397,7 @@ public:
     ms.x << V1.x(),V1.y(),V1.z(),0,0,0; 
     Eigen::MatrixXd temp;
     temp.setIdentity(6,6);
-    ms.C = temp*20;//large covariance for angles in radians
+    ms.C = temp*666;//large covariance for angles in radians
     ms.C.topLeftCorner(3, 3) = calc_position_covariance(V1,tubewidth,meanDist/3);
 
     /* std::cout << "ms.C: " << ms.C << std::endl; */
@@ -579,7 +579,7 @@ public:
       /* ROS_INFO_STREAM("periods: " << periods); */
       /* ROS_INFO_STREAM("id: " << id); */
       /* ROS_INFO("relyaw_orig: %f",relyaw); */
-      relyaw=relyaw+latang;
+      relyaw=relyaw-latang;
       /* ROS_INFO_STREAM("Vc: " << Vc); */
       /* ROS_INFO("latang: %f",latang); */
 
