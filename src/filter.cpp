@@ -24,18 +24,6 @@ class UvdarKalman {
     Q.resize(6,6);
     P.resize(6,9);
 
-    for (int i=0;i<filterCount;i++){
-      gotMeasurement[i] = false;
-      gotAnyMeasurement[i] = false;
-      currKalman[i] = new mrs_lib::Lkf(9, 0, 6, A, B, R, Q, P);
-    }
-
-    timer = nh.createTimer(ros::Duration(1.0/fmax(freq,1.0)), &UvdarKalman::spin, this);
-    filtPublisher[0] = nh.advertise<nav_msgs::Odometry>("filteredPose1", 1);
-    filtPublisher[1] = nh.advertise<nav_msgs::Odometry>("filteredPose2", 1);
-    measSubscriber[0] = nh.subscribe("measuredPose1", 1, &UvdarKalman::measurementCallback, this);
-    measSubscriber[1] = nh.subscribe("measuredPose2", 1, &UvdarKalman::measurementCallback, this);
-
     A <<
       1,0,0,dt,0, 0, 0,0,0,
       0,1,0,0, dt,0, 0,0,0,
@@ -75,6 +63,18 @@ class UvdarKalman {
 
 
 
+    for (int i=0;i<filterCount;i++){
+      gotMeasurement[i] = false;
+      gotAnyMeasurement[i] = false;
+      currKalman[i] = new mrs_lib::Lkf(9, 0, 6, A, B, R, Q, P);
+    }
+
+    timer = nh.createTimer(ros::Duration(1.0/fmax(freq,1.0)), &UvdarKalman::spin, this);
+    filtPublisher[0] = nh.advertise<nav_msgs::Odometry>("filteredPose1", 1);
+    filtPublisher[1] = nh.advertise<nav_msgs::Odometry>("filteredPose2", 1);
+    measSubscriber[0] = nh.subscribe("measuredPose1", 1, &UvdarKalman::measurementCallback, this);
+    measSubscriber[1] = nh.subscribe("measuredPose2", 1, &UvdarKalman::measurementCallback, this);
+
   }
 
   ~UvdarKalman(){
@@ -106,6 +106,10 @@ class UvdarKalman {
     mes(0) = meas->pose.pose.position.x;
     mes(1) = meas->pose.pose.position.y;
     mes(2) = meas->pose.pose.position.z;
+
+    if (mes.array().isNaN().any())
+      return;
+
     mes.bottomRows(3) = qtemp.toRotationMatrix().eulerAngles(0, 1, 2);
 
 

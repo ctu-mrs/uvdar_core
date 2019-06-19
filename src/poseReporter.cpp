@@ -1,6 +1,3 @@
-#define leftID 0
-#define rightID 1
-
 
 #define camera_delay 0.50
 #define armLength 0.2775
@@ -8,7 +5,7 @@
 
 #define min_frequency 4.8
 #define max_frequency 36.0
-#define boundary_ratio 0.7
+#define boundary_ratio 0.5
 
 /* #include <std_srvs/Trigger.h> */
 #include <cv_bridge/cv_bridge.h>
@@ -754,12 +751,16 @@ public:
       }
 
       for (int i = 0; i < targetCount; i++) {
+        ROS_INFO_STREAM("target [" << i << "]: ");
+        ROS_INFO_STREAM("p: " << separatedPoints[i]);
         extractSingleRelative(separatedPoints[i], i);
       }
     }
   }
 
   void extractSingleRelative(std::vector< cv::Point3i > points, int target) {
+    double leftF = frequencySet[target*2];
+    double rightF = frequencySet[target*2+1];
     Eigen::Vector3d centerEstimInCam;
     double          maxDist = 100.0;
 
@@ -826,7 +827,7 @@ public:
         ;
       boost::function<Eigen::VectorXd(Eigen::VectorXd,Eigen::VectorXd)> callback;
       callback=boost::bind(&PoseReporter::uvdarHexarotorPose3p,this,_1,_2);
-      ms = unscented::unscentedTransform(X3,Px3,callback,15,30,-1);
+      ms = unscented::unscentedTransform(X3,Px3,callback,leftF,rightF,-1);
     }
     else if (points.size() == 2) {
       ROS_INFO_STREAM("ponts: " << points);
@@ -849,7 +850,7 @@ public:
       ROS_INFO_STREAM("X2: " << X2);
       boost::function<Eigen::VectorXd(Eigen::VectorXd,Eigen::VectorXd)> callback;
       callback=boost::bind(&PoseReporter::uvdarHexarotorPose2p,this,_1,_2);
-      ms = unscented::unscentedTransform(X2,Px2,callback,15,30,-1);
+      ms = unscented::unscentedTransform(X2,Px2,callback,leftF,rightF,-1);
     }
 
     else if (points.size() == 1) {
