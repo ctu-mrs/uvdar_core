@@ -6,6 +6,7 @@
 #include <mutex>
 
 #define freq 30.0
+#define filterCount 2
 
 
 namespace e = Eigen;
@@ -16,8 +17,6 @@ class UvdarKalman {
   UvdarKalman(ros::NodeHandle nh) {
 
     dt = 1.0/freq;
-    gotMeasurement = false;
-    gotAnyMeasurement = false;
 
     A.resize(9,9);
     B.resize(0,0);
@@ -25,8 +24,17 @@ class UvdarKalman {
     Q.resize(6,6);
     P.resize(6,9);
 
-    filtPublisher = nh.advertise<nav_msgs::Odometry>("filteredPose", 1);
-    measSubscriber = nh.subscribe("measuredPose", 1, &UvdarKalman::measurementCallback, this);
+    for (int i=0;i<filterCount;i++){
+      gotMeasurement[i] = false;
+      gotAnyMeasurement[i] = false;
+      currKalman[i] = new mrs_lib::Lkf(9, 0, 6, A, B, R, Q, P);
+    }
+
+    timer = nh.createTimer(ros::Duration(1.0/fmax(freq,1.0)), &UvdarKalman::spin, this);
+    filtPublisher[0] = nh.advertise<nav_msgs::Odometry>("filteredPose1", 1);
+    filtPublisher[1] = nh.advertise<nav_msgs::Odometry>("filteredPose2", 1);
+    measSubscriber[0] = nh.subscribe("measuredPose1", 1, &UvdarKalman::measurementCallback, this);
+    measSubscriber[1] = nh.subscribe("measuredPose2", 1, &UvdarKalman::measurementCallback, this);
 
     A <<
       1,0,0,dt,0, 0, 0,0,0,
@@ -66,22 +74,30 @@ class UvdarKalman {
       0,0,0,0,0,0,0,0,1;
 
 
-    currKalman = new mrs_lib::Lkf(9, 0, 6, A, B, R, Q, P);
-
-    timer = nh.createTimer(ros::Duration(1.0/fmax(freq,1.0)), &UvdarKalman::spin, this);
 
   }
 
   ~UvdarKalman(){
-    delete currKalman;
+    for (int i =0;i<filterCount;i++)
+      delete currKalman[i];
   }
 
   private:
 
-  void measurementCallback(const geometry_msgs::PoseWithCovarianceStampedPtr& meas){
+  /* void measurementCallback(const geometry_msgs::PoseWithCovarianceStampedPtr& meas){ */
+  void measurementCallback(const ros::MessageEvent<geometry_msgs::PoseWithCovarianceStamped const>& event){
     std::scoped_lock slck(mtx_kalman);
-    ROS_INFO_STREAM("Geting message: ");
+    /* for(auto elem : event.getConnectionHeader()) */
+    /* { */
+    /*   ROS_INFO_STREAM("Message header: " << elem.first << " " << elem.second ); */
+    /* } */
+    ros::M_string mhdr = event.getConnectionHeader();
+    std::string topic = mhdr["topic"];
+    int target =(int)(topic.back())-49;
+    const geometry_msgs::PoseWithCovarianceStampedConstPtr& meas = event.getMessage();
+    ROS_INFO_STREAM("Geting message [" << target <<": ");
     ROS_INFO_STREAM("" << meas->pose.pose.position);
+
 
     e::Quaternion qtemp(meas->pose.pose.orientation.w, meas->pose.pose.orientation.x, meas->pose.pose.orientation.y, meas->pose.pose.orientation.z );
 
@@ -100,41 +116,45 @@ class UvdarKalman {
     }
 
 
-    if (!gotAnyMeasurement){
+    if (!gotAnyMeasurement[target]){
       e::VectorXd initState(9);
       initState << mes.topRows(3),e::Vector3d::Zero(),mes.bottomRows(3);
-      currKalman->setStates(initState);
-      gotAnyMeasurement = true;
+      currKalman[target]->setStates(initState);
+      gotAnyMeasurement[target] = true;
     }
     else
-      currKalman->setMeasurement(mes,Q);
+      currKalman[target]->setMeasurement(mes,Q);
 
-    gotMeasurement =true;
+    gotMeasurement[target] =true;
   }
 
   void spin([[ maybe_unused ]] const ros::TimerEvent& unused){
     std::scoped_lock slck(mtx_kalman);
-    if (gotMeasurement){
-      currKalman->iterate();
-      gotMeasurement = false;
+    for (int i=0;i<filterCount;i++){
+      if (gotMeasurement[i]){
+        currKalman[i]->iterate();
+        gotMeasurement[i] = false;
+      }
+      else
+        currKalman[i]->iterateWithoutCorrection();
     }
-    else
-      currKalman->iterateWithoutCorrection();
 
+
+    for (int target=0;target<filterCount;target++){
 
     pubPose = boost::make_shared<nav_msgs::Odometry>();
 
-    pubPose->pose.pose.position.x = currKalman->getState(0);
-    pubPose->pose.pose.position.y = currKalman->getState(1);
-    pubPose->pose.pose.position.z = currKalman->getState(2);
-    e::Quaternion qtemp = e::AngleAxisd(currKalman->getState(6), e::Vector3d::UnitX()) * e::AngleAxisd(currKalman->getState(7), e::Vector3d::UnitY()) * e::AngleAxisd(currKalman->getState(8), e::Vector3d::UnitZ());
-    /* qtemp.setRPY(currKalman->getState(6), currKalman->getState(7), currKalman->getState(8)); */
+    pubPose->pose.pose.position.x = currKalman[target]->getState(0);
+    pubPose->pose.pose.position.y = currKalman[target]->getState(1);
+    pubPose->pose.pose.position.z = currKalman[target]->getState(2);
+    e::Quaternion qtemp = e::AngleAxisd(currKalman[target]->getState(6), e::Vector3d::UnitX()) * e::AngleAxisd(currKalman[target]->getState(7), e::Vector3d::UnitY()) * e::AngleAxisd(currKalman[target]->getState(8), e::Vector3d::UnitZ());
+    /* qtemp.setRPY(currKalman[target]->getState(6), currKalman[target]->getState(7), currKalman[target]->getState(8)); */
     /* qtemp=(transformCam2Base.getRotation().inverse())*qtemp; */
     pubPose->pose.pose.orientation.x = qtemp.x();
     pubPose->pose.pose.orientation.y = qtemp.y();
     pubPose->pose.pose.orientation.z = qtemp.z();
     pubPose->pose.pose.orientation.w = qtemp.w();
-    e::MatrixXd C = currKalman->getCovariance();
+    e::MatrixXd C = currKalman[target]->getCovariance();
     for (int i=0; i<3; i++){
       for (int j=0; j<3; j++){
         pubPose->pose.covariance[6*j+i] =  C(j,i);
@@ -146,9 +166,9 @@ class UvdarKalman {
       }
     }
 
-    pubPose->twist.twist.linear.x = currKalman->getState(3);
-    pubPose->twist.twist.linear.y = currKalman->getState(4);
-    pubPose->twist.twist.linear.z = currKalman->getState(5);
+    pubPose->twist.twist.linear.x = currKalman[target]->getState(3);
+    pubPose->twist.twist.linear.y = currKalman[target]->getState(4);
+    pubPose->twist.twist.linear.z = currKalman[target]->getState(5);
 
     for (int i=3; i<6; i++){
       for (int j=3; j<6; j++){
@@ -168,25 +188,26 @@ class UvdarKalman {
     pubPose->header.frame_id ="uvcam";
     pubPose->header.stamp = ros::Time::now();
 
-    filtPublisher.publish(pubPose);
+    filtPublisher[target].publish(pubPose);
 
     ROS_INFO_STREAM("State: ");
-    ROS_INFO_STREAM("" << currKalman->getStates());
+    ROS_INFO_STREAM("" << currKalman[target]->getStates());
 
+    }
 
   }
 
 
   e::MatrixXd A,B,R,Q,P;
-  mrs_lib::Lkf *currKalman;
+  mrs_lib::Lkf* currKalman[filterCount];
 
   ros::Timer timer;
 
   double dt;
 
-  bool gotMeasurement, gotAnyMeasurement;
-  ros::Subscriber measSubscriber;
-  ros::Publisher filtPublisher;
+  bool gotMeasurement[filterCount], gotAnyMeasurement[filterCount];
+  ros::Subscriber measSubscriber[filterCount];
+  ros::Publisher filtPublisher[filterCount];
 
   nav_msgs::OdometryPtr pubPose;
 

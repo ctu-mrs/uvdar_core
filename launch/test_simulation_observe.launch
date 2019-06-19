@@ -161,7 +161,8 @@
 
       <remap from="blinkersSeen" to="/$(arg uav_name)/uvdar/blinkersSeen"/>
       <remap from="estimatedFramerate" to="/$(arg uav_name)/uvdar/estimatedFramerate"/>
-      <remap from="measuredPose" to="/$(arg uav_name)/uvdar/measuredPose"/>
+      <remap from="measuredPose1" to="/$(arg uav_name)/uvdar/measuredPose1"/>
+      <remap from="measuredPose2" to="/$(arg uav_name)/uvdar/measuredPose2"/>
     </node>
     </group>
 

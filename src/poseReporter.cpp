@@ -1,9 +1,14 @@
 #define leftID 0
 #define rightID 1
 
+
 #define camera_delay 0.50
 #define armLength 0.2775
 #define maxSpeed 2.0
+
+#define min_frequency 4.8
+#define max_frequency 36.0
+#define boundary_ratio 0.7
 
 /* #include <std_srvs/Trigger.h> */
 #include <cv_bridge/cv_bridge.h>
@@ -70,30 +75,32 @@ public:
 
     private_node_handle.param("frequenciesPerTarget", frequenciesPerTarget, int(4));
     private_node_handle.param("targetCount", targetCount, int(4));
+    int frequencyCount = targetCount*frequenciesPerTarget;
 
       
+    int tempFreq;
     if (frequencySet.size() < frequencyCount) {
-      nh_.param("frequency1", tempFreq, int(6));
+      node.param("frequency1", tempFreq, int(6));
       frequencySet.push_back(double(tempFreq));
     }
     if (frequencySet.size() < frequencyCount) {
-      nh_.param("frequency2", tempFreq, int(10));
+      node.param("frequency2", tempFreq, int(10));
       frequencySet.push_back(double(tempFreq));
     }
     if (frequencySet.size() < frequencyCount) {
-      nh_.param("frequency3", tempFreq, int(15));
+      node.param("frequency3", tempFreq, int(15));
       frequencySet.push_back(double(tempFreq));
     }
     if (frequencySet.size() < frequencyCount) {
-      nh_.param("frequency4", tempFreq, int(30));
+      node.param("frequency4", tempFreq, int(30));
       frequencySet.push_back(double(tempFreq));
     }
     if (frequencySet.size() < frequencyCount) {
-      nh_.param("frequency5", tempFreq, int(8));
+      node.param("frequency5", tempFreq, int(8));
       frequencySet.push_back(double(tempFreq));
     }
     if (frequencySet.size() < frequencyCount) {
-      nh_.param("frequency6", tempFreq, int(12));
+      node.param("frequency6", tempFreq, int(12));
       frequencySet.push_back(double(tempFreq));
     }
 
@@ -124,7 +131,9 @@ public:
     measuredDist = node.advertise< std_msgs::Float32 >("measuredDist", 1);
 
     /* measuredPose = node.advertise<nav_msgs::Odometry>("measuredPose", 1); */
-    measuredPose = node.advertise< geometry_msgs::PoseWithCovarianceStamped >("measuredPose", 1);
+    for (int i=0;i<targetCount;i++){
+      measuredPose[i] = node.advertise< geometry_msgs::PoseWithCovarianceStamped >(std::string("measuredPose")+std::to_string(i+1), 1);
+    }
 
     X2 = Eigen::VectorXd(9,9);
     X3 = Eigen::VectorXd(10,10);
@@ -740,7 +749,7 @@ public:
 
       for (int i = 0; i < points.size(); i++) {
         if (points[i].z >= 0) {
-          separatedPoints[points[i].z].push_back(classifyMatch(findMatch(points[i].z)));
+          separatedPoints[classifyMatch(findMatch(points[i].z))].push_back(points[i]);
         }
       }
 
@@ -917,14 +926,14 @@ public:
     /*   0,0,0,0,0,2}; */
 
 
-    measuredPose.publish(msgOdom);
+    measuredPose[target].publish(msgOdom);
 
 
 
 
 
     tf::Vector3 goalInCamTF, centerEstimInCamTF;
-    tf::vectorEigenToTF(goalInCam, goalInCamTF);
+    /* tf::vectorEigenToTF(goalInCam, goalInCamTF); */
     tf::vectorEigenToTF(centerEstimInCam, centerEstimInCamTF);
     mutex_tf.lock();
     tf::Vector3 goalInBaseTF        = (transformCam2Base * goalInCamTF);
@@ -956,6 +965,7 @@ public:
     /* tf::vectorTFToEigen(centerEstimInBaseTF, centerEstimInBase); */
     /* std::cout << "Estimated center in BASE: " << centerEstimInBase << std::endl; */
   }
+
   template < typename T >
   int sgn(T val) {
     return (T(0) < val) - (val < T(0));
@@ -1130,7 +1140,7 @@ private:
   ros::Publisher setpointPub;
   ros::Publisher measuredDist;
 
-  ros::Publisher measuredPose;
+  ros::Publisher measuredPose[2];
 
   bool               targetAcquired[2];
   /* Lkf* trackers[2]; */
