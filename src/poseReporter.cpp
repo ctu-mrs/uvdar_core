@@ -2,6 +2,7 @@
 #define camera_delay 0.50
 #define armLength 0.2775
 #define maxSpeed 2.0
+#define maxDistInit 100.0
 
 #define min_frequency 4.8
 #define max_frequency 36.0
@@ -759,16 +760,16 @@ public:
   }
 
   void extractSingleRelative(std::vector< cv::Point3i > points, int target) {
+    
     double leftF = frequencySet[target*2];
     double rightF = frequencySet[target*2+1];
     Eigen::Vector3d centerEstimInCam;
-    double          maxDist = 100.0;
+    double          maxDist = maxDistInit;
 
     int countSeen = (int)(points.size());
 
 
     if (points.size() > 1) {
-      double maxDist = 100.0;
 
       for (int i = 0; i < points.size(); i++) {
         if (points[i].z < 0) {
@@ -777,7 +778,9 @@ public:
           continue;
         }
       }
-      while (points.size() > 3) {
+      bool separated = false;
+      while ((points.size() > 3) && (!separated)) {
+        separated = true;
         for (int i = 0; i < points.size(); i++) {
           bool viable = false;
           for (int j = 0; j < points.size(); j++) {
@@ -788,6 +791,7 @@ public:
               viable = true;
               break;
             }
+            else separated = false;
           }
           if (!viable) {
             points.erase(points.begin() + i);
