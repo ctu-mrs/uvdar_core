@@ -134,32 +134,34 @@ class UvdarKalman {
 
   void spin([[ maybe_unused ]] const ros::TimerEvent& unused){
     std::scoped_lock slck(mtx_kalman);
-    for (int i=0;i<filterCount;i++){
-      if (gotMeasurement[i]){
-        currKalman[i]->iterate();
-        gotMeasurement[i] = false;
-      }
-      else
-        currKalman[i]->iterateWithoutCorrection();
-    }
 
 
     for (int target=0;target<filterCount;target++){
+      if (!gotAnyMeasurement[target])
+        continue;
 
-    pubPose = boost::make_shared<nav_msgs::Odometry>();
+      if (gotMeasurement[target]){
+        currKalman[target]->iterate();
+        gotMeasurement[target] = false;
+      }
+      else
+        currKalman[target]->iterateWithoutCorrection();
 
-    pubPose->pose.pose.position.x = currKalman[target]->getState(0);
-    pubPose->pose.pose.position.y = currKalman[target]->getState(1);
-    pubPose->pose.pose.position.z = currKalman[target]->getState(2);
-    e::Quaternion qtemp = e::AngleAxisd(currKalman[target]->getState(6), e::Vector3d::UnitX()) * e::AngleAxisd(currKalman[target]->getState(7), e::Vector3d::UnitY()) * e::AngleAxisd(currKalman[target]->getState(8), e::Vector3d::UnitZ());
-    /* qtemp.setRPY(currKalman[target]->getState(6), currKalman[target]->getState(7), currKalman[target]->getState(8)); */
-    /* qtemp=(transformCam2Base.getRotation().inverse())*qtemp; */
-    pubPose->pose.pose.orientation.x = qtemp.x();
-    pubPose->pose.pose.orientation.y = qtemp.y();
-    pubPose->pose.pose.orientation.z = qtemp.z();
-    pubPose->pose.pose.orientation.w = qtemp.w();
-    e::MatrixXd C = currKalman[target]->getCovariance();
-    for (int i=0; i<3; i++){
+
+      pubPose = boost::make_shared<nav_msgs::Odometry>();
+
+      pubPose->pose.pose.position.x = currKalman[target]->getState(0);
+      pubPose->pose.pose.position.y = currKalman[target]->getState(1);
+      pubPose->pose.pose.position.z = currKalman[target]->getState(2);
+      e::Quaternion qtemp = e::AngleAxisd(currKalman[target]->getState(6), e::Vector3d::UnitX()) * e::AngleAxisd(currKalman[target]->getState(7), e::Vector3d::UnitY()) * e::AngleAxisd(currKalman[target]->getState(8), e::Vector3d::UnitZ());
+      /* qtemp.setRPY(currKalman[target]->getState(6), currKalman[target]->getState(7), currKalman[target]->getState(8)); */
+      /* qtemp=(transformCam2Base.getRotation().inverse())*qtemp; */
+      pubPose->pose.pose.orientation.x = qtemp.x();
+      pubPose->pose.pose.orientation.y = qtemp.y();
+      pubPose->pose.pose.orientation.z = qtemp.z();
+      pubPose->pose.pose.orientation.w = qtemp.w();
+      e::MatrixXd C = currKalman[target]->getCovariance();
+      for (int i=0; i<3; i++){
       for (int j=0; j<3; j++){
         pubPose->pose.covariance[6*j+i] =  C(j,i);
       }
