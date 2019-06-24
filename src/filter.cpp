@@ -124,12 +124,25 @@ class UvdarKalman {
       e::VectorXd initState(9);
       initState << mes.topRows(3),e::Vector3d::Zero(),mes.bottomRows(3);
       currKalman[target]->setStates(initState);
+      currKalman[target]->setCovariance(Q);
       gotAnyMeasurement[target] = true;
     }
-    else
+    else{
+      double md = mahalanobis_distance2(
+          mes.topRows(3),
+          currKalman[target]->getStates().topRows(3),
+          currKalman[target]->getCovariance()
+          );
+
+      if (md >10)
+        return;
+
       currKalman[target]->setMeasurement(mes,Q);
+    }
+
 
     gotMeasurement[target] =true;
+    lastMeasurement[target] = ros::Time::now();
   }
 
   void spin([[ maybe_unused ]] const ros::TimerEvent& unused){
@@ -140,12 +153,17 @@ class UvdarKalman {
       if (!gotAnyMeasurement[target])
         continue;
 
-      if (gotMeasurement[target]){
+      if (gotMeasurement[target] ){
         currKalman[target]->iterate();
         gotMeasurement[target] = false;
       }
       else
+        if (ros::Duration(ros::Time::now()-lastMeasurement[target]).toSec()<2)
         currKalman[target]->iterateWithoutCorrection();
+        else{
+          gotAnyMeasurement[target] = false;
+          return;
+        }
 
 
       pubPose = boost::make_shared<nav_msgs::Odometry>();
@@ -212,12 +230,22 @@ class UvdarKalman {
   double dt;
 
   bool gotMeasurement[filterCount], gotAnyMeasurement[filterCount];
+  ros::Duration sinceMeasurement[filterCount];
+  ros::Time lastMeasurement[filterCount];
   ros::Subscriber measSubscriber[filterCount];
   ros::Publisher filtPublisher[filterCount];
 
   nav_msgs::OdometryPtr pubPose;
 
   std::mutex mtx_kalman;
+
+
+    static double mahalanobis_distance2(const Eigen::Vector3d& x, const Eigen::Vector3d& mu1, const Eigen::Matrix3d& sigma1)
+    {
+      const auto diff = x - mu1;
+      const double dist2 = diff.transpose() * sigma1.inverse() * diff;
+      return dist2;
+    }
 };
 
 int main(int argc, char** argv) {

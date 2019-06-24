@@ -735,6 +735,14 @@ double HT3DBlinkerTracker::retrieveFreqency(cv::Point originPoint, double &avgYa
 }
 
 bool HT3DBlinkerTracker::miniFast(cv::Point input) {
+  if (input.x<3)
+    return false;
+  if (input.y<3)
+    return false;
+  if (input.y>(imRes.height-4))
+    return false;
+  if (input.y<(imRes.width-4))
+    return false;
   for (int i = 0; i < fastPoints.size(); i++) {
     if (
         (combinedMaximaMatrix[index2d(input.x, input.y)]
