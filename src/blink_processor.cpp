@@ -41,6 +41,10 @@ public:
     nh_.param("DEBUG", DEBUG, bool(false));
     nh_.param("VisDEBUG", VisDEBUG, bool(false));
     nh_.param("GUI", GUI, bool(false));
+    if (GUI)
+      ROS_INFO("[BlinkProcessor]: GUI is true");
+    else
+      ROS_INFO("[BlinkProcessor]: GUI is false");
 
     nh_.param("accumulatorLength", accumulatorLength, int(23));
     nh_.param("pitchSteps", pitchSteps, int(16));
@@ -70,13 +74,7 @@ public:
 
     currImage = cv::Mat(cv::Size(752, 480), CV_8UC3, cv::Scalar(0, 0, 0));
     viewImage = currImage.clone();
-    if (ImgCompressed) {
-      ROS_INFO("compressed");
-      ImageSubscriber = nh_.subscribe("camera", 1, &BlinkProcessor::ProcessCompressed, this);
-    } else {
-      ROS_INFO("raw");
-      ImageSubscriber = nh_.subscribe("camera", 1, &BlinkProcessor::ProcessRaw, this);
-    }
+    ImageSubscriber = nh_.subscribe("camera", 1, &BlinkProcessor::ProcessRaw, this);
 
     process_thread = std::thread(&BlinkProcessor::ProcessThread, this);
     if (GUI) {

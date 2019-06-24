@@ -55,7 +55,7 @@
 
   <arg name="DEBUG" default="false"/>
   <arg name="VisDEBUG" default="false"/>
-  <arg name="gui" default="true"/>
+  <arg name="gui" default="false"/>
   <!-- <arg name="gui" default="false"/> -->
 
   <arg name="trajectoryControl" default="true"/>
@@ -159,7 +159,7 @@
         <param name="DEBUG"		type="bool" value="$(arg DEBUG)"/> 
         <param name="VisDEBUG"		type="bool" value="$(arg VisDEBUG)"/> 
         <param name="GUI"             type="bool" value="$(arg gui)"/>
-        <param name="CameraImageompressed"    type="bool" value="false"/>
+        <param name="CameraImageCompressed"    type="bool" value="false"/>
         <param name="InvertedPoints"    type="bool" value="false"/>
         <param name="frequencyCount" type="int" value="4"/>
         <param name="frequency1" type="int" value="6"/>
