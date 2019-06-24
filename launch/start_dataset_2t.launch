@@ -1,5 +1,5 @@
 <launch>
-  <arg name="uav_name" default="$(optenv UAV_NAME uav2)"/>
+  <arg name="uav_name" default="$(optenv UAV_NAME uav1)"/>
 
   <arg name="standalone" default="false"/>
 
@@ -18,14 +18,14 @@
   <arg name="device" default="$(optenv BLUEFOX_UV)"/>
   <arg name="rate" default="100"/>
   <arg name="serial" default="$(arg device)"/>
-  <arg name="camera_name" default="bluefox_uv"/>
+  <arg name="camera_name" default="mv_$(arg device)"/>
   <arg name="camera" default="$(arg camera_name)"/>
   <arg name="frame_id" default="$(arg camera)"/>
-  <arg name="calib_url" default="file://$(find mrs_general)/camera_info/bluefox_$(arg uav_name).yaml"/>
+  <arg name="calib_url" default="file://$(find mrs_general)/camera_info/uvdar_bluefox.yaml"/>
   <arg name="fps" default="$(arg rate)"/>
   <arg name="idpf" default="0"/>
   <arg name="aec" default="false"/>
-  <arg name="expose_us" default="1000"/>
+  <arg name="expose_us" default="500"/>
   <arg name="agc" default="false"/>
   <arg name="gain_db" default="0.0"/>
   <arg name="cbm" default="0"/>
@@ -97,7 +97,7 @@
       <param name="num_worker_threads" value="8" />
     </node>
 
-    <node pkg="bluefox2" type="bluefox2_single_node" name="bluefox_uv" output="screen">
+    <node pkg="bluefox2" type="bluefox2_single_node" name="uvdar_bluefox" output="screen">
       <param name="identifier" type="string" value="$(arg serial)"/>
       <param name="frame_id" type="string" value="$(arg frame_id)"/>
       <param name="camera_name" type="string" value="$(arg camera_name)"/>
