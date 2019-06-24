@@ -97,7 +97,7 @@
       <param name="num_worker_threads" value="8" />
     </node>
 
-    <node pkg="bluefox2" type="bluefox2_single_node" name="uvdar_bluefox" output="screen">
+    <node pkg="bluefox2" type="bluefox2_single_node" name="uvdar_bluefox" output="screen" launch-prefix="bash -c 'sleep 5; $0 $@'">
       <param name="identifier" type="string" value="$(arg serial)"/>
       <param name="frame_id" type="string" value="$(arg frame_id)"/>
       <param name="camera_name" type="string" value="$(arg camera_name)"/>
@@ -124,7 +124,8 @@
       <param name="image_raw/theora/optimize_for" value="0" />
     </node>
 
-    <node name="uv_detect" pkg="nodelet" type="nodelet" args="$(arg nodelet) uvdar/UVDetector $(arg nodelet_manager)" output="screen" respawn="true"> 
+    <node name="uv_detect" pkg="nodelet" type="nodelet" args="$(arg nodelet) uvdar/UVDetector $(arg nodelet_manager)" output="screen" respawn="true" launch-prefix="bash -c 'sleep 5; $0 $@'">
+      <param name="identifier" type="string" value="$(arg serial)"/>
       <!-- <node name="uv_detect" pkg="uvdar" type="uv_detector_node" output="screen" launch-prefix="urxvt -e gdb -q -x /home/viktor/gdb.cmds -/-args"> -->
       <param name="uav_name" type = "string" value="$(arg uav_name)"/>
       <param name="DEBUG"		type="bool" value="$(arg DEBUG)"/> 
@@ -155,7 +156,7 @@
       <remap from="~imu" to="mavros/imu/data"/>
       <remap from="~pointsSeen" to="/$(arg uav_name)/uvdar/uvPointsSeen"/>
     </node>
-    <node name="blink_processor" pkg="nodelet" type="nodelet" args="$(arg nodelet) uvdar/BlinkProcessor $(arg nodelet_manager)" output="screen" respawn="true"> 
+    <node name="blink_processor" pkg="nodelet" type="nodelet" args="$(arg nodelet) uvdar/BlinkProcessor $(arg nodelet_manager)" output="screen" respawn="true" launch-prefix="bash -c 'sleep 5; $0 $@'"> 
         <param name="DEBUG"		type="bool" value="$(arg DEBUG)"/> 
         <param name="VisDEBUG"		type="bool" value="$(arg VisDEBUG)"/> 
         <param name="GUI"             type="bool" value="$(arg gui)"/>
