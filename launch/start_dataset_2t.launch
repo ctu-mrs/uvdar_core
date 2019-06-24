@@ -8,7 +8,7 @@
   <arg unless="$(arg standalone)" name="nodelet_manager" value="$(arg uav_name)_uvdar_nodelet_manager"/>
   <arg     if="$(arg standalone)" name="nodelet_manager" value=""/>
 
-  <arg name="threshold" default="50"/>
+  <arg name="threshold" default="200"/>
 
   <arg name="publishVisualization"         default="true"/>
   <arg name="visualizationRate"         default="1"/>
@@ -25,7 +25,7 @@
   <arg name="fps" default="$(arg rate)"/>
   <arg name="idpf" default="0"/>
   <arg name="aec" default="false"/>
-  <arg name="expose_us" default="500"/>
+  <arg name="expose_us" default="1000"/>
   <arg name="agc" default="false"/>
   <arg name="gain_db" default="0.0"/>
   <arg name="cbm" default="0"/>

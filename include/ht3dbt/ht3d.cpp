@@ -223,8 +223,10 @@ std::vector< cv::Point3d > HT3DBlinkerTracker::getResults() {
   }
   mutex_accum.unlock();
   expectedMatches = *std::max_element(ptsPerLayerLocalCopy.begin(), ptsPerLayerLocalCopy.end()) - ptsPerLayerLocalCopy[0];
-  if (DEBUG)
+  if (DEBUG){
     std::cout << "Exp. Matches: " << expectedMatches << std::endl;
+    std::cout << "Visible Matches: " << ptsPerLayerLocalCopy[0] << std::endl;
+  }
 
   /* end         = std::clock(); */
   /* elapsedTime = double(end - begin) / CLOCKS_PER_SEC; */
@@ -244,6 +246,8 @@ std::vector< cv::Point3d > HT3DBlinkerTracker::getResults() {
   /* std::cout << "Nullification of known: " << elapsedTime << " s" << std::endl; */
 
   std::vector< cv::Point > originPts = accumulatorLocalCopy[0];
+  if (DEBUG)
+    std::cout << "Orig. pt. count: " << originPts.size() << std::endl;
 
   /* for(int i =0; i<originPts.size();i++) { */
   /*   for(int j = 0; j<originPts.size();j++) { */
@@ -265,8 +269,10 @@ std::vector< cv::Point3d > HT3DBlinkerTracker::getResults() {
   std::vector< cv::Point > houghOrigins = findHoughPeaks(combinedMaximaMatrix, expectedMatches);
   end                                   = std::clock();
   elapsedTime                           = double(end - begin) / CLOCKS_PER_SEC;
-  if (DEBUG)
+  if (DEBUG){
+    std::cout << "Hough peaks count: " << houghOrigins.size() <<  std::endl;
     std::cout << "Hough peaks search: " << elapsedTime << " s" << std::endl;
+  }
   begin = std::clock();
   originPts.insert(originPts.end(), houghOrigins.begin(), houghOrigins.end());
   std::vector< cv::Point3d > result;
@@ -274,7 +280,12 @@ std::vector< cv::Point3d > HT3DBlinkerTracker::getResults() {
   pitchAvgs.clear();
   yawAvgs.clear();
   frequencies.clear();
+
+  if (DEBUG)
+    std::cout << "Orig. pt. count: " << originPts.size() << std::endl;
   for (int i = 0; i < originPts.size(); i++) {
+    if (DEBUG)
+      std::cout << "Curr. orig. pt: " << originPts[i] << std::endl;
     double frequency, yawAvg, pitchAvg;
     frequency = retrieveFreqency(originPts[i], yawAvg, pitchAvg);
     result.push_back(cv::Point3d(originPts[i].x, originPts[i].y, frequency));
@@ -739,9 +750,9 @@ bool HT3DBlinkerTracker::miniFast(cv::Point input) {
     return false;
   if (input.y<3)
     return false;
-  if (input.y>(imRes.height-4))
+  if (input.x>(imRes.width-4))
     return false;
-  if (input.y<(imRes.width-4))
+  if (input.y>(imRes.height-4))
     return false;
   for (int i = 0; i < fastPoints.size(); i++) {
     if (
