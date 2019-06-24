@@ -184,9 +184,9 @@ private:
   }
 
   void ProcessRaw(const sensor_msgs::ImageConstPtr& image_msg) {
-  clock_t begin1, begin2, end1, end2;
-  double  elapsedTime;
-  begin1                             = std::clock();
+  /* clock_t begin1, begin2, end1, end2; */
+  /* double  elapsedTime; */
+  /* begin1                             = std::clock(); */
     cv_bridge::CvImageConstPtr image;
     image = cv_bridge::toCvShare(image_msg, enc::MONO8);
     ProcessSingleImage(image);
@@ -194,9 +194,9 @@ private:
 
 
   void ProcessSingleImage(const cv_bridge::CvImageConstPtr image) {
-  clock_t begin1, begin2, end1, end2;
-  double  elapsedTime;
-  begin1                             = std::clock();
+  /* clock_t begin1, begin2, end1, end2; */
+  /* double  elapsedTime; */
+  /* begin1                             = std::clock(); */
     double yaw_local;
     double pitch_local;
     double roll_local;
@@ -229,9 +229,9 @@ private:
     /* end         = std::clock(); */
     /* elapsedTime = double(end - begin) / CLOCKS_PER_SEC; */
     /* std::cout << "4: " << elapsedTime << " s" << "f: " << 1.0/elapsedTime << std::endl; */
-    begin2                             = std::clock();
+    /* begin2                             = std::clock(); */
     std::vector< cv::Point2i > outvec = uvdf->processImage(image->image, localImg_raw, false, DEBUG, threshVal);
-    end2         = std::clock();
+    /* end2         = std::clock(); */
     /* elapsedTime = double(end2 - begin2) / CLOCKS_PER_SEC; */
     /* std::cout << "5: " << elapsedTime << " s" << "f: " << 1.0/elapsedTime << std::endl; */
 
@@ -267,7 +267,7 @@ private:
     if (key == 13)
       stopped = true;
 
-  end1         = std::clock();
+  /* end1         = std::clock(); */
   /* elapsedTime = double(end1 - begin1) / CLOCKS_PER_SEC; */
   /* std::cout << "6: " << elapsedTime << " s" << "f: " << 1.0/elapsedTime << std::endl; */
 

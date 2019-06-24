@@ -53,6 +53,7 @@ public:
     ht3dbt = new HT3DBlinkerTracker(accumulatorLength, pitchSteps, yawSteps, maxPixelShift, cv::Size(752, 480));
 
     ht3dbt->setDebug(DEBUG, VisDEBUG);
+    /* ht3dbt->setDebug(true, VisDEBUG); */
 
     nh_.param("processRate", processRate, int(10));
     processSpinRate = new ros::Rate((double)processRate);
