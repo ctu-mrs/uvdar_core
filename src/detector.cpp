@@ -109,13 +109,7 @@ public:
     if (FromBag || FromCamera) {
       ROS_INFO("Ros type data");
       stopped = false;
-      if (ImgCompressed) {
-        ROS_INFO("Source is COMPRESSEd");
-        ImageSubscriber = nh_.subscribe("camera", 1, &UVDetector::ProcessCompressed, this);
-      } else {
-        ROS_INFO("Source is RAW");
         ImageSubscriber = nh_.subscribe("camera", 1, &UVDetector::ProcessRaw, this);
-      }
     }
 
     if (justReport) {
