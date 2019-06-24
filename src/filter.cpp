@@ -124,7 +124,7 @@ class UvdarKalman {
       e::VectorXd initState(9);
       initState << mes.topRows(3),e::Vector3d::Zero(),mes.bottomRows(3);
       currKalman[target]->setStates(initState);
-      currKalman[target]->setCovariance(Q);
+      /* currKalman[target]->setCovariance(Q); */
       gotAnyMeasurement[target] = true;
     }
     else{

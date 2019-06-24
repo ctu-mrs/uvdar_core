@@ -121,6 +121,8 @@ public:
     if (justReport) {
       PointsPublisher = nh_.advertise< std_msgs::UInt32MultiArray >("pointsSeen", 1);
     }
+
+
   }
 
   ~UVDetector() {
