@@ -109,6 +109,9 @@ add_dependencies(uv_reporter_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_E
 add_executable(uvdar_kalman_node src/filter.cpp)
 add_dependencies(uvdar_kalman_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
+# add_executable(uvdar_orientation_calibrator src/orientationCalibrator.cpp)
+# add_dependencies(uvdar_orientation_calibrator ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+
 # add_executable(reproject_node src/reprojector.cpp)
 # add_dependencies(reproject_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
@@ -147,6 +150,13 @@ target_link_libraries(uvdar_kalman_node
   ${OpenCV_LIBRARIES}
   ${EIGEN3_LIBRARIES}
   )
+
+# target_link_libraries(uvdar_orientation_calibrator
+#   ${catkin_LIBRARIES}
+#   ${OpenCV_LIBRARIES}
+#   ${EIGEN3_LIBRARIES}
+#   )
+
 
 # target_link_libraries(reproject_node
 #   ${catkin_LIBRARIES}
