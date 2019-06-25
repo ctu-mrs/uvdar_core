@@ -37,7 +37,7 @@
   <arg name="view" default="false"/>
   <arg name="calib" default="false"/>
 
-  <group ns="$(arg uav_name)"
+  <group ns="$(arg uav_name)">
 
   <!-- Node -->
   <node pkg="bluefox2" type="bluefox2_single_node" name="$(arg camera)" output="$(arg output)">
@@ -60,6 +60,7 @@
     <param name="mm" type="int" value="$(arg mm)"/>
     <param name="image_raw/compressed/jpeg_quality" type="int" value="$(arg jpeg_quality)"/>
   </node>
+</group>
 
   <!-- Proc -->
   <node if="$(arg proc)"
