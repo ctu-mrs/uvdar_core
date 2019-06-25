@@ -192,7 +192,7 @@
       <remap from="~pointsSeen" to="/$(arg uav_name)/uvdar/uvPointsSeen"/>
       <remap from="~blinkersSeen" to="/$(arg uav_name)/uvdar/blinkersSeen"/>
       <remap from="~estimatedFramerate" to="/$(arg uav_name)/uvdar/estimatedFramerate"/>
-      <remap from="~visualization" to="/$(arg uav_name)/uvdar/blink_visualization"/>
+      <remap from="~visualization" to="/$(arg uav_name)/uvdar/blink_visualization/image_raw"/>
 
 
       </node>
