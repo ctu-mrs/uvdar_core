@@ -1,0 +1,41 @@
+<launch>
+  <arg name="uav_name" default="$(optenv UAV_NAME uav1)"/>
+
+  <arg name="standalone" default="false"/>
+
+  <arg unless="$(arg standalone)" name="nodelet" value="load"/>
+  <arg     if="$(arg standalone)" name="nodelet" value="standalone"/>
+  <arg unless="$(arg standalone)" name="nodelet_manager" value="$(arg uav_name)_uvdar_nodelet_manager"/>
+  <arg     if="$(arg standalone)" name="nodelet_manager" value=""/>
+
+  <!-- Node Settings -->
+  <arg name="output" default="screen"/>
+  <arg name="proc" default="false"/>
+  <arg name="calib" default="false"/>
+
+  <arg name="DEBUG" default="false"/>
+  <arg name="gui" default="true"/>
+
+
+  <group ns="$(arg uav_name)">
+
+
+    <node pkg="image_transport" type="republish" name="republish_bluefox" output="screen" args="compressed in:=bluefox/image_raw raw out:=bluefox2/image_raw"  />
+  
+  <!-- <node pkg="uvdar" type="uvdar_kalman_node" name="filterUvdar" output="screen" launch-prefix="debug_roslaunch"> -->
+  <node pkg="uvdar" type="reprojector_node" name="reprojector_node" output="screen">
+    <remap from="measuredPose1" to="/$(arg uav_name)/uvdar/measuredPose1"/>
+    <remap from="measuredPose2" to="/$(arg uav_name)/uvdar/measuredPose2"/>
+    <remap from="filteredPose1" to="/$(arg uav_name)/uvdar/filteredPose1"/>
+    <remap from="filteredPose2" to="/$(arg uav_name)/uvdar/filteredPose2"/>
+    <remap from="camera" to="/$(arg uav_name)/bluefox/image_raw/compressed"/>
+
+  </node>
+    </group>
+
+
+  <!-- </group> -->
+
+
+
+  </launch>
