@@ -233,6 +233,7 @@ class UvdarKalman {
   ros::Duration sinceMeasurement[filterCount];
   ros::Time lastMeasurement[filterCount];
   ros::Subscriber measSubscriber[filterCount];
+  ros::Subscriber          ImageSubscriber;
   ros::Publisher filtPublisher[filterCount];
 
   nav_msgs::OdometryPtr pubPose;

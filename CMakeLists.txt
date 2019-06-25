@@ -112,8 +112,8 @@ add_dependencies(uvdar_kalman_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_
 # add_executable(uvdar_orientation_calibrator src/orientationCalibrator.cpp)
 # add_dependencies(uvdar_orientation_calibrator ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
-# add_executable(reproject_node src/reprojector.cpp)
-# add_dependencies(reproject_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+add_executable(uvdar_reprojector_node src/reprojector.cpp)
+add_dependencies(uvdar_reprojector_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 add_custom_target(headers SOURCES ${HEADER_FILES} ${LAUNCHER_FILES} ${YAML_FILES})
 
@@ -158,8 +158,9 @@ target_link_libraries(uvdar_kalman_node
 #   )
 
 
-# target_link_libraries(reproject_node
-#   ${catkin_LIBRARIES}
-#   ${OpenCV_LIBRARIES}
-#   ${EIGEN3_LIBRARIES}
-#   )
+target_link_libraries(uvdar_reprojector_node
+  ${catkin_LIBRARIES}
+  ${OpenCV_LIBRARIES}
+  ${EIGEN3_LIBRARIES}
+  OCamCalib
+  )
