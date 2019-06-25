@@ -14,6 +14,7 @@
 #include <mrs_lib/ParamLoader.h>
 #include <mrs_lib/Profiler.h>
 #include <OCamCalib/ocam_functions.h>
+#include <unscented/unscented.h>
 
 #define filterCount 2
 #define freq 3
@@ -153,14 +154,17 @@ class Reprojector{
     else {
       viewImage = currImage;
     }
-    cv::circle(viewImage,getImPos(currOdom),getProjSize(currOdom),cv::Scalar(0,0,255));
+
+    unscented::measurement ms = getProjectedCovariance(currOdom);
+    cv::ellipse(viewImage, getErrorEllipse(2.4477,ms.x,ms.C), cv::Scalar::all(255), 2);
+    /* cv::circle(viewImage,getImPos(currOdom),getProjSize(currOdom),cv::Scalar(0,0,255)); */
   }
 
   cv::Point2i getImPos(nav_msgs::Odometry currOdom){
-    return projectOmni(currOdom.pose.pose);
+    return projectOmniIm(currOdom.pose.pose);
   }
 
-  cv::Point2i projectOmni(geometry_msgs::Pose pose){
+  cv::Point2i projectOmniIm(geometry_msgs::Pose pose){
     tf2::Vector3 poseTrans = TfU2C*tf2::Vector3(pose.position.x,pose.position.y,pose.position.z);
     double pose3d[3];
     pose3d[0]= poseTrans.y();
@@ -174,9 +178,67 @@ class Reprojector{
     return cv::Point2i(imPos[1],imPos[0]);
   }
 
-  int getProjSize(nav_msgs::Odometry currOdom){
-    return 30;
+  Eigen::Vector2d projectOmniEigen(Eigen::Vector3d x,[[ maybe_unused ]] Eigen::VectorXd dummy){
+    tf2::Vector3 poseTrans = TfU2C*tf2::Vector3(x[0],x[1],x[2]);
+    double pose3d[3];
+    pose3d[0]= poseTrans.y();
+    pose3d[1]= poseTrans.x();
+    pose3d[2]=-poseTrans.z();
+    /* ROS_INFO_STREAM("World: " << pose3d[0] << " : "<< pose3d[1] << " : " << pose3d[2]); */
+
+    double imPos[2];
+    world2cam(imPos, pose3d, &oc_model);
+    /* ROS_INFO_STREAM("Reprojected: " << imPos[1] << " : "<< imPos[0]); */
+    return Eigen::Vector2d(imPos[1],imPos[0]);
   }
+
+  unscented::measurement getProjectedCovariance(nav_msgs::Odometry currOdom){
+    Eigen::Matrix3d Px;
+    Eigen::Matrix2d Py;
+    Eigen::Vector3d x;
+    Eigen::Vector2d y;
+    for (int i=0; i<3; i++){
+      for (int j=0; j<3; j++){
+          Px(j,i) = currOdom.pose.covariance[6*j+i] ;
+      }
+    }
+    x = Eigen::Vector3d(
+        currOdom.pose.pose.position.x,
+        currOdom.pose.pose.position.y,
+        currOdom.pose.pose.position.z
+        );
+
+    boost::function<Eigen::VectorXd(Eigen::VectorXd,Eigen::VectorXd)> callback;
+    callback=boost::bind(&Reprojector::projectOmniEigen,this,_1,_2);
+    return  unscented::unscentedTransform(x,Px, callback,-1.0,-1.0,-1.0);
+  }
+  cv::RotatedRect getErrorEllipse(double chisquare_val, Eigen::Vector2d mean, Eigen::Matrix2Xd C){
+
+    //Get the eigenvalues and eigenvectors
+    Eigen::SelfAdjointEigenSolver<Eigen::Matrix2f> eigensolver(C);
+    if (eigensolver.info() != Eigen::Success)
+      abort();
+    Eigen::Vector2d eigenvalues  = eigensolver.eigenvalues();
+    Eigen::Matrix2Xd eigenvectors = eigensolver.eigenvectors();
+    double angle = atan2(eigenvectors(0,1), eigenvectors(0,0));
+
+    //Shift the angle to the [0, 2pi] interval instead of [-pi, pi]
+    if(angle < 0)
+      angle += 6.28318530718;
+
+    //Conver to degrees instead of radians
+    angle = 180*angle/3.14159265359;
+
+    //Calculate the size of the minor and major axes
+    double halfmajoraxissize=chisquare_val*sqrt(eigenvalues(0));
+    double halfminoraxissize=chisquare_val*sqrt(eigenvalues(1));
+
+    //Return the oriented ellipse
+    //The -angle is used because OpenCV defines the angle clockwise instead of anti-clockwise
+    cv::Point2d mean_cv(mean.x(),mean.y());
+    return cv::RotatedRect(mean_cv, cv::Size2f(halfmajoraxissize, halfminoraxissize), -angle);
+
+}
 
   
   //variables

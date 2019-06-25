@@ -163,4 +163,5 @@ target_link_libraries(uvdar_reprojector_node
   ${OpenCV_LIBRARIES}
   ${EIGEN3_LIBRARIES}
   OCamCalib
+  unscented
   )

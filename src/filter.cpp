@@ -180,8 +180,8 @@ class UvdarKalman {
       pubPose->pose.pose.orientation.w = qtemp.w();
       e::MatrixXd C = currKalman[target]->getCovariance();
       for (int i=0; i<3; i++){
-      for (int j=0; j<3; j++){
-        pubPose->pose.covariance[6*j+i] =  C(j,i);
+        for (int j=0; j<3; j++){
+          pubPose->pose.covariance[6*j+i] =  C(j,i);
       }
     }
     for (int i=6; i<9; i++){
