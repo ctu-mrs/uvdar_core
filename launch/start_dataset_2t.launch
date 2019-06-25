@@ -97,7 +97,7 @@
       <param name="num_worker_threads" value="8" />
     </node>
 
-    <node pkg="bluefox2" type="bluefox2_single_node" name="uvdar_bluefox" output="screen" launch-prefix="bash -c 'sleep 5; $0 $@'">
+    <node pkg="nodelet" type="nodelet" name="uvdar_bluefox" args="$(arg nodelet) bluefox2/SingleNodelet $(arg nodelet_manager)" respawn="true" output="screen" launch-prefix="bash -c 'sleep 5; $0 $@'">
       <param name="identifier" type="string" value="$(arg serial)"/>
       <param name="frame_id" type="string" value="$(arg frame_id)"/>
       <param name="camera_name" type="string" value="$(arg camera_name)"/>
@@ -122,17 +122,24 @@
       <param name="image_raw/theora/target_bitrate" value="50000" />
       <param name="image_raw/theora/quality" value="8" />
       <param name="image_raw/theora/optimize_for" value="0" />
+
+       <!-- <group ns="uvdar_bluefox/image_raw"> -->
+       <!--   <rosparam param="disable_pub_plugins"> -->
+       <!--   - 'image_transport/compressedDepth' -->
+       <!--   </rosparam> -->
+       <!-- </group> -->
+
+
+
     </node>
 
     <node name="uv_detect" pkg="nodelet" type="nodelet" args="$(arg nodelet) uvdar/UVDetector $(arg nodelet_manager)" output="screen" respawn="true" launch-prefix="bash -c 'sleep 5; $0 $@'">
       <param name="identifier" type="string" value="$(arg serial)"/>
-      <!-- <node name="uv_detect" pkg="uvdar" type="uv_detector_node" output="screen" launch-prefix="urxvt -e gdb -q -x /home/viktor/gdb.cmds -/-args"> -->
       <param name="uav_name" type = "string" value="$(arg uav_name)"/>
       <param name="DEBUG"		type="bool" value="$(arg DEBUG)"/> 
       <param name="gui"             type="bool" value="false"/>
       <param name="Flip"             type="bool" value="false"/>
       <param name="useFAST"             type="bool" value="$(arg useFAST)"/>
-      <!-- <param name="MaskPath"             type="string" value="$(arg MaskPath)"/> -->
       <param name="FromVideo"         type="bool" value="$(arg FromVideo)"/>
       <param name="FromBag"         type="bool" value="$(arg FromBag)"/>
       <param name="FromCamera"         type="bool" value="$(arg FromCamera)"/>
