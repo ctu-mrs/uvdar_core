@@ -27,7 +27,10 @@ class Reprojector{
   Reprojector(ros::NodeHandle nh){
     ros::NodeHandle pnh("~");
     gotImage = false;
-    gotOdom = false;
+    for (int i=0;i<filterCount;i++){
+      gotOdom[i] = false;
+    }
+
     measSubscriber[0] = nh.subscribe("filteredPose1", 1, &Reprojector::odomCallback, this);
     measSubscriber[1] = nh.subscribe("filteredPose2", 1, &Reprojector::odomCallback, this);
     ImageSubscriber = nh.subscribe("camera", 1, &Reprojector::imageCallback, this);
@@ -74,17 +77,20 @@ class Reprojector{
     currImage = image->image;
   }
 
-  void odomCallback(nav_msgs::OdometryPtr msg_odom){
-    gotOdom = true;
+  void odomCallback(const ros::MessageEvent<nav_msgs::Odometry const>& event){
+
+    ros::M_string mhdr = event.getConnectionHeader();
+    std::string topic = mhdr["topic"];
+    /* ROS_INFO_STREAM("top: " << topic); */
+    int target =(int)(topic.back())-49;
+    auto meas = event.getMessage();
+
+    gotOdom[target] = true;
     std::scoped_lock(mtx_odom);
-    currOdom = *msg_odom;
+    currOdom[target] = *meas;
   }
 
   void spin([[ maybe_unused ]] const ros::TimerEvent& unused){
-    if (!gotOdom){
-      ROS_INFO("Estimates not yet obtained, waiting...");
-      return;
-    }
     if (!gotImage){
       ROS_INFO("Image not yet obtained, waiting...");
       return;
@@ -176,7 +182,22 @@ class Reprojector{
       viewImage = currImage;
     }
 
-    unscented::measurement ms = getProjectedCovariance(currOdom);
+    for (int target=0;target<filterCount;target++){
+
+      if (!(gotOdom[target])){
+        ROS_INFO("Estimate %d not yet obtained, waiting...",target+1);
+        continue;
+      }
+
+      cv::Scalar color;
+      switch (target) {
+        case 0:
+          color=cv::Scalar(255,0,0);
+          break;
+        case 1:
+          color=cv::Scalar(0,0,255);
+      }
+    unscented::measurement ms = getProjectedCovariance(currOdom[target]);
     /* cv::ellipse(viewImage, getErrorEllipse(100,ms.x,ms.C), cv::Scalar::all(255), 2); */
     auto proj = getErrorEllipse(2.4477,ms.x,ms.C);
     auto rect = proj.boundingRect();
@@ -187,9 +208,10 @@ class Reprojector{
     rect.width +=expand;
     rect.x -=expand/2;
     rect.y -=expand/2;
-    cv::ellipse(viewImage, proj, cv::Scalar(255,0,0), 2);
-    cv::rectangle(viewImage, rect, cv::Scalar(0,0,255), 2);
+    cv::ellipse(viewImage, proj, color, 2);
+    cv::rectangle(viewImage, rect, color, 2);
     /* cv::circle(viewImage,getImPos(currOdom),getProjSize(currOdom),cv::Scalar(0,0,255)); */
+    }
   }
 
   cv::Point2i getImPos(nav_msgs::Odometry currOdom){
@@ -258,6 +280,7 @@ class Reprojector{
 
     return output;
   }
+
   cv::RotatedRect getErrorEllipse(double chisquare_val, Eigen::Vector2d mean, Eigen::Matrix2Xd C){
 
     std::cout << "rotated: " << C <<std::endl;
@@ -292,7 +315,7 @@ class Reprojector{
 
   
   //variables
-  nav_msgs::Odometry currOdom;
+  nav_msgs::Odometry currOdom[filterCount];
   cv::Mat currImage, viewImage;
 
   std::mutex mtx_image, mtx_odom, mtx_tf;
@@ -302,7 +325,7 @@ class Reprojector{
 
   ros::Timer tf_timer,im_timer;
 
-  bool gotImage,gotOdom, gotU2C, gotC2U;
+  bool gotImage, gotOdom[filterCount], gotU2C, gotC2U;
 
   bool offline;
 
