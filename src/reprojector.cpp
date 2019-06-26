@@ -32,9 +32,6 @@ class Reprojector{
     measSubscriber[1] = nh.subscribe("filteredPose2", 1, &Reprojector::odomCallback, this);
     ImageSubscriber = nh.subscribe("camera", 1, &Reprojector::imageCallback, this);
 
-    char calib_path[100];
-    sprintf(calib_path, "%s/include/OCamCalib/config/calib_results.txt", ros::package::getPath("uvdar").c_str());
-    get_ocam_model(&oc_model, calib_path);
 
     profiler = new mrs_lib::Profiler(pnh, "uvdar_reprojector_node", true);
     mrs_lib::ParamLoader param_loader(pnh, "uvdar_reprojector_node");
@@ -42,6 +39,11 @@ class Reprojector{
     param_loader.load_param("frame_camera", frame_camera);
     param_loader.load_param("frame_uvdar", frame_uvdar);
     param_loader.load_param("offline", offline);
+    param_loader.load_param("calib_file", calib_file);
+    char calib_path[100];
+    sprintf(calib_path, "%s/include/OCamCalib/config/%s", ros::package::getPath("uvdar").c_str(),calib_file.c_str());
+    get_ocam_model(&oc_model, calib_path);
+
 
     if (offline) {
       image_transport::ImageTransport it(nh);
@@ -80,7 +82,7 @@ class Reprojector{
 
   void spin([[ maybe_unused ]] const ros::TimerEvent& unused){
     if (!gotOdom){
-      ROS_INFO("Odometry not yet obtained, waiting...");
+      ROS_INFO("Estimates not yet obtained, waiting...");
       return;
     }
     if (!gotImage){
@@ -210,6 +212,7 @@ class Reprojector{
 
   Eigen::Vector2d projectOmniEigen(Eigen::Vector3d x,[[ maybe_unused ]] Eigen::VectorXd dummy){
     tf2::Vector3 poseTrans = TfU2C*tf2::Vector3(x[0],x[1],x[2]);
+    ROS_INFO_STREAM("x: " << x);
     double pose3d[3];
     pose3d[0]= poseTrans.y();
     pose3d[1]= poseTrans.x();
@@ -219,6 +222,7 @@ class Reprojector{
     double imPos[2];
     world2cam(imPos, pose3d, &oc_model);
     /* ROS_INFO_STREAM("Reprojected: " << imPos[1] << " : "<< imPos[0]); */
+    ROS_INFO_STREAM("y: " << Eigen::Vector2d(imPos[1],imPos[0]));
     return Eigen::Vector2d(imPos[1],imPos[0]);
   }
 
@@ -277,7 +281,7 @@ class Reprojector{
     double halfmajoraxissize=chisquare_val*sqrt(eigenvalues(0));
     double halfminoraxissize=chisquare_val*sqrt(eigenvalues(1));
 
-    ROS_INFO_STREAM("axes: " << halfmajoraxissize << " : " << halfminoraxissize);
+    /* ROS_INFO_STREAM("axes: " << halfmajoraxissize << " : " << halfminoraxissize); */
 
     //Return the oriented ellipse
     //The -angle is used because OpenCV defines the angle clockwise instead of anti-clockwise
@@ -310,6 +314,8 @@ class Reprojector{
 
   mrs_lib::Profiler* profiler;
   std::string frame_camera, frame_uvdar;
+
+  std::string calib_file;
 
   struct ocam_model oc_model;
 
