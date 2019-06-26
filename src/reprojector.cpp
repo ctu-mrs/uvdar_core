@@ -41,6 +41,12 @@ class Reprojector{
 
     param_loader.load_param("frame_camera", frame_camera);
     param_loader.load_param("frame_uvdar", frame_uvdar);
+    param_loader.load_param("offline", offline);
+
+    if (offline) {
+      image_transport::ImageTransport it(nh);
+      imPub = it.advertise("reprojection", 1);
+    }
 
     listener = new tf2_ros::TransformListener(buffer);
 
@@ -85,8 +91,11 @@ class Reprojector{
       ROS_INFO("Transform not yet obtained, waiting...");
       return;
     }
-    drawAndShow();
-    cv::waitKey(5);
+
+    if (offline)
+      drawAndPublish();
+    else
+      drawAndShow();
   }
 
   void tfTimer(const ros::TimerEvent& event) {
@@ -146,6 +155,14 @@ class Reprojector{
   void drawAndShow(){
     drawImage();
     cv::imshow("ocv_marked",viewImage);
+    cv::waitKey(5);
+  }
+
+  void drawAndPublish(){
+    sensor_msgs::ImagePtr msg;
+    drawImage();
+    msg = cv_bridge::CvImage(std_msgs::Header(), sensor_msgs::image_encodings::BGR8, viewImage).toImageMsg();
+    imPub.publish(msg);
   }
 
   void drawImage(){
@@ -283,6 +300,8 @@ class Reprojector{
 
   bool gotImage,gotOdom, gotU2C, gotC2U;
 
+  bool offline;
+
   tf2_ros::Buffer                 buffer;
   tf2_ros::TransformListener*     listener;
   geometry_msgs::TransformStamped transformUvdar2Cam;
@@ -293,6 +312,8 @@ class Reprojector{
   std::string frame_camera, frame_uvdar;
 
   struct ocam_model oc_model;
+
+  image_transport::Publisher imPub;
 };
 
 int main(int argc, char** argv){
