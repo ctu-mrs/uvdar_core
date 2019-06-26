@@ -746,7 +746,7 @@ public:
     if (points.size() > 1) {
 
       for (int i = 0; i < points.size(); i++) {
-        if (points[i].z >= 0) {
+        if (points[i].z > 1) {
           separatedPoints[classifyMatch(findMatch(points[i].z))].push_back(points[i]);
         }
       }
@@ -772,7 +772,7 @@ public:
     if (points.size() > 1) {
 
       for (int i = 0; i < points.size(); i++) {
-        if (points[i].z < 0) {
+        if (points[i].z < 1) {
           points.erase(points.begin() + i);
           i--;
           continue;
