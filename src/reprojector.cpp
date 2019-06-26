@@ -8,9 +8,11 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 #include <mutex>
+#include <tf2_eigen/tf2_eigen.h>
 #include <tf2_ros/transform_listener.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 #include <tf2/LinearMath/Vector3.h>
+#include <tf2/convert.h>
 #include <mrs_lib/ParamLoader.h>
 #include <mrs_lib/Profiler.h>
 #include <OCamCalib/ocam_functions.h>
@@ -156,7 +158,18 @@ class Reprojector{
     }
 
     unscented::measurement ms = getProjectedCovariance(currOdom);
-    cv::ellipse(viewImage, getErrorEllipse(2.4477,ms.x,ms.C), cv::Scalar::all(255), 2);
+    /* cv::ellipse(viewImage, getErrorEllipse(100,ms.x,ms.C), cv::Scalar::all(255), 2); */
+    auto proj = getErrorEllipse(2.4477,ms.x,ms.C);
+    auto rect = proj.boundingRect();
+
+    int expand = 40;
+
+    rect.height +=expand;
+    rect.width +=expand;
+    rect.x -=expand/2;
+    rect.y -=expand/2;
+    cv::ellipse(viewImage, proj, cv::Scalar::all(255), 2);
+    cv::rectangle(viewImage, rect, cv::Scalar::all(255), 2);
     /* cv::circle(viewImage,getImPos(currOdom),getProjSize(currOdom),cv::Scalar(0,0,255)); */
   }
 
@@ -208,18 +221,32 @@ class Reprojector{
         currOdom.pose.pose.position.z
         );
 
+
+    tf2::doTransform (x, x, transformUvdar2Cam);
+    Eigen::Quaterniond temp;
+    Eigen::fromMsg(transformUvdar2Cam.transform.rotation, temp);
+    Px = temp.toRotationMatrix()*Px*temp.toRotationMatrix().transpose();
+
+
     boost::function<Eigen::VectorXd(Eigen::VectorXd,Eigen::VectorXd)> callback;
     callback=boost::bind(&Reprojector::projectOmniEigen,this,_1,_2);
-    return  unscented::unscentedTransform(x,Px, callback,-1.0,-1.0,-1.0);
+    auto output =  unscented::unscentedTransform(x,Px, callback,-1.0,-1.0,-1.0);
+
+    output.x = output.x.topRows(2);
+    output.C = output.C.topLeftCorner(2, 2);
+
+    return output;
   }
   cv::RotatedRect getErrorEllipse(double chisquare_val, Eigen::Vector2d mean, Eigen::Matrix2Xd C){
 
+    std::cout << "rotated: " << C <<std::endl;
+
     //Get the eigenvalues and eigenvectors
-    Eigen::SelfAdjointEigenSolver<Eigen::Matrix2f> eigensolver(C);
+    Eigen::SelfAdjointEigenSolver<Eigen::Matrix2d> eigensolver(C);
     if (eigensolver.info() != Eigen::Success)
       abort();
-    Eigen::Vector2d eigenvalues  = eigensolver.eigenvalues();
-    Eigen::Matrix2Xd eigenvectors = eigensolver.eigenvectors();
+    auto eigenvalues  = eigensolver.eigenvalues();
+    auto eigenvectors = eigensolver.eigenvectors();
     double angle = atan2(eigenvectors(0,1), eigenvectors(0,0));
 
     //Shift the angle to the [0, 2pi] interval instead of [-pi, pi]
@@ -232,6 +259,8 @@ class Reprojector{
     //Calculate the size of the minor and major axes
     double halfmajoraxissize=chisquare_val*sqrt(eigenvalues(0));
     double halfminoraxissize=chisquare_val*sqrt(eigenvalues(1));
+
+    ROS_INFO_STREAM("axes: " << halfmajoraxissize << " : " << halfminoraxissize);
 
     //Return the oriented ellipse
     //The -angle is used because OpenCV defines the angle clockwise instead of anti-clockwise

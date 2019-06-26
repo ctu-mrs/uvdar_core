@@ -18,6 +18,7 @@ find_package(catkin REQUIRED COMPONENTS
   mrs_lib
   tf2
   tf_conversions
+  tf2_eigen
   )
 
 # find_package(Eigen3)
