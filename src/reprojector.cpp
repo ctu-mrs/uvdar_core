@@ -185,8 +185,8 @@ class Reprojector{
     rect.width +=expand;
     rect.x -=expand/2;
     rect.y -=expand/2;
-    cv::ellipse(viewImage, proj, cv::Scalar::all(255), 2);
-    cv::rectangle(viewImage, rect, cv::Scalar::all(255), 2);
+    cv::ellipse(viewImage, proj, cv::Scalar(255,0,0), 2);
+    cv::rectangle(viewImage, rect, cv::Scalar(0,0,255), 2);
     /* cv::circle(viewImage,getImPos(currOdom),getProjSize(currOdom),cv::Scalar(0,0,255)); */
   }
 
