@@ -134,7 +134,7 @@ class UvdarKalman {
           currKalman[target]->getCovariance()
           );
 
-      if (md >10)
+      if (md >3)
         return;
 
       currKalman[target]->setMeasurement(mes,Q);
