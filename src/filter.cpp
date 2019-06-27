@@ -254,7 +254,7 @@ int main(int argc, char** argv) {
   ros::NodeHandle nodeA;
   UvdarKalman        kl(nodeA);
 
-  ROS_INFO("UVDAR Pose reporter node initiated");
+  ROS_INFO("UVDAR Kalman filter node initiated");
 
   ros::spin();
 
