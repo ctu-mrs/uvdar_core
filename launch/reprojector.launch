@@ -21,6 +21,8 @@
 
   <arg name="offline" default="false"/>
 
+  <arg name="calib_file_color" default="calib_results_bf_c_fe.txt"/>
+
   <node
     name="uvcam_tf"
     pkg="tf"
@@ -44,6 +46,8 @@
     <param name="frame_uvdar" type="string" value="$(arg frame_uvdar)"/>
 
     <param name="offline" type="bool" value="$(arg offline)"/>
+
+    <param name="calib_file" type="string" value="$(arg calib_file_color)"/>
 
     <remap from="measuredPose1" to="/$(arg uav_name)/uvdar/measuredPose1"/>
     <remap from="measuredPose2" to="/$(arg uav_name)/uvdar/measuredPose2"/>

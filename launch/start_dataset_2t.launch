@@ -82,6 +82,8 @@
   <arg name="Delay" default="100"/>
   <arg name="TimeScale" default="1.0"/>
 
+  <arg name="calib_file" default="calib_results_bf_uv_fe.txt"/>
+
   <node
     name="uvcam_tf"
     pkg="tf"
@@ -206,6 +208,7 @@
       <param name="publish"         type="bool" value="$(arg publish)"/>
       <param name="frequenciesPerTarget" type="int" value="2"/>
       <param name="targetCount" type="int" value="2"/>
+      <param name="calib_file" type="string" value="$(arg calib_file)"/>
 
       <remap from="blinkersSeen" to="/$(arg uav_name)/uvdar/blinkersSeen"/>
       <remap from="estimatedFramerate" to="/$(arg uav_name)/uvdar/estimatedFramerate"/>

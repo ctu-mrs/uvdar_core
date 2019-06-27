@@ -20,7 +20,6 @@
   <arg name="frame_uvdar" default="uvcam"/>
   <arg name="frame_camera" default="color_camera"/>
 
-  <arg name="calib_file" default="calib_results_bf_c_fe.txt"/>
 
   <arg name="offline" default="false"/>
 
@@ -93,6 +92,8 @@
   <arg name="Delay" default="100"/>
   <arg name="TimeScale" default="1.0"/>
 
+  <arg name="calib_file_uv" default="calib_results_bf_uv_fe.txt"/>
+  <arg name="calib_file_color" default="calib_results_bf_c_fe.txt"/>
 
       <!-- <origin xyz="0.108 0 0.085" rpy="1.57079632679 4.71238898038 1.57079632679" /> -->
   <!--Usage: static_transform_publisher x y z yaw pitch roll frame_id child_frame_id  period(milliseconds)-->
@@ -109,6 +110,7 @@
       <param name="publish"         type="bool" value="$(arg publish)"/>
       <param name="frequenciesPerTarget" type="int" value="2"/>
       <param name="targetCount" type="int" value="2"/>
+      <param name="calib_file" type="string" value="$(arg calib_file_uv)"/>
 
       <remap from="blinkersSeen" to="/$(arg uav_name)/uvdar/blinkersSeen"/>
       <remap from="estimatedFramerate" to="/$(arg uav_name)/uvdar/estimatedFramerate"/>
@@ -125,15 +127,6 @@
   <!-- <node pkg="uvdar" type="uvdar_kalman_node" name="filterUvdar" output="screen" launch-prefix="debug_roslaunch"> -->
   <node pkg="uvdar" type="uvdar_kalman_node" name="filterUvdar" output="screen">
     <param name="output_frame" value="$(arg frame_uvdar)"/>
-    <!-- <param name="output_frame" value="fcu_$(arg uav_name)"/> -->
-    <!-- <param name="base_footprint_frame" value="fcu_$(arg uav_name)"/> -->
-    <!-- <param name="base_footprint_frame" value="uvdar_target_estim"/> -->
-    <!-- <param name="sensor_timeout" value="1.0"/> -->
-    <!-- <param name="odom_used" value="false"/> -->
-    <!-- <param name="imu_used" value="false"/> -->
-    <!-- <param name="vo_used" value="false"/> -->
-    <!-- <param name="uvdar_used" value="true"/> -->
-    <!-- <param name="debug" value="false"/> -->
     <!-- <param name="self_diagnose" value="false"/> -->
 
     <remap from="measuredPose1" to="/$(arg uav_name)/uvdar/measuredPose1"/>

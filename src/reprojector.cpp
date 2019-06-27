@@ -218,7 +218,8 @@ class Reprojector{
         }
         unscented::measurement ms = getProjectedCovariance(currOdom[target]);
         /* cv::ellipse(viewImage, getErrorEllipse(100,ms.x,ms.C), cv::Scalar::all(255), 2); */
-        auto proj = getErrorEllipse(2.4477,ms.x,ms.C);
+        auto proj = getErrorEllipse(1,ms.x,ms.C);
+        /* auto proj = getErrorEllipse(2.4477,ms.x,ms.C); */
         auto rect = proj.boundingRect();
 
         int expand = 40;

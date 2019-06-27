@@ -19,15 +19,15 @@
   <arg name="frame_uvdar" default="uvcam"/>
   <arg name="frame_camera" default="color_camera"/>
 
-  <arg name="calib_file" default="calib_results_bf_c_fe.txt"/>
-
   <arg name="offline" default="true"/>
+
+  <arg name="calib_file_color" default="calib_results_bf_c_fe.txt"/>
 
   <node
     name="uvcam_tf"
     pkg="tf"
     type="static_transform_publisher"
-    args="0.08 0.00 0.0 0.0 -0.035 0.00 $(arg frame_uvdar) $(arg frame_camera) 100"/>
+    args="0.08 0.00 0.0 0.0 -0.015 0.00 $(arg frame_uvdar) $(arg frame_camera) 100"/>
     <!-- args="0.08 0.00 0.0 0.0 0.0 0.05 $(arg frame_uvdar) $(arg frame_camera) 100"/> -->
       <!-- <origin xyz="0.108 0 0.085" rpy="1.57079632679 4.71238898038 1.57079632679" /> -->
 
@@ -47,7 +47,7 @@
 
     <param name="offline" type="bool" value="$(arg offline)"/>
 
-    <param name="calib_file" type="string" value="$(arg calib_file)"/>
+    <param name="calib_file" type="string" value="$(arg calib_file_color)"/>
 
     <remap from="measuredPose1" to="/$(arg uav_name)/uvdar/measuredPose1"/>
     <remap from="measuredPose2" to="/$(arg uav_name)/uvdar/measuredPose2"/>

@@ -115,7 +115,9 @@ public:
 
     char calib_path[100];
 
-    sprintf(calib_path, "%s/include/OCamCalib/config/calib_results.txt", ros::package::getPath("uvdar").c_str());
+    node.param("calib_file", calib_file, std::string("calib_results_bf_uv_fe.txt"));
+
+    sprintf(calib_path, "%s/include/OCamCalib/config/%s", ros::package::getPath("uvdar").c_str(),calib_file.c_str());
 
     get_ocam_model(&oc_model, calib_path);
 
@@ -1165,6 +1167,8 @@ private:
   std::vector<double> periodSet;
   std::vector<double> periodBoundsTop;
   std::vector<double> periodBoundsBottom;
+
+  std::string calib_file;
 };
 
 

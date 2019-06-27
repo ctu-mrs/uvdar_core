@@ -38,9 +38,9 @@ class UvdarKalman {
       dt,0,0,0,0,0,0,0,0,
       0,dt,0,0,0,0,0,0,0,
       0,0,dt,0,0,0,0,0,0,
-      0,0,0,dt/2,0,0,0,0,0,
-      0,0,0,0,dt/2,0,0,0,0,
-      0,0,0,0,0,dt/2,0,0,0,
+      0,0,0,dt/2.0,0,0,0,0,0,
+      0,0,0,0,dt/2.0,0,0,0,0,
+      0,0,0,0,0,dt/2.0,0,0,0,
       0,0,0,0,0,0,dt,0,0,
       0,0,0,0,0,0,0,dt,0,
       0,0,0,0,0,0,0,0,dt;
@@ -134,7 +134,7 @@ class UvdarKalman {
           currKalman[target]->getCovariance()
           );
 
-      if (md >3)
+      if (md >8)
         return;
 
       currKalman[target]->setMeasurement(mes,Q);
