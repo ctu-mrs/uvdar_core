@@ -7,6 +7,9 @@
 
 #define freq 30.0
 #define filterCount 2
+#define decayTime 1.0
+
+#define useVelocity false
 
 
 namespace e = Eigen;
@@ -18,11 +21,15 @@ class UvdarKalman {
 
     dt = 1.0/freq;
 
+    if (useVelocity){
+      
     A.resize(9,9);
     B.resize(0,0);
     R.resize(9,9);
     Q.resize(6,6);
     P.resize(6,9);
+
+
 
     A <<
       1,0,0,dt,0, 0, 0,0,0,
@@ -34,6 +41,7 @@ class UvdarKalman {
       0,0,0,0, 0, 0, 1,0,0,
       0,0,0,0, 0, 0, 0,1,0,
       0,0,0,0, 0, 0, 0,0,1;
+
     R <<
       dt,0,0,0,0,0,0,0,0,
       0,dt,0,0,0,0,0,0,0,
@@ -45,6 +53,47 @@ class UvdarKalman {
       0,0,0,0,0,0,0,dt,0,
       0,0,0,0,0,0,0,0,dt;
 
+    P <<
+      1,0,0,0,0,0,0,0,0,
+      0,1,0,0,0,0,0,0,0,
+      0,0,1,0,0,0,0,0,0,
+      0,0,0,0,0,0,1,0,0,
+      0,0,0,0,0,0,0,1,0,
+      0,0,0,0,0,0,0,0,1;
+    }
+    else {
+    A.resize(6,6);
+    B.resize(0,0);
+    R.resize(6,6);
+    Q.resize(6,6);
+    P.resize(6,6);
+
+
+    A <<
+      1,0,0, 0,0,0,
+      0,1,0, 0,0,0,
+      0,0,1, 0,0,0,
+      0,0,0, 1,0,0,
+      0,0,0, 0,1,0,
+      0,0,0, 0,0,1;
+
+    R <<
+      dt,0 ,0, 0 ,0 ,0,
+      0, dt,0, 0 ,0 ,0,
+      0, 0, dt,0 ,0 ,0,
+      0, 0, 0, dt,0 ,0,
+      0, 0, 0, 0 ,dt,0,
+      0, 0, 0, 0 ,0 ,dt;
+
+    P <<
+      1,0,0,0,0,0,
+      0,1,0,0,0,0,
+      0,0,1,0,0,0,
+      0,0,0,1,0,0,
+      0,0,0,0,1,0,
+      0,0,0,0,0,1;
+    }
+
     Q <<
       1,0,0,0,0,0,
       0,1,0,0,0,0,
@@ -53,20 +102,15 @@ class UvdarKalman {
       0,0,0,0,1,0,
       0,0,0,0,0,1;
 
-    P <<
-      1,0,0,0,0,0,0,0,0,
-      0,1,0,0,0,0,0,0,0,
-      0,0,1,0,0,0,0,0,0,
-      0,0,0,0,0,0,1,0,0,
-      0,0,0,0,0,0,0,1,0,
-      0,0,0,0,0,0,0,0,1;
-
 
 
     for (int i=0;i<filterCount;i++){
       gotMeasurement[i] = false;
       gotAnyMeasurement[i] = false;
-      currKalman[i] = new mrs_lib::Lkf(9, 0, 6, A, B, R, Q, P);
+      if (useVelocity)
+        currKalman[i] = new mrs_lib::Lkf(9, 0, 6, A, B, R, Q, P);
+      else 
+        currKalman[i] = new mrs_lib::Lkf(6, 0, 6, A, B, R, Q, P);
     }
 
     timer = nh.createTimer(ros::Duration(1.0/fmax(freq,1.0)), &UvdarKalman::spin, this);
@@ -121,9 +165,16 @@ class UvdarKalman {
 
 
     if (!gotAnyMeasurement[target]){
-      e::VectorXd initState(9);
-      initState << mes.topRows(3),e::Vector3d::Zero(),mes.bottomRows(3);
-      currKalman[target]->setStates(initState);
+      if (useVelocity){
+        e::VectorXd initState(9);
+        initState << mes.topRows(3),e::Vector3d::Zero(),mes.bottomRows(3);
+        currKalman[target]->setStates(initState);
+      }
+      else{
+        e::VectorXd initState(6);
+        initState << mes;
+        currKalman[target]->setStates(initState);
+      }
       /* currKalman[target]->setCovariance(Q); */
       gotAnyMeasurement[target] = true;
     }
@@ -131,10 +182,10 @@ class UvdarKalman {
       double md = mahalanobis_distance2(
           mes.topRows(3),
           currKalman[target]->getStates().topRows(3),
-          currKalman[target]->getCovariance()
+          currKalman[target]->getCovariance().topLeftCorner(3, 3)
           );
 
-      if (md >8)
+      if (md >16)
         return;
 
       currKalman[target]->setMeasurement(mes,Q);
@@ -158,9 +209,12 @@ class UvdarKalman {
         gotMeasurement[target] = false;
       }
       else
-        if (ros::Duration(ros::Time::now()-lastMeasurement[target]).toSec()<2)
-        currKalman[target]->iterateWithoutCorrection();
+        if (ros::Duration(ros::Time::now()-lastMeasurement[target]).toSec()<decayTime){
+          /* std::cout << "HEREWEARE: " << target << std::endl; */
+          currKalman[target]->iterateWithoutCorrection();
+        }
         else{
+          gotMeasurement[target] = false;
           gotAnyMeasurement[target] = false;
           return;
         }
@@ -190,13 +244,18 @@ class UvdarKalman {
       }
     }
 
-    pubPose->twist.twist.linear.x = currKalman[target]->getState(3);
-    pubPose->twist.twist.linear.y = currKalman[target]->getState(4);
-    pubPose->twist.twist.linear.z = currKalman[target]->getState(5);
+    if (useVelocity){
+      pubPose->twist.twist.linear.x = currKalman[target]->getState(3);
+      pubPose->twist.twist.linear.y = currKalman[target]->getState(4);
+      pubPose->twist.twist.linear.z = currKalman[target]->getState(5);
+    }
 
     for (int i=3; i<6; i++){
       for (int j=3; j<6; j++){
-        pubPose->twist.covariance[6*(j-3)+(i-3)] =  C(j,i);
+        if (useVelocity)
+          pubPose->twist.covariance[6*(j-3)+(i-3)] =  C(j,i);
+        else
+          pubPose->twist.covariance[6*(j-3)+(i-3)] =  1;
       }
     }
 

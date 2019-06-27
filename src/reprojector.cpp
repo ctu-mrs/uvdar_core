@@ -20,6 +20,7 @@
 
 #define filterCount 2
 #define freq 3.0
+#define decayTime 0.1
 
 
 class Reprojector{
@@ -91,6 +92,7 @@ class Reprojector{
     auto meas = event.getMessage();
 
     gotOdom[target] = true;
+    lastMeasurement[target] = ros::Time::now();
     std::scoped_lock(mtx_odom);
     currOdom[target] = *meas;
   }
@@ -203,6 +205,9 @@ class Reprojector{
 
       for (int target=0;target<filterCount;target++){
 
+        if (ros::Duration(ros::Time::now()-lastMeasurement[target]).toSec()>decayTime)
+          gotOdom[target] = false;
+        
         if (!(gotOdom[target])){
           ROS_INFO("Estimate %d not yet obtained, waiting...",target+1);
           continue;
@@ -211,10 +216,10 @@ class Reprojector{
         cv::Scalar color;
         switch (target) {
           case 0:
-            color=cv::Scalar(255,0,0);
+            color=cv::Scalar(255,255,0);
             break;
           case 1:
-            color=cv::Scalar(0,0,255);
+            color=cv::Scalar(255,0,255);
         }
         unscented::measurement ms = getProjectedCovariance(currOdom[target]);
         /* cv::ellipse(viewImage, getErrorEllipse(100,ms.x,ms.C), cv::Scalar::all(255), 2); */
@@ -347,6 +352,7 @@ class Reprojector{
   ros::Timer tf_timer;
   ros::Timer im_timer;
 
+  ros::Time lastMeasurement[filterCount];
   bool gotImage, gotOdom[filterCount], gotU2C, gotC2U;
 
   bool offline;
