@@ -42,8 +42,8 @@ unscented::measurement unscented::unscentedTransform(e::VectorXd x,e::MatrixXd P
   /* std::cout << W << std::endl; */
 
   // Wm = [W(1)+(1-1/Alpha);W(2:end)/Alpha]; Wc = [W/(Alpha^2)];
-  std::cout << "Px: " << std::endl;
-  std::cout << Px << std::endl;
+  /* std::cout << "Px: " << std::endl; */
+  /* std::cout << Px << std::endl; */
   e::MatrixXd sf = ((L/(1-W0))*Px).sqrt();
   for (int i=0; i<L; i++){
     X.col(i*2+1) = (x+(sf.row(i)).transpose());
@@ -66,8 +66,8 @@ unscented::measurement unscented::unscentedTransform(e::VectorXd x,e::MatrixXd P
     /* std::cout << "unscented X[" << i << "]: " << X.col(i) << std::endl; */
     Y.col(i)=fcn(X.col(i),expFrequencies); //this is weird, check please
   }
-  std::cout << "unscented Y: "<< std::endl;
-  std::cout << Y << std::endl;
+  /* std::cout << "unscented Y: "<< std::endl; */
+  /* std::cout << Y << std::endl; */
   e::Vector3d mr;
     mr << 0,0,0;
   /* mr = [0;0;0]; */

@@ -19,7 +19,7 @@
 #include <unscented/unscented.h>
 
 #define filterCount 2
-#define freq 3
+#define freq 3.0
 
 
 class Reprojector{
@@ -48,9 +48,12 @@ class Reprojector{
     get_ocam_model(&oc_model, calib_path);
 
 
-    if (offline) {
+    if (!offline) {
       image_transport::ImageTransport it(nh);
-      imPub = it.advertise("reprojection", 1);
+      imPub = it.advertise("reprojection", 1000);
+    }
+    else { 
+      cv::namedWindow("ocv_marked");
     }
 
     listener = new tf2_ros::TransformListener(buffer);
@@ -65,8 +68,8 @@ class Reprojector{
   private:
   //methods
   void imageCallback(const sensor_msgs::ImageConstPtr& msg_Image){
-    gotImage = true;
     std::scoped_lock lock(mtx_image);
+
     if (msg_Image == NULL) 
       return;
     cv_bridge::CvImageConstPtr image;
@@ -75,6 +78,8 @@ class Reprojector{
     else
       image = cv_bridge::toCvShare(msg_Image, sensor_msgs::image_encodings::MONO8);
     currImage = image->image;
+
+    gotImage = true;
   }
 
   void odomCallback(const ros::MessageEvent<nav_msgs::Odometry const>& event){
@@ -91,6 +96,15 @@ class Reprojector{
   }
 
   void spin([[ maybe_unused ]] const ros::TimerEvent& unused){
+    end         = std::clock();
+    end_r         = ros::Time::now();
+    elapsedTime = double(end - begin) / CLOCKS_PER_SEC;
+    elapsedTime_r = end_r-begin_r;
+    std::cout << "Spin time: " << elapsedTime << " s" << std::endl;
+    std::cout << "Ros spin time: " << elapsedTime_r.toSec() << " s" << std::endl;
+    begin = std::clock();
+    begin_r = ros::Time::now();
+    /* ROS_INFO_STREAM("HEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEY"); */
     if (!gotImage){
       ROS_INFO("Image not yet obtained, waiting...");
       return;
@@ -100,10 +114,11 @@ class Reprojector{
       return;
     }
 
-    if (offline)
+    if (!offline)
       drawAndPublish();
     else
       drawAndShow();
+
   }
 
   void tfTimer(const ros::TimerEvent& event) {
@@ -163,7 +178,7 @@ class Reprojector{
   void drawAndShow(){
     drawImage();
     cv::imshow("ocv_marked",viewImage);
-    cv::waitKey(5);
+    cv::waitKey(10);
   }
 
   void drawAndPublish(){
@@ -174,43 +189,48 @@ class Reprojector{
   }
 
   void drawImage(){
-    std::scoped_lock lock(mtx_image,mtx_odom);
-    if (currImage.channels() == 1){
-      cv::cvtColor(currImage,viewImage,cv::COLOR_GRAY2BGR);
-    }
-    else {
-      viewImage = currImage;
-    }
-
-    for (int target=0;target<filterCount;target++){
-
-      if (!(gotOdom[target])){
-        ROS_INFO("Estimate %d not yet obtained, waiting...",target+1);
-        continue;
+    {
+      std::scoped_lock lock(mtx_image);
+      if (currImage.channels() == 1){
+        cv::cvtColor(currImage,viewImage,cv::COLOR_GRAY2BGR);
       }
-
-      cv::Scalar color;
-      switch (target) {
-        case 0:
-          color=cv::Scalar(255,0,0);
-          break;
-        case 1:
-          color=cv::Scalar(0,0,255);
+      else {
+        viewImage = currImage;
       }
-    unscented::measurement ms = getProjectedCovariance(currOdom[target]);
-    /* cv::ellipse(viewImage, getErrorEllipse(100,ms.x,ms.C), cv::Scalar::all(255), 2); */
-    auto proj = getErrorEllipse(2.4477,ms.x,ms.C);
-    auto rect = proj.boundingRect();
+    }
+    {
+      std::scoped_lock lock(mtx_odom);
 
-    int expand = 40;
+      for (int target=0;target<filterCount;target++){
 
-    rect.height +=expand;
-    rect.width +=expand;
-    rect.x -=expand/2;
-    rect.y -=expand/2;
-    cv::ellipse(viewImage, proj, color, 2);
-    cv::rectangle(viewImage, rect, color, 2);
-    /* cv::circle(viewImage,getImPos(currOdom),getProjSize(currOdom),cv::Scalar(0,0,255)); */
+        if (!(gotOdom[target])){
+          ROS_INFO("Estimate %d not yet obtained, waiting...",target+1);
+          continue;
+        }
+
+        cv::Scalar color;
+        switch (target) {
+          case 0:
+            color=cv::Scalar(255,0,0);
+            break;
+          case 1:
+            color=cv::Scalar(0,0,255);
+        }
+        unscented::measurement ms = getProjectedCovariance(currOdom[target]);
+        /* cv::ellipse(viewImage, getErrorEllipse(100,ms.x,ms.C), cv::Scalar::all(255), 2); */
+        auto proj = getErrorEllipse(2.4477,ms.x,ms.C);
+        auto rect = proj.boundingRect();
+
+        int expand = 40;
+
+        rect.height +=expand;
+        rect.width +=expand;
+        rect.x -=expand/2;
+        rect.y -=expand/2;
+        cv::ellipse(viewImage, proj, color, 2);
+        cv::rectangle(viewImage, rect, color, 2);
+        /* cv::circle(viewImage,getImPos(currOdom),getProjSize(currOdom),cv::Scalar(0,0,255)); */
+      }
     }
   }
 
@@ -323,7 +343,8 @@ class Reprojector{
   ros::Subscriber measSubscriber[filterCount];
   ros::Subscriber ImageSubscriber;
 
-  ros::Timer tf_timer,im_timer;
+  ros::Timer tf_timer;
+  ros::Timer im_timer;
 
   bool gotImage, gotOdom[filterCount], gotU2C, gotC2U;
 
@@ -343,6 +364,11 @@ class Reprojector{
   struct ocam_model oc_model;
 
   image_transport::Publisher imPub;
+
+  clock_t begin, end;
+  ros::Time begin_r, end_r;
+  double  elapsedTime;
+  ros::Duration elapsedTime_r;
 };
 
 int main(int argc, char** argv){
