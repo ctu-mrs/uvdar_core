@@ -189,11 +189,11 @@ class UvdarKalman {
         return;
 
       currKalman[target]->setMeasurement(mes,Q);
+      gotMeasurement[target] =true;
     }
 
-
-    gotMeasurement[target] =true;
     lastMeasurement[target] = ros::Time::now();
+
   }
 
   void spin([[ maybe_unused ]] const ros::TimerEvent& unused){
@@ -214,7 +214,6 @@ class UvdarKalman {
           currKalman[target]->iterateWithoutCorrection();
         }
         else{
-          gotMeasurement[target] = false;
           gotAnyMeasurement[target] = false;
           return;
         }
@@ -236,45 +235,45 @@ class UvdarKalman {
       for (int i=0; i<3; i++){
         for (int j=0; j<3; j++){
           pubPose->pose.covariance[6*j+i] =  C(j,i);
+        }
       }
-    }
-    for (int i=6; i<9; i++){
-      for (int j=6; j<9; j++){
-        pubPose->pose.covariance[6*(j-3)+(i-3)] =  C(j,i);
+      for (int i=6; i<9; i++){
+        for (int j=6; j<9; j++){
+          pubPose->pose.covariance[6*(j-3)+(i-3)] =  C(j,i);
+        }
       }
-    }
 
-    if (useVelocity){
-      pubPose->twist.twist.linear.x = currKalman[target]->getState(3);
-      pubPose->twist.twist.linear.y = currKalman[target]->getState(4);
-      pubPose->twist.twist.linear.z = currKalman[target]->getState(5);
-    }
-
-    for (int i=3; i<6; i++){
-      for (int j=3; j<6; j++){
-        if (useVelocity)
-          pubPose->twist.covariance[6*(j-3)+(i-3)] =  C(j,i);
-        else
-          pubPose->twist.covariance[6*(j-3)+(i-3)] =  1;
+      if (useVelocity){
+        pubPose->twist.twist.linear.x = currKalman[target]->getState(3);
+        pubPose->twist.twist.linear.y = currKalman[target]->getState(4);
+        pubPose->twist.twist.linear.z = currKalman[target]->getState(5);
       }
-    }
 
-    for (int i=3; i<6; i++){
-      for (int j=3; j<6; j++){
-        if (i == j)
-          pubPose->twist.covariance[6*(j)+(i)] =  1.0;
-        else
-          pubPose->twist.covariance[6*(j)+(i)] =  0;
+      for (int i=3; i<6; i++){
+        for (int j=3; j<6; j++){
+          if (useVelocity)
+            pubPose->twist.covariance[6*(j-3)+(i-3)] =  C(j,i);
+          else
+            pubPose->twist.covariance[6*(j-3)+(i-3)] =  1;
+        }
       }
-    }
 
-    pubPose->header.frame_id ="uvcam";
-    pubPose->header.stamp = ros::Time::now();
+      for (int i=3; i<6; i++){
+        for (int j=3; j<6; j++){
+          if (i == j)
+            pubPose->twist.covariance[6*(j)+(i)] =  1.0;
+          else
+            pubPose->twist.covariance[6*(j)+(i)] =  0;
+        }
+      }
 
-    filtPublisher[target].publish(pubPose);
+      pubPose->header.frame_id ="uvcam";
+      pubPose->header.stamp = ros::Time::now();
 
-    ROS_INFO_STREAM("State: ");
-    ROS_INFO_STREAM("" << currKalman[target]->getStates());
+      filtPublisher[target].publish(pubPose);
+
+      ROS_INFO_STREAM("State: ");
+      ROS_INFO_STREAM("" << currKalman[target]->getStates());
 
     }
 
