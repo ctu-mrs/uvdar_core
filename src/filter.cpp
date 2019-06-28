@@ -8,6 +8,7 @@
 #define freq 30.0
 #define filterCount 2
 #define decayTime 1.0
+#define DEBUG true
 
 #define useVelocity false
 
@@ -139,8 +140,11 @@ class UvdarKalman {
     std::string topic = mhdr["topic"];
     int target =(int)(topic.back())-49;
     const geometry_msgs::PoseWithCovarianceStampedConstPtr& meas = event.getMessage();
-    ROS_INFO_STREAM("Geting message [" << target <<": ");
-    ROS_INFO_STREAM("" << meas->pose.pose.position);
+
+      if (DEBUG){
+        ROS_INFO_STREAM("Geting message [" << target <<"]");
+        ROS_INFO_STREAM("" << meas->pose.pose.position);
+      }
 
 
     e::Quaternion qtemp(meas->pose.pose.orientation.w, meas->pose.pose.orientation.x, meas->pose.pose.orientation.y, meas->pose.pose.orientation.z );
@@ -151,8 +155,11 @@ class UvdarKalman {
     mes(1) = meas->pose.pose.position.y;
     mes(2) = meas->pose.pose.position.z;
 
-    if (mes.array().isNaN().any())
+    if (mes.array().isNaN().any()){
+      if (DEBUG)
+        ROS_INFO_STREAM("Message [" << target <<"] contains NaNs, discarding");
       return;
+    }
 
     mes.bottomRows(3) = qtemp.toRotationMatrix().eulerAngles(0, 1, 2);
 
@@ -163,8 +170,21 @@ class UvdarKalman {
       }
     }
 
+    if (Q.array().isNaN().any()){
+      if (DEBUG)
+        ROS_INFO_STREAM("Message [" << target <<"] contains NaNs, discarding");
+      return;
+    }
+
+      if (DEBUG){
+        ROS_INFO_STREAM("" << Q);
+      }
+
 
     if (!gotAnyMeasurement[target]){
+
+      if (DEBUG)
+        ROS_INFO_STREAM("Initiating [" << target <<"]");
       if (useVelocity){
         e::VectorXd initState(9);
         initState << mes.topRows(3),e::Vector3d::Zero(),mes.bottomRows(3);
@@ -185,9 +205,14 @@ class UvdarKalman {
           currKalman[target]->getCovariance().topLeftCorner(3, 3)
           );
 
+      if (DEBUG)
+        ROS_INFO_STREAM("Mahalanobis dist. of [" << target <<"] is "<< md);
+
       if (md >16)
         return;
 
+      if (DEBUG)
+        ROS_INFO_STREAM("Applying measurement [" << target <<"]");
       currKalman[target]->setMeasurement(mes,Q);
       gotMeasurement[target] =true;
     }
@@ -205,15 +230,20 @@ class UvdarKalman {
         continue;
 
       if (gotMeasurement[target] ){
+          if (DEBUG)
+            ROS_INFO_STREAM("Iterating [" << target <<"]");
         currKalman[target]->iterate();
         gotMeasurement[target] = false;
       }
       else
         if (ros::Duration(ros::Time::now()-lastMeasurement[target]).toSec()<decayTime){
-          /* std::cout << "HEREWEARE: " << target << std::endl; */
+          if (DEBUG)
+            ROS_INFO_STREAM("Iterating [" << target <<"] without measurement");
           currKalman[target]->iterateWithoutCorrection();
         }
         else{
+          if (DEBUG)
+            ROS_INFO_STREAM("Tracker [" << target <<"] has decayed");
           gotAnyMeasurement[target] = false;
           return;
         }
@@ -272,8 +302,10 @@ class UvdarKalman {
 
       filtPublisher[target].publish(pubPose);
 
-      ROS_INFO_STREAM("State: ");
-      ROS_INFO_STREAM("" << currKalman[target]->getStates());
+      if (DEBUG){
+        ROS_INFO_STREAM("State: ");
+        ROS_INFO_STREAM("" << currKalman[target]->getStates());
+      }
 
     }
 
