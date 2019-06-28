@@ -21,14 +21,13 @@
 
   <arg name="offline" default="true"/>
 
-  <arg name="calib_file_color" default="calib_results_bf_c_nr.txt"/>
+  <arg name="calib_file_color" default="calib_results_bf_c_fe.txt"/>
 
   <node
     name="uvcam_tf"
     pkg="tf"
     type="static_transform_publisher"
-    args="0.08 0.00 0.0 0.0 0.010 0.00 $(arg frame_uvdar) $(arg frame_camera) 100"/>
-    <!-- args="0.08 0.00 0.0 0.0 -0.015 0.00 $(arg frame_uvdar) $(arg frame_camera) 100"/> -->
+    args="0.08 0.00 0.0 0.0 -0.015 0.00 $(arg frame_uvdar) $(arg frame_camera) 100"/>
     <!-- args="0.08 0.00 0.0 0.0 0.0 0.05 $(arg frame_uvdar) $(arg frame_camera) 100"/> -->
       <!-- <origin xyz="0.108 0 0.085" rpy="1.57079632679 4.71238898038 1.57079632679" /> -->
 

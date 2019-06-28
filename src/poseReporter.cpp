@@ -412,7 +412,7 @@ public:
     const double sin_ab = v.norm();
     const double cos_ab = a.dot(b);
     Eigen::Matrix3d vec_rot = Eigen::Matrix3d::Identity();
-    if (sin_ab < tol)  // unprobable, but possible - then it is identity or 180deg
+    if (sin_ab < tol)  // improbable, but possible - then it is identity or 180deg
     {
       if (cos_ab + 1.0 < tol)  // that would be 180deg
       {
