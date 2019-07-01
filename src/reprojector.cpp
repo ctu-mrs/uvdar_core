@@ -44,7 +44,10 @@ class Reprojector{
     param_loader.load_param("frame_uvdar", frame_uvdar);
     param_loader.load_param("offline", offline);
     param_loader.load_param("calib_file", calib_file);
-    char calib_path[100];
+    /* ROS_INFO_STREAM( "/include/OCamCalib/config/"); */
+    /* ROS_INFO_STREAM(ros::package::getPath("uvdar")); */
+    /* ROS_INFO_STREAM(calib_file); */
+    char calib_path[600];
     sprintf(calib_path, "%s/include/OCamCalib/config/%s", ros::package::getPath("uvdar").c_str(),calib_file.c_str());
     get_ocam_model(&oc_model, calib_path);
 
@@ -227,7 +230,10 @@ class Reprojector{
         /* auto proj = getErrorEllipse(2.4477,ms.x,ms.C); */
         auto rect = proj.boundingRect();
 
-        int expand = 40;
+        
+        int expand = (int)(500.0/(oc_model.pol[1]*getDistance(ms.x.topRows(3))));
+
+        ROS_INFO_STREAM("Epansion size: "<< expand);
 
         rect.height +=expand;
         rect.width +=expand;
@@ -305,6 +311,10 @@ class Reprojector{
     output.C = output.C.topLeftCorner(2, 2);
 
     return output;
+  }
+
+  double getDistance(Eigen::Vector3d x){
+    return x.norm();
   }
 
   cv::RotatedRect getErrorEllipse(double chisquare_val, Eigen::Vector2d mean, Eigen::Matrix2Xd C){
