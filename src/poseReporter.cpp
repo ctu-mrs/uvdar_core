@@ -807,9 +807,10 @@ public:
 
             if ((cv::norm(points[i] - points[j]) < maxDist) && (abs(points[i].y - points[j].y) < abs(points[i].x - points[j].x))) {
               viable = true;
+            }
+            else{ separated = false;
               break;
             }
-            else separated = false;
           }
           if (!viable) {
             points.erase(points.begin() + i);
