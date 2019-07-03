@@ -254,7 +254,12 @@ class UvdarKalman {
       pubPose->pose.pose.position.x = currKalman[target]->getState(0);
       pubPose->pose.pose.position.y = currKalman[target]->getState(1);
       pubPose->pose.pose.position.z = currKalman[target]->getState(2);
-      e::Quaternion qtemp = e::AngleAxisd(currKalman[target]->getState(6), e::Vector3d::UnitX()) * e::AngleAxisd(currKalman[target]->getState(7), e::Vector3d::UnitY()) * e::AngleAxisd(currKalman[target]->getState(8), e::Vector3d::UnitZ());
+
+      e::Quaternion<double> qtemp;
+      if (useVelocity)
+        qtemp = e::AngleAxisd(currKalman[target]->getState(6), e::Vector3d::UnitX()) * e::AngleAxisd(currKalman[target]->getState(7), e::Vector3d::UnitY()) * e::AngleAxisd(currKalman[target]->getState(8), e::Vector3d::UnitZ());
+      else
+        qtemp = e::AngleAxisd(currKalman[target]->getState(3), e::Vector3d::UnitX()) * e::AngleAxisd(currKalman[target]->getState(4), e::Vector3d::UnitY()) * e::AngleAxisd(currKalman[target]->getState(5), e::Vector3d::UnitZ());
       /* qtemp.setRPY(currKalman[target]->getState(6), currKalman[target]->getState(7), currKalman[target]->getState(8)); */
       /* qtemp=(transformCam2Base.getRotation().inverse())*qtemp; */
       pubPose->pose.pose.orientation.x = qtemp.x();
@@ -267,33 +272,40 @@ class UvdarKalman {
           pubPose->pose.covariance[6*j+i] =  C(j,i);
         }
       }
-      for (int i=6; i<9; i++){
-        for (int j=6; j<9; j++){
-          pubPose->pose.covariance[6*(j-3)+(i-3)] =  C(j,i);
+      if (useVelocity)
+        for (int i=6; i<9; i++){
+          for (int j=6; j<9; j++){
+            pubPose->pose.covariance[6*(j-3)+(i-3)] =  C(j,i);
+          }
         }
-      }
+      else
+        for (int i=3; i<6; i++){
+          for (int j=3; j<6; j++){
+            pubPose->pose.covariance[6*(j)+(i)] =  C(j,i);
+          }
+        }
 
       if (useVelocity){
         pubPose->twist.twist.linear.x = currKalman[target]->getState(3);
         pubPose->twist.twist.linear.y = currKalman[target]->getState(4);
         pubPose->twist.twist.linear.z = currKalman[target]->getState(5);
-      }
 
-      for (int i=3; i<6; i++){
-        for (int j=3; j<6; j++){
-          if (useVelocity)
-            pubPose->twist.covariance[6*(j-3)+(i-3)] =  C(j,i);
-          else
-            pubPose->twist.covariance[6*(j-3)+(i-3)] =  1;
+        for (int i=3; i<6; i++){
+          for (int j=3; j<6; j++){
+            if (useVelocity)
+              pubPose->twist.covariance[6*(j-3)+(i-3)] =  C(j,i);
+            else
+              pubPose->twist.covariance[6*(j-3)+(i-3)] =  1;
+          }
         }
-      }
 
-      for (int i=3; i<6; i++){
-        for (int j=3; j<6; j++){
-          if (i == j)
-            pubPose->twist.covariance[6*(j)+(i)] =  1.0;
-          else
-            pubPose->twist.covariance[6*(j)+(i)] =  0;
+        for (int i=3; i<6; i++){
+          for (int j=3; j<6; j++){
+            if (i == j)
+              pubPose->twist.covariance[6*(j)+(i)] =  1.0;
+            else
+              pubPose->twist.covariance[6*(j)+(i)] =  0;
+          }
         }
       }
 
