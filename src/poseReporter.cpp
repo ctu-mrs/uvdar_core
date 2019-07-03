@@ -61,6 +61,7 @@ namespace enc = sensor_msgs::image_encodings;
 class PoseReporter {
 public:
   PoseReporter(ros::NodeHandle& node) {
+    ROS_INFO("Initializing pose reporter...");
     reachedTarget   = false;
     followTriggered = false;
     ros::NodeHandle private_node_handle("~");
@@ -113,7 +114,7 @@ public:
 
     gotCamInfo = false;
 
-    char calib_path[100];
+    char calib_path[400];
 
     node.param("calib_file", calib_file, std::string("calib_results_bf_uv_fe.txt"));
 
@@ -396,6 +397,12 @@ public:
 
   //Courtesy of Matous Vrba
   static Eigen::Matrix3d calc_position_covariance(const Eigen::Vector3d& position_sf, const double xy_covariance_coeff, const double z_covariance_coeff) {
+    Eigen::Matrix3d v_x;
+    Eigen::Vector3d b;
+    Eigen::Vector3d v;
+    double sin_ab, cos_ab;
+    Eigen::Matrix3d vec_rot;
+    const Eigen::Vector3d a(0.0, 0.0, 1.0);
     /* Calculates the corresponding covariance matrix of the estimated 3D position */
     Eigen::Matrix3d pos_cov = Eigen::Matrix3d::Identity();  // prepare the covariance matrix
     const double tol = 1e-9;
@@ -406,12 +413,11 @@ public:
       pos_cov(2, 2) = 0.33 * z_covariance_coeff;
 
     // Find the rotation matrix to rotate the covariance to point in the direction of the estimated position
-    const Eigen::Vector3d a(0.0, 0.0, 1.0);
-    const Eigen::Vector3d b = position_sf.normalized();
-    const Eigen::Vector3d v = a.cross(b);
-    const double sin_ab = v.norm();
-    const double cos_ab = a.dot(b);
-    Eigen::Matrix3d vec_rot = Eigen::Matrix3d::Identity();
+    b = position_sf.normalized();
+    v = a.cross(b);
+    sin_ab = v.norm();
+    cos_ab = a.dot(b);
+    vec_rot = Eigen::Matrix3d::Identity();
     if (sin_ab < tol)  // improbable, but possible - then it is identity or 180deg
     {
       if (cos_ab + 1.0 < tol)  // that would be 180deg
@@ -420,11 +426,21 @@ public:
       }     // otherwise its identity
     } else  // otherwise just construct the matrix
     {
-      Eigen::Matrix3d v_x;
       v_x << 0.0, -v(2), v(1), v(2), 0.0, -v(0), -v(1), v(0), 0.0;
       vec_rot = Eigen::Matrix3d::Identity() + v_x + (1 - cos_ab) / (sin_ab * sin_ab) * (v_x * v_x);
     }
     pos_cov = rotate_covariance(pos_cov, vec_rot);  // rotate the covariance to point in direction of est. position
+    if (pos_cov.array().isNaN().any()){
+      ROS_INFO_STREAM("NAN IN  COVARIANCE!!!!");
+      ROS_INFO_STREAM("pos_cov: \n" <<pos_cov);
+      ROS_INFO_STREAM("v_x: \n" <<v_x);
+      ROS_INFO_STREAM("sin_ab: " <<sin_ab);
+      ROS_INFO_STREAM("cos_ab: " <<cos_ab);
+      ROS_INFO_STREAM("vec_rot: \n"<<vec_rot);
+      ROS_INFO_STREAM("a: " <<a.transpose());
+      ROS_INFO_STREAM("b: " <<b.transpose());
+      ROS_INFO_STREAM("v: " <<v.transpose());
+    }
     return pos_cov;
   }
 

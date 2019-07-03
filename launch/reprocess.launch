@@ -118,7 +118,7 @@
     </node>
 
 
-    <node pkg="image_transport" type="republish" name="republish_bluefox" output="screen" args="compressed in:=bluefox/image_raw raw out:=bluefox2/image_raw"  />
+    <!-- <node pkg="image_transport" type="republish" name="republish_bluefox" output="screen" args="compressed in:=bluefox/image_raw raw out:=bluefox2/image_raw"  /> -->
   
   <!-- <node pkg="uvdar" type="uvdar_kalman_node" name="filterUvdar" output="screen" launch-prefix="debug_roslaunch"> -->
   <!-- <node pkg="uvdar" type="uvdar_reprojector_node" name="reprojector_node" output="screen" launch-prefix="debug_roslaunch"> -->

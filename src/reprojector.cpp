@@ -40,19 +40,19 @@ class Reprojector{
     profiler = new mrs_lib::Profiler(pnh, "uvdar_reprojector_node", true);
     mrs_lib::ParamLoader param_loader(pnh, "uvdar_reprojector_node");
 
-    param_loader.load_param("frame_camera", frame_camera);
-    param_loader.load_param("frame_uvdar", frame_uvdar);
-    param_loader.load_param("offline", offline);
-    param_loader.load_param("calib_file", calib_file);
+    param_loader.load_param("frame_camera", _frame_camera);
+    param_loader.load_param("frame_uvdar", _frame_uvdar);
+    param_loader.load_param("offline", _offline);
+    param_loader.load_param("calib_file", _calib_file);
     /* ROS_INFO_STREAM( "/include/OCamCalib/config/"); */
     /* ROS_INFO_STREAM(ros::package::getPath("uvdar")); */
-    /* ROS_INFO_STREAM(calib_file); */
+    /* ROS_INFO_STREAM(_calib_file); */
     char calib_path[600];
-    sprintf(calib_path, "%s/include/OCamCalib/config/%s", ros::package::getPath("uvdar").c_str(),calib_file.c_str());
+    sprintf(calib_path, "%s/include/OCamCalib/config/%s", ros::package::getPath("uvdar").c_str(),_calib_file.c_str());
     get_ocam_model(&oc_model, calib_path);
 
 
-    if (!offline) {
+    if (!_offline) {
       image_transport::ImageTransport it(nh);
       imPub = it.advertise("reprojection", 1000);
     }
@@ -119,7 +119,7 @@ class Reprojector{
       return;
     }
 
-    if (!offline)
+    if (!_offline)
       drawAndPublish();
     else
       drawAndShow();
@@ -133,7 +133,7 @@ class Reprojector{
     try {
       {
         std::scoped_lock lock(mtx_tf);
-        transformUvdar2Cam = buffer.lookupTransform(frame_camera, frame_uvdar, ros::Time(0), ros::Duration(2));
+        transformUvdar2Cam = buffer.lookupTransform(_frame_camera, _frame_uvdar, ros::Time(0), ros::Duration(2));
       }
       ROS_INFO_STREAM("[OpticFlow]: received uvdar2cam tf" << transformUvdar2Cam);
 
@@ -152,7 +152,7 @@ class Reprojector{
     try {
       {
         std::scoped_lock lock(mtx_tf);
-        transformCam2Uvdar = buffer.lookupTransform(frame_uvdar, frame_camera, ros::Time(0), ros::Duration(2));
+        transformCam2Uvdar = buffer.lookupTransform(_frame_uvdar, _frame_camera, ros::Time(0), ros::Duration(2));
       }
 
       ROS_INFO_STREAM("[OpticFlow]: received cam2uvdar tf" << transformCam2Uvdar);
@@ -231,9 +231,9 @@ class Reprojector{
         auto rect = proj.boundingRect();
 
         
-        int expand = (int)(500.0/(oc_model.pol[1]*getDistance(ms.x.topRows(3))));
+        int expand = (int)round(120000.0/(oc_model.invpol[0]*getDistance(currOdom[target])));
 
-        ROS_INFO_STREAM("Epansion size: "<< expand);
+        ROS_INFO_STREAM("Expansion size: "<< expand << " invpol[0]: " << oc_model.invpol[0] << " distance: " << getDistance(currOdom[target]));
 
         rect.height +=expand;
         rect.width +=expand;
@@ -313,8 +313,10 @@ class Reprojector{
     return output;
   }
 
-  double getDistance(Eigen::Vector3d x){
-    return x.norm();
+  double getDistance(nav_msgs::Odometry i_odom){
+    /* ROS_INFO_STREAM("pose: "<<  x); */
+    Eigen::Vector3d tmp(i_odom.pose.pose.position.x,i_odom.pose.pose.position.y,i_odom.pose.pose.position.z);
+    return tmp.norm();
   }
 
   cv::RotatedRect getErrorEllipse(double chisquare_val, Eigen::Vector2d mean, Eigen::Matrix2Xd C){
@@ -365,7 +367,7 @@ class Reprojector{
   ros::Time lastMeasurement[filterCount];
   bool gotImage, gotOdom[filterCount], gotU2C, gotC2U;
 
-  bool offline;
+  bool _offline;
 
   tf2_ros::Buffer                 buffer;
   tf2_ros::TransformListener*     listener;
@@ -374,9 +376,9 @@ class Reprojector{
   tf2::Stamped<tf2::Transform> TfC2U, TfU2C;
 
   mrs_lib::Profiler* profiler;
-  std::string frame_camera, frame_uvdar;
+  std::string _frame_camera, _frame_uvdar;
 
-  std::string calib_file;
+  std::string _calib_file;
 
   struct ocam_model oc_model;
 
