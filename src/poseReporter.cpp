@@ -797,7 +797,8 @@ public:
         }
       }
       bool separated = false;
-      while ((points.size() > 3) && (!separated)) {
+      while ((points.size() > 3) || (!separated)) {
+        ROS_INFO("here");
         separated = true;
         for (int i = 0; i < points.size(); i++) {
           bool viable = false;
@@ -805,11 +806,14 @@ public:
             if (i == j)
               continue;
 
-            if ((cv::norm(points[i] - points[j]) < maxDist) && (abs(points[i].y - points[j].y) < abs(points[i].x - points[j].x))) {
+            /* if ((cv::norm(points[i] - points[j]) < maxDist) && (abs(points[i].y - points[j].y) < abs(points[i].x - points[j].x))) { */
+            ROS_INFO_STREAM("Distance: " <<cv::norm(cv::Point2i(points[i].x,points[i].y) - cv::Point2i(points[j].x,points[j].y)) << " maxDist: " << maxDist);
+
+            if ((cv::norm(cv::Point2i(points[i].x,points[i].y) - cv::Point2i(points[j].x,points[j].y)) < maxDist)) {
               viable = true;
             }
-            else{ separated = false;
-              break;
+            else{
+              separated = false;
             }
           }
           if (!viable) {
@@ -830,7 +834,7 @@ public:
       double perr=0.2/framerateEstim;
 
     if (points.size() == 3) {
-      ROS_INFO_STREAM("ponts: " << points);
+      ROS_INFO_STREAM("points: " << points);
       X3 <<
         points[0].x ,points[0].y, 1.0/(double)(points[0].z),
         points[1].x ,points[1].y, 1.0/(double)(points[1].z),
@@ -848,12 +852,13 @@ public:
         0,0,0,0,0,0,0,0,sqr(perr),0,
         0,0,0,0,0,0,0,0,0,sqr(2*M_PI/3)
         ;
+      ROS_INFO_STREAM("X3: " << X3);
       boost::function<Eigen::VectorXd(Eigen::VectorXd,Eigen::VectorXd)> callback;
       callback=boost::bind(&PoseReporter::uvdarHexarotorPose3p,this,_1,_2);
       ms = unscented::unscentedTransform(X3,Px3,callback,leftF,rightF,-1);
     }
     else if (points.size() == 2) {
-      ROS_INFO_STREAM("ponts: " << points);
+      ROS_INFO_STREAM("points: " << points);
       X2 <<
         (double)(points[0].x) ,(double)(points[0].y),1.0/(double)(points[0].z),
         (double)(points[1].x) ,(double)(points[1].y),1.0/(double)(points[1].z),
