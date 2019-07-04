@@ -66,6 +66,16 @@ find_package(OpenCV REQUIRED HINTS /usr/local/lib)
 ## LIBRARIES: libraries you create in this project that dependent projects also need
 ## CATKIN_DEPENDS: catkin_packages dependent projects also need
 ## DEPENDS: system dependencies of this project that dependent projects also need
+
+add_message_files(DIRECTORY msg FILES
+  ROIVector.msg
+  )
+
+generate_messages(DEPENDENCIES
+  std_msgs
+  sensor_msgs
+  )
+
 catkin_package(
  INCLUDE_DIRS include
   CATKIN_DEPENDS cv_bridge image_transport roscpp sensor_msgs std_msgs message_runtime
@@ -166,3 +176,4 @@ target_link_libraries(uvdar_reprojector_node
   OCamCalib
   unscented
   )
+
