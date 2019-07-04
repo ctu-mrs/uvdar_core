@@ -408,7 +408,7 @@ public:
     const double tol = 1e-9;
     pos_cov(0, 0) = pos_cov(1, 1) = xy_covariance_coeff;
 
-    pos_cov(2, 2) = position_sf(2) * sqrt(position_sf(2)) * z_covariance_coeff;
+    pos_cov(2, 2) = position_sf(2) * sqrt(abs(position_sf(2))) * z_covariance_coeff;
     if (pos_cov(2, 2) < 0.33 * z_covariance_coeff)
       pos_cov(2, 2) = 0.33 * z_covariance_coeff;
 
@@ -417,23 +417,13 @@ public:
     v = a.cross(b);
     sin_ab = v.norm();
     cos_ab = a.dot(b);
-    vec_rot = Eigen::Matrix3d::Identity();
-    if (sin_ab < tol)  // improbable, but possible - then it is identity or 180deg
-    {
-      if (cos_ab + 1.0 < tol)  // that would be 180deg
-      {
-        vec_rot << -1.0, 0.0, 0.0, 0.0, -1.0, 0.0, 0.0, 0.0, 1.0;
-      }     // otherwise its identity
-    } else  // otherwise just construct the matrix
-    {
-      v_x << 0.0, -v(2), v(1), v(2), 0.0, -v(0), -v(1), v(0), 0.0;
-      vec_rot = Eigen::Matrix3d::Identity() + v_x + (1 - cos_ab) / (sin_ab * sin_ab) * (v_x * v_x);
-    }
+    const double angle = atan2(sin_ab, cos_ab);     // the desired rotation angle
+    vec_rot = Eigen::AngleAxisd(angle, v).toRotationMatrix();
     pos_cov = rotate_covariance(pos_cov, vec_rot);  // rotate the covariance to point in direction of est. position
     if (pos_cov.array().isNaN().any()){
       ROS_INFO_STREAM("NAN IN  COVARIANCE!!!!");
       ROS_INFO_STREAM("pos_cov: \n" <<pos_cov);
-      ROS_INFO_STREAM("v_x: \n" <<v_x);
+      /* ROS_INFO_STREAM("v_x: \n" <<v_x); */
       ROS_INFO_STREAM("sin_ab: " <<sin_ab);
       ROS_INFO_STREAM("cos_ab: " <<cos_ab);
       ROS_INFO_STREAM("vec_rot: \n"<<vec_rot);
