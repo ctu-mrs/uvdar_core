@@ -405,13 +405,14 @@ public:
     const Eigen::Vector3d a(0.0, 0.0, 1.0);
     /* Calculates the corresponding covariance matrix of the estimated 3D position */
     Eigen::Matrix3d pos_cov = Eigen::Matrix3d::Identity();  // prepare the covariance matrix
-    const double tol = 1e-9;
+    /* const double tol = 1e-9; */
     pos_cov(0, 0) = pos_cov(1, 1) = xy_covariance_coeff;
 
-    double dist = position_sf.norm();
-    pos_cov(2, 2) = dist * sqrt(dist) * z_covariance_coeff;
-    if (pos_cov(2, 2) < 0.33 * z_covariance_coeff)
-      pos_cov(2, 2) = 0.33 * z_covariance_coeff;
+    /* double dist = position_sf.norm(); */
+    /* pos_cov(2, 2) = dist * sqrt(dist) * z_covariance_coeff; */
+    /* if (pos_cov(2, 2) < 0.33 * z_covariance_coeff) */
+    /*   pos_cov(2, 2) = 0.33 * z_covariance_coeff; */
+    pos_cov(2, 2) = z_covariance_coeff;
 
     // Find the rotation matrix to rotate the covariance to point in the direction of the estimated position
     b = position_sf.normalized();
@@ -420,7 +421,7 @@ public:
     cos_ab = a.dot(b);
     const double angle = atan2(sin_ab, cos_ab);     // the desired rotation angle
     /* ROS_INFO_STREAM("pi/2 about x: "<< Eigen::AngleAxisd(M_PI/2, Eigen::Vector3d(1,0,0)).toRotationMatrix()); */
-    vec_rot = Eigen::AngleAxisd(angle, v).toRotationMatrix();
+    vec_rot = Eigen::AngleAxisd(angle, v.normalized()).toRotationMatrix();
     pos_cov = rotate_covariance(pos_cov, vec_rot);  // rotate the covariance to point in direction of est. position
     if (pos_cov.array().isNaN().any()){
       ROS_INFO_STREAM("NAN IN  COVARIANCE!!!!");
@@ -451,7 +452,7 @@ public:
     Eigen::MatrixXd temp;
     temp.setIdentity(6,6);
     ms.C = temp*666;//large covariance for angles in radians
-    ms.C.topLeftCorner(3, 3) = calc_position_covariance(V1,tubewidth,meanDist/3);
+    ms.C.topLeftCorner(3, 3) = calc_position_covariance(V1*6,tubewidth,meanDist*6);
 
     /* std::cout << "ms.C: " << ms.C << std::endl; */
 
@@ -879,7 +880,7 @@ public:
       std::cout << "led: " << points[0] << std::endl;
 
 
-      ms = uvdarHexarotorPose1p_meas(Eigen::Vector2d(points[0].x,points[0].y),armLength,15.0);
+      ms = uvdarHexarotorPose1p_meas(Eigen::Vector2d(points[0].x,points[0].y),armLength,10.0);
 
 
       foundTarget = true;
