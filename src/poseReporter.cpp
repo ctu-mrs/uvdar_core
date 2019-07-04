@@ -408,7 +408,8 @@ public:
     const double tol = 1e-9;
     pos_cov(0, 0) = pos_cov(1, 1) = xy_covariance_coeff;
 
-    pos_cov(2, 2) = position_sf(2) * sqrt(abs(position_sf(2))) * z_covariance_coeff;
+    double dist = position_sf.norm();
+    pos_cov(2, 2) = dist * sqrt(dist) * z_covariance_coeff;
     if (pos_cov(2, 2) < 0.33 * z_covariance_coeff)
       pos_cov(2, 2) = 0.33 * z_covariance_coeff;
 
@@ -418,6 +419,7 @@ public:
     sin_ab = v.norm();
     cos_ab = a.dot(b);
     const double angle = atan2(sin_ab, cos_ab);     // the desired rotation angle
+    /* ROS_INFO_STREAM("pi/2 about x: "<< Eigen::AngleAxisd(M_PI/2, Eigen::Vector3d(1,0,0)).toRotationMatrix()); */
     vec_rot = Eigen::AngleAxisd(angle, v).toRotationMatrix();
     pos_cov = rotate_covariance(pos_cov, vec_rot);  // rotate the covariance to point in direction of est. position
     if (pos_cov.array().isNaN().any()){
@@ -751,7 +753,7 @@ public:
       separatedPoints[i].clear();
     }
 
-    if (points.size() > 1) {
+    if (points.size() > 0) {
 
       for (int i = 0; i < points.size(); i++) {
         if (points[i].z > 1) {
@@ -877,7 +879,7 @@ public:
       std::cout << "led: " << points[0] << std::endl;
 
 
-      ms = uvdarHexarotorPose1p_meas(Eigen::Vector2d(points[0].x,points[0].y),armLength,10.0);
+      ms = uvdarHexarotorPose1p_meas(Eigen::Vector2d(points[0].x,points[0].y),armLength,15.0);
 
 
       foundTarget = true;
