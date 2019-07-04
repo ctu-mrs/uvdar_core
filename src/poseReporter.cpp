@@ -452,7 +452,7 @@ public:
     Eigen::MatrixXd temp;
     temp.setIdentity(6,6);
     ms.C = temp*666;//large covariance for angles in radians
-    ms.C.topLeftCorner(3, 3) = calc_position_covariance(V1*6,tubewidth,meanDist*6);
+    ms.C.topLeftCorner(3, 3) = calc_position_covariance(V1,tubewidth,meanDist*16);
 
     /* std::cout << "ms.C: " << ms.C << std::endl; */
 

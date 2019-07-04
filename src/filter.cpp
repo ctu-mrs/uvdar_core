@@ -10,7 +10,7 @@
 #define decayTime 1.0
 #define DEBUG true
 
-#define useVelocity false
+#define useVelocity true
 
 
 namespace e = Eigen;
