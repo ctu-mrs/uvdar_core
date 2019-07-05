@@ -19,6 +19,7 @@
 #include <unscented/unscented.h>
 #include <uvdar/ROIVector.h>
 
+#define DEBUG false
 
 #define filterCount 2
 #define freq 3.0
@@ -44,7 +45,7 @@ class Reprojector{
       mrs_lib::ParamLoader param_loader(pnh, "uvdar_reprojector_node");
 
       param_loader.load_param("frame_camera", _frame_camera);
-      param_loader.load_param("frame_uvdar", _frame_uvdar);
+      param_loader.load_param("frame_estimate", _frame_estimate);
       param_loader.load_param("offline", _offline);
       param_loader.load_param("gui", _gui);
       param_loader.load_param("calib_file", _calib_file);
@@ -71,7 +72,7 @@ class Reprojector{
 
       listener = new tf2_ros::TransformListener(buffer);
 
-      tf_timer       = nh.createTimer(ros::Rate(1), &Reprojector::tfTimer, this);
+      /* tf_timer       = nh.createTimer(ros::Rate(10), &Reprojector::tfTimer, this); */
 
       im_timer = nh.createTimer(ros::Duration(1.0/fmax(freq,1.0)), &Reprojector::spin, this);
     }
@@ -124,10 +125,10 @@ class Reprojector{
         ROS_INFO("Image not yet obtained, waiting...");
         return;
       }
-      if (!gotU2C) {
-        ROS_INFO("Transform not yet obtained, waiting...");
-        return;
-      }
+      /* if (!gotU2C) { */
+      /*   ROS_INFO("Transform not yet obtained, waiting..."); */
+      /*   return; */
+      /* } */
 
       if (!_offline)
         drawAndPublish();
@@ -138,53 +139,68 @@ class Reprojector{
 
     }
 
+    void getE2C(ros::Time stamp){
+      try {
+        {
+          transformEstim2Cam = buffer.lookupTransform(_frame_camera, _frame_estimate, stamp, ros::Duration(0.05));
+          tf2::fromMsg(transformEstim2Cam, TfE2C);
+          /* if (DEBUG) */
+            ROS_INFO_STREAM("[Reprojector]: received estim2cam tf: " << transformEstim2Cam);
+        }
+      }
+      catch (tf2::TransformException& ex) {
+        ROS_ERROR("[Reprojector]: %s", ex.what());
+      }
+    }
+
     void tfTimer(const ros::TimerEvent& event) {
+      if (DEBUG)
+      ROS_INFO_STREAM("[Reprojector]: looping tf timer");
 
       mrs_lib::Routine profiler_routine = profiler->createRoutine("tfTimer");
 
       try {
         {
           std::scoped_lock lock(mtx_tf);
-          transformUvdar2Cam = buffer.lookupTransform(_frame_camera, _frame_uvdar, ros::Time(0), ros::Duration(2));
+          transformEstim2Cam = buffer.lookupTransform(_frame_camera, _frame_estimate, ros::Time(0), ros::Duration(0));
+          tf2::fromMsg(transformEstim2Cam, TfE2C);
+          if (DEBUG)
+            ROS_INFO_STREAM("[Reprojector]: received Estim2cam tf: " << transformEstim2Cam);
         }
-        ROS_INFO_STREAM("[OpticFlow]: received uvdar2cam tf" << transformUvdar2Cam);
-
-
-        // calculate the euler angles
-        tf2::fromMsg(transformUvdar2Cam, TfU2C);
-
         gotU2C = true;
       }
-      catch (tf2::TransformException ex) {
-        ROS_ERROR("TF: %s", ex.what());
-        ros::Duration(1.0).sleep();
-        return;
+      catch (tf2::TransformException& ex) {
+        ROS_ERROR("[Reprojector]: %s", ex.what());
+        /* ros::Duration(1.0).sleep(); */
+        gotU2C = false;
       }
 
       try {
         {
           std::scoped_lock lock(mtx_tf);
-          transformCam2Uvdar = buffer.lookupTransform(_frame_uvdar, _frame_camera, ros::Time(0), ros::Duration(2));
+          transformCam2Estim = buffer.lookupTransform(_frame_estimate, _frame_camera, ros::Time(0), ros::Duration(0));
+          tf2::fromMsg(transformCam2Estim, TfC2E);
+          if (DEBUG)
+            ROS_INFO_STREAM("[Reprojector]: received cam2Estim tf: " << transformCam2Estim);
         }
 
-        ROS_INFO_STREAM("[OpticFlow]: received cam2uvdar tf" << transformCam2Uvdar);
 
-        tf2::fromMsg(transformCam2Uvdar, TfC2U);
-
-        // calculate the euler angles
         gotC2U = true;
       }
-      catch (tf2::TransformException ex) {
-        ROS_ERROR("TF: %s", ex.what());
-        ros::Duration(1.0).sleep();
-        return;
+      catch (tf2::TransformException& ex) {
+        ROS_ERROR("[Reprojector]: %s", ex.what());
+        /* ros::Duration(1.0).sleep(); */
+        gotC2U = false;
+
       }
 
       // check whether we got everything we need
       // stop the timer if true
-      if (gotC2U && gotU2C) {
+      /* if (gotC2U && gotU2C) { */
+      if (!(ros::ok())) {
 
-        ROS_INFO("[OpticFlow]: got TFs, stopping tfTimer");
+        /* ROS_INFO("[Reprojector]: got TFs, stopping tfTimer"); */
+        ROS_INFO("[Reprojector]: stopping tfTimer");
 
         delete listener;
 
@@ -256,6 +272,7 @@ class Reprojector{
           rect.x -=expand/2;
           rect.y -=expand/2;
           cv::ellipse(viewImage, proj, color, 2);
+          ROS_INFO_STREAM("drawing rectangle:" << rect );
           cv::rectangle(viewImage, rect, color, 2);
 
           if (_publish_boxes){
@@ -274,12 +291,14 @@ class Reprojector{
       }
     }
 
-    cv::Point2i getImPos(nav_msgs::Odometry currOdom){
-      return projectOmniIm(currOdom.pose.pose);
+    cv::Point2i getImPos(nav_msgs::Odometry currOdom, ros::Time stamp){
+      return projectOmniIm(currOdom.pose.pose,stamp);
     }
 
-    cv::Point2i projectOmniIm(geometry_msgs::Pose pose){
-      tf2::Vector3 poseTrans = TfU2C*tf2::Vector3(pose.position.x,pose.position.y,pose.position.z);
+    cv::Point2i projectOmniIm(geometry_msgs::Pose pose, ros::Time stamp){
+      tf2::Vector3 poseTrans;
+      getE2C(stamp);
+      poseTrans = TfE2C*tf2::Vector3(pose.position.x,pose.position.y,pose.position.z);
       double pose3d[3];
       pose3d[0]= poseTrans.y();
       pose3d[1]= poseTrans.x();
@@ -293,12 +312,17 @@ class Reprojector{
     }
 
     Eigen::Vector2d projectOmniEigen(Eigen::Vector3d x,[[ maybe_unused ]] Eigen::VectorXd dummy){
-      tf2::Vector3 poseTrans = TfU2C*tf2::Vector3(x[0],x[1],x[2]);
+      /* tf2::Vector3 poseTrans; */
+      tf2::Vector3 pose;
+      pose = tf2::Vector3(x[0],x[1],x[2]);
       ROS_INFO_STREAM("x: " << x);
       double pose3d[3];
-      pose3d[0]= poseTrans.y();
-      pose3d[1]= poseTrans.x();
-      pose3d[2]=-poseTrans.z();
+      /* pose3d[0]= poseTrans.y(); */
+      /* pose3d[1]= poseTrans.x(); */
+      /* pose3d[2]=-poseTrans.z(); */
+      pose3d[0]= pose.y();
+      pose3d[1]= pose.x();
+      pose3d[2]=-pose.z();
       /* ROS_INFO_STREAM("World: " << pose3d[0] << " : "<< pose3d[1] << " : " << pose3d[2]); */
 
       double imPos[2];
@@ -325,9 +349,10 @@ class Reprojector{
           );
 
 
-      tf2::doTransform (x, x, transformUvdar2Cam);
+      getE2C(currImgTime);
+      tf2::doTransform (x, x, transformEstim2Cam);
       Eigen::Quaterniond temp;
-      Eigen::fromMsg(transformUvdar2Cam.transform.rotation, temp);
+      Eigen::fromMsg(transformEstim2Cam.transform.rotation, temp);
       Px = temp.toRotationMatrix()*Px*temp.toRotationMatrix().transpose();
 
 
@@ -349,7 +374,7 @@ class Reprojector{
 
     cv::RotatedRect getErrorEllipse(double chisquare_val, Eigen::Vector2d mean, Eigen::Matrix2Xd C){
 
-      std::cout << "rotated: " << C <<std::endl;
+      /* std::cout << "rotated: " << C <<std::endl; */
 
       //Get the eigenvalues and eigenvectors
       Eigen::SelfAdjointEigenSolver<Eigen::Matrix2d> eigensolver(C);
@@ -400,12 +425,12 @@ class Reprojector{
 
     tf2_ros::Buffer                 buffer;
     tf2_ros::TransformListener*     listener;
-    geometry_msgs::TransformStamped transformUvdar2Cam;
-    geometry_msgs::TransformStamped transformCam2Uvdar;
-    tf2::Stamped<tf2::Transform> TfC2U, TfU2C;
+    geometry_msgs::TransformStamped transformEstim2Cam;
+    geometry_msgs::TransformStamped transformCam2Estim;
+    tf2::Stamped<tf2::Transform> TfC2E, TfE2C;
 
     mrs_lib::Profiler* profiler;
-    std::string _frame_camera, _frame_uvdar;
+    std::string _frame_camera, _frame_estimate;
 
     std::string _calib_file;
 

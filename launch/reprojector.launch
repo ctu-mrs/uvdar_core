@@ -16,8 +16,9 @@
   <arg name="DEBUG" default="false"/>
   <arg name="gui" default="true"/>
 
-  <arg name="frame_uvdar" default="uvcam"/>
+  <arg name="frame_estimate" default="local_origin_stable"/>
   <arg name="frame_camera" default="color_camera"/>
+  <arg name="frame_uvdar" default="uvcam"/>
 
   <arg name="offline" default="false"/>
 
@@ -43,7 +44,7 @@
     <param name="gui"             type="bool" value="$(arg gui)"/>
 
     <param name="frame_camera" type="string" value="$(arg frame_camera)"/>
-    <param name="frame_uvdar" type="string" value="$(arg frame_uvdar)"/>
+    <param name="frame_estimate" type="string" value="$(arg frame_estimate)"/>
 
     <param name="offline" type="bool" value="$(arg offline)"/>
 

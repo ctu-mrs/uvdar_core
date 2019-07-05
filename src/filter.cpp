@@ -3,6 +3,10 @@
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
 #include <mrs_lib/Lkf.h>
 #include <Eigen/Geometry>
+
+#include <tf2_ros/transform_listener.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
+
 #include <mutex>
 
 #define freq 30.0
@@ -19,6 +23,9 @@ class UvdarKalman {
 
   public:
   UvdarKalman(ros::NodeHandle nh) {
+
+    ros::NodeHandle pnh("~");
+    pnh.param("output_frame", _output_frame, std::string("local_origin"));
 
     dt = 1.0/freq;
 
@@ -114,6 +121,8 @@ class UvdarKalman {
         currKalman[i] = new mrs_lib::Lkf(6, 0, 6, A, B, R, Q, P);
     }
 
+    tf_listener = new tf2_ros::TransformListener(tf_buffer);
+
     timer = nh.createTimer(ros::Duration(1.0/fmax(freq,1.0)), &UvdarKalman::spin, this);
     filtPublisher[0] = nh.advertise<nav_msgs::Odometry>("filteredPose1", 1);
     filtPublisher[1] = nh.advertise<nav_msgs::Odometry>("filteredPose2", 1);
@@ -131,6 +140,16 @@ class UvdarKalman {
 
   /* void measurementCallback(const geometry_msgs::PoseWithCovarianceStampedPtr& meas){ */
   void measurementCallback(const ros::MessageEvent<geometry_msgs::PoseWithCovarianceStamped const>& event){
+    geometry_msgs::TransformStamped transform;
+    try
+    {
+      transform = tf_buffer.lookupTransform(_output_frame, event.getMessage()->header.frame_id, event.getMessage()->header.stamp, ros::Duration(0.1));
+    } catch (tf2::TransformException& ex)
+    {
+      ROS_WARN("Error during transform from \"%s\" frame to \"%s\" frame.\n\tMSG: %s", event.getMessage()->header.frame_id.c_str(), _output_frame.c_str(), ex.what());
+      return;
+    }
+
     std::scoped_lock slck(mtx_kalman);
     /* for(auto elem : event.getConnectionHeader()) */
     /* { */
@@ -139,21 +158,24 @@ class UvdarKalman {
     ros::M_string mhdr = event.getConnectionHeader();
     std::string topic = mhdr["topic"];
     int target =(int)(topic.back())-49;
-    const geometry_msgs::PoseWithCovarianceStampedConstPtr& meas = event.getMessage();
+    const geometry_msgs::PoseWithCovarianceStampedConstPtr& meas_local = event.getMessage();
+    geometry_msgs::PoseWithCovarianceStamped meas;
+
+    tf2::doTransform(*meas_local, meas, transform);
 
       if (DEBUG){
         ROS_INFO_STREAM("Geting message [" << target <<"]");
-        ROS_INFO_STREAM("" << meas->pose.pose.position);
+        ROS_INFO_STREAM("" << meas.pose.pose.position);
       }
 
 
-    e::Quaternion qtemp(meas->pose.pose.orientation.w, meas->pose.pose.orientation.x, meas->pose.pose.orientation.y, meas->pose.pose.orientation.z );
+    e::Quaternion qtemp(meas.pose.pose.orientation.w, meas.pose.pose.orientation.x, meas.pose.pose.orientation.y, meas.pose.pose.orientation.z );
 
     e::VectorXd mes(6); 
 
-    mes(0) = meas->pose.pose.position.x;
-    mes(1) = meas->pose.pose.position.y;
-    mes(2) = meas->pose.pose.position.z;
+    mes(0) = meas.pose.pose.position.x;
+    mes(1) = meas.pose.pose.position.y;
+    mes(2) = meas.pose.pose.position.z;
 
     if (mes.array().isNaN().any()){
       if (DEBUG)
@@ -166,7 +188,7 @@ class UvdarKalman {
 
     for (int i=0; i<Q.cols(); i++){
       for (int j=0; j<Q.rows(); j++){
-        Q(j,i) = meas->pose.covariance[Q.cols()*j+i] ;
+        Q(j,i) = meas.pose.covariance[Q.cols()*j+i] ;
       }
     }
 
@@ -309,7 +331,7 @@ class UvdarKalman {
         }
       }
 
-      pubPose->header.frame_id ="uvcam";
+      pubPose->header.frame_id = _output_frame;
       pubPose->header.stamp = ros::Time::now();
 
       filtPublisher[target].publish(pubPose);
@@ -321,6 +343,12 @@ class UvdarKalman {
 
     }
 
+  }
+  static double mahalanobis_distance2(const Eigen::Vector3d& x, const Eigen::Vector3d& mu1, const Eigen::Matrix3d& sigma1)
+  {
+    const auto diff = x - mu1;
+    const double dist2 = diff.transpose() * sigma1.inverse() * diff;
+    return dist2;
   }
 
 
@@ -342,13 +370,12 @@ class UvdarKalman {
 
   std::mutex mtx_kalman;
 
+  tf2_ros::Buffer tf_buffer;
+  tf2_ros::TransformListener *tf_listener;
 
-    static double mahalanobis_distance2(const Eigen::Vector3d& x, const Eigen::Vector3d& mu1, const Eigen::Matrix3d& sigma1)
-    {
-      const auto diff = x - mu1;
-      const double dist2 = diff.transpose() * sigma1.inverse() * diff;
-      return dist2;
-    }
+  std::string _output_frame;
+
+
 };
 
 int main(int argc, char** argv) {
