@@ -25,6 +25,9 @@
 #define freq 3.0
 #define decayTime 0.8
 #define odomBufferLength 2.0
+#define armLength 0.2775
+
+#define maxCamAngle 1.61443 //185 deg / 2
 
 namespace uvdar {
 
@@ -282,25 +285,33 @@ class Reprojector{
             case 1:
               color=cv::Scalar(255,0,255);
           } nav_msgs::Odometry currOdom = getClosestTime(odomBuffer[target],currImgTime);
-          unscented::measurement ms = getProjectedCovariance(currOdom);
+          Eigen::Vector3d x;
+          Eigen::Matrix3d Px;
+          unscented::measurement ms = getProjectedCovariance(currOdom, Px,x);
           if (ms.x.array().isNaN().any()){
             continue;
           }
 
           /* cv::ellipse(viewImage, getErrorEllipse(100,ms.x,ms.C), cv::Scalar::all(255), 2); */
           auto proj = getErrorEllipse(1,ms.x,ms.C);
+
+          unscented::measurement ms_expand = getProjectedCovarianceExpand(currOdom, armLength);
+          if (ms_expand.x.array().isNaN().any()){
+            continue;
+          }
+          auto projExpand = getErrorEllipse(1,ms_expand.x,ms_expand.C);
           /* auto proj = getErrorEllipse(2.4477,ms.x,ms.C); */
-          auto rect = proj.boundingRect();
+          auto rect = projExpand.boundingRect();
 
 
-          int expand = (int)round(120000.0/(oc_model.invpol[0]*getDistance(currOdom)));
+          /* int expand = (int)round(100000.0/(oc_model.invpol[0]*getMinDistance(x,Px))); */
 
-          ROS_INFO_STREAM("Expansion size: "<< expand << " invpol[0]: " << oc_model.invpol[0] << " distance: " << getDistance(currOdom));
+          /* ROS_INFO_STREAM("Expansion size: "<< expand << " invpol[0]: " << oc_model.invpol[0] << " distance: " << getMinDistance(x,Px)); */
 
-          rect.height +=expand;
-          rect.width +=expand;
-          rect.x -=expand/2;
-          rect.y -=expand/2;
+          /* rect.height +=expand; */
+          /* rect.width +=expand; */
+          /* rect.x -=expand/2; */
+          /* rect.y -=expand/2; */
           cv::ellipse(viewImage, proj, color, 2);
           ROS_INFO_STREAM("drawing rectangle:" << rect );
           cv::rectangle(viewImage, rect, color, 2);
@@ -342,7 +353,9 @@ class Reprojector{
     }
 
     Eigen::Vector2d projectOmniEigen(Eigen::Vector3d x,[[ maybe_unused ]] Eigen::VectorXd dummy){
-      if (x[2]<0) return Eigen::Vector2d(std::nan(""),std::nan(""));
+      if (atan2(x[0]*x[0]+x[1]*x[1],x[2])>maxCamAngle)
+        return Eigen::Vector2d(std::nan(""),std::nan(""));
+      /* if (x[2]<0) return Eigen::Vector2d(std::nan(""),std::nan("")); */
       /* tf2::Vector3 poseTrans; */
       tf2::Vector3 pose;
       pose = tf2::Vector3(x[0],x[1],x[2]);
@@ -363,10 +376,10 @@ class Reprojector{
       return Eigen::Vector2d(imPos[1],imPos[0]);
     }
 
-    unscented::measurement getProjectedCovariance(nav_msgs::Odometry currOdom){
-      Eigen::Matrix3d Px;
+    unscented::measurement getProjectedCovariance(nav_msgs::Odometry currOdom,Eigen::Matrix3d &Px,Eigen::Vector3d &x){
+      /* Eigen::Matrix3d Px; */
       Eigen::Matrix2d Py;
-      Eigen::Vector3d x;
+      /* Eigen::Vector3d x; */
       Eigen::Vector2d y;
       for (int i=0; i<3; i++){
         for (int j=0; j<3; j++){
@@ -396,11 +409,60 @@ class Reprojector{
 
       return output;
     }
+    unscented::measurement getProjectedCovarianceExpand(nav_msgs::Odometry currOdom,double expansion){
+      Eigen::Matrix3d Px;
+      Eigen::Matrix2d Py;
+      Eigen::Vector3d x;
+      Eigen::Vector2d y;
+      for (int i=0; i<3; i++){
+        for (int j=0; j<3; j++){
+          Px(j,i) = currOdom.pose.covariance[6*j+i] ;
+        }
+      }
+      x = Eigen::Vector3d(
+          currOdom.pose.pose.position.x,
+          currOdom.pose.pose.position.y,
+          currOdom.pose.pose.position.z
+          );
 
-    double getDistance(nav_msgs::Odometry i_odom){
-      /* ROS_INFO_STREAM("pose: "<<  x); */
-      Eigen::Vector3d tmp(i_odom.pose.pose.position.x,i_odom.pose.pose.position.y,i_odom.pose.pose.position.z);
-      return tmp.norm();
+
+      getE2C(currImgTime);
+      tf2::doTransform (x, x, transformEstim2Cam);
+      Eigen::Quaterniond temp;
+      Eigen::fromMsg(transformEstim2Cam.transform.rotation, temp);
+      Px = temp.toRotationMatrix()*Px*temp.toRotationMatrix().transpose();
+      Eigen::Matrix3d Pe = Eigen::Matrix3d::Identity()*expansion;
+      /* Pe(2, 2) = 0.0; */
+      Px += Pe;
+
+
+      boost::function<Eigen::VectorXd(Eigen::VectorXd,Eigen::VectorXd)> callback;
+      callback=boost::bind(&Reprojector::projectOmniEigen,this,_1,_2);
+      auto output =  unscented::unscentedTransform(x,Px, callback,-1.0,-1.0,-1.0);
+
+      output.x = output.x.topRows(2);
+      output.C = output.C.topLeftCorner(2, 2);
+
+      return output;
+    }
+
+    //this was bad anyway - it was not transformed to camera!
+    /* double getDistance(nav_msgs::Odometry i_odom){ */
+    /*   /1* ROS_INFO_STREAM("pose: "<<  x); *1/ */
+    /*   Eigen::Vector3d tmp(i_odom.pose.pose.position.x,i_odom.pose.pose.position.y,i_odom.pose.pose.position.z); */
+    /*   return tmp.norm(); */
+    /* } */
+
+    double getMinDistance(Eigen::VectorXd x, Eigen::MatrixXd C){
+      std::vector<Eigen::VectorXd> sigmas = unscented::getSigmaPtsSource(x,C);
+      double shortestNorm=999;
+      double currNorm;
+      for (auto& sigma : sigmas){
+        currNorm = sigma.topRows(3).norm();
+        if (currNorm < shortestNorm)
+          shortestNorm = currNorm;
+      }
+      return shortestNorm;
     }
 
     cv::RotatedRect getErrorEllipse(double chisquare_val, Eigen::Vector2d mean, Eigen::Matrix2Xd C){

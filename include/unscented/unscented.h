@@ -14,6 +14,7 @@ struct measurement  {
 ;
 
 measurement unscentedTransform(e::VectorXd x,e::MatrixXd Px,  const boost::function<e::VectorXd(e::VectorXd,e::VectorXd)> &fcn,double fleft,double fright, double fcenter);
+std::vector<e::VectorXd> getSigmaPtsSource(e::VectorXd x,e::MatrixXd Px);
   // Alpha = double(0.5);
 
 }

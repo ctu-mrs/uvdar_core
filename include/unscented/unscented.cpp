@@ -111,4 +111,20 @@ unscented::measurement unscented::unscentedTransform(e::VectorXd x,e::MatrixXd P
   return output;
 }
 
+std::vector<Eigen::VectorXd> unscented::getSigmaPtsSource(e::VectorXd x,e::MatrixXd Px){
+  int L = x.rows();
+  double W0=1.0/3.0;
+  std::vector<e::VectorXd> output;
+  output.push_back(x);
+  Eigen::VectorXd W(2*L+1);
+  W =e::VectorXd::Ones(2*L+1)*((1-W0)/(2*L));
+  W(0)=W0;
+  e::MatrixXd sf = ((L/(1-W0))*Px).sqrt();
+  for (int i=0; i<L; i++){
+    output.push_back((x+(sf.row(i)).transpose()));
+    output.push_back((x-(sf.row(i)).transpose()));
+  }
+  return output;
+}
+
 /* } */
