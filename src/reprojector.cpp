@@ -23,7 +23,8 @@
 
 #define filterCount 2
 #define freq 3.0
-#define decayTime 0.1
+#define decayTime 0.8
+#define odomBufferLength 2.0
 
 namespace uvdar {
 
@@ -106,9 +107,29 @@ class Reprojector{
       auto meas = event.getMessage();
 
       gotOdom[target] = true;
-      lastMeasurement[target] = ros::Time::now();
+      lastMeasurement[target] = meas->header.stamp;
       std::scoped_lock(mtx_odom);
-      currOdom[target] = *meas;
+      odomBuffer[target].push_back(*meas);
+      while ((ros::Time::now()-odomBuffer[target].front().header.stamp).toSec()>odomBufferLength){
+        odomBuffer[target].erase(odomBuffer[target].begin());
+      }
+    }
+
+    nav_msgs::Odometry getClosestTime(std::vector<nav_msgs::Odometry> odom_vec,ros::Time compTime){
+      ros::Duration shortest_diff(999);
+      ros::Duration curr_diff;
+      nav_msgs::Odometry *best_odom;
+      /* unsigned int best_index; */
+      for (auto& odom : odom_vec){
+        curr_diff = (compTime-odom.header.stamp);
+        if (abs(curr_diff.toSec()) < abs(shortest_diff.toSec())){
+          shortest_diff = curr_diff;
+          best_odom =  &odom;
+        }
+      }
+      /* if (DEBUG) */
+        ROS_INFO_STREAM("Closest odom out of " <<(int)(odom_vec.size())<< " at " << shortest_diff.toSec() << "s");
+      return *best_odom;
     }
 
     void spin([[ maybe_unused ]] const ros::TimerEvent& unused){
@@ -116,8 +137,10 @@ class Reprojector{
       end_r         = ros::Time::now();
       elapsedTime = double(end - begin) / CLOCKS_PER_SEC;
       elapsedTime_r = end_r-begin_r;
-      std::cout << "Spin time: " << elapsedTime << " s" << std::endl;
-      std::cout << "Ros spin time: " << elapsedTime_r.toSec() << " s" << std::endl;
+      if (DEBUG){
+        std::cout << "Spin time: " << elapsedTime << " s" << std::endl;
+        std::cout << "Ros spin time: " << elapsedTime_r.toSec() << " s" << std::endl;
+      }
       begin = std::clock();
       begin_r = ros::Time::now();
       /* ROS_INFO_STREAM("HEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEY"); */
@@ -144,7 +167,7 @@ class Reprojector{
         {
           transformEstim2Cam = buffer.lookupTransform(_frame_camera, _frame_estimate, stamp, ros::Duration(0.05));
           tf2::fromMsg(transformEstim2Cam, TfE2C);
-          /* if (DEBUG) */
+          if (DEBUG)
             ROS_INFO_STREAM("[Reprojector]: received estim2cam tf: " << transformEstim2Cam);
         }
       }
@@ -240,6 +263,9 @@ class Reprojector{
         }
         for (int target=0;target<filterCount;target++){
 
+          if (DEBUG)
+            ROS_INFO_STREAM("Last measurement of target [" << target << "] was " << ros::Duration(ros::Time::now()-lastMeasurement[target]).toSec() << "s ago.");
+
           if (ros::Duration(ros::Time::now()-lastMeasurement[target]).toSec()>decayTime)
             gotOdom[target] = false;
 
@@ -255,17 +281,21 @@ class Reprojector{
               break;
             case 1:
               color=cv::Scalar(255,0,255);
+          } nav_msgs::Odometry currOdom = getClosestTime(odomBuffer[target],currImgTime);
+          unscented::measurement ms = getProjectedCovariance(currOdom);
+          if (ms.x.array().isNaN().any()){
+            continue;
           }
-          unscented::measurement ms = getProjectedCovariance(currOdom[target]);
+
           /* cv::ellipse(viewImage, getErrorEllipse(100,ms.x,ms.C), cv::Scalar::all(255), 2); */
           auto proj = getErrorEllipse(1,ms.x,ms.C);
           /* auto proj = getErrorEllipse(2.4477,ms.x,ms.C); */
           auto rect = proj.boundingRect();
 
 
-          int expand = (int)round(120000.0/(oc_model.invpol[0]*getDistance(currOdom[target])));
+          int expand = (int)round(120000.0/(oc_model.invpol[0]*getDistance(currOdom)));
 
-          ROS_INFO_STREAM("Expansion size: "<< expand << " invpol[0]: " << oc_model.invpol[0] << " distance: " << getDistance(currOdom[target]));
+          ROS_INFO_STREAM("Expansion size: "<< expand << " invpol[0]: " << oc_model.invpol[0] << " distance: " << getDistance(currOdom));
 
           rect.height +=expand;
           rect.width +=expand;
@@ -312,6 +342,7 @@ class Reprojector{
     }
 
     Eigen::Vector2d projectOmniEigen(Eigen::Vector3d x,[[ maybe_unused ]] Eigen::VectorXd dummy){
+      if (x[2]<0) return Eigen::Vector2d(std::nan(""),std::nan(""));
       /* tf2::Vector3 poseTrans; */
       tf2::Vector3 pose;
       pose = tf2::Vector3(x[0],x[1],x[2]);
@@ -406,7 +437,7 @@ class Reprojector{
 
 
     //variables
-    nav_msgs::Odometry currOdom[filterCount];
+    std::vector<nav_msgs::Odometry> odomBuffer[filterCount];
     cv::Mat currImage, viewImage;
     ros::Time currImgTime;
 

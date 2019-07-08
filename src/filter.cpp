@@ -11,8 +11,10 @@
 
 #define freq 30.0
 #define filterCount 2
-#define decayTime 1.0
+#define validTime 1.0
+#define decayTime 2.0
 #define DEBUG true
+#define minMeasurementsToValidation 3
 
 #define useVelocity true
 
@@ -111,8 +113,12 @@ class UvdarKalman {
       0,0,0,0,0,1;
 
 
+    delay = ros::Duration(0);
+
 
     for (int i=0;i<filterCount;i++){
+      trackerValidated[i] = false;
+      measurementsAssociated[i] = 0;
       gotMeasurement[i] = false;
       gotAnyMeasurement[i] = false;
       if (useVelocity)
@@ -219,19 +225,22 @@ class UvdarKalman {
       }
       /* currKalman[target]->setCovariance(Q); */
       gotAnyMeasurement[target] = true;
+      trackerValidated[target] = false;
+      measurementsAssociated[target] = 0;
     }
     else{
       double md = mahalanobis_distance2(
           mes.topRows(3),
           currKalman[target]->getStates().topRows(3),
-          currKalman[target]->getCovariance().topLeftCorner(3, 3)
+          /* currKalman[target]->getCovariance().topLeftCorner(3, 3) */
+          Q.topLeftCorner(3, 3)
           );
 
       if (DEBUG)
         ROS_INFO_STREAM("Mahalanobis dist. of [" << target <<"] is "<< md);
 
-      if (md >16)
-        return;
+      /* if (md >16) */
+      /*   return; */
 
       if (DEBUG)
         ROS_INFO_STREAM("Applying measurement [" << target <<"]");
@@ -239,7 +248,13 @@ class UvdarKalman {
       gotMeasurement[target] =true;
     }
 
-    lastMeasurement[target] = ros::Time::now();
+    lastMeasurement[target] = meas_local->header.stamp;
+    delay = ros::Duration(0.5*(delay + (ros::Time::now()-lastMeasurement[target])).toSec());
+    if (DEBUG)
+      ROS_INFO_STREAM("Estimated time delay is: " << delay << "s");
+    measurementsAssociated[target]++;
+    if (measurementsAssociated[target] >= minMeasurementsToValidation)
+      trackerValidated[target] = true;
 
   }
 
@@ -258,17 +273,26 @@ class UvdarKalman {
         gotMeasurement[target] = false;
       }
       else
-        if (ros::Duration(ros::Time::now()-lastMeasurement[target]).toSec()<decayTime){
+        if (ros::Duration(ros::Time::now()-lastMeasurement[target]).toSec()<validTime){
           if (DEBUG)
             ROS_INFO_STREAM("Iterating [" << target <<"] without measurement");
           currKalman[target]->iterateWithoutCorrection();
         }
+        else if (ros::Duration(ros::Time::now()-lastMeasurement[target]).toSec()<decayTime){
+          if (DEBUG)
+            ROS_INFO_STREAM("Iterating [" << target <<"] without measurement");
+          currKalman[target]->iterateWithoutCorrection();
+          trackerValidated[target] = false;
+        }
         else{
           if (DEBUG)
             ROS_INFO_STREAM("Tracker [" << target <<"] has decayed");
-          gotAnyMeasurement[target] = false;
+          resetTracker(target);
           return;
         }
+
+      if (!trackerValidated[target])
+        continue;
 
 
       pubPose = boost::make_shared<nav_msgs::Odometry>();
@@ -332,18 +356,26 @@ class UvdarKalman {
       }
 
       pubPose->header.frame_id = _output_frame;
-      pubPose->header.stamp = ros::Time::now();
+      pubPose->header.stamp = ros::Time::now()-delay;
 
       filtPublisher[target].publish(pubPose);
 
       if (DEBUG){
         ROS_INFO_STREAM("State: ");
-        ROS_INFO_STREAM("" << currKalman[target]->getStates());
+        ROS_INFO_STREAM("\n" << currKalman[target]->getStates());
       }
 
     }
 
   }
+
+  void resetTracker(int target){
+    gotAnyMeasurement[target] = false;
+    trackerValidated[target] = false;
+    measurementsAssociated[target] = 0;
+  }
+
+
   static double mahalanobis_distance2(const Eigen::Vector3d& x, const Eigen::Vector3d& mu1, const Eigen::Matrix3d& sigma1)
   {
     const auto diff = x - mu1;
@@ -354,19 +386,23 @@ class UvdarKalman {
 
   e::MatrixXd A,B,R,Q,P;
   mrs_lib::Lkf* currKalman[filterCount];
+  bool trackerValidated[filterCount];
+  int measurementsAssociated[filterCount];
 
   ros::Timer timer;
 
   double dt;
 
   bool gotMeasurement[filterCount], gotAnyMeasurement[filterCount];
-  ros::Duration sinceMeasurement[filterCount];
+  /* ros::Duration sinceMeasurement[filterCount]; */
   ros::Time lastMeasurement[filterCount];
   ros::Subscriber measSubscriber[filterCount];
   ros::Subscriber          ImageSubscriber;
   ros::Publisher filtPublisher[filterCount];
 
   nav_msgs::OdometryPtr pubPose;
+
+  ros::Duration delay;
 
   std::mutex mtx_kalman;
 

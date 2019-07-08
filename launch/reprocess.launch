@@ -28,6 +28,8 @@
 
   <arg name="publishVisualization"         default="true"/>
   <arg name="visualizationRate"         default="1"/>
+
+  <arg name="legacy"         default="False"/>
   
  
 
@@ -110,6 +112,8 @@
       <param name="frequenciesPerTarget" type="int" value="2"/>
       <param name="targetCount" type="int" value="2"/>
       <param name="calib_file" type="string" value="$(arg calib_file_uv)"/>
+
+      <param name="legacy" type="bool" value="$(arg legacy)"/>
 
       <remap from="blinkersSeen" to="/$(arg uav_name)/uvdar/blinkersSeen"/>
       <remap from="estimatedFramerate" to="/$(arg uav_name)/uvdar/estimatedFramerate"/>

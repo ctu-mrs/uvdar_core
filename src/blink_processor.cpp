@@ -18,8 +18,8 @@
 #include <sensor_msgs/Imu.h>
 #include <std_msgs/Float32.h>
 #include <std_msgs/MultiArrayDimension.h>
-#include <std_msgs/UInt32MultiArray.h>
-#include <std_msgs/Int32MultiArray.h>
+/* #include <std_msgs/UInt32MultiArray.h> */
+#include <uvdar/Int32MultiArrayStamped.h>
 #include <stdint.h>
 #include <tf/tf.h>
 #include <tf/transform_listener.h>
@@ -65,7 +65,7 @@ public:
     nh_.param("returnFrequencies", returnFrequencies, bool(false));
 
     pointsSubscriber = nh_.subscribe("pointsSeen", 1, &BlinkProcessor::InsertPoints, this);
-    pointsPublisher  = nh_.advertise<std_msgs::Int32MultiArray>("blinkersSeen", 1);
+    pointsPublisher  = nh_.advertise<uvdar::Int32MultiArrayStamped>("blinkersSeen", 1);
 
     frameratePublisher  = nh_.advertise<std_msgs::Float32>("estimatedFramerate", 1);
 
@@ -153,7 +153,7 @@ public:
 
 
 private:
-  void InsertPoints(const std_msgs::UInt32MultiArrayConstPtr& msg) {
+  void InsertPoints(const uvdar::Int32MultiArrayStampedConstPtr& msg) {
     int                      countSeen;
     std::vector<cv::Point2i> points;
     countSeen = (int)((msg)->layout.dim[0].size);
@@ -207,12 +207,13 @@ private:
     /* } */
 
     /* ROS_INFO("Here"); */
+    lastPointsTime = msg->stamp;
     ht3dbt->insertFrame(points);
   }
 
   void ProcessThread() {
     std::vector<int>  msgdata;
-    std_msgs::Int32MultiArray msg;
+    uvdar::Int32MultiArrayStamped msg;
     clock_t                    begin, end;
     double                     elapsedTime;
     processSpinRate->reset();
@@ -224,6 +225,7 @@ private:
         ROS_INFO("Processing accumulated points");
 
       begin = std::clock();
+      ros::Time local_lastPointsTime = lastPointsTime;
       { retrievedBlinkers = ht3dbt->getResults(); }
       end         = std::clock();
       elapsedTime = double(end - begin) / CLOCKS_PER_SEC;
@@ -231,6 +233,7 @@ private:
         std::cout << "Processing: " << elapsedTime << " s, " << 1.0 / elapsedTime << " Hz" << std::endl;
 
       msgdata.clear();
+      msg.stamp = local_lastPointsTime;
       msg.layout.dim.push_back(std_msgs::MultiArrayDimension());
       msg.layout.dim.push_back(std_msgs::MultiArrayDimension());
       msg.layout.dim[0].size   = retrievedBlinkers.size();
@@ -492,6 +495,8 @@ private:
   int maxPixelShift;
 
   int frequencyCount;
+
+  ros::Time lastPointsTime;
 };
 
 /* int main(int argc, char** argv) { */

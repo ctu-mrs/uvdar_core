@@ -1,5 +1,5 @@
 
-#define camera_delay 0.50
+#define camera_delay 0.10
 #define armLength 0.2775
 #define maxSpeed 2.0
 #define maxDistInit 100.0
@@ -7,6 +7,10 @@
 #define min_frequency 4.8
 #define max_frequency 36.0
 #define boundary_ratio 0.5
+
+#define qpix 2
+//pixel std. dev
+
 
 /* #include <std_srvs/Trigger.h> */
 #include <cv_bridge/cv_bridge.h>
@@ -26,7 +30,7 @@
 #include <sensor_msgs/Imu.h>
 #include <std_msgs/Float32.h>
 #include <std_msgs/MultiArrayDimension.h>
-#include <std_msgs/UInt32MultiArray.h>
+#include <uvdar/Int32MultiArrayStamped.h>
 #include <std_msgs/Int32MultiArray.h>
 #include <std_srvs/SetBool.h>
 #include <stdint.h>
@@ -72,6 +76,10 @@ public:
 
     private_node_handle.param("gui", gui, bool(false));
 
+    private_node_handle.param("legacy", _legacy, bool(false));
+    if (_legacy)
+      ROS_INFO_STREAM("Legacy mode in effect.");
+
     private_node_handle.param("frequenciesPerTarget", frequenciesPerTarget, int(4));
     private_node_handle.param("targetCount", targetCount, int(4));
     int frequencyCount = targetCount*frequenciesPerTarget;
@@ -116,9 +124,10 @@ public:
 
     char calib_path[400];
 
-    node.param("calib_file", calib_file, std::string("calib_results_bf_uv_fe.txt"));
+    node.param("calib_file", _calib_file, std::string("calib_results_bf_uv_fe.txt"));
 
-    sprintf(calib_path, "%s/include/OCamCalib/config/%s", ros::package::getPath("uvdar").c_str(),calib_file.c_str());
+
+    sprintf(calib_path, "%s/include/OCamCalib/config/%s", ros::package::getPath("uvdar").c_str(),_calib_file.c_str());
 
     get_ocam_model(&oc_model, calib_path);
 
@@ -143,7 +152,14 @@ public:
 
 
     first            = true;
-    pointsSubscriber = node.subscribe("blinkersSeen", 1, &PoseReporter::ProcessPoints, this);
+
+    if (_legacy){
+      pointsSubscriberLegacy = node.subscribe("blinkersSeen", 1, &PoseReporter::ProcessPointsUnstamped, this);
+    }
+    else{
+      pointsSubscriber = node.subscribe("blinkersSeen", 1, &PoseReporter::ProcessPoints, this);
+    }
+
 
 
     framerateEstim = -1.0;
@@ -437,7 +453,7 @@ public:
     return pos_cov;
   }
 
-  unscented::measurement uvdarHexarotorPose1p_meas(Eigen::Vector2d X,double tubewidth, double meanDist){
+  unscented::measurement uvdarHexarotorPose1p_meas(Eigen::Vector2d X,double tubewidth, double tubelength, double meanDist){
     double v1[3];
     double x[2] = {X.y(),X.x()};
     cam2world(v1, x, &oc_model);
@@ -452,7 +468,7 @@ public:
     Eigen::MatrixXd temp;
     temp.setIdentity(6,6);
     ms.C = temp*666;//large covariance for angles in radians
-    ms.C.topLeftCorner(3, 3) = calc_position_covariance(V1,tubewidth,meanDist*16);
+    ms.C.topLeftCorner(3, 3) = calc_position_covariance(V1,tubewidth,tubelength);
 
     /* std::cout << "ms.C: " << ms.C << std::endl; */
 
@@ -719,9 +735,21 @@ public:
     framerateEstim = msg->data;
   }
 
-  void ProcessPoints(const std_msgs::Int32MultiArrayConstPtr& msg) {
+  //for legacy reasons
+  void ProcessPointsUnstamped(const std_msgs::Int32MultiArrayConstPtr& msg){
+    if (DEBUG)
+      ROS_INFO_STREAM("Getting message: " << *msg);
+    uvdar::Int32MultiArrayStampedPtr msg_stamped(new uvdar::Int32MultiArrayStamped);
+    msg_stamped->stamp = ros::Time::now()-ros::Duration(camera_delay);
+    msg_stamped->layout= msg->layout;
+    msg_stamped->data = msg->data;
+    ProcessPoints(msg_stamped);
+  }
+
+  void ProcessPoints(const uvdar::Int32MultiArrayStampedConstPtr& msg) {
     int                        countSeen;
     std::vector< cv::Point3i > points;
+    lastBlinkTime = msg->stamp;
     countSeen = (int)((msg)->layout.dim[0].size);
     if (DEBUG)
       ROS_INFO("Received points: %d", countSeen);
@@ -834,14 +862,14 @@ public:
         points[2].x, points[2].y, 1.0/(double)(points[2].z),
         0;  //to account for ambiguity
       Px3 <<
-        1.0,0,0,0,0,0,0,0,0,0,
-        0,1.0,0,0,0,0,0,0,0,0,
+        qpix ,0,0,0,0,0,0,0,0,0,
+        0,qpix ,0,0,0,0,0,0,0,0,
         0,0,sqr(perr),0,0,0,0,0,0,0,
-        0,0,0,1.0,0,0,0,0,0,0,
-        0,0,0,0,1.0,0,0,0,0,0,
+        0,0,0,qpix ,0,0,0,0,0,0,
+        0,0,0,0,qpix ,0,0,0,0,0,
         0,0,0,0,0,sqr(perr),0,0,0,0,
-        0,0,0,0,0,0,1.0,0,0,0,
-        0,0,0,0,0,0,0,1.0,0,0,
+        0,0,0,0,0,0,qpix ,0,0,0,
+        0,0,0,0,0,0,0,qpix ,0,0,
         0,0,0,0,0,0,0,0,sqr(perr),0,
         0,0,0,0,0,0,0,0,0,sqr(2*M_PI/3)
         ;
@@ -857,11 +885,11 @@ public:
         (double)(points[1].x) ,(double)(points[1].y),1.0/(double)(points[1].z),
         0.0,0.0,0.0;
       Px2 <<
-        1.0,0,0,0,0,0,0,0,0,
-        0,1.0,0,0,0,0,0,0,0,
+        qpix ,0,0,0,0,0,0,0,0,
+        0,qpix ,0,0,0,0,0,0,0,
         0,0,sqr(perr),0,0,0,0,0,0,
-        0,0,0,1.0,0,0,0,0,0,
-        0,0,0,0,1.0,0,0,0,0,
+        0,0,0,qpix ,0,0,0,0,0,
+        0,0,0,0,qpix ,0,0,0,0,
         0,0,0,0,0,sqr(perr),0,0,0,
         0,0,0,0,0,0,sqr(deg2rad(8)),0,0,
         0,0,0,0,0,0,0,sqr(deg2rad(30)),0,
@@ -880,7 +908,7 @@ public:
       std::cout << "led: " << points[0] << std::endl;
 
 
-      ms = uvdarHexarotorPose1p_meas(Eigen::Vector2d(points[0].x,points[0].y),armLength,10.0);
+      ms = uvdarHexarotorPose1p_meas(Eigen::Vector2d(points[0].x,points[0].y),armLength, 500,10.0);
 
 
       foundTarget = true;
@@ -934,7 +962,7 @@ public:
     }
 
     msgOdom->header.frame_id ="uvcam";
-    msgOdom->header.stamp = ros::Time::now();
+    msgOdom->header.stamp = lastBlinkTime;
     /* msgOdom->pose = *(msgPose); */
 
     /* msgOdom->twist.twist.linear.x = 0.0; */
@@ -1057,6 +1085,7 @@ private:
   ros::Time RangeRecTime;
 
   ros::Subscriber pointsSubscriber;
+  ros::Subscriber pointsSubscriberLegacy;
   ros::Subscriber framerateSubscriber;
 
   tf::TransformListener listener;
@@ -1127,6 +1156,8 @@ private:
 
   bool gotCam2Base;
 
+  ros::Time lastBlinkTime;
+
 
   /* uvLedDetect_gpu *uvdg; */
 
@@ -1183,7 +1214,9 @@ private:
   std::vector<double> periodBoundsTop;
   std::vector<double> periodBoundsBottom;
 
-  std::string calib_file;
+  std::string _calib_file;
+
+  bool _legacy;
 };
 
 

@@ -11,7 +11,7 @@
 #include <sensor_msgs/Imu.h>
 #include <std_msgs/Float32.h>
 #include <std_msgs/MultiArrayDimension.h>
-#include <std_msgs/UInt32MultiArray.h>
+#include <uvdar/Int32MultiArrayStamped.h>
 #include <stdint.h>
 #include <tf/tf.h>
 #include <tf/transform_listener.h>
@@ -113,7 +113,7 @@ public:
     }
 
     if (justReport) {
-      PointsPublisher = nh_.advertise< std_msgs::UInt32MultiArray >("pointsSeen", 1);
+      PointsPublisher = nh_.advertise< uvdar::Int32MultiArrayStamped >("pointsSeen", 1);
     }
 
 
@@ -239,7 +239,8 @@ private:
       return;
     }
     else if (justReport) {
-      std_msgs::UInt32MultiArray msg;
+      uvdar::Int32MultiArrayStamped msg;
+      msg.stamp = image->header.stamp;
       msg.layout.dim.push_back(std_msgs::MultiArrayDimension());
       msg.layout.dim.push_back(std_msgs::MultiArrayDimension());
       msg.layout.dim[0].size   = outvec.size();
@@ -248,8 +249,8 @@ private:
       msg.layout.dim[1].size   = 3;
       msg.layout.dim[1].label  = "value";
       msg.layout.dim[1].stride = 3;
-      std::vector< unsigned int > convert;
-      for (int i = 0; i < outvec.size(); i++) {
+      std::vector< int > convert;
+      for (int i = 0; i < (int)(outvec.size()); i++) {
         convert.push_back(outvec[i].x);
         convert.push_back(outvec[i].y);
         convert.push_back(0);
