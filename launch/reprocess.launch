@@ -30,6 +30,7 @@
   <arg name="visualizationRate"         default="1"/>
 
   <arg name="legacy"         default="False"/>
+  <arg name="legacy_delay"         default="0.2"/>
   
  
 
@@ -114,6 +115,7 @@
       <param name="calib_file" type="string" value="$(arg calib_file_uv)"/>
 
       <param name="legacy" type="bool" value="$(arg legacy)"/>
+      <param name="legacy_delay" type="double" value="$(arg legacy_delay)"/>
 
       <remap from="blinkersSeen" to="/$(arg uav_name)/uvdar/blinkersSeen"/>
       <remap from="estimatedFramerate" to="/$(arg uav_name)/uvdar/estimatedFramerate"/>

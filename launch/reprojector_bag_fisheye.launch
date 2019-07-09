@@ -16,8 +16,9 @@
   <arg name="DEBUG" default="false"/>
   <arg name="gui" default="true"/>
 
-  <arg name="frame_uvdar" default="uvcam"/>
+  <arg name="frame_estimate" default="local_origin_stable"/>
   <arg name="frame_camera" default="color_camera"/>
+  <arg name="frame_uvdar" default="uvcam"/>
 
   <arg name="offline" default="true"/>
 
@@ -25,11 +26,14 @@
 
   <arg name="publish_boxes" default="true"/>
 
+  <arg name="yaw_diff" default="-0.015"/>
+  <arg name="pitch_diff" default="0.0"/>
+
   <node
     name="uvcam_tf"
     pkg="tf"
     type="static_transform_publisher"
-    args="0.08 0.00 0.0 0.0 -0.015 0.00 $(arg frame_uvdar) $(arg frame_camera) 100"/>
+    args="0.08 0.00 0.0 0.0 $(arg yaw_diff) $(arg pitch_diff) $(arg frame_uvdar) $(arg frame_camera) 100"/>
     <!-- args="0.08 0.00 0.0 0.0 0.0 0.05 $(arg frame_uvdar) $(arg frame_camera) 100"/> -->
       <!-- <origin xyz="0.108 0 0.085" rpy="1.57079632679 4.71238898038 1.57079632679" /> -->
 
@@ -45,7 +49,7 @@
     <param name="gui"             type="bool" value="$(arg gui)"/>
 
     <param name="frame_camera" type="string" value="$(arg frame_camera)"/>
-    <param name="frame_uvdar" type="string" value="$(arg frame_uvdar)"/>
+    <param name="frame_estimate" type="string" value="$(arg frame_estimate)"/>
 
     <param name="offline" type="bool" value="$(arg offline)"/>
 

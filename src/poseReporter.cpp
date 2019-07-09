@@ -77,8 +77,10 @@ public:
     private_node_handle.param("gui", gui, bool(false));
 
     private_node_handle.param("legacy", _legacy, bool(false));
-    if (_legacy)
-      ROS_INFO_STREAM("Legacy mode in effect.");
+    if (_legacy){
+      private_node_handle.param("legacy_delay", _legacy_delay, double(0.2));
+      ROS_INFO_STREAM("Legacy mode in effect. Set delay is " << _legacy_delay << "s");
+    }
 
     private_node_handle.param("frequenciesPerTarget", frequenciesPerTarget, int(4));
     private_node_handle.param("targetCount", targetCount, int(4));
@@ -740,7 +742,7 @@ public:
     if (DEBUG)
       ROS_INFO_STREAM("Getting message: " << *msg);
     uvdar::Int32MultiArrayStampedPtr msg_stamped(new uvdar::Int32MultiArrayStamped);
-    msg_stamped->stamp = ros::Time::now()-ros::Duration(camera_delay);
+    msg_stamped->stamp = ros::Time::now()-ros::Duration(_legacy_delay);
     msg_stamped->layout= msg->layout;
     msg_stamped->data = msg->data;
     ProcessPoints(msg_stamped);
@@ -1217,6 +1219,7 @@ private:
   std::string _calib_file;
 
   bool _legacy;
+  double _legacy_delay;
 };
 
 

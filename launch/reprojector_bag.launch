@@ -26,11 +26,15 @@
 
   <arg name="publish_boxes" default="true"/>
 
+  <arg name="yaw_diff" default="0.040"/>
+  <arg name="pitch_diff" default="-0.01"/>
+
   <node
     name="uvcam_tf"
     pkg="tf"
     type="static_transform_publisher"
-    args="0.08 0.00 0.0 0.0 0.040 -0.01 $(arg frame_uvdar) $(arg frame_camera) 100"/>
+    args="0.08 0.00 0.0 0.0 $(arg yaw_diff) $(arg pitch_diff) $(arg frame_uvdar) $(arg frame_camera) 100"/>
+    <!-- args="0.08 0.00 0.0 0.0 0.040 -0.01 $(arg frame_uvdar) $(arg frame_camera) 100"/> -->
     <!-- args="0.08 0.00 0.0 0.0 -0.015 0.00 $(arg frame_uvdar) $(arg frame_camera) 100"/> -->
     <!-- args="0.08 0.00 0.0 0.0 0.0 0.05 $(arg frame_uvdar) $(arg frame_camera) 100"/> -->
       <!-- <origin xyz="0.108 0 0.085" rpy="1.57079632679 4.71238898038 1.57079632679" /> -->

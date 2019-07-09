@@ -26,6 +26,7 @@
 #define decayTime 0.8
 #define odomBufferLength 2.0
 #define armLength 0.2775
+#define propRadius 0.1143
 
 #define maxCamAngle 1.61443 //185 deg / 2
 
@@ -295,7 +296,7 @@ class Reprojector{
           /* cv::ellipse(viewImage, getErrorEllipse(100,ms.x,ms.C), cv::Scalar::all(255), 2); */
           auto proj = getErrorEllipse(1,ms.x,ms.C);
 
-          unscented::measurement ms_expand = getProjectedCovarianceExpand(currOdom, armLength);
+          unscented::measurement ms_expand = getProjectedCovarianceExpand(currOdom, armLength+propRadius);
           if (ms_expand.x.array().isNaN().any()){
             continue;
           }
