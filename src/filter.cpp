@@ -14,7 +14,7 @@
 #define validTime 1.0
 #define decayTime 2.0
 #define DEBUG true
-#define minMeasurementsToValidation 3
+#define minMeasurementsToValidation 2
 
 #define useVelocity true
 
@@ -130,11 +130,14 @@ class UvdarKalman {
     tf_listener = new tf2_ros::TransformListener(tf_buffer);
 
     timer = nh.createTimer(ros::Duration(1.0/fmax(freq,1.0)), &UvdarKalman::spin, this);
-    filtPublisher[0] = nh.advertise<nav_msgs::Odometry>("filteredPose1", 1);
-    filtPublisher[1] = nh.advertise<nav_msgs::Odometry>("filteredPose2", 1);
     measSubscriber[0] = nh.subscribe("measuredPose1", 1, &UvdarKalman::measurementCallback, this);
     measSubscriber[1] = nh.subscribe("measuredPose2", 1, &UvdarKalman::measurementCallback, this);
 
+    filtPublisher[0] = nh.advertise<nav_msgs::Odometry>("filteredPose1", 1);
+    filtPublisher[1] = nh.advertise<nav_msgs::Odometry>("filteredPose2", 1);
+
+    filtPublisherTentative[0] = nh.advertise<nav_msgs::Odometry>("filteredPose1/tentative", 1);
+    filtPublisherTentative[1] = nh.advertise<nav_msgs::Odometry>("filteredPose2/tentative", 1);
   }
 
   ~UvdarKalman(){
@@ -291,10 +294,6 @@ class UvdarKalman {
           return;
         }
 
-      if (!trackerValidated[target])
-        continue;
-
-
       pubPose = boost::make_shared<nav_msgs::Odometry>();
 
       pubPose->pose.pose.position.x = currKalman[target]->getState(0);
@@ -358,7 +357,12 @@ class UvdarKalman {
       pubPose->header.frame_id = _output_frame;
       pubPose->header.stamp = ros::Time::now()-delay;
 
-      filtPublisher[target].publish(pubPose);
+      if (trackerValidated[target])
+        filtPublisher[target].publish(pubPose);
+      else
+        filtPublisherTentative[target].publish(pubPose);
+
+
 
       if (DEBUG){
         ROS_INFO_STREAM("State: ");
@@ -399,6 +403,7 @@ class UvdarKalman {
   ros::Subscriber measSubscriber[filterCount];
   ros::Subscriber          ImageSubscriber;
   ros::Publisher filtPublisher[filterCount];
+  ros::Publisher filtPublisherTentative[filterCount];
 
   nav_msgs::OdometryPtr pubPose;
 

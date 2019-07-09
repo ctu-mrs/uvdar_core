@@ -40,6 +40,8 @@
     <remap from="measuredPose2" to="/$(arg uav_name)/uvdar/measuredPose2"/>
     <remap from="filteredPose1" to="/$(arg uav_name)/uvdar/filteredPose1"/>
     <remap from="filteredPose2" to="/$(arg uav_name)/uvdar/filteredPose2"/>
+    <remap from="filteredPose1/tentative" to="/$(arg uav_name)/uvdar/filteredPose1/tentative"/>
+    <remap from="filteredPose2/tentative" to="/$(arg uav_name)/uvdar/filteredPose2/tentative"/>
 
   </node>
     </group>
