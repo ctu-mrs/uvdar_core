@@ -13,6 +13,7 @@
 
 
 /* #include <std_srvs/Trigger.h> */
+#include <experimental/filesystem>
 #include <cv_bridge/cv_bridge.h>
 #include <geometry_msgs/Twist.h>
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
@@ -89,27 +90,27 @@ public:
       
     int tempFreq;
     if (frequencySet.size() < frequencyCount) {
-      node.param("frequency1", tempFreq, int(6));
+      private_node_handle.param("frequency1", tempFreq, int(6));
       frequencySet.push_back(double(tempFreq));
     }
     if (frequencySet.size() < frequencyCount) {
-      node.param("frequency2", tempFreq, int(10));
+      private_node_handle.param("frequency2", tempFreq, int(10));
       frequencySet.push_back(double(tempFreq));
     }
     if (frequencySet.size() < frequencyCount) {
-      node.param("frequency3", tempFreq, int(15));
+      private_node_handle.param("frequency3", tempFreq, int(15));
       frequencySet.push_back(double(tempFreq));
     }
     if (frequencySet.size() < frequencyCount) {
-      node.param("frequency4", tempFreq, int(30));
+      private_node_handle.param("frequency4", tempFreq, int(30));
       frequencySet.push_back(double(tempFreq));
     }
     if (frequencySet.size() < frequencyCount) {
-      node.param("frequency5", tempFreq, int(8));
+      private_node_handle.param("frequency5", tempFreq, int(8));
       frequencySet.push_back(double(tempFreq));
     }
     if (frequencySet.size() < frequencyCount) {
-      node.param("frequency6", tempFreq, int(12));
+      private_node_handle.param("frequency6", tempFreq, int(12));
       frequencySet.push_back(double(tempFreq));
     }
 
@@ -125,13 +126,20 @@ public:
     gotCamInfo = false;
 
     char calib_path[400];
-
-    node.param("calib_file", _calib_file, std::string("calib_results_bf_uv_fe.txt"));
-
-
+    private_node_handle.param("calib_file", _calib_file, std::string("calib_results_bf_uv_fe.txt"));
     sprintf(calib_path, "%s/include/OCamCalib/config/%s", ros::package::getPath("uvdar").c_str(),_calib_file.c_str());
-
     get_ocam_model(&oc_model, calib_path);
+
+
+    mask_active = false;
+    char mask_path[400];
+    private_node_handle.param("mask_file", _mask_file, std::string("dummy"));
+    sprintf(mask_path, "%s/masks/%s", ros::package::getPath("uvdar").c_str(),_mask_file.c_str());
+    setMask(mask_path);
+
+
+
+
 
     targetInCamPub    = node.advertise< geometry_msgs::Pose >("targetInCam", 1);
     targetInBasePub   = node.advertise< geometry_msgs::Pose >("targetInBase", 1);
@@ -775,6 +783,13 @@ public:
       }
 
     for (int i = 0; i < countSeen; i++) {
+      if (mask_active)
+        if (mask.at<unsigned char>(cv::Point2i(msg->data[(i * 3)], msg->data[(i * 3) + 1])) < 100){
+          /* if (DEBUG) */
+          ROS_INFO_STREAM("Discarding point " << cv::Point3i(msg->data[(i * 3)], msg->data[(i * 3) + 1], msg->data[(i * 3) + 2]));
+          continue;
+        }
+
       if (msg->data[(i * 3) + 2] <= 200) {
         points.push_back(cv::Point3i(msg->data[(i * 3)], msg->data[(i * 3) + 1], msg->data[(i * 3) + 2]));
       }
@@ -1065,19 +1080,24 @@ public:
 
 private:
 
+  void setMask(std::string mask_file){
+    if (std::experimental::filesystem::exists(mask_file)){
+      ROS_INFO_STREAM("Setting mask to " << mask_file);
+      mask = cv::imread(mask_file,CV_LOAD_IMAGE_GRAYSCALE);
+      mask_active = true;
+    }
+    else
+      ROS_INFO_STREAM("Mask file " << mask_file << " does not exist.");
+
+  }
+
+
+  bool mask_active;
+  cv::Mat mask;
+
 
   double framerateEstim;
 
-
-  std::stringstream VideoPath;
-
-  std::stringstream MaskPath;
-  std::string       MaskPathHard;
-  int               VideoNumber;
-  bool              FromVideo;
-  bool              FromBag;
-  bool              FromCamera;
-  int               camNum;
 
   bool first;
   bool stopped;
@@ -1217,6 +1237,7 @@ private:
   std::vector<double> periodBoundsBottom;
 
   std::string _calib_file;
+  std::string _mask_file;
 
   bool _legacy;
   double _legacy_delay;

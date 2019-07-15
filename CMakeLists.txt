@@ -160,6 +160,7 @@ target_link_libraries(uv_reporter_node
   ${EIGEN3_LIBRARIES}
   OCamCalib
   unscented
+  stdc++fs
   )
 
 target_link_libraries(uvdar_kalman_node

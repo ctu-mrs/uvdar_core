@@ -97,6 +97,8 @@
 
   <arg name="calib_file_uv" default="calib_results_bf_uv_fe.txt"/>
 
+  <arg name="mask_file" default="mask_1.bmp"/>
+
       <!-- <origin xyz="0.108 0 0.085" rpy="1.57079632679 4.71238898038 1.57079632679" /> -->
   <!--Usage: static_transform_publisher x y z yaw pitch roll frame_id child_frame_id  period(milliseconds)-->
 <!-- OR -->
@@ -113,6 +115,7 @@
       <param name="frequenciesPerTarget" type="int" value="2"/>
       <param name="targetCount" type="int" value="2"/>
       <param name="calib_file" type="string" value="$(arg calib_file_uv)"/>
+      <param name="mask_file" type="string" value="$(arg mask_file)"/>
 
       <param name="legacy" type="bool" value="$(arg legacy)"/>
       <param name="legacy_delay" type="double" value="$(arg legacy_delay)"/>
