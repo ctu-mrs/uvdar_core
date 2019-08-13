@@ -18,7 +18,7 @@
 
   <arg name="frame_estimate" default="local_origin_stable"/>
   <arg name="frame_camera" default="color_camera"/>
-  <arg name="frame_uvdar" default="uvcam"/>
+  <arg name="frame_uvdar" default="uvcam_$(arg uav_name)"/>
 
   <arg name="offline" default="false"/>
 

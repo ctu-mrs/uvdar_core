@@ -722,9 +722,9 @@ public:
     while (true) {
       transformRate.sleep();
       try {
-        listener.waitForTransform("fcu_" + uav_name, "uvcam", ros::Time::now(), ros::Duration(1.0));
+        listener.waitForTransform("fcu_" + uav_name, "uvcam_" + uav_name, ros::Time::now(), ros::Duration(1.0));
         mutex_tf.lock();
-        listener.lookupTransform("fcu_" + uav_name, "uvcam", ros::Time(0), transformCam2Base);
+        listener.lookupTransform("fcu_" + uav_name, "uvcam_" + uav_name, ros::Time(0), transformCam2Base);
         mutex_tf.unlock();
       }
       catch (tf::TransformException ex) {
@@ -983,7 +983,7 @@ public:
       }
     }
 
-    msgOdom->header.frame_id ="uvcam";
+    msgOdom->header.frame_id ="uvcam_" + uav_name;
     msgOdom->header.stamp = lastBlinkTime;
     /* msgOdom->pose = *(msgPose); */
 

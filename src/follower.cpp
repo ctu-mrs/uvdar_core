@@ -390,9 +390,9 @@ public:
     ros::Rate transformRate(1.0);
     while (true) {
       try {
-        listener.waitForTransform("fcu_" + uav_name, "uvcam", ros::Time::now(), ros::Duration(1.0));
+        listener.waitForTransform("fcu_" + uav_name, "uvcam"+uav_name, ros::Time::now(), ros::Duration(1.0));
         mutex_tf.lock();
-        listener.lookupTransform("fcu_" + uav_name, "uvcam", ros::Time(0), transformCam2Base);
+        listener.lookupTransform("fcu_" + uav_name, "uvcam"+uav_name, ros::Time(0), transformCam2Base);
         mutex_tf.unlock();
       }
       catch (tf::TransformException ex) {
