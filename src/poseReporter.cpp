@@ -4,7 +4,7 @@
 #define maxSpeed 2.0
 #define maxDistInit 100.0
 
-#define min_frequency 4.8
+#define min_frequency 3
 #define max_frequency 36.0
 #define boundary_ratio 0.5
 
@@ -803,7 +803,12 @@ public:
 
       for (int i = 0; i < points.size(); i++) {
         if (points[i].z > 1) {
-          separatedPoints[classifyMatch(findMatch(points[i].z))].push_back(points[i]);
+          int mid = findMatch(points[i].z);
+          int tid = classifyMatch(mid);
+          /* ROS_INFO("[%s]: MID: %d, TID: %d", ros::this_node::getName().c_str(), mid, tid); */
+          /* separatedPoints[classifyMatch(findMatch(points[i].z))].push_back(points[i]); */
+          if (tid>0)
+            separatedPoints[tid].push_back(points[i]);
         }
       }
 
