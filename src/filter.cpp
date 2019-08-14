@@ -10,7 +10,6 @@
 #include <mutex>
 
 #define freq 30.0
-#define filterCount 2
 #define validTime 1.0
 #define decayTime 2.0
 #define DEBUG true
@@ -22,12 +21,30 @@
 namespace e = Eigen;
 
 class UvdarKalman {
+  int filterCount = 2;
 
   public:
   UvdarKalman(ros::NodeHandle nh) {
 
     ros::NodeHandle pnh("~");
     pnh.param("output_frame", _output_frame, std::string("local_origin"));
+    pnh.param("filterCount", filterCount, filterCount);
+
+    ROS_INFO_STREAM("[Param] filterCount: " << filterCount);
+
+    /* Initialize variables //{ */
+
+    currKalman.resize(filterCount);
+    trackerValidated.resize(filterCount);
+    measurementsAssociated.resize(filterCount);
+    gotMeasurement.resize(filterCount);
+    gotAnyMeasurement.resize(filterCount);
+    lastMeasurement.resize(filterCount);
+    measSubscriber.resize(filterCount);
+    filtPublisher.resize(filterCount);
+    filtPublisherTentative.resize(filterCount);
+
+    //}
 
     dt = 1.0/freq;
 
@@ -129,15 +146,14 @@ class UvdarKalman {
 
     tf_listener = new tf2_ros::TransformListener(tf_buffer);
 
-    timer = nh.createTimer(ros::Duration(1.0/fmax(freq,1.0)), &UvdarKalman::spin, this);
-    measSubscriber[0] = nh.subscribe("measuredPose1", 1, &UvdarKalman::measurementCallback, this);
-    measSubscriber[1] = nh.subscribe("measuredPose2", 1, &UvdarKalman::measurementCallback, this);
+    timer = nh.createTimer(ros::Duration(1.0 / fmax(freq,1.0)), &UvdarKalman::spin, this);
+    for (int i = 0; i < filterCount; ++i) 
+    {
+      measSubscriber[i] = nh.subscribe("measuredPose" + std::to_string(i+1), 1, &UvdarKalman::measurementCallback, this);
+      filtPublisher[i] = nh.advertise<nav_msgs::Odometry>("filteredPose" + std::to_string(i+1), 1);
+      filtPublisherTentative[i] = nh.advertise<nav_msgs::Odometry>("filteredPose" + std::to_string(i+1) + "/tentative", 1);
 
-    filtPublisher[0] = nh.advertise<nav_msgs::Odometry>("filteredPose1", 1);
-    filtPublisher[1] = nh.advertise<nav_msgs::Odometry>("filteredPose2", 1);
-
-    filtPublisherTentative[0] = nh.advertise<nav_msgs::Odometry>("filteredPose1/tentative", 1);
-    filtPublisherTentative[1] = nh.advertise<nav_msgs::Odometry>("filteredPose2/tentative", 1);
+    }
   }
 
   ~UvdarKalman(){
@@ -396,21 +412,21 @@ class UvdarKalman {
 
 
   e::MatrixXd A,B,R,Q,P;
-  mrs_lib::Lkf* currKalman[filterCount];
-  bool trackerValidated[filterCount];
-  int measurementsAssociated[filterCount];
+  std::vector<mrs_lib::Lkf*> currKalman;
+  std::vector<bool> trackerValidated;
+  std::vector<int> measurementsAssociated;
 
   ros::Timer timer;
 
   double dt;
 
-  bool gotMeasurement[filterCount], gotAnyMeasurement[filterCount];
+  std::vector<bool> gotMeasurement, gotAnyMeasurement;
   /* ros::Duration sinceMeasurement[filterCount]; */
-  ros::Time lastMeasurement[filterCount];
-  ros::Subscriber measSubscriber[filterCount];
-  ros::Subscriber          ImageSubscriber;
-  ros::Publisher filtPublisher[filterCount];
-  ros::Publisher filtPublisherTentative[filterCount];
+  std::vector<ros::Time> lastMeasurement;
+  std::vector<ros::Subscriber> measSubscriber;
+  std::vector<ros::Subscriber> ImageSubscriber;
+  std::vector<ros::Publisher> filtPublisher;
+  std::vector<ros::Publisher> filtPublisherTentative;
 
   nav_msgs::OdometryPtr pubPose;
 

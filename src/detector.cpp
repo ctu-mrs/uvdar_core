@@ -116,7 +116,7 @@ public:
       PointsPublisher = nh_.advertise< uvdar::Int32MultiArrayStamped >("pointsSeen", 1);
     }
 
-
+    ROS_INFO("[UVDetector]: initialized");
   }
 
   ~UVDetector() {

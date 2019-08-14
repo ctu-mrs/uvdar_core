@@ -24,7 +24,7 @@
   
   <!-- <node pkg="uvdar" type="uvdar_kalman_node" name="filterUvdar" output="screen" launch-prefix="debug_roslaunch"> -->
   <node pkg="uvdar" type="uvdar_kalman_node" name="filterUvdar" output="screen">
-    <param name="output_frame" value="local_origin_stable"/>
+    <param name="output_frame" value="local_origin"/>
     <!-- <param name="output_frame" value="fcu_$(arg uav_name)"/> -->
     <!-- <param name="base_footprint_frame" value="fcu_$(arg uav_name)"/> -->
     <!-- <param name="base_footprint_frame" value="uvdar_target_estim"/> -->
@@ -35,6 +35,7 @@
     <!-- <param name="uvdar_used" value="true"/> -->
     <!-- <param name="debug" value="false"/> -->
     <!-- <param name="self_diagnose" value="false"/> -->
+    <param name="filterCount" value="3" />
 
     <remap from="measuredPose1" to="/$(arg uav_name)/uvdar/measuredPose1"/>
     <remap from="measuredPose2" to="/$(arg uav_name)/uvdar/measuredPose2"/>

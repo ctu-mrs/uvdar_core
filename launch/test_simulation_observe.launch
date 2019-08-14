@@ -78,7 +78,7 @@
   <arg name="TimeScale" default="1.0"/>
 
   <node
-    name="uvcam_tf"
+    name="uvcam_tf_$(arg uav_name)"
     pkg="tf"
     type="static_transform_publisher"
     args="0.09 0.04 0.2 -1.57079632679 0.00000000000 -1.57079632679 fcu_$(arg uav_name) uvcam_$(arg uav_name) 100"/>
@@ -88,7 +88,8 @@
 <!-- OR -->
   <group ns="$(arg uav_name)">
   
-    <node pkg="nodelet" type="nodelet" name="$(arg uav_name)_uvdar_nodelet_manager" args="manager" output="screen">
+    <!-- <node pkg="nodelet" type="nodelet" name="$(arg uav_name)_uvdar_nodelet_manager" args="manager" output="screen" launch-prefix="debug_roslaunch"> -->
+    <node pkg="nodelet" type="nodelet" name="$(arg uav_name)_uvdar_nodelet_manager" args="manager" output="screen" >
       <param name="num_worker_threads" value="8" />
     </node>
 
@@ -124,16 +125,20 @@
       <remap from="~pointsSeen" to="/$(arg uav_name)/uvdar/uvPointsSeen"/>
     </node>
     <node name="blink_processor" pkg="nodelet" type="nodelet" args="$(arg nodelet) uvdar/BlinkProcessor $(arg nodelet_manager)" output="screen" respawn="true"> 
+      <param name="uav_name" type = "string" value="$(arg uav_name)"/>
         <param name="DEBUG"		type="bool" value="$(arg DEBUG)"/> 
         <param name="VisDEBUG"		type="bool" value="$(arg VisDEBUG)"/> 
         <param name="GUI"             type="bool" value="$(arg gui)"/>
         <param name="CameraImageompressed"    type="bool" value="false"/>
         <param name="InvertedPoints"    type="bool" value="false"/>
-        <param name="frequencyCount" type="int" value="4"/>
-        <param name="frequency1" type="int" value="6"/>
-        <param name="frequency2" type="int" value="10"/>
-        <param name="frequency3" type="int" value="15"/>
-        <param name="frequency4" type="int" value="30"/>
+        <param name="frequencyCount" type="int" value="3"/>
+        <!-- <param name="frequency1" type="int" value="12"/> -->
+        <!-- <param name="frequency2" type="int" value="24"/> -->
+        <!-- <param name="frequency3" type="int" value="16"/> -->
+
+        <param name="frequency1" type="int" value="10"/>
+        <param name="frequency2" type="int" value="15"/>
+        <param name="frequency3" type="int" value="30"/>
 
       <param name="processRate"         type="int" value="$(arg processRate)"/>
 
@@ -151,24 +156,24 @@
       </node>
       
     <!-- <node name="uv_reporter_node" pkg="uvdar" type="uv_reporter_node" output="screen" launch-prefix="debug_roslaunch"> --> 
-    <node name="uv_reporter_node" pkg="uvdar" type="uv_reporter_node" output="screen"> 
+    <!-- <node name="uv_reporter_node" pkg="uvdar" type="uv_reporter_node" output="screen" launch-prefix="debug_roslaunch"> --> 
+    <node name="uv_reporter_node" pkg="uvdar" type="uv_reporter_node" output="screen" > 
       <param name="uav_name" type = "string" value="$(arg uav_name)"/>
 
       <param name="DEBUG"		type="bool" value="true"/> 
       <param name="gui"             type="bool" value="$(arg gui)"/>
       <param name="publish"         type="bool" value="$(arg publish)"/>
-      <param name="frequenciesPerTarget" type="int" value="2"/>
-      <param name="targetCount" type="int" value="2"/>
-
-      <param name="frequency1" type="int" value="6"/>
-      <param name="frequency2" type="int" value="10"/>
-      <param name="frequency3" type="int" value="15"/>
-      <param name="frequency4" type="int" value="30"/>
+      <param name="frequenciesPerTarget" type="int" value="1"/>
+      <param name="targetCount" type="int" value="3"/>
+      <param name="frequency1" type="int" value="10"/>
+      <param name="frequency2" type="int" value="15"/>
+      <param name="frequency3" type="int" value="30"/>
 
       <remap from="blinkersSeen" to="/$(arg uav_name)/uvdar/blinkersSeen"/>
       <remap from="estimatedFramerate" to="/$(arg uav_name)/uvdar/estimatedFramerate"/>
       <remap from="measuredPose1" to="/$(arg uav_name)/uvdar/measuredPose1"/>
       <remap from="measuredPose2" to="/$(arg uav_name)/uvdar/measuredPose2"/>
+      <remap from="measuredPose3" to="/$(arg uav_name)/uvdar/measuredPose3"/>
     </node>
     </group>
 
