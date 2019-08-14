@@ -151,8 +151,11 @@ public:
     measuredDist = node.advertise< std_msgs::Float32 >("measuredDist", 1);
 
     /* measuredPose = node.advertise<nav_msgs::Odometry>("measuredPose", 1); */
+    measuredPose.resize(targetCount);
+    ROS_INFO("[%s]: targetCount: %d", ros::this_node::getName().c_str(), targetCount );
     for (int i=0;i<targetCount;i++){
-      measuredPose[i] = node.advertise< geometry_msgs::PoseWithCovarianceStamped >(std::string("measuredPose")+std::to_string(i+1), 1);
+      ROS_INFO("[%s]: Advertising measuredPose%d", ros::this_node::getName().c_str(),i+1 );
+      measuredPose[i] = node.advertise<geometry_msgs::PoseWithCovarianceStamped>("measuredPose" + std::to_string(i+1), 1);
     }
 
     X2 = Eigen::VectorXd(9,9);
@@ -805,9 +808,9 @@ public:
         if (points[i].z > 1) {
           int mid = findMatch(points[i].z);
           int tid = classifyMatch(mid);
-          /* ROS_INFO("[%s]: MID: %d, TID: %d", ros::this_node::getName().c_str(), mid, tid); */
+          ROS_INFO("[%s]: FR: %d, MID: %d, TID: %d", ros::this_node::getName().c_str(),points[i].z, mid, tid);
           /* separatedPoints[classifyMatch(findMatch(points[i].z))].push_back(points[i]); */
-          if (tid>0)
+          if (tid>=0)
             separatedPoints[tid].push_back(points[i]);
         }
       }
@@ -1225,7 +1228,7 @@ private:
   ros::Publisher setpointPub;
   ros::Publisher measuredDist;
 
-  ros::Publisher measuredPose[2];
+  std::vector<ros::Publisher> measuredPose;
 
   bool               targetAcquired[2];
   /* Lkf* trackers[2]; */

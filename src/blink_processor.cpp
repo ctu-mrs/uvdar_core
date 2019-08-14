@@ -2,7 +2,7 @@
 
 #define camera_delay 0.50
 
-#define min_frequency 4.8
+#define min_frequency 3
 #define max_frequency 36.0
 #define boundary_ratio 0.7
 
@@ -38,6 +38,7 @@ public:
 
     ros::NodeHandle nh_ = nodelet::Nodelet::getMTPrivateNodeHandle();
 
+    nh_.param("uav_name", uav_name, std::string());
     nh_.param("DEBUG", DEBUG, bool(false));
     nh_.param("VisDEBUG", VisDEBUG, bool(false));
     nh_.param("GUI", GUI, bool(false));
@@ -76,21 +77,12 @@ public:
     viewImage = currImage.clone();
     ImageSubscriber = nh_.subscribe("camera", 1, &BlinkProcessor::ProcessRaw, this);
 
-    process_thread = std::thread(&BlinkProcessor::ProcessThread, this);
-    if (GUI) {
-      show_thread    = std::thread(&BlinkProcessor::ShowThread, this);
-    }
-    if (publishVisualization) {
-      visualization_thread = std::thread(&BlinkProcessor::VisualizeThread, this);
-      image_transport::ImageTransport it(nh_);
-      imPub = it.advertise("visualization", 1);
-    }
-
     timeSum     = 0.0;
     timeSamples = 0;
 
     framerateEstim = 72;
 
+    ROS_INFO("[BlinkProcessor]: dog");
 
     nh_.param("frequencyCount", frequencyCount, int(4));
     /* if (frequencyCount != 2){ */
@@ -124,8 +116,20 @@ public:
       frequencySet.push_back(double(tempFreq));
     }
 
-
     prepareFrequencyClassifiers();
+
+    process_thread = std::thread(&BlinkProcessor::ProcessThread, this);
+    if (GUI) {
+      show_thread  = std::thread(&BlinkProcessor::ShowThread, this);
+    }
+
+    if (publishVisualization) {
+      visualization_thread = std::thread(&BlinkProcessor::VisualizeThread, this);
+      image_transport::ImageTransport it(nh_);
+      imPub = it.advertise("visualization", 1);
+    }
+
+    ROS_INFO("[BlinkProcessor]: initialized");
   }
 
   void prepareFrequencyClassifiers() {
@@ -226,7 +230,9 @@ private:
 
       begin = std::clock();
       ros::Time local_lastPointsTime = lastPointsTime;
-      { retrievedBlinkers = ht3dbt->getResults(); }
+      {
+        retrievedBlinkers = ht3dbt->getResults();
+      }
       end         = std::clock();
       elapsedTime = double(end - begin) / CLOCKS_PER_SEC;
       if (DEBUG)
@@ -422,7 +428,7 @@ private:
       /* } */
       /* ROS_INFO("W:%d, H:%d", viewImage.size().width,viewImage.size().height); */
       if (!VisDEBUG && GUI)
-        cv::imshow("ocv_blink_retrieval", viewImage);
+        cv::imshow("ocv_blink_retrieval_"+uav_name, viewImage);
 
       if (!VisDEBUG)
         cv::waitKey(1000.0 / 25.0);
@@ -448,6 +454,7 @@ private:
     mutex_show.unlock();
   }
 
+  std::string              uav_name;
   bool                     currBatchProcessed;
   bool                     DEBUG;
   bool                     VisDEBUG;
