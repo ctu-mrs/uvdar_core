@@ -247,6 +247,13 @@ class UvdarKalman {
 
       if (DEBUG)
         ROS_INFO_STREAM("Applying measurement [" << target <<"]");
+
+      //fix angles to account for correction through 0/2pi
+      currKalman[target]->setState(
+          (useVelocity?9:6),
+          fixAngle(currKalman[target]->getState((useVelocity?9:6)));
+            )
+
       currKalman[target]->setMeasurement(mes,Q);
       gotMeasurement[target] =true;
     }
