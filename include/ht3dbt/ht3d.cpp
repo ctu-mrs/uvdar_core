@@ -577,6 +577,9 @@ std::vector< cv::Point > HT3DBlinkerTracker::findHoughPeaks(unsigned int *__rest
 
 double HT3DBlinkerTracker::retrieveFreqency(cv::Point originPoint, double &avgYaw, double &avgPitch) {
   unsigned char initPitch = pitchMatrix.at< unsigned char >(originPoint);
+  if (DEBUG){
+    std::cout << "Initial pitch estimate: " << pitchVals[initPitch]*(180/M_PI) << " deg" << std::endl;
+  }
   int                      stepCount = std::min((int)(accumulatorLocalCopy.size()), memSteps);
   double                   radExpectedMax, radExpectedMin, currPointRadius;
   std::vector< cv::Point > positivePointAccum;
@@ -707,9 +710,6 @@ double HT3DBlinkerTracker::retrieveFreqency(cv::Point originPoint, double &avgYa
     }
     prevState = state;
   }
-  if ((maxPeriod - minPeriod) > 3){
-    return -3;
-  }
 
   double periodAvg;
 
@@ -721,13 +721,25 @@ double HT3DBlinkerTracker::retrieveFreqency(cv::Point originPoint, double &avgYa
     /*     periodAvg = 2 * (lastDownStepIndex - lastUpStepIndex); */
     /*   } */
     /* } */
+
+    if (DEBUG){
+      std::cout << "Not one whole period retrieved, returning;" <<std::endl;
+    }
     return -1;
   } else if (cntPeriod != 0) {
     periodAvg = (double)sumPeriod / (double)cntPeriod;
   }
 
+  if ((maxPeriod - minPeriod) > (periodAvg)){
+    if (DEBUG)
+      std::cout << "Spread too wide: "<<maxPeriod-minPeriod<<" compared to average of " << periodAvg <<", returning" <<std::endl;
+    return -3;
+  }
 
   if ((periodAvg * ((double)(cntPeriod+1)/2.0) ) < ( memSteps - (1.5*periodAvg))){
+    if (DEBUG){
+      std::cout << "Not enough periods retrieved: "<< cntPeriod <<" for " << periodAvg <<" on average; returning" <<std::endl;
+    }
     return -4;
   }
 

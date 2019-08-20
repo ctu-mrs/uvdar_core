@@ -18,7 +18,7 @@
 #include <sensor_msgs/Imu.h>
 #include <std_msgs/Float32.h>
 #include <std_msgs/MultiArrayDimension.h>
-/* #include <std_msgs/UInt32MultiArray.h> */
+#include <std_msgs/UInt32MultiArray.h>
 #include <uvdar/Int32MultiArrayStamped.h>
 #include <stdint.h>
 #include <tf/tf.h>
@@ -55,7 +55,7 @@ public:
     nh_.param("publishVisualization", publishVisualization, bool(false));
     nh_.param("visualizationRate", visualizatinRate, int(5));
 
-    ht3dbt = new HT3DBlinkerTracker(accumulatorLength, pitchSteps, yawSteps, maxPixelShift, cv::Size(752, 480));
+    ht3dbt = new HT3DBlinkerTracker(accumulatorLength, pitchSteps, yawSteps, maxPixelShift, cv::Size(752, 480), 8, 3);
 
     ht3dbt->setDebug(DEBUG, VisDEBUG);
     /* ht3dbt->setDebug(true, VisDEBUG); */
@@ -65,7 +65,20 @@ public:
 
     nh_.param("returnFrequencies", returnFrequencies, bool(false));
 
-    pointsSubscriber = nh_.subscribe("pointsSeen", 1, &BlinkProcessor::InsertPoints, this);
+    nh_.param("legacy", _legacy, bool(false));
+
+    if (_legacy){
+      nh_.param("legacy_delay", _legacy_delay, double(0.2));
+      ROS_INFO_STREAM("Legacy mode in effect. Set delay is " << _legacy_delay << "s");
+    }
+
+    if (_legacy){
+      pointsSubscriberLegacy = nh_.subscribe("pointsSeen", 1, &BlinkProcessor::insertPointsLegacy, this);
+    }
+    else{
+      pointsSubscriber = nh_.subscribe("pointsSeen", 1, &BlinkProcessor::insertPoints, this);
+    }
+
     pointsPublisher  = nh_.advertise<uvdar::Int32MultiArrayStamped>("blinkersSeen", 1);
 
     frameratePublisher  = nh_.advertise<std_msgs::Float32>("estimatedFramerate", 1);
@@ -75,14 +88,16 @@ public:
 
     currImage = cv::Mat(cv::Size(752, 480), CV_8UC3, cv::Scalar(0, 0, 0));
     viewImage = currImage.clone();
-    ImageSubscriber = nh_.subscribe("camera", 1, &BlinkProcessor::ProcessRaw, this);
+
+
+    nh_.param("UseCameraForVisualization", use_camera_for_visualization_, bool(true));
+    if (use_camera_for_visualization_)
+      ImageSubscriber = nh_.subscribe("camera", 1, &BlinkProcessor::ProcessRaw, this);
 
     timeSum     = 0.0;
     timeSamples = 0;
 
     framerateEstim = 72;
-
-    ROS_INFO("[BlinkProcessor]: dog");
 
     nh_.param("frequencyCount", frequencyCount, int(4));
     /* if (frequencyCount != 2){ */
@@ -157,7 +172,20 @@ public:
 
 
 private:
-  void InsertPoints(const uvdar::Int32MultiArrayStampedConstPtr& msg) {
+
+  void insertPointsLegacy(const std_msgs::UInt32MultiArrayConstPtr& msg){
+    /* if (DEBUG) */
+    /*   ROS_INFO_STREAM("Getting message: " << *msg); */
+    uvdar::Int32MultiArrayStampedPtr msg_stamped(new uvdar::Int32MultiArrayStamped);
+    msg_stamped->stamp = ros::Time::now()-ros::Duration(_legacy_delay);
+    msg_stamped->layout= msg->layout;
+    std::vector<int> intVec(msg->data.begin(), msg->data.end());
+    msg_stamped->data = intVec;
+    /* msg_stamped->data = msg->data; */
+    insertPoints(msg_stamped);
+  }
+  
+  void insertPoints(const uvdar::Int32MultiArrayStampedConstPtr& msg) {
     int                      countSeen;
     std::vector<cv::Point2i> points;
     countSeen = (int)((msg)->layout.dim[0].size);
@@ -222,11 +250,14 @@ private:
     double                     elapsedTime;
     processSpinRate->reset();
     for (;;) {
-      if (ht3dbt->isCurrentBatchProcessed())
+      if (ht3dbt->isCurrentBatchProcessed()){
+        /* if (DEBUG) */
+        /*   ROS_INFO("Skipping batch, already processed."); */
         continue;
+      }
 
       if (DEBUG)
-        ROS_INFO("Processing accumulated points");
+        ROS_INFO("Processing accumulated points.");
 
       begin = std::clock();
       ros::Time local_lastPointsTime = lastPointsTime;
@@ -367,7 +398,10 @@ private:
       /* } */
       currTrackerCount = ht3dbt->getTrackerCount();
       mutex_show.lock();
-      viewImage = currImage;
+      if (!use_camera_for_visualization_)
+        viewImage = cv::Scalar(0);
+      else
+        viewImage = currImage;
       mutex_show.unlock();
 
 
@@ -468,8 +502,10 @@ private:
   std::thread              process_thread;
   std::mutex               mutex_show;
   ros::Subscriber          pointsSubscriber;
+  ros::Subscriber          pointsSubscriberLegacy;
   ros::Publisher           pointsPublisher;
   ros::Publisher           frameratePublisher;
+  bool                     use_camera_for_visualization_;
   ros::Subscriber          ImageSubscriber;
   bool publishVisualization;
   int visualizatinRate;
@@ -483,6 +519,9 @@ private:
   double                   timeSum;
 
   bool returnFrequencies;
+
+  bool _legacy;
+  double _legacy_delay;
 
   double framerateEstim;
 
