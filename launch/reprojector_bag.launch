@@ -17,7 +17,7 @@
   <arg name="gui" default="true"/>
 
   <arg name="frame_estimate" default="local_origin_stable"/>
-  <arg name="frame_camera" default="color_camera"/>
+  <arg name="frame_camera" default="color_camera_$(arg uav_name)"/>
   <arg name="frame_uvdar" default="uvcam_$(arg uav_name)"/>
 
   <arg name="offline" default="true"/>
@@ -30,7 +30,7 @@
   <arg name="pitch_diff" default="-0.01"/>
 
   <node
-    name="uvcam_tf"
+    name="uvcam_tf_project"
     pkg="tf"
     type="static_transform_publisher"
     args="0.08 0.00 0.0 0.0 $(arg yaw_diff) $(arg pitch_diff) $(arg frame_uvdar) $(arg frame_camera) 100"/>

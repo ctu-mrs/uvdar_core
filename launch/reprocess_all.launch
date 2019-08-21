@@ -56,12 +56,13 @@
   <arg name="mm" default="0"/>
   <arg name="jpeg_quality" default="90"/>
 
-  <arg name="processRate" default="10"/>
+  <arg name="processRate" default="20"/>
 
   <arg name="accumulatorLength"         default="23"/>
   <arg name="pitchSteps"         default="16"/>
   <arg name="yawSteps"         default="8"/>
   <arg name="maxPixelShift"         default="2"/>
+  <arg name="reasonableRadius"         default="3"/>
 
   <arg name="filterDistLength"         default="10"/>
   <arg name="filterOrientationLength"         default="10"/>
@@ -103,7 +104,7 @@
   <!--Usage: static_transform_publisher x y z yaw pitch roll frame_id child_frame_id  period(milliseconds)-->
 <!-- OR -->
   <node
-    name="uvcam_tf"
+    name="body_uvcam_tf"
     pkg="tf"
     type="static_transform_publisher"
     args="0.09 0.04 0.2 -1.57079632679 0.00000000000 -1.57079632679 fcu_$(arg uav_name) uvcam_$(arg uav_name) 100"/>
@@ -114,8 +115,8 @@
     </node>
   
     <node name="blink_processor" pkg="nodelet" type="nodelet" args="$(arg nodelet) uvdar/BlinkProcessor $(arg nodelet_manager)" output="screen" respawn="true" launch-prefix="bash -c 'sleep 5; $0 $@'"> 
-        <param name="DEBUG"		type="bool" value="true"/> 
-        <!-- <param name="DEBUG"		type="bool" value="$(arg DEBUG)"/> --> 
+        <!-- <param name="DEBUG"		type="bool" value="true"/> --> 
+        <param name="DEBUG"		type="bool" value="$(arg DEBUG)"/> 
         <param name="VisDEBUG"		type="bool" value="$(arg VisDEBUG)"/> 
         <param name="GUI"             type="bool" value="$(arg gui)"/>
         <param name="CameraImageCompressed"    type="bool" value="false"/>
@@ -137,6 +138,7 @@
       <param name="pitchSteps"         type="int" value="$(arg pitchSteps)"/>
       <param name="yawSteps"         type="int" value="$(arg yawSteps)"/>
       <param name="maxPixelShift"         type="int" value="$(arg maxPixelShift)"/>
+      <param name="reasonableRadius"         type="int" value="$(arg reasonableRadius)"/>
       <param name="returnFrequencies"         type="bool" value="true"/>
       <param name="UseCameraForVisualization"         type="bool" value="false"/>
 

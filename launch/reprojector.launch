@@ -25,7 +25,7 @@
   <arg name="calib_file_color" default="calib_results_bf_c_fe.txt"/>
 
   <node
-    name="uvcam_tf"
+    name="uvcam_colorcam_tf"
     pkg="tf"
     type="static_transform_publisher"
     args="0.08 0.00 0.0 0.0 -0.07 -0.005 $(arg frame_uvdar) $(arg frame_camera) 100"/>

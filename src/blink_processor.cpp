@@ -55,7 +55,8 @@ public:
     nh_.param("publishVisualization", publishVisualization, bool(false));
     nh_.param("visualizationRate", visualizatinRate, int(5));
 
-    ht3dbt = new HT3DBlinkerTracker(accumulatorLength, pitchSteps, yawSteps, maxPixelShift, cv::Size(752, 480), 8, 3);
+    nh_.param("reasonableRadius", _reasonable_radius_, int(3));
+    ht3dbt = new HT3DBlinkerTracker(accumulatorLength, pitchSteps, yawSteps, maxPixelShift, cv::Size(752, 480), 5, _reasonable_radius_);
 
     ht3dbt->setDebug(DEBUG, VisDEBUG);
     /* ht3dbt->setDebug(true, VisDEBUG); */
@@ -539,6 +540,7 @@ private:
   int pitchSteps;
   int yawSteps;
   int maxPixelShift;
+  int _reasonable_radius_;
 
   int frequencyCount;
 
