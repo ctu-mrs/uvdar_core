@@ -78,10 +78,16 @@
   <arg name="TimeScale" default="1.0"/>
 
   <node
-    name="uvcam_tf_$(arg uav_name)"
+    name="uvcam_front_tf_$(arg uav_name)"
     pkg="tf"
     type="static_transform_publisher"
-    args="0.09 0.04 0.2 -1.57079632679 0.00000000000 -1.57079632679 fcu_$(arg uav_name) uvcam_$(arg uav_name) 100"/>
+    args="0.09 0.04 0.2 -1.57079632679 0.00000000000 -1.57079632679 fcu_$(arg uav_name) uvcam_front 100"/>
+
+  <node
+    name="uvcam_back_tf_$(arg uav_name)"
+    pkg="tf"
+    type="static_transform_publisher"
+    args="-0.090 0.04 0.200 -1.57079632679 0.00000000000 1.57079632679 fcu_$(arg uav_name) uvcam_back 100"/>
 
       <!-- <origin xyz="0.108 0 0.085" rpy="1.57079632679 4.71238898038 1.57079632679" /> -->
   <!--Usage: static_transform_publisher x y z yaw pitch roll frame_id child_frame_id  period(milliseconds)-->
@@ -124,27 +130,29 @@
 
       <remap from="~camera_front" to="/$(arg uav_name)/uvdar_bluefox_front/image_raw"/>
       <remap from="~camera_back" to="/$(arg uav_name)/uvdar_bluefox_back/image_raw"/>
-      <remap from="~points_seen_front" to="/$(arg uav_name)/uvdar/uv_points_seen_front"/>
-      <remap from="~points_seen_back" to="/$(arg uav_name)/uvdar/uv_points_seen_back"/>
+      <remap from="~points_seen_front" to="/$(arg uav_name)/uvdar/points_seen_front"/>
+      <remap from="~points_seen_back" to="/$(arg uav_name)/uvdar/points_seen_back"/>
 
       <remap from="~odometry" to="/$(arg uav_name)/mrs_odometry/new_odom"/>
       <remap from="~imu" to="mavros/imu/data"/>
     </node>
-    <node name="blink_processor" pkg="nodelet" type="nodelet" args="$(arg nodelet) uvdar/BlinkProcessor $(arg nodelet_manager)" output="screen" respawn="true"> 
-      <param name="uav_name" type = "string" value="$(arg uav_name)"/>
-        <param name="DEBUG"		type="bool" value="$(arg DEBUG)"/> 
-        <param name="VisDEBUG"		type="bool" value="$(arg VisDEBUG)"/> 
-        <param name="GUI"             type="bool" value="$(arg gui)"/>
-        <param name="CameraImageompressed"    type="bool" value="false"/>
-        <param name="InvertedPoints"    type="bool" value="false"/>
-        <param name="frequencyCount" type="int" value="3"/>
-        <!-- <param name="frequency1" type="int" value="12"/> -->
-        <!-- <param name="frequency2" type="int" value="24"/> -->
-        <!-- <param name="frequency3" type="int" value="16"/> -->
 
-        <param name="frequency1" type="int" value="10"/>
-        <param name="frequency2" type="int" value="15"/>
-        <param name="frequency3" type="int" value="30"/>
+    <node name="blink_processor" pkg="nodelet" type="nodelet" args="$(arg nodelet) uvdar/BlinkProcessor $(arg nodelet_manager)" output="screen" respawn="true"> 
+    <!-- <node name="blink_processor" pkg="nodelet" type="nodelet" args="$(arg nodelet) uvdar/BlinkProcessor $(arg nodelet_manager)" output="screen" respawn="true" launch-prefix="roslaunch_debug"> --> 
+      <param name="uav_name" type = "string" value="$(arg uav_name)"/>
+      <param name="DEBUG"		type="bool" value="$(arg DEBUG)"/> 
+      <param name="VisDEBUG"		type="bool" value="$(arg VisDEBUG)"/> 
+      <param name="GUI"             type="bool" value="$(arg gui)"/>
+      <param name="CameraImageompressed"    type="bool" value="false"/>
+      <param name="InvertedPoints"    type="bool" value="false"/>
+      <param name="frequencyCount" type="int" value="3"/>
+      <!-- <param name="frequency1" type="int" value="12"/> -->
+      <!-- <param name="frequency2" type="int" value="24"/> -->
+      <!-- <param name="frequency3" type="int" value="16"/> -->
+
+      <param name="frequency1" type="int" value="10"/>
+      <param name="frequency2" type="int" value="15"/>
+      <param name="frequency3" type="int" value="30"/>
 
       <param name="processRate"         type="int" value="$(arg processRate)"/>
 
@@ -154,14 +162,22 @@
       <param name="maxPixelShift"         type="int" value="$(arg maxPixelShift)"/>
       <param name="returnFrequencies"         type="bool" value="true"/>
 
-      <remap from="~camera" to="/$(arg uav_name)/uvdar_bluefox/image_raw"/>
-      <remap from="~pointsSeen" to="/$(arg uav_name)/uvdar/uvPointsSeen"/>
-      <remap from="~blinkersSeen" to="/$(arg uav_name)/uvdar/blinkersSeen"/>
-      <remap from="~estimatedFramerate" to="/$(arg uav_name)/uvdar/estimatedFramerate"/>
+      <rosparam param="cameraTopics"> ["camera_front", "camera_back"] </rosparam>
+      <rosparam param="pointsSeenTopics"> ["points_seen_front", "points_seen_back"] </rosparam>
+      <rosparam param="blinkersSeenTopics"> ["blinkers_seen_front", "blinkers_seen_back"] </rosparam>
+      <rosparam param="estimatedFramerateTopics"> ["estimated_framerate_front", "estimated_framerate_back"] </rosparam>
+
+      <remap from="~camera_front" to="/$(arg uav_name)/uvdar_bluefox_front/image_raw"/>
+      <remap from="~camera_back" to="/$(arg uav_name)/uvdar_bluefox_back/image_raw"/>
+      <remap from="~points_seen_front" to="/$(arg uav_name)/uvdar/points_seen_front"/>
+      <remap from="~points_seen_back" to="/$(arg uav_name)/uvdar/points_seen_back"/>
+      <remap from="~blinkers_seen_front" to="/$(arg uav_name)/uvdar/blinkers_seen_front"/>
+      <remap from="~blinkers_seen_back" to="/$(arg uav_name)/uvdar/blinkers_seen_back"/>
+      <remap from="~estimated_framerate_front" to="/$(arg uav_name)/uvdar/estimated_framerate_front"/>
+      <remap from="~estimated_framerate_back" to="/$(arg uav_name)/uvdar/estimated_framerate_back"/>
 
       </node>
       
-    <!-- <node name="uv_reporter_node" pkg="uvdar" type="uv_reporter_node" output="screen" launch-prefix="debug_roslaunch"> --> 
     <!-- <node name="uv_reporter_node" pkg="uvdar" type="uv_reporter_node" output="screen" launch-prefix="debug_roslaunch"> --> 
     <node name="uv_reporter_node" pkg="uvdar" type="uv_reporter_node" output="screen" > 
       <param name="uav_name" type = "string" value="$(arg uav_name)"/>
@@ -175,8 +191,15 @@
       <param name="frequency2" type="int" value="15"/>
       <param name="frequency3" type="int" value="30"/>
 
-      <remap from="blinkersSeen" to="/$(arg uav_name)/uvdar/blinkersSeen"/>
-      <remap from="estimatedFramerate" to="/$(arg uav_name)/uvdar/estimatedFramerate"/>
+      <rosparam param="blinkersSeenTopics"> ["blinkers_seen_front", "blinkers_seen_back"] </rosparam>
+      <rosparam param="estimatedFramerateTopics"> ["estimated_framerate_front", "estimated_framerate_back"] </rosparam>
+      <rosparam param="cameraFrames"> ["uvcam_front", "uvcam_back"] </rosparam>
+
+      <remap from="~blinkers_seen_front" to="/$(arg uav_name)/uvdar/blinkers_seen_front"/>
+      <remap from="~blinkers_seen_back" to="/$(arg uav_name)/uvdar/blinkers_seen_back"/>
+      <remap from="~estimated_framerate_front" to="/$(arg uav_name)/uvdar/estimated_framerate_front"/>
+      <remap from="~estimated_framerate_back" to="/$(arg uav_name)/uvdar/estimated_framerate_back"/>
+
       <remap from="measuredPose1" to="/$(arg uav_name)/uvdar/measuredPose1"/>
       <remap from="measuredPose2" to="/$(arg uav_name)/uvdar/measuredPose2"/>
       <remap from="measuredPose3" to="/$(arg uav_name)/uvdar/measuredPose3"/>
