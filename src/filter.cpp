@@ -163,6 +163,25 @@ class UvdarKalman {
 
   private:
 
+
+  double fixAngle(double origAngle, double newAngle){
+    double fixedPre;
+    if (origAngle>(M_PI))
+      fixedPre = origAngle - (2.0*M_PI);
+    if (origAngle < (-M_PI))
+      fixedPre = origAngle + (2.0*M_PI);
+
+
+
+    if (fabs(newAngle-fixedPre)<M_PI)
+      return fixedPre;
+
+    if (fixedPre>newAngle)
+      return (fixedPre - (2.0*M_PI));
+    else
+      return (fixedPre + (2.0*M_PI));
+  }
+
   /* void measurementCallback(const geometry_msgs::PoseWithCovarianceStampedPtr& meas){ */
   void measurementCallback(const ros::MessageEvent<geometry_msgs::PoseWithCovarianceStamped const>& event){
     geometry_msgs::TransformStamped transform;
@@ -266,9 +285,9 @@ class UvdarKalman {
 
       //fix angles to account for correction through 0/2pi
       currKalman[target]->setState(
-          (useVelocity?9:6),
-          fixAngle(currKalman[target]->getState((useVelocity?9:6)));
-            )
+          (useVelocity?8:5),
+          fixAngle(currKalman[target]->getState((useVelocity?8:5)), mes[5])
+            );
 
       currKalman[target]->setMeasurement(mes,Q);
       gotMeasurement[target] =true;

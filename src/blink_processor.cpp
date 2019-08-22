@@ -56,7 +56,8 @@ public:
     nh_.param("visualizationRate", visualizatinRate, int(5));
 
     nh_.param("reasonableRadius", _reasonable_radius_, int(3));
-    ht3dbt = new HT3DBlinkerTracker(accumulatorLength, pitchSteps, yawSteps, maxPixelShift, cv::Size(752, 480), 5, _reasonable_radius_);
+    nh_.param("nullifyRadius", _nullify_radius_, int(5));
+    ht3dbt = new HT3DBlinkerTracker(accumulatorLength, pitchSteps, yawSteps, maxPixelShift, cv::Size(752, 480), _nullify_radius_, _reasonable_radius_);
 
     ht3dbt->setDebug(DEBUG, VisDEBUG);
     /* ht3dbt->setDebug(true, VisDEBUG); */
@@ -340,10 +341,10 @@ private:
       cv::circle(viewImage, cv::Point(10, 25), 5, cv::Scalar(0, 50, 255));
       cv::circle(viewImage, cv::Point(10, 40), 5, cv::Scalar(0, 200, 255));
       cv::circle(viewImage, cv::Point(10, 55), 5, cv::Scalar(255, 0, 100));
-      cv::putText(viewImage, cv::String("6"), cv::Point(15, 15), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 255, 255));
-      cv::putText(viewImage, cv::String("10"), cv::Point(15, 30), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 255, 255));
-      cv::putText(viewImage, cv::String("15"), cv::Point(15, 45), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 255, 255));
-      cv::putText(viewImage, cv::String("30"), cv::Point(15, 60), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 255, 255));
+      cv::putText(viewImage, cv::String(to_string_precision(frequencySet[0],0)), cv::Point(15, 15), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 255, 255));
+      cv::putText(viewImage, cv::String(to_string_precision(frequencySet[1],0)), cv::Point(15, 30), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 255, 255));
+      cv::putText(viewImage, cv::String(to_string_precision(frequencySet[2],0)), cv::Point(15, 45), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 255, 255));
+      cv::putText(viewImage, cv::String(to_string_precision(frequencySet[3],0)), cv::Point(15, 60), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 255, 255));
 
 
       int rbs = retrievedBlinkers.size();
@@ -374,13 +375,17 @@ private:
           }
 
           cv::circle(viewImage, center, 5, markColor);
+
+          double yaw, pitch, len;
+          yaw              = ht3dbt->getYaw(i);
+          pitch            = ht3dbt->getPitch(i);
+          len              = cos(pitch);
+          cv::Point target = center - (cv::Point(len * cos(yaw) * 20, len * sin(yaw) * 20.0));
+          cv::line(viewImage, center, target, cv::Scalar(0, 0, 255), 2);
         }
-        double yaw, pitch, len;
-        yaw              = ht3dbt->getYaw(i);
-        pitch            = ht3dbt->getPitch(i);
-        len              = cos(pitch);
-        cv::Point target = center - (cv::Point(len * cos(yaw) * 20, len * sin(yaw) * 20.0));
-        cv::line(viewImage, center, target, cv::Scalar(0, 0, 255), 2);
+        else {
+          viewImage.at<cv::Vec3b>(center) = cv::Vec3b(255,255,255);
+        }
       }
       msg = cv_bridge::CvImage(std_msgs::Header(), enc::BGR8, viewImage).toImageMsg();
       imPub.publish(msg);
@@ -410,10 +415,10 @@ private:
       cv::circle(viewImage, cv::Point(10, 25), 5, cv::Scalar(0, 50, 255));
       cv::circle(viewImage, cv::Point(10, 40), 5, cv::Scalar(0, 200, 255));
       cv::circle(viewImage, cv::Point(10, 55), 5, cv::Scalar(255, 0, 100));
-      cv::putText(viewImage, cv::String("6"), cv::Point(15, 15), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 255, 255));
-      cv::putText(viewImage, cv::String("10"), cv::Point(15, 30), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 255, 255));
-      cv::putText(viewImage, cv::String("15"), cv::Point(15, 45), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 255, 255));
-      cv::putText(viewImage, cv::String("30"), cv::Point(15, 60), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 255, 255));
+      cv::putText(viewImage, cv::String(to_string_precision(frequencySet[0],0)), cv::Point(15, 15), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 255, 255));
+      cv::putText(viewImage, cv::String(to_string_precision(frequencySet[1],0)), cv::Point(15, 30), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 255, 255));
+      cv::putText(viewImage, cv::String(to_string_precision(frequencySet[2],0)), cv::Point(15, 45), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 255, 255));
+      cv::putText(viewImage, cv::String(to_string_precision(frequencySet[3],0)), cv::Point(15, 60), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 255, 255));
 
 
       int rbs = retrievedBlinkers.size();
@@ -428,8 +433,8 @@ private:
         cv::Scalar markColor;
         /* sprintf(freqText,"%d",std::max((int)retrievedBlinkers[i].z,0)); */
         sprintf(freqText, "%d", std::max((int)retrievedBlinkers[i].z, 0));
-        cv::putText(viewImage, cv::String(freqText), center + cv::Point(-5, -5), cv::FONT_HERSHEY_SIMPLEX, 0.3, cv::Scalar(255, 255, 255));
         if (freqIndex >= 0) {
+          cv::putText(viewImage, cv::String(freqText), center + cv::Point(-5, -5), cv::FONT_HERSHEY_SIMPLEX, 0.3, cv::Scalar(255, 255, 255));
           /* sprintf(freqTextRefined,"%d",(int)frequencySet[freqIndex]); */
           /* cv::putText(viewImage, cv::String(freqTextRefined), cv::Point(center.x, center.y+10), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255,255,255)); */
           switch (freqIndex) {
@@ -448,13 +453,17 @@ private:
           }
 
           cv::circle(viewImage, center, 5, markColor);
+
+          double yaw, pitch, len;
+          yaw              = ht3dbt->getYaw(i);
+          pitch            = ht3dbt->getPitch(i);
+          len              = cos(pitch);
+          cv::Point target = center - (cv::Point(len * cos(yaw) * 20, len * sin(yaw) * 20.0));
+          cv::line(viewImage, center, target, cv::Scalar(0, 0, 255), 2);
         }
-        double yaw, pitch, len;
-        yaw              = ht3dbt->getYaw(i);
-        pitch            = ht3dbt->getPitch(i);
-        len              = cos(pitch);
-        cv::Point target = center - (cv::Point(len * cos(yaw) * 20, len * sin(yaw) * 20.0));
-        cv::line(viewImage, center, target, cv::Scalar(0, 0, 255), 2);
+        else {
+          viewImage.at<cv::Vec3b>(center) = cv::Vec3b(255,255,255);
+        }
       }
       /* cv::Scalar currColor; */
       /* for (int j = 0; j<256;j++){ */
@@ -487,6 +496,15 @@ private:
     mutex_show.lock();
     { currImage = image->image; }
     mutex_show.unlock();
+  }
+
+  std::string to_string_precision(double input, unsigned int precision){
+    std::string output = std::to_string(input);
+    if (precision>=0){
+      if (precision==0)
+        return output.substr(0,output.find_first_of("."));
+    }
+    return "";
   }
 
   std::string              uav_name;
@@ -541,6 +559,7 @@ private:
   int yawSteps;
   int maxPixelShift;
   int _reasonable_radius_;
+  int _nullify_radius_;
 
   int frequencyCount;
 

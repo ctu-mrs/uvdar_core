@@ -38,9 +38,10 @@ private:
   void flattenTo2D(unsigned int *__restrict__ input,
       int thickness, unsigned int *__restrict__ outputMaxima, cv::Mat &outputIndices);
   std::vector< cv::Point > findHoughPeaks(unsigned int *__restrict__ input, int peakCount);
+  cv::Point findHoughPeakLocal(cv::Point expectedPos);
   double retrieveFreqency(cv::Point originPoint, double &avgYaw, double &avgPitch);
-  void nullifyKnown();
-  bool miniFast(cv::Point input);
+  std::vector<cv::Point> nullifyKnown();
+  bool miniFast(cv::Point input, int thresh);
   void initFast();
 
   double mod2(double a, double n);
