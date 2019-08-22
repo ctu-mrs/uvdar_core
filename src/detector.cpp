@@ -40,12 +40,9 @@ public:
     if (justReport)
       ROS_INFO("Thresh: %d", threshVal);
 
-
     nh_.param("FromBag", FromBag, bool(true));
     nh_.param("FromCamera", FromCamera, bool(false));
     nh_.param("Flip", Flip, bool(false));
-
-    nh_.param("camNum", camNum, int(0));
 
     nh_.param("GPU", useGpu, bool(false));
 
@@ -150,6 +147,7 @@ public:
 
     //}
 
+    initialized = true;
     ROS_INFO("[UVDetector]: initialized");
   }
 
@@ -207,6 +205,7 @@ private:
   }
 
   void ProcessCompressed(const sensor_msgs::CompressedImageConstPtr& image_msg, size_t imageIndex) {
+
     cv_bridge::CvImagePtr image;
     if (image_msg != NULL)
       image = cv_bridge::toCvCopy(image_msg);
@@ -224,6 +223,7 @@ private:
 
 
   void ProcessSingleImage(const cv_bridge::CvImageConstPtr image, size_t imageIndex) {
+    if (!initialized) return;
   /* clock_t begin1, begin2, end1, end2; */
   /* double  elapsedTime; */
   /* begin1                             = std::clock(); */
@@ -237,7 +237,6 @@ private:
 
     // First things first
     if (first) {
-
       if (DEBUG) {
         ROS_INFO("Source img: %dx%d", image->image.cols, image->image.rows);
       }
@@ -307,12 +306,13 @@ private:
   }
 
 private:
+  bool initialized = false;
+
   cv::VideoCapture  vc;
   cv::Mat mask;
   cv::Mat localImg_raw, localImg;
   bool              FromBag;
   bool              FromCamera;
-  int               camNum;
 
   bool first;
   bool stopped;

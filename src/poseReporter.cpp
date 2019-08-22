@@ -113,7 +113,6 @@ public:
       frequencySet.push_back(double(tempFreq));
     }
 
-
     prepareFrequencyClassifiers();
 
     char calib_path[400];

@@ -102,7 +102,6 @@ public:
     }
     // Subscribe to corresponding topics
     for (size_t i = 0; i < pointsSeenTopics.size(); ++i) {
-      std::cout << "pointsSeen" << pointsSeenTopics[i] << std::endl;
       pointsSeenSubscribers.push_back(nh_.subscribe(pointsSeenTopics[i], 1, &points_seen_callback_t::operator(), &pointsSeenCallbacks[i]));
     }
 
@@ -146,31 +145,12 @@ public:
     /*   ROS_ERROR("HEYYY"); */
     /*   return; */
     /* } */
-    int tempFreq;
 
-    if (frequencySet.size() < frequencyCount) {
-      nh_.param("frequency1", tempFreq, int(6));
-      frequencySet.push_back(double(tempFreq));
-    }
-    if (frequencySet.size() < frequencyCount) {
-      nh_.param("frequency2", tempFreq, int(10));
-      frequencySet.push_back(double(tempFreq));
-    }
-    if (frequencySet.size() < frequencyCount) {
-      nh_.param("frequency3", tempFreq, int(15));
-      frequencySet.push_back(double(tempFreq));
-    }
-    if (frequencySet.size() < frequencyCount) {
-      nh_.param("frequency4", tempFreq, int(30));
-      frequencySet.push_back(double(tempFreq));
-    }
-    if (frequencySet.size() < frequencyCount) {
-      nh_.param("frequency5", tempFreq, int(8));
-      frequencySet.push_back(double(tempFreq));
-    }
-    if (frequencySet.size() < frequencyCount) {
-      nh_.param("frequency6", tempFreq, int(12));
-      frequencySet.push_back(double(tempFreq));
+    // load the frequencies
+    frequencySet.resize(frequencyCount);
+    std::vector<double> defaultFrequencySet{6, 10, 15, 30, 8, 12};
+    for (int i = 0; i < frequencyCount; ++i) {
+      nh_.param("frequency" + std::to_string(i), frequencySet[i], defaultFrequencySet.at(i));
     }
 
     prepareFrequencyClassifiers();
@@ -188,6 +168,7 @@ public:
       imPub = it.advertise("visualization", 1);
     }
 
+    initialized = true;
     ROS_INFO("[BlinkProcessor]: initialized");
   }
 
@@ -221,6 +202,8 @@ private:
   /* InsertPoints //{ */
 
   void InsertPoints(const uvdar::Int32MultiArrayStampedConstPtr& msg, size_t imageIndex) {
+    if (!initialized) return;
+
     int                      countSeen;
     std::vector<cv::Point2i> points;
     countSeen = (int)((msg)->layout.dim[0].size);
@@ -289,6 +272,9 @@ private:
     clock_t                    begin, end;
     double                     elapsedTime;
 
+    while (!initialized) 
+      processSpinRates[imageIndex]->sleep();
+
     auto* ht3dbt = ht3dbt_trackers[imageIndex];
     auto& retrievedBlinkers = blinkData[imageIndex].retrievedBlinkers;
 
@@ -302,6 +288,8 @@ private:
 
       begin = std::clock();
       ros::Time local_lastPointsTime = lastPointsTime;
+      blinkData[imageIndex].retrievedBlinkersMutex->lock();
+
       {
         retrievedBlinkers = ht3dbt->getResults();
       }
@@ -328,6 +316,8 @@ private:
         else
           msgdata.push_back(findMatch(retrievedBlinkers[i].z));
       }
+
+      blinkData[imageIndex].retrievedBlinkersMutex->unlock();
 
       msg.data = msgdata;
       blinkersSeenPublishers[imageIndex].publish(msg);
@@ -361,12 +351,21 @@ private:
 
   cv::Scalar rainbow(double value, double max) {
     unsigned char r, g, b;
+    
+    /*
     r = 255 * (std::max(0.0, (1 - (value / (max / 2.0)))));
     if (value < (max / 2.0))
       g = 255 * (std::max(0.0, value / (max / 2.0)));
     else
       g = 255 * (std::max(0.0, 1 - (value - (max / 2.0)) / (max / 2.0)));
     b   = 255 * (std::max(0.0, (((value - (max / 2.0)) / (max / 2.0)))));
+    */
+
+    double fraction = value / max;
+    r = 255 * (fraction < 0.25 ? 1 : fraction > 0.5 ? 0 : 2 - fraction * 4);
+    g = 255 * (fraction < 0.25 ? fraction * 4 : fraction < 0.75 ? 1 : 4 - fraction * 4);
+    b = 255 * (fraction < 0.5 ? 0 : fraction < 0.75 ? fraction * 4 - 2 : 1);
+
     return cv::Scalar(b, g, r);
   }
 
@@ -400,8 +399,10 @@ private:
         int differenceX = (currentImages[0].cols + 2) * imageIndex;
         auto& currentImage = currentImages[imageIndex];
 
+        // copy the image
         for (int y = 0; y < currentImage.rows; ++y) {
           for (int x = 0; x < currentImage.cols; ++x) {
+            if (x + differenceX >= viewImage.cols || y >= viewImage.rows) continue;
             viewImage.data[y * viewImage.cols + differenceX + x] = 
               currentImage.data[y * currentImage.cols + x];
           }
@@ -420,6 +421,7 @@ private:
         cv::putText(viewImage, cv::String("30"), cv::Point(15, 60), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 255, 255));
 
 
+        data.retrievedBlinkersMutex->lock();
         auto& rbs = data.retrievedBlinkers;
         for (int i = 0; i < rbs.size(); i++) {
           cv::Point center = cv::Point(rbs[i].x + differenceX, rbs[i].y);
@@ -455,6 +457,8 @@ private:
           cv::Point target = center - (cv::Point(len * cos(yaw) * 20, len * sin(yaw) * 20.0));
           cv::line(viewImage, center, target, cv::Scalar(0, 0, 255), 2);
         }
+
+        data.retrievedBlinkersMutex->unlock();
       }
 
       //}
@@ -470,6 +474,8 @@ private:
 
   void ShowThread() {
     for (;;) {
+      // create the viewImage
+      // assuming that all images are of the same size
       mutex_show.lock();
       viewImage = cv::Mat(
           currentImages[0].rows, 
@@ -499,15 +505,7 @@ private:
 
         data.currTrackerCount = ht3dbt->getTrackerCount();
 
-        cv::circle(viewImage, cv::Point(10, 10), 5, cv::Scalar(255, 100, 0));
-        cv::circle(viewImage, cv::Point(10, 25), 5, cv::Scalar(0, 50, 255));
-        cv::circle(viewImage, cv::Point(10, 40), 5, cv::Scalar(0, 200, 255));
-        cv::circle(viewImage, cv::Point(10, 55), 5, cv::Scalar(255, 0, 100));
-        cv::putText(viewImage, cv::String("6"), cv::Point(15, 15), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 255, 255));
-        cv::putText(viewImage, cv::String("10"), cv::Point(15, 30), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 255, 255));
-        cv::putText(viewImage, cv::String("15"), cv::Point(15, 45), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 255, 255));
-        cv::putText(viewImage, cv::String("30"), cv::Point(15, 60), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 255, 255));
-
+        data.retrievedBlinkersMutex->lock();
         auto& rbs = data.retrievedBlinkers;
         for (int i = 0; i < rbs.size(); i++) {
           cv::Point center = cv::Point(rbs[i].x + differenceX, rbs[i].y);
@@ -516,29 +514,13 @@ private:
           int        freqIndex = findMatch(rbs[i].z);
           char       freqText[4];
           char       freqTextRefined[4];
-          cv::Scalar markColor;
           /* sprintf(freqText,"%d",std::max((int)retrievedBlinkers[i].z,0)); */
           sprintf(freqText, "%d", std::max((int)rbs[i].z, 0));
           cv::putText(viewImage, cv::String(freqText), center + cv::Point(-5, -5), cv::FONT_HERSHEY_SIMPLEX, 0.3, cv::Scalar(255, 255, 255));
+          
           if (freqIndex >= 0) {
-            /* sprintf(freqTextRefined,"%d",(int)frequencySet[freqIndex]); */
-            /* cv::putText(viewImage, cv::String(freqTextRefined), cv::Point(center.x, center.y+10), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255,255,255)); */
-            switch (freqIndex) {
-              case 0:
-                markColor = cv::Scalar(255, 100, 0);
-                break;
-              case 1:
-                markColor = cv::Scalar(0, 50, 255);
-                break;
-              case 2:
-                markColor = cv::Scalar(0, 200, 255);
-                break;
-              case 3:
-                markColor = cv::Scalar(255, 0, 100);
-                break;
-            }
-
-            cv::circle(viewImage, center, 5, markColor);
+            cv::Scalar color = rainbow(freqIndex, frequencySet.size() - 1);
+            cv::circle(viewImage, center, 5, color);
           }
           double yaw, pitch, len;
           yaw              = ht3dbt->getYaw(i);
@@ -548,10 +530,18 @@ private:
           cv::line(viewImage, center, target, cv::Scalar(0, 0, 255), 2);
         }
 
+        data.retrievedBlinkersMutex->unlock();
       }
 
       //}
       
+      // draw the legend
+      for (size_t i = 0; i < frequencySet.size(); ++i) {
+        cv::Scalar color = rainbow(i, frequencySet.size() - 1);
+        cv::circle(viewImage, cv::Point(10, 10 + 15 * i), 5, color);
+        cv::putText(viewImage, cv::String(std::to_string((int) frequencySet[i])), cv::Point(15, 15 + 15 * i), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 255, 255));
+      }
+
       /* cv::Scalar currColor; */
       /* for (int j = 0; j<256;j++){ */
       /*   currColor = rainbow(double(j),255.0); */
@@ -594,6 +584,8 @@ private:
 
   /* attributes //{ */
 
+  bool initialized = false;
+
   std::string              uav_name;
   bool                     currBatchProcessed;
   bool                     DEBUG;
@@ -626,12 +618,16 @@ private:
     bool                     foundTarget;
     int                      currTrackerCount;
     std::vector<cv::Point3d> retrievedBlinkers;
+    std::mutex*              retrievedBlinkersMutex;
     ros::Time                lastSeen;
     ros::Time                lastSignal;
     int                      timeSamples = 0;
     double                   timeSum = 0;
 
     double framerateEstim = 72;
+
+    BlinkData(): retrievedBlinkersMutex(new std::mutex{}) {};
+    ~BlinkData() { delete retrievedBlinkersMutex; };
   };
 
   std::vector<BlinkData> blinkData;
