@@ -150,7 +150,7 @@ public:
     frequencySet.resize(frequencyCount);
     std::vector<double> defaultFrequencySet{6, 10, 15, 30, 8, 12};
     for (int i = 0; i < frequencyCount; ++i) {
-      nh_.param("frequency" + std::to_string(i), frequencySet[i], defaultFrequencySet.at(i));
+      nh_.param("frequency" + std::to_string(i + 1), frequencySet[i], defaultFrequencySet.at(i));
     }
 
     prepareFrequencyClassifiers();
