@@ -8,6 +8,8 @@
 /* #define weightFactor 0 */
 #define weightFactor 1.0
 
+#define USE_VISIBLE_ORIGINS true
+
 /* #define timeProfiling false */
 
 #define index2d(X, Y) (imRes.width * (Y) + (X))
@@ -62,7 +64,7 @@ HT3DBlinkerTracker::HT3DBlinkerTracker(int i_memSteps,
   else
     bitShift       = 0;
   houghThresh      =
-    (unsigned int)((memSteps * memSteps * memSteps * memSteps) * 2.25 * 0.5 * 0.50 *0.9) >> bitShift;
+    (unsigned int)((memSteps * memSteps * memSteps * memSteps) * 2.25 * 0.5 *0.75) >> bitShift;
   nullifyRadius    = i_nullifyRadius;
   reasonableRadius = i_reasonableRadius;
   imRes            = i_imRes;
@@ -244,6 +246,7 @@ std::vector< cv::Point3d > HT3DBlinkerTracker::getResults() {
   /* elapsedTime = double(end - begin) / CLOCKS_PER_SEC; */
   /* std::cout << "Nullification of known: " << elapsedTime << " s" << std::endl; */
 
+
   std::vector< cv::Point > originPts = nullifyKnown();
   std::vector< cv::Point > originPtsOut = accumulatorLocalCopy[0];
   if (DEBUG)
@@ -288,7 +291,9 @@ std::vector< cv::Point3d > HT3DBlinkerTracker::getResults() {
     if (DEBUG)
       std::cout << "Curr. orig. pt: " << originPts[i] << std::endl;
     double frequency, yawAvg, pitchAvg;
+    /* frequency = retrieveFreqency(originPts[i], yawAvg, pitchAvg); */
     frequency = retrieveFreqency(originPts[i], yawAvg, pitchAvg);
+    /* frequency = retrieveFreqency(originPtsOut[i], yawAvg, pitchAvg); */
     result.push_back(cv::Point3d(originPtsOut[i].x, originPtsOut[i].y, frequency));
     frequencies.push_back(frequency);
     yawAvgs.push_back(yawAvg);
@@ -316,7 +321,9 @@ std::vector<cv::Point> HT3DBlinkerTracker::nullifyKnown() {
   int       top, left, bottom, right;
   std::vector<cv::Point> maxima;
   for (int i = 0; i < (int)(accumulatorLocalCopy[0].size()); i++) {
-    currKnownPt = findHoughPeakLocal(accumulatorLocalCopy[0][i]);
+    currKnownPt = (USE_VISIBLE_ORIGINS?
+        accumulatorLocalCopy[0][i]:
+        findHoughPeakLocal(accumulatorLocalCopy[0][i]));
     top         = std::max(0, currKnownPt.y - (int)(nullifyRadius));
     left        = std::max(0, currKnownPt.x - (int)(nullifyRadius));
     bottom      = std::min(imRes.height - 1, currKnownPt.y + (int)nullifyRadius);
@@ -550,36 +557,56 @@ std::vector< cv::Point > HT3DBlinkerTracker::findHoughPeaks(unsigned int *__rest
   /* cv::Mat                  inputCp = input.clone(); */
   std::vector< cv::Point > peaks;
   unsigned int             currMax;
+  int             currMinDiff;
   cv::Point                currMaxPos;
   bool storeCurrent;
   for (int i = 0; i < peakCount; i++) {
-    storeCurrent = true;
+    storeCurrent = false;
     currMax = 0;
     for (int y = 0; y < imRes.height; y++) {
       for (int x = 0; x < imRes.width; x++) {
         if (touchedMatrix[index2d(x, y)] == 0)
           continue;
-        if (input[index2d(x, y)] > currMax) {
-          currMax    = input[index2d(x, y)];
-          currMaxPos = cv::Point(x, y);
-        }
+        /* if (miniFast(currMaxPos, houghThresh/8 << bitShift, currMinDiff)) { */
+          if (miniFast(x,y, houghThresh/4, currMinDiff)) {
+            if (currMinDiff > currMax) {
+              currMax    = currMinDiff;
+              currMaxPos = cv::Point(x, y);
+              std::cout << "currMinDiff: " << currMinDiff << std::endl;
+            }
+            storeCurrent = true;
+          }
+
       }
     }
 
-    if (DEBUG)
-      std::cout << "Bit Shift: " << bitShift << " Thresh: " << houghThresh << " Curr. Peak: " << currMax << std::endl;
-    if (currMax < houghThresh){
-      if (DEBUG){ std::cout << "Maximum is low" << std::endl;
+      /* if (currMax < houghThresh/8) { */
+      /*   storeCurrent = false; */
+      /*   break; */
+      /* } */
+      if (input[index2d(currMaxPos.x,currMaxPos.y)] > houghThresh) {
+        if (DEBUG)
+          std::cout << "Point " << currMaxPos << " passed value test, its value is " << input[index2d(currMaxPos.x,currMaxPos.y)] << " against thresh. of " << houghThresh << std::endl;
       }
-      break;
-    }
+      else {
+        storeCurrent = false;
+        if (DEBUG)
+        std::cout << "Point " << currMaxPos << " failed value test, its value is " << input[index2d(currMaxPos.x,currMaxPos.y)]  << " against thresh. of " << houghThresh << std::endl;
+      }
+    /* if (DEBUG) */
+    /*   std::cout << "Bit Shift: " << bitShift << " Thresh: " << houghThresh << " Curr. Peak: " << currMax << std::endl; */
+    /* if (currMax < houghThresh){ */
+    /*   if (DEBUG){ std::cout << "Maximum is low" << std::endl; */
+    /*   } */
+    /*   break; */
+    /* } */
 
-    if (!miniFast(currMaxPos, 20000 << bitShift)) {
-      if (DEBUG){ std::cout << "FAST failed" << std::endl;
-      }
-      storeCurrent = false;
-      i--; //to try again
-    }
+    /* if (!miniFast(currMaxPos, houghThresh/8 << bitShift)) { */
+    /*   if (DEBUG){ std::cout << "FAST failed" << std::endl; */
+    /*   } */
+    /*   storeCurrent = false; */
+    /*   i--; //to try again */
+    /* } */
 
     int top, left, bottom, right;
     top    = std::max(0, currMaxPos.y - (int)(nullifyRadius));
@@ -593,9 +620,12 @@ std::vector< cv::Point > HT3DBlinkerTracker::findHoughPeaks(unsigned int *__rest
     }
     if (storeCurrent){
       if (DEBUG)
-        std::cout << "Passed FAST test" << std::endl;
+        std::cout << "Point " << currMaxPos<< " passed FAST test, smallest diff. is " << currMax << std::endl;
       peaks.push_back(currMaxPos);
     }
+    else 
+      break;
+
   }
   return peaks;
 }
@@ -621,7 +651,7 @@ cv::Point HT3DBlinkerTracker::findHoughPeakLocal(cv::Point expectedPos) {
     /* std::cout << "first loop, y=" << y << std::endl; */
       for (int x = left; x <= (right); x++) {
         /* std::cout << "first loop, x=" << x << std::endl; */
-        if (miniFast(cv::Point(x,y), 0)){
+        if (miniFast(x,y, 0)){
           found = true;
           currMaxPos = cv::Point(x,y);
           break;
@@ -637,7 +667,7 @@ cv::Point HT3DBlinkerTracker::findHoughPeakLocal(cv::Point expectedPos) {
     /* std::cout << "second loop, x=" << x << std::endl; */
       for (int y = top+1; y <= bottom-1; y++){
     /* std::cout << "second loop, y=" << y << std::endl; */
-        if (miniFast(cv::Point(x,y), 0)){
+        if (miniFast(x,y, 0)){
           found = true;
           currMaxPos = cv::Point(x,y);
           break;
@@ -650,7 +680,7 @@ cv::Point HT3DBlinkerTracker::findHoughPeakLocal(cv::Point expectedPos) {
       break;
   }
   if (DEBUG)
-    std::cout << "Bit Shift: " << bitShift << " Thresh: " << houghThresh << " Curr. Peak: " << currMax << std::endl;
+    std::cout << "Finding for visible: Bit Shift: " << bitShift << " Thresh: " << houghThresh << " Curr. Peak: " << combinedMaximaMatrix[index2d(currMaxPos.x,currMaxPos.y)] << std::endl;
   /* if ((currMax < houghThresh) || !miniFast(currMaxPos))  */
   /* if (!miniFast(currMaxPos)) { */
   /*   break; */
@@ -830,7 +860,7 @@ double HT3DBlinkerTracker::retrieveFreqency(cv::Point originPoint, double &avgYa
     periodAvg = (double)(sumPeriod) / (double)cntPeriod;
   }
 
-  if ((maxPeriod - minPeriod) > (periodAvg/2)){
+  if ((maxPeriod - minPeriod) > ceil(periodAvg/2)){
     if (DEBUG)
       std::cout << "Spread too wide: "<<maxPeriod-minPeriod<<" compared to average of " << periodAvg <<", returning" <<std::endl;
     return -3;
@@ -852,39 +882,43 @@ double HT3DBlinkerTracker::retrieveFreqency(cv::Point originPoint, double &avgYa
   return (double)framerate / periodAvg;
 }
 
-bool HT3DBlinkerTracker::miniFast(cv::Point input, int thresh) {
-  if (input.x<3)
-    return false;
-  if (input.y<3)
-    return false;
-  if (input.x>(imRes.width-4))
-    return false;
-  if (input.y>(imRes.height-4))
-    return false;
-  for (int i = 0; i < (int)(fastPoints.size()); i++) {
-    if (
-        (combinedMaximaMatrix[index2d(input.x, input.y)]
-         - 
-         combinedMaximaMatrix[index2d(input.x + fastPoints[i].x, input.y + fastPoints[i].y)])
-       <
-        /* (houghThresh / 4.0) */
-        (thresh)
-        /* (0.0) */
-       ){
+int HT3DBlinkerTracker::dummy = 0;
 
-      if (DEBUG)
-        std::cout << "Peak at " << input << ": " << 
-          combinedMaximaMatrix[index2d(input.x, input.y)]
-          <<
-          " Diff was: " << 
-        (combinedMaximaMatrix[index2d(input.x, input.y)]
-         - 
-         combinedMaximaMatrix[index2d(input.x + fastPoints[i].x, input.y + fastPoints[i].y)])
- << std::endl;
-      return false;
+bool HT3DBlinkerTracker::miniFast(int x, int y, unsigned int thresh, int &smallestDiff) {
+  if (x<3)
+    return false;
+  if (y<3)
+    return false;
+  if (x>(imRes.width-4))
+    return false;
+  if (y>(imRes.height-4))
+    return false;
+  smallestDiff = INT_MAX;
+  bool foundOneFit = false;
+  int diff;
+  int diffsum=0;
+  for (int i = 0; i < (int)(fastPoints.size()); i++) {
+  diff = 
+        (combinedMaximaMatrix[index2d(x, y)] - combinedMaximaMatrix[index2d(x + fastPoints[i].x, y + fastPoints[i].y)]);
+  if (diff > (int)(thresh)){
+    foundOneFit = true;
+    if (smallestDiff > diff){
+      smallestDiff = diff;
     }
+    /* diffsum+=diff; */
+    /* else std::cout << "DIFF: " << diff << std::endl; */
   }
-  return true;
+  else
+    return false;
+  }
+
+  /* if (DEBUG){ */
+  /*   std::cout << "Peak at " << x << ":" << y << ": " << */ 
+  /*     combinedMaximaMatrix[index2d(x, y)] */
+  /*     << */
+  /*     " Smallest diff was: " << smallestDiff << std::endl; */
+  /* smallestDiff = diffsum/12; */
+  return foundOneFit;
 }
 
 void HT3DBlinkerTracker::initFast() {

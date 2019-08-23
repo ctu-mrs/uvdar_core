@@ -41,7 +41,8 @@ private:
   cv::Point findHoughPeakLocal(cv::Point expectedPos);
   double retrieveFreqency(cv::Point originPoint, double &avgYaw, double &avgPitch);
   std::vector<cv::Point> nullifyKnown();
-  bool miniFast(cv::Point input, int thresh);
+  static int dummy;
+  bool miniFast(int x, int y, unsigned int thresh, int &smallestDiff = dummy);
   void initFast();
 
   double mod2(double a, double n);

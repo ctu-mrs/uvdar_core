@@ -63,6 +63,7 @@
   <arg name="yawSteps"         default="8"/>
   <arg name="maxPixelShift"         default="2"/>
   <arg name="reasonableRadius"         default="3"/>
+  <arg name="nullifyRadius"         default="5"/>
 
   <arg name="filterDistLength"         default="10"/>
   <arg name="filterOrientationLength"         default="10"/>
@@ -139,6 +140,7 @@
       <param name="yawSteps"         type="int" value="$(arg yawSteps)"/>
       <param name="maxPixelShift"         type="int" value="$(arg maxPixelShift)"/>
       <param name="reasonableRadius"         type="int" value="$(arg reasonableRadius)"/>
+      <param name="nullifyRadius"         type="int" value="$(arg nullifyRadius)"/>
       <param name="returnFrequencies"         type="bool" value="true"/>
       <param name="UseCameraForVisualization"         type="bool" value="false"/>
 
