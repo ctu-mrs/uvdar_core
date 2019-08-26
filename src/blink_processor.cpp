@@ -60,32 +60,10 @@ public:
 
     nh_.param("reasonableRadius", _reasonable_radius_, int(3));
     nh_.param("nullifyRadius", _nullify_radius_, int(5));
-    ht3dbt = new HT3DBlinkerTracker(accumulatorLength, pitchSteps, yawSteps, maxPixelShift, cv::Size(752, 480), _nullify_radius_, _reasonable_radius_);
     nh_.param("processRate", processRate, int(10));
     nh_.param("returnFrequencies", returnFrequencies, bool(false));
 
-    /* subscribe to cameras //{ */
 
-    std::vector<std::string> cameraTopics;
-    nh_.param("cameraTopics", cameraTopics, cameraTopics);
-    if (cameraTopics.empty()) {
-      ROS_WARN("[BlinkProcessor]: No topics of cameras were supplied");
-    }
-    currentImages.resize(cameraTopics.size());
-
-    // Create callbacks for each camera
-    for (size_t i = 0; i < cameraTopics.size(); ++i) {
-      image_callback_t callback = [imageIndex=i,this] (const sensor_msgs::ImageConstPtr& image_msg) { 
-        ProcessRaw(image_msg, imageIndex);
-      };
-      imageCallbacks.push_back(callback);
-    }
-    // Subscribe to corresponding topics
-    for (size_t i = 0; i < cameraTopics.size(); ++i) {
-      imageSubscribers.push_back(nh_.subscribe(cameraTopics[i], 1, &image_callback_t::operator(), &imageCallbacks[i]));
-    }
-
-    //}
     
     /* subscribe to pointsSeen //{ */
 
@@ -114,24 +92,29 @@ public:
 
     // Create callbacks for each camera
     for (size_t i = 0; i < pointsSeenTopics.size(); ++i) {
-      points_seen_callback_t callback = [imageIndex=i,this] (const uvdar::Int32MultiArrayStampedConstPtr& pointsMessage) { 
-        InsertPoints(pointsMessage, imageIndex);
-      };
-      pointsSeenCallbacks.push_back(callback);
-    }
+
     // Subscribe to corresponding topics
-    for (size_t i = 0; i < pointsSeenTopics.size(); ++i) {
-      if (_legacy)
-        pointsSeenSubscribers.push_back(nh_.subscribe(pointsSeenTopics[i], 1, &points_seen_callback_t::operator(), &pointsSeenCallbacksLegacy[i]));
-      else 
+      if (_legacy){
+        points_seen_callback_legacy_t callback = [imageIndex=i,this] (const std_msgs::UInt32MultiArrayConstPtr& pointsMessage) { 
+          InsertPointsLegacy(pointsMessage, imageIndex);
+        };
+        pointsSeenCallbacksLegacy.push_back(callback);
+        pointsSeenSubscribers.push_back(nh_.subscribe(pointsSeenTopics[i], 1, &points_seen_callback_legacy_t::operator(), &pointsSeenCallbacksLegacy[i]));
+      }
+      else {
+        points_seen_callback_t callback = [imageIndex=i,this] (const uvdar::Int32MultiArrayStampedConstPtr& pointsMessage) { 
+          InsertPoints(pointsMessage, imageIndex);
+        };
+        pointsSeenCallbacks.push_back(callback);
         pointsSeenSubscribers.push_back(nh_.subscribe(pointsSeenTopics[i], 1, &points_seen_callback_t::operator(), &pointsSeenCallbacks[i]));
+      }
     }
 
     //}
     
     for (size_t i = 0; i < pointsSeenTopics.size(); ++i) {
       ht3dbt_trackers.push_back(
-          new HT3DBlinkerTracker(accumulatorLength, pitchSteps, yawSteps, maxPixelShift, cv::Size(752, 480)));
+          new HT3DBlinkerTracker(accumulatorLength, pitchSteps, yawSteps, maxPixelShift, cv::Size(752, 480), _nullify_radius_, _reasonable_radius_));
       ht3dbt_trackers.back()->setDebug(DEBUG, VisDEBUG);
       processSpinRates.push_back(new ros::Rate((double)processRate));
     }
@@ -144,8 +127,29 @@ public:
 
 
     nh_.param("UseCameraForVisualization", use_camera_for_visualization_, bool(true));
-    if (use_camera_for_visualization_)
-      ImageSubscriber = nh_.subscribe("camera", 1, &BlinkProcessor::ProcessRaw, this);
+    if (use_camera_for_visualization_){
+      /* subscribe to cameras //{ */
+
+      std::vector<std::string> cameraTopics;
+      nh_.param("cameraTopics", cameraTopics, cameraTopics);
+      if (cameraTopics.empty()) {
+        ROS_WARN("[BlinkProcessor]: No topics of cameras were supplied");
+        use_camera_for_visualization_ = false;
+      }
+      else {
+        currentImages.resize(cameraTopics.size());
+        // Create callbacks for each camera
+        for (size_t i = 0; i < cameraTopics.size(); ++i) {
+          image_callback_t callback = [imageIndex=i,this] (const sensor_msgs::ImageConstPtr& image_msg) { 
+            ProcessRaw(image_msg, imageIndex);
+          };
+          imageCallbacks.push_back(callback);
+          // Subscribe to corresponding topics
+          imageSubscribers.push_back(nh_.subscribe(cameraTopics[i], 1, &image_callback_t::operator(), &imageCallbacks[i]));
+        }
+      }
+
+    }
 
     std::vector<std::string> blinkersSeenTopics;
     std::vector<std::string> estimatedFramerateTopics;
@@ -230,7 +234,7 @@ public:
 
 private:
 
-  void insertPointsLegacy(const std_msgs::UInt32MultiArrayConstPtr& msg){
+  void InsertPointsLegacy(const std_msgs::UInt32MultiArrayConstPtr& msg, size_t imageIndex){
     /* if (DEBUG) */
     /*   ROS_INFO_STREAM("Getting message: " << *msg); */
     uvdar::Int32MultiArrayStampedPtr msg_stamped(new uvdar::Int32MultiArrayStamped);
@@ -239,7 +243,7 @@ private:
     std::vector<int> intVec(msg->data.begin(), msg->data.end());
     msg_stamped->data = intVec;
     /* msg_stamped->data = msg->data; */
-    insertPoints(msg_stamped);
+    InsertPoints(msg_stamped, imageIndex);
     //CHECK
   }
   
@@ -499,15 +503,15 @@ private:
 
             cv::circle(viewImage, center, 5, markColor);
           }
+          else {
+            viewImage.at<cv::Vec3b>(center) = cv::Vec3b(255,255,255);
+          }
           double yaw, pitch, len;
           yaw              = ht3dbt->getYaw(i);
           pitch            = ht3dbt->getPitch(i);
           len              = cos(pitch);
           cv::Point target = center - (cv::Point(len * cos(yaw) * 20, len * sin(yaw) * 20.0));
           cv::line(viewImage, center, target, cv::Scalar(0, 0, 255), 2);
-        }
-        else {
-          viewImage.at<cv::Vec3b>(center) = cv::Vec3b(255,255,255);
         }
 
         data.retrievedBlinkersMutex->unlock();
@@ -556,6 +560,7 @@ private:
         int differenceX = (currentImages[0].cols + 2) * imageIndex;
         auto& currentImage = currentImages[imageIndex];
 
+
         for (int x = 0; x < currentImage.cols; ++x) {
           for (int y = 0; y < currentImage.rows; ++y) {
             viewImage.at<cv::Vec3b>(y, x + differenceX) = currentImage.at<cv::Vec3b>(y, x);
@@ -582,15 +587,15 @@ private:
             cv::Scalar color = rainbow(freqIndex, frequencySet.size() - 1);
             cv::circle(viewImage, center, 5, color);
           }
+          else {
+            viewImage.at<cv::Vec3b>(center) = cv::Vec3b(255,255,255);
+          }
           double yaw, pitch, len;
           yaw              = ht3dbt->getYaw(i);
           pitch            = ht3dbt->getPitch(i);
           len              = cos(pitch);
           cv::Point target = center - (cv::Point(len * cos(yaw) * 20, len * sin(yaw) * 20.0));
           cv::line(viewImage, center, target, cv::Scalar(0, 0, 255), 2);
-        }
-        else {
-          viewImage.at<cv::Vec3b>(center) = cv::Vec3b(255,255,255);
         }
 
         data.retrievedBlinkersMutex->unlock();
@@ -680,6 +685,7 @@ private:
   std::vector<ros::Subscriber> imageSubscribers;
 
   using points_seen_callback_t = std::function<void (const uvdar::Int32MultiArrayStampedConstPtr&)>;
+  using points_seen_callback_legacy_t = std::function<void (const std_msgs::UInt32MultiArrayConstPtr&)>;
   std::vector<points_seen_callback_t> pointsSeenCallbacks;
   std::vector<points_seen_callback_legacy_t> pointsSeenCallbacksLegacy;
   std::vector<ros::Subscriber> pointsSeenSubscribers;
@@ -704,9 +710,6 @@ private:
 
     double framerateEstim = 72;
 
-  bool _legacy;
-  double _legacy_delay;
-  //CHECK
 
     BlinkData(): retrievedBlinkersMutex(new std::mutex{}) {};
     ~BlinkData() { delete retrievedBlinkersMutex; };
@@ -735,6 +738,10 @@ private:
   int frequencyCount;
 
   ros::Time lastPointsTime;
+
+  bool _legacy;
+  double _legacy_delay;
+  //CHECK
 
   //}
 };
