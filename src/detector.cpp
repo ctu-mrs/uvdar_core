@@ -19,6 +19,7 @@
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <thread>
+#include <functional>
 
 #include "detect/uvLedDetect_fast.h"
 
@@ -39,12 +40,9 @@ public:
     if (justReport)
       ROS_INFO("Thresh: %d", threshVal);
 
-
     nh_.param("FromBag", FromBag, bool(true));
     nh_.param("FromCamera", FromCamera, bool(false));
     nh_.param("Flip", Flip, bool(false));
-
-    nh_.param("camNum", camNum, int(0));
 
     nh_.param("GPU", useGpu, bool(false));
 
@@ -105,17 +103,51 @@ public:
       uvdf = new uvLedDetect_fast();
     }
 
+    /* subscribe to cameras //{ */
 
+    std::vector<std::string> cameraTopics;
     if (FromBag || FromCamera) {
-      ROS_INFO("Ros type data");
+      nh_.param("cameraTopics", cameraTopics, cameraTopics);
+      if (cameraTopics.empty()) {
+        ROS_WARN("[UVDetector]: No topics of cameras were supplied");
+      }
+
       stopped = false;
-        ImageSubscriber = nh_.subscribe("camera", 1, &UVDetector::ProcessRaw, this);
+      // Create callbacks for each camera
+      for (size_t i = 0; i < cameraTopics.size(); ++i) {
+        image_callback_t callback = [imageIndex=i,this] (const sensor_msgs::ImageConstPtr& image_msg) { 
+          ProcessRaw(image_msg, imageIndex);
+        };
+        imageCallbacks.push_back(callback);
+      }
+      // Subscribe to corresponding topics
+      for (size_t i = 0; i < cameraTopics.size(); ++i) {
+        imageSubscribers.push_back(nh_.subscribe(cameraTopics[i], 1, &image_callback_t::operator(), &imageCallbacks[i]));
+      }
     }
 
+    //}
+    
+    /* create pubslishers //{ */
+
+    std::vector<std::string> pointsSeenTopics;
     if (justReport) {
-      PointsPublisher = nh_.advertise< uvdar::Int32MultiArrayStamped >("pointsSeen", 1);
+      nh_.param("pointsSeenTopics", pointsSeenTopics, pointsSeenTopics);
+      // if the number of subscribed topics doesn't match the numbe of published
+      if ((FromBag || FromCamera) && pointsSeenTopics.size() != cameraTopics.size()) {
+        ROS_ERROR_STREAM("[UVDetector] The number of cameraTopics (" << cameraTopics.size() 
+            << ") is not matching the number of pointsSeenTopics (" << pointsSeenTopics.size() << ")!");
+      }
+
+      // Create the publishers
+      for (size_t i = 0; i < pointsSeenTopics.size(); ++i) {
+        pointsPublishers.push_back(nh_.advertise<uvdar::Int32MultiArrayStamped>(pointsSeenTopics[i], 1));
+      }
     }
 
+    //}
+
+    initialized = true;
     ROS_INFO("[UVDetector]: initialized");
   }
 
@@ -172,24 +204,26 @@ private:
     /* ROS_INFO( "Y:%f, P:%f, R:%f, B:%d", yawRate, pitchRate, rollRate, (int)(imu_register.size())); */
   }
 
-  void ProcessCompressed(const sensor_msgs::CompressedImageConstPtr& image_msg) {
+  void ProcessCompressed(const sensor_msgs::CompressedImageConstPtr& image_msg, size_t imageIndex) {
+
     cv_bridge::CvImagePtr image;
     if (image_msg != NULL)
       image = cv_bridge::toCvCopy(image_msg);
-    ProcessSingleImage(image);
+    ProcessSingleImage(image, imageIndex);
   }
 
-  void ProcessRaw(const sensor_msgs::ImageConstPtr& image_msg) {
+  void ProcessRaw(const sensor_msgs::ImageConstPtr& image_msg, size_t imageIndex) {
   /* clock_t begin1, begin2, end1, end2; */
   /* double  elapsedTime; */
   /* begin1                             = std::clock(); */
     cv_bridge::CvImageConstPtr image;
     image = cv_bridge::toCvShare(image_msg, enc::MONO8);
-    ProcessSingleImage(image);
+    ProcessSingleImage(image, imageIndex);
   }
 
 
-  void ProcessSingleImage(const cv_bridge::CvImageConstPtr image) {
+  void ProcessSingleImage(const cv_bridge::CvImageConstPtr image, size_t imageIndex) {
+    if (!initialized) return;
   /* clock_t begin1, begin2, end1, end2; */
   /* double  elapsedTime; */
   /* begin1                             = std::clock(); */
@@ -203,7 +237,6 @@ private:
 
     // First things first
     if (first) {
-
       if (DEBUG) {
         ROS_INFO("Source img: %dx%d", image->image.cols, image->image.rows);
       }
@@ -226,7 +259,9 @@ private:
     /* elapsedTime = double(end - begin) / CLOCKS_PER_SEC; */
     /* std::cout << "4: " << elapsedTime << " s" << "f: " << 1.0/elapsedTime << std::endl; */
     /* begin2                             = std::clock(); */
-    std::vector< cv::Point2i > outvec = uvdf->processImage(image->image, localImg_raw, false, DEBUG, threshVal);
+    uvdf_mutex.lock();
+    std::vector<cv::Point2i> outvec = uvdf->processImage(image->image, localImg_raw, false, DEBUG, threshVal);
+    uvdf_mutex.unlock();
     /* end2         = std::clock(); */
     /* elapsedTime = double(end2 - begin2) / CLOCKS_PER_SEC; */
     /* std::cout << "5: " << elapsedTime << " s" << "f: " << 1.0/elapsedTime << std::endl; */
@@ -256,7 +291,7 @@ private:
         convert.push_back(0);
       }
       msg.data = convert;
-      PointsPublisher.publish(msg);
+      pointsPublishers[imageIndex].publish(msg);
     }
     if (gui)
       key = cv::waitKey(10);
@@ -271,12 +306,13 @@ private:
   }
 
 private:
+  bool initialized = false;
+
   cv::VideoCapture  vc;
   cv::Mat mask;
   cv::Mat localImg_raw, localImg;
   bool              FromBag;
   bool              FromCamera;
-  int               camNum;
 
   bool first;
   bool stopped;
@@ -285,11 +321,13 @@ private:
 
   ros::Time RangeRecTime;
 
-  ros::Publisher PointsPublisher;
-
   ros::Subscriber CamInfoSubscriber;
   ros::Subscriber TiltSubscriber;
-  ros::Subscriber ImageSubscriber;
+  std::vector<ros::Subscriber> imageSubscribers;
+  using image_callback_t = std::function<void (const sensor_msgs::ImageConstPtr&)>;
+  std::vector<image_callback_t> imageCallbacks;
+
+  std::vector<ros::Publisher> pointsPublishers;
 
   tf::TransformListener* listener;
 
@@ -362,6 +400,7 @@ private:
 
   bool              useGpu;
   uvLedDetect_fast* uvdf;
+  std::mutex  uvdf_mutex;
   /* uvLedDetect_gpu *uvdg; */
 
   // thread

@@ -86,8 +86,7 @@ public:
     private_node_handle.param("frequenciesPerTarget", frequenciesPerTarget, int(4));
     private_node_handle.param("targetCount", targetCount, int(4));
     int frequencyCount = targetCount*frequenciesPerTarget;
-
-      
+ 
     int tempFreq;
     if (frequencySet.size() < frequencyCount) {
       private_node_handle.param("frequency1", tempFreq, int(6));
@@ -114,22 +113,12 @@ public:
       frequencySet.push_back(double(tempFreq));
     }
 
-
     prepareFrequencyClassifiers();
-
-    for (int i=0; i<2;i++){
-      targetAcquired[i]=false;
-    }
-
-
-
-    gotCamInfo = false;
 
     char calib_path[400];
     private_node_handle.param("calib_file", _calib_file, std::string("calib_results_bf_uv_fe.txt"));
     sprintf(calib_path, "%s/include/OCamCalib/config/%s", ros::package::getPath("uvdar").c_str(),_calib_file.c_str());
     get_ocam_model(&oc_model, calib_path);
-
 
     mask_active = false;
     char mask_path[400];
@@ -137,9 +126,60 @@ public:
     sprintf(mask_path, "%s/masks/%s", ros::package::getPath("uvdar").c_str(),_mask_file.c_str());
     setMask(mask_path);
 
+    /* subscribe to blinkersSeen //{ */
 
+    std::vector<std::string> blinkersSeenTopics;
+    private_node_handle.param("blinkersSeenTopics", blinkersSeenTopics, blinkersSeenTopics);
+    if (blinkersSeenTopics.empty()) {
+      ROS_WARN("[BlinkProcessor]: No topics of cameras were supplied");
+    }
 
+    // Create callbacks for each camera
+    for (size_t i = 0; i < blinkersSeenTopics.size(); ++i) {
+      blinkers_seen_callback_t callback = [imageIndex=i,this] (const uvdar::Int32MultiArrayStampedConstPtr& pointsMessage) { 
+        ProcessPoints(pointsMessage, imageIndex);
+      };
+      blinkersSeenCallbacks.push_back(callback);
+    }
+    // Subscribe to corresponding topics
+    for (size_t i = 0; i < blinkersSeenTopics.size(); ++i) {
+      blinkersSeenSubscribers.push_back(
+          private_node_handle.subscribe(blinkersSeenTopics[i], 1, &blinkers_seen_callback_t::operator(), &blinkersSeenCallbacks[i]));
+    }
 
+    //}
+    
+    /* subscribe to estimatedFramerate //{ */
+
+    std::vector<std::string> estimatedFramerateTopics;
+
+    private_node_handle.param("estimatedFramerateTopics", estimatedFramerateTopics, estimatedFramerateTopics);
+    // fill the framerates with -1
+    estimatedFramerate.insert(estimatedFramerate.begin(), estimatedFramerateTopics.size(), -1);
+
+    if (estimatedFramerateTopics.empty()) {
+      ROS_WARN("[BlinkProcessor]: No topics of pointsSeen were supplied");
+    }
+    if (blinkersSeenTopics.size() != estimatedFramerateTopics.size()) {
+      ROS_ERROR_STREAM("[BlinkProcessor]: The size of blinkersSeenTopics (" << blinkersSeenTopics.size() <<
+          ") is different from estimatedFramerateTopics (" << estimatedFramerateTopics.size() << ")");
+    }
+
+    // Create callbacks for each camera
+    for (size_t i = 0; i < estimatedFramerateTopics.size(); ++i) {
+      estimated_framerate_callback_t callback = [imageIndex=i,this] (const std_msgs::Float32ConstPtr& framerateMessage) { 
+        estimatedFramerate[imageIndex] = framerateMessage->data;
+      };
+      estimatedFramerateCallbacks.push_back(callback);
+    }
+    // Subscribe to corresponding topics
+    for (size_t i = 0; i < estimatedFramerateTopics.size(); ++i) {
+      std::cout << "pointsSeen" << estimatedFramerateTopics[i] << std::endl;
+      estimatedFramerateSubscribers.push_back(
+          private_node_handle.subscribe(estimatedFramerateTopics[i], 1, &estimated_framerate_callback_t::operator(), &estimatedFramerateCallbacks[i]));
+    }
+
+    //}
 
     targetInCamPub    = node.advertise< geometry_msgs::Pose >("targetInCam", 1);
     targetInBasePub   = node.advertise< geometry_msgs::Pose >("targetInBase", 1);
@@ -154,7 +194,7 @@ public:
     measuredPose.resize(targetCount);
     ROS_INFO("[%s]: targetCount: %d", ros::this_node::getName().c_str(), targetCount );
     for (int i=0;i<targetCount;i++){
-      ROS_INFO("[%s]: Advertising measuredPose%d", ros::this_node::getName().c_str(),i+1 );
+      ROS_INFO("[%s]: Advertising measuredPose%d", ros::this_node::getName().c_str(), i+1);
       measuredPose[i] = node.advertise<geometry_msgs::PoseWithCovarianceStamped>("measuredPose" + std::to_string(i+1), 1);
     }
 
@@ -163,32 +203,24 @@ public:
     Px2 = Eigen::MatrixXd(9,9);
     Px3 = Eigen::MatrixXd(10,10);
 
-
-    first            = true;
-
     if (_legacy){
-      pointsSubscriberLegacy = node.subscribe("blinkersSeen", 1, &PoseReporter::ProcessPointsUnstamped, this);
+      ROS_ERROR("[%s] Legacy is not supported any more", ros::this_node::getName().c_str());
     }
-    else{
-      pointsSubscriber = node.subscribe("blinkersSeen", 1, &PoseReporter::ProcessPoints, this);
-    }
-
-
-
-    framerateEstim = -1.0;
-    framerateSubscriber = node.subscribe("estimatedFramerate", 1, &PoseReporter::GetFramerate, this);
 
     foundTarget = false;
 
+    /* transformations for cameras //{ */
+
+    private_node_handle.param("cameraFrames", cameraFrames, cameraFrames);
+    if (cameraFrames.size() != blinkersSeenTopics.size()) {
+      ROS_ERROR_STREAM("The size of cameraFrames (" << cameraFrames.size() << 
+          ") is different from blinkersSeenTopics size (" << blinkersSeenTopics.size() << ")");
+    }
 
     tf_thread   = std::thread(&PoseReporter::TfThread, this);
 
-    for (int i = 0; i < targetCount; i++) {
-      separatedPoints.push_back(std::vector< cv::Point3i >());
-    }
-  
-
-
+    //}
+    
   }
 
   ~PoseReporter() {
@@ -722,44 +754,42 @@ public:
   void TfThread() {
     gotCam2Base = false;
     ros::Rate transformRate(1.0);
-    while (true) {
-      transformRate.sleep();
-      try {
-        listener.waitForTransform("fcu_" + uav_name, "uvcam_" + uav_name, ros::Time::now(), ros::Duration(1.0));
-        mutex_tf.lock();
-        listener.lookupTransform("fcu_" + uav_name, "uvcam_" + uav_name, ros::Time(0), transformCam2Base);
-        mutex_tf.unlock();
+
+    for (std::string cameraFrame: cameraFrames) {
+      while (true) {
+        transformRate.sleep();
+
+        try {
+          listener.waitForTransform("fcu_" + uav_name, cameraFrame, ros::Time::now(), ros::Duration(1.0));
+          mutex_tf.lock();
+          listener.lookupTransform("fcu_" + uav_name, cameraFrame, ros::Time(0), transformCam2Base);
+          mutex_tf.unlock();
+        }
+        catch (tf::TransformException ex) {
+          ROS_ERROR("TF: %s", ex.what());
+          mutex_tf.unlock();
+          ros::Duration(1.0).sleep();
+          continue;
+        }
+        break;;
       }
-      catch (tf::TransformException ex) {
-        ROS_ERROR("TF: %s", ex.what());
-        mutex_tf.unlock();
-        ros::Duration(1.0).sleep();
-        continue;
-      }
-      break;;
-      /* ROS_INFO("TF next"); */
     }
+
     gotCam2Base = true;
   }
 
-
-
-  void GetFramerate(const std_msgs::Float32ConstPtr& msg) {
-    framerateEstim = msg->data;
-  }
-
   //for legacy reasons
-  void ProcessPointsUnstamped(const std_msgs::Int32MultiArrayConstPtr& msg){
+  void ProcessPointsUnstamped(const std_msgs::Int32MultiArrayConstPtr& msg, size_t imageIndex){
     if (DEBUG)
       ROS_INFO_STREAM("Getting message: " << *msg);
     uvdar::Int32MultiArrayStampedPtr msg_stamped(new uvdar::Int32MultiArrayStamped);
     msg_stamped->stamp = ros::Time::now()-ros::Duration(_legacy_delay);
     msg_stamped->layout= msg->layout;
     msg_stamped->data = msg->data;
-    ProcessPoints(msg_stamped);
+    ProcessPoints(msg_stamped, imageIndex);
   }
 
-  void ProcessPoints(const uvdar::Int32MultiArrayStampedConstPtr& msg) {
+  void ProcessPoints(const uvdar::Int32MultiArrayStampedConstPtr& msg, size_t imageIndex) {
     int                        countSeen;
     std::vector< cv::Point3i > points;
     lastBlinkTime = msg->stamp;
@@ -770,7 +800,7 @@ public:
       foundTarget = false;
       return;
     }
-    if (framerateEstim < 0) {
+    if (estimatedFramerate.size() <= imageIndex || estimatedFramerate[imageIndex] < 0) {
       ROS_INFO("Framerate is not yet estimated. Waiting...");
       return;
     }
@@ -778,12 +808,6 @@ public:
       ROS_INFO("Transformation to base is missing...");
       return;
     }
-
-    if (first) {
-      /* trackers[1]= new Lkf::Lkf(6, const int m, const int p, const Eigen::MatrixXd& A, const Eigen::MatrixXd& B, const Eigen::MatrixXd& R, const Eigen::MatrixXd& Q, */
-      targetAcquired[1]=true;
-      first = false;
-      }
 
     for (int i = 0; i < countSeen; i++) {
       if (mask_active)
@@ -797,10 +821,9 @@ public:
         points.push_back(cv::Point3i(msg->data[(i * 3)], msg->data[(i * 3) + 1], msg->data[(i * 3) + 2]));
       }
     }
-
-    for (int i = 0; i < targetCount; i++) {
-      separatedPoints[i].clear();
-    }
+    
+    std::vector<std::vector<cv::Point3i>> separatedPoints;
+    separatedPoints.resize(targetCount);
 
     if (points.size() > 0) {
 
@@ -818,12 +841,12 @@ public:
       for (int i = 0; i < targetCount; i++) {
         ROS_INFO_STREAM("target [" << i << "]: ");
         ROS_INFO_STREAM("p: " << separatedPoints[i]);
-        extractSingleRelative(separatedPoints[i], i);
+        extractSingleRelative(separatedPoints[i], i, imageIndex);
       }
     }
   }
 
-  void extractSingleRelative(std::vector< cv::Point3i > points, int target) {
+  void extractSingleRelative(std::vector< cv::Point3i > points, int target, size_t imageIndex) {
     
     double leftF = frequencySet[target*2];
     double rightF = frequencySet[target*2+1];
@@ -844,7 +867,6 @@ public:
       }
       bool separated = false;
       while ((points.size() > 3) || (!separated)) {
-        ROS_INFO("here");
         separated = true;
         for (int i = 0; i < points.size(); i++) {
           bool viable = false;
@@ -875,9 +897,9 @@ public:
 
       unscented::measurement ms;
 
-      ROS_INFO_STREAM("framerateEstim: " << framerateEstim);
+      ROS_INFO_STREAM("framerateEstim: " << estimatedFramerate[imageIndex]);
 
-      double perr=0.2/framerateEstim;
+      double perr=0.2/estimatedFramerate[imageIndex];
 
     if (points.size() == 3) {
       ROS_INFO_STREAM("points: " << points);
@@ -986,7 +1008,7 @@ public:
       }
     }
 
-    msgOdom->header.frame_id ="uvcam_" + uav_name;
+    msgOdom->header.frame_id = cameraFrames[imageIndex];
     msgOdom->header.stamp = lastBlinkTime;
     /* msgOdom->pose = *(msgPose); */
 
@@ -1007,10 +1029,6 @@ public:
 
 
     measuredPose[target].publish(msgOdom);
-
-
-
-
 
     tf::Vector3 goalInCamTF, centerEstimInCamTF;
     /* tf::vectorEigenToTF(goalInCam, goalInCamTF); */
@@ -1036,6 +1054,7 @@ public:
     p.position.x = centerEstimInBase.x();
     p.position.y = centerEstimInBase.y();
     p.position.z = centerEstimInBase.z();
+
     targetInBasePub.publish(p);
     /* if (reachedTarget) */
     /*   ROS_INFO("Reached target"); */
@@ -1104,35 +1123,30 @@ private:
   cv::Mat mask;
 
 
-  double framerateEstim;
-
-
-  bool first;
   bool stopped;
 
   bool Flip;
 
   ros::Time RangeRecTime;
 
-  ros::Subscriber pointsSubscriber;
   ros::Subscriber pointsSubscriberLegacy;
   ros::Subscriber framerateSubscriber;
+
+  std::vector<std::string> cameraFrames;
+
+  using blinkers_seen_callback_t = std::function<void (const uvdar::Int32MultiArrayStampedConstPtr& msg)>;
+  std::vector<blinkers_seen_callback_t> blinkersSeenCallbacks;
+  std::vector<ros::Subscriber> blinkersSeenSubscribers;
+
+  using estimated_framerate_callback_t = std::function<void (const std_msgs::Float32ConstPtr& msg)>;
+  std::vector<estimated_framerate_callback_t> estimatedFramerateCallbacks;
+  std::vector<ros::Subscriber> estimatedFramerateSubscribers;
+
+  std::vector<double> estimatedFramerate;
 
   tf::TransformListener listener;
   tf::StampedTransform  transformCam2Base;
   tf::StampedTransform  transformBase2World;
-
-  cv::Mat imOrigScaled;
-  cv::Mat imCurr;
-  cv::Mat imPrev;
-
-  double vxm, vym, vam;
-
-  int         imCenterX, imCenterY;  // center of original image
-  int         xi, xf, yi, yf;        // frame corner coordinates
-  cv::Point2i midPoint;
-  bool        coordsAcquired;
-  cv::Rect    frameRect;
 
 
   ros::Time begin;
@@ -1154,12 +1168,6 @@ private:
   int cellOverlay;
   int surroundRadius;
 
-  double cx, cy, fx, fy, s;
-  double k1, k2, p1, p2, k3;
-  bool   gotCamInfo;
-
-  double yaw, pitch, roll;
-
   double tailingComponent;
 
   bool gui;
@@ -1168,8 +1176,6 @@ private:
 
   bool cameraRotated;
 
-  double     rollRate, pitchRate, yawRate;
-  std::mutex mutex_imu;
   std::mutex mutex_tf;
 
   double max_px_speed_t;
@@ -1181,9 +1187,6 @@ private:
   ros::Time odomSpeedTime;
   float     speed_noise;
 
-  int    lastSpeedsSize;
-  double analyseDuration;
-
   bool gotCam2Base;
 
   ros::Time lastBlinkTime;
@@ -1192,7 +1195,6 @@ private:
   /* uvLedDetect_gpu *uvdg; */
 
   // thread
-  std::thread target_thread;
   std::thread tf_thread;
 
   std::vector< sensor_msgs::Imu > imu_register;
@@ -1230,7 +1232,6 @@ private:
 
   std::vector<ros::Publisher> measuredPose;
 
-  bool               targetAcquired[2];
   /* Lkf* trackers[2]; */
 
   /* nav_msgs::OdometryPtr msgOdom; */
@@ -1238,7 +1239,6 @@ private:
 
   int frequenciesPerTarget;
   int targetCount;
-  std::vector< std::vector< cv::Point3i > > separatedPoints;
   std::vector<double> frequencySet;
   std::vector<double> periodSet;
   std::vector<double> periodBoundsTop;
