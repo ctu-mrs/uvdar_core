@@ -46,7 +46,7 @@ public:
 
     nh_.param("uav_name", _uav_name_, std::string());
     nh_.param("DEBUG", DEBUG, bool(false));
-    nh_.param("VisDEBUG", VisDEBUG, bool(false));
+    nh_.param("VisDEBUG", _visual_debug_, bool(false));
     nh_.param("GUI", GUI, bool(false));
     if (GUI)
       ROS_INFO("[BlinkProcessor]: GUI is true");
@@ -118,7 +118,7 @@ public:
     for (size_t i = 0; i < _points_seen_topics.size(); ++i) {
       ht3dbt_trackers.push_back(
           new HT3DBlinkerTracker(accumulatorLength, pitchSteps, yawSteps, maxPixelShift, cv::Size(752, 480), _nullify_radius_, _reasonable_radius_));
-      ht3dbt_trackers.back()->setDebug(DEBUG, VisDEBUG);
+      ht3dbt_trackers.back()->setDebug(DEBUG, _visual_debug_);
       processSpinRates.push_back(new ros::Rate((double)processRate));
     }
 
@@ -479,19 +479,26 @@ private:
   /* ShowThread() //{ */
 
   void ShowThread() {
+    cv::Mat temp;
+
     while (ros::ok()) {
       if (initialized_){
         std::scoped_lock lock(mutex_show);
 
 
-        if (GenerateVisualization() >= 0){
-          if (!VisDEBUG && GUI)
+        if (!_visual_debug_){
+          if (GenerateVisualization() >= 0){
             cv::imshow("ocv_blink_retrieval_" + _uav_name_, viewImage);
+          }
+        }
+        else {
+          temp = ht3dbt_trackers[0]->getVisualization();
+          if (temp.cols>0)
+            cv::imshow("ocv2_hough_space_" + _uav_name_, temp);
         }
 
       }
-      if (!VisDEBUG)
-        cv::waitKey(1000.0 / 25.0);
+      cv::waitKey(1000.0 / 25.0);
     }
   }
 
@@ -644,7 +651,7 @@ private:
   std::string              _uav_name_;
   bool                     currBatchProcessed;
   bool                     DEBUG;
-  bool                     VisDEBUG;
+  bool                     _visual_debug_;
   bool                     GUI;
   bool                     InvertedPoints;
   std::vector<cv::Mat>     currentImages;

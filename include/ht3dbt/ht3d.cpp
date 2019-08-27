@@ -343,8 +343,8 @@ void HT3DBlinkerTracker::generateMasks() {
   int     center = maskWidth / 2;
   cv::Mat radiusBox(maskWidth, maskWidth, CV_32F);
   cv::Mat yawBox(maskWidth, maskWidth, CV_32F);
-  for (int x = 0; x < maskWidth; x++) {
-    for (int y = 0; y < maskWidth; y++) {
+  for (unsigned int x = 0; x < maskWidth; x++) {
+    for (unsigned int y = 0; y < maskWidth; y++) {
       radiusBox.at< float >(y, x) = sqrt((x - center) * (x - center) + (y - center) * (y - center));
       yawBox.at< float >(y, x)    = atan2((y - center), (x - center)) + CV_PI;
     }
@@ -355,8 +355,8 @@ void HT3DBlinkerTracker::generateMasks() {
     for (int j = 0; j < pitchSteps; j++) {
       double Rmin = (1.0 / tan(pitchVals[j] + (pitchDiv / 2))) * i;
       double Rmax = (1.0 / tan(pitchVals[j] - (pitchDiv / 2))) * i;
-      for (int x = 0; x < maskWidth; x++) {
-        for (int y = 0; y < maskWidth; y++) {
+      for (unsigned int x = 0; x < maskWidth; x++) {
+        for (unsigned int y = 0; y < maskWidth; y++) {
           if ((radiusBox.at< float >(y, x) >= Rmin - 1) && (radiusBox.at< float >(y, x) <= Rmax + 1)) {
             pitchMasks[i].push_back(cv::Point3i(x - center, y - center, j));
           }
@@ -368,8 +368,8 @@ void HT3DBlinkerTracker::generateMasks() {
     yawMasks.push_back(std::vector< cv::Point3i >());
     for (int j = 0; j < yawSteps; j++) {
       yawMasks[i].push_back(cv::Point3i(0, 0, j));
-      for (int x = 0; x < maskWidth; x++) {
-        for (int y = 0; y < maskWidth; y++) {
+      for (unsigned int x = 0; x < maskWidth; x++) {
+        for (unsigned int y = 0; y < maskWidth; y++) {
           if (radiusBox.at< float >(y, x) < (i * maxPixelShift)) {               // decay
             if (fabs(angDiff(yawBox.at< float >(y, x), yawVals[j])) < yawDiv) {  // yaw steps
               yawMasks[i].push_back(cv::Point3i(x - center, y - center, j));
@@ -390,11 +390,10 @@ void HT3DBlinkerTracker::applyMasks(std::vector< std::vector< cv::Point3i > > & 
   /*       houghSpace.at<uint16_t>(i,j,k) = 0; */
   /*     }}} */
   /* houghSpace = cv::Scalar(0); */
-  int index;
   int x, y, z;
   for (int t = 0; t < std::min((int)(accumulatorLocalCopy.size()), memSteps); t++) {
-    for (int j = 0; j < accumulatorLocalCopy[t].size(); j++) {
-      for (int m = 0; m < maskSet[t].size(); m++) {
+    for (int j = 0; j < (int)(accumulatorLocalCopy[t].size()); j++) {
+      for (int m = 0; m < (int)(maskSet[t].size()); m++) {
         /* std::cout << "here a" << std::endl; */
         /* std::cout << "here b: " << cv::Point(maskSet[t][m].x + accumulatorLocalCopy[t][j].x, maskSet[t][m].y + accumulatorLocalCopy[t][j].y) << std::endl; */
         /* std::cout <<  "here" << std::endl; */
@@ -459,6 +458,8 @@ void HT3DBlinkerTracker::cleanTouched() {
         /* houghSpaceYawMaxima.at< uint16_t >(i, j)   = 0; */
         /* pitchMatrix.at<uint16_t>(i,j) = 0; */
         /* yawMatrix.at<uint16_t>(i,j) = 0; */
+        houghSpacePitchMaxima[index2d(j, i)] = 0;
+        houghSpaceYawMaxima[index2d(j,i)] = 0;
         combinedMaximaMatrix[index2d(j, i)] = 0;
 
 
@@ -523,26 +524,24 @@ void HT3DBlinkerTracker::projectAccumulatorToHT() {
     std::cout << "  Combining: " << elapsedTime << " s" << std::endl;
   begin = std::clock();
   /* combinedMaximaMatrix = houghSpacePitchMaximaDS.mul(houghSpaceYawMaximaDS); */
-  /* if (VisDEBUG) { */
-  /*   cv::Mat viewerA = cv::Mat(combinedMaximaMatrix.size(), CV_8UC1); */
-  /*   cv::Mat viewerB = cv::Mat(combinedMaximaMatrix.size(), CV_8UC1); */
-  /*   cv::Mat viewerC = cv::Mat(combinedMaximaMatrix.size(), CV_8UC1); */
-  /*   cv::Mat viewerD = cv::Mat(combinedMaximaMatrix.size(), CV_8UC1); */
-  /*   cv::normalize(houghSpacePitchMaxima, viewerA, 0, 255, cv::NORM_MINMAX, CV_8UC1); */
-  /*   cv::normalize(houghSpaceYawMaxima, viewerB, 0, 255, cv::NORM_MINMAX, CV_8UC1); */
-  /*   cv::normalize(combinedMaximaMatrix, viewerC, 0, 255, cv::NORM_MINMAX, CV_8UC1); */
-  /*   cv::normalize(pitchMatrix, viewerD, 0, 255, cv::NORM_MINMAX, CV_8UC1); */
-  /*   cv::Mat combined1, combined2, combined3; */
-  /*   cv::hconcat(viewerA, viewerB, combined1); */
-  /*   cv::hconcat(viewerC, viewerD, combined2); */
-  /*   cv::vconcat(combined1, combined2, combined3); */
+  if (VisDEBUG) {
+    cv::Mat viewerA = getCvMat(houghSpacePitchMaxima,sqrt(houghThresh)*2);
+    cv::Mat viewerB = getCvMat(houghSpaceYawMaxima,sqrt(houghThresh)*2);
+    cv::Mat viewerC = getCvMat(combinedMaximaMatrix, houghThresh*3);;
+    cv::Mat viewerD = pitchMatrix;
+    
 
-  /*   /1* imshow("maxmatPitch", viewerA); *1/ */
-  /*   /1* imshow("maxmatYaw", viewerB); *1/ */
-  /*   /1* imshow("maxmatComb", viewerC); *1/ */
-  /*   imshow("maxmats", combined3); */
-  /*   cv::waitKey(10); */
-  /* } */
+    cv::Mat combined1, combined2, combined3;
+    cv::hconcat(viewerA, viewerB, combined1);
+    cv::hconcat(viewerC, viewerD, combined2);
+    cv::vconcat(combined1, combined2, visualization);
+
+    /* imshow("maxmatPitch", viewerA); */
+    /* imshow("maxmatYaw", viewerB); */
+    /* imshow("maxmatComb", viewerC); */
+    /* imshow("maxmats", combined3); */
+    /* cv::waitKey(10); */
+  }
   return;
 }
 
@@ -556,8 +555,7 @@ void HT3DBlinkerTracker::projectAccumulatorToHT() {
 std::vector< cv::Point > HT3DBlinkerTracker::findHoughPeaks(unsigned int *__restrict__ input, int peakCount) {
   /* cv::Mat                  inputCp = input.clone(); */
   std::vector< cv::Point > peaks;
-  unsigned int             currMax;
-  int             currMinDiff;
+  int             currMax, currMinDiff;
   cv::Point                currMaxPos;
   bool storeCurrent;
   for (int i = 0; i < peakCount; i++) {
@@ -568,7 +566,7 @@ std::vector< cv::Point > HT3DBlinkerTracker::findHoughPeaks(unsigned int *__rest
         if (touchedMatrix[index2d(x, y)] == 0)
           continue;
         /* if (miniFast(currMaxPos, houghThresh/8 << bitShift, currMinDiff)) { */
-          if (miniFast(x,y, houghThresh/4, currMinDiff)) {
+          if (miniFast(x,y, houghThresh*0.2, currMinDiff)) {
             if (currMinDiff > currMax) {
               currMax    = currMinDiff;
               currMaxPos = cv::Point(x, y);
@@ -579,6 +577,12 @@ std::vector< cv::Point > HT3DBlinkerTracker::findHoughPeaks(unsigned int *__rest
 
       }
     }
+
+      if (!storeCurrent){
+        if (DEBUG)
+          std::cout << "No more high points found, stopping search." << std::endl;
+        break;
+      }
 
       /* if (currMax < houghThresh/8) { */
       /*   storeCurrent = false; */
@@ -633,9 +637,7 @@ std::vector< cv::Point > HT3DBlinkerTracker::findHoughPeaks(unsigned int *__rest
 cv::Point HT3DBlinkerTracker::findHoughPeakLocal(cv::Point expectedPos) {
   /* cv::Mat                  inputCp = input.clone(); */
   std::vector< cv::Point > peaks;
-  unsigned int             currMax;
   cv::Point                currMaxPos = expectedPos;
-  currMax = 0;
   int top, left, bottom, right;
   bool found = false;
   //expanding square outline
@@ -708,7 +710,7 @@ double HT3DBlinkerTracker::retrieveFreqency(cv::Point originPoint, double &avgYa
     radExpectedMin        = (cotSetMin[initPitch] * t) - (reasonableRadius);  //+t*0.2
     radExpectedMax        = (cotSetMax[initPitch] * t) + (reasonableRadius);  //+t*0.2
     positiveCountAccum[t] = 0;
-    for (int k = 0; k < accumulatorLocalCopy[t].size(); k++) {
+    for (int k = 0; k < (int)(accumulatorLocalCopy[t].size()); k++) {
       currPoint         = accumulatorLocalCopy[t][k];
       currPointCentered = currPoint - originPoint;
       currPointRadius   = cv::norm(currPointCentered);
@@ -785,7 +787,6 @@ double HT3DBlinkerTracker::retrieveFreqency(cv::Point originPoint, double &avgYa
   int    lastDownStepIndex = 0;
   bool   upStep            = false;
   int    lastUpStepIndex   = 0;
-  double period_h;
   double period;
   double maxPeriod = 0;
   double minPeriod = memSteps;
@@ -882,6 +883,20 @@ double HT3DBlinkerTracker::retrieveFreqency(cv::Point originPoint, double &avgYa
   return (double)framerate / periodAvg;
 }
 
+cv::Mat HT3DBlinkerTracker::getCvMat(unsigned int *__restrict__ input, unsigned int threshold){
+  cv::Mat output(imRes,CV_8UC1);
+  for (int i=0; i<imRes.height; i++){
+    for (int j=0; j<imRes.width; j++){
+      output.data[index2d(j,i)] = input[index2d(j,i)]*(255.0/threshold);
+    } }
+  /* std::cout << "testval: " << (int)(output[index2d(imRes.width/2,imRes.height/2)]) << std::endl; */
+  return output;
+}
+
+cv::Mat HT3DBlinkerTracker::getVisualization(){
+  return visualization;
+}
+
 int HT3DBlinkerTracker::dummy = 0;
 
 bool HT3DBlinkerTracker::miniFast(int x, int y, unsigned int thresh, int &smallestDiff) {
@@ -896,7 +911,6 @@ bool HT3DBlinkerTracker::miniFast(int x, int y, unsigned int thresh, int &smalle
   smallestDiff = INT_MAX;
   bool foundOneFit = false;
   int diff;
-  int diffsum=0;
   for (int i = 0; i < (int)(fastPoints.size()); i++) {
   diff = 
         (combinedMaximaMatrix[index2d(x, y)] - combinedMaximaMatrix[index2d(x + fastPoints[i].x, y + fastPoints[i].y)]);

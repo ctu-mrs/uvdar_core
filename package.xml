@@ -62,6 +62,7 @@
   <depend>opencv</depend>
   <depend>mrs_msgs</depend>
   <depend>mrs_lib</depend>
+  <depend>mrs_general</depend>
   <depend>mrs_uav_manager</depend>
   <depend>std_msgs</depend>
 

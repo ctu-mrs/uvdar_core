@@ -14,7 +14,7 @@
   <arg name="calib" default="false"/>
 
   <arg name="DEBUG" default="false"/>
-  <arg name="VisDEBUG" default="false"/>
+  <arg name="VisDEBUG" default="true"/>
   <arg name="gui" default="true"/>
 
   <arg name="frame_uvdar" default="uvcam_$(arg uav_name)"/>
@@ -26,7 +26,7 @@
 
   <arg name="threshold" default="180"/>
 
-  <arg name="publishVisualization"         default="true"/>
+  <arg name="publishVisualization"         default="false"/>
   <arg name="visualizationRate"         default="1"/>
 
   <arg name="legacy"         default="False"/>
@@ -111,7 +111,8 @@
     args="0.09 0.04 0.2 -1.57079632679 0.00000000000 -1.57079632679 fcu_$(arg uav_name) uvcam_$(arg uav_name) 100"/>
 
   <group ns="$(arg uav_name)">
-    <node pkg="nodelet" type="nodelet" name="$(arg uav_name)_uvdar_nodelet_manager" args="manager" output="screen">
+    <node pkg="nodelet" type="nodelet" name="$(arg nodelet_manager)" args="manager" output="screen">
+    <!-- <node pkg="nodelet" type="nodelet" name="$(arg nodelet_manager)" args="manager" output="screen" launch-prefix="debug_roslaunch"> -->
       <param name="num_worker_threads" value="8" />
     </node>
   
@@ -147,6 +148,11 @@
       <param name="legacy" type="bool" value="$(arg legacy)"/>
       <param name="legacy_delay" type="double" value="$(arg legacy_delay)"/>
 
+      <rosparam param="cameraTopics"> ["camera"] </rosparam>
+      <rosparam param="pointsSeenTopics"> ["pointsSeen"] </rosparam>
+      <rosparam param="blinkersSeenTopics"> ["blinkersSeen"] </rosparam>
+      <rosparam param="estimatedFramerateTopics"> ["estimatedFramerate"] </rosparam>
+
       <remap from="~camera" to="/$(arg uav_name)/uvdar_bluefox/image_raw"/>
       <remap from="~pointsSeen" to="/$(arg uav_name)/uvdar/uvPointsSeen"/>
       <remap from="~blinkersSeen" to="/$(arg uav_name)/uvdar/blinkersSeen"/>
@@ -170,6 +176,10 @@
 
       <param name="legacy" type="bool" value="false"/>
       <param name="legacy_delay" type="double" value="$(arg legacy_delay)"/>
+
+      <rosparam param="blinkersSeenTopics"> ["blinkersSeen"] </rosparam>
+      <rosparam param="estimatedFramerateTopics"> ["estimatedFramerate"] </rosparam>
+      <rosparam param="cameraFrames" subst_value="true"> ["uvcam_$(arg uav_name)"] </rosparam>
 
       <remap from="blinkersSeen" to="/$(arg uav_name)/uvdar/blinkersSeen"/>
       <remap from="estimatedFramerate" to="/$(arg uav_name)/uvdar/estimatedFramerate"/>

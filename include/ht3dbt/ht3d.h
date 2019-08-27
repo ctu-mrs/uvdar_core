@@ -26,6 +26,9 @@ public:
 
   void setDebug(bool i_DEBUG, bool i_VisDEBUG);
 
+
+  cv::Mat getVisualization();
+
 private:
   template < typename T >
   void resetToZero(T *__restrict__ input, int steps);
@@ -44,6 +47,8 @@ private:
   static int dummy;
   bool miniFast(int x, int y, unsigned int thresh, int &smallestDiff = dummy);
   void initFast();
+
+  cv::Mat getCvMat(unsigned int *__restrict__ input, unsigned int threshold);
 
   double mod2(double a, double n);
   double angDiff(double a, double b);
@@ -88,4 +93,6 @@ private:
   std::mutex mutex_accum;
 
   bool DEBUG, VisDEBUG;
+
+  cv::Mat visualization;
 };

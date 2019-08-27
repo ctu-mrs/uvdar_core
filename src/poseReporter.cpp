@@ -131,7 +131,7 @@ public:
     std::vector<std::string> blinkersSeenTopics;
     private_node_handle.param("blinkersSeenTopics", blinkersSeenTopics, blinkersSeenTopics);
     if (blinkersSeenTopics.empty()) {
-      ROS_WARN("[BlinkProcessor]: No topics of cameras were supplied");
+      ROS_WARN("[PoseReporter]: No topics of blinkers were supplied");
     }
 
     // Create callbacks for each camera
@@ -140,9 +140,7 @@ public:
         ProcessPoints(pointsMessage, imageIndex);
       };
       blinkersSeenCallbacks.push_back(callback);
-    }
     // Subscribe to corresponding topics
-    for (size_t i = 0; i < blinkersSeenTopics.size(); ++i) {
       blinkersSeenSubscribers.push_back(
           private_node_handle.subscribe(blinkersSeenTopics[i], 1, &blinkers_seen_callback_t::operator(), &blinkersSeenCallbacks[i]));
     }
@@ -151,32 +149,32 @@ public:
     
     /* subscribe to estimatedFramerate //{ */
 
-    std::vector<std::string> estimatedFramerateTopics;
+    std::vector<std::string> _estimated_framerate_topics;
 
-    private_node_handle.param("estimatedFramerateTopics", estimatedFramerateTopics, estimatedFramerateTopics);
+    private_node_handle.param("estimatedFramerateTopics", _estimated_framerate_topics, _estimated_framerate_topics);
     // fill the framerates with -1
-    estimatedFramerate.insert(estimatedFramerate.begin(), estimatedFramerateTopics.size(), -1);
+    estimatedFramerate.insert(estimatedFramerate.begin(), _estimated_framerate_topics.size(), -1);
 
-    if (estimatedFramerateTopics.empty()) {
-      ROS_WARN("[BlinkProcessor]: No topics of pointsSeen were supplied");
+    if (_estimated_framerate_topics.empty()) {
+      ROS_WARN("[PoseReporter]: No topics of estimated framerates were supplied");
     }
-    if (blinkersSeenTopics.size() != estimatedFramerateTopics.size()) {
-      ROS_ERROR_STREAM("[BlinkProcessor]: The size of blinkersSeenTopics (" << blinkersSeenTopics.size() <<
-          ") is different from estimatedFramerateTopics (" << estimatedFramerateTopics.size() << ")");
+    if (blinkersSeenTopics.size() != _estimated_framerate_topics.size()) {
+      ROS_ERROR_STREAM("[PoseReporter]: The size of blinkersSeenTopics (" << blinkersSeenTopics.size() <<
+          ") is different from estimatedFramerateTopics (" << _estimated_framerate_topics.size() << ")");
     }
 
     // Create callbacks for each camera
-    for (size_t i = 0; i < estimatedFramerateTopics.size(); ++i) {
+    for (size_t i = 0; i < _estimated_framerate_topics.size(); ++i) {
       estimated_framerate_callback_t callback = [imageIndex=i,this] (const std_msgs::Float32ConstPtr& framerateMessage) { 
         estimatedFramerate[imageIndex] = framerateMessage->data;
       };
       estimatedFramerateCallbacks.push_back(callback);
     }
     // Subscribe to corresponding topics
-    for (size_t i = 0; i < estimatedFramerateTopics.size(); ++i) {
-      std::cout << "pointsSeen" << estimatedFramerateTopics[i] << std::endl;
+    for (size_t i = 0; i < _estimated_framerate_topics.size(); ++i) {
+      std::cout << "pointsSeen" << _estimated_framerate_topics[i] << std::endl;
       estimatedFramerateSubscribers.push_back(
-          private_node_handle.subscribe(estimatedFramerateTopics[i], 1, &estimated_framerate_callback_t::operator(), &estimatedFramerateCallbacks[i]));
+          private_node_handle.subscribe(_estimated_framerate_topics[i], 1, &estimated_framerate_callback_t::operator(), &estimatedFramerateCallbacks[i]));
     }
 
     //}
@@ -1109,12 +1107,12 @@ private:
 
   void setMask(std::string mask_file){
     if (std::experimental::filesystem::exists(mask_file)){
-      ROS_INFO_STREAM("Setting mask to " << mask_file);
+      ROS_INFO_STREAM("[PoseReporter]: Setting mask to " << mask_file);
       mask = cv::imread(mask_file,CV_LOAD_IMAGE_GRAYSCALE);
       mask_active = true;
     }
     else
-      ROS_INFO_STREAM("Mask file " << mask_file << " does not exist.");
+      ROS_INFO_STREAM("[PoseReporter]: Mask file " << mask_file << " does not exist.");
 
   }
 
