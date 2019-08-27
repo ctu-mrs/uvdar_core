@@ -27,6 +27,7 @@
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <thread>
+#include <atomic>
 
 namespace enc = sensor_msgs::image_encodings;
 
@@ -38,10 +39,12 @@ public:
   /* onInit() //{ */
 
   void onInit() {
+    initialized_ = false;
+    images_received_ = false;
 
     ros::NodeHandle nh_ = nodelet::Nodelet::getMTPrivateNodeHandle();
 
-    nh_.param("uav_name", uav_name, std::string());
+    nh_.param("uav_name", _uav_name_, std::string());
     nh_.param("DEBUG", DEBUG, bool(false));
     nh_.param("VisDEBUG", VisDEBUG, bool(false));
     nh_.param("GUI", GUI, bool(false));
@@ -56,7 +59,7 @@ public:
     nh_.param("maxPixelShift", maxPixelShift, int(1));
 
     nh_.param("publishVisualization", publishVisualization, bool(false));
-    nh_.param("visualizationRate", visualizatinRate, int(5));
+    nh_.param("visualizationRate", _visualization_rate_, int(5));
 
     nh_.param("reasonableRadius", _reasonable_radius_, int(3));
     nh_.param("nullifyRadius", _nullify_radius_, int(5));
@@ -64,15 +67,15 @@ public:
     nh_.param("returnFrequencies", returnFrequencies, bool(false));
 
 
+    if (_legacy){
+      nh_.param("legacy_delay", _legacy_delay, double(0.2));
+      ROS_INFO_STREAM("[BlinkProcessor]: Legacy mode in effect. Set delay is " << _legacy_delay << "s");
+    }
+
     
     /* subscribe to pointsSeen //{ */
 
     nh_.param("legacy", _legacy, bool(false));
-
-    if (_legacy){
-      nh_.param("legacy_delay", _legacy_delay, double(0.2));
-      ROS_INFO_STREAM("Legacy mode in effect. Set delay is " << _legacy_delay << "s");
-    }
 
     /* if (_legacy){ */
     /*   pointsSubscriberLegacy = nh_.subscribe("pointsSeen", 1, &BlinkProcessor::insertPointsLegacy, this); */
@@ -83,15 +86,15 @@ public:
 
     /* pointsPublisher  = nh_.advertise<uvdar::Int32MultiArrayStamped>("blinkersSeen", 1); */
 
-    std::vector<std::string> pointsSeenTopics;
-    nh_.param("pointsSeenTopics", pointsSeenTopics, pointsSeenTopics);
-    if (pointsSeenTopics.empty()) {
+    std::vector<std::string> _points_seen_topics;
+    nh_.param("pointsSeenTopics", _points_seen_topics, _points_seen_topics);
+    if (_points_seen_topics.empty()) {
       ROS_WARN("[BlinkProcessor]: No topics of pointsSeen were supplied");
     }
-    blinkData.resize(pointsSeenTopics.size());
+    blinkData.resize(_points_seen_topics.size());
 
     // Create callbacks for each camera
-    for (size_t i = 0; i < pointsSeenTopics.size(); ++i) {
+    for (size_t i = 0; i < _points_seen_topics.size(); ++i) {
 
     // Subscribe to corresponding topics
       if (_legacy){
@@ -99,20 +102,20 @@ public:
           InsertPointsLegacy(pointsMessage, imageIndex);
         };
         pointsSeenCallbacksLegacy.push_back(callback);
-        pointsSeenSubscribers.push_back(nh_.subscribe(pointsSeenTopics[i], 1, &points_seen_callback_legacy_t::operator(), &pointsSeenCallbacksLegacy[i]));
+        pointsSeenSubscribers.push_back(nh_.subscribe(_points_seen_topics[i], 1, &points_seen_callback_legacy_t::operator(), &pointsSeenCallbacksLegacy[i]));
       }
       else {
         points_seen_callback_t callback = [imageIndex=i,this] (const uvdar::Int32MultiArrayStampedConstPtr& pointsMessage) { 
           InsertPoints(pointsMessage, imageIndex);
         };
         pointsSeenCallbacks.push_back(callback);
-        pointsSeenSubscribers.push_back(nh_.subscribe(pointsSeenTopics[i], 1, &points_seen_callback_t::operator(), &pointsSeenCallbacks[i]));
+        pointsSeenSubscribers.push_back(nh_.subscribe(_points_seen_topics[i], 1, &points_seen_callback_t::operator(), &pointsSeenCallbacks[i]));
       }
     }
 
     //}
     
-    for (size_t i = 0; i < pointsSeenTopics.size(); ++i) {
+    for (size_t i = 0; i < _points_seen_topics.size(); ++i) {
       ht3dbt_trackers.push_back(
           new HT3DBlinkerTracker(accumulatorLength, pitchSteps, yawSteps, maxPixelShift, cv::Size(752, 480), _nullify_radius_, _reasonable_radius_));
       ht3dbt_trackers.back()->setDebug(DEBUG, VisDEBUG);
@@ -125,54 +128,53 @@ public:
     /* viewImage = currImage.clone(); */
     //CHECK
 
-
     nh_.param("UseCameraForVisualization", use_camera_for_visualization_, bool(true));
     if (use_camera_for_visualization_){
       /* subscribe to cameras //{ */
 
-      std::vector<std::string> cameraTopics;
-      nh_.param("cameraTopics", cameraTopics, cameraTopics);
-      if (cameraTopics.empty()) {
+      std::vector<std::string> _camera_topics;
+      nh_.param("cameraTopics", _camera_topics, _camera_topics);
+      if (_camera_topics.empty()) {
         ROS_WARN("[BlinkProcessor]: No topics of cameras were supplied");
         use_camera_for_visualization_ = false;
       }
       else {
-        currentImages.resize(cameraTopics.size());
+        currentImages.resize(_camera_topics.size());
         // Create callbacks for each camera
-        for (size_t i = 0; i < cameraTopics.size(); ++i) {
+        for (size_t i = 0; i < _camera_topics.size(); ++i) {
           image_callback_t callback = [imageIndex=i,this] (const sensor_msgs::ImageConstPtr& image_msg) { 
             ProcessRaw(image_msg, imageIndex);
           };
           imageCallbacks.push_back(callback);
           // Subscribe to corresponding topics
-          imageSubscribers.push_back(nh_.subscribe(cameraTopics[i], 1, &image_callback_t::operator(), &imageCallbacks[i]));
+          imageSubscribers.push_back(nh_.subscribe(_camera_topics[i], 1, &image_callback_t::operator(), &imageCallbacks[i]));
         }
       }
 
     }
 
-    std::vector<std::string> blinkersSeenTopics;
-    std::vector<std::string> estimatedFramerateTopics;
-    nh_.param("blinkersSeenTopics", blinkersSeenTopics, blinkersSeenTopics);
-    nh_.param("estimatedFramerateTopics", estimatedFramerateTopics, estimatedFramerateTopics);
+    std::vector<std::string> _blinkers_seen_topics;
+    std::vector<std::string> _estimated_framerate_topics;
+    nh_.param("blinkersSeenTopics", _blinkers_seen_topics, _blinkers_seen_topics);
+    nh_.param("estimatedFramerateTopics", _estimated_framerate_topics, _estimated_framerate_topics);
 
-    if (blinkersSeenTopics.size() != pointsSeenTopics.size()) {
-      ROS_ERROR_STREAM("[BlinkProcessor] The number of poinsSeenTopics (" << pointsSeenTopics.size() 
-          << ") is not matching the number of blinkersSeenTopics (" << blinkersSeenTopics.size() << ")!");
+    if (_blinkers_seen_topics.size() != _points_seen_topics.size()) {
+      ROS_ERROR_STREAM("[BlinkProcessor] The number of poinsSeenTopics (" << _points_seen_topics.size() 
+          << ") is not matching the number of _blinkers_seen_topics (" << _blinkers_seen_topics.size() << ")!");
     }
-    if (estimatedFramerateTopics.size() != pointsSeenTopics.size()) {
-      ROS_ERROR_STREAM("[BlinkProcessor] The number of poinsSeenTopics (" << pointsSeenTopics.size() 
-          << ") is not matching the number of blinkersSeenTopics (" << estimatedFramerateTopics.size() << ")!");
-    }
-
-    for (size_t i = 0; i < blinkersSeenTopics.size(); ++i) {
-      blinkersSeenPublishers.push_back(nh_.advertise<uvdar::Int32MultiArrayStamped>(blinkersSeenTopics[i], 1));
-    }
-    for (size_t i = 0; i < estimatedFramerateTopics.size(); ++i) {
-      estimatedFrameratePublishers.push_back(nh_.advertise<std_msgs::Float32>(estimatedFramerateTopics[i], 1));
+    if (_estimated_framerate_topics.size() != _points_seen_topics.size()) {
+      ROS_ERROR_STREAM("[BlinkProcessor] The number of poinsSeenTopics (" << _points_seen_topics.size() 
+          << ") is not matching the number of _blinkers_seen_topics (" << _estimated_framerate_topics.size() << ")!");
     }
 
-    //}
+    for (size_t i = 0; i < _blinkers_seen_topics.size(); ++i) {
+      blinkersSeenPublishers.push_back(nh_.advertise<uvdar::Int32MultiArrayStamped>(_blinkers_seen_topics[i], 1));
+    }
+    for (size_t i = 0; i < _estimated_framerate_topics.size(); ++i) {
+      estimatedFrameratePublishers.push_back(nh_.advertise<std_msgs::Float32>(_estimated_framerate_topics[i], 1));
+    }
+
+      //}
 
     nh_.param("InvertedPoints", InvertedPoints, bool(false));
     nh_.param("frequencyCount", frequencyCount, int(4));
@@ -190,38 +192,44 @@ public:
 
     prepareFrequencyClassifiers();
 
-    for (size_t i = 0; i < pointsSeenTopics.size(); ++i) {
+    for (size_t i = 0; i < _points_seen_topics.size(); ++i) {
       process_threads.emplace_back(&BlinkProcessor::ProcessThread, this, i);
     }
+
+    if (GUI || publishVisualization) {
+      current_visualization_done_ = false;
+    }
+
     if (GUI) {
       show_thread  = std::thread(&BlinkProcessor::ShowThread, this);
     }
 
     if (publishVisualization) {
-      visualization_thread = std::thread(&BlinkProcessor::VisualizeThread, this);
       image_transport::ImageTransport it(nh_);
       imPub = it.advertise("visualization", 1);
+      visualization_thread  = std::thread(&BlinkProcessor::VisualizeThread, this);
     }
 
-    initialized = true;
+    initialized_ = true;
     ROS_INFO("[BlinkProcessor]: initialized");
   }
 
   //}
 
+
   /* prepareFrequencyClassifiers() //{ */
 
   void prepareFrequencyClassifiers() {
-    for (int i = 0; i < frequencySet.size(); i++) {
+    for (int i = 0; i < (int)(frequencySet.size()); i++) {
       periodSet.push_back(1.0 / frequencySet[i]);
     }
-    for (int i = 0; i < frequencySet.size() - 1; i++) {
+    for (int i = 0; i < (int)(frequencySet.size()) - 1; i++) {
       periodBoundsBottom.push_back((periodSet[i] * (1.0 - boundary_ratio) + periodSet[i + 1] * boundary_ratio));
     }
     periodBoundsBottom.push_back(1.0 / max_frequency);
 
     periodBoundsTop.push_back(1.0 / min_frequency);
-    for (int i = 1; i < frequencySet.size(); i++) {
+    for (int i = 1; i < (int)(frequencySet.size()); i++) {
       periodBoundsTop.push_back((periodSet[i] * boundary_ratio + periodSet[i - 1] * (1.0 - boundary_ratio)));
     }
 
@@ -250,7 +258,7 @@ private:
   /* InsertPoints //{ */
 
   void InsertPoints(const uvdar::Int32MultiArrayStampedConstPtr& msg, size_t imageIndex) {
-    if (!initialized) return;
+    if (!initialized_) return;
 
     int                      countSeen;
     std::vector<cv::Point2i> points;
@@ -306,8 +314,11 @@ private:
     }
     /* } */
 
-    lastPointsTime = msg->stamp;
-    ht3dbt->insertFrame(points);
+    {
+      std::scoped_lock lock(*(blinkData[imageIndex].retrievedBlinkersMutex));
+      lastPointsTime = msg->stamp;
+      ht3dbt->insertFrame(points);
+    }
   }
 
   //}
@@ -320,14 +331,14 @@ private:
     clock_t                    begin, end;
     double                     elapsedTime;
 
-    while (!initialized) 
+    while (!initialized_) 
       processSpinRates[imageIndex]->sleep();
 
     auto* ht3dbt = ht3dbt_trackers[imageIndex];
     auto& retrievedBlinkers = blinkData[imageIndex].retrievedBlinkers;
 
     processSpinRates[imageIndex]->reset();
-    for (;;) {
+    while (ros::ok()) {
       if (ht3dbt->isCurrentBatchProcessed()){
         /* if (DEBUG) */
         /*   ROS_INFO("Skipping batch, already processed."); */
@@ -339,9 +350,9 @@ private:
 
       begin = std::clock();
       ros::Time local_lastPointsTime = lastPointsTime;
-      blinkData[imageIndex].retrievedBlinkersMutex->lock();
 
       {
+        std::scoped_lock lock(*(blinkData[imageIndex].retrievedBlinkersMutex));
         retrievedBlinkers = ht3dbt->getResults();
       }
       end         = std::clock();
@@ -368,7 +379,6 @@ private:
           msgdata.push_back(findMatch(retrievedBlinkers[i].z));
       }
 
-      blinkData[imageIndex].retrievedBlinkersMutex->unlock();
 
       msg.data = msgdata;
       blinkersSeenPublishers[imageIndex].publish(msg);
@@ -378,6 +388,9 @@ private:
       estimatedFrameratePublishers[imageIndex].publish(msgFramerate);
 
       processSpinRates[imageIndex]->sleep();
+
+      if (!use_camera_for_visualization_)
+        current_visualization_done_ = false;
     }
   }
 
@@ -387,7 +400,7 @@ private:
 
   int findMatch(double i_frequency) {
     double period = 1.0 / i_frequency;
-    for (int i = 0; i < periodSet.size(); i++) {
+    for (int i = 0; i < (int)(periodSet.size()); i++) {
       /* std::cout << period << " " <<  periodBoundsTop[i] << " " << periodBoundsBottom[i] << " " << periodSet[i] << std::endl; */
       if ((period > periodBoundsBottom[i]) && (period < periodBoundsTop[i])) {
         return i;
@@ -398,26 +411,44 @@ private:
 
   //}
 
-  /* rainbow() //{ */
+  /* color selector functions //{ */
 
   cv::Scalar rainbow(double value, double max) {
     unsigned char r, g, b;
-    
-    /*
-    r = 255 * (std::max(0.0, (1 - (value / (max / 2.0)))));
-    if (value < (max / 2.0))
-      g = 255 * (std::max(0.0, value / (max / 2.0)));
-    else
-      g = 255 * (std::max(0.0, 1 - (value - (max / 2.0)) / (max / 2.0)));
-    b   = 255 * (std::max(0.0, (((value - (max / 2.0)) / (max / 2.0)))));
-    */
 
+    //rainbow gradient
     double fraction = value / max;
     r = 255 * (fraction < 0.25 ? 1 : fraction > 0.5 ? 0 : 2 - fraction * 4);
     g = 255 * (fraction < 0.25 ? fraction * 4 : fraction < 0.75 ? 1 : 4 - fraction * 4);
     b = 255 * (fraction < 0.5 ? 0 : fraction < 0.75 ? fraction * 4 - 2 : 1);
 
     return cv::Scalar(b, g, r);
+  }
+
+  cv::Scalar marker_color(int index, double max=14.0){
+    if (index < 7){
+      cv::Scalar selected;
+    //MATLAB colors
+    switch(index){
+      case 0: selected = cv::Scalar(0.7410,        0.4470,   0);
+              break;
+      case 1: selected = cv::Scalar(0.0980,   0.3250,   0.8500);
+              break;
+      case 2: selected = cv::Scalar(0.1250,   0.6940,   0.9290);
+              break;
+      case 3: selected = cv::Scalar(0.5560,   0.1840,   0.4940);
+              break;
+      case 4: selected = cv::Scalar(0.1880,   0.6740,   0.4660);
+              break;
+      case 5: selected = cv::Scalar(0.9330,   0.7450,   0.3010);
+              break;
+      case 6: selected = cv::Scalar(0.1840,   0.0780,   0.6350);
+        
+    }
+    return 255*selected;
+    }
+    else
+      return rainbow((double)(index - 7),max); 
   }
 
   //}
@@ -427,100 +458,19 @@ private:
   void VisualizeThread() {
     ROS_ERROR("Visualize thread");
 
-    ros::Rate r(visualizatinRate);
+    ros::Rate r(_visualization_rate_);
     sensor_msgs::ImagePtr msg;
     while (ros::ok()) {
-      r.sleep();
+      if (initialized_){
+        std::scoped_lock lock(mutex_show);
 
-      mutex_show.lock();
-      viewImage = cv::Mat(
-          (currentImages[0].cols + 2) * currentImages.size() - 2, 
-          currentImages[0].rows, 
-          currentImages[0].type(),
-          cv::Scalar(255, 255, 255));
-      mutex_show.unlock();
+        if (GenerateVisualization() >= 0){
 
-      /* loop through all trackers and update the data //{ */
-
-      for (size_t imageIndex = 0; imageIndex < ht3dbt_trackers.size(); ++imageIndex) {
-        auto* ht3dbt = ht3dbt_trackers[imageIndex];
-        BlinkData& data = blinkData[imageIndex];
-
-        mutex_show.lock();
-        int differenceX = (currentImages[0].cols + 2) * imageIndex;
-        auto& currentImage = currentImages[imageIndex];
-
-        // copy the image
-        // CHECK
-        for (int y = 0; y < currentImage.rows; ++y) {
-          for (int x = 0; x < currentImage.cols; ++x) {
-            if (x + differenceX >= viewImage.cols || y >= viewImage.rows) continue;
-            viewImage.data[y * viewImage.cols + differenceX + x] = 
-              currentImage.data[y * currentImage.cols + x];
-          }
+          msg = cv_bridge::CvImage(std_msgs::Header(), enc::BGR8, viewImage).toImageMsg();
+          imPub.publish(msg);
         }
-        mutex_show.unlock();
-
-        data.currTrackerCount = ht3dbt->getTrackerCount();
-
-        cv::circle(viewImage, cv::Point(10, 10), 5, cv::Scalar(255, 100, 0));
-        cv::circle(viewImage, cv::Point(10, 25), 5, cv::Scalar(0, 50, 255));
-        cv::circle(viewImage, cv::Point(10, 40), 5, cv::Scalar(0, 200, 255));
-        cv::circle(viewImage, cv::Point(10, 55), 5, cv::Scalar(255, 0, 100));
-        cv::putText(viewImage, cv::String(to_string_precision(frequencySet[0],0)), cv::Point(15, 15), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 255, 255));
-        cv::putText(viewImage, cv::String(to_string_precision(frequencySet[1],0)), cv::Point(15, 30), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 255, 255));
-        cv::putText(viewImage, cv::String(to_string_precision(frequencySet[2],0)), cv::Point(15, 45), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 255, 255));
-        cv::putText(viewImage, cv::String(to_string_precision(frequencySet[3],0)), cv::Point(15, 60), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 255, 255));
-        //CHECK
-
-
-        data.retrievedBlinkersMutex->lock();
-        auto& rbs = data.retrievedBlinkers;
-        for (int i = 0; i < rbs.size(); i++) {
-          cv::Point center = cv::Point(rbs[i].x + differenceX, rbs[i].y);
-
-          int        freqIndex = findMatch(rbs[i].z);
-          char       freqText[4];
-          char       freqTextRefined[4];
-          cv::Scalar markColor;
-          sprintf(freqText, "%d", std::max((int)rbs[i].z, 0));
-          cv::putText(viewImage, cv::String(freqText), center + cv::Point(-5, -5), cv::FONT_HERSHEY_SIMPLEX, 0.3, cv::Scalar(255, 255, 255));
-          if (freqIndex >= 0) {
-            switch (freqIndex) {
-              case 0:
-                markColor = cv::Scalar(255, 100, 0);
-                break;
-              case 1:
-                markColor = cv::Scalar(0, 50, 255);
-                break;
-              case 2:
-                markColor = cv::Scalar(0, 200, 255);
-                break;
-              case 3:
-                markColor = cv::Scalar(255, 0, 100);
-                break;
-            }
-
-            cv::circle(viewImage, center, 5, markColor);
-          }
-          else {
-            viewImage.at<cv::Vec3b>(center) = cv::Vec3b(255,255,255);
-          }
-          double yaw, pitch, len;
-          yaw              = ht3dbt->getYaw(i);
-          pitch            = ht3dbt->getPitch(i);
-          len              = cos(pitch);
-          cv::Point target = center - (cv::Point(len * cos(yaw) * 20, len * sin(yaw) * 20.0));
-          cv::line(viewImage, center, target, cv::Scalar(0, 0, 255), 2);
-        }
-
-        data.retrievedBlinkersMutex->unlock();
       }
-
-      //}
-
-      msg = cv_bridge::CvImage(std_msgs::Header(), enc::BGR8, viewImage).toImageMsg();
-      imPub.publish(msg);
+      r.sleep();
     }
   }
 
@@ -529,101 +479,119 @@ private:
   /* ShowThread() //{ */
 
   void ShowThread() {
-    //CHECK - maybe just reuse the same viewImage
-    for (;;) {
-      // create the viewImage
-      // assuming that all images are of the same size
-      mutex_show.lock();
-      if (!use_camera_for_visualization_)
-        viewImage = cv::Mat(
-            currentImages[0].rows, 
-            (currentImages[0].cols + 2) * currentImages.size() - 2, 
-            currentImages[0].type(),
-            cv::Scalar(255, 255, 255));
-      else
-        viewImage = cv::Mat(
-            currentImages[0].rows, 
-            (currentImages[0].cols + 2) * currentImages.size() - 2, 
-            currentImages[0].type(),
-            cv::Scalar(255, 255, 255));
-      mutex_show.unlock();
+    while (ros::ok()) {
+      if (initialized_){
+        std::scoped_lock lock(mutex_show);
 
-      if (viewImage.rows == 0 || viewImage.cols == 0) continue;
+
+        if (GenerateVisualization() >= 0){
+          if (!VisDEBUG && GUI)
+            cv::imshow("ocv_blink_retrieval_" + _uav_name_, viewImage);
+        }
+
+      }
+      if (!VisDEBUG)
+        cv::waitKey(1000.0 / 25.0);
+    }
+  }
+
+  //}
+
+  /* GenerateVisualization() //{ */
+
+    int GenerateVisualization() {
+      if (use_camera_for_visualization_ && !images_received_)
+        return -2;
+
+      if (current_visualization_done_)
+        return 1;
+      
+      int image_count = blinkData.size();
+      int image_width, image_height;
+
+      if (!use_camera_for_visualization_){
+        image_width = 752;
+        image_height = 480;
+        viewImage = cv::Mat(
+            480, 
+            (752 + 2) * image_count - 2, 
+            CV_8UC3,
+            cv::Scalar(0,0,0));
+      }
+      else{
+        image_width = currentImages[0].cols;
+        image_height = currentImages[0].rows;
+        viewImage = cv::Mat(
+            currentImages[0].rows, 
+            (currentImages[0].cols + 2) * image_count - 2, 
+            CV_8UC3,
+            cv::Scalar(255, 255, 255));
+      }
+
+
+      if (viewImage.rows == 0 || viewImage.cols == 0) return -1;
 
       /* loop through all trackers and update the data //{ */
 
-      for (size_t imageIndex = 0; imageIndex < ht3dbt_trackers.size(); ++imageIndex) {
+      for (int imageIndex = 0; imageIndex < image_count; ++imageIndex) {
         auto* ht3dbt = ht3dbt_trackers[imageIndex];
         BlinkData& data = blinkData[imageIndex];
 
-        mutex_show.lock();
-        int differenceX = (currentImages[0].cols + 2) * imageIndex;
-        auto& currentImage = currentImages[imageIndex];
+        int differenceX = (image_width + 2) * imageIndex;
 
-
-        for (int x = 0; x < currentImage.cols; ++x) {
-          for (int y = 0; y < currentImage.rows; ++y) {
-            viewImage.at<cv::Vec3b>(y, x + differenceX) = currentImage.at<cv::Vec3b>(y, x);
-          }
+        if (use_camera_for_visualization_){
+          auto &currentImage = currentImages[imageIndex];
+          viewImage(cv::Rect(differenceX,0,image_width,image_height))=currentImage;
         }
-        mutex_show.unlock();
+
+
 
         data.currTrackerCount = ht3dbt->getTrackerCount();
 
-        data.retrievedBlinkersMutex->lock();
-        auto& rbs = data.retrievedBlinkers;
-        for (int i = 0; i < rbs.size(); i++) {
-          cv::Point center = cv::Point(rbs[i].x + differenceX, rbs[i].y);
+        {
+          std::scoped_lock lock(*(data.retrievedBlinkersMutex));
+          //CHECK separate mutexes for each image
+        
+          auto& rbs = data.retrievedBlinkers;
+          for (int i = 0; i < (int)(rbs.size()); i++) {
+            cv::Point center = cv::Point(rbs[i].x + differenceX, rbs[i].y);
 
-          /* std::cout << "f: " << retrievedBlinkers[i].z << std::endl; */
-          int        freqIndex = findMatch(rbs[i].z);
-          char       freqText[4];
-          char       freqTextRefined[4];
-          /* sprintf(freqText,"%d",std::max((int)retrievedBlinkers[i].z,0)); */
-          sprintf(freqText, "%d", std::max((int)rbs[i].z, 0));
-          cv::putText(viewImage, cv::String(freqText), center + cv::Point(-5, -5), cv::FONT_HERSHEY_SIMPLEX, 0.3, cv::Scalar(255, 255, 255));
-          
-          if (freqIndex >= 0) {
-            cv::Scalar color = rainbow(freqIndex, frequencySet.size() - 1);
-            cv::circle(viewImage, center, 5, color);
+            /* std::cout << "f: " << retrievedBlinkers[i].z << std::endl; */
+            int        freqIndex = findMatch(rbs[i].z);
+            char       freqText[4];
+            /* sprintf(freqText,"%d",std::max((int)retrievedBlinkers[i].z,0)); */
+            sprintf(freqText, "%d", std::max((int)rbs[i].z, 0));
+            cv::putText(viewImage, cv::String(freqText), center + cv::Point(-5, -5), cv::FONT_HERSHEY_SIMPLEX, 0.3, cv::Scalar(255, 255, 255));
+
+            if (freqIndex >= 0) {
+              cv::Scalar color = marker_color(freqIndex);
+              cv::circle(viewImage, center, 5, color);
+            }
+            else {
+              viewImage.at<cv::Vec3b>(center) = cv::Vec3b(255,255,255);
+            }
+            double yaw, pitch, len;
+            yaw              = ht3dbt->getYaw(i);
+            pitch            = ht3dbt->getPitch(i);
+            len              = cos(pitch);
+            cv::Point target = center - (cv::Point(len * cos(yaw) * 20, len * sin(yaw) * 20.0));
+            cv::line(viewImage, center, target, cv::Scalar(0, 0, 255), 2);
           }
-          else {
-            viewImage.at<cv::Vec3b>(center) = cv::Vec3b(255,255,255);
-          }
-          double yaw, pitch, len;
-          yaw              = ht3dbt->getYaw(i);
-          pitch            = ht3dbt->getPitch(i);
-          len              = cos(pitch);
-          cv::Point target = center - (cv::Point(len * cos(yaw) * 20, len * sin(yaw) * 20.0));
-          cv::line(viewImage, center, target, cv::Scalar(0, 0, 255), 2);
+
         }
-
-        data.retrievedBlinkersMutex->unlock();
       }
 
       //}
-      
+
       // draw the legend
-      for (size_t i = 0; i < frequencySet.size(); ++i) {
-        cv::Scalar color = rainbow(i, frequencySet.size() - 1);
+      for (int i = 0; i < (int)(frequencySet.size()); ++i) {
+        cv::Scalar color = marker_color(i);
         cv::circle(viewImage, cv::Point(10, 10 + 15 * i), 5, color);
-        cv::putText(viewImage, cv::String(std::to_string((int) frequencySet[i])), cv::Point(15, 15 + 15 * i), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 255, 255));
+        cv::putText(viewImage, cv::String(to_string_precision(frequencySet[i],0)), cv::Point(15, 15 + 15 * i), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 255, 255));
       }
 
-      /* cv::Scalar currColor; */
-      /* for (int j = 0; j<256;j++){ */
-      /*   currColor = rainbow(double(j),255.0); */
-      /*   viewImage.at<cv::Vec3b>(viewImage.rows-1, j) = cv::Vec3b(currColor[0],currColor[1],currColor[2]); */
-      /* } */
-      /* ROS_INFO("W:%d, H:%d", viewImage.size().width,viewImage.size().height); */
-
-      if (!VisDEBUG && GUI)
-        cv::imshow("ocv_blink_retrieval_" + uav_name, viewImage);
-
-      if (!VisDEBUG)
-        cv::waitKey(1000.0 / 25.0);
-      /* prevTime = currTime; */
-    }
+      current_visualization_done_ = true;
+      return 0;
   }
 
   //}
@@ -634,18 +602,24 @@ private:
     cv_bridge::CvImagePtr image;
     if (image_msg != NULL) {
       image = cv_bridge::toCvCopy(image_msg, enc::RGB8);
-      mutex_show.lock();
-      { currentImages[imageIndex] = image->image; }
-      mutex_show.unlock();
+      {
+        std::scoped_lock lock(mutex_show);
+        currentImages[imageIndex] = image->image; 
+        current_visualization_done_ = false;
+      }
     }
+    images_received_ = true;
   }
 
   void ProcessRaw(const sensor_msgs::ImageConstPtr& image_msg, size_t imageIndex) {
     cv_bridge::CvImagePtr image;
     image = cv_bridge::toCvCopy(image_msg, enc::RGB8);
-    mutex_show.lock();
-    { currentImages[imageIndex] = image->image; }
-    mutex_show.unlock();
+    {
+      std::scoped_lock lock(mutex_show);
+       currentImages[imageIndex] = image->image; 
+       current_visualization_done_ = false;
+    }
+    images_received_ = true;
   }
 
   //}
@@ -663,9 +637,11 @@ private:
 
   /* attributes //{ */
 
-  bool initialized = false;
+  std::atomic_bool initialized_;
+  std::atomic_bool current_visualization_done_;
+  std::atomic_bool images_received_;
 
-  std::string              uav_name;
+  std::string              _uav_name_;
   bool                     currBatchProcessed;
   bool                     DEBUG;
   bool                     VisDEBUG;
@@ -695,7 +671,7 @@ private:
   //CHECK
 
   bool publishVisualization;
-  int visualizatinRate;
+  int _visualization_rate_;
   image_transport::Publisher imPub;
 
   struct BlinkData {
