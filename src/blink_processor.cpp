@@ -118,6 +118,7 @@ public:
     for (size_t i = 0; i < _points_seen_topics.size(); ++i) {
       ht3dbt_trackers.push_back(
           new HT3DBlinkerTracker(accumulatorLength, pitchSteps, yawSteps, maxPixelShift, cv::Size(752, 480), _nullify_radius_, _reasonable_radius_));
+
       ht3dbt_trackers.back()->setDebug(DEBUG, _visual_debug_);
       processSpinRates.push_back(new ros::Rate((double)processRate));
     }
@@ -486,12 +487,12 @@ private:
         std::scoped_lock lock(mutex_show);
 
 
-        if (!_visual_debug_){
+        if (_visual_debug_){
           if (GenerateVisualization() >= 0){
             cv::imshow("ocv_blink_retrieval_" + _uav_name_, viewImage);
           }
         }
-        else {
+        if (GUI){
           temp = ht3dbt_trackers[0]->getVisualization();
           if (temp.cols>0)
             cv::imshow("ocv2_hough_space_" + _uav_name_, temp);
@@ -563,26 +564,26 @@ private:
           for (int i = 0; i < (int)(rbs.size()); i++) {
             cv::Point center = cv::Point(rbs[i].x + differenceX, rbs[i].y);
 
-            /* std::cout << "f: " << retrievedBlinkers[i].z << std::endl; */
             int        freqIndex = findMatch(rbs[i].z);
-            char       freqText[4];
-            /* sprintf(freqText,"%d",std::max((int)retrievedBlinkers[i].z,0)); */
-            sprintf(freqText, "%d", std::max((int)rbs[i].z, 0));
-            cv::putText(viewImage, cv::String(freqText), center + cv::Point(-5, -5), cv::FONT_HERSHEY_SIMPLEX, 0.3, cv::Scalar(255, 255, 255));
-
+            /* std::cout << "f: " << retrievedBlinkers[i].z << std::endl; */
             if (freqIndex >= 0) {
+              char       freqText[4];
+              /* sprintf(freqText,"%d",std::max((int)retrievedBlinkers[i].z,0)); */
+              sprintf(freqText, "%d", std::max((int)rbs[i].z, 0));
+              cv::putText(viewImage, cv::String(freqText), center + cv::Point(-5, -5), cv::FONT_HERSHEY_SIMPLEX, 0.3, cv::Scalar(255, 255, 255));
               cv::Scalar color = marker_color(freqIndex);
               cv::circle(viewImage, center, 5, color);
+              double yaw, pitch, len;
+              yaw              = ht3dbt->getYaw(i);
+              pitch            = ht3dbt->getPitch(i);
+              len              = cos(pitch);
+              cv::Point target = center - (cv::Point(len * cos(yaw) * 20, len * sin(yaw) * 20.0));
+              cv::line(viewImage, center, target, cv::Scalar(0, 0, 255), 2);
             }
             else {
-              viewImage.at<cv::Vec3b>(center) = cv::Vec3b(255,255,255);
+              cv::circle(viewImage, center, 2, cv::Scalar(160,160,160));
+              /* viewImage.at<cv::Vec3b>(center) = cv::Vec3b(255,255,255); */
             }
-            double yaw, pitch, len;
-            yaw              = ht3dbt->getYaw(i);
-            pitch            = ht3dbt->getPitch(i);
-            len              = cos(pitch);
-            cv::Point target = center - (cv::Point(len * cos(yaw) * 20, len * sin(yaw) * 20.0));
-            cv::line(viewImage, center, target, cv::Scalar(0, 0, 255), 2);
           }
 
         }

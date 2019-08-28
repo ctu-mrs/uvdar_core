@@ -55,7 +55,8 @@ private:
   double angMeanXY(std::vector< cv::Point > input);
 
   int          memSteps, pitchSteps, yawSteps;
-  unsigned int frameScale, maskWidth, houghThresh, nullifyRadius, bitShift;
+  unsigned int frameScale, houghThresh, nullifyRadius, bitShift;
+  int maskWidth;
   int          expectedMatches;
   double       minPitch, pitchDiv, yawDiv;
   int          reasonableRadius;
