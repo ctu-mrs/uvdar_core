@@ -201,7 +201,7 @@ public:
       current_visualization_done_ = false;
     }
 
-    if (GUI) {
+    if (GUI || _visual_debug_) {
       show_thread  = std::thread(&BlinkProcessor::ShowThread, this);
     }
 
@@ -487,12 +487,12 @@ private:
         std::scoped_lock lock(mutex_show);
 
 
-        if (_visual_debug_){
+        if (GUI){
           if (GenerateVisualization() >= 0){
             cv::imshow("ocv_blink_retrieval_" + _uav_name_, viewImage);
           }
         }
-        if (GUI){
+        if (_visual_debug_){
           temp = ht3dbt_trackers[0]->getVisualization();
           if (temp.cols>0)
             cv::imshow("ocv2_hough_space_" + _uav_name_, temp);

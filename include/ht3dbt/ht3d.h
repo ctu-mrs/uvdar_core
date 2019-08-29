@@ -33,8 +33,7 @@ private:
   template < typename T >
   void resetToZero(T *__restrict__ input, int steps);
   void generateMasks();
-  void applyMasks(std::vector< std::vector< cv::Point3i > > & __restrict__ maskSet,
-      unsigned int *__restrict__ houghSpace);
+  void applyMasks(std::vector< std::vector< cv::Point3i > > & __restrict__ maskSet, unsigned int *__restrict__ houghSpace, double i_weightFactor,bool i_constantNewer,int i_breakPoint);
   void cleanTouched();
   void projectAccumulatorToHT();
   /* cv::Mat downSample(const cv::Mat &input, cv::Mat &output, int bits=8); */
