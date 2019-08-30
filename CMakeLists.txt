@@ -5,7 +5,7 @@ FILE(GLOB_RECURSE HEADER_FILES include *.h)
 FILE(GLOB_RECURSE LAUNCHER_FILES include *.launch)
 FILE(GLOB_RECURSE YAML_FILES include *.yaml)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-diagnostics-color -fmessage-length=0 -std=c++17 -Wno-return-type -Wno-unused-result -Wall -Wno-maybe-uninitialized")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-diagnostics-color -fmessage-length=0 -std=c++17 -Wno-return-type -Wno-unused-result -Wno-unused-variable -Wall -Wno-maybe-uninitialized")
 
 find_package(catkin REQUIRED COMPONENTS
   roscpp
@@ -103,6 +103,7 @@ include_directories(
 add_library(OCamCalib include/OCamCalib/ocam_functions.cpp )
 
 add_library(ht3dbt include/ht3dbt/ht3d.cpp)
+add_library(ht4dbt include/ht3dbt/ht4d.cpp)
 add_library(uvLedDetect_fast include/detect/uvLedDetect_fast.cpp)
 
 target_link_libraries(uvLedDetect_fast 
@@ -143,7 +144,7 @@ target_link_libraries(UVDetector
 target_link_libraries(BlinkProcessor
   ${catkin_LIBRARIES}
   ${OpenCV_LIBRARIES}
-  ht3dbt
+  ht4dbt
   )
 
 target_link_libraries(uv_follower_node

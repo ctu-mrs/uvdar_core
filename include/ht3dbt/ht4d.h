@@ -3,9 +3,9 @@
 #include <numeric>
 #include <opencv2/core/core.hpp>
 
-class HT3DBlinkerTracker {
+class HT4DBlinkerTracker {
 public:
-  HT3DBlinkerTracker(int i_memSteps,
+  HT4DBlinkerTracker(int i_memSteps,
       int i_pitchSteps,
       int i_yawSteps,
       int i_maxPixelShift,
@@ -13,7 +13,7 @@ public:
       int i_nullifyRadius = 8,
       int i_reasonableRadius = 3,
       double i_framerate = 72);
-  ~HT3DBlinkerTracker();
+  ~HT4DBlinkerTracker();
 
   void insertFrame(std::vector< cv::Point > newPoints);
   std::vector< cv::Point3d > getResults();
@@ -64,6 +64,7 @@ private:
 
   cv::Size     imRes;
   unsigned int imArea;
+  unsigned int imAreaXPitch;
   cv::Rect     imRect;
 
   std::vector< std::vector< cv::Point2i > > accumulator;
@@ -71,17 +72,16 @@ private:
   std::vector< int >                        ptsPerLayer;
   std::vector< int >                        ptsPerLayerLocalCopy;
   unsigned char *                            touchedMatrix;
-  /* cv::Mat                                   houghSpacePitch, houghSpaceYaw; */
-  unsigned int * __restrict__ houghSpacePitch,
-               *__restrict__ houghSpaceYaw;
-  /* cv::Mat                                   houghSpacePitchMaxima, houghSpaceYawMaxima, combinedMaximaMatrix; */
-  unsigned int * __restrict__ houghSpacePitchMaxima,
-               *__restrict__ houghSpaceYawMaxima,
-               *__restrict__ combinedMaximaMatrix;
-  cv::Mat                                   pitchMatrix, yawMatrix;
-  std::vector< std::vector< cv::Point3i > > pitchMasks, yawMasks;
+  unsigned int * __restrict__ houghSpace;
+  unsigned int * __restrict__ houghSpaceMaxima;
+  cv::Mat                                   indexMatrix;
+  std::vector< std::vector< cv::Point3i > > hybridMasks;
   std::vector< double >                     pitchVals,
-    yawVals, cotSetMin, cotSetMax, sinSet, cosSet;
+                                            yawVals,
+                                            cotSetMin,
+                                            cotSetMax,
+                                            sinSet,
+                                            cosSet;
 
   std::vector< double > frequencies, yawAvgs, pitchAvgs;
 

@@ -11,7 +11,7 @@
 
 #include <cv_bridge/cv_bridge.h>
 #include <geometry_msgs/Twist.h>
-#include <ht3dbt/ht3d.h>
+#include <ht3dbt/ht4d.h>
 #include <image_transport/image_transport.h>
 #include <nav_msgs/Odometry.h>
 #include <sensor_msgs/CameraInfo.h>
@@ -117,7 +117,7 @@ public:
     
     for (size_t i = 0; i < _points_seen_topics.size(); ++i) {
       ht3dbt_trackers.push_back(
-          new HT3DBlinkerTracker(accumulatorLength, pitchSteps, yawSteps, maxPixelShift, cv::Size(752, 480), _nullify_radius_, _reasonable_radius_));
+          new HT4DBlinkerTracker(accumulatorLength, pitchSteps, yawSteps, maxPixelShift, cv::Size(752, 480), _nullify_radius_, _reasonable_radius_));
 
       ht3dbt_trackers.back()->setDebug(DEBUG, _visual_debug_);
       processSpinRates.push_back(new ros::Rate((double)processRate));
@@ -700,7 +700,7 @@ private:
   };
 
   std::vector<BlinkData> blinkData;
-  std::vector<HT3DBlinkerTracker*> ht3dbt_trackers;
+  std::vector<HT4DBlinkerTracker*> ht3dbt_trackers;
 
   bool returnFrequencies;
 

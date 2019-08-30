@@ -60,7 +60,7 @@
 
   <arg name="accumulatorLength"         default="23"/>
   <arg name="pitchSteps"         default="16"/>
-  <arg name="yawSteps"         default="8"/>
+  <arg name="yawSteps"         default="16"/>
   <arg name="maxPixelShift"         default="2"/>
   <arg name="reasonableRadius"         default="3"/>
   <arg name="nullifyRadius"         default="8"/>
