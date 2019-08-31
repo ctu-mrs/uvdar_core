@@ -57,7 +57,7 @@ private:
   unsigned int frameScale, houghThresh, nullifyRadius, bitShift;
   int maskWidth;
   int          expectedMatches;
-  double       minPitch, pitchDiv, yawDiv;
+  double       minPitch, pitchDiv, yawDiv, stepDiv;
   int          reasonableRadius;
   double       framerate;
   int          maxPixelShift;

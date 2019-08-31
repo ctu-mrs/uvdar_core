@@ -78,7 +78,7 @@ HT4DBlinkerTracker::HT4DBlinkerTracker(int i_memSteps,
     /* (unsigned int)((memSteps * memSteps * memSteps * memSteps) * 2.25 * 0.5 *0.75) >> bitShift; */
     /* (unsigned int)((memSteps * memSteps ) * (1+(weightCoeff*weightFactor)) * 0.5 *0.5) >> bitShift; */
     /* (unsigned int)((memSteps *memSteps ) * (1+(weightCoeff*weightFactor)) * 0.5 *0.5) >> bitShift; */
-    (unsigned int)((memSteps ) * (1+(weightCoeff*weightFactor)) * 0.5 *0.5) >> bitShift;
+    (unsigned int)((memSteps ) * (1+(weightCoeff*weightFactor)) * 0.5 *0.6) >> bitShift;
   nullifyRadius    = i_nullifyRadius;
   reasonableRadius = i_reasonableRadius;
   imRes            = i_imRes;
@@ -99,20 +99,33 @@ HT4DBlinkerTracker::HT4DBlinkerTracker(int i_memSteps,
   cotSetMin.clear();
 
   minPitch = acot(maxPixelShift);
-  pitchDiv = ((CV_PI * 0.5) - minPitch) / pitchSteps;
+  /* pitchDiv = ((CV_PI * 0.5) - minPitch) / pitchSteps; */
+  stepDiv = (double)(maxPixelShift)/(double)(pitchSteps+0.5);
   for (int i = 0; i < pitchSteps; i++) {
-    pitchVals.push_back((i + 0.5) * pitchDiv + minPitch);
+    /* pitchVals.push_back((i + 0.5) * pitchDiv + minPitch); */
+    pitchVals.push_back(acot(stepDiv*(pitchSteps-(i + 0.5))));
 
-    if (i == pitchSteps)
+    /* if (i == pitchSteps) */
+    /*   cotSetMin.push_back(0.0); */
+    /* else */
+    /*   cotSetMin.push_back(cot(pitchVals[i] + (pitchDiv / 1))); */
+
+
+    /* if (i == 0) */
+    /*   cotSetMax.push_back(cot(minPitch)); */
+    /* else */
+    /*   cotSetMax.push_back(cot(pitchVals[i] - (pitchDiv / 1))); */
+
+    if (i == (pitchSteps-1))
       cotSetMin.push_back(0.0);
     else
-      cotSetMin.push_back(cot(pitchVals[i] + (pitchDiv / 1)));
+      cotSetMin.push_back(stepDiv*(pitchSteps-(i+1.5)));
 
 
     if (i == 0)
-      cotSetMax.push_back(cot(minPitch));
+      cotSetMax.push_back(stepDiv*(pitchSteps+0.5));
     else
-      cotSetMax.push_back(cot(pitchVals[i] - (pitchDiv / 1)));
+      cotSetMax.push_back(stepDiv*(pitchSteps-(i-0.5)));
   }
 
 
@@ -374,7 +387,7 @@ void HT4DBlinkerTracker::generateMasks() {
           double Rmax = (1.0 / tan(pitchVals[j] - (pitchDiv / 2))) * i;
           double Rcen = (1.0 / tan(pitchVals[j])) * i;
           /* if ((radiusBox.at< float >(y, x) >= (Rmin-1)) && (radiusBox.at< float >(y, x) <= (Rmax+1))) { */
-          if ((radiusBox.at< float >(y, x) >= (Rcen-1)) && (radiusBox.at< float >(y, x) <= (Rcen+1))) {
+          if ((ceil(radiusBox.at< float >(y, x)) >= (Rcen-1)) && (floor(radiusBox.at< float >(y, x)) <= (Rcen+1))) {
             pitchCol.push_back(j);
           }
         }
@@ -391,7 +404,7 @@ void HT4DBlinkerTracker::generateMasks() {
               }
               if (spreadTest) break;
             }
-            if (spreadTest  || (fabs(angDiff(yawBox.at< float >(y, x), yawVals[j])) < yawDiv*1.0))
+            if (spreadTest  || (fabs(angDiff(yawBox.at< float >(y, x), yawVals[j])) < yawDiv*0.75))
               yawCol.push_back(j);
           }
         }
@@ -573,7 +586,7 @@ std::vector< cv::Point > HT4DBlinkerTracker::findHoughPeaks(unsigned int *__rest
         storeCurrent = false;
         if (DEBUG)
           std::cout << "Point " << currMaxPos << " Failed FAST test." << std::endl;
-        break;
+        /* break; */
 
       }
 /* if (miniFast(x,y, houghThresh*0.10, currMinDiff)) { */
@@ -714,8 +727,8 @@ double HT4DBlinkerTracker::retrieveFreqency(cv::Point originPoint, double &avgYa
   for (int t = 0; t < stepCount; t++) {
     /* radExpectedMin        = (cotSetMin[pitchIndex] * t) - (reasonableRadius);  //+t*0.2 */
     /* radExpectedMax        = (cotSetMax[pitchIndex] * t) + (reasonableRadius);  //+t*0.2 */
-    radExpectedMin        = floor(cotSetMin[pitchIndex] * t);  //+t*0.2
-    radExpectedMax        = ceil(cotSetMax[pitchIndex] * t);  //+t*0.2
+    radExpectedMin        = floor(cotSetMin[pitchIndex] * t)-1;  //+t*0.2
+    radExpectedMax        = ceil(cotSetMax[pitchIndex] * t)+1;  //+t*0.2
     yawExpected           = yawVals[yawIndex]-M_PI;
     positiveCountAccum[t] = 0;
     for (int k = 0; k < (int)(accumulatorLocalCopy[t].size()); k++) {
@@ -733,12 +746,15 @@ double HT4DBlinkerTracker::retrieveFreqency(cv::Point originPoint, double &avgYa
        
       currPointYaw = atan2(currPointCentered.y, currPointCentered.x);
 
-      if ((currPointRadiusRound >= radExpectedMin) && (currPointRadiusRound <= radExpectedMax) &&
-          ((fabs(angDiff(currPointYaw, yawExpected)) <= (yawDiv)) || (currPointMaxDim <= 4)) ){
-        positivePointAccum.push_back(currPointCentered);
-        yawAccum.push_back(currPointYaw);
-        positivePointAccumPitch.push_back(cv::Point(currPointRadius, t));
-        positiveCountAccum[t]++;
+      if (currPointRadiusRound >= radExpectedMin){
+        if (currPointRadiusRound <= radExpectedMax) {
+          if ((fabs(angDiff(currPointYaw, yawExpected)) <= (yawDiv)) || (currPointMaxDim <= 4)) {
+            positivePointAccum.push_back(currPointCentered);
+            yawAccum.push_back(currPointYaw);
+            positivePointAccumPitch.push_back(cv::Point(currPointRadius, t));
+            positiveCountAccum[t]++;
+          }
+        }
       }
       /* if (DEBUG){ */
       /*   if ((currPointRadiusRound < radExpectedMin) || (currPointRadiusRound > radExpectedMax)) */
