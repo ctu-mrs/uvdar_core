@@ -8,7 +8,7 @@
 #define max_frequency 36.0
 #define boundary_ratio 0.5
 
-#define qpix 3
+#define qpix 4
 //pixel std. dev
 
 
@@ -88,27 +88,27 @@ public:
     int frequencyCount = targetCount*frequenciesPerTarget;
  
     int tempFreq;
-    if (frequencySet.size() < frequencyCount) {
+    if ((int)(frequencySet.size()) < frequencyCount) {
       private_node_handle.param("frequency1", tempFreq, int(6));
       frequencySet.push_back(double(tempFreq));
     }
-    if (frequencySet.size() < frequencyCount) {
+    if ((int)(frequencySet.size()) < frequencyCount) {
       private_node_handle.param("frequency2", tempFreq, int(10));
       frequencySet.push_back(double(tempFreq));
     }
-    if (frequencySet.size() < frequencyCount) {
+    if ((int)(frequencySet.size()) < frequencyCount) {
       private_node_handle.param("frequency3", tempFreq, int(15));
       frequencySet.push_back(double(tempFreq));
     }
-    if (frequencySet.size() < frequencyCount) {
+    if ((int)(frequencySet.size()) < frequencyCount) {
       private_node_handle.param("frequency4", tempFreq, int(30));
       frequencySet.push_back(double(tempFreq));
     }
-    if (frequencySet.size() < frequencyCount) {
+    if ((int)(frequencySet.size()) < frequencyCount) {
       private_node_handle.param("frequency5", tempFreq, int(8));
       frequencySet.push_back(double(tempFreq));
     }
-    if (frequencySet.size() < frequencyCount) {
+    if ((int)(frequencySet.size()) < frequencyCount) {
       private_node_handle.param("frequency6", tempFreq, int(12));
       frequencySet.push_back(double(tempFreq));
     }
@@ -545,7 +545,7 @@ public:
 
 
 
-      cv::Point3d central = (a+b) / 2.0;
+      /* cv::Point3d central = (a+b) / 2.0; */
       double      v1[3], v2[3];
       double      va[2] = {double(a.y), double(a.x)};
       double      vb[2] = {double(b.y), double(b.x)};
@@ -814,9 +814,9 @@ public:
     std::vector<std::vector<cv::Point3i>> separatedPoints;
     separatedPoints.resize(targetCount);
 
-    if (points.size() > 0) {
+    if ((int)(points.size()) > 0) {
 
-      for (int i = 0; i < points.size(); i++) {
+      for (int i = 0; i < (int)(points.size()); i++) {
         if (points[i].z > 1) {
           int mid = findMatch(points[i].z);
           int tid = classifyMatch(mid);
@@ -845,9 +845,9 @@ public:
     int countSeen = (int)(points.size());
 
 
-    if (points.size() > 1) {
+    if ((int)(points.size()) > 1) {
 
-      for (int i = 0; i < points.size(); i++) {
+      for (int i = 0; i < (int)(points.size()); i++) {
         if (points[i].z < 1) {
           points.erase(points.begin() + i);
           i--;
@@ -928,7 +928,7 @@ public:
         0,0,0,0,qpix ,0,0,0,0,
         0,0,0,0,0,sqr(perr),0,0,0,
         0,0,0,0,0,0,sqr(deg2rad(8)),0,0,
-        0,0,0,0,0,0,0,sqr(deg2rad(45)),0,
+        0,0,0,0,0,0,0,sqr(deg2rad(60)),0,
         0,0,0,0,0,0,0,0,sqr(deg2rad(10))
         ;
 
@@ -944,7 +944,7 @@ public:
       std::cout << "led: " << points[0] << std::endl;
 
 
-      ms = uvdarHexarotorPose1p_meas(Eigen::Vector2d(points[0].x,points[0].y),armLength, 500,10.0);
+      ms = uvdarHexarotorPose1p_meas(Eigen::Vector2d(points[0].x,points[0].y),armLength, 1000,10.0);
 
 
       foundTarget = true;
@@ -1060,7 +1060,7 @@ public:
 
   int findMatch(double i_frequency) {
     double period = 1.0 / i_frequency;
-    for (int i = 0; i < periodSet.size(); i++) {
+    for (int i = 0; i < (int)(periodSet.size()); i++) {
       /* std::cout << period << " " <<  periodBoundsTop[i] << " " << periodBoundsBottom[i] << " " << periodSet[i] << std::endl; */
       if ((period > periodBoundsBottom[i]) && (period < periodBoundsTop[i])) {
         return i;
@@ -1074,17 +1074,17 @@ public:
   }
 
   void prepareFrequencyClassifiers() {
-    for (int i = 0; i < frequencySet.size(); i++) {
+    for (int i = 0; i < (int)(frequencySet.size()); i++) {
       periodSet.push_back(1.0 / frequencySet[i]);
     }
-    for (int i = 0; i < frequencySet.size() - 1; i++) {
+    for (int i = 0; i < (int)(frequencySet.size()) - 1; i++) {
       periodBoundsBottom.push_back((periodSet[i] * (1.0 - boundary_ratio) + periodSet[i + 1] * boundary_ratio));
     }
     periodBoundsBottom.push_back(1.0 / max_frequency);
 
 
     periodBoundsTop.push_back(1.0 / min_frequency);
-    for (int i = 1; i < frequencySet.size(); i++) {
+    for (int i = 1; i < (int)(frequencySet.size()); i++) {
       periodBoundsTop.push_back((periodSet[i] * boundary_ratio + periodSet[i - 1] * (1.0 - boundary_ratio)));
     }
 
