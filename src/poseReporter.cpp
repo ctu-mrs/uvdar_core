@@ -8,7 +8,7 @@
 #define max_frequency 36.0
 #define boundary_ratio 0.5
 
-#define qpix 2
+#define qpix 3
 //pixel std. dev
 
 
@@ -928,7 +928,7 @@ public:
         0,0,0,0,qpix ,0,0,0,0,
         0,0,0,0,0,sqr(perr),0,0,0,
         0,0,0,0,0,0,sqr(deg2rad(8)),0,0,
-        0,0,0,0,0,0,0,sqr(deg2rad(30)),0,
+        0,0,0,0,0,0,0,sqr(deg2rad(45)),0,
         0,0,0,0,0,0,0,0,sqr(deg2rad(10))
         ;
 
