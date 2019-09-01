@@ -214,9 +214,9 @@
       <remap from="~estimated_framerate_left" to="/$(arg uav_name)/uvdar/estimated_framerate_left"/>
       <remap from="~estimated_framerate_right" to="/$(arg uav_name)/uvdar/estimated_framerate_right"/>
 
-      <remap from="measuredPose1" to="/$(arg uav_name)/uvdar/measuredPose1"/>
-      <remap from="measuredPose2" to="/$(arg uav_name)/uvdar/measuredPose2"/>
-      <remap from="measuredPose3" to="/$(arg uav_name)/uvdar/measuredPose3"/>
+      <remap from="~measuredPose1" to="/$(arg uav_name)/uvdar/measuredPose1"/>
+      <remap from="~measuredPose2" to="/$(arg uav_name)/uvdar/measuredPose2"/>
+      <remap from="~measuredPose3" to="/$(arg uav_name)/uvdar/measuredPose3"/>
     </node>
   </group>
 

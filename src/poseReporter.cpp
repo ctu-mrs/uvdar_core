@@ -141,6 +141,7 @@ public:
       };
       blinkersSeenCallbacks.push_back(callback);
     // Subscribe to corresponding topics
+      ROS_INFO_STREAM("[PoseReporter]: Subscribing to " << blinkersSeenTopics[i]);
       blinkersSeenSubscribers.push_back(
           private_node_handle.subscribe(blinkersSeenTopics[i], 1, &blinkers_seen_callback_t::operator(), &blinkersSeenCallbacks[i]));
     }
@@ -172,28 +173,18 @@ public:
     }
     // Subscribe to corresponding topics
     for (size_t i = 0; i < _estimated_framerate_topics.size(); ++i) {
-      std::cout << "pointsSeen" << _estimated_framerate_topics[i] << std::endl;
+      ROS_INFO_STREAM("[PoseReporter]: Subscribing to " << _estimated_framerate_topics[i]);
       estimatedFramerateSubscribers.push_back(
           private_node_handle.subscribe(_estimated_framerate_topics[i], 1, &estimated_framerate_callback_t::operator(), &estimatedFramerateCallbacks[i]));
     }
 
     //}
 
-    targetInCamPub    = node.advertise< geometry_msgs::Pose >("targetInCam", 1);
-    targetInBasePub   = node.advertise< geometry_msgs::Pose >("targetInBase", 1);
-    yawdiffPub        = node.advertise< std_msgs::Float32 >("yawDifference", 1);
-    yawodomPub        = node.advertise< std_msgs::Float32 >("yawOdom", 1);
-    setpointPub       = node.advertise< geometry_msgs::Pose >("relativeSetpoint", 1);
-    setyawPub         = node.advertise< std_msgs::Float32 >("relativeSetyaw", 1);
-
-    measuredDist = node.advertise< std_msgs::Float32 >("measuredDist", 1);
-
-    /* measuredPose = node.advertise<nav_msgs::Odometry>("measuredPose", 1); */
     measuredPose.resize(targetCount);
     ROS_INFO("[%s]: targetCount: %d", ros::this_node::getName().c_str(), targetCount );
     for (int i=0;i<targetCount;i++){
       ROS_INFO("[%s]: Advertising measuredPose%d", ros::this_node::getName().c_str(), i+1);
-      measuredPose[i] = node.advertise<geometry_msgs::PoseWithCovarianceStamped>("measuredPose" + std::to_string(i+1), 1);
+      measuredPose[i] = private_node_handle.advertise<geometry_msgs::PoseWithCovarianceStamped>("measuredPose" + std::to_string(i+1), 1);
     }
 
     X2 = Eigen::VectorXd(9,9);
@@ -1053,7 +1044,6 @@ public:
     p.position.y = centerEstimInBase.y();
     p.position.z = centerEstimInBase.z();
 
-    targetInBasePub.publish(p);
     /* if (reachedTarget) */
     /*   ROS_INFO("Reached target"); */
     /* tf::Vector3 centerEstimInCamTF; */
@@ -1220,14 +1210,6 @@ private:
   bool               followTriggered;
   ros::ServiceServer ser_trigger;
 
-  ros::Publisher targetInCamPub;
-  ros::Publisher targetInBasePub;
-  ros::Publisher yawdiffPub;
-  ros::Publisher setyawPub;
-  ros::Publisher yawodomPub;
-  ros::Publisher setpointPub;
-  ros::Publisher measuredDist;
-
   std::vector<ros::Publisher> measuredPose;
 
   /* Lkf* trackers[2]; */
@@ -1255,7 +1237,7 @@ int main(int argc, char** argv) {
   ros::NodeHandle nodeA;
   PoseReporter        pr(nodeA);
 
-  ROS_INFO("UVDAR Pose reporter node initiated");
+  ROS_INFO("[PoseReporter]: UVDAR Pose reporter node initiated");
 
   ros::spin();
 
