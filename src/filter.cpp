@@ -15,8 +15,6 @@
 #define DEBUG true
 #define minMeasurementsToValidation 2
 
-#define useVelocity false
-
 
 namespace e = Eigen;
 
@@ -29,6 +27,7 @@ class UvdarKalman {
     ros::NodeHandle pnh("~");
     pnh.param("output_frame", _output_frame, std::string("local_origin"));
     pnh.param("filterCount", filterCount, filterCount);
+    pnh.param("useVelocity", _use_velocity_, bool(false));
 
     ROS_INFO_STREAM("[Param] filterCount: " << filterCount);
 
@@ -48,7 +47,7 @@ class UvdarKalman {
 
     dt = 1.0/freq;
 
-    if (useVelocity){
+    if (_use_velocity_){
       
     A.resize(9,9);
     B.resize(0,0);
@@ -138,7 +137,7 @@ class UvdarKalman {
       measurementsAssociated[i] = 0;
       gotMeasurement[i] = false;
       gotAnyMeasurement[i] = false;
-      if (useVelocity)
+      if (_use_velocity_)
         currKalman[i] = new mrs_lib::Lkf(9, 0, 6, A, B, R, Q, P);
       else 
         currKalman[i] = new mrs_lib::Lkf(6, 0, 6, A, B, R, Q, P);
@@ -251,7 +250,7 @@ class UvdarKalman {
 
       if (DEBUG)
         ROS_INFO_STREAM("Initiating [" << target <<"]");
-      if (useVelocity){
+      if (_use_velocity_){
         e::VectorXd initState(9);
         initState << mes.topRows(3),e::Vector3d::Zero(),mes.bottomRows(3);
         currKalman[target]->setStates(initState);
@@ -285,8 +284,8 @@ class UvdarKalman {
 
       //fix angles to account for correction through 0/2pi
       currKalman[target]->setState(
-          (useVelocity?8:5),
-          fixAngle(currKalman[target]->getState((useVelocity?8:5)), mes[5])
+          (_use_velocity_?8:5),
+          fixAngle(currKalman[target]->getState((_use_velocity_?8:5)), mes[5])
             );
 
       currKalman[target]->setMeasurement(mes,Q);
@@ -343,7 +342,7 @@ class UvdarKalman {
       pubPose->pose.pose.position.z = currKalman[target]->getState(2);
 
       e::Quaternion<double> qtemp;
-      if (useVelocity)
+      if (_use_velocity_)
         qtemp = e::AngleAxisd(currKalman[target]->getState(6), e::Vector3d::UnitX()) * e::AngleAxisd(currKalman[target]->getState(7), e::Vector3d::UnitY()) * e::AngleAxisd(currKalman[target]->getState(8), e::Vector3d::UnitZ());
       else
         qtemp = e::AngleAxisd(currKalman[target]->getState(3), e::Vector3d::UnitX()) * e::AngleAxisd(currKalman[target]->getState(4), e::Vector3d::UnitY()) * e::AngleAxisd(currKalman[target]->getState(5), e::Vector3d::UnitZ());
@@ -359,7 +358,7 @@ class UvdarKalman {
           pubPose->pose.covariance[6*j+i] =  C(j,i);
         }
       }
-      if (useVelocity)
+      if (_use_velocity_)
         for (int i=6; i<9; i++){
           for (int j=6; j<9; j++){
             pubPose->pose.covariance[6*(j-3)+(i-3)] =  C(j,i);
@@ -372,14 +371,14 @@ class UvdarKalman {
           }
         }
 
-      if (useVelocity){
+      if (_use_velocity_){
         pubPose->twist.twist.linear.x = currKalman[target]->getState(3);
         pubPose->twist.twist.linear.y = currKalman[target]->getState(4);
         pubPose->twist.twist.linear.z = currKalman[target]->getState(5);
 
         for (int i=3; i<6; i++){
           for (int j=3; j<6; j++){
-            if (useVelocity)
+            if (_use_velocity_)
               pubPose->twist.covariance[6*(j-3)+(i-3)] =  C(j,i);
             else
               pubPose->twist.covariance[6*(j-3)+(i-3)] =  1;
@@ -458,6 +457,8 @@ class UvdarKalman {
 
   std::string _output_frame;
 
+
+  bool _use_velocity_;
 
 };
 
