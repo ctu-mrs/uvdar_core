@@ -386,16 +386,17 @@ void HT3DBlinkerTracker::generateMasks() {
             /* std::cout << "YawVAL: " << yawVals[j] << " YawBOX[" << x << "," << y << "]: " << yawBox.at< float >(y, x) << " angDiff: " << angDiff(yawBox.at< float >(y, x), yawVals[j]) << std::endl; */
 
             bool spreadTest=false;
-            for (int k =-sR; k<=sR; k++) for (int l =-sR; l<=sR; l++)
-              if (((x+l) == center) && ((y+k) == center)){  // yaw steps
-                spreadTest = true;
-                break;
-              }
-              if ( (fabs(angDiff(yawBox.at< float >(y, x), yawVals[j])) < yawDiv*1.0) || spreadTest )
-                yawMasks[i].push_back(cv::Point3i(x - center, y - center, j));
-              /* std::cout << "M: " << x-center << ":" << y-center << ":" << j << std::endl; */
-              /* if (i==2) */
-              /* std::cout << "M: " << cv::Point3i(x - center, y - center, j) << std::endl; */
+            for (int k =-sR; k<=sR; k++)
+              for (int l =-sR; l<=sR; l++)
+                if (((x+l) == center) && ((y+k) == center)){  // yaw steps
+                  spreadTest = true;
+                  break;
+                }
+            if ( (fabs(angDiff(yawBox.at< float >(y, x), yawVals[j])) < yawDiv*1.0) || spreadTest )
+              yawMasks[i].push_back(cv::Point3i(x - center, y - center, j));
+            /* std::cout << "M: " << x-center << ":" << y-center << ":" << j << std::endl; */
+            /* if (i==2) */
+            /* std::cout << "M: " << cv::Point3i(x - center, y - center, j) << std::endl; */
           }
         }
       }

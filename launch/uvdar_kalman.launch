@@ -36,7 +36,7 @@
     <!-- <param name="uvdar_used" value="true"/> -->
     <!-- <param name="debug" value="false"/> -->
     <!-- <param name="self_diagnose" value="false"/> -->
-    <param name="filterCount" value="3" />
+    <param name="filterCount" value="1" />
 
     <remap from="measuredPose1" to="/$(arg uav_name)/uvdar/measuredPose1"/>
     <remap from="measuredPose2" to="/$(arg uav_name)/uvdar/measuredPose2"/>

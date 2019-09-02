@@ -24,10 +24,12 @@
 
   <arg name="publish_boxes" default="true"/>
 
-  <arg name="calib_file_color" default="calib_results_bf_c_fe.txt"/>
+  <arg name="calib_file_color" default="calib_results_bf_c_3_6mm.txt"/>
 
-  <arg name="yaw_diff" default="0.040"/>
-  <arg name="pitch_diff" default="-0.01"/>
+  <!-- <arg name="yaw_diff" default="0.040"/> -->
+  <!-- <arg name="pitch_diff" default="-0.01"/> -->
+  <arg name="yaw_diff" default="0.13"/>
+  <arg name="pitch_diff" default="0.06"/>
 
   <node
     name="uvcam_colorcam_tf"
@@ -60,7 +62,7 @@
     <remap from="measuredPose1" to="/$(arg uav_name)/uvdar/measuredPose1"/>
     <remap from="measuredPose2" to="/$(arg uav_name)/uvdar/measuredPose2"/>
     <remap from="filteredPose1" to="/$(arg uav_name)/uvdar/filteredPose1"/>
-    <remap from="filteredPose2" to="/$(arg uav_name)/uvdar/filteredPose2"/>
+    <!-- <remap from="filteredPose2" to="/$(arg uav_name)/uvdar/filteredPose2"/> -->
     <remap from="camera" to="/$(arg uav_name)/bluefox/image_raw"/>
     <remap from="reprojection" to="/$(arg uav_name)/uvdar/reprojection/image_raw"/>
     <remap from="estimatedROIs" to="/$(arg uav_name)/uvdar/estimatedROIs"/>
