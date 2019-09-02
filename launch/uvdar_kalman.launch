@@ -16,6 +16,7 @@
   <arg name="DEBUG" default="false"/>
   <arg name="VisDEBUG" default="false"/>
   <arg name="gui" default="true"/>
+  <arg name="frame" default="local_origin_stable"/>
 
 
   <group ns="$(arg uav_name)">
@@ -24,7 +25,7 @@
   
   <!-- <node pkg="uvdar" type="uvdar_kalman_node" name="filterUvdar" output="screen" launch-prefix="debug_roslaunch"> -->
   <node pkg="uvdar" type="uvdar_kalman_node" name="filterUvdar" output="screen">
-    <param name="output_frame" value="local_origin_stable"/>
+    <param name="output_frame" value="$(arg frame)"/>
     <!-- <param name="output_frame" value="fcu_$(arg uav_name)"/> -->
     <!-- <param name="base_footprint_frame" value="fcu_$(arg uav_name)"/> -->
     <!-- <param name="base_footprint_frame" value="uvdar_target_estim"/> -->

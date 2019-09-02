@@ -457,7 +457,7 @@ private:
   /* VisualizeThread() //{ */
 
   void VisualizeThread() {
-    ROS_ERROR("Visualize thread");
+    ROS_INFO("Visualize thread");
 
     ros::Rate r(_visualization_rate_);
     sensor_msgs::ImagePtr msg;
@@ -548,8 +548,10 @@ private:
         int differenceX = (image_width + 2) * imageIndex;
 
         if (use_camera_for_visualization_){
-          auto &currentImage = currentImages[imageIndex];
-          viewImage(cv::Rect(differenceX,0,image_width,image_height))=currentImage;
+          currentImages[imageIndex].copyTo(viewImage(cv::Rect(differenceX,0,image_width,image_height)));
+          /* ROS_INFO_STREAM("RECT: " << cv::Rect(differenceX,0,image_width,image_height)); */
+          /* cv::imshow("TMP",currentImages[imageIndex]); */
+          /* cv::waitKey(100); */
         }
 
 
@@ -615,8 +617,8 @@ private:
         currentImages[imageIndex] = image->image; 
         current_visualization_done_ = false;
       }
-    }
     images_received_ = true;
+    }
   }
 
   void ProcessRaw(const sensor_msgs::ImageConstPtr& image_msg, size_t imageIndex) {
@@ -627,6 +629,9 @@ private:
        currentImages[imageIndex] = image->image; 
        current_visualization_done_ = false;
     }
+    /* cv::imshow("TMP",currentImages[imageIndex]); */
+    /* cv::waitKey(1); */
+
     images_received_ = true;
   }
 

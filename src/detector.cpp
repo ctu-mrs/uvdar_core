@@ -109,7 +109,7 @@ public:
     if (FromBag || FromCamera) {
       nh_.param("cameraTopics", cameraTopics, cameraTopics);
       if (cameraTopics.empty()) {
-        ROS_WARN("[UVDetector]: No topics of cameras were supplied");
+        ROS_ERROR("[UVDetector]: No topics of cameras were supplied");
       }
 
       stopped = false;
