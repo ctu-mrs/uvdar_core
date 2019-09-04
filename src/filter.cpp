@@ -1,7 +1,7 @@
 #include <ros/ros.h>
 #include <nav_msgs/Odometry.h>
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
-#include <mrs_lib/Lkf.h>
+#include <mrs_lib/lkf.h>
 #include <Eigen/Geometry>
 
 #include <tf2_ros/transform_listener.h>
@@ -15,8 +15,26 @@
 #define DEBUG true
 #define minMeasurementsToValidation 2
 
+namespace mrs_lib
+{
+  const int n_states = -1;
+  const int n_inputs = 0;
+  const int n_measurements = 6;
+  using lkf_t = LKF<n_states, n_inputs, n_measurements>;
+}
+
+using A_t = mrs_lib::lkf_t::A_t;
+using B_t = mrs_lib::lkf_t::B_t;
+using H_t = mrs_lib::lkf_t::H_t;
+using Q_t = mrs_lib::lkf_t::Q_t;
+using R_t = mrs_lib::lkf_t::R_t;
+using u_t = mrs_lib::lkf_t::u_t;
+using x_t = mrs_lib::lkf_t::x_t;
+using P_t = mrs_lib::lkf_t::P_t;
+using statecov_t = mrs_lib::lkf_t::statecov_t;
 
 namespace e = Eigen;
+
 
 class UvdarKalman {
   int filterCount = 2;
@@ -29,14 +47,13 @@ class UvdarKalman {
     pnh.param("filterCount", filterCount, filterCount);
     pnh.param("useVelocity", _use_velocity_, bool(false));
 
-    ROS_INFO_STREAM("[Param] filterCount: " << filterCount);
+    ROS_INFO_STREAM("[UVDAR Kalman] filterCount: " << filterCount);
 
     /* Initialize variables //{ */
 
     currKalman.resize(filterCount);
     trackerValidated.resize(filterCount);
     measurementsAssociated.resize(filterCount);
-    gotMeasurement.resize(filterCount);
     gotAnyMeasurement.resize(filterCount);
     lastMeasurement.resize(filterCount);
     measSubscriber.resize(filterCount);
@@ -47,17 +64,21 @@ class UvdarKalman {
 
     dt = 1.0/freq;
 
+    for (int i=0; i< filterCount; i++){
+
+      td_t tmp;
+      td.push_back(tmp);
+
     if (_use_velocity_){
-      
-    A.resize(9,9);
-    B.resize(0,0);
-    R.resize(9,9);
-    Q.resize(6,6);
-    P.resize(6,9);
+
+    td[i].A.resize(9,9);
+    td[i].Q.resize(9,9);
+    td[i].R.resize(6,6);
+    td[i].H.resize(6,9);
 
 
 
-    A <<
+    td[i].A <<
       1,0,0,dt,0, 0, 0,0,0,
       0,1,0,0, dt,0, 0,0,0,
       0,0,1,0, 0, dt,0,0,0,
@@ -68,18 +89,18 @@ class UvdarKalman {
       0,0,0,0, 0, 0, 0,1,0,
       0,0,0,0, 0, 0, 0,0,1;
 
-    R <<
-      2*dt,0,0,0,0,0,0,0,0,
-      0,2*dt,0,0,0,0,0,0,0,
-      0,0,2*dt,0,0,0,0,0,0,
-      0,0,0,dt/2.0,0,0,0,0,0,
-      0,0,0,0,dt/2.0,0,0,0,0,
-      0,0,0,0,0,dt/2.0,0,0,0,
-      0,0,0,0,0,0,dt,0,0,
-      0,0,0,0,0,0,0,dt,0,
-      0,0,0,0,0,0,0,0,dt;
+    td[i].Q <<
+      2,0,0,0,0,0,0,0,0,
+      0,2,0,0,0,0,0,0,0,
+      0,0,2,0,0,0,0,0,0,
+      0,0,0,0.5,0,0,0,0,0,
+      0,0,0,0,0.5,0,0,0,0,
+      0,0,0,0,0,0.5,0,0,0,
+      0,0,0,0,0,0,1,0,0,
+      0,0,0,0,0,0,0,1,0,
+      0,0,0,0,0,0,0,0,1;
 
-    P <<
+    td[i].H <<
       1,0,0,0,0,0,0,0,0,
       0,1,0,0,0,0,0,0,0,
       0,0,1,0,0,0,0,0,0,
@@ -88,14 +109,13 @@ class UvdarKalman {
       0,0,0,0,0,0,0,0,1;
     }
     else {
-    A.resize(6,6);
-    B.resize(0,0);
-    R.resize(6,6);
-    Q.resize(6,6);
-    P.resize(6,6);
+    td[i].A.resize(6,6);
+    td[i].Q.resize(6,6);
+    td[i].R.resize(6,6);
+    td[i].H.resize(6,6);
 
 
-    A <<
+    td[i].A <<
       1,0,0, 0,0,0,
       0,1,0, 0,0,0,
       0,0,1, 0,0,0,
@@ -103,15 +123,15 @@ class UvdarKalman {
       0,0,0, 0,1,0,
       0,0,0, 0,0,1;
 
-    R <<
-      dt,0 ,0, 0 ,0 ,0,
-      0, dt,0, 0 ,0 ,0,
-      0, 0, dt,0 ,0 ,0,
-      0, 0, 0, dt,0 ,0,
-      0, 0, 0, 0 ,dt,0,
-      0, 0, 0, 0 ,0 ,dt;
+    td[i].Q <<
+      2, 0 ,0, 0, 0 ,0,
+      0, 2, 0, 0, 0 ,0,
+      0, 0, 2, 0, 0 ,0,
+      0, 0, 0, 1, 0 ,0,
+      0, 0, 0, 0, 1 ,0,
+      0, 0, 0, 0, 0 ,1;
 
-    P <<
+    td[i].H <<
       1,0,0,0,0,0,
       0,1,0,0,0,0,
       0,0,1,0,0,0,
@@ -120,7 +140,9 @@ class UvdarKalman {
       0,0,0,0,0,1;
     }
 
-    Q <<
+    td[i].B = B_t();
+
+    td[i].R <<
       1,0,0,0,0,0,
       0,1,0,0,0,0,
       0,0,1,0,0,0,
@@ -129,18 +151,19 @@ class UvdarKalman {
       0,0,0,0,0,1;
 
 
-    delay = ros::Duration(0);
+    }
+
+    /* delay = ros::Duration(0); */
 
 
     for (int i=0;i<filterCount;i++){
       trackerValidated[i] = false;
       measurementsAssociated[i] = 0;
-      gotMeasurement[i] = false;
       gotAnyMeasurement[i] = false;
-      if (_use_velocity_)
-        currKalman[i] = new mrs_lib::Lkf(9, 0, 6, A, B, R, Q, P);
-      else 
-        currKalman[i] = new mrs_lib::Lkf(6, 0, 6, A, B, R, Q, P);
+      /* if (_use_velocity_) */
+        currKalman[i] = new mrs_lib::lkf_t(td[i].A, td[i].B, td[i].H);
+      /* else */ 
+      /*   currKalman[i] = new mrs_lib::lkf_t(td[i].A, td[i].B, td[i].H); */
     }
 
     tf_listener = new tf2_ros::TransformListener(tf_buffer);
@@ -153,11 +176,12 @@ class UvdarKalman {
       filtPublisherTentative[i] = nh.advertise<nav_msgs::Odometry>("filteredPose" + std::to_string(i+1) + "/tentative", 1);
 
     }
+    ROS_INFO_STREAM("[UVDAR Kalman]: initiated");
   }
 
   ~UvdarKalman(){
-    for (int i =0;i<filterCount;i++)
-      delete currKalman[i];
+    /* for (int i =0;i<filterCount;i++) */
+    /*   delete currKalman[i]; */
   }
 
   private:
@@ -207,7 +231,7 @@ class UvdarKalman {
     tf2::doTransform(*meas_local, meas, transform);
 
       if (DEBUG){
-        ROS_INFO_STREAM("Geting message [" << target <<"]");
+        ROS_INFO_STREAM("Getting message [" << target <<"]");
         ROS_INFO_STREAM("" << meas.pose.pose.position);
       }
 
@@ -220,29 +244,29 @@ class UvdarKalman {
     mes(1) = meas.pose.pose.position.y;
     mes(2) = meas.pose.pose.position.z;
 
+    mes.bottomRows(3) = qtemp.toRotationMatrix().eulerAngles(0, 1, 2);
+
     if (mes.array().isNaN().any()){
       if (DEBUG)
         ROS_INFO_STREAM("Message [" << target <<"] contains NaNs, discarding");
       return;
     }
 
-    mes.bottomRows(3) = qtemp.toRotationMatrix().eulerAngles(0, 1, 2);
 
-
-    for (int i=0; i<Q.cols(); i++){
-      for (int j=0; j<Q.rows(); j++){
-        Q(j,i) = meas.pose.covariance[Q.cols()*j+i] ;
+    for (int i=0; i<td[target].R.cols(); i++){
+      for (int j=0; j<td[target].R.rows(); j++){
+        td[target].R(j,i) = meas.pose.covariance[td[target].R.cols()*j+i] ;
       }
     }
 
-    if (Q.array().isNaN().any()){
+    if (td[target].R.array().isNaN().any()){
       if (DEBUG)
         ROS_INFO_STREAM("Message [" << target <<"] contains NaNs, discarding");
       return;
     }
 
       if (DEBUG){
-        ROS_INFO_STREAM("" << Q);
+        ROS_INFO_STREAM("" << td[target].R);
       }
 
 
@@ -253,24 +277,36 @@ class UvdarKalman {
       if (_use_velocity_){
         e::VectorXd initState(9);
         initState << mes.topRows(3),e::Vector3d::Zero(),mes.bottomRows(3);
-        currKalman[target]->setStates(initState);
+        e::MatrixXd initCovariance = e::MatrixXd::Identity(9,9)*10;
+        initCovariance.topLeftCorner(3, 3) = td[target].R.topLeftCorner(3,3);
+        initCovariance.bottomRightCorner(3, 3) = td[target].R.bottomRightCorner(3,3);
+        td[target].state_m.x = initState;
+        td[target].state_m.P = initCovariance;
       }
       else{
         e::VectorXd initState(6);
         initState << mes;
-        currKalman[target]->setStates(initState);
+        td[target].state_m.x = initState;
+        td[target].state_m.P = td[target].R;
       }
-      /* currKalman[target]->setCovariance(Q); */
+      /* currKalman[target]->setCovariance(R); */
       gotAnyMeasurement[target] = true;
       trackerValidated[target] = false;
       measurementsAssociated[target] = 0;
     }
     else{
+      statecov_t state_tmp;
+      double dt = (meas.header.stamp-lastMeasurement[target]).toSec();
+      A_dt(target, dt);
+      currKalman[target]->A = td[target].A;
+      ROS_INFO_STREAM("BEFORE PRED: " << std::endl << td[target].state_m.x );
+      state_tmp = currKalman[target]->predict(td[target].state_m, u_t(), td[target].Q, dt);
+
       double md = mahalanobis_distance2(
           mes.topRows(3),
-          currKalman[target]->getStates().topRows(3),
+          state_tmp.x.topRows(3),
           /* currKalman[target]->getCovariance().topLeftCorner(3, 3) */
-          Q.topLeftCorner(3, 3)
+          td[target].R.topLeftCorner(3, 3)
           );
 
       if (DEBUG)
@@ -282,20 +318,21 @@ class UvdarKalman {
       if (DEBUG)
         ROS_INFO_STREAM("Applying measurement [" << target <<"]");
 
+      ROS_INFO_STREAM("BEFORE CORR: " << std::endl << state_tmp.x );
+      td[target].state_m = currKalman[target]->correct(state_tmp, mes, td[target].R);
+      ROS_INFO_STREAM("mes: " <<std::endl << mes );
+      ROS_INFO_STREAM("R: " <<std::endl << td[target].R );
+      ROS_INFO_STREAM("AFTER: " << std::endl << td[target].state_m.x );
       //fix angles to account for correction through 0/2pi
-      currKalman[target]->setState(
-          (_use_velocity_?8:5),
-          fixAngle(currKalman[target]->getState((_use_velocity_?8:5)), mes[5])
-            );
+      td[target].state_m.x[_use_velocity_?8:5] = fixAngle(td[target].state_m.x((_use_velocity_?8:5)), mes[5]);
 
-      currKalman[target]->setMeasurement(mes,Q);
-      gotMeasurement[target] =true;
+      /* currKalman[target]->setMeasurement(mes,R); */
     }
 
-    lastMeasurement[target] = meas_local->header.stamp;
-    delay = ros::Duration(0.5*(delay + (ros::Time::now()-lastMeasurement[target])).toSec());
-    if (DEBUG)
-      ROS_INFO_STREAM("Estimated time delay is: " << delay << "s");
+    lastMeasurement[target] = meas.header.stamp;
+    /* delay = ros::Duration(0.5*(delay + (ros::Time::now()-lastMeasurement[target])).toSec()); */
+    /* if (DEBUG) */
+    /*   ROS_INFO_STREAM("Estimated time delay is: " << delay << "s"); */
     measurementsAssociated[target]++;
     if (measurementsAssociated[target] >= minMeasurementsToValidation)
       trackerValidated[target] = true;
@@ -309,50 +346,41 @@ class UvdarKalman {
     for (int target=0;target<filterCount;target++){
       if (!gotAnyMeasurement[target])
         continue;
-
-      if (gotMeasurement[target] ){
-          if (DEBUG)
-            ROS_INFO_STREAM("Iterating [" << target <<"]");
-        currKalman[target]->iterate();
-        gotMeasurement[target] = false;
-      }
-      else
-        if (ros::Duration(ros::Time::now()-lastMeasurement[target]).toSec()<validTime){
-          if (DEBUG)
-            ROS_INFO_STREAM("Iterating [" << target <<"] without measurement");
-          currKalman[target]->iterateWithoutCorrection();
-        }
-        else if (ros::Duration(ros::Time::now()-lastMeasurement[target]).toSec()<decayTime){
-          if (DEBUG)
-            ROS_INFO_STREAM("Iterating [" << target <<"] without measurement");
-          currKalman[target]->iterateWithoutCorrection();
+      double dt = ros::Duration(ros::Time::now()-lastMeasurement[target]).toSec();
+      if (dt<decayTime){
+        if (DEBUG)
+          ROS_INFO_STREAM("Iterating [" << target <<"] without measurement, dt=" << dt << ", still validated!");
+        A_dt(target, dt);
+        currKalman[target]->A = td[target].A;
+        td[target].state_x = currKalman[target]->predict(td[target].state_m, u_t(), td[target].Q, dt);
+        if (dt>validTime)
           trackerValidated[target] = false;
-        }
-        else{
-          if (DEBUG)
-            ROS_INFO_STREAM("Tracker [" << target <<"] has decayed");
-          resetTracker(target);
-          return;
-        }
+      }
+      else{
+        if (DEBUG)
+          ROS_INFO_STREAM("Tracker [" << target <<"] has decayed");
+        resetTracker(target);
+        return;
+      }
 
       pubPose = boost::make_shared<nav_msgs::Odometry>();
 
-      pubPose->pose.pose.position.x = currKalman[target]->getState(0);
-      pubPose->pose.pose.position.y = currKalman[target]->getState(1);
-      pubPose->pose.pose.position.z = currKalman[target]->getState(2);
+      pubPose->pose.pose.position.x = td[target].state_x.x[0];
+      pubPose->pose.pose.position.y = td[target].state_x.x[1];
+      pubPose->pose.pose.position.z = td[target].state_x.x[2];
 
       e::Quaternion<double> qtemp;
       if (_use_velocity_)
-        qtemp = e::AngleAxisd(currKalman[target]->getState(6), e::Vector3d::UnitX()) * e::AngleAxisd(currKalman[target]->getState(7), e::Vector3d::UnitY()) * e::AngleAxisd(currKalman[target]->getState(8), e::Vector3d::UnitZ());
+        qtemp = e::AngleAxisd(td[target].state_x.x[6], e::Vector3d::UnitX()) * e::AngleAxisd(td[target].state_x.x[7], e::Vector3d::UnitY()) * e::AngleAxisd(td[target].state_x.x[8], e::Vector3d::UnitZ());
       else
-        qtemp = e::AngleAxisd(currKalman[target]->getState(3), e::Vector3d::UnitX()) * e::AngleAxisd(currKalman[target]->getState(4), e::Vector3d::UnitY()) * e::AngleAxisd(currKalman[target]->getState(5), e::Vector3d::UnitZ());
+        qtemp = e::AngleAxisd(td[target].state_x.x[3], e::Vector3d::UnitX()) * e::AngleAxisd(td[target].state_x.x[4], e::Vector3d::UnitY()) * e::AngleAxisd(td[target].state_x.x[5], e::Vector3d::UnitZ());
       /* qtemp.setRPY(currKalman[target]->getState(6), currKalman[target]->getState(7), currKalman[target]->getState(8)); */
       /* qtemp=(transformCam2Base.getRotation().inverse())*qtemp; */
       pubPose->pose.pose.orientation.x = qtemp.x();
       pubPose->pose.pose.orientation.y = qtemp.y();
       pubPose->pose.pose.orientation.z = qtemp.z();
       pubPose->pose.pose.orientation.w = qtemp.w();
-      e::MatrixXd C = currKalman[target]->getCovariance();
+      e::MatrixXd C = td[target].state_x.P;
       for (int i=0; i<3; i++){
         for (int j=0; j<3; j++){
           pubPose->pose.covariance[6*j+i] =  C(j,i);
@@ -372,9 +400,9 @@ class UvdarKalman {
         }
 
       if (_use_velocity_){
-        pubPose->twist.twist.linear.x = currKalman[target]->getState(3);
-        pubPose->twist.twist.linear.y = currKalman[target]->getState(4);
-        pubPose->twist.twist.linear.z = currKalman[target]->getState(5);
+        pubPose->twist.twist.linear.x = td[target].state_x.x[3];
+        pubPose->twist.twist.linear.y = td[target].state_x.x[4];
+        pubPose->twist.twist.linear.z = td[target].state_x.x[5];
 
         for (int i=3; i<6; i++){
           for (int j=3; j<6; j++){
@@ -396,7 +424,7 @@ class UvdarKalman {
       }
 
       pubPose->header.frame_id = _output_frame;
-      pubPose->header.stamp = ros::Time::now()-delay;
+      pubPose->header.stamp = ros::Time::now();
 
       if (trackerValidated[target])
         filtPublisher[target].publish(pubPose);
@@ -407,7 +435,7 @@ class UvdarKalman {
 
       if (DEBUG){
         ROS_INFO_STREAM("State: ");
-        ROS_INFO_STREAM("\n" << currKalman[target]->getStates());
+        ROS_INFO_STREAM("\n" << td[target].state_x.x);
       }
 
     }
@@ -428,9 +456,40 @@ class UvdarKalman {
     return dist2;
   }
 
+  void A_dt(int i, double dt){
+    if (_use_velocity_)
+      td[i].A <<
+        1,0,0,dt,0, 0, 0,0,0,
+        0,1,0,0, dt,0, 0,0,0,
+        0,0,1,0, 0, dt,0,0,0,
+        0,0,0,1, 0, 0, 0,0,0,
+        0,0,0,0, 1, 0, 0,0,0,
+        0,0,0,0, 0, 1, 0,0,0,
+        0,0,0,0, 0, 0, 1,0,0,
+        0,0,0,0, 0, 0, 0,1,0,
+        0,0,0,0, 0, 0, 0,0,1;
+    else
+      td[i].A <<
+        1,0,0, 0,0,0,
+        0,1,0, 0,0,0,
+        0,0,1, 0,0,0,
+        0,0,0, 1,0,0,
+        0,0,0, 0,1,0,
+        0,0,0, 0,0,1;
+  }
 
-  e::MatrixXd A,B,R,Q,P;
-  std::vector<mrs_lib::Lkf*> currKalman;
+
+  struct td_t{
+    A_t A;
+    B_t B;
+    H_t H;
+    Q_t Q;
+    R_t R;
+    statecov_t state_m;
+    statecov_t state_x;
+  };
+  std::vector<td_t> td;
+  std::vector<mrs_lib::lkf_t*> currKalman;
   std::vector<bool> trackerValidated;
   std::vector<int> measurementsAssociated;
 
@@ -438,7 +497,8 @@ class UvdarKalman {
 
   double dt;
 
-  std::vector<bool> gotMeasurement, gotAnyMeasurement;
+  std::vector<bool>  gotAnyMeasurement;
+  /* std::vector<bool> gotMeasurement, gotAnyMeasurement; */
   /* ros::Duration sinceMeasurement[filterCount]; */
   std::vector<ros::Time> lastMeasurement;
   std::vector<ros::Subscriber> measSubscriber;
@@ -448,7 +508,7 @@ class UvdarKalman {
 
   nav_msgs::OdometryPtr pubPose;
 
-  ros::Duration delay;
+  /* ros::Duration delay; */
 
   std::mutex mtx_kalman;
 
@@ -467,7 +527,7 @@ int main(int argc, char** argv) {
   ros::NodeHandle nodeA;
   UvdarKalman        kl(nodeA);
 
-  ROS_INFO("UVDAR Kalman filter node initiated");
+  ROS_INFO("[UVDAR Kalman]: filter node initiated");
 
   ros::spin();
 

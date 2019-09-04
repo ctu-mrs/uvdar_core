@@ -333,25 +333,25 @@ class Reprojector{
       }
     }
 
-    cv::Point2i getImPos(nav_msgs::Odometry currOdom, ros::Time stamp){
-      return projectOmniIm(currOdom.pose.pose,stamp);
-    }
+    /* cv::Point2i getImPos(nav_msgs::Odometry currOdom, ros::Time stamp){ */
+    /*   return projectOmniIm(currOdom.pose.pose,stamp); */
+    /* } */
 
-    cv::Point2i projectOmniIm(geometry_msgs::Pose pose, ros::Time stamp){
-      tf2::Vector3 poseTrans;
-      getE2C(stamp);
-      poseTrans = TfE2C*tf2::Vector3(pose.position.x,pose.position.y,pose.position.z);
-      double pose3d[3];
-      pose3d[0]= poseTrans.y();
-      pose3d[1]= poseTrans.x();
-      pose3d[2]=-poseTrans.z();
-      /* ROS_INFO_STREAM("World: " << pose3d[0] << " : "<< pose3d[1] << " : " << pose3d[2]); */
+    /* cv::Point2i projectOmniIm(geometry_msgs::Pose pose, ros::Time stamp){ */
+    /*   tf2::Vector3 poseTrans; */
+    /*   getE2C(stamp); */
+    /*   poseTrans = TfE2C*tf2::Vector3(pose.position.x,pose.position.y,pose.position.z); */
+    /*   double pose3d[3]; */
+    /*   pose3d[0]= poseTrans.y(); */
+    /*   pose3d[1]= poseTrans.x(); */
+    /*   pose3d[2]=-poseTrans.z(); */
+    /*   /1* ROS_INFO_STREAM("World: " << pose3d[0] << " : "<< pose3d[1] << " : " << pose3d[2]); *1/ */
 
-      double imPos[2];
-      world2cam(imPos, pose3d, &oc_model);
-      /* ROS_INFO_STREAM("Reprojected: " << imPos[1] << " : "<< imPos[0]); */
-      return cv::Point2i(imPos[1],imPos[0]);
-    }
+    /*   double imPos[2]; */
+    /*   world2cam(imPos, pose3d, &oc_model); */
+    /*   /1* ROS_INFO_STREAM("Reprojected: " << imPos[1] << " : "<< imPos[0]); *1/ */
+    /*   return cv::Point2i(imPos[1],imPos[0]); */
+    /* } */
 
     Eigen::Vector2d projectOmniEigen(Eigen::Vector3d x,[[ maybe_unused ]] Eigen::VectorXd dummy){
       if (atan2(x[0]*x[0]+x[1]*x[1],x[2])>maxCamAngle)
