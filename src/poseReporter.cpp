@@ -857,9 +857,9 @@ public:
       bool separated = false;
       while ((points.size() > 3) || (!separated)) {
         separated = true;
-        for (int i = 0; i < points.size(); i++) {
+        for (int i = 0; i < (int)(points.size()); i++) {
           bool viable = false;
-          for (int j = 0; j < points.size(); j++) {
+          for (int j = 0; j < (int)(points.size()); j++) {
             if (i == j)
               continue;
 

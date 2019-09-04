@@ -459,7 +459,7 @@ public:
     if (points.size() > 1) {
       double maxDist = 100.0;
 
-      for (int i = 0; i < points.size(); i++) {
+      for (int i = 0; i < (int)(points.size()); i++) {
         if (points[i].z < 0) {
           points.erase(points.begin() + i);
           i--;
@@ -467,9 +467,9 @@ public:
         }
       }
       while (points.size() > 3) {
-        for (int i = 0; i < points.size(); i++) {
+        for (int i = 0; i < (int)(points.size()); i++) {
           bool viable = false;
-          for (int j = 0; j < points.size(); j++) {
+          for (int j = 0; j < (int)(points.size()); j++) {
             if (i == j)
               continue;
 

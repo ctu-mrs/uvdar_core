@@ -27,7 +27,7 @@ void slider::filterPush(double distance) {
 
 double slider::filterSlide() {
   mutex_slider.lock();
-  for (int i = 0; i < values.size(); i++) {
+  for (int i = 0; i < (int)(values.size()); i++) {
     std::cout << values[i] << " ";
   }
   std::cout << std::endl;

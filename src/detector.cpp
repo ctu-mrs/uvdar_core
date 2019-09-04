@@ -179,7 +179,7 @@ private:
         if (imu_register.size() > 0)
           imu_register.pop_back();
         /* ROS_INFO("size:%d", (int)(imu_register.size())); */
-        for (int i = 0; i < imu_register.size(); i++) {
+        for (int i = 0; i < (int)(imu_register.size()); i++) {
           /* ROS_INFO("%d:%f", i,imu_register[i].angular_velocity.z); */
         }
       } else {

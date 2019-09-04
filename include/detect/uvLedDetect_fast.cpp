@@ -35,9 +35,9 @@ uvLedDetect_fast::uvLedDetect_fast() {
 }
 
 std::vector< cv::Point2i > uvLedDetect_fast::processImage(cv::Mat i_imCurr, cv::Mat i_imView, bool i_gui, bool i_debug, int threshVal) {
-  clock_t begin, end;
-  double  elapsedTime;
-  begin                             = std::clock();
+  /* clock_t begin, end; */
+  /* double  elapsedTime; */
+  /* begin                             = std::clock(); */
   DEBUG                             = i_debug;
   gui                               = i_gui;
   std::vector< cv::Point2i > outvec = std::vector< cv::Point2i >();
@@ -75,14 +75,14 @@ std::vector< cv::Point2i > uvLedDetect_fast::processImage(cv::Mat i_imCurr, cv::
   /* begin = std::clock(); */
   bool          test;
   unsigned char maximumVal = 0;
-  bool          gotOne     = false;
+  /* bool          gotOne     = false; */
   for (int j = 0; j < m_imCurr.rows; j++) {
     for (int i = 0; i < m_imCurr.cols; i++) {
       if (m_imCheck.data[index2d(i, j)] == 0) {
         if (m_imCurr.data[index2d(i, j)] > threshVal) {
-          gotOne = true;
+          /* gotOne = true; */
           test   = true;
-          for (int m = 0; m < fastPoints.size(); m++) {
+          for (int m = 0; m < (int)(fastPoints.size()); m++) {
             x = i + fastPoints[m].x;
             if (x < 0) {
               test = false;
@@ -120,7 +120,7 @@ std::vector< cv::Point2i > uvLedDetect_fast::processImage(cv::Mat i_imCurr, cv::
           /* std::cout << "here: " << x << ":" << y << std::endl; */
           if (test) {
             maximumVal = 0;
-            for (int m = 0; m < fastInterior.size(); m++) {
+            for (int m = 0; m < (int)(fastInterior.size()); m++) {
             /* for (int m = 0; m < 1; m++) { */
               x = i + fastInterior[m].x;
               if (x < 0) {
@@ -162,7 +162,7 @@ std::vector< cv::Point2i > uvLedDetect_fast::processImage(cv::Mat i_imCurr, cv::
 
 
   if (gui && (stepInPeriod == 75)) {
-    for (int i = 0; i < outvec.size(); i++) {
+    for (int i = 0; i < (int)(outvec.size()); i++) {
       cv::circle(m_imView, outvec[i], 5, cv::Scalar(200));
     }
     cv::imshow("_Main", m_imView);
@@ -170,7 +170,7 @@ std::vector< cv::Point2i > uvLedDetect_fast::processImage(cv::Mat i_imCurr, cv::
   }
   stepInPeriod++;
 
-  end         = std::clock();
+  /* end         = std::clock(); */
   /* elapsedTime = double(end - begin) / CLOCKS_PER_SEC; */
   /* std::cout << "1: " << elapsedTime << " s" << "f: " << 1.0/elapsedTime << std::endl; */
 
@@ -200,7 +200,7 @@ bool uvLedDetect_fast::miniFAST(cv::Point input, cv::Point& maximum, unsigned ch
   /* if (m_imCheck.at< unsigned char >(input) == 255) { */
   /*   return false; */
   /* } */
-  for (int i = 0; i < fastPoints.size(); i++) {
+  for (int i = 0; i < (int)(fastPoints.size()); i++) {
     if (m_imCurr.at< unsigned char >(input) < threshold) {
       return false;
     }

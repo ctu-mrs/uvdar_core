@@ -28,8 +28,10 @@
 
   <!-- <arg name="yaw_diff" default="0.040"/> -->
   <!-- <arg name="pitch_diff" default="-0.01"/> -->
-  <arg name="yaw_diff" default="0.13"/>
-  <arg name="pitch_diff" default="0.06"/>
+  <!-- <arg name="yaw_diff" default="0.13"/> -->
+  <!-- <arg name="pitch_diff" default="0.06"/> -->
+  <arg name="yaw_diff" default="0.20"/>
+  <arg name="pitch_diff" default="0.03"/>
 
   <node
     name="uvcam_colorcam_tf"
@@ -41,7 +43,8 @@
 
   <group ns="$(arg uav_name)">
 
-
+    <node pkg="image_transport" type="republish" name="republish_bluefox" output="screen" args="compressed in:=bluefox/image_raw raw out:=bluefox2/image_raw"  />
+                                                  
     <!-- <node pkg="image_transport" type="republish" name="republish_bluefox" output="screen" args="compressed in:=bluefox/image_raw raw out:=bluefox2/image_raw"  /> -->
   
   <!-- <node pkg="uvdar" type="uvdar_kalman_node" name="filterUvdar" output="screen" launch-prefix="debug_roslaunch"> -->
@@ -63,7 +66,8 @@
     <remap from="measuredPose2" to="/$(arg uav_name)/uvdar/measuredPose2"/>
     <remap from="filteredPose1" to="/$(arg uav_name)/uvdar/filteredPose1"/>
     <!-- <remap from="filteredPose2" to="/$(arg uav_name)/uvdar/filteredPose2"/> -->
-    <remap from="camera" to="/$(arg uav_name)/bluefox/image_raw"/>
+    <remap from="camera" to="/$(arg uav_name)/bluefox2/image_raw"/>
+    <!-- <remap from="camera" to="/$(arg uav_name)/bluefox/image_raw"/> -->
     <remap from="reprojection" to="/$(arg uav_name)/uvdar/reprojection/image_raw"/>
     <remap from="estimatedROIs" to="/$(arg uav_name)/uvdar/estimatedROIs"/>
 
