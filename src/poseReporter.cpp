@@ -21,7 +21,7 @@
 #include <nav_msgs/Odometry.h>
 /* #include <image_transport/image_transport.h> */
 #include <mrs_msgs/Vec4.h>
-#include <mrs_msgs/TrackerDiagnostics.h>
+#include <mrs_msgs/MpcTrackerDiagnostics.h>
 /* #include <mrs_msgs/TrackerTrajectorySrv.h> */
 #include <mrs_msgs/Vec1.h>
 /* #include <nav_msgs/Odometry.h> */
