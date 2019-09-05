@@ -237,7 +237,8 @@ public:
         c   = b;
         b   = tmp;
       }
-      std::cout << "central led: " << b << std::endl;
+      if (DEBUG)
+        ROS_INFO_STREAM("Central led: " << b);
       Eigen::Vector3i ids;
       ids << 0,1,2;
       Eigen::Vector3d expPeriods;
@@ -405,13 +406,15 @@ public:
         tilt_par=-tilt_par;
 
 
-      ROS_INFO_STREAM("latComp: " << latComp);
-      ROS_INFO_STREAM("Vc: " << Vc);
-      ROS_INFO_STREAM("Gamma: " << Gamma);
-      ROS_INFO_STREAM("exp_normal: " << exp_normal);
-      ROS_INFO_STREAM("obs_normal: " << obs_normal);
-      ROS_INFO_STREAM("tilt_par: " << tilt_par);
-      ROS_INFO_STREAM("tilt_perp: " << tilt_perp);
+      if (DEBUG){
+        ROS_INFO_STREAM("latComp: " << latComp);
+        ROS_INFO_STREAM("Vc: " << Vc);
+        ROS_INFO_STREAM("Gamma: " << Gamma);
+        ROS_INFO_STREAM("exp_normal: " << exp_normal);
+        ROS_INFO_STREAM("obs_normal: " << obs_normal);
+        ROS_INFO_STREAM("tilt_par: " << tilt_par);
+        ROS_INFO_STREAM("tilt_perp: " << tilt_perp);
+      }
 
       double relyaw_view=relyaw+phi;
       relyaw=relyaw-atan2(Vc(0),Vc(2))+phi;
@@ -436,6 +439,12 @@ public:
       double tc=cot(reltilt_abs);
       double tpitch=atan2(ta,tc);
       double troll=atan2(tb,tc);
+      if (DEBUG){
+        ROS_INFO_STREAM("tpitch: " << tpitch << " ta: " << ta << " tc: " << tc);
+        ROS_INFO_STREAM("troll: " << tpitch << " tb: " << ta << " tc: " << tc);
+        ROS_INFO_STREAM("reltilt_abs: " << reltilt_abs << " tilt_perp: " << tilt_perp << " tilt_par: " << tilt_par);
+        ROS_INFO_STREAM("Omega1: " << Omega1 << " t: " << t << " C: " << C);
+      }
 
       Y << Yt.x(),Yt.y(),Yt.z(),troll,tpitch,relyaw;
       return Y;
@@ -954,9 +963,9 @@ public:
       centerEstimInCam.x()  = 0;
       centerEstimInCam.y()  = 0;
       centerEstimInCam.z()  = 0;
-      centerEstimInBase.x() = 0;
-      centerEstimInBase.y() = 0;
-      centerEstimInBase.z() = 0;
+      /* centerEstimInBase.x() = 0; */
+      /* centerEstimInBase.y() = 0; */
+      /* centerEstimInBase.z() = 0; */
       tailingComponent      = 0;
       foundTarget           = false;
       return;
@@ -1023,26 +1032,26 @@ public:
     /* tf::vectorEigenToTF(goalInCam, goalInCamTF); */
     tf::vectorEigenToTF(centerEstimInCam, centerEstimInCamTF);
     mutex_tf.lock();
-    tf::Vector3 goalInBaseTF        = (transformCam2Base * goalInCamTF);
-    tf::Vector3 centerEstimInBaseTF = (transformCam2Base * centerEstimInCamTF);
+    /* tf::Vector3 goalInBaseTF        = (transformCam2Base * goalInCamTF); */
+    /* tf::Vector3 centerEstimInBaseTF = (transformCam2Base * centerEstimInCamTF); */
     mutex_tf.unlock();
     Eigen::Affine3d eigenTF;
     /* ROS_INFO("TF parent: %s", transform.frame_id_.c_str()); */
     /* std::cout << "fcu_" + uav_name << std::endl; */
     /* tf::transformTFToEigen(transform, eigenTF); */
     /* std::cout << "TF mat: " << eigenTF.matrix() << std::endl; */
-    tf::vectorTFToEigen(goalInBaseTF, goalInBase);
-    tf::vectorTFToEigen(centerEstimInBaseTF, centerEstimInBase);
+    /* tf::vectorTFToEigen(goalInBaseTF, goalInBase); */
+    /* tf::vectorTFToEigen(centerEstimInBaseTF, centerEstimInBase); */
 
-    Eigen::Vector3d CEBFlat(centerEstimInBase);
-    double          flatLen = sqrt(CEBFlat.x() * CEBFlat.x() + CEBFlat.y() * CEBFlat.y());
-    CEBFlat                 = CEBFlat / flatLen;
+    /* Eigen::Vector3d CEBFlat(centerEstimInBase); */
+    /* double          flatLen = sqrt(CEBFlat.x() * CEBFlat.x() + CEBFlat.y() * CEBFlat.y()); */
+    /* CEBFlat                 = CEBFlat / flatLen; */
 
-    geometry_msgs::Pose p;
-    std::cout << "Center in BASE: " << centerEstimInBase << std::endl;
-    p.position.x = centerEstimInBase.x();
-    p.position.y = centerEstimInBase.y();
-    p.position.z = centerEstimInBase.z();
+    /* geometry_msgs::Pose p; */
+    /* std::cout << "Center in BASE: " << centerEstimInBase << std::endl; */
+    /* p.position.x = centerEstimInBase.x(); */
+    /* p.position.y = centerEstimInBase.y(); */
+    /* p.position.z = centerEstimInBase.z(); */
 
     /* if (reachedTarget) */
     /*   ROS_INFO("Reached target"); */
@@ -1192,7 +1201,7 @@ private:
   ros::ServiceClient             client;
   mrs_msgs::Vec4              tpnt;
   bool                           foundTarget;
-  Eigen::Vector3d                centerEstimInBase;
+  /* Eigen::Vector3d                centerEstimInBase; */
   Eigen::Vector3d                goalInBase;
 
   /* bool   toRight;    // direction in which we should go to reach the tail */

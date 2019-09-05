@@ -14,6 +14,8 @@
 #define decayTime 2.0
 #define DEBUG true
 #define minMeasurementsToValidation 2
+#define vl 1
+#define vv 1
 
 namespace mrs_lib
 {
@@ -90,9 +92,9 @@ class UvdarKalman {
       0,0,0,0, 0, 0, 0,0,1;
 
     td[i].Q <<
-      2,0,0,0,0,0,0,0,0,
-      0,2,0,0,0,0,0,0,0,
-      0,0,2,0,0,0,0,0,0,
+      vl,0,0,0,0,0,0,0,0,
+      0,vl,0,0,0,0,0,0,0,
+      0,0,vv,0,0,0,0,0,0,
       0,0,0,0.5,0,0,0,0,0,
       0,0,0,0,0.5,0,0,0,0,
       0,0,0,0,0,0.5,0,0,0,
@@ -124,9 +126,9 @@ class UvdarKalman {
       0,0,0, 0,0,1;
 
     td[i].Q <<
-      2, 0 ,0, 0, 0 ,0,
-      0, 2, 0, 0, 0 ,0,
-      0, 0, 2, 0, 0 ,0,
+      vl, 0 ,0, 0, 0 ,0,
+      0, vl, 0, 0, 0 ,0,
+      0, 0, vv, 0, 0 ,0,
       0, 0, 0, 1, 0 ,0,
       0, 0, 0, 0, 1 ,0,
       0, 0, 0, 0, 0 ,1;
@@ -244,7 +246,14 @@ class UvdarKalman {
     mes(1) = meas.pose.pose.position.y;
     mes(2) = meas.pose.pose.position.z;
 
-    mes.bottomRows(3) = qtemp.toRotationMatrix().eulerAngles(0, 1, 2);
+    e::Vector3d tmp  = qtemp.toRotationMatrix().eulerAngles(0, 1, 2);
+    if ((fabs(tmp(0))>(M_PI/2)) && (fabs(tmp(1))>(M_PI/2)) ){
+      tmp(0) = fixAngle(tmp(0)+M_PI,0);
+      tmp(1) = fixAngle(tmp(1)+M_PI,0);
+      tmp(2) = fixAngle(tmp(2)+M_PI,0);
+    }
+
+    mes.bottomRows(3) = tmp;
 
     if (mes.array().isNaN().any()){
       if (DEBUG)
@@ -299,7 +308,7 @@ class UvdarKalman {
       double dt = (meas.header.stamp-lastMeasurement[target]).toSec();
       A_dt(target, dt);
       currKalman[target]->A = td[target].A;
-      ROS_INFO_STREAM("BEFORE PRED: " << std::endl << td[target].state_m.x );
+      /* ROS_INFO_STREAM("BEFORE PRED: " << std::endl << td[target].state_m.x ); */
       state_tmp = currKalman[target]->predict(td[target].state_m, u_t(), td[target].Q, dt);
 
       double md = mahalanobis_distance2(
@@ -318,13 +327,13 @@ class UvdarKalman {
       if (DEBUG)
         ROS_INFO_STREAM("Applying measurement [" << target <<"]");
 
-      ROS_INFO_STREAM("BEFORE CORR: " << std::endl << state_tmp.x );
+      /* ROS_INFO_STREAM("BEFORE CORR: " << std::endl << state_tmp.x ); */
+      state_tmp.x[_use_velocity_?8:5] = fixAngle(state_tmp.x((_use_velocity_?8:5)), mes[5]);
       td[target].state_m = currKalman[target]->correct(state_tmp, mes, td[target].R);
       ROS_INFO_STREAM("mes: " <<std::endl << mes );
       ROS_INFO_STREAM("R: " <<std::endl << td[target].R );
       ROS_INFO_STREAM("AFTER: " << std::endl << td[target].state_m.x );
       //fix angles to account for correction through 0/2pi
-      td[target].state_m.x[_use_velocity_?8:5] = fixAngle(td[target].state_m.x((_use_velocity_?8:5)), mes[5]);
 
       /* currKalman[target]->setMeasurement(mes,R); */
     }
@@ -349,12 +358,14 @@ class UvdarKalman {
       double dt = ros::Duration(ros::Time::now()-lastMeasurement[target]).toSec();
       if (dt<decayTime){
         if (DEBUG)
-          ROS_INFO_STREAM("Iterating [" << target <<"] without measurement, dt=" << dt << ", still validated!");
+          ROS_INFO_STREAM("Iterating [" << target <<"] without measurement, dt=" << dt);
         A_dt(target, dt);
         currKalman[target]->A = td[target].A;
         td[target].state_x = currKalman[target]->predict(td[target].state_m, u_t(), td[target].Q, dt);
-        if (dt>validTime)
+        if (dt>validTime){
           trackerValidated[target] = false;
+          ROS_INFO_STREAM(" Not validated!");
+        }
       }
       else{
         if (DEBUG)
