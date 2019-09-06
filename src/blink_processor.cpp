@@ -67,6 +67,7 @@ public:
     nh_.param("returnFrequencies", returnFrequencies, bool(false));
 
 
+    nh_.param("legacy", _legacy, bool(false));
     if (_legacy){
       nh_.param("legacy_delay", _legacy_delay, double(0.2));
       ROS_INFO_STREAM("[BlinkProcessor]: Legacy mode in effect. Set delay is " << _legacy_delay << "s");
@@ -74,8 +75,6 @@ public:
 
     
     /* subscribe to pointsSeen //{ */
-
-    nh_.param("legacy", _legacy, bool(false));
 
     /* if (_legacy){ */
     /*   pointsSubscriberLegacy = nh_.subscribe("pointsSeen", 1, &BlinkProcessor::insertPointsLegacy, this); */
