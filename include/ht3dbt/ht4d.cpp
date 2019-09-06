@@ -78,7 +78,7 @@ HT4DBlinkerTracker::HT4DBlinkerTracker(int i_memSteps,
     /* (unsigned int)((memSteps * memSteps * memSteps * memSteps) * 2.25 * 0.5 *0.75) >> bitShift; */
     /* (unsigned int)((memSteps * memSteps ) * (1+(weightCoeff*weightFactor)) * 0.5 *0.5) >> bitShift; */
     /* (unsigned int)((memSteps *memSteps ) * (1+(weightCoeff*weightFactor)) * 0.5 *0.5) >> bitShift; */
-    (unsigned int)((memSteps ) * (1+(weightCoeff*weightFactor)) * 0.5 *0.6) >> bitShift;
+    (unsigned int)((memSteps ) * (1+(weightCoeff*weightFactor)) * 0.5 *0.8) >> bitShift;
   nullifyRadius    = i_nullifyRadius;
   reasonableRadius = i_reasonableRadius;
   imRes            = i_imRes;

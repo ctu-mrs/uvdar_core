@@ -18,6 +18,7 @@
   <arg name="gui" default="true"/>
   <arg name="frame" default="local_origin_stable"/>
   <arg name="filterCount" default="1"/>
+  <arg name="useVelocity" default="false"/>
 
 
   <group ns="$(arg uav_name)">
@@ -37,7 +38,7 @@
     <!-- <param name="uvdar_used" value="true"/> -->
     <!-- <param name="debug" value="false"/> -->
     <!-- <param name="self_diagnose" value="false"/> -->
-    <param name="useVelocity" value="false" />
+    <param name="useVelocity" value="$(arg useVelocity)" />
 
     <param name="filterCount" value="$(arg filterCount)" />
 

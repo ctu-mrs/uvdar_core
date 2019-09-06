@@ -15,7 +15,7 @@
 #define DEBUG true
 #define minMeasurementsToValidation 2
 #define vl 1
-#define vv 1
+#define vv 0.5
 
 namespace mrs_lib
 {
