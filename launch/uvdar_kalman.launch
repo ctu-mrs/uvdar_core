@@ -17,6 +17,7 @@
   <arg name="VisDEBUG" default="false"/>
   <arg name="gui" default="true"/>
   <arg name="frame" default="local_origin_stable"/>
+  <arg name="filterCount" default="1"/>
 
 
   <group ns="$(arg uav_name)">
@@ -38,7 +39,7 @@
     <!-- <param name="self_diagnose" value="false"/> -->
     <param name="useVelocity" value="false" />
 
-    <param name="filterCount" value="1" />
+    <param name="filterCount" value="$(arg filterCount)" />
 
     <remap from="measuredPose1" to="/$(arg uav_name)/uvdar/measuredPose1"/>
     <remap from="measuredPose2" to="/$(arg uav_name)/uvdar/measuredPose2"/>
