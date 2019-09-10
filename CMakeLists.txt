@@ -75,6 +75,8 @@ find_package(OpenCV REQUIRED HINTS /usr/local/lib)
 add_message_files(DIRECTORY msg FILES
   ROIVector.msg
   Int32MultiArrayStamped.msg
+  DistRange.msg
+  DistRangeVector.msg
   )
 
 generate_messages(DEPENDENCIES

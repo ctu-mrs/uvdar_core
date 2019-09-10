@@ -18,6 +18,7 @@
 #include <OCamCalib/ocam_functions.h>
 #include <unscented/unscented.h>
 #include <uvdar/ROIVector.h>
+#include <uvdar/DistRangeVector.h>
 
 #define DEBUG false
 
@@ -55,6 +56,7 @@ class Reprojector{
       param_loader.load_param("gui", _gui);
       param_loader.load_param("calib_file", _calib_file);
       param_loader.load_param("publish_boxes", _publish_boxes);
+      param_loader.load_param("no_draw", _no_draw_, bool(false));
       /* ROS_INFO_STREAM( "/include/OCamCalib/config/"); */
       /* ROS_INFO_STREAM(ros::package::getPath("uvdar")); */
       /* ROS_INFO_STREAM(_calib_file); */
@@ -71,8 +73,10 @@ class Reprojector{
         cv::namedWindow("ocv_marked");
       }
 
-      if (_publish_boxes)
+      if (_publish_boxes){
         roiPublisher = nh.advertise<ROIVector>("estimatedROIs", 1);
+        distPublisher = nh.advertise<DistRangeVector>("estimatedDistances", 1);
+      }
 
 
       listener = new tf2_ros::TransformListener(buffer);
@@ -158,11 +162,11 @@ class Reprojector{
       /* } */
 
       if (!_offline)
-        drawAndPublish();
+        drawAndPublish(_no_draw_);
       else if (_gui)
         drawAndShow();
       else
-        drawImage();
+        drawImage(false);
 
     }
 
@@ -236,19 +240,19 @@ class Reprojector{
     }
 
     void drawAndShow(){
-      drawImage();
+      drawImage(false);
       cv::imshow("ocv_marked",viewImage);
       cv::waitKey(10);
     }
 
-    void drawAndPublish(){
+    void drawAndPublish(bool no_draw){
       sensor_msgs::ImagePtr msg;
-      drawImage();
+      drawImage(no_draw);
       msg = cv_bridge::CvImage(std_msgs::Header(), sensor_msgs::image_encodings::BGR8, viewImage).toImageMsg();
       imPub.publish(msg);
     }
 
-    void drawImage(){
+    void drawImage(bool no_draw){
       {
         std::scoped_lock lock(mtx_image);
         if (currImage.channels() == 1){
@@ -262,8 +266,10 @@ class Reprojector{
         std::scoped_lock lock(mtx_odom);
 
         ROIVector rois;
+        DistRangeVector dists;
         if (_publish_boxes){
           rois.stamp = currImgTime;
+          dists.stamp = currImgTime;
         }
         for (int target=0;target<filterCount;target++){
 
@@ -293,6 +299,8 @@ class Reprojector{
             continue;
           }
 
+          unscented::measurement distrange = getProjectedCovarianceDist(currOdom, Px,x);
+
           /* cv::ellipse(viewImage, getErrorEllipse(100,ms.x,ms.C), cv::Scalar::all(255), 2); */
           auto proj = getErrorEllipse(1,ms.x,ms.C);
 
@@ -313,9 +321,11 @@ class Reprojector{
           /* rect.width +=expand; */
           /* rect.x -=expand/2; */
           /* rect.y -=expand/2; */
-          cv::ellipse(viewImage, proj, color, 2);
-          ROS_INFO_STREAM("drawing rectangle:" << rect );
-          cv::rectangle(viewImage, rect, color, 2);
+          if (!no_draw){
+            cv::ellipse(viewImage, proj, color, 2);
+            ROS_INFO_STREAM("drawing rectangle:" << rect );
+            cv::rectangle(viewImage, rect, color, 2);
+          }
 
           if (_publish_boxes){
             sensor_msgs::RegionOfInterest roi;
@@ -324,11 +334,16 @@ class Reprojector{
             roi.height = rect.height;
             roi.width = rect.width;
             rois.ROIs.push_back(roi);
+            uvdar::DistRange dr;
+            dr.distance = distrange.x(0);
+            dr.stddiv = distrange.C(0);
+            dists.distRanges.push_back(dr);
           }
           /* cv::circle(viewImage,getImPos(currOdom),getProjSize(currOdom),cv::Scalar(0,0,255)); */
         }
       if (_publish_boxes){
         roiPublisher.publish(rois);
+        distPublisher.publish(dists);
       }
       }
     }
@@ -377,6 +392,19 @@ class Reprojector{
       return Eigen::Vector2d(imPos[1],imPos[0]);
     }
 
+    Eigen::VectorXd distOmniEigen(Eigen::Vector3d x,[[ maybe_unused ]] Eigen::VectorXd dummy){
+      if (atan2(x[0]*x[0]+x[1]*x[1],x[2])>maxCamAngle){
+        Eigen::VectorXd retvaldummy(1);
+        retvaldummy(0) = (std::nan(""));
+        return retvaldummy;
+      }
+      Eigen::Vector3d pose = Eigen::Vector3d(x[0],x[1],x[2]);
+      Eigen::VectorXd output(1);
+      /* Eigen::VectorXd output; = Eigen::Zero(1); */
+      output(0) = pose.norm();
+      return output;
+    }
+
     unscented::measurement getProjectedCovariance(nav_msgs::Odometry currOdom,Eigen::Matrix3d &Px,Eigen::Vector3d &x){
       /* Eigen::Matrix3d Px; */
       Eigen::Matrix2d Py;
@@ -410,6 +438,41 @@ class Reprojector{
 
       return output;
     }
+
+    unscented::measurement getProjectedCovarianceDist(nav_msgs::Odometry currOdom,Eigen::Matrix3d &Px,Eigen::Vector3d &x){
+      /* Eigen::Matrix3d Px; */
+      Eigen::Matrix2d Py;
+      /* Eigen::Vector3d x; */
+      Eigen::Vector2d y;
+      for (int i=0; i<3; i++){
+        for (int j=0; j<3; j++){
+          Px(j,i) = currOdom.pose.covariance[6*j+i] ;
+        }
+      }
+      x = Eigen::Vector3d(
+          currOdom.pose.pose.position.x,
+          currOdom.pose.pose.position.y,
+          currOdom.pose.pose.position.z
+          );
+
+
+      getE2C(currImgTime);
+      tf2::doTransform (x, x, transformEstim2Cam);
+      Eigen::Quaterniond temp;
+      Eigen::fromMsg(transformEstim2Cam.transform.rotation, temp);
+      Px = temp.toRotationMatrix()*Px*temp.toRotationMatrix().transpose();
+
+
+      boost::function<Eigen::VectorXd(Eigen::VectorXd,Eigen::VectorXd)> callback;
+      callback=boost::bind(&Reprojector::distOmniEigen,this,_1,_2);
+      auto output =  unscented::unscentedTransform(x,Px, callback,-1.0,-1.0,-1.0);
+
+      /* output.x = output.x.topRows(2); */
+      /* output.C = output.C.topLeftCorner(2, 2); */
+
+      return output;
+    }
+
     unscented::measurement getProjectedCovarianceExpand(nav_msgs::Odometry currOdom,double expansion){
       Eigen::Matrix3d Px;
       Eigen::Matrix2d Py;
@@ -515,7 +578,7 @@ class Reprojector{
     ros::Time lastMeasurement[filterCount];
     bool gotImage, gotOdom[filterCount], gotU2C, gotC2U;
 
-    bool _gui,_offline, _publish_boxes;
+    bool _gui,_offline, _publish_boxes, _no_draw_;
 
     tf2_ros::Buffer                 buffer;
     tf2_ros::TransformListener*     listener;
@@ -531,7 +594,7 @@ class Reprojector{
     struct ocam_model oc_model;
 
     image_transport::Publisher imPub;
-  ros::Publisher roiPublisher;
+    ros::Publisher roiPublisher, distPublisher;
 
     clock_t begin, end;
     ros::Time begin_r, end_r;
