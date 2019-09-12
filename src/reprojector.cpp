@@ -302,7 +302,7 @@ class Reprojector{
           unscented::measurement distrange = getProjectedCovarianceDist(currOdom, Px,x);
 
           /* cv::ellipse(viewImage, getErrorEllipse(100,ms.x,ms.C), cv::Scalar::all(255), 2); */
-          auto proj = getErrorEllipse(1,ms.x,ms.C);
+          auto proj = getErrorEllipse(2,ms.x,ms.C);
 
           unscented::measurement ms_expand = getProjectedCovarianceExpand(currOdom, armLength+propRadius);
           if (ms_expand.x.array().isNaN().any()){
@@ -495,7 +495,7 @@ class Reprojector{
       Eigen::Quaterniond temp;
       Eigen::fromMsg(transformEstim2Cam.transform.rotation, temp);
       Px = temp.toRotationMatrix()*Px*temp.toRotationMatrix().transpose();
-      Eigen::Matrix3d Pe = Eigen::Matrix3d::Identity()*expansion;
+      Eigen::Matrix3d Pe = Eigen::Matrix3d::Identity()*expansion*expansion*4;
       /* Pe(2, 2) = 0.0; */
       Px += Pe;
 

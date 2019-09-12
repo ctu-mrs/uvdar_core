@@ -465,7 +465,7 @@ public:
     /* Calculates the corresponding covariance matrix of the estimated 3D position */
     Eigen::Matrix3d pos_cov = Eigen::Matrix3d::Identity();  // prepare the covariance matrix
     /* const double tol = 1e-9; */
-    pos_cov(0, 0) = pos_cov(1, 1) = xy_covariance_coeff;
+    pos_cov(0, 0) = pos_cov(1, 1) = xy_covariance_coeff*xy_covariance_coeff;
 
     /* double dist = position_sf.norm(); */
     /* pos_cov(2, 2) = dist * sqrt(dist) * z_covariance_coeff; */
