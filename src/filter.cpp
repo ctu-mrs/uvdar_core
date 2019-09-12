@@ -11,11 +11,12 @@
 
 #define freq 30.0
 #define validTime 1.0
-#define decayTime 2.0
+#define decayTime 3.0
 #define DEBUG true
 #define minMeasurementsToValidation 2
-#define vl 1
-#define vv 0.5
+#define vl 2
+#define vv 1.0
+#define sn 1.0
 
 namespace mrs_lib
 {
@@ -307,9 +308,10 @@ class UvdarKalman {
       statecov_t state_tmp;
       double dt = (meas.header.stamp-lastMeasurement[target]).toSec();
       A_dt(target, dt);
+      Q_dt(target, dt);
       currKalman[target]->A = td[target].A;
       /* ROS_INFO_STREAM("BEFORE PRED: " << std::endl << td[target].state_m.x ); */
-      state_tmp = currKalman[target]->predict(td[target].state_m, u_t(), td[target].Q, dt);
+      state_tmp = currKalman[target]->predict(td[target].state_m, u_t(), (td[target].Q), dt);
 
       double md = mahalanobis_distance2(
           mes.topRows(3),
@@ -360,8 +362,9 @@ class UvdarKalman {
         if (DEBUG)
           ROS_INFO_STREAM("Iterating [" << target <<"] without measurement, dt=" << dt);
         A_dt(target, dt);
+        Q_dt(target, dt);
         currKalman[target]->A = td[target].A;
-        td[target].state_x = currKalman[target]->predict(td[target].state_m, u_t(), td[target].Q, dt);
+        td[target].state_x = currKalman[target]->predict(td[target].state_m, u_t(), (td[target].Q), dt);
         if (dt>validTime){
           trackerValidated[target] = false;
           ROS_INFO_STREAM(" Not validated!");
@@ -484,6 +487,28 @@ class UvdarKalman {
         1,0,0, 0,0,0,
         0,1,0, 0,0,0,
         0,0,1, 0,0,0,
+        0,0,0, 1,0,0,
+        0,0,0, 0,1,0,
+        0,0,0, 0,0,1;
+  }
+
+  void Q_dt(int i, double dt){
+    if (_use_velocity_)
+      td[i].Q <<
+      sn,0,0,0,0,0,0,0,0,
+      0,sn,0,0,0,0,0,0,0,
+      0,0,sn,0,0,0,0,0,0,
+      0,0,0,2,0,0,0,0,0,
+      0,0,0,0,2,0,0,0,0,
+      0,0,0,0,0,1,0,0,0,
+      0,0,0,0,0,0,1,0,0,
+      0,0,0,0,0,0,0,1,0,
+      0,0,0,0,0,0,0,0,1;
+    else
+      td[i].Q <<
+        sn+vl*dt,0,0, 0,0,0,
+        0,sn+vl*dt,0, 0,0,0,
+        0,0,sn+vv*dt, 0,0,0,
         0,0,0, 1,0,0,
         0,0,0, 0,1,0,
         0,0,0, 0,0,1;
