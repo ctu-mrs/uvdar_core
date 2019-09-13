@@ -10,7 +10,7 @@
 #include <mutex>
 
 #define freq 30.0
-#define validTime 1.0
+#define validTime 0.5
 #define decayTime 3.0
 #define DEBUG true
 #define minMeasurementsToValidation 2
@@ -496,9 +496,9 @@ class UvdarKalman {
   void Q_dt(int i, double dt){
     if (_use_velocity_)
       td[i].Q <<
-      sn,0,0,0,0,0,0,0,0,
-      0,sn,0,0,0,0,0,0,0,
-      0,0,sn,0,0,0,0,0,0,
+      sn*sn,0,0,0,0,0,0,0,0,
+      0,sn*sn,0,0,0,0,0,0,0,
+      0,0,sn*sn,0,0,0,0,0,0,
       0,0,0,2,0,0,0,0,0,
       0,0,0,0,2,0,0,0,0,
       0,0,0,0,0,1,0,0,0,
@@ -507,9 +507,9 @@ class UvdarKalman {
       0,0,0,0,0,0,0,0,1;
     else
       td[i].Q <<
-        sn+0.3333*vl*vl*dt,0,0, 0,0,0,
-        0,sn+0.3333*vl*vl*dt,0, 0,0,0,
-        0,0,sn+0.3333*vv*vv*dt, 0,0,0,
+        0.5*sn*sn+0.16667*vl*vl*dt,0,0, 0,0,0,
+        0,0.5*sn*sn+0.16667*vl*vl*dt,0, 0,0,0,
+        0,0,0.5*sn*sn+0.16667*vv*vv*dt, 0,0,0,
         0,0,0, 1,0,0,
         0,0,0, 0,1,0,
         0,0,0, 0,0,1;

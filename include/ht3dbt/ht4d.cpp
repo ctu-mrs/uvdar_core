@@ -717,9 +717,11 @@ double HT4DBlinkerTracker::retrieveFreqency(cv::Point originPoint, double &avgYa
   }
   int                      stepCount = std::min((int)(accumulatorLocalCopy.size()), memSteps);
   double                   radExpectedMax, radExpectedMin, yawExpected, currPointRadius, currPointYaw;
+  double avgPitchCot;
   int currPointMaxDim, currPointRadiusRound;
   std::vector< cv::Point > positivePointAccum;
   std::vector< cv::Point > positivePointAccumPitch;
+  std::vector<double>      pitchCotAccum;
   cv::Point                currPoint, currPointCentered;
   std::vector< int >       positiveCountAccum = std::vector< int >(accumulatorLocalCopy.size(), 0);
   std::vector< double> yawAccum;
@@ -752,21 +754,25 @@ double HT4DBlinkerTracker::retrieveFreqency(cv::Point originPoint, double &avgYa
             positivePointAccum.push_back(currPointCentered);
             yawAccum.push_back(currPointYaw);
             positivePointAccumPitch.push_back(cv::Point(currPointRadius, t));
+            if (t>0)
+              pitchCotAccum.push_back(currPointRadius/((double)t));
+            else
+              pitchCotAccum.push_back(currPointRadius/(1.0));
             positiveCountAccum[t]++;
           }
         }
       }
-      /* if (DEBUG){ */
-      /*   if ((currPointRadiusRound < radExpectedMin) || (currPointRadiusRound > radExpectedMax)) */
-      /*     std::cout << "currPointRadius: " << currPointRadiusRound << ", t " << t << ":" << k <<" failed vs. [" << radExpectedMin<< "," <<radExpectedMax << "]"  << std::endl; */
-      /*   else */
-      /*     std::cout << "currPointRadius: " << currPointRadiusRound << ", t " << t << ":" << k <<" passed vs. [" << radExpectedMin<< "," <<radExpectedMax << "]"  << std::endl; */
+      if (DEBUG){
+        if ((currPointRadiusRound < radExpectedMin) || (currPointRadiusRound > radExpectedMax))
+          std::cout << "currPointRadius: " << currPointRadiusRound << ", t " << t << ":" << k <<" failed vs. [" << radExpectedMin<< "," <<radExpectedMax << "]"  << std::endl;
+        else
+          std::cout << "currPointRadius: " << currPointRadiusRound << ", t " << t << ":" << k <<" passed vs. [" << radExpectedMin<< "," <<radExpectedMax << "]"  << std::endl;
 
-      /*   if ( ((fabs(angDiff(currPointYaw, yawExpected)) > (yawDiv)) && (currPointMaxDim > 4)) ) */
-      /*     std::cout << "currPointYaw: " << currPointYaw << ", t " << t << ":" << k <<" failed vs. [" << yawExpected<< "]"  << std::endl; */
-      /*   else */
-      /*     std::cout << "currPointYaw: " << currPointYaw << ", t " << t << ":" << k <<" passed vs. [" << yawExpected<< "]"  << std::endl; */
-      /* } */
+        if ( ((fabs(angDiff(currPointYaw, yawExpected)) > (yawDiv)) && (currPointMaxDim > 4)) )
+          std::cout << "currPointYaw: " << currPointYaw << ", t " << t << ":" << k <<" failed vs. [" << yawExpected<< "]"  << std::endl;
+        else
+          std::cout << "currPointYaw: " << currPointYaw << ", t " << t << ":" << k <<" passed vs. [" << yawExpected<< "]"  << std::endl;
+      }
     }
   }
   if (positivePointAccum.size() == 0) {
@@ -784,42 +790,55 @@ double HT4DBlinkerTracker::retrieveFreqency(cv::Point originPoint, double &avgYa
   std::cout << std::endl;
   }
 
-  /* avgYaw                      = angMeanXY(positivePointAccum); */
-  /* avgPitch                      = angMeanXY(positivePointAccumPitch); */
+  avgYaw                      = angMeanXY(positivePointAccum);
+  avgPitch                      = angMeanXY(positivePointAccumPitch);
+  avgPitchCot                      = accumulate(pitchCotAccum.begin(), pitchCotAccum.end(), 0.0)/pitchCotAccum.size(); 
   //CHECK:total averaging in 3D
-  /* std::vector< bool > correct = std::vector< bool >(positivePointAccum.size(), true); */
-  /* for (int u = 0; u < (int)(positivePointAccum.size()); u++) { */
-  /*   /1* std::cout << "correct: "; *1/ */
-  /*   if ((fabs(angDiff(yawAccum[u], avgYaw)) > (CV_PI / 4.0)) && (cv::norm(positivePointAccum[u]) > (reasonableRadius))) { */
-  /*     /1* if ((fabs(angDiff(yawAccum[u], avgYaw)) > (CV_PI / 4.0)) )  *1/ */
-  /*     /1* std::cout << "Culling" << std::endl; *1/ */
-  /*     /1* std::cout << "AngDiff: " <<fabs(angDiff(yawAccum[u], avgYaw)) << std::endl; *1/ */
-  /*     /1* std::cout << "Norm: " <<cv::norm(positivePointAccum[u]) << std::endl; *1/ */
-  /*     correct[u] = false; */
-  /*   } */
-  /*   /1* std::cout << correct[u]; *1/ */
-  /* } */
-  /* int o = 0; */
-  /* for (int u = 0; u < (int)(correct.size()); u++) { */
-  /*   if (!correct[u]) { */
-  /*     /1* std::cout <<  "Culling n. " << u << std::endl; *1/ */
-  /*     positiveCountAccum[positivePointAccumPitch[o].y]--; */
-  /*     positivePointAccum.erase(positivePointAccum.begin() + o); */
-  /*     positivePointAccumPitch.erase(positivePointAccumPitch.begin() + o); */
-  /*     o--; */
-  /*   } */
-  /*   o++; */
-  /* } */
+  std::vector< bool > correct = std::vector< bool >(positivePointAccum.size(), true);
+  for (int u = 0; u < (int)(positivePointAccum.size()); u++) {
+    /* std::cout << "correct: "; */
+    cv::Point expPt(cos(avgYaw)*avgPitchCot*positivePointAccumPitch[u].y, sin(avgYaw)*avgPitchCot*positivePointAccumPitch[u].y);
+    if (floor(cv::norm(expPt-positivePointAccum[u])) > (reasonableRadius*2)) {
+    /* if ((cv::norm(expPt*positivePointAccumPitch[u].y-positivePointAccum[u]) > (CV_PI / 20.0)) && (cv::norm(positivePointAccum[u]) > (reasonableRadius))) { */
+    /* if ((fabs(angDiff(yawAccum[u], avgYaw)) > (CV_PI / 20.0)) && (cv::norm(positivePointAccum[u]) > (reasonableRadius))) { */
+    /*   std::cout << "Culling" << std::endl; */
+    /*   std::cout << "Yaw: " << yawAccum[u] << " vs " << avgYaw << std::endl; */
+    /*   correct[u] = false; */
+    /* } */
+    /* else if (fabs((pitchCotAccum[u] - avgPitchCot)) > (reasonableRadius)) { */
+    /*   /1* if ((fabs(angDiff(yawAccum[u], avgYaw)) > (CV_PI / 4.0)) )  *1/ */
+      if (DEBUG){
+        std::cout << "Culling" << std::endl;
+        std::cout << "avgPitchCot: " << avgPitchCot << " avgYaw " <<  avgYaw << std::endl;
+        std::cout << "pitchCotSum: " << accumulate(pitchCotAccum.begin(), pitchCotAccum.end(), 0.0)<< " pitchCotSize " <<  pitchCotAccum.size() << std::endl;
+        /* std::cout << "pitchCot: "; for (auto &pcp : pitchCotAccum) { std::cout << pcp << " "; } std::cout << std::endl; */
+        std::cout << "diff: " << expPt << " vs " <<  positivePointAccum[u] << std::endl;
+      }
+      correct[u] = false;
+    }
+    /* std::cout << correct[u]; */
+  }
+  int o = 0;
+  for (int u = 0; u < (int)(correct.size()); u++) {
+    if (!correct[u]) {
+      /* std::cout <<  "Culling n. " << u << std::endl; */
+      positiveCountAccum[positivePointAccumPitch[o].y]--;
+      positivePointAccum.erase(positivePointAccum.begin() + o);
+      positivePointAccumPitch.erase(positivePointAccumPitch.begin() + o);
+      o--;
+    }
+    o++;
+  }
   avgYaw   = angMeanXY(positivePointAccum);
   avgPitch = angMeanXY(positivePointAccumPitch);
 
-  /* if (DEBUG){ */
-  /* std::cout << "After culling" << std::endl; */
-  /* for (int i = 0; i < (int)(positiveCountAccum.size()); i++) { */
-  /*   std::cout << positiveCountAccum[i]; */
-  /* } */
-  /* std::cout << std::endl; */
-  /* } */
+  if (DEBUG){
+  std::cout << "After culling" << std::endl;
+  for (int i = 0; i < (int)(positiveCountAccum.size()); i++) {
+    std::cout << positiveCountAccum[i];
+  }
+  std::cout << std::endl;
+  }
 
   bool   state             = false;
   bool   prevState         = state;
