@@ -93,23 +93,30 @@ public:
     blinkData.resize(_points_seen_topics.size());
 
     // Create callbacks for each camera
+    pointsSeenCallbacks.resize(_points_seen_topics.size());
+    pointsSeenCallbacksLegacy.resize(_points_seen_topics.size());
+
     for (size_t i = 0; i < _points_seen_topics.size(); ++i) {
 
     // Subscribe to corresponding topics
+    /* ROS_INFO("[BlinkProcessor]: HERE A"); */
       if (_legacy){
         points_seen_callback_legacy_t callback = [imageIndex=i,this] (const std_msgs::UInt32MultiArrayConstPtr& pointsMessage) { 
           InsertPointsLegacy(pointsMessage, imageIndex);
         };
-        pointsSeenCallbacksLegacy.push_back(callback);
+        pointsSeenCallbacksLegacy[i] = callback;
+        /* pointsSeenCallbacksLegacy.push_back(callback); */
         pointsSeenSubscribers.push_back(nh_.subscribe(_points_seen_topics[i], 1, &points_seen_callback_legacy_t::operator(), &pointsSeenCallbacksLegacy[i]));
       }
       else {
         points_seen_callback_t callback = [imageIndex=i,this] (const uvdar::Int32MultiArrayStampedConstPtr& pointsMessage) { 
           InsertPoints(pointsMessage, imageIndex);
         };
-        pointsSeenCallbacks.push_back(callback);
+        pointsSeenCallbacks[i] = callback;
+        /* pointsSeenCallbacks.push_back(callback); */
         pointsSeenSubscribers.push_back(nh_.subscribe(_points_seen_topics[i], 1, &points_seen_callback_t::operator(), &pointsSeenCallbacks[i]));
       }
+    /* ROS_INFO("[BlinkProcessor]: HERE B"); */
     }
 
     //}
@@ -141,11 +148,13 @@ public:
       else {
         currentImages.resize(_camera_topics.size());
         // Create callbacks for each camera
+        imageCallbacks.resize(_camera_topics.size());
         for (size_t i = 0; i < _camera_topics.size(); ++i) {
           image_callback_t callback = [imageIndex=i,this] (const sensor_msgs::ImageConstPtr& image_msg) { 
             ProcessRaw(image_msg, imageIndex);
           };
-          imageCallbacks.push_back(callback);
+          imageCallbacks[i] = callback;
+          /* imageCallbacks.push_back(callback); */
           // Subscribe to corresponding topics
           imageSubscribers.push_back(nh_.subscribe(_camera_topics[i], 1, &image_callback_t::operator(), &imageCallbacks[i]));
         }

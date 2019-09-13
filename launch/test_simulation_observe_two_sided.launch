@@ -36,8 +36,8 @@
 
   <arg name="accumulatorLength"         default="23"/>
   <arg name="pitchSteps"         default="16"/>
-  <arg name="yawSteps"         default="8"/>
-  <arg name="maxPixelShift"         default="2"/>
+  <arg name="yawSteps"         default="16"/>
+  <arg name="maxPixelShift"         default="3"/>
 
   <arg name="filterDistLength"         default="10"/>
   <arg name="filterOrientationLength"         default="10"/>
@@ -157,16 +157,17 @@
       <param name="DEBUG"		type="bool" value="$(arg DEBUG)"/> 
       <param name="VisDEBUG"		type="bool" value="$(arg VisDEBUG)"/> 
       <param name="GUI"             type="bool" value="$(arg gui)"/>
-      <param name="CameraImageompressed"    type="bool" value="false"/>
+      <param name="CameraImageCompressed"    type="bool" value="false"/>
       <param name="InvertedPoints"    type="bool" value="false"/>
-      <param name="frequencyCount" type="int" value="3"/>
+      <param name="frequencyCount" type="int" value="2"/>
       <!-- <param name="frequency1" type="int" value="12"/> -->
       <!-- <param name="frequency2" type="int" value="24"/> -->
       <!-- <param name="frequency3" type="int" value="16"/> -->
+      <param name="legacy" type="bool" value="false"/>
 
-      <param name="frequency1" type="int" value="10"/>
-      <param name="frequency2" type="int" value="15"/>
-      <param name="frequency3" type="int" value="30"/>
+      <param name="frequency1" type="int" value="7"/>
+      <param name="frequency2" type="int" value="14"/>
+      <param name="frequency3" type="int" value="28"/>
 
       <param name="processRate"         type="int" value="$(arg processRate)"/>
 
@@ -175,6 +176,8 @@
       <param name="yawSteps"         type="int" value="$(arg yawSteps)"/>
       <param name="maxPixelShift"         type="int" value="$(arg maxPixelShift)"/>
       <param name="returnFrequencies"         type="bool" value="true"/>
+      <param name="nullifyRadius"         type="int" value="8"/>
+      <param name="UseCameraForVisualization"         type="bool" value="true"/>
 
       <rosparam param="cameraTopics"> ["camera_left", "camera_right"] </rosparam>
       <rosparam param="pointsSeenTopics"> ["points_seen_left", "points_seen_right"] </rosparam>
@@ -189,6 +192,7 @@
       <remap from="~blinkers_seen_right" to="/$(arg uav_name)/uvdar/blinkers_seen_right"/>
       <remap from="~estimated_framerate_left" to="/$(arg uav_name)/uvdar/estimated_framerate_left"/>
       <remap from="~estimated_framerate_right" to="/$(arg uav_name)/uvdar/estimated_framerate_right"/>
+      <remap from="~visualization" to="/$(arg uav_name)/uvdar/blink_visualization/image_raw"/>
 
     </node>
       
@@ -200,10 +204,10 @@
       <param name="gui"             type="bool" value="$(arg gui)"/>
       <param name="publish"         type="bool" value="$(arg publish)"/>
       <param name="frequenciesPerTarget" type="int" value="1"/>
-      <param name="targetCount" type="int" value="3"/>
-      <param name="frequency1" type="int" value="10"/>
-      <param name="frequency2" type="int" value="15"/>
-      <param name="frequency3" type="int" value="30"/>
+      <param name="targetCount" type="int" value="2"/>
+      <param name="frequency1" type="int" value="7"/>
+      <param name="frequency2" type="int" value="14"/>
+      <param name="frequency3" type="int" value="28"/>
 
       <rosparam param="blinkersSeenTopics"> ["blinkers_seen_left", "blinkers_seen_right"] </rosparam>
       <rosparam param="estimatedFramerateTopics"> ["estimated_framerate_left", "estimated_framerate_right"] </rosparam>
