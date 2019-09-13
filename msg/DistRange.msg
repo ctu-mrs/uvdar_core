@@ -1,2 +1,2 @@
 float64 distance
-float64 stddiv
+float64 stddev
