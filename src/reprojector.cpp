@@ -123,8 +123,8 @@ class Reprojector{
       }
     }
 
-    nav_msgs::Odometry getClosestTime(std::vector<nav_msgs::Odometry> odom_vec,ros::Time compTime){
-      ros::Duration shortest_diff(999);
+    nav_msgs::Odometry getClosestTime(std::vector<nav_msgs::Odometry> odom_vec,ros::Time compTime, ros::Duration &shortest_diff){
+      shortest_diff.fromSec(10);
       ros::Duration curr_diff;
       nav_msgs::Odometry *best_odom;
       /* unsigned int best_index; */
@@ -271,6 +271,8 @@ class Reprojector{
           rois.stamp = currImgTime;
           dists.stamp = currImgTime;
         }
+        ros::Duration shortestDiff;
+        bool stale = false;
         for (int target=0;target<filterCount;target++){
 
           if (DEBUG)
@@ -285,13 +287,20 @@ class Reprojector{
           }
 
           cv::Scalar color;
-          switch (target) {
+          if (!stale)
+            switch (target) {
             case 0:
               color=cv::Scalar(255,255,0);
               break;
             case 1:
               color=cv::Scalar(255,0,255);
-          } nav_msgs::Odometry currOdom = getClosestTime(odomBuffer[target],currImgTime);
+          }
+          else
+            color=cv::Scalar(0,0,0);
+          nav_msgs::Odometry currOdom = getClosestTime(odomBuffer[target],currImgTime, shortestDiff);
+          if (shortestDiff.toSec() > 0.1)
+            stale = true;
+
           Eigen::Vector3d x;
           Eigen::Matrix3d Px;
           unscented::measurement ms = getProjectedCovariance(currOdom, Px,x);
@@ -302,7 +311,7 @@ class Reprojector{
           unscented::measurement distrange = getProjectedCovarianceDist(currOdom, Px,x);
 
           /* cv::ellipse(viewImage, getErrorEllipse(100,ms.x,ms.C), cv::Scalar::all(255), 2); */
-          auto proj = getErrorEllipse(2,ms.x,ms.C);
+          auto proj = getErrorEllipse(1,ms.x,ms.C);
 
           unscented::measurement ms_expand = getProjectedCovarianceExpand(currOdom, armLength+propRadius);
           if (ms_expand.x.array().isNaN().any()){
@@ -336,7 +345,7 @@ class Reprojector{
             rois.ROIs.push_back(roi);
             uvdar::DistRange dr;
             dr.distance = distrange.x(0);
-            dr.stddiv = distrange.C(0);
+            dr.stddev = distrange.C(0);
             dists.distRanges.push_back(dr);
           }
           /* cv::circle(viewImage,getImPos(currOdom),getProjSize(currOdom),cv::Scalar(0,0,255)); */
@@ -495,7 +504,7 @@ class Reprojector{
       Eigen::Quaterniond temp;
       Eigen::fromMsg(transformEstim2Cam.transform.rotation, temp);
       Px = temp.toRotationMatrix()*Px*temp.toRotationMatrix().transpose();
-      Eigen::Matrix3d Pe = Eigen::Matrix3d::Identity()*expansion*expansion*4;
+      Eigen::Matrix3d Pe = Eigen::Matrix3d::Identity()*expansion*expansion*3;
       /* Pe(2, 2) = 0.0; */
       Px += Pe;
 

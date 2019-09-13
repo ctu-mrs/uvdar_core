@@ -19,6 +19,7 @@
   <arg name="frame" default="local_origin_stable"/>
   <arg name="filterCount" default="1"/>
   <arg name="useVelocity" default="false"/>
+  <arg name="outputFramerate" default="60"/>
 
 
   <group ns="$(arg uav_name)">
@@ -39,6 +40,7 @@
     <!-- <param name="debug" value="false"/> -->
     <!-- <param name="self_diagnose" value="false"/> -->
     <param name="useVelocity" value="$(arg useVelocity)" />
+    <param name="outputFramerate" value="$(arg outputFramerate)" />
 
     <param name="filterCount" value="$(arg filterCount)" />
 

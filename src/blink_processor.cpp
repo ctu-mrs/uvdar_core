@@ -315,7 +315,7 @@ private:
     /* } */
 
     {
-      std::scoped_lock lock(*(blinkData[imageIndex].retrievedBlinkersMutex));
+      /* std::scoped_lock lock(*(blinkData[imageIndex].retrievedBlinkersMutex)); */
       lastPointsTime = msg->stamp;
       ht3dbt->insertFrame(points);
     }
@@ -352,7 +352,7 @@ private:
       ros::Time local_lastPointsTime = lastPointsTime;
 
       {
-        std::scoped_lock lock(*(blinkData[imageIndex].retrievedBlinkersMutex));
+        /* std::scoped_lock lock(*(blinkData[imageIndex].retrievedBlinkersMutex)); */
         retrievedBlinkers = ht3dbt->getResults();
       }
       end         = std::clock();
@@ -558,7 +558,7 @@ private:
         data.currTrackerCount = ht3dbt->getTrackerCount();
 
         {
-          std::scoped_lock lock(*(data.retrievedBlinkersMutex));
+          /* std::scoped_lock lock(*(data.retrievedBlinkersMutex)); */
           //CHECK separate mutexes for each image
         
           auto& rbs = data.retrievedBlinkers;
@@ -690,7 +690,7 @@ private:
     bool                     foundTarget;
     int                      currTrackerCount;
     std::vector<cv::Point3d> retrievedBlinkers;
-    std::mutex*              retrievedBlinkersMutex;
+    /* std::mutex*              retrievedBlinkersMutex; */
     ros::Time                lastSeen;
     ros::Time                lastSignal;
     int                      timeSamples = 0;
@@ -699,8 +699,10 @@ private:
     double framerateEstim = 72;
 
 
-    BlinkData(): retrievedBlinkersMutex(new std::mutex{}) {};
-    ~BlinkData() { delete retrievedBlinkersMutex; };
+    /* BlinkData(): retrievedBlinkersMutex(new std::mutex{}) {}; */
+    BlinkData(){};
+    /* ~BlinkData() { delete retrievedBlinkersMutex; }; */
+    ~BlinkData(){};
   };
 
   std::vector<BlinkData> blinkData;

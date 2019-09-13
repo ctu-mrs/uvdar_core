@@ -49,6 +49,7 @@ class UvdarKalman {
     pnh.param("output_frame", _output_frame, std::string("local_origin"));
     pnh.param("filterCount", filterCount, filterCount);
     pnh.param("useVelocity", _use_velocity_, bool(false));
+    pnh.param("outputFramerate", _output_framerate_, double(freq));
 
     ROS_INFO_STREAM("[UVDAR Kalman] filterCount: " << filterCount);
 
@@ -65,7 +66,7 @@ class UvdarKalman {
 
     //}
 
-    dt = 1.0/freq;
+    dt = 1.0/_output_framerate_;
 
     for (int i=0; i< filterCount; i++){
 
@@ -171,7 +172,7 @@ class UvdarKalman {
 
     tf_listener = new tf2_ros::TransformListener(tf_buffer);
 
-    timer = nh.createTimer(ros::Duration(1.0 / fmax(freq,1.0)), &UvdarKalman::spin, this);
+    timer = nh.createTimer(ros::Duration(1.0 / fmax(_output_framerate_,1.0)), &UvdarKalman::spin, this);
     for (int i = 0; i < filterCount; ++i) 
     {
       measSubscriber[i] = nh.subscribe("measuredPose" + std::to_string(i+1), 1, &UvdarKalman::measurementCallback, this);
@@ -555,6 +556,7 @@ class UvdarKalman {
 
 
   bool _use_velocity_;
+  double _output_framerate_;
 
 };
 
