@@ -383,8 +383,10 @@ void HT4DBlinkerTracker::generateMasks() {
         pitchCol.clear();
         yawCol.clear();
         for (int j = 0; j < pitchSteps; j++) {
-          double Rmin = (1.0 / tan(pitchVals[j] + (pitchDiv / 2))) * i;
-          double Rmax = (1.0 / tan(pitchVals[j] - (pitchDiv / 2))) * i;
+          /* double Rmin = (1.0 / tan(pitchVals[j] + (pitchDiv / 2))) * i; */
+          /* double Rmax = (1.0 / tan(pitchVals[j] - (pitchDiv / 2))) * i; */
+          /* double Rmin = (cotSetMin[j]*i); */
+          /* double Rmax = (cotSetMax[j]*i); */
           double Rcen = (1.0 / tan(pitchVals[j])) * i;
           /* if ((radiusBox.at< float >(y, x) >= (Rmin-1)) && (radiusBox.at< float >(y, x) <= (Rmax+1))) { */
           if ((ceil(radiusBox.at< float >(y, x)) >= (Rcen-1)) && (floor(radiusBox.at< float >(y, x)) <= (Rcen+1))) {
