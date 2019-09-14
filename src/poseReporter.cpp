@@ -135,11 +135,13 @@ public:
     }
 
     // Create callbacks for each camera
+    blinkersSeenCallbacks.resize(blinkersSeenTopics.size());
     for (size_t i = 0; i < blinkersSeenTopics.size(); ++i) {
       blinkers_seen_callback_t callback = [imageIndex=i,this] (const uvdar::Int32MultiArrayStampedConstPtr& pointsMessage) { 
         ProcessPoints(pointsMessage, imageIndex);
       };
-      blinkersSeenCallbacks.push_back(callback);
+      blinkersSeenCallbacks[i] = callback;
+      /* blinkersSeenCallbacks.push_back(callback); */
     // Subscribe to corresponding topics
       ROS_INFO_STREAM("[PoseReporter]: Subscribing to " << blinkersSeenTopics[i]);
       blinkersSeenSubscribers.push_back(
