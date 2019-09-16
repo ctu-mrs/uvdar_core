@@ -21,6 +21,8 @@
   <arg name="useVelocity" default="false"/>
   <arg name="outputFramerate" default="60"/>
 
+  <arg name="indoor" default="false"/>
+  <arg name="odometryAvailable" default="true"/>
 
   <group ns="$(arg uav_name)">
 
@@ -41,6 +43,9 @@
     <!-- <param name="self_diagnose" value="false"/> -->
     <param name="useVelocity" value="$(arg useVelocity)" />
     <param name="outputFramerate" value="$(arg outputFramerate)" />
+
+    <param name="indoor" value="$(arg indoor)" />
+    <param name="odometryAvailable" value="$(arg odometryAvailable)" />
 
     <param name="filterCount" value="$(arg filterCount)" />
 

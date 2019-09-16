@@ -14,9 +14,6 @@
 #define decayTime 3.0
 #define DEBUG true
 #define minMeasurementsToValidation 2
-#define vl 2
-#define vv 1.0
-#define sn 1.0
 
 namespace mrs_lib
 {
@@ -50,6 +47,27 @@ class UvdarKalman {
     pnh.param("filterCount", filterCount, filterCount);
     pnh.param("useVelocity", _use_velocity_, bool(false));
     pnh.param("outputFramerate", _output_framerate_, double(freq));
+
+    pnh.param("indoor", _indoor_, bool(false));
+    pnh.param("odometryAvailable", _odometry_available_, bool(true));
+
+    if (_indoor_){
+      vl = 1;
+      vv = 0.5;
+    }
+    else {
+      vl = 2;
+      vv = 1;
+    }
+
+    if (_odometry_available_){
+      sn = 1;
+    }
+    else {
+      sn = 2;
+    }
+
+
 
     ROS_INFO_STREAM("[UVDAR Kalman] filterCount: " << filterCount);
 
@@ -557,6 +575,9 @@ class UvdarKalman {
 
   bool _use_velocity_;
   double _output_framerate_;
+
+  bool _odometry_available_, _indoor_;
+  double vl, vv, sn;
 
 };
 
