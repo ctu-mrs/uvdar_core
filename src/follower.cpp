@@ -19,7 +19,9 @@
 #include <geometry_msgs/Twist.h>
 #include <image_transport/image_transport.h>
 #include <mrs_msgs/Vec4.h>
-#include <mrs_msgs/TrackerDiagnostics.h>
+#include <mrs_msgs/ControlManagerDiagnostics.h>
+#include <mrs_msgs/MpcTrackerDiagnostics.h>
+#include <mrs_msgs/TrackerTrajectory.h>
 #include <mrs_msgs/TrackerTrajectorySrv.h>
 #include <mrs_msgs/Vec1.h>
 #include <nav_msgs/Odometry.h>
@@ -428,8 +430,8 @@ public:
     /* ROS_INFO("Yaw: %4.2f", yaw); */
   }
 
-  void diagnosticsCallback(const mrs_msgs::TrackerDiagnostics diag_msg) {
-    if (!(diag_msg.tracking_trajectory))
+  void diagnosticsCallback(const mrs_msgs::MpcTrackerDiagnosticsConstPtr &diag_msg) {
+    if (!(diag_msg->tracking_trajectory))
       reachedTarget = true;
     /* ROS_INFO("Reached target"); */
   }
