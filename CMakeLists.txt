@@ -135,6 +135,10 @@ add_dependencies(uvdar_kalman_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_
 add_executable(uvdar_reprojector_node src/reprojector.cpp)
 add_dependencies(uvdar_reprojector_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
+add_executable(uvdar_bluefox_emulator_node src/bluefox_emulator.cpp)
+add_dependencies(uvdar_bluefox_emulator_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+
+
 add_custom_target(headers SOURCES ${HEADER_FILES} ${LAUNCHER_FILES} ${YAML_FILES})
 
 target_link_libraries(UVDetector
@@ -177,6 +181,13 @@ target_link_libraries(uvdar_kalman_node
 #   ${OpenCV_LIBRARIES}
 #   ${EIGEN3_LIBRARIES}
 #   )
+
+target_link_libraries(uvdar_bluefox_emulator_node
+  ${catkin_LIBRARIES}
+  ${OpenCV_LIBRARIES}
+  ${EIGEN3_LIBRARIES}
+  OCamCalib
+  )
 
 
 target_link_libraries(uvdar_reprojector_node
