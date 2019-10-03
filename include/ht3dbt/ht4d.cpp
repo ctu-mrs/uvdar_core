@@ -771,9 +771,9 @@ double HT4DBlinkerTracker::retrieveFreqency(cv::Point originPoint, double &avgYa
           std::cout << "currPointRadius: " << currPointRadiusRound << ", t " << t << ":" << k <<" passed vs. [" << radExpectedMin<< "," <<radExpectedMax << "]"  << std::endl;
 
         if ( ((fabs(angDiff(currPointYaw, yawExpected)) > (yawDiv)) && (currPointMaxDim > 4)) )
-          std::cout << "currPointYaw: " << currPointYaw << ", t " << t << ":" << k <<" failed vs. [" << yawExpected<< "]"  << std::endl;
+          std::cout << "currPointYaw: " << currPointYaw << ", t " << t << ":" << k <<" failed vs. [" << yawExpected<< "] by "  << angDiff(currPointYaw, yawExpected) << " vs " << yawDiv << std::endl;
         else
-          std::cout << "currPointYaw: " << currPointYaw << ", t " << t << ":" << k <<" passed vs. [" << yawExpected<< "]"  << std::endl;
+          std::cout << "currPointYaw: " << currPointYaw << ", t " << t << ":" << k <<" passed vs. [" << yawExpected<< "] by "  << angDiff(currPointYaw, yawExpected) << " vs " << yawDiv << std::endl;
       }
     }
   }

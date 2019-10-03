@@ -60,7 +60,7 @@
   <arg name="processRate" default="20"/>
 
   <arg name="accumulatorLength"         default="23"/>
-  <arg name="pitchSteps"         default="16"/>
+  <arg name="pitchSteps"         default="12"/>
   <arg name="yawSteps"         default="16"/>
   <arg name="maxPixelShift"         default="2"/>
   <arg name="reasonableRadius"         default="3"/>
@@ -90,8 +90,6 @@
   <arg name="FromCamera" default="true"/>
   <arg name="FromVideo" default="false"/>
   <arg name="VideoNumber" default="9"/>
-  <arg name="cellSize" default="64"/>
-  <arg name="cellOverlay" default="16"/>
   <arg name="surroundRadius" default="3"/>
   <arg name="camNum" default="0"/>
   <arg name="useFAST" default="true"/>

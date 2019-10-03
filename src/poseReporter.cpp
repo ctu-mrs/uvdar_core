@@ -1,6 +1,5 @@
 
 #define camera_delay 0.10
-#define armLength 0.2775
 #define maxSpeed 2.0
 #define maxDistInit 100.0
 
@@ -65,6 +64,9 @@ namespace enc = sensor_msgs::image_encodings;
 
 class PoseReporter {
 public:
+
+    /* Constructor //{ */
+
   PoseReporter(ros::NodeHandle& node) {
     ROS_INFO("Initializing pose reporter...");
     reachedTarget   = false;
@@ -82,6 +84,10 @@ public:
       private_node_handle.param("legacy_delay", _legacy_delay, double(0.2));
       ROS_INFO_STREAM("Legacy mode in effect. Set delay is " << _legacy_delay << "s");
     }
+
+    private_node_handle.param("quadrotor",_quadrotor_,bool(false));
+
+    private_node_handle.param("arm_length",_arm_length_,double(0.2775));
 
     private_node_handle.param("frequenciesPerTarget", frequenciesPerTarget, int(4));
     private_node_handle.param("targetCount", targetCount, int(4));
@@ -165,15 +171,18 @@ public:
       ROS_ERROR_STREAM("[PoseReporter]: The size of blinkersSeenTopics (" << blinkersSeenTopics.size() <<
           ") is different from estimatedFramerateTopics (" << _estimated_framerate_topics.size() << ")");
     }
+    //}
 
-    // Create callbacks for each camera
+    /* Create callbacks for each camera //{ */
     for (size_t i = 0; i < _estimated_framerate_topics.size(); ++i) {
       estimated_framerate_callback_t callback = [imageIndex=i,this] (const std_msgs::Float32ConstPtr& framerateMessage) { 
         estimatedFramerate[imageIndex] = framerateMessage->data;
       };
       estimatedFramerateCallbacks.push_back(callback);
     }
-    // Subscribe to corresponding topics
+    //}
+
+    /* Subscribe to corresponding topics //{ */
     for (size_t i = 0; i < _estimated_framerate_topics.size(); ++i) {
       ROS_INFO_STREAM("[PoseReporter]: Subscribing to " << _estimated_framerate_topics[i]);
       estimatedFramerateSubscribers.push_back(
@@ -213,291 +222,14 @@ public:
     //}
     
   }
+  //}
 
+    /* Destructor //{ */
   ~PoseReporter() {
   }
+  //}
 
-  Eigen::VectorXd uvdarHexarotorPose3p(Eigen::VectorXd X, Eigen::VectorXd expFrequencies){
-      cv::Point3d tmp;
-      cv::Point3d a(X(0),X(1),X(2));
-      cv::Point3d b(X(3),X(4),X(5));
-      cv::Point3d c(X(6),X(7),X(8));
-      double ambig = X(9);
-
-      if ((c.x) < (a.x)) {
-        tmp = a;
-        a = c;
-        c = tmp;
-      }
-      if ((b.x) < (a.x)) {
-        tmp = b;
-        b = a;
-        a = tmp;
-      }
-      if ((b.x) > (c.x)) {
-        tmp = c;
-        c   = b;
-        b   = tmp;
-      }
-      if (DEBUG)
-        ROS_INFO_STREAM("Central led: " << b);
-      Eigen::Vector3i ids;
-      ids << 0,1,2;
-      Eigen::Vector3d expPeriods;
-      expPeriods = expFrequencies.cwiseInverse(); 
-      Eigen::Vector3d periods;
-      periods << a.z,b.z,c.z;
-      Eigen::Vector3d id;
-      Eigen::MatrixXd::Index   minIndex;
-      ((expPeriods.array()-(periods(0))).cwiseAbs()).minCoeff(&minIndex);
-      id(0) = minIndex;
-      ((expPeriods.array()-(periods(1))).cwiseAbs()).minCoeff(&minIndex);
-      id(1) = minIndex;
-      ((expPeriods.array()-(periods(2))).cwiseAbs()).minCoeff(&minIndex);
-      id(2) = minIndex;
-
-
-      double pixDist = (cv::norm(b - a) + cv::norm(c - b)) * 0.5;
-      double v1[3], v2[3], v3[3];
-      double va[2] = {(double)(a.y), (double)(a.x)};
-      double vb[2] = {(double)(b.y), (double)(b.x)};
-      double vc[2] = {(double)(c.y), (double)(c.x)};
-
-      cam2world(v1, va, &oc_model);
-      cam2world(v2, vb, &oc_model);
-      cam2world(v3, vc, &oc_model);
-
-      Eigen::Vector3d V1(v1[1], v1[0], -v1[2]);
-      Eigen::Vector3d V2(v2[1], v2[0], -v2[2]);
-      Eigen::Vector3d V3(v3[1], v3[0], -v3[2]);
-
-      Eigen::Vector3d norm13=V3.cross(V1);
-      norm13=norm13/norm13.norm();
-      double dist132=V2.dot(norm13);
-      Eigen::Vector3d V2_c=V2-dist132*norm13;
-      V2_c=V2_c/V2_c.norm();
-
-      double Alpha = acos(V1.dot(V2_c));
-      double Beta  = acos(V2_c.dot(V3));
-  
-      double A = 1.0 / tan(Alpha);
-      double B = 1.0 / tan(Beta);
-      std::cout << "alpha: " << Alpha << " beta: " << Beta << std::endl;
-      std::cout << "A: " << A << " B: " << B << std::endl;
-
-      double O = (A * A - A * B + sqrt(3.0) * A + B * B + sqrt(3.0) * B + 3.0);
-      /* std::cout << "long operand: " << O << std::endl; */
-      double delta = 2.0 * atan(((B * (2.0 * sqrt(O / (B * B + 2.0 * sqrt(3.0) + 3.0)) - 1.0)) +
-                                 (6.0 * sqrt(O / ((sqrt(3.0) * B + 3.0) * (sqrt(3.0) * B + 3.0)))) + (2.0 * A + sqrt(3.0))) /
-                                (sqrt(3.0) * B + 3.0));
-
-
-      /* double gamma      = CV_PI - (delta + Alpha); */
-
-      /* double distMiddle = sin(gamma) * armLength / sin(Alpha); */
-      double distMiddle=(armLength*sin(M_PI-(delta+Alpha)))/(sin(Alpha));
-
-
-      double l = sqrt(fmax(0.1, distMiddle * distMiddle + armLength * armLength - 2 * distMiddle * armLength * cos(delta + (CV_PI / 3.0))));
-
-      double Epsilon=asin((armLength/l)*sin(delta+M_PI/3));
-      /* phi=asin((b/l)*sin(delta+pi/3)); */
-
-      /* double phi = asin(sin(delta + (CV_PI / 3.0)) * (armLength / l)); */
-      double phi = asin(sin(delta + (CV_PI / 3.0)) * (distMiddle / l));
-      std::cout << "delta: " << delta << std::endl;
-      std::cout << "Estimated distance: " << l << std::endl;
-      /* std_msgs::Float32 dM, fdM; */
-      /* dM.data  = distance; */
-      /* fdM.data = distanceFiltered; */
-      /* measuredDist.publish(dM); */
-      /* filteredDist.publish(fdM); */
-
-      std::cout << "Estimated angle from mid. LED: " << phi * (180.0 / CV_PI) << std::endl;
-
-      double C=acos(V2_c.dot(V2));
-      Eigen::Vector3d V2_d=V2_c-V2;
-      if (V2_d(1)<0)
-        C=-C;
-      double t=acos(V1.dot(V3));
-
-      double Omega1=asin(fmax(-1.0,fmin(1.0,(C/t)*(2.0*sqrt(3.0)))));
-
-      /* Eigen::Vector3d Pv = V2.cross(V1).normalized(); */
-      /* Rc = makehgtform('axisrotate',norm13,epsilon); */
-      Eigen::Transform< double, 3, Eigen::Affine > Rc(Eigen::AngleAxis< double >(Epsilon, norm13));
-      /* vc=Rc(1:3,1:3)*v2_c; */
-      Eigen::Vector3d Vc = Rc*V2_c;
-
-      Eigen::VectorXd Yt=l*Vc;
-      /* goalInCam        = (distanceFiltered - followDistance) * (Rp * V2); */
-      /* tf::Vector3 centerEstimInCamTF; */
-      /* tf::vectorEigenToTF(centerEstimInCam, centerEstimInCamTF); */
-      /* tf::Vector3 centerEstimInBaseTF = (transform * centerEstimInCamTF); */
-      /* /1* std::cout << centerEstimInBaseTF << std::endl; *1/ */
-      /* tf::vectorTFToEigen(centerEstimInBaseTF, centerEstimInBase); */
-
-
-
-      /* std::cout << "Estimated center in CAM: " << Yt << std::endl; */
-
-      double tilt_perp=Omega1+atan2(Vc(1),sqrt(sqr(Vc(2))+sqr(Vc(0))));
-
-      double relyaw;
-
-      ROS_INFO_STREAM("leds: " << id);
-
-      if (expFrequencies.size() == 2){
-        if     ((id(0)==ids[0]) && (id(1)==ids[0]) && (id(2)==ids[0]))
-          relyaw=(M_PI/2);
-        else if ((id(0)==ids[1]) && (id(1)==ids[1]) && (id(2)==ids[1]))
-        relyaw=(-M_PI/2);
-        else if ((id(0)==ids[0]) && (id(1)==ids[0]) && (id(2)==ids[1]))
-        relyaw=(M_PI/6);
-        else if ((id(0)==ids[0]) && (id(1)==ids[1]) && (id(2)==ids[1]))
-        relyaw=(-M_PI/6);
-        else if ((id(0)==ids[1]) && (id(1)==ids[1]) && (id(2)==ids[0]))
-        relyaw=(-5*M_PI/6);
-        else if ((id(0)==ids[1]) && (id(1)==ids[0]) && (id(2)==ids[0]))
-        relyaw=(5*M_PI/6);
-        else
-          if (id(0)==ids[0])
-            relyaw=(M_PI/2)+ambig;
-          else
-            relyaw=(-M_PI/2)+ambig;
-      }
-      else {
-        if     ((id(0)==ids[2]) && (id(1)==ids[0]) && (id(2)==ids[0]))
-          relyaw=(M_PI/2);
-        else if ((id(0)==ids[1]) && (id(1)==ids[1]) && (id(2)==ids[2]))
-        relyaw=(-M_PI/2);
-        else if ((id(0)==ids[0]) && (id(1)==ids[0]) && (id(2)==ids[1]))
-        relyaw=(M_PI/6);
-        else if ((id(0)==ids[0]) && (id(1)==ids[1]) && (id(2)==ids[1]))
-        relyaw=(-M_PI/6);
-        else if ((id(0)==ids[1]) && (id(1)==ids[2]) && (id(2)==ids[2]))
-        relyaw=(-5*M_PI/6);
-        else if ((id(0)==ids[2]) && (id(1)==ids[2]) && (id(2)==ids[0]))
-          relyaw=(5*M_PI/6);
-        else
-          if (id(0)==ids[0])
-            relyaw=(M_PI/2)+ambig;
-          else
-            relyaw=(-M_PI/2)+ambig;
-      }
-
-      double latnorm=sqrt(sqr(Yt(0))+sqr(Yt(2)));
-      double Gamma=atan2(Yt(1),latnorm);
-      Eigen::Vector3d obs_normal =V3.cross(V1); //not exact, but in practice changes very little
-      obs_normal=obs_normal/(obs_normal.norm());
-      Eigen::Vector3d latComp;
-      latComp << Vc(0),0,Vc(2);
-      latComp = latComp/(latComp.norm());
-      if (Vc(1)<0) latComp = -latComp;
-
-      /* Re = makehgtform('axisrotate',cross(vc,latComp),Gamma+pi/2); */
-      Eigen::Transform< double, 3, Eigen::Affine > Re(Eigen::AngleAxis< double >( Gamma+(M_PI/2),(Vc.cross(latComp)).normalized()));
-      Eigen::Vector3d exp_normal=Re*Vc;
-      /* Ro = makehgtform('axisrotate',cross(vc,obs_normal),Gamma); */
-      Eigen::Transform< double, 3, Eigen::Affine > Ro(Eigen::AngleAxis< double >( Gamma,(Vc.cross(obs_normal)).normalized()));
-      obs_normal=Ro*obs_normal;
-      /* obs_normal=Ro(1:3,1:3)*obs_normal; */
-      /* exp_normal=Re(1:3,1:3)*vc; */
-      double tilt_par=acos(obs_normal.dot(exp_normal));
-      if (V1(1)<V2(1))
-        tilt_par=-tilt_par;
-
-
-      if (DEBUG){
-        ROS_INFO_STREAM("latComp: " << latComp);
-        ROS_INFO_STREAM("Vc: " << Vc);
-        ROS_INFO_STREAM("Gamma: " << Gamma);
-        ROS_INFO_STREAM("exp_normal: " << exp_normal);
-        ROS_INFO_STREAM("obs_normal: " << obs_normal);
-        ROS_INFO_STREAM("tilt_par: " << tilt_par);
-        ROS_INFO_STREAM("tilt_perp: " << tilt_perp);
-      }
-
-      double relyaw_view=relyaw+phi;
-      relyaw=relyaw-atan2(Vc(0),Vc(2))+phi;
-
-      double xl=(armLength/2)*cos(phi);
-      double dist = Yt.norm();
-      /* % X(1:3)=Xt(1:3) */
-      Eigen::VectorXd Y(6);
-      Yt = Yt*((dist-xl)/dist);
-      latnorm=sqrt(sqr(Y(0))+sqr(Y(2)));
-      double latang=atan2(Yt(0),Yt(2));
-      Y(1)=Yt(1)-xl*sin(tilt_perp)*cos(tilt_par);
-      Y(0)=Yt(0)-xl*sin(tilt_perp)*sin(tilt_par)*cos(latang)+xl*cos(tilt_perp)*sin(latang);
-      Y(2)=Yt(2)+xl*sin(tilt_perp)*sin(tilt_par)*sin(latang)+xl*cos(tilt_perp)*cos(latang);
-
-
-      double reltilt_abs=atan(sqrt(sqr(tan(tilt_perp))+sqr(tan(tilt_par))));
-      double tiltdir=atan2(-tan(tilt_par),tan(tilt_perp));
-      double tiltdir_adj=tiltdir-relyaw_view;
-      double ta=cos(tiltdir_adj);
-      double tb=-sin(tiltdir_adj);
-      double tc=cot(reltilt_abs);
-      double tpitch=atan2(ta,tc);
-      double troll=atan2(tb,tc);
-      if (DEBUG){
-        ROS_INFO_STREAM("tpitch: " << tpitch << " ta: " << ta << " tc: " << tc);
-        ROS_INFO_STREAM("troll: " << tpitch << " tb: " << ta << " tc: " << tc);
-        ROS_INFO_STREAM("reltilt_abs: " << reltilt_abs << " tilt_perp: " << tilt_perp << " tilt_par: " << tilt_par);
-        ROS_INFO_STREAM("Omega1: " << Omega1 << " t: " << t << " C: " << C);
-      }
-
-      Y << Yt.x(),Yt.y(),Yt.z(),troll,tpitch,relyaw;
-      return Y;
-  }
-
-  static Eigen::Matrix3d rotate_covariance(const Eigen::Matrix3d& covariance, const Eigen::Matrix3d& rotation) {
-    return rotation * covariance * rotation.transpose();  // rotate the covariance to point in direction of est. position
-  }
-
-  //Courtesy of Matous Vrba
-  static Eigen::Matrix3d calc_position_covariance(const Eigen::Vector3d& position_sf, const double xy_covariance_coeff, const double z_covariance_coeff) {
-    Eigen::Matrix3d v_x;
-    Eigen::Vector3d b;
-    Eigen::Vector3d v;
-    double sin_ab, cos_ab;
-    Eigen::Matrix3d vec_rot;
-    const Eigen::Vector3d a(0.0, 0.0, 1.0);
-    /* Calculates the corresponding covariance matrix of the estimated 3D position */
-    Eigen::Matrix3d pos_cov = Eigen::Matrix3d::Identity();  // prepare the covariance matrix
-    /* const double tol = 1e-9; */
-    pos_cov(0, 0) = pos_cov(1, 1) = xy_covariance_coeff*xy_covariance_coeff;
-
-    /* double dist = position_sf.norm(); */
-    /* pos_cov(2, 2) = dist * sqrt(dist) * z_covariance_coeff; */
-    /* if (pos_cov(2, 2) < 0.33 * z_covariance_coeff) */
-    /*   pos_cov(2, 2) = 0.33 * z_covariance_coeff; */
-    pos_cov(2, 2) = z_covariance_coeff;
-
-    // Find the rotation matrix to rotate the covariance to point in the direction of the estimated position
-    b = position_sf.normalized();
-    v = a.cross(b);
-    sin_ab = v.norm();
-    cos_ab = a.dot(b);
-    const double angle = atan2(sin_ab, cos_ab);     // the desired rotation angle
-    /* ROS_INFO_STREAM("pi/2 about x: "<< Eigen::AngleAxisd(M_PI/2, Eigen::Vector3d(1,0,0)).toRotationMatrix()); */
-    vec_rot = Eigen::AngleAxisd(angle, v.normalized()).toRotationMatrix();
-    pos_cov = rotate_covariance(pos_cov, vec_rot);  // rotate the covariance to point in direction of est. position
-    if (pos_cov.array().isNaN().any()){
-      ROS_INFO_STREAM("NAN IN  COVARIANCE!!!!");
-      ROS_INFO_STREAM("pos_cov: \n" <<pos_cov);
-      /* ROS_INFO_STREAM("v_x: \n" <<v_x); */
-      ROS_INFO_STREAM("sin_ab: " <<sin_ab);
-      ROS_INFO_STREAM("cos_ab: " <<cos_ab);
-      ROS_INFO_STREAM("vec_rot: \n"<<vec_rot);
-      ROS_INFO_STREAM("a: " <<a.transpose());
-      ROS_INFO_STREAM("b: " <<b.transpose());
-      ROS_INFO_STREAM("v: " <<v.transpose());
-    }
-    return pos_cov;
-  }
-
+  /* uvdarHexarotorPose1p //{ */
   unscented::measurement uvdarHexarotorPose1p_meas(Eigen::Vector2d X,double tubewidth, double tubelength, double meanDist){
     double v1[3];
     double x[2] = {X.y(),X.x()};
@@ -521,7 +253,9 @@ public:
     return ms;
 
   }
+  //}
 
+  /* uvdarHexarotorPose2p //{ */
   Eigen::VectorXd uvdarHexarotorPose2p(Eigen::VectorXd X, Eigen::VectorXd expFrequencies){
 
     /* ROS_INFO_STREAM("X: " << X); */
@@ -573,15 +307,15 @@ public:
 
       /* double alpha = acos(V1.dot(V2)); */
 
-      /* double vd = sqrt(0.75 * armLength); */
+      /* double vd = sqrt(0.75 * _arm_length_); */
 
-      /* double distance = (armLength / 2.0) / tan(alpha / 2.0) + vd; */
+      /* double distance = (_arm_length_ / 2.0) / tan(alpha / 2.0) + vd; */
       /* if (first) { */
       /*   distanceSlider.filterInit(distance, filterDistLength); */
       /*   orientationSlider.filterInit(angleDist, filterOrientationLength); */
       /*   first = false; */
       /* } */
-      double d = armLength;
+      double d = _arm_length_;
       double v=d*sqrt(3.0/4.0);
       double sqv=v*v;
       double sqd=d*d;
@@ -749,8 +483,336 @@ public:
        
     }
 
+  //}
+
+  /* uvdarHexarotorPose3p //{ */
+  Eigen::VectorXd uvdarHexarotorPose3p(Eigen::VectorXd X, Eigen::VectorXd expFrequencies){
+      cv::Point3d tmp;
+      cv::Point3d a(X(0),X(1),X(2));
+      cv::Point3d b(X(3),X(4),X(5));
+      cv::Point3d c(X(6),X(7),X(8));
+      double ambig = X(9);
+
+      if ((c.x) < (a.x)) {
+        tmp = a;
+        a = c;
+        c = tmp;
+      }
+      if ((b.x) < (a.x)) {
+        tmp = b;
+        b = a;
+        a = tmp;
+      }
+      if ((b.x) > (c.x)) {
+        tmp = c;
+        c   = b;
+        b   = tmp;
+      }
+      if (DEBUG)
+        ROS_INFO_STREAM("Central led: " << b);
+      Eigen::Vector3i ids;
+      ids << 0,1,2;
+      Eigen::Vector3d expPeriods;
+      expPeriods = expFrequencies.cwiseInverse(); 
+      Eigen::Vector3d periods;
+      periods << a.z,b.z,c.z;
+      Eigen::Vector3d id;
+      Eigen::MatrixXd::Index   minIndex;
+      ((expPeriods.array()-(periods(0))).cwiseAbs()).minCoeff(&minIndex);
+      id(0) = minIndex;
+      ((expPeriods.array()-(periods(1))).cwiseAbs()).minCoeff(&minIndex);
+      id(1) = minIndex;
+      ((expPeriods.array()-(periods(2))).cwiseAbs()).minCoeff(&minIndex);
+      id(2) = minIndex;
 
 
+      double pixDist = (cv::norm(b - a) + cv::norm(c - b)) * 0.5;
+      double v1[3], v2[3], v3[3];
+      double va[2] = {(double)(a.y), (double)(a.x)};
+      double vb[2] = {(double)(b.y), (double)(b.x)};
+      double vc[2] = {(double)(c.y), (double)(c.x)};
+
+      cam2world(v1, va, &oc_model);
+      cam2world(v2, vb, &oc_model);
+      cam2world(v3, vc, &oc_model);
+
+      Eigen::Vector3d V1(v1[1], v1[0], -v1[2]);
+      Eigen::Vector3d V2(v2[1], v2[0], -v2[2]);
+      Eigen::Vector3d V3(v3[1], v3[0], -v3[2]);
+
+      Eigen::Vector3d norm13=V3.cross(V1);
+      norm13=norm13/norm13.norm();
+      double dist132=V2.dot(norm13);
+      Eigen::Vector3d V2_c=V2-dist132*norm13;
+      V2_c=V2_c/V2_c.norm();
+
+      double Alpha = acos(V1.dot(V2_c));
+      double Beta  = acos(V2_c.dot(V3));
+  
+      double A = 1.0 / tan(Alpha);
+      double B = 1.0 / tan(Beta);
+      std::cout << "alpha: " << Alpha << " beta: " << Beta << std::endl;
+      std::cout << "A: " << A << " B: " << B << std::endl;
+
+      double O = (A * A - A * B + sqrt(3.0) * A + B * B + sqrt(3.0) * B + 3.0);
+      /* std::cout << "long operand: " << O << std::endl; */
+      double delta = 2.0 * atan(((B * (2.0 * sqrt(O / (B * B + 2.0 * sqrt(3.0) + 3.0)) - 1.0)) +
+                                 (6.0 * sqrt(O / ((sqrt(3.0) * B + 3.0) * (sqrt(3.0) * B + 3.0)))) + (2.0 * A + sqrt(3.0))) /
+                                (sqrt(3.0) * B + 3.0));
+
+
+      /* double gamma      = CV_PI - (delta + Alpha); */
+
+      /* double distMiddle = sin(gamma) * _arm_length_ / sin(Alpha); */
+      double distMiddle=(_arm_length_*sin(M_PI-(delta+Alpha)))/(sin(Alpha));
+
+
+      double l = sqrt(fmax(0.1, distMiddle * distMiddle + _arm_length_ * _arm_length_ - 2 * distMiddle * _arm_length_ * cos(delta + (CV_PI / 3.0))));
+
+      double Epsilon=asin((_arm_length_/l)*sin(delta+M_PI/3));
+      /* phi=asin((b/l)*sin(delta+pi/3)); */
+
+      /* double phi = asin(sin(delta + (CV_PI / 3.0)) * (_arm_length_ / l)); */
+      double phi = asin(sin(delta + (CV_PI / 3.0)) * (distMiddle / l));
+      std::cout << "delta: " << delta << std::endl;
+      std::cout << "Estimated distance: " << l << std::endl;
+      /* std_msgs::Float32 dM, fdM; */
+      /* dM.data  = distance; */
+      /* fdM.data = distanceFiltered; */
+      /* measuredDist.publish(dM); */
+      /* filteredDist.publish(fdM); */
+
+      std::cout << "Estimated angle from mid. LED: " << phi * (180.0 / CV_PI) << std::endl;
+
+      double C=acos(V2_c.dot(V2));
+      Eigen::Vector3d V2_d=V2_c-V2;
+      if (V2_d(1)<0)
+        C=-C;
+      double t=acos(V1.dot(V3));
+
+      double Omega1=asin(fmax(-1.0,fmin(1.0,(C/t)*(2.0*sqrt(3.0)))));
+
+      /* Eigen::Vector3d Pv = V2.cross(V1).normalized(); */
+      /* Rc = makehgtform('axisrotate',norm13,epsilon); */
+      Eigen::Transform< double, 3, Eigen::Affine > Rc(Eigen::AngleAxis< double >(Epsilon, norm13));
+      /* vc=Rc(1:3,1:3)*v2_c; */
+      Eigen::Vector3d Vc = Rc*V2_c;
+
+      Eigen::VectorXd Yt=l*Vc;
+      /* goalInCam        = (distanceFiltered - followDistance) * (Rp * V2); */
+      /* tf::Vector3 centerEstimInCamTF; */
+      /* tf::vectorEigenToTF(centerEstimInCam, centerEstimInCamTF); */
+      /* tf::Vector3 centerEstimInBaseTF = (transform * centerEstimInCamTF); */
+      /* /1* std::cout << centerEstimInBaseTF << std::endl; *1/ */
+      /* tf::vectorTFToEigen(centerEstimInBaseTF, centerEstimInBase); */
+
+
+
+      /* std::cout << "Estimated center in CAM: " << Yt << std::endl; */
+
+      double tilt_perp=Omega1+atan2(Vc(1),sqrt(sqr(Vc(2))+sqr(Vc(0))));
+
+      double relyaw;
+
+      ROS_INFO_STREAM("leds: " << id);
+
+      if (expFrequencies.size() == 2){
+        if     ((id(0)==ids[0]) && (id(1)==ids[0]) && (id(2)==ids[0]))
+          relyaw=(M_PI/2);
+        else if ((id(0)==ids[1]) && (id(1)==ids[1]) && (id(2)==ids[1]))
+        relyaw=(-M_PI/2);
+        else if ((id(0)==ids[0]) && (id(1)==ids[0]) && (id(2)==ids[1]))
+        relyaw=(M_PI/6);
+        else if ((id(0)==ids[0]) && (id(1)==ids[1]) && (id(2)==ids[1]))
+        relyaw=(-M_PI/6);
+        else if ((id(0)==ids[1]) && (id(1)==ids[1]) && (id(2)==ids[0]))
+        relyaw=(-5*M_PI/6);
+        else if ((id(0)==ids[1]) && (id(1)==ids[0]) && (id(2)==ids[0]))
+        relyaw=(5*M_PI/6);
+        else
+          if (id(0)==ids[0])
+            relyaw=(M_PI/2)+ambig;
+          else
+            relyaw=(-M_PI/2)+ambig;
+      }
+      else {
+        if     ((id(0)==ids[2]) && (id(1)==ids[0]) && (id(2)==ids[0]))
+          relyaw=(M_PI/2);
+        else if ((id(0)==ids[1]) && (id(1)==ids[1]) && (id(2)==ids[2]))
+        relyaw=(-M_PI/2);
+        else if ((id(0)==ids[0]) && (id(1)==ids[0]) && (id(2)==ids[1]))
+        relyaw=(M_PI/6);
+        else if ((id(0)==ids[0]) && (id(1)==ids[1]) && (id(2)==ids[1]))
+        relyaw=(-M_PI/6);
+        else if ((id(0)==ids[1]) && (id(1)==ids[2]) && (id(2)==ids[2]))
+        relyaw=(-5*M_PI/6);
+        else if ((id(0)==ids[2]) && (id(1)==ids[2]) && (id(2)==ids[0]))
+          relyaw=(5*M_PI/6);
+        else
+          if (id(0)==ids[0])
+            relyaw=(M_PI/2)+ambig;
+          else
+            relyaw=(-M_PI/2)+ambig;
+      }
+
+      double latnorm=sqrt(sqr(Yt(0))+sqr(Yt(2)));
+      double Gamma=atan2(Yt(1),latnorm);
+      Eigen::Vector3d obs_normal =V3.cross(V1); //not exact, but in practice changes very little
+      obs_normal=obs_normal/(obs_normal.norm());
+      Eigen::Vector3d latComp;
+      latComp << Vc(0),0,Vc(2);
+      latComp = latComp/(latComp.norm());
+      if (Vc(1)<0) latComp = -latComp;
+
+      /* Re = makehgtform('axisrotate',cross(vc,latComp),Gamma+pi/2); */
+      Eigen::Transform< double, 3, Eigen::Affine > Re(Eigen::AngleAxis< double >( Gamma+(M_PI/2),(Vc.cross(latComp)).normalized()));
+      Eigen::Vector3d exp_normal=Re*Vc;
+      /* Ro = makehgtform('axisrotate',cross(vc,obs_normal),Gamma); */
+      Eigen::Transform< double, 3, Eigen::Affine > Ro(Eigen::AngleAxis< double >( Gamma,(Vc.cross(obs_normal)).normalized()));
+      obs_normal=Ro*obs_normal;
+      /* obs_normal=Ro(1:3,1:3)*obs_normal; */
+      /* exp_normal=Re(1:3,1:3)*vc; */
+      double tilt_par=acos(obs_normal.dot(exp_normal));
+      if (V1(1)<V2(1))
+        tilt_par=-tilt_par;
+
+
+      if (DEBUG){
+        ROS_INFO_STREAM("latComp: " << latComp);
+        ROS_INFO_STREAM("Vc: " << Vc);
+        ROS_INFO_STREAM("Gamma: " << Gamma);
+        ROS_INFO_STREAM("exp_normal: " << exp_normal);
+        ROS_INFO_STREAM("obs_normal: " << obs_normal);
+        ROS_INFO_STREAM("tilt_par: " << tilt_par);
+        ROS_INFO_STREAM("tilt_perp: " << tilt_perp);
+      }
+
+      double relyaw_view=relyaw+phi;
+      relyaw=relyaw-atan2(Vc(0),Vc(2))+phi;
+
+      double xl=(_arm_length_/2)*cos(phi);
+      double dist = Yt.norm();
+      /* % X(1:3)=Xt(1:3) */
+      Eigen::VectorXd Y(6);
+      Yt = Yt*((dist-xl)/dist);
+      latnorm=sqrt(sqr(Y(0))+sqr(Y(2)));
+      double latang=atan2(Yt(0),Yt(2));
+      Y(1)=Yt(1)-xl*sin(tilt_perp)*cos(tilt_par);
+      Y(0)=Yt(0)-xl*sin(tilt_perp)*sin(tilt_par)*cos(latang)+xl*cos(tilt_perp)*sin(latang);
+      Y(2)=Yt(2)+xl*sin(tilt_perp)*sin(tilt_par)*sin(latang)+xl*cos(tilt_perp)*cos(latang);
+
+
+      double reltilt_abs=atan(sqrt(sqr(tan(tilt_perp))+sqr(tan(tilt_par))));
+      double tiltdir=atan2(-tan(tilt_par),tan(tilt_perp));
+      double tiltdir_adj=tiltdir-relyaw_view;
+      double ta=cos(tiltdir_adj);
+      double tb=-sin(tiltdir_adj);
+      double tc=cot(reltilt_abs);
+      double tpitch=atan2(ta,tc);
+      double troll=atan2(tb,tc);
+      if (DEBUG){
+        ROS_INFO_STREAM("tpitch: " << tpitch << " ta: " << ta << " tc: " << tc);
+        ROS_INFO_STREAM("troll: " << tpitch << " tb: " << ta << " tc: " << tc);
+        ROS_INFO_STREAM("reltilt_abs: " << reltilt_abs << " tilt_perp: " << tilt_perp << " tilt_par: " << tilt_par);
+        ROS_INFO_STREAM("Omega1: " << Omega1 << " t: " << t << " C: " << C);
+      }
+
+      Y << Yt.x(),Yt.y(),Yt.z(),troll,tpitch,relyaw;
+      return Y;
+  }
+  //}
+
+  /* uvdarQuadrotorPose1p //{ */
+  unscented::measurement uvdarQuadrotorPose1p_meas(Eigen::Vector2d X,double tubewidth, double tubelength, double meanDist){
+    ROS_INFO("Quadrotor pose retrieval from 3 points NOT IMPLEMENTED!");
+    double v1[3];
+    double x[2] = {X.y(),X.x()};
+    cam2world(v1, x, &oc_model);
+    Eigen::Vector3d V1(v1[1], v1[0], -v1[2]);
+    V1 = V1*meanDist;
+
+    unscented::measurement ms;
+    ms.x = Eigen::VectorXd(6);
+    ms.C = Eigen::MatrixXd(6,6);
+
+    ms.x << V1.x(),V1.y(),V1.z(),0,0,0; 
+    Eigen::MatrixXd temp;
+    temp.setIdentity(6,6);
+    ms.C = temp*666;//large covariance for angles in radians
+    ms.C.topLeftCorner(3, 3) = calc_position_covariance(V1,tubewidth,tubelength);
+
+    /* std::cout << "ms.C: " << ms.C << std::endl; */
+
+
+    return ms;
+  }
+    //}
+
+  /* uvdarQuadrotorPose2p //{ */
+  Eigen::VectorXd uvdarQuadrotorPose2p(Eigen::VectorXd X, Eigen::VectorXd expFrequencies){
+    ROS_INFO("Quadrotor pose retrieval from 3 points NOT IMPLEMENTED!");
+    return Eigen::VectorXd();
+  }
+    //}
+
+  /* uvdarQuadrotorPose3p //{ */
+  Eigen::VectorXd uvdarQuadrotorPose3p(Eigen::VectorXd X, Eigen::VectorXd expFrequencies){
+    ROS_INFO("Quadrotor pose retrieval from 3 points NOT IMPLEMENTED!");
+    return Eigen::VectorXd();
+  }
+    //}
+
+  /* rotate_covariance //{ */
+  static Eigen::Matrix3d rotate_covariance(const Eigen::Matrix3d& covariance, const Eigen::Matrix3d& rotation) {
+    return rotation * covariance * rotation.transpose();  // rotate the covariance to point in direction of est. position
+  }
+  //}
+
+  /* calc_position_covariance //{ */
+  //Courtesy of Matous Vrba
+  static Eigen::Matrix3d calc_position_covariance(const Eigen::Vector3d& position_sf, const double xy_covariance_coeff, const double z_covariance_coeff) {
+    Eigen::Matrix3d v_x;
+    Eigen::Vector3d b;
+    Eigen::Vector3d v;
+    double sin_ab, cos_ab;
+    Eigen::Matrix3d vec_rot;
+    const Eigen::Vector3d a(0.0, 0.0, 1.0);
+    /* Calculates the corresponding covariance matrix of the estimated 3D position */
+    Eigen::Matrix3d pos_cov = Eigen::Matrix3d::Identity();  // prepare the covariance matrix
+    /* const double tol = 1e-9; */
+    pos_cov(0, 0) = pos_cov(1, 1) = xy_covariance_coeff*xy_covariance_coeff;
+
+    /* double dist = position_sf.norm(); */
+    /* pos_cov(2, 2) = dist * sqrt(dist) * z_covariance_coeff; */
+    /* if (pos_cov(2, 2) < 0.33 * z_covariance_coeff) */
+    /*   pos_cov(2, 2) = 0.33 * z_covariance_coeff; */
+    pos_cov(2, 2) = z_covariance_coeff;
+
+    // Find the rotation matrix to rotate the covariance to point in the direction of the estimated position
+    b = position_sf.normalized();
+    v = a.cross(b);
+    sin_ab = v.norm();
+    cos_ab = a.dot(b);
+    const double angle = atan2(sin_ab, cos_ab);     // the desired rotation angle
+    /* ROS_INFO_STREAM("pi/2 about x: "<< Eigen::AngleAxisd(M_PI/2, Eigen::Vector3d(1,0,0)).toRotationMatrix()); */
+    vec_rot = Eigen::AngleAxisd(angle, v.normalized()).toRotationMatrix();
+    pos_cov = rotate_covariance(pos_cov, vec_rot);  // rotate the covariance to point in direction of est. position
+    if (pos_cov.array().isNaN().any()){
+      ROS_INFO_STREAM("NAN IN  COVARIANCE!!!!");
+      ROS_INFO_STREAM("pos_cov: \n" <<pos_cov);
+      /* ROS_INFO_STREAM("v_x: \n" <<v_x); */
+      ROS_INFO_STREAM("sin_ab: " <<sin_ab);
+      ROS_INFO_STREAM("cos_ab: " <<cos_ab);
+      ROS_INFO_STREAM("vec_rot: \n"<<vec_rot);
+      ROS_INFO_STREAM("a: " <<a.transpose());
+      ROS_INFO_STREAM("b: " <<b.transpose());
+      ROS_INFO_STREAM("v: " <<v.transpose());
+    }
+    return pos_cov;
+  }
+  //}
+
+  /* TfThread //{ */
   void TfThread() {
     gotCam2Base = false;
     ros::Rate transformRate(1.0);
@@ -777,7 +839,9 @@ public:
 
     gotCam2Base = true;
   }
+  //}
 
+  /* ProcessPointsUnstamped //{ */
   //for legacy reasons
   void ProcessPointsUnstamped(const std_msgs::Int32MultiArrayConstPtr& msg, size_t imageIndex){
     if (DEBUG)
@@ -788,7 +852,9 @@ public:
     msg_stamped->data = msg->data;
     ProcessPoints(msg_stamped, imageIndex);
   }
+  //}
 
+  /* ProcessPoints //{ */
   void ProcessPoints(const uvdar::Int32MultiArrayStampedConstPtr& msg, size_t imageIndex) {
     int                        countSeen;
     std::vector< cv::Point3i > points;
@@ -845,7 +911,9 @@ public:
       }
     }
   }
+  //}
 
+  /* extractSingleRelative //{ */
   void extractSingleRelative(std::vector< cv::Point3i > points, int target, size_t imageIndex) {
     
     double leftF = frequencySet[target*2];
@@ -888,11 +956,11 @@ public:
             points.erase(points.begin() + i);
             i--;
           }
+          }
+          maxDist = 0.5 * maxDist;
+          /* std::cout << "maxDist: " << maxDist << std::endl; */
         }
-        maxDist = 0.5 * maxDist;
-        /* std::cout << "maxDist: " << maxDist << std::endl; */
       }
-    }
 
 
       unscented::measurement ms;
@@ -901,174 +969,253 @@ public:
 
       double perr=0.2/estimatedFramerate[imageIndex];
 
-    if (points.size() == 3) {
-      ROS_INFO_STREAM("points: " << points);
-      X3 <<
-        points[0].x ,points[0].y, 1.0/(double)(points[0].z),
-        points[1].x ,points[1].y, 1.0/(double)(points[1].z),
-        points[2].x, points[2].y, 1.0/(double)(points[2].z),
-        0;  //to account for ambiguity
-      Px3 <<
-        qpix ,0,0,0,0,0,0,0,0,0,
-        0,qpix ,0,0,0,0,0,0,0,0,
-        0,0,sqr(perr),0,0,0,0,0,0,0,
-        0,0,0,qpix ,0,0,0,0,0,0,
-        0,0,0,0,qpix ,0,0,0,0,0,
-        0,0,0,0,0,sqr(perr),0,0,0,0,
-        0,0,0,0,0,0,qpix ,0,0,0,
-        0,0,0,0,0,0,0,qpix ,0,0,
-        0,0,0,0,0,0,0,0,sqr(perr),0,
-        0,0,0,0,0,0,0,0,0,sqr(2*M_PI/3)
-        ;
-      ROS_INFO_STREAM("X3: " << X3);
-      boost::function<Eigen::VectorXd(Eigen::VectorXd,Eigen::VectorXd)> callback;
-      callback=boost::bind(&PoseReporter::uvdarHexarotorPose3p,this,_1,_2);
-      ms = unscented::unscentedTransform(X3,Px3,callback,leftF,rightF,-1);
-    }
-    else if (points.size() == 2) {
-      ROS_INFO_STREAM("points: " << points);
-      X2 <<
-        (double)(points[0].x) ,(double)(points[0].y),1.0/(double)(points[0].z),
-        (double)(points[1].x) ,(double)(points[1].y),1.0/(double)(points[1].z),
-        0.0,0.0,0.0;
-      Px2 <<
-        qpix ,0,0,0,0,0,0,0,0,
-        0,qpix ,0,0,0,0,0,0,0,
-        0,0,sqr(perr),0,0,0,0,0,0,
-        0,0,0,qpix ,0,0,0,0,0,
-        0,0,0,0,qpix ,0,0,0,0,
-        0,0,0,0,0,sqr(perr),0,0,0,
-        0,0,0,0,0,0,sqr(deg2rad(8)),0,0,
-        0,0,0,0,0,0,0,sqr(deg2rad(60)),0,
-        0,0,0,0,0,0,0,0,sqr(deg2rad(10))
-        ;
+      if (_quadrotor_) {
+        if (points.size() == 3) {
+          ROS_INFO_STREAM("points: " << points);
+          X3 <<
+            points[0].x ,points[0].y, 1.0/(double)(points[0].z),
+            points[1].x ,points[1].y, 1.0/(double)(points[1].z),
+            points[2].x, points[2].y, 1.0/(double)(points[2].z),
+            0;  //to account for ambiguity
+          Px3 <<
+            qpix ,0,0,0,0,0,0,0,0,0,
+                 0,qpix ,0,0,0,0,0,0,0,0,
+                 0,0,sqr(perr),0,0,0,0,0,0,0,
+                 0,0,0,qpix ,0,0,0,0,0,0,
+                 0,0,0,0,qpix ,0,0,0,0,0,
+                 0,0,0,0,0,sqr(perr),0,0,0,0,
+                 0,0,0,0,0,0,qpix ,0,0,0,
+                 0,0,0,0,0,0,0,qpix ,0,0,
+                 0,0,0,0,0,0,0,0,sqr(perr),0,
+                 0,0,0,0,0,0,0,0,0,sqr(2*M_PI/3)
+                   ;
+          ROS_INFO_STREAM("X3: " << X3);
+          boost::function<Eigen::VectorXd(Eigen::VectorXd,Eigen::VectorXd)> callback;
+          callback=boost::bind(&PoseReporter::uvdarQuadrotorPose3p,this,_1,_2);
+          ms = unscented::unscentedTransform(X3,Px3,callback,leftF,rightF,-1);
+        }
+        else if (points.size() == 2) {
+          ROS_INFO_STREAM("points: " << points);
+          X2 <<
+            (double)(points[0].x) ,(double)(points[0].y),1.0/(double)(points[0].z),
+            (double)(points[1].x) ,(double)(points[1].y),1.0/(double)(points[1].z),
+            0.0,0.0,0.0;
+          Px2 <<
+            qpix ,0,0,0,0,0,0,0,0,
+                 0,qpix ,0,0,0,0,0,0,0,
+                 0,0,sqr(perr),0,0,0,0,0,0,
+                 0,0,0,qpix ,0,0,0,0,0,
+                 0,0,0,0,qpix ,0,0,0,0,
+                 0,0,0,0,0,sqr(perr),0,0,0,
+                 0,0,0,0,0,0,sqr(deg2rad(8)),0,0,
+                 0,0,0,0,0,0,0,sqr(deg2rad(60)),0,
+                 0,0,0,0,0,0,0,0,sqr(deg2rad(10))
+                   ;
 
-      ROS_INFO_STREAM("X2: " << X2);
-      boost::function<Eigen::VectorXd(Eigen::VectorXd,Eigen::VectorXd)> callback;
-      callback=boost::bind(&PoseReporter::uvdarHexarotorPose2p,this,_1,_2);
-      ms = unscented::unscentedTransform(X2,Px2,callback,leftF,rightF,-1);
-    }
-
-    else if (points.size() == 1) {
-      std::cout << "Only single point visible - no distance information" << std::endl;
-      angleDist = 0.0;
-      std::cout << "led: " << points[0] << std::endl;
-
-
-      ms = uvdarHexarotorPose1p_meas(Eigen::Vector2d(points[0].x,points[0].y),armLength, 1000,10.0);
+          ROS_INFO_STREAM("X2: " << X2);
+          boost::function<Eigen::VectorXd(Eigen::VectorXd,Eigen::VectorXd)> callback;
+          callback=boost::bind(&PoseReporter::uvdarQuadrotorPose2p,this,_1,_2);
+          ms = unscented::unscentedTransform(X2,Px2,callback,leftF,rightF,-1);
+        }
+        else if (points.size() == 1) {
+          std::cout << "Only single point visible - no distance information" << std::endl;
+          angleDist = 0.0;
+          std::cout << "led: " << points[0] << std::endl;
 
 
-      foundTarget = true;
-      lastSeen    = ros::Time::now();
-    } else {
-      std::cout << "No valid points seen. Waiting" << std::endl;
-      centerEstimInCam.x()  = 0;
-      centerEstimInCam.y()  = 0;
-      centerEstimInCam.z()  = 0;
-      /* centerEstimInBase.x() = 0; */
-      /* centerEstimInBase.y() = 0; */
-      /* centerEstimInBase.z() = 0; */
-      tailingComponent      = 0;
-      foundTarget           = false;
-      return;
-    }
+          ms = uvdarQuadrotorPose1p_meas(Eigen::Vector2d(points[0].x,points[0].y),_arm_length_, 1000,10.0);
 
 
-    /* Eigen::MatrixXd iden(6,6); */
-    /* iden.setIdentity(); */
-    /* ms.C +=iden*0.1; */
-
-    ROS_INFO_STREAM("Y: \n" << ms.x );
-    /* std::cout << "Py: " << ms.C << std::endl; */
-    ROS_INFO_STREAM("Py: \n" << ms.C );
-
-    msgOdom = boost::make_shared<geometry_msgs::PoseWithCovarianceStamped>();;
-    /* msgOdom->twist.covariance = msgOdom->pose.covariance; */
-
-    /* geometry_msgs::PoseWithCovarianceStampedPtr msgPose = boost::make_shared<geometry_msgs::PoseWithCovarianceStamped>();; */
-    /* geometry_msgs::PoseWithCovariancePtr msgPose = boost::make_shared<geometry_msgs::PoseWithCovariance>();; */
-    /* msgPose->header.frame_id ="uvcam"; */
-    /* msgPose->header.stamp = ros::Time::now(); */
-    msgOdom->pose.pose.position.x = ms.x(0);
-    msgOdom->pose.pose.position.y = ms.x(1);
-    msgOdom->pose.pose.position.z = ms.x(2);
-    tf::Quaternion qtemp;
-    qtemp.setRPY(ms.x(3), ms.x(4), ms.x(5));
-    qtemp=(transformCam2Base.getRotation().inverse())*qtemp;
-    /* Eigen::Affine3d aTtemp; */
-    /* tf::transformTFToEigen(transformCam2Base, aTtemp); */
-    /* qtemp = aTtemp*qtemp; */
-    msgOdom->pose.pose.orientation.x = qtemp.x();
-    msgOdom->pose.pose.orientation.y = qtemp.y();
-    msgOdom->pose.pose.orientation.z = qtemp.z();
-    msgOdom->pose.pose.orientation.w = qtemp.w();
-    for (int i=0; i<ms.C.cols(); i++){
-      for (int j=0; j<ms.C.rows(); j++){
-        msgOdom->pose.covariance[ms.C.cols()*j+i] =  ms.C(j,i);
-      }
-    }
-
-    msgOdom->header.frame_id = cameraFrames[imageIndex];
-    msgOdom->header.stamp = lastBlinkTime;
-    /* msgOdom->pose = *(msgPose); */
-
-    /* msgOdom->twist.twist.linear.x = 0.0; */
-    /* msgOdom->twist.twist.linear.y = 0.0; */
-    /* msgOdom->twist.twist.linear.z = 0.0; */
-    /* msgOdom->twist.twist.angular.x = 0.0; */
-    /* msgOdom->twist.twist.angular.y = 0.0; */
-    /* msgOdom->twist.twist.angular.z = 0.0; */
+          foundTarget = true;
+          lastSeen    = ros::Time::now();
+        } else {
+          std::cout << "No valid points seen. Waiting" << std::endl;
+          centerEstimInCam.x()  = 0;
+          centerEstimInCam.y()  = 0;
+          centerEstimInCam.z()  = 0;
+          /* centerEstimInBase.x() = 0; */
+          /* centerEstimInBase.y() = 0; */
+          /* centerEstimInBase.z() = 0; */
+          tailingComponent      = 0;
+          foundTarget           = false;
+          return;
+        }
     
-    /* msgOdom->twist.covariance = { */
-    /*   4,0,0,0,0,0, */
-    /*   0,4,0,0,0,0, */
-    /*   0,0,4,0,0,0, */
-    /*   0,0,0,2,0,0, */
-    /*   0,0,0,0,2,0, */
-    /*   0,0,0,0,0,2}; */
+
+      }
+      else {
+        if (points.size() == 3) {
+          ROS_INFO_STREAM("points: " << points);
+          X3 <<
+            points[0].x ,points[0].y, 1.0/(double)(points[0].z),
+            points[1].x ,points[1].y, 1.0/(double)(points[1].z),
+            points[2].x, points[2].y, 1.0/(double)(points[2].z),
+            0;  //to account for ambiguity
+          Px3 <<
+            qpix ,0,0,0,0,0,0,0,0,0,
+                 0,qpix ,0,0,0,0,0,0,0,0,
+                 0,0,sqr(perr),0,0,0,0,0,0,0,
+                 0,0,0,qpix ,0,0,0,0,0,0,
+                 0,0,0,0,qpix ,0,0,0,0,0,
+                 0,0,0,0,0,sqr(perr),0,0,0,0,
+                 0,0,0,0,0,0,qpix ,0,0,0,
+                 0,0,0,0,0,0,0,qpix ,0,0,
+                 0,0,0,0,0,0,0,0,sqr(perr),0,
+                 0,0,0,0,0,0,0,0,0,sqr(2*M_PI/3)
+                   ;
+          ROS_INFO_STREAM("X3: " << X3);
+          boost::function<Eigen::VectorXd(Eigen::VectorXd,Eigen::VectorXd)> callback;
+          callback=boost::bind(&PoseReporter::uvdarHexarotorPose3p,this,_1,_2);
+          ms = unscented::unscentedTransform(X3,Px3,callback,leftF,rightF,-1);
+        }
+        else if (points.size() == 2) {
+          ROS_INFO_STREAM("points: " << points);
+          X2 <<
+            (double)(points[0].x) ,(double)(points[0].y),1.0/(double)(points[0].z),
+            (double)(points[1].x) ,(double)(points[1].y),1.0/(double)(points[1].z),
+            0.0,0.0,0.0;
+          Px2 <<
+            qpix ,0,0,0,0,0,0,0,0,
+                 0,qpix ,0,0,0,0,0,0,0,
+                 0,0,sqr(perr),0,0,0,0,0,0,
+                 0,0,0,qpix ,0,0,0,0,0,
+                 0,0,0,0,qpix ,0,0,0,0,
+                 0,0,0,0,0,sqr(perr),0,0,0,
+                 0,0,0,0,0,0,sqr(deg2rad(8)),0,0,
+                 0,0,0,0,0,0,0,sqr(deg2rad(60)),0,
+                 0,0,0,0,0,0,0,0,sqr(deg2rad(10))
+                   ;
+
+          ROS_INFO_STREAM("X2: " << X2);
+          boost::function<Eigen::VectorXd(Eigen::VectorXd,Eigen::VectorXd)> callback;
+          callback=boost::bind(&PoseReporter::uvdarHexarotorPose2p,this,_1,_2);
+          ms = unscented::unscentedTransform(X2,Px2,callback,leftF,rightF,-1);
+        }
+        else if (points.size() == 1) {
+          std::cout << "Only single point visible - no distance information" << std::endl;
+          angleDist = 0.0;
+          std::cout << "led: " << points[0] << std::endl;
 
 
-    measuredPose[target].publish(msgOdom);
+          ms = uvdarHexarotorPose1p_meas(Eigen::Vector2d(points[0].x,points[0].y),_arm_length_, 1000,10.0);
 
-    tf::Vector3 goalInCamTF, centerEstimInCamTF;
-    /* tf::vectorEigenToTF(goalInCam, goalInCamTF); */
-    tf::vectorEigenToTF(centerEstimInCam, centerEstimInCamTF);
-    mutex_tf.lock();
-    /* tf::Vector3 goalInBaseTF        = (transformCam2Base * goalInCamTF); */
-    /* tf::Vector3 centerEstimInBaseTF = (transformCam2Base * centerEstimInCamTF); */
-    mutex_tf.unlock();
-    Eigen::Affine3d eigenTF;
-    /* ROS_INFO("TF parent: %s", transform.frame_id_.c_str()); */
-    /* std::cout << "fcu_" + uav_name << std::endl; */
-    /* tf::transformTFToEigen(transform, eigenTF); */
-    /* std::cout << "TF mat: " << eigenTF.matrix() << std::endl; */
-    /* tf::vectorTFToEigen(goalInBaseTF, goalInBase); */
-    /* tf::vectorTFToEigen(centerEstimInBaseTF, centerEstimInBase); */
 
-    /* Eigen::Vector3d CEBFlat(centerEstimInBase); */
-    /* double          flatLen = sqrt(CEBFlat.x() * CEBFlat.x() + CEBFlat.y() * CEBFlat.y()); */
-    /* CEBFlat                 = CEBFlat / flatLen; */
+          foundTarget = true;
+          lastSeen    = ros::Time::now();
+        } else {
+          std::cout << "No valid points seen. Waiting" << std::endl;
+          centerEstimInCam.x()  = 0;
+          centerEstimInCam.y()  = 0;
+          centerEstimInCam.z()  = 0;
+          /* centerEstimInBase.x() = 0; */
+          /* centerEstimInBase.y() = 0; */
+          /* centerEstimInBase.z() = 0; */
+          tailingComponent      = 0;
+          foundTarget           = false;
+          return;
+        }
+      }
 
-    /* geometry_msgs::Pose p; */
-    /* std::cout << "Center in BASE: " << centerEstimInBase << std::endl; */
-    /* p.position.x = centerEstimInBase.x(); */
-    /* p.position.y = centerEstimInBase.y(); */
-    /* p.position.z = centerEstimInBase.z(); */
 
-    /* if (reachedTarget) */
-    /*   ROS_INFO("Reached target"); */
-    /* tf::Vector3 centerEstimInCamTF; */
-    /* tf::vectorEigenToTF(centerEstimInCam, centerEstimInCamTF); */
-    /* tf::Vector3 centerEstimInBaseTF = (transform * centerEstimInCamTF); */
-    /* tf::vectorTFToEigen(centerEstimInBaseTF, centerEstimInBase); */
-    /* std::cout << "Estimated center in BASE: " << centerEstimInBase << std::endl; */
+      /* Eigen::MatrixXd iden(6,6); */
+      /* iden.setIdentity(); */
+      /* ms.C +=iden*0.1; */
+
+      ROS_INFO_STREAM("Y: \n" << ms.x );
+      /* std::cout << "Py: " << ms.C << std::endl; */
+      ROS_INFO_STREAM("Py: \n" << ms.C );
+
+      msgOdom = boost::make_shared<geometry_msgs::PoseWithCovarianceStamped>();;
+      /* msgOdom->twist.covariance = msgOdom->pose.covariance; */
+
+      /* geometry_msgs::PoseWithCovarianceStampedPtr msgPose = boost::make_shared<geometry_msgs::PoseWithCovarianceStamped>();; */
+      /* geometry_msgs::PoseWithCovariancePtr msgPose = boost::make_shared<geometry_msgs::PoseWithCovariance>();; */
+      /* msgPose->header.frame_id ="uvcam"; */
+      /* msgPose->header.stamp = ros::Time::now(); */
+      msgOdom->pose.pose.position.x = ms.x(0);
+      msgOdom->pose.pose.position.y = ms.x(1);
+      msgOdom->pose.pose.position.z = ms.x(2);
+      tf::Quaternion qtemp;
+      qtemp.setRPY(ms.x(3), ms.x(4), ms.x(5));
+      qtemp=(transformCam2Base.getRotation().inverse())*qtemp;
+      /* Eigen::Affine3d aTtemp; */
+      /* tf::transformTFToEigen(transformCam2Base, aTtemp); */
+      /* qtemp = aTtemp*qtemp; */
+      msgOdom->pose.pose.orientation.x = qtemp.x();
+      msgOdom->pose.pose.orientation.y = qtemp.y();
+      msgOdom->pose.pose.orientation.z = qtemp.z();
+      msgOdom->pose.pose.orientation.w = qtemp.w();
+      for (int i=0; i<ms.C.cols(); i++){
+        for (int j=0; j<ms.C.rows(); j++){
+          msgOdom->pose.covariance[ms.C.cols()*j+i] =  ms.C(j,i);
+        }
+      }
+
+      msgOdom->header.frame_id = cameraFrames[imageIndex];
+      msgOdom->header.stamp = lastBlinkTime;
+      /* msgOdom->pose = *(msgPose); */
+
+      /* msgOdom->twist.twist.linear.x = 0.0; */
+      /* msgOdom->twist.twist.linear.y = 0.0; */
+      /* msgOdom->twist.twist.linear.z = 0.0; */
+      /* msgOdom->twist.twist.angular.x = 0.0; */
+      /* msgOdom->twist.twist.angular.y = 0.0; */
+      /* msgOdom->twist.twist.angular.z = 0.0; */
+
+      /* msgOdom->twist.covariance = { */
+      /*   4,0,0,0,0,0, */
+      /*   0,4,0,0,0,0, */
+      /*   0,0,4,0,0,0, */
+      /*   0,0,0,2,0,0, */
+      /*   0,0,0,0,2,0, */
+      /*   0,0,0,0,0,2}; */
+
+
+      measuredPose[target].publish(msgOdom);
+
+      tf::Vector3 goalInCamTF, centerEstimInCamTF;
+      /* tf::vectorEigenToTF(goalInCam, goalInCamTF); */
+      tf::vectorEigenToTF(centerEstimInCam, centerEstimInCamTF);
+      mutex_tf.lock();
+      /* tf::Vector3 goalInBaseTF        = (transformCam2Base * goalInCamTF); */
+      /* tf::Vector3 centerEstimInBaseTF = (transformCam2Base * centerEstimInCamTF); */
+      mutex_tf.unlock();
+      Eigen::Affine3d eigenTF;
+      /* ROS_INFO("TF parent: %s", transform.frame_id_.c_str()); */
+      /* std::cout << "fcu_" + uav_name << std::endl; */
+      /* tf::transformTFToEigen(transform, eigenTF); */
+      /* std::cout << "TF mat: " << eigenTF.matrix() << std::endl; */
+      /* tf::vectorTFToEigen(goalInBaseTF, goalInBase); */
+      /* tf::vectorTFToEigen(centerEstimInBaseTF, centerEstimInBase); */
+
+      /* Eigen::Vector3d CEBFlat(centerEstimInBase); */
+      /* double          flatLen = sqrt(CEBFlat.x() * CEBFlat.x() + CEBFlat.y() * CEBFlat.y()); */
+      /* CEBFlat                 = CEBFlat / flatLen; */
+
+      /* geometry_msgs::Pose p; */
+      /* std::cout << "Center in BASE: " << centerEstimInBase << std::endl; */
+      /* p.position.x = centerEstimInBase.x(); */
+      /* p.position.y = centerEstimInBase.y(); */
+      /* p.position.z = centerEstimInBase.z(); */
+
+      /* if (reachedTarget) */
+      /*   ROS_INFO("Reached target"); */
+      /* tf::Vector3 centerEstimInCamTF; */
+      /* tf::vectorEigenToTF(centerEstimInCam, centerEstimInCamTF); */
+      /* tf::Vector3 centerEstimInBaseTF = (transform * centerEstimInCamTF); */
+      /* tf::vectorTFToEigen(centerEstimInBaseTF, centerEstimInBase); */
+      /* std::cout << "Estimated center in BASE: " << centerEstimInBase << std::endl; */
   }
+    //}
 
+    /* sgn //{ */
   template < typename T >
   int sgn(T val) {
     return (T(0) < val) - (val < T(0));
   }
+  //}
 
+  /* findMatch //{ */
   int findMatch(double i_frequency) {
     double period = 1.0 / i_frequency;
     for (int i = 0; i < (int)(periodSet.size()); i++) {
@@ -1079,11 +1226,15 @@ public:
     }
     return -1;
   }
+  //}
 
+  /* classifyMatch //{ */
   int classifyMatch(int ID) {
     return ID/frequenciesPerTarget;
   }
+  //}
 
+  /* prepareFrequencyClassifiers //{ */
   void prepareFrequencyClassifiers() {
     for (int i = 0; i < (int)(frequencySet.size()); i++) {
       periodSet.push_back(1.0 / frequencySet[i]);
@@ -1103,9 +1254,11 @@ public:
     /* periodBoundsTop.back()           = 0.5 * periodSet.back() + 0.5 * periodSet[secondToLast]; */
     /* periodBoundsBottom[secondToLast] = 0.5 * periodSet.back() + 0.5 * periodSet[secondToLast]; */
   }
+  //}
 
 private:
 
+  /* setMask //{ */
   void setMask(std::string mask_file){
     if (std::experimental::filesystem::exists(mask_file)){
       ROS_INFO_STREAM("[PoseReporter]: Setting mask to " << mask_file);
@@ -1116,8 +1269,10 @@ private:
       ROS_INFO_STREAM("[PoseReporter]: Mask file " << mask_file << " does not exist.");
 
   }
+  //}
 
 
+  /* Variables //{ */
   bool mask_active;
   cv::Mat mask;
 
@@ -1240,6 +1395,11 @@ private:
 
   bool _legacy;
   double _legacy_delay;
+
+  double _arm_length_;
+
+  bool _quadrotor_;
+  //}
 };
 
 

@@ -211,10 +211,18 @@ class UvdarKalman {
 
   double fixAngle(double origAngle, double newAngle){
     double fixedPre;
-    if (origAngle>(M_PI))
-      fixedPre = origAngle - (2.0*M_PI);
-    if (origAngle < (-M_PI))
-      fixedPre = origAngle + (2.0*M_PI);
+    if ( (origAngle>(2*M_PI)) || (origAngle<(-2*M_PI)) )  {
+      fixedPre = fmod(origAngle,2*M_PI);
+      }
+    else {
+      fixedPre = origAngle;
+    }
+      /* fixedPre = origAngle; */
+
+    if (fixedPre>(M_PI))
+      fixedPre = fixedPre - (2.0*M_PI);
+    if (fixedPre < (-M_PI))
+      fixedPre = fixedPre + (2.0*M_PI);
 
 
 
@@ -268,6 +276,11 @@ class UvdarKalman {
 
     e::Vector3d tmp  = qtemp.toRotationMatrix().eulerAngles(0, 1, 2);
     if ((fabs(tmp(0))>(M_PI/2)) && (fabs(tmp(1))>(M_PI/2)) ){
+      for (int u=0; u<3; u++){
+        if ( (tmp(u)>(2*M_PI)) || (tmp(u)<(-2*M_PI)) ){
+            ROS_INFO_STREAM("Error in tmp(" << u << "): [" << tmp(u) << "] from qtemp=(" << qtemp.x() << "," <<  qtemp.y() << "," << qtemp.z() << "," << qtemp.w() << ") and tmp = [" << tmp.transpose() << "]");
+            }
+      }
       tmp(0) = fixAngle(tmp(0)+M_PI,0);
       tmp(1) = fixAngle(tmp(1)+M_PI,0);
       tmp(2) = fixAngle(tmp(2)+M_PI,0);
@@ -284,7 +297,10 @@ class UvdarKalman {
 
     for (int i=0; i<td[target].R.cols(); i++){
       for (int j=0; j<td[target].R.rows(); j++){
-        td[target].R(j,i) = meas.pose.covariance[td[target].R.cols()*j+i] ;
+        if ( ( (i<3) && (j<3) ) || ( (i>=3) && (j>=3) ) )
+          td[target].R(j,i) = meas.pose.covariance[td[target].R.cols()*j+i] ;
+        else
+          td[target].R(j,i) = 0.0;
       }
     }
 
@@ -350,10 +366,15 @@ class UvdarKalman {
 
       /* ROS_INFO_STREAM("BEFORE CORR: " << std::endl << state_tmp.x ); */
       state_tmp.x[_use_velocity_?8:5] = fixAngle(state_tmp.x((_use_velocity_?8:5)), mes[5]);
+      if (DEBUG)
+        ROS_INFO_STREAM("State [" << std::endl << state_tmp.x << "]");
+        ROS_INFO_STREAM("State [" << std::endl << state_tmp.P << "]");
       td[target].state_m = currKalman[target]->correct(state_tmp, mes, td[target].R);
-      ROS_INFO_STREAM("mes: " <<std::endl << mes );
-      ROS_INFO_STREAM("R: " <<std::endl << td[target].R );
-      ROS_INFO_STREAM("AFTER: " << std::endl << td[target].state_m.x );
+      if (DEBUG){
+        ROS_INFO_STREAM("mes: " <<std::endl << mes );
+        ROS_INFO_STREAM("R: " <<std::endl << td[target].R );
+        ROS_INFO_STREAM("AFTER: " << std::endl << td[target].state_m.x );
+      }
       //fix angles to account for correction through 0/2pi
 
       /* currKalman[target]->setMeasurement(mes,R); */

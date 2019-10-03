@@ -74,8 +74,21 @@ class Reprojector{
       }
 
       if (_publish_boxes){
+        sensor_msgs::RegionOfInterest roi;
+        roi.x_offset = 0;
+        roi.y_offset = 0;
+        roi.width = 0;
+        roi.height = 0;
+        rois_empty_.ROIs.push_back(roi);
+        rois_empty_.ROIs.push_back(roi);
+        uvdar::DistRange dist;
+        dist.distance = 0;
+        dist.stddev = 0;
+        dists_empty_.distRanges.push_back(dist);
+        dists_empty_.distRanges.push_back(dist);
         roiPublisher = nh.advertise<ROIVector>("estimatedROIs", 1);
         distPublisher = nh.advertise<DistRangeVector>("estimatedDistances", 1);
+
       }
 
 
@@ -250,6 +263,10 @@ class Reprojector{
       drawImage(no_draw);
       msg = cv_bridge::CvImage(std_msgs::Header(), sensor_msgs::image_encodings::BGR8, viewImage).toImageMsg();
       imPub.publish(msg);
+      if (_publish_boxes){
+        roiPublisher.publish(rois);
+        distPublisher.publish(dists);
+      }
     }
 
     void drawImage(bool no_draw){
@@ -265,9 +282,9 @@ class Reprojector{
       {
         std::scoped_lock lock(mtx_odom);
 
-        ROIVector rois;
-        DistRangeVector dists;
         if (_publish_boxes){
+          rois = rois_empty_;
+          dists = dists_empty_;
           rois.stamp = currImgTime;
           dists.stamp = currImgTime;
         }
@@ -342,18 +359,14 @@ class Reprojector{
             roi.y_offset = rect.y;
             roi.height = rect.height;
             roi.width = rect.width;
-            rois.ROIs.push_back(roi);
+            rois.ROIs[target] = roi;
             uvdar::DistRange dr;
             dr.distance = distrange.x(0);
             dr.stddev = distrange.C(0);
-            dists.distRanges.push_back(dr);
+            dists.distRanges[target] = dr;
           }
           /* cv::circle(viewImage,getImPos(currOdom),getProjSize(currOdom),cv::Scalar(0,0,255)); */
         }
-      if (_publish_boxes){
-        roiPublisher.publish(rois);
-        distPublisher.publish(dists);
-      }
       }
     }
 
@@ -609,6 +622,9 @@ class Reprojector{
     ros::Time begin_r, end_r;
     double  elapsedTime;
     ros::Duration elapsedTime_r;
+
+    ROIVector rois, rois_empty_;
+    DistRangeVector dists, dists_empty_;
 };
 }
 
