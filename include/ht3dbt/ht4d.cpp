@@ -63,6 +63,7 @@ HT4DBlinkerTracker::HT4DBlinkerTracker(int i_memSteps,
   memSteps      = i_memSteps;
   pitchSteps    = i_pitchSteps;
   yawSteps      = i_yawSteps;
+  totalSteps    = pitchSteps*yawSteps;
   framerate     = i_framerate;
   maxPixelShift = i_maxPixelShift;
   frameScale    = round(3 * framerate / 10);
@@ -467,6 +468,7 @@ void HT4DBlinkerTracker::applyMasks(std::vector< std::vector< cv::Point3i > > & 
 void HT4DBlinkerTracker::flattenTo2D(unsigned int *__restrict__ input, int thickness, unsigned int *__restrict__ outputMaxima, cv::Mat &outputIndices) {
   unsigned int tempPos;
   unsigned int tempMax;
+  unsigned int index;
   for (int y = 0; y < imRes.height; y++) {
     for (int x = 0; x < imRes.width; x++) {
       /* cv::Range ranges[3] = {cv::Range(x, x + 1), cv::Range(y, y + 1), cv::Range::all()}; */
@@ -475,11 +477,13 @@ void HT4DBlinkerTracker::flattenTo2D(unsigned int *__restrict__ input, int thick
 
       tempMax = 0;
       tempPos = 0;
+      index = index3d(x, y, 0);
       for (int j = 0; j < thickness; j++) {
-          if (input[index3d(x, y, j)] > tempMax) {
-          tempMax = input[index3d(x, y, j)];
+          if (input[index] > tempMax) {
+          tempMax = input[index];
           tempPos = j;
         }
+        index+=imArea;
       }
 
       outputMaxima[index2d(x, y)]             = tempMax;
@@ -491,11 +495,15 @@ void HT4DBlinkerTracker::flattenTo2D(unsigned int *__restrict__ input, int thick
 }
 
 void HT4DBlinkerTracker::cleanTouched() {
+  unsigned int index;
   for (int i = 0; i < imRes.height; i++) {
     for (int j = 0; j < imRes.width; j++) {
       if (touchedMatrix[index2d(j, i)] == 255) {
-        for (int k = 0; k < pitchSteps*yawSteps; k++) {
-          houghSpace[index3d(j, i, k)] = 0;
+        index = index3d(j, i, 0);
+        for (int k = 0; k < totalSteps; k++) {
+          if (houghSpace[index] != 0)
+            houghSpace[index] = 0;
+          index+=imArea;
         }
 
         /* houghSpacePitchMaxima.at< uint16_t >(i, j) = 0; */

@@ -35,16 +35,18 @@ public:
 
     std::vector<std::string> _camera_output_topics;
     nh_.param("cameraOutputTopics", _camera_output_topics, _camera_output_topics);
-    std::vector<std::string> _virtual_points_topics;
-    nh_.param("virtualPointsTopics", _virtual_points_topics, _virtual_points_topics);
+    /* std::vector<std::string> _virtual_points_topics; */
+    /* nh_.param("virtualPointsTopics", _virtual_points_topics, _virtual_points_topics); */
     if (_camera_output_topics.empty()) {
       ROS_WARN("[BluefoxEmulator]: No topics of cameraOutputTopics were supplied");
     }
     // Create callbacks for each camera
     virtualPointsCallbacks.resize(_camera_output_topics.size());
 
-    imageTransports.resize(_camera_output_topics.size());
+    /* imageTransports.resize(_camera_output_topics.size()); */
     imagePublishers.resize(_camera_output_topics.size());
+    imageTransport = new image_transport::ImageTransport(nh_);
+
 
     for (size_t i = 0; i < _camera_output_topics.size(); ++i) {
 
@@ -52,9 +54,9 @@ public:
           drawPoints(pointsMessage, imageIndex);
         };
         virtualPointsCallbacks[i] = callback;
-        virtualPointsSubscribers.push_back(nh_.subscribe(_virtual_points_topics[i], 1, &virtual_points_callback_t::operator(), &virtualPointsCallbacks[i]));
+        virtualPointsSubscribers.push_back(nh_.subscribe(_camera_output_topics[i]+"_transfer", 1, &virtual_points_callback_t::operator(), &virtualPointsCallbacks[i]));
         imageData.push_back(ImageData(oc_model));
-        imagePublishers[i] = imageTransports[i]->advertise(_camera_output_topics[i], 1);
+        imagePublishers[i] = imageTransport->advertise(_camera_output_topics[i], 1);
     }
 
 
@@ -82,6 +84,7 @@ private:
       /* std::cout << "UV CAM: Wiping took : " << elapsedTime << " s" << std::endl; */
       /* for (std::pair<ignition::math::Pose3d,ignition::math::Pose3d>& i : buffer){ */
       for (auto point : msg_i->points){
+        /* ROS_INFO_STREAM("Point: " << point); */
         cv::circle(imageData[imageIndex].outputImage.image, cv::Point2i(point.x, point.y), point.z, cv::Scalar(255), -1);
       }
       msg_o = imageData[imageIndex].outputImage.toImageMsg();
@@ -99,7 +102,8 @@ private:
   using virtual_points_callback_t = std::function<void (const sensor_msgs::PointCloudConstPtr&)>;
   std::vector<virtual_points_callback_t> virtualPointsCallbacks;
   std::vector<ros::Subscriber> virtualPointsSubscribers;
-  std::vector<image_transport::ImageTransport*> imageTransports;
+  /* std::vector<image_transport::ImageTransport*> imageTransports; */
+  image_transport::ImageTransport* imageTransport;
   std::vector<image_transport::Publisher>       imagePublishers;
 
   struct ImageData {

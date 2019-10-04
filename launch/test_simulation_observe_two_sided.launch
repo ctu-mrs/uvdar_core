@@ -8,7 +8,7 @@
   <arg unless="$(arg standalone)" name="nodelet_manager" value="$(arg uav_name)_uvdar_nodelet_manager"/>
   <arg     if="$(arg standalone)" name="nodelet_manager" value=""/>
 
-  <arg name="threshold" default="50"/>
+  <arg name="threshold" default="100"/>
 
   <arg name="device" default="25001879"/>
   <arg name="rate" default="100"/>
@@ -108,14 +108,27 @@
 <!-- OR -->
   <group ns="$(arg uav_name)">
   
+    <!-- <node pkg="nodelet" type="nodelet" name="$(arg uav_name)_uvdar_nodelet_manager" args="manager" output="screen" launch-prefix="valgrind -/-tool=callgrind -/-callgrind-out-file=/home/viktor/callgrind.out -/-instr-atstart=no -/-collect-atstart=yes"> -->
     <!-- <node pkg="nodelet" type="nodelet" name="$(arg uav_name)_uvdar_nodelet_manager" args="manager" output="screen" launch-prefix="debug_roslaunch"> -->
     <node pkg="nodelet" type="nodelet" name="$(arg uav_name)_uvdar_nodelet_manager" args="manager" output="screen" >
       <param name="num_worker_threads" value="8" />
     </node>
 
+    <node name="bluefox_emulator" pkg="nodelet" type="nodelet" args="$(arg nodelet) uvdar/BluefoxEmulator $(arg nodelet_manager)" output="screen" respawn="true"> 
+      <rosparam param="cameraOutputTopics"> ["camera_left", "camera_right"] </rosparam>
+
+      <remap from="~camera_left" to="/$(arg uav_name)/uvdar_bluefox_left/image_raw"/>
+      <remap from="~camera_right" to="/$(arg uav_name)/uvdar_bluefox_right/image_raw"/>
+      <remap from="~camera_left_transfer" to="/gazebo/$(arg uav_name)/uvdar_bluefox_left/image_raw"/>
+      <remap from="~camera_right_transfer" to="/gazebo/$(arg uav_name)/uvdar_bluefox_right/image_raw"/>
+    </node>
+
+
     <node name="uv_detect" pkg="nodelet" type="nodelet" args="$(arg nodelet) uvdar/UVDetector $(arg nodelet_manager)" output="screen" respawn="true"> 
     <!-- <node name="uv_detect" pkg="nodelet" type="nodelet" args="$(arg nodelet) uvdar/UVDetector $(arg nodelet_manager)" output="screen" respawn="true" launch-prefix="debug_roslaunch"> --> 
       <!-- <node name="uv_detect" pkg="uvdar" type="uv_detector_node" output="screen" launch-prefix="urxvt -e gdb -q -x /home/viktor/gdb.cmds -/-args"> -->
+        <!-- <node name="uv_detect" pkg="nodelet" type="nodelet" args="$(arg nodelet) uvdar/UVDetector $(arg nodelet_manager)" output="screen" respawn="true" launch-prefix="valgrind -/-tool=callgrind -/-callgrind-out-file=/home/viktor/callgrind.out -/-instr-atstart=no -/-collect-atstart=yes"> --> 
+
       <param name="uav_name" type = "string" value="$(arg uav_name)"/>
       <param name="DEBUG"		type="bool" value="$(arg DEBUG)"/> 
       <param name="gui"             type="bool" value="false"/>
@@ -153,10 +166,12 @@
 
     <node name="blink_processor" pkg="nodelet" type="nodelet" args="$(arg nodelet) uvdar/BlinkProcessor $(arg nodelet_manager)" output="screen" respawn="true"> 
     <!-- <node name="blink_processor" pkg="nodelet" type="nodelet" args="$(arg nodelet) uvdar/BlinkProcessor $(arg nodelet_manager)" output="screen" respawn="true" launch-prefix="roslaunch_debug"> --> 
+      <!-- <node name="blink_processor" pkg="nodelet" type="nodelet" args="$(arg nodelet) uvdar/BlinkProcessor $(arg nodelet_manager)" output="screen" respawn="true" launch-prefix="valgrind -/-tool=callgrind -/-callgrind-out-file=/home/viktor/callgrind.out -/-instr-atstart=no -/-collect-atstart=yes"> --> 
       <param name="uav_name" type = "string" value="$(arg uav_name)"/>
       <!-- <param name="DEBUG"		type="bool" value="$(arg DEBUG)"/> --> 
       <param name="DEBUG"		type="bool" value="false"/> 
       <param name="VisDEBUG"		type="bool" value="$(arg VisDEBUG)"/> 
+      <!-- <param name="GUI"             type="bool" value="false"/> -->
       <param name="GUI"             type="bool" value="$(arg gui)"/>
       <param name="CameraImageCompressed"    type="bool" value="false"/>
       <param name="InvertedPoints"    type="bool" value="false"/>
@@ -166,9 +181,9 @@
       <!-- <param name="frequency3" type="int" value="16"/> -->
       <param name="legacy" type="bool" value="false"/>
 
-      <param name="frequency1" type="int" value="7"/>
-      <param name="frequency2" type="int" value="14"/>
-      <param name="frequency3" type="int" value="28"/>
+      <param name="frequency1" type="int" value="15"/>
+      <param name="frequency2" type="int" value="30"/>
+      <!-- <param name="frequency3" type="int" value="28"/> -->
 
       <param name="processRate"         type="int" value="$(arg processRate)"/>
 
@@ -178,7 +193,7 @@
       <param name="maxPixelShift"         type="int" value="$(arg maxPixelShift)"/>
       <param name="returnFrequencies"         type="bool" value="true"/>
       <param name="nullifyRadius"         type="int" value="8"/>
-      <param name="UseCameraForVisualization"         type="bool" value="true"/>
+      <param name="UseCameraForVisualization"         type="bool" value="false"/>
 
       <rosparam param="cameraTopics"> ["camera_left", "camera_right"] </rosparam>
       <rosparam param="pointsSeenTopics"> ["points_seen_left", "points_seen_right"] </rosparam>
@@ -205,9 +220,9 @@
       <param name="publish"         type="bool" value="$(arg publish)"/>
       <param name="frequenciesPerTarget" type="int" value="1"/>
       <param name="targetCount" type="int" value="2"/>
-      <param name="frequency1" type="int" value="7"/>
-      <param name="frequency2" type="int" value="14"/>
-      <param name="frequency3" type="int" value="28"/>
+      <param name="frequency1" type="int" value="15"/>
+      <param name="frequency2" type="int" value="30"/>
+      <!-- <param name="frequency3" type="int" value="28"/> -->
 
       <rosparam param="blinkersSeenTopics"> ["blinkers_seen_left", "blinkers_seen_right"] </rosparam>
       <rosparam param="estimatedFramerateTopics"> ["estimated_framerate_left", "estimated_framerate_right"] </rosparam>

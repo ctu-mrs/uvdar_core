@@ -146,10 +146,12 @@ public:
         use_camera_for_visualization_ = false;
       }
       else {
+        currentImagesReceived.resize(_camera_topics.size());
         currentImages.resize(_camera_topics.size());
         // Create callbacks for each camera
         imageCallbacks.resize(_camera_topics.size());
         for (size_t i = 0; i < _camera_topics.size(); ++i) {
+          currentImagesReceived[i] = false;
           image_callback_t callback = [imageIndex=i,this] (const sensor_msgs::ImageConstPtr& image_msg) { 
             ProcessRaw(image_msg, imageIndex);
           };
@@ -348,11 +350,12 @@ private:
 
     processSpinRates[imageIndex]->reset();
     while (ros::ok()) {
-      if (ht3dbt->isCurrentBatchProcessed()){
-        /* if (DEBUG) */
-        /*   ROS_INFO("Skipping batch, already processed."); */
-        continue;
-      }
+      /* if (ht3dbt->isCurrentBatchProcessed()){ */
+      /*   /1* if (DEBUG) *1/ */
+      /*     ROS_INFO("Skipping batch, already processed."); */
+      /*   continue; */
+      /*   /1* ros::Duration(10).sleep(); *1/ */
+      /* } */
 
       if (DEBUG)
         ROS_INFO("Processing accumulated points.");
@@ -507,7 +510,7 @@ private:
         }
 
       }
-      cv::waitKey(1000.0 / 25.0);
+      cv::waitKey(1000.0 / 10.0);
     }
   }
 
@@ -556,7 +559,8 @@ private:
         int differenceX = (image_width + 2) * imageIndex;
 
         if (use_camera_for_visualization_){
-          currentImages[imageIndex].copyTo(viewImage(cv::Rect(differenceX,0,image_width,image_height)));
+          if (currentImagesReceived[imageIndex])
+            currentImages[imageIndex].copyTo(viewImage(cv::Rect(differenceX,0,image_width,image_height)));
           /* ROS_INFO_STREAM("RECT: " << cv::Rect(differenceX,0,image_width,image_height)); */
           /* cv::imshow("TMP",currentImages[imageIndex]); */
           /* cv::waitKey(100); */
@@ -623,6 +627,7 @@ private:
       {
         std::scoped_lock lock(mutex_show);
         currentImages[imageIndex] = image->image; 
+       currentImagesReceived[imageIndex] = true;
         current_visualization_done_ = false;
       }
     images_received_ = true;
@@ -630,11 +635,12 @@ private:
   }
 
   void ProcessRaw(const sensor_msgs::ImageConstPtr& image_msg, size_t imageIndex) {
-    cv_bridge::CvImagePtr image;
-    image = cv_bridge::toCvCopy(image_msg, enc::RGB8);
+    cv_bridge::CvImageConstPtr image;
+    image = cv_bridge::toCvShare(image_msg, enc::RGB8);
     {
       std::scoped_lock lock(mutex_show);
        currentImages[imageIndex] = image->image; 
+       currentImagesReceived[imageIndex] = true;
        current_visualization_done_ = false;
     }
     /* cv::imshow("TMP",currentImages[imageIndex]); */
@@ -669,6 +675,7 @@ private:
   bool                     GUI;
   bool                     InvertedPoints;
   std::vector<cv::Mat>     currentImages;
+  std::vector<bool>        currentImagesReceived;
   cv::Mat                  viewImage;
   std::thread              show_thread;
   std::thread              visualization_thread;

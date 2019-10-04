@@ -22,7 +22,7 @@
 #define maxConnectionDist 50
 #define minConnectionSimilarity 10
 
-#define index2d(X, Y) (m_imCurr.cols * (Y) + (X))
+#define index2d(X, Y) (m_imCurr->cols * (Y) + (X))
 
 uvLedDetect_fast::uvLedDetect_fast() {
 
@@ -34,14 +34,16 @@ uvLedDetect_fast::uvLedDetect_fast() {
   return;
 }
 
-std::vector< cv::Point2i > uvLedDetect_fast::processImage(cv::Mat i_imCurr, cv::Mat i_imView, bool i_gui, bool i_debug, int threshVal) {
+std::vector< cv::Point2i > uvLedDetect_fast::processImage(const cv::Mat *i_imCurr, cv::Mat i_imView, bool i_gui, bool i_debug, int threshVal) {
   /* clock_t begin, end; */
   /* double  elapsedTime; */
   /* begin                             = std::clock(); */
   DEBUG                             = i_debug;
   gui                               = i_gui;
   std::vector< cv::Point2i > outvec = std::vector< cv::Point2i >();
-  i_imCurr.copyTo(m_imCurr);
+  /* i_imCurr.copyTo(m_imCurr); */
+  m_imCurr=i_imCurr;
+
   if (gui)
   i_imView.copyTo(m_imView);
   /* m_imCheck = cv::Scalar(0); */
@@ -54,8 +56,8 @@ std::vector< cv::Point2i > uvLedDetect_fast::processImage(cv::Mat i_imCurr, cv::
     m_first = false;
     if (DEBUG)
       std::cout << "Thresh: " << threshVal << std::endl;
-    m_roi     = cv::Rect(cv::Point(0, 0), m_imCurr.size());
-    m_imCheck = cv::Mat(m_imCurr.size(), CV_8UC1);
+    m_roi     = cv::Rect(cv::Point(0, 0), m_imCurr->size());
+    m_imCheck = cv::Mat(m_imCurr->size(), CV_8UC1);
     m_imCheck = cv::Scalar(0);
   }
   /* std::cout << "hey" << std::endl; */
@@ -76,10 +78,10 @@ std::vector< cv::Point2i > uvLedDetect_fast::processImage(cv::Mat i_imCurr, cv::
   bool          test;
   unsigned char maximumVal = 0;
   /* bool          gotOne     = false; */
-  for (int j = 0; j < m_imCurr.rows; j++) {
-    for (int i = 0; i < m_imCurr.cols; i++) {
+  for (int j = 0; j < m_imCurr->rows; j++) {
+    for (int i = 0; i < m_imCurr->cols; i++) {
       if (m_imCheck.data[index2d(i, j)] == 0) {
-        if (m_imCurr.data[index2d(i, j)] > threshVal) {
+        if (m_imCurr->data[index2d(i, j)] > threshVal) {
           /* gotOne = true; */
           test   = true;
           for (int m = 0; m < (int)(fastPoints.size()); m++) {
@@ -109,7 +111,7 @@ std::vector< cv::Point2i > uvLedDetect_fast::processImage(cv::Mat i_imCurr, cv::
             }
 
 
-            if ((m_imCurr.data[index2d(i, j)] - m_imCurr.data[index2d(x, y)]) < (threshVal/2)) {
+            if ((m_imCurr->data[index2d(i, j)] - m_imCurr->data[index2d(x, y)]) < (threshVal/2)) {
               /* std::cout << "BREACH" << std::endl; */
 
               test = false;
@@ -140,8 +142,8 @@ std::vector< cv::Point2i > uvLedDetect_fast::processImage(cv::Mat i_imCurr, cv::
               /* std::cout << "here: " << x << ":" << y << std::endl; */
 
               if (m_imCheck.data[index2d(x, y)] == 0) {
-                if (m_imCurr.data[index2d(x, y)] > maximumVal) {
-                  maximumVal  = m_imCurr.data[index2d(x, y)];
+                if (m_imCurr->data[index2d(x, y)] > maximumVal) {
+                  maximumVal  = m_imCurr->data[index2d(x, y)];
                   peakPoint.x = x;
                   peakPoint.y = y;
                 }
@@ -187,8 +189,8 @@ std::vector< cv::Point2i > uvLedDetect_fast::processImage(cv::Mat i_imCurr, cv::
 }
 
 void uvLedDetect_fast::clearMarks() {
-  for (int j = 0; j < m_imCurr.rows; j++) {
-    for (int i = 0; i < m_imCurr.cols; i++) {
+  for (int j = 0; j < m_imCurr->rows; j++) {
+    for (int i = 0; i < m_imCurr->cols; i++) {
       if (m_imCheck.at< unsigned char >(j, i) == 255) {
         m_imCheck.at< unsigned char >(j, i) = 0;
       }
@@ -201,7 +203,7 @@ bool uvLedDetect_fast::miniFAST(cv::Point input, cv::Point& maximum, unsigned ch
   /*   return false; */
   /* } */
   for (int i = 0; i < (int)(fastPoints.size()); i++) {
-    if (m_imCurr.at< unsigned char >(input) < threshold) {
+    if (m_imCurr->at< unsigned char >(input) < threshold) {
       return false;
     }
     x = input.x + fastPoints[i].x;
@@ -223,7 +225,7 @@ bool uvLedDetect_fast::miniFAST(cv::Point input, cv::Point& maximum, unsigned ch
     /* return false; */
 
     /* if ((m_imCurr.at< unsigned char >(input) - m_imCurr.at< unsigned char >(y,x)) < threshold) { */
-    if (m_imCurr.at< unsigned char >(input) < threshold) {
+    if (m_imCurr->at< unsigned char >(input) < threshold) {
       return false;
     }
   }

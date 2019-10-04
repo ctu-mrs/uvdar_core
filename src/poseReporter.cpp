@@ -614,7 +614,8 @@ public:
 
       double relyaw;
 
-      ROS_INFO_STREAM("leds: " << id);
+      if (DEBUG)
+        ROS_INFO_STREAM("leds: " << id);
 
       if (expFrequencies.size() == 2){
         if     ((id(0)==ids[0]) && (id(1)==ids[0]) && (id(2)==ids[0]))
@@ -897,7 +898,8 @@ public:
         if (points[i].z > 1) {
           int mid = findMatch(points[i].z);
           int tid = classifyMatch(mid);
-          ROS_INFO("[%s]: FR: %d, MID: %d, TID: %d", ros::this_node::getName().c_str(),points[i].z, mid, tid);
+          if (DEBUG)
+            ROS_INFO("[%s]: FR: %d, MID: %d, TID: %d", ros::this_node::getName().c_str(),points[i].z, mid, tid);
           /* separatedPoints[classifyMatch(findMatch(points[i].z))].push_back(points[i]); */
           if (tid>=0)
             separatedPoints[tid].push_back(points[i]);
@@ -905,8 +907,10 @@ public:
       }
 
       for (int i = 0; i < targetCount; i++) {
-        ROS_INFO_STREAM("target [" << i << "]: ");
-        ROS_INFO_STREAM("p: " << separatedPoints[i]);
+        if (DEBUG){
+          ROS_INFO_STREAM("target [" << i << "]: ");
+          ROS_INFO_STREAM("p: " << separatedPoints[i]);
+        }
         extractSingleRelative(separatedPoints[i], i, imageIndex);
       }
     }
@@ -943,7 +947,8 @@ public:
               continue;
 
             /* if ((cv::norm(points[i] - points[j]) < maxDist) && (abs(points[i].y - points[j].y) < abs(points[i].x - points[j].x))) { */
-            ROS_INFO_STREAM("Distance: " <<cv::norm(cv::Point2i(points[i].x,points[i].y) - cv::Point2i(points[j].x,points[j].y)) << " maxDist: " << maxDist);
+            if (DEBUG)
+              ROS_INFO_STREAM("Distance: " <<cv::norm(cv::Point2i(points[i].x,points[i].y) - cv::Point2i(points[j].x,points[j].y)) << " maxDist: " << maxDist);
 
             if ((cv::norm(cv::Point2i(points[i].x,points[i].y) - cv::Point2i(points[j].x,points[j].y)) < maxDist)) {
               viable = true;
@@ -965,13 +970,15 @@ public:
 
       unscented::measurement ms;
 
-      ROS_INFO_STREAM("framerateEstim: " << estimatedFramerate[imageIndex]);
+      if (DEBUG)
+        ROS_INFO_STREAM("framerateEstim: " << estimatedFramerate[imageIndex]);
 
       double perr=0.2/estimatedFramerate[imageIndex];
 
       if (_quadrotor_) {
         if (points.size() == 3) {
-          ROS_INFO_STREAM("points: " << points);
+          if (DEBUG)
+            ROS_INFO_STREAM("points: " << points);
           X3 <<
             points[0].x ,points[0].y, 1.0/(double)(points[0].z),
             points[1].x ,points[1].y, 1.0/(double)(points[1].z),
@@ -989,13 +996,15 @@ public:
                  0,0,0,0,0,0,0,0,sqr(perr),0,
                  0,0,0,0,0,0,0,0,0,sqr(2*M_PI/3)
                    ;
-          ROS_INFO_STREAM("X3: " << X3);
+          if (DEBUG)
+            ROS_INFO_STREAM("X3: " << X3);
           boost::function<Eigen::VectorXd(Eigen::VectorXd,Eigen::VectorXd)> callback;
           callback=boost::bind(&PoseReporter::uvdarQuadrotorPose3p,this,_1,_2);
           ms = unscented::unscentedTransform(X3,Px3,callback,leftF,rightF,-1);
         }
         else if (points.size() == 2) {
-          ROS_INFO_STREAM("points: " << points);
+          if (DEBUG)
+            ROS_INFO_STREAM("points: " << points);
           X2 <<
             (double)(points[0].x) ,(double)(points[0].y),1.0/(double)(points[0].z),
             (double)(points[1].x) ,(double)(points[1].y),1.0/(double)(points[1].z),
@@ -1012,7 +1021,8 @@ public:
                  0,0,0,0,0,0,0,0,sqr(deg2rad(10))
                    ;
 
-          ROS_INFO_STREAM("X2: " << X2);
+          if (DEBUG)
+            ROS_INFO_STREAM("X2: " << X2);
           boost::function<Eigen::VectorXd(Eigen::VectorXd,Eigen::VectorXd)> callback;
           callback=boost::bind(&PoseReporter::uvdarQuadrotorPose2p,this,_1,_2);
           ms = unscented::unscentedTransform(X2,Px2,callback,leftF,rightF,-1);
@@ -1045,7 +1055,8 @@ public:
       }
       else {
         if (points.size() == 3) {
-          ROS_INFO_STREAM("points: " << points);
+          if (DEBUG)
+            ROS_INFO_STREAM("points: " << points);
           X3 <<
             points[0].x ,points[0].y, 1.0/(double)(points[0].z),
             points[1].x ,points[1].y, 1.0/(double)(points[1].z),
@@ -1063,13 +1074,15 @@ public:
                  0,0,0,0,0,0,0,0,sqr(perr),0,
                  0,0,0,0,0,0,0,0,0,sqr(2*M_PI/3)
                    ;
-          ROS_INFO_STREAM("X3: " << X3);
+          if (DEBUG)
+            ROS_INFO_STREAM("X3: " << X3);
           boost::function<Eigen::VectorXd(Eigen::VectorXd,Eigen::VectorXd)> callback;
           callback=boost::bind(&PoseReporter::uvdarHexarotorPose3p,this,_1,_2);
           ms = unscented::unscentedTransform(X3,Px3,callback,leftF,rightF,-1);
         }
         else if (points.size() == 2) {
-          ROS_INFO_STREAM("points: " << points);
+          if (DEBUG)
+            ROS_INFO_STREAM("points: " << points);
           X2 <<
             (double)(points[0].x) ,(double)(points[0].y),1.0/(double)(points[0].z),
             (double)(points[1].x) ,(double)(points[1].y),1.0/(double)(points[1].z),
@@ -1086,7 +1099,8 @@ public:
                  0,0,0,0,0,0,0,0,sqr(deg2rad(10))
                    ;
 
-          ROS_INFO_STREAM("X2: " << X2);
+          if (DEBUG)
+            ROS_INFO_STREAM("X2: " << X2);
           boost::function<Eigen::VectorXd(Eigen::VectorXd,Eigen::VectorXd)> callback;
           callback=boost::bind(&PoseReporter::uvdarHexarotorPose2p,this,_1,_2);
           ms = unscented::unscentedTransform(X2,Px2,callback,leftF,rightF,-1);
@@ -1121,9 +1135,11 @@ public:
       /* iden.setIdentity(); */
       /* ms.C +=iden*0.1; */
 
-      ROS_INFO_STREAM("Y: \n" << ms.x );
+        ROS_INFO_STREAM("Y: \n" << ms.x );
+      if (DEBUG)
+        ROS_INFO_STREAM("Py: \n" << ms.C );
       /* std::cout << "Py: " << ms.C << std::endl; */
-      ROS_INFO_STREAM("Py: \n" << ms.C );
+      /* } */
 
       msgOdom = boost::make_shared<geometry_msgs::PoseWithCovarianceStamped>();;
       /* msgOdom->twist.covariance = msgOdom->pose.covariance; */

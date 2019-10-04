@@ -260,7 +260,7 @@ private:
     /* std::cout << "4: " << elapsedTime << " s" << "f: " << 1.0/elapsedTime << std::endl; */
     /* begin2                             = std::clock(); */
     uvdf_mutex.lock();
-    std::vector<cv::Point2i> outvec = uvdf->processImage(image->image, localImg_raw, false, DEBUG, threshVal);
+    std::vector<cv::Point2i> outvec = uvdf->processImage(&(image->image), localImg_raw, false, DEBUG, threshVal);
     uvdf_mutex.unlock();
     /* end2         = std::clock(); */
     /* elapsedTime = double(end2 - begin2) / CLOCKS_PER_SEC; */

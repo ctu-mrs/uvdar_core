@@ -53,7 +53,7 @@ private:
   double angDiff(double a, double b);
   double angMeanXY(std::vector< cv::Point > input);
 
-  int          memSteps, pitchSteps, yawSteps;
+  int          memSteps, pitchSteps, yawSteps, totalSteps;
   unsigned int frameScale, houghThresh, nullifyRadius, bitShift;
   int maskWidth;
   int          expectedMatches;
