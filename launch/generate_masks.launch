@@ -36,6 +36,10 @@
   <arg name="jpeg_quality" default="90"/>
 
 
+  <arg name="useFAST" default="true"/>
+
+  <arg name="frameNatoName"/>
+
   <!-- Node Settings -->
   <arg name="output" default="screen"/>
   <arg name="proc" default="false"/>
@@ -103,59 +107,6 @@
       <param name="image_raw/theora/optimize_for" value="0" />
     </node>
 
-    <!-- <node pkg="nodelet" type="nodelet" name="uvdar_bluefox_left" args="$(arg nodelet) bluefox2/SingleNodelet $(arg nodelet_manager)" respawn="true" output="screen" launch-prefix="bash -c 'sleep 5; $0 $@'"> -->
-    <!--   <param name="camera_name" type="string" value="$(arg left_camera_name)"/> -->
-    <!--   <param name="identifier" type="string" value="$(arg left)"/> -->
-
-    <!--   <param name="frame_id" type="string" value="$(arg frame_id)"/> -->
-    <!--   <param name="fps" type="double" value="$(arg fps)"/> -->
-    <!--   <param name="idpf" type="int" value="$(arg idpf)"/> -->
-    <!--   <param name="aec" type="bool" value="$(arg aec)"/> -->
-    <!--   <param name="expose_us" type="int" value="$(arg expose_us)"/> -->
-    <!--   <param name="agc" type="bool" value="$(arg agc)"/> -->
-    <!--   <param name="gain_db" type="double" value="$(arg gain_db)"/> -->
-    <!--   <param name="cbm" type="int" value="$(arg cbm)"/> -->
-    <!--   <param name="ctm" type="int" value="$(arg ctm)"/> -->
-    <!--   <param name="dcfm" type="int" value="$(arg dcfm)"/> -->
-    <!--   <param name="hdr" type="bool" value="$(arg hdr)"/> -->
-    <!--   <param name="wbp" type="int" value="$(arg wbp)"/> -->
-    <!--   <param name="request" type="int" value="$(arg request)"/> -->
-    <!--   <param name="mm" type="int" value="$(arg mm)"/> -->
-
-    <!--   <param name="image_raw/compressed/jpeg_quality" type="int" value="$(arg jpeg_quality)"/> -->
-    <!--   <param name="image_raw/theora/keyframe_frequency" value="60" /> -->
-    <!--   <param name="image_raw/theora/target_bitrate" value="50000" /> -->
-    <!--   <param name="image_raw/theora/quality" value="8" /> -->
-    <!--   <param name="image_raw/theora/optimize_for" value="0" /> -->
-    <!-- </node> -->
-
-    <!-- <node pkg="nodelet" type="nodelet" name="uvdar_bluefox_right" args="$(arg nodelet) bluefox2/SingleNodelet $(arg nodelet_manager)" respawn="true" output="screen" launch-prefix="bash -c 'sleep 5; $0 $@'"> -->
-    <!--   <param name="camera_name" type="string" value="$(arg right_camera_name)"/> -->
-    <!--   <param name="identifier" type="string" value="$(arg right)"/> -->
-
-    <!--   <param name="frame_id" type="string" value="$(arg frame_id)"/> -->
-    <!--   <param name="fps" type="double" value="$(arg fps)"/> -->
-    <!--   <param name="idpf" type="int" value="$(arg idpf)"/> -->
-    <!--   <param name="aec" type="bool" value="$(arg aec)"/> -->
-    <!--   <param name="expose_us" type="int" value="$(arg expose_us)"/> -->
-    <!--   <param name="agc" type="bool" value="$(arg agc)"/> -->
-    <!--   <param name="gain_db" type="double" value="$(arg gain_db)"/> -->
-    <!--   <param name="cbm" type="int" value="$(arg cbm)"/> -->
-    <!--   <param name="ctm" type="int" value="$(arg ctm)"/> -->
-    <!--   <param name="dcfm" type="int" value="$(arg dcfm)"/> -->
-    <!--   <param name="hdr" type="bool" value="$(arg hdr)"/> -->
-    <!--   <param name="wbp" type="int" value="$(arg wbp)"/> -->
-    <!--   <param name="request" type="int" value="$(arg request)"/> -->
-    <!--   <param name="mm" type="int" value="$(arg mm)"/> -->
-
-    <!--   <param name="image_raw/compressed/jpeg_quality" type="int" value="$(arg jpeg_quality)"/> -->
-    <!--   <param name="image_raw/theora/keyframe_frequency" value="60" /> -->
-    <!--   <param name="image_raw/theora/target_bitrate" value="50000" /> -->
-    <!--   <param name="image_raw/theora/quality" value="8" /> -->
-    <!--   <param name="image_raw/theora/optimize_for" value="0" /> -->
-    <!-- </node> -->
-
-
 
     <node name="uv_detect" pkg="nodelet" type="nodelet" args="$(arg nodelet) uvdar/UVDetector $(arg nodelet_manager)" output="screen" respawn="true"> 
     <!-- <node name="uv_detect" pkg="nodelet" type="nodelet" args="$(arg nodelet) uvdar/UVDetector $(arg nodelet_manager)" output="screen" respawn="true" launch-prefix="debug_roslaunch"> --> 
@@ -166,22 +117,14 @@
       <param name="Flip"             type="bool" value="false"/>
       <param name="useFAST"             type="bool" value="$(arg useFAST)"/>
       <!-- <param name="MaskPath"             type="string" value="$(arg MaskPath)"/> -->
-      <param name="FromVideo"         type="bool" value="$(arg FromVideo)"/>
-      <param name="FromBag"         type="bool" value="$(arg FromBag)"/>
-      <param name="FromCamera"         type="bool" value="$(arg FromCamera)"/>
-      <param name="VideoNumber"     type="int" value="$(arg VideoNumber)"/>
-      <param name="SamplePointSize" type="int" value="$(arg SamplePointSize)"/>
-      <param name="StepSize"	type="int" value="$(arg StepSize)"/>
-      <param name="cellSize"	type="int" value="$(arg cellSize)"/>
-      <param name="cellOverlay"	type="int" value="$(arg cellOverlay)"/>
-      <param name="surroundRadius"	type="int" value="$(arg surroundRadius)"/>
-      <param name="publish"         type="bool" value="$(arg publish)"/>
-      <param name="cameraRotated"    type="bool" value="false"/>
-      <param name="useOdom"           type="bool" value="false"/>
-      <param name="camNum"           type="int" value="$(arg camNum)"/>
+      <param name="FromVideo"         type="bool" value="false"/>
+      <param name="FromBag"         type="bool" value="false"/>
+      <param name="FromCamera"         type="bool" value="false"/>
       <param name="justReport" type="bool" value="true"/>
       <param name="threshold" type="int" value="$(arg threshold)"/>
       <param name="CameraImageCompressed" type="bool" value="false"/>
+
+      <param name="useMasks" type="bool" value="false"/>
 
       <rosparam param="cameraTopics"> ["camera_left", "camera_right"] </rosparam>
       <rosparam param="pointsSeenTopics"> ["points_seen_left", "points_seen_right"] </rosparam>
@@ -197,11 +140,12 @@
 
     <node name="mask_generator" pkg="uvdar" type="uvdar_mask_generator_node" output="screen">
       <param name="uav_name" type = "string" value="$(arg uav_name)"/>
+      <param name="nato_name" type = "string" value="$(arg frameNatoName)"/>
       <param name="DEBUG"		type="bool" value="$(arg DEBUG)"/> 
       <param name="GUI"             type="bool" value="$(arg gui)"/>
       <param name="expansionSize" type="int" value="$(arg expansionSize)"/>
 
-      <rosparam param="maskFileNames"> ["$(arg uav_name)_$(arg left)", "$(arg uav_name)_$(arg right)"] </rosparam>
+      <rosparam param="maskFileNames" subst_value="True"> ["$(arg left)", "$(arg right)"] </rosparam>
       <rosparam param="pointsSeenTopics"> ["points_seen_left", "points_seen_right"] </rosparam>
 
       <remap from="~points_seen_left" to="/$(arg uav_name)/uvdar/points_seen_left"/>

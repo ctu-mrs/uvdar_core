@@ -138,6 +138,9 @@ add_dependencies(uvdar_reprojector_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${ca
 add_library(BluefoxEmulator src/bluefox_emulator.cpp)
 add_dependencies(BluefoxEmulator ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
+add_executable(uvdar_mask_generator_node src/maskGenerator.cpp)
+add_dependencies(uvdar_mask_generator_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+
 
 add_custom_target(headers SOURCES ${HEADER_FILES} ${LAUNCHER_FILES} ${YAML_FILES})
 
@@ -196,5 +199,11 @@ target_link_libraries(uvdar_reprojector_node
   ${EIGEN3_LIBRARIES}
   OCamCalib
   unscented
+  )
+
+target_link_libraries(uvdar_mask_generator_node
+  ${catkin_LIBRARIES}
+  ${OpenCV_LIBRARIES}
+  ${EIGEN3_LIBRARIES}
   )
 

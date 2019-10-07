@@ -48,16 +48,11 @@ public:
 
     nh_.param("cellSize", cellSize, int(32));
     nh_.param("cellOverlay", cellOverlay, int(8));
-    nh_.param("surroundRadius", surroundRadius, int(4));
 
     nh_.param("DEBUG", DEBUG, bool(false));
 
 
-    nh_.param("SamplePointSize", samplePointSize, int(8));
-
-
     nh_.param("gui", gui, bool(false));
-    nh_.param("publish", publish, bool(true));
 
     nh_.param("useOdom", useOdom, bool(false));
 
@@ -106,24 +101,22 @@ public:
     /* subscribe to cameras //{ */
 
     std::vector<std::string> cameraTopics;
-    if (FromBag || FromCamera) {
-      nh_.param("cameraTopics", cameraTopics, cameraTopics);
-      if (cameraTopics.empty()) {
-        ROS_ERROR("[UVDetector]: No topics of cameras were supplied");
-      }
+    nh_.param("cameraTopics", cameraTopics, cameraTopics);
+    if (cameraTopics.empty()) {
+      ROS_ERROR("[UVDetector]: No topics of cameras were supplied");
+    }
 
-      stopped = false;
-      // Create callbacks for each camera
-      for (size_t i = 0; i < cameraTopics.size(); ++i) {
-        image_callback_t callback = [imageIndex=i,this] (const sensor_msgs::ImageConstPtr& image_msg) { 
-          ProcessRaw(image_msg, imageIndex);
-        };
-        imageCallbacks.push_back(callback);
-      }
-      // Subscribe to corresponding topics
-      for (size_t i = 0; i < cameraTopics.size(); ++i) {
-        imageSubscribers.push_back(nh_.subscribe(cameraTopics[i], 1, &image_callback_t::operator(), &imageCallbacks[i]));
-      }
+    stopped = false;
+    // Create callbacks for each camera
+    for (size_t i = 0; i < cameraTopics.size(); ++i) {
+      image_callback_t callback = [imageIndex=i,this] (const sensor_msgs::ImageConstPtr& image_msg) { 
+        ProcessRaw(image_msg, imageIndex);
+      };
+      imageCallbacks.push_back(callback);
+    }
+    // Subscribe to corresponding topics
+    for (size_t i = 0; i < cameraTopics.size(); ++i) {
+      imageSubscribers.push_back(nh_.subscribe(cameraTopics[i], 1, &image_callback_t::operator(), &imageCallbacks[i]));
     }
 
     //}
@@ -357,17 +350,15 @@ private:
   double gamma;  // rotation of camera in the helicopter frame (positive)
 
 
-  int samplePointSize;
 
   int cellSize;
   int cellOverlay;
-  int surroundRadius;
 
   double cx, cy, fx, fy, s;
   double k1, k2, p1, p2, k3;
   bool   gotCamInfo;
 
-  bool gui, publish, useOdom;
+  bool gui, useOdom;
 
   int numberOfBins;
 

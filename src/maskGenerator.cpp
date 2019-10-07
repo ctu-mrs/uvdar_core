@@ -1,4 +1,5 @@
 #include <ros/ros.h>
+#include <ros/package.h>
 
 #include <cv_bridge/cv_bridge.h>
 #include <image_transport/image_transport.h>
@@ -23,22 +24,17 @@ public:
 
   /* onInit() //{ */
 
-  MaskGenerator() {
+  MaskGenerator(ros::NodeHandle &nh_) {
     initialized_ = false;
 
-    ros::NodeHandle nh_("~");
-
     nh_.param("uav_name", _uav_name_, std::string());
+    nh_.param("nato_name", _nato_name_, std::string());
     nh_.param("DEBUG", DEBUG, bool(false));
     nh_.param("GUI", GUI, bool(false));
     if (GUI)
       ROS_INFO("[MaskGenerator]: GUI is true");
     else
       ROS_INFO("[MaskGenerator]: GUI is false");
-
-    if (GUI) {
-      show_thread  = std::thread(&MaskGenerator::ShowThread, this);
-    }
 
     nh_.param("expansionSize", _expansion_size_, int(8));
 
@@ -65,6 +61,10 @@ public:
       /* ROS_INFO("[MaskGenerator]: HERE B"); */
     }
 
+
+    if (GUI) {
+      show_thread  = std::thread(&MaskGenerator::ShowThread, this);
+    }
 
 
     initialized_ = true;
@@ -110,12 +110,11 @@ private:
   /* ShowThread() //{ */
 
   void ShowThread() {
-    cv::Mat temp;
 
+    char key;
     while (ros::ok()) {
       if (initialized_){
         std::scoped_lock lock(mutex_show);
-
 
         if (GUI){
           if (GenerateVisualization() >= 0){
@@ -123,8 +122,14 @@ private:
           }
         }
       }
-      cv::waitKey(1000.0 / 25.0);
+      key = cv::waitKey(1000.0 / 25.0);
+      if ( key == 'm')
+        break;
     }
+    for (auto &data : maskData){
+      cv::imwrite(ros::package::getPath("uvdar")+"/masks/"+_nato_name_+"_"+data.camera_id+".bmp", data.mask_img);
+    }
+
   }
 
   //}
@@ -141,22 +146,25 @@ private:
       image_width = maskData[0].mask_img.cols;
       image_height = maskData[0].mask_img.rows;
 
-        viewImage = cv::Mat(
-            image_height, 
-            (image_width + 2) * image_count - 2, 
-            CV_8UC3,
-            cv::Scalar(255, 255, 255));
+      viewImage = cv::Mat(
+          image_height, 
+          (image_width + 2) * image_count - 2, 
+          CV_8UC3,
+          cv::Scalar(255, 255, 255));
 
 
       if (viewImage.rows == 0 || viewImage.cols == 0) return -1;
 
       /* loop through all trackers and update the data //{ */
 
+      cv::Mat tempColor;
       for (int imageIndex = 0; imageIndex < image_count; ++imageIndex) {
         MaskData& data = maskData[imageIndex];
 
         int differenceX = (image_width + 2) * imageIndex;
-        data.mask_img.copyTo(viewImage(cv::Rect(differenceX,0,image_width,image_height)));
+
+        cv::cvtColor(data.mask_img, tempColor, cv::COLOR_GRAY2RGB);
+        tempColor.copyTo(viewImage(cv::Rect(differenceX,0,image_width,image_height)));
         }
 
 
@@ -171,6 +179,7 @@ private:
   std::atomic_bool initialized_;
 
   std::string              _uav_name_;
+  std::string              _nato_name_;
   bool                     DEBUG;
   bool                     GUI;
   cv::Mat                  viewImage;
@@ -209,7 +218,8 @@ private:
 
 int main(int argc, char** argv) {
   ros::init(argc, argv, "uvdar_follower");
-  uvdar::MaskGenerator mg();
+  ros::NodeHandle nh("~");
+  uvdar::MaskGenerator mg(nh);
 
   ROS_INFO("Mask generator node initiated");
 
