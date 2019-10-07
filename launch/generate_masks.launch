@@ -1,4 +1,3 @@
-
 <launch>
   <arg name="uav_name" default="$(optenv UAV_NAME uav2)"/>
 
@@ -200,7 +199,7 @@
       <param name="uav_name" type = "string" value="$(arg uav_name)"/>
       <param name="DEBUG"		type="bool" value="$(arg DEBUG)"/> 
       <param name="GUI"             type="bool" value="$(arg gui)"/>
-      <param name="expansionSize" type="int" value="$(arg expansionSize)">
+      <param name="expansionSize" type="int" value="$(arg expansionSize)"/>
 
       <rosparam param="maskFileNames"> ["$(arg uav_name)_$(arg left)", "$(arg uav_name)_$(arg right)"] </rosparam>
       <rosparam param="pointsSeenTopics"> ["points_seen_left", "points_seen_right"] </rosparam>
