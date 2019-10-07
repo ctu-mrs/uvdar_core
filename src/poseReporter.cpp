@@ -752,6 +752,228 @@ public:
   /* uvdarQuadrotorPose2p //{ */
   Eigen::VectorXd uvdarQuadrotorPose2p(Eigen::VectorXd X, Eigen::VectorXd expFrequencies){
     ROS_INFO("Quadrotor pose retrieval from 3 points NOT IMPLEMENTED!");
+    /* ROS_INFO_STREAM("X: " << X); */
+
+      cv::Point3d a;
+      cv::Point3d b;
+
+      if ((X(0)) < (X(3))) {
+        a = cv::Point3d(X(0),X(1),X(2));
+        b = cv::Point3d(X(3),X(4),X(5));
+      } else {
+        a = cv::Point3d(X(3),X(4),X(5));
+        b = cv::Point3d(X(0),X(1),X(2));
+      }
+      double delta=X(6);
+
+      /* std::cout << "right led: " << b << std::endl; */
+      Eigen::Vector3i ids;
+      ids << 0,1,2;
+      Eigen::Vector3d expPeriods;
+      expPeriods = expFrequencies.cwiseInverse(); 
+      Eigen::Vector3d periods;
+      periods << a.z,b.z;
+      Eigen::Vector3d id;
+      Eigen::MatrixXd::Index   minIndex;
+      ((expPeriods.array()-(periods(0))).cwiseAbs()).minCoeff(&minIndex);
+      id(0) = minIndex;
+      ((expPeriods.array()-(periods(1))).cwiseAbs()).minCoeff(&minIndex);
+      id(1) = minIndex;
+
+
+
+
+      /* cv::Point3d central = (a+b) / 2.0; */
+      double      v1[3], v2[3];
+      double      va[2] = {double(a.y), double(a.x)};
+      double      vb[2] = {double(b.y), double(b.x)};
+      ;
+      cam2world(v1, va, &oc_model);
+      cam2world(v2, vb, &oc_model);
+      /* double vc[3]; */
+      /* double pc[2] = {central.y, central.x}; */
+      /* cam2world(vc, pc, &oc_model); */
+
+      Eigen::Vector3d V1(v1[1], v1[0], -v1[2]);
+      Eigen::Vector3d V2(v2[1], v2[0], -v2[2]);
+      /* Eigen::Vector3d Vc(vc[1], vc[0], -vc[2]); */
+
+      /* double alpha = acos(V1.dot(V2)); */
+
+      /* double vd = sqrt(0.75 * _arm_length_); */
+
+      /* double distance = (_arm_length_ / 2.0) / tan(alpha / 2.0) + vd; */
+      /* if (first) { */
+      /*   distanceSlider.filterInit(distance, filterDistLength); */
+      /*   orientationSlider.filterInit(angleDist, filterOrientationLength); */
+      /*   first = false; */
+      /* } */
+      double d = _arm_length_;
+      double v=d*sqrt(3.0/4.0);
+      double sqv=v*v;
+      double sqd=d*d;
+      double csAlpha = (V1.dot(V2));
+      double Alpha=acos(csAlpha);
+      double Alpha2=Alpha*Alpha;
+      double snAlpha =sin(Alpha);
+      double sndelta =sin(delta);
+      double sn2delta =sin(2*delta);
+      double csdelta =cos(delta);
+      double cs2delta =cos(2*delta);
+
+      /* ROS_INFO("Alpha: %f, v: %f, d: %f, delta: %f",Alpha, v, d, delta); */
+      /* ROS_INFO_STREAM("V1:" << V1 << std::endl <<"V2: " << V2); */
+
+      double l =
+        (4*d*v*Alpha - 
+         sqd*csAlpha - sqd*cos(Alpha - 2*delta) - 
+         6*d*v*snAlpha - 2*d*v*sin(Alpha - 2*delta) + 
+         sqd*Alpha*sn2delta + 4*sqv*Alpha*sn2delta - 
+         sqrt(2)*sqrt(
+           sqr(d*csdelta - 2*v*sndelta)*
+           (
+            sqd - sqd*Alpha2 - 4*sqv*Alpha2 - 4*d*v*Alpha*csAlpha + 
+            4*d*v*Alpha*cos(Alpha - 2*delta) + 
+            sqd*cos(2*(Alpha - delta)) - 
+            sqd*Alpha2*cs2delta + 
+            4*sqv*Alpha2*cs2delta + 
+            2*sqd*Alpha*snAlpha + 
+            2*sqd*Alpha*sin(Alpha - 2*delta) - 
+            4*d*v*Alpha2*sn2delta)))
+        /
+        (4*d*csdelta*(Alpha - 2*snAlpha) + 8*v*Alpha*sndelta);
+
+      /* distanceSlider.filterPush(distance); */
+      /* orientationSlider.filterPush(angleDist); */
+
+      /* std::cout << "Estimated distance: " << l << std::endl; */
+      /* std::cout << "Filtered distance: " << distanceFiltered << std::endl; */
+
+      /* std::cout << "Estimated direction in CAM: " << (Rp*V2) << std::endl; */
+      /* std::cout << "Central LED direction in CAM: " << (V2) << std::endl; */
+      /* std::cout << "Rotation: " << Rp.matrix()   << std::endl; */
+
+      /* foundTarget = true; */
+      /* lastSeen    = ros::Time::now(); */
+
+      /* std_msgs::Float32 dM, fdM; */
+      /* dM.data  = distance; */
+      /* fdM.data = distanceFiltered; */
+      /* measuredDist.publish(dM); */
+      /* filteredDist.publish(fdM); */
+
+
+
+      double kappa = M_PI/2-delta;
+      double d1=(d/2)+v*tan(delta);
+      double xl=v/cos(delta);
+      double yl=l-xl;
+      double alpha1=atan((d1*sin(kappa))/(yl-d1*cos(kappa)));
+      Eigen::Vector3d Pv = V2.cross(V1).normalized();
+      Eigen::Transform< double, 3, Eigen::Affine > Rp(Eigen::AngleAxis< double >(-alpha1, Pv));
+      /* Rc = makehgtform('axisrotate',cross(v2,v1),-alpha1); */
+      Eigen::Vector3d Vc=Rp*V1;
+      Eigen::Vector3d Yt=l*Vc;
+
+      /* std::cout << "Estimated center in CAM: " << Yt << std::endl; */
+      /* geometry_msgs::Pose p; */
+      /* p.position.x = centerEstimInCam.x(); */
+      /* p.position.y = centerEstimInCam.y(); */
+      /* p.position.z = centerEstimInCam.z(); */
+      /* targetInCamPub.publish(p); */
+      /* foundTarget = true; */
+      /* lastSeen    = ros::Time::now(); */
+
+      double relyaw;
+
+      if (expFrequencies.size() == 2)
+        if     ((id(0)==ids[0]) && (id(1)==ids[0]))
+          relyaw=(M_PI/2)+delta;
+        else if ((id(0)==ids[1]) && (id(1)==ids[1]))
+          relyaw=(-M_PI/2)+delta;
+        else if ((id(0)==ids[0]) && (id(1)==ids[1]))
+          relyaw=0+delta;
+        else
+          relyaw=M_PI+delta;
+
+        else 
+          if     ((id(0)==ids[0]) && (id(1)==ids[0]))
+            relyaw=(M_PI/3)+delta;
+          else if ((id(0)==ids[1]) && (id(1)==ids[1]))
+            relyaw=(-M_PI/3)+delta;
+          else if ((id(0)==ids[0]) && (id(1)==ids[1]))
+            relyaw=0+delta;
+          else if ((id(0)==ids[1]) && (id(1)==ids[2]))
+            relyaw=(-2*M_PI/3)+delta;
+          else if ((id(0)==ids[2]) && (id(1)==ids[0]))
+            relyaw=(2*M_PI/3)+delta;
+          else if ((id(0)==ids[2]) && (id(1)==ids[2]))
+            relyaw=(M_PI)+delta;
+          else
+            relyaw=delta;
+        
+      double latang=atan2(Vc(0),Vc(2));
+
+      double relyaw_view=relyaw;
+
+      /* ROS_INFO_STREAM("expFrequencies: " << expFrequencies); */
+      /* ROS_INFO_STREAM("expPeriods: " << expPeriods); */
+      /* ROS_INFO_STREAM("periods: " << periods); */
+      /* ROS_INFO_STREAM("id: " << id); */
+      /* ROS_INFO("relyaw_orig: %f",relyaw); */
+      relyaw=relyaw-latang;
+      /* ROS_INFO_STREAM("Vc: " << Vc); */
+      /* ROS_INFO("latang: %f",latang); */
+
+      double latnorm=sqrt(sqr(Yt(0))+sqr(Yt(2)));
+      double Gamma=atan2(Yt(1),latnorm);
+      double tilt_perp=X(7);
+      Eigen::Vector3d obs_normal=V2.cross(V1);
+      obs_normal=obs_normal/(obs_normal.norm());
+      Eigen::Vector3d latComp;
+      latComp << Vc(0),0,Vc(2);
+      latComp = latComp/(latComp.norm());
+
+      if (Vc(1)<0) latComp = -latComp;
+      /* ROS_INFO_STREAM("cross: " << Vc.cross(latComp)); */
+
+      Eigen::Transform< double, 3, Eigen::Affine > Re(Eigen::AngleAxis< double >( Gamma+(M_PI/2),(Vc.cross(latComp)).normalized()));
+      Eigen::Vector3d exp_normal=Re*Vc;
+      /* Ro = makehgtform('axisrotate',cross(vc,obs_normal),Gamma); */
+      Eigen::Transform< double, 3, Eigen::Affine > Ro(Eigen::AngleAxis< double >( Gamma,(Vc.cross(obs_normal)).normalized()));
+      obs_normal=Ro*obs_normal;
+      /* Re = makehgtform('axisrotate',cross(vc,latComp),Gamma+pi/2); */
+      double tilt_par=acos(obs_normal.dot(exp_normal));
+      if (V1(1)<V2(1))
+        tilt_par=-tilt_par;
+
+
+/*       ROS_INFO_STREAM("exp_normal: " << exp_normal); */
+/*       ROS_INFO_STREAM("obs_normal: " << obs_normal); */
+/*       ROS_INFO_STREAM("tilt_par: " << tilt_par); */
+
+      double dist = Yt.norm();
+      Yt= Yt*((dist-xl)/dist);
+      Yt(1)=Yt(1)-xl*sin(Gamma+tilt_perp)*cos(tilt_par);
+      Yt(0)=Yt(0)-xl*sin(Gamma+tilt_perp)*sin(tilt_par)*cos(latang)+xl*cos(Gamma+tilt_perp)*sin(latang);
+      Yt(2)=Yt(2)+xl*sin(Gamma+tilt_perp)*sin(tilt_par)*sin(latang)+xl*cos(Gamma+tilt_perp)*cos(latang);
+
+
+      double reltilt_abs=atan(sqrt(sqr(tan(tilt_perp))+sqr(tan(tilt_par))));
+      double tiltdir=atan2(-tan(tilt_par),tan(tilt_perp));
+      double tiltdir_adj=tiltdir-relyaw_view;
+      double ta=cos(tiltdir_adj);
+      double tb=-sin(tiltdir_adj);
+      double tc=cot(reltilt_abs);
+      double tpitch=atan2(ta,tc);
+      double troll=atan2(tb,tc);
+
+      Eigen::VectorXd Y(6);
+      Y << Yt.x(),Yt.y(),Yt.z(),troll,tpitch,relyaw;
+
+      return Y;
+
+       
     return Eigen::VectorXd();
   }
     //}
@@ -1010,15 +1232,14 @@ public:
             (double)(points[1].x) ,(double)(points[1].y),1.0/(double)(points[1].z),
             0.0,0.0,0.0;
           Px2 <<
-            qpix ,0,0,0,0,0,0,0,0,
-                 0,qpix ,0,0,0,0,0,0,0,
-                 0,0,sqr(perr),0,0,0,0,0,0,
-                 0,0,0,qpix ,0,0,0,0,0,
-                 0,0,0,0,qpix ,0,0,0,0,
-                 0,0,0,0,0,sqr(perr),0,0,0,
-                 0,0,0,0,0,0,sqr(deg2rad(8)),0,0,
-                 0,0,0,0,0,0,0,sqr(deg2rad(60)),0,
-                 0,0,0,0,0,0,0,0,sqr(deg2rad(10))
+                qpix ,0,0,0,0,0,0,0,
+                 0,qpix ,0,0,0,0,0,0,
+                 0,0,sqr(perr),0,0,0,0,0,
+                 0,0,0,qpix ,0,0,0,0,
+                 0,0,0,0,qpix ,0,0,0,
+                 0,0,0,0,0,sqr(perr),0,0,
+                 0,0,0,0,0,0,sqr(deg2rad(3)),0,
+                 0,0,0,0,0,0,0,sqr(deg2rad(10))
                    ;
 
           if (DEBUG)

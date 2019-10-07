@@ -281,6 +281,8 @@
       <param name="frequency2" type="int" value="28"/>
       <param name="frequency3" type="int" value="28"/>
 
+      <param name="quadrotor" type="bool" value="true"/>
+
       <rosparam param="blinkersSeenTopics"> ["blinkers_seen_left", "blinkers_seen_right"] </rosparam>
       <rosparam param="estimatedFramerateTopics"> ["estimated_framerate_left", "estimated_framerate_right"] </rosparam>
       <rosparam param="cameraFrames" subst_value="true"> ["uvcam_left_$(arg uav_name)", "uvcam_right_$(arg uav_name)"] </rosparam>
@@ -298,4 +300,4 @@
 
 
   <!-- </group> -->
-</launch>
+<false/launch>
