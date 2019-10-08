@@ -199,8 +199,10 @@ public:
     }
 
     X2 = Eigen::VectorXd(9,9);
+    X2q = Eigen::VectorXd(8,8);
     X3 = Eigen::VectorXd(10,10);
     Px2 = Eigen::MatrixXd(9,9);
+    Px2q = Eigen::MatrixXd(8,8);
     Px3 = Eigen::MatrixXd(10,10);
 
     if (_legacy){
@@ -725,7 +727,6 @@ public:
 
   /* uvdarQuadrotorPose1p //{ */
   unscented::measurement uvdarQuadrotorPose1p_meas(Eigen::Vector2d X,double tubewidth, double tubelength, double meanDist){
-    ROS_INFO("Quadrotor pose retrieval from 3 points NOT IMPLEMENTED!");
     double v1[3];
     double x[2] = {X.y(),X.x()};
     cam2world(v1, x, &oc_model);
@@ -836,6 +837,18 @@ public:
            (1-2*Alpha2-2*Alpha*csAlpha+2*Alpha*cos(Alpha-2*delta)+cos(2*(Alpha-delta))+2*Alpha*snAlpha+2*Alpha*sin(Alpha-2*delta)-2*Alpha2*sn2delta)))
         /
         (2*(csdelta*(Alpha-2*snAlpha)+Alpha*sndelta));
+
+      ROS_INFO("sqrt element is %f", sqrt(
+           sqv*
+           (1-2*csdelta*sndelta)*
+           (1-2*Alpha2-2*Alpha*csAlpha+2*Alpha*cos(Alpha-2*delta)+cos(2*(Alpha-delta))+2*Alpha*snAlpha+2*Alpha*sin(Alpha-2*delta)-2*Alpha2*sn2delta))
+        );
+
+      ROS_INFO("long element is %f", 1-2*Alpha2-2*Alpha*csAlpha+2*Alpha*cos(Alpha-2*delta)+cos(2*(Alpha-delta))+2*Alpha*snAlpha+2*Alpha*sin(Alpha-2*delta)-2*Alpha2*sn2delta);
+
+      ROS_INFO("Alpha = %f, delta = %f, v = %f", Alpha, delta, v);
+      ROS_INFO_STREAM("csAlpha = " << csAlpha << " V1 = " << V1 << " V2 = " << V2);
+      ROS_INFO_STREAM("a = " << a << " b = " << b );
 
       /* distanceSlider.filterPush(distance); */
       /* orientationSlider.filterPush(angleDist); */
@@ -1450,11 +1463,11 @@ public:
         else if (points.size() == 2) {
           if (DEBUG)
             ROS_INFO_STREAM("points: " << points);
-          X2 <<
+          X2q <<
             (double)(points[0].x) ,(double)(points[0].y),1.0/(double)(points[0].z),
             (double)(points[1].x) ,(double)(points[1].y),1.0/(double)(points[1].z),
-            0.0,0.0,0.0;
-          Px2 <<
+            0.0,0.0;
+          Px2q <<
                 qpix ,0,0,0,0,0,0,0,
                  0,qpix ,0,0,0,0,0,0,
                  0,0,sqr(perr),0,0,0,0,0,
@@ -1466,10 +1479,10 @@ public:
                    ;
 
           if (DEBUG)
-            ROS_INFO_STREAM("X2: " << X2);
+            ROS_INFO_STREAM("X2: " << X2q);
           boost::function<Eigen::VectorXd(Eigen::VectorXd,Eigen::VectorXd)> callback;
           callback=boost::bind(&PoseReporter::uvdarQuadrotorPose2p,this,_1,_2);
-          ms = unscented::unscentedTransform(X2,Px2,callback,leftF,rightF,-1);
+          ms = unscented::unscentedTransform(X2q,Px2q,callback,leftF,rightF,-1);
         }
         else if (points.size() == 1) {
           std::cout << "Only single point visible - no distance information" << std::endl;
@@ -1824,8 +1837,8 @@ private:
   /* bool   toRight;    // direction in which we should go to reach the tail */
   double angleDist;  // how large is the angle around the target between us and the tail
 
-  Eigen::MatrixXd Px2,Px3;
-  Eigen::VectorXd X2,X3;
+  Eigen::MatrixXd Px2,Px3,Px2q;
+  Eigen::VectorXd X2,X3,X2q;
 
 
   ros::Subscriber OdomSubscriber;
