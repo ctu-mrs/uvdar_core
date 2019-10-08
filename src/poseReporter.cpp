@@ -974,8 +974,6 @@ public:
 
   /* uvdarQuadrotorPose3p //{ */
   Eigen::VectorXd uvdarQuadrotorPose3p(Eigen::VectorXd X, Eigen::VectorXd expFrequencies){
-    ROS_INFO("Quadrotor pose retrieval from 3 points NOT IMPLEMENTED!");
-  Eigen::VectorXd uvdarHexarotorPose3p(Eigen::VectorXd X, Eigen::VectorXd expFrequencies){
       cv::Point3d tmp;
       cv::Point3d a(X(0),X(1),X(2));
       cv::Point3d b(X(3),X(4),X(5));
@@ -1043,11 +1041,9 @@ public:
       std::cout << "alpha: " << Alpha << " beta: " << Beta << std::endl;
       std::cout << "A: " << A << " B: " << B << std::endl;
 
-      double O = (A * A - A * B + sqrt(3.0) * A + B * B + sqrt(3.0) * B + 3.0);
+      double O = sqrt(2 + 2*A + A*A + 2*B + B*B);
       /* std::cout << "long operand: " << O << std::endl; */
-      double delta = 2.0 * atan(((B * (2.0 * sqrt(O / (B * B + 2.0 * sqrt(3.0) + 3.0)) - 1.0)) +
-                                 (6.0 * sqrt(O / ((sqrt(3.0) * B + 3.0) * (sqrt(3.0) * B + 3.0)))) + (2.0 * A + sqrt(3.0))) /
-                                (sqrt(3.0) * B + 3.0));
+      double delta = atan(-((1+A)/(O))/(((1+A+B+A*B)/O)/(1+A)));
 
 
       /* double gamma      = CV_PI - (delta + Alpha); */
@@ -1058,11 +1054,11 @@ public:
 
       double l = sqrt(fmax(0.1, distMiddle * distMiddle + _arm_length_ * _arm_length_ - 2 * distMiddle * _arm_length_ * cos(delta + (CV_PI / 3.0))));
 
-      double Epsilon=asin((_arm_length_/l)*sin(delta+M_PI/3));
+      double Epsilon=asin((_arm_length_/l)*sin(delta+M_PI/4));
       /* phi=asin((b/l)*sin(delta+pi/3)); */
 
       /* double phi = asin(sin(delta + (CV_PI / 3.0)) * (_arm_length_ / l)); */
-      double phi = asin(sin(delta + (CV_PI / 3.0)) * (distMiddle / l));
+      double phi = asin(sin(delta + (Epsilon)) * (distMiddle / l));
       std::cout << "delta: " << delta << std::endl;
       std::cout << "Estimated distance: " << l << std::endl;
       /* std_msgs::Float32 dM, fdM; */
@@ -1209,9 +1205,6 @@ public:
 
       Y << Yt.x(),Yt.y(),Yt.z(),troll,tpitch,relyaw;
       return Y;
-  }
-  //
-    return Eigen::VectorXd();
   }
     //}
 
