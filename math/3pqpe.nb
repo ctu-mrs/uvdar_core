@@ -1,0 +1,91 @@
+Notebook[{Cell[
+CellGroupData[{Cell[
+BoxData[{RowBox[{"AL1","=",RowBox[{"\[Alpha]","<",RowBox[
+{"Pi","/","2"}]}]}],"\n",RowBox[{"AL2","=",RowBox[{"\[Alpha]",">",RowBox[{RowBox[
+{"-","Pi"}],"/","2"}]}]}],"\n",RowBox[{"BE1","=",RowBox[{"\[Beta]",">",RowBox[{RowBox[
+{"-","Pi"}],"/","3"}]}]}],"\n",RowBox[{"BE2","=",RowBox[{"\[Beta]","<",RowBox[{"Pi","/","3"}]}]}],"\n",RowBox[
+{"ME","=",RowBox[{RowBox[{RowBox[{"Sin","[","\[Beta]","]"}],"*",RowBox[{"(",RowBox[
+{"d","/","2"}],")"}]}],"==",RowBox[{RowBox[{"(",RowBox[{"l","-",RowBox[{"2","*",RowBox[
+{"Cos","[","\[Beta]","]"}]}]}],")"}],"*","A"}]}]}],RowBox[{"\n","\n"}],RowBox[{"Solve","[",RowBox[
+{RowBox[{"{",RowBox[{"ME",",",RowBox[{"Reduce","[",RowBox[{RowBox[{"{",RowBox[{"ME",",","AL1",",","AL2",",","BE1",",","BE2"}],"}"}],",","\[Beta]",",","Reals"}],"]"}]}],"}"}],",","\[Beta]"}],"]"}]}],
+"Input",ExpressionUUID -> "aca42241-2522-4e5f-96d1-8184a0bbc7a7",CellLabel -> "In[83]:= "],Cell[
+BoxData[
+RowBox[{"\[Alpha]","<",FractionBox["\[Pi]","2"]}],StandardForm],"Output",ExpressionUUID -> "8f636285-1983-493e-b737-a3e869ff7883",
+CellLabel -> "Out[83]= "],Cell[
+BoxData[RowBox[{"\[Alpha]",">",RowBox[{"-",FractionBox[
+"\[Pi]","2"]}]}],StandardForm],"Output",ExpressionUUID -> "cda8d969-aab0-4aa1-9e88-ef50f125c27c",
+CellLabel -> "Out[84]= "],Cell[
+BoxData[RowBox[{"\[Beta]",">",RowBox[{"-",FractionBox[
+"\[Pi]","3"]}]}],StandardForm],"Output",ExpressionUUID -> "80af8df4-05e5-4391-8bc4-3b5f4501d391",
+CellLabel -> "Out[85]= "],Cell[
+BoxData[RowBox[{"\[Beta]","<",FractionBox["\[Pi]",
+"3"]}],StandardForm],"Output",ExpressionUUID -> "14c79153-1ca8-4120-b043-c9ea2fde760f",
+CellLabel -> "Out[86]= "],Cell[
+BoxData[RowBox[{RowBox[{FractionBox["1","2"]," ","d"," ",RowBox[
+{"Sin","[","\[Beta]","]"}]}],"\[Equal]",RowBox[{"A"," ",RowBox[{"(",RowBox[{"l","-",RowBox[
+{"2"," ",RowBox[{"Cos","[","\[Beta]","]"}]}]}],")"}]}]}],StandardForm],"Output",ExpressionUUID -> "8aed5211-e9b5-4e72-8459-d4517587c150",
+CellLabel -> "Out[87]= "],Cell[
+BoxData[TemplateBox[{"Solve","nsmet","\"This system cannot be solved with the methods available to Solve.\"",2,88,7,23876902169213538931,"Local"},
+"MessageTemplate"],StandardForm],"Message","MSG",ExpressionUUID -> "7aa3c3ba-4987-4541-a35f-18a5cfa8d8f8"],Cell[
+BoxData[
+InterpretationBox[TagBox[FrameBox[GridBox[{{ItemBox[TagBox[RowBox[{"Solve","[",RowBox[
+{RowBox[{"{",RowBox[{RowBox[{RowBox[{FractionBox["1","2"]," ","d"," ",RowBox[{"Sin","[","\[Beta]","]"}]}],"\[Equal]",RowBox[
+{"A"," ",RowBox[{"(",RowBox[{"l","-",RowBox[{"2"," ",RowBox[{"Cos","[","\[Beta]","]"}]}]}],")"}]}]}],",",TemplateBox[
+{"1"},"OutputSizeLimit`Skeleton"]}],"}"}],",","\[Beta]"}],"]"}],Function[Short[Slot[
+1],5]]],BaseStyle -> {Deployed -> False},StripOnInput -> False]},{GridBox[{{TagBox[
+TooltipBox[StyleBox[StyleBox[DynamicBox[ToBoxes[FEPrivate`FrontEndResource["FEStrings",
+"sizeBriefExplanation"],StandardForm]],DynamicUpdating -> True,StripOnInput -> False],
+"OSLText",StripOnInput -> False],StyleBox[DynamicBox[ToBoxes[FEPrivate`FrontEndResource[
+"FEStrings","sizeExplanation"],StandardForm]],DynamicUpdating -> True,StripOnInput -> False]],
+Function[Annotation[Slot[1],Style[Dynamic[FEPrivate`FrontEndResource["FEStrings",
+"sizeExplanation"]],DynamicUpdating -> True],"Tooltip"]]],ButtonBox[PaneSelectorBox[
+{False -> StyleBox[StyleBox[DynamicBox[ToBoxes[FEPrivate`FrontEndResource["FEStrings",
+"sizeShowLess"],StandardForm]],DynamicUpdating -> True,StripOnInput -> False],"OSLControl",
+StripOnInput -> False],True -> StyleBox[StyleBox[DynamicBox[ToBoxes[FEPrivate`FrontEndResource[
+"FEStrings","sizeShowLess"],StandardForm]],DynamicUpdating -> True,StripOnInput -> False],
+"OSLControlActive",StripOnInput -> False]},Dynamic[CurrentValue["MouseOver"]],ImageSize -> {Automatic,25},
+Alignment -> Center,ImageSize -> Automatic,FrameMargins -> 0],RuleDelayed[ButtonFunction,
+OutputSizeLimit`ButtonFunction[OutputSizeLimit`Defer,88,23876902169213538931,Times[
+5,Power[2,-1]]]],Appearance -> None,Enabled -> True,BaselinePosition -> Baseline,
+Method -> "Queued",Evaluator -> Automatic],ButtonBox[PaneSelectorBox[{False -> StyleBox[
+StyleBox[DynamicBox[ToBoxes[FEPrivate`FrontEndResource["FEStrings","sizeShowMore"],
+StandardForm]],DynamicUpdating -> True,StripOnInput -> False],"OSLControl",StripOnInput -> False],True -> StyleBox[
+StyleBox[DynamicBox[ToBoxes[FEPrivate`FrontEndResource["FEStrings","sizeShowMore"],
+StandardForm]],DynamicUpdating -> True,StripOnInput -> False],"OSLControlActive",
+StripOnInput -> False]},Dynamic[CurrentValue["MouseOver"]],ImageSize -> {Automatic,25},
+Alignment -> Center,ImageSize -> Automatic,FrameMargins -> 0],RuleDelayed[ButtonFunction,
+OutputSizeLimit`ButtonFunction[OutputSizeLimit`Defer,88,23876902169213538931,Times[
+5,2]]],Appearance -> None,Enabled -> True,BaselinePosition -> Baseline,Method -> "Queued",
+Evaluator -> Automatic],ButtonBox[PaneSelectorBox[{False -> StyleBox[StyleBox[DynamicBox[
+ToBoxes[FEPrivate`FrontEndResource["FEStrings","sizeShowAll"],StandardForm]],DynamicUpdating -> True,
+StripOnInput -> False],"OSLControl",StripOnInput -> False],True -> StyleBox[StyleBox[
+DynamicBox[ToBoxes[FEPrivate`FrontEndResource["FEStrings","sizeShowAll"],StandardForm]],
+DynamicUpdating -> True,StripOnInput -> False],"OSLControlActive",StripOnInput -> False]},
+Dynamic[CurrentValue["MouseOver"]],ImageSize -> {Automatic,25},Alignment -> Center,
+ImageSize -> Automatic,FrameMargins -> 0],RuleDelayed[ButtonFunction,OutputSizeLimit`ButtonFunction[
+OutputSizeLimit`Defer,88,23876902169213538931,Infinity]],Appearance -> None,Enabled -> True,
+BaselinePosition -> Baseline,Method -> "Queued",Evaluator -> Automatic],ButtonBox[
+PaneSelectorBox[{False -> StyleBox[StyleBox[DynamicBox[ToBoxes[FEPrivate`FrontEndResource[
+"FEStrings","sizeChangeLimit"],StandardForm]],DynamicUpdating -> True,StripOnInput -> False],
+"OSLControl",StripOnInput -> False],True -> StyleBox[StyleBox[DynamicBox[ToBoxes[
+FEPrivate`FrontEndResource["FEStrings","sizeChangeLimit"],StandardForm]],DynamicUpdating -> True,
+StripOnInput -> False],"OSLControlActive",StripOnInput -> False]},Dynamic[CurrentValue[
+"MouseOver"]],ImageSize -> {Automatic,25},Alignment -> Center,ImageSize -> Automatic,
+FrameMargins -> 0],RuleDelayed[ButtonFunction,FrontEndExecute[{FrontEnd`SetOptions[
+FrontEnd`$FrontEnd,FrontEnd`PreferencesSettings -> {"Page" -> "Advanced"}],FrontEnd`FrontEndToken[
+"PreferencesDialog"]}]],Appearance -> None,BaselinePosition -> Baseline,Evaluator -> None,
+Method -> "Preemptive"]}},AutoDelete -> False,GridBoxDividers -> {"Columns" -> {False,{True}}},
+GridBoxItemSize -> {"Columns" -> {{Automatic}},"Rows" -> {{Automatic}}},GridBoxSpacings -> {"Columns" -> {{2}}},
+FrameStyle -> GrayLevel[0.85]]}},GridBoxAlignment -> {"Columns" -> {{Left}}},DefaultBaseStyle -> "Column",
+GridBoxItemSize -> {"Columns" -> {{Automatic}},"Rows" -> {{Automatic}}},ColumnWidths -> Automatic,
+ColumnAlignments -> Left,RowLines -> False,RowSpacings -> {3,1}],BaseStyle -> "OutputSizeLimit",
+FrameMargins -> {{12,12},{0,15}},FrameStyle -> GrayLevel[0.85],RoundingRadius -> 5,
+StripOnInput -> False],Deploy,DefaultBaseStyle -> "Deploy"],If[SameQ[23876902169213538931,
+$SessionID],Out[88],CompoundExpression[Message[MessageName[Syntax,"noinfoker"]],Missing[
+"NotAvailable"],Null]]],StandardForm],"Output",ExpressionUUID -> "869a2cb6-9a30-42ae-acbb-cb6847155de8",
+CellLabel -> "Out[88]= "]},Open],ExpressionUUID -> "4bd4c5f4-8673-499d-a5fe-f5eb4f318b4a"],Cell[
+BoxData[
+"\[AliasDelimiter]"],"Input",ExpressionUUID -> "ec41f66e-3630-4a89-ae3b-e563320887b3"],Cell[
+BoxData[
+""],"Input",ExpressionUUID -> "01db989a-d189-465f-99eb-46869517e284"]},StyleDefinitions -> "Default.nb",
+FrontEndVersion -> "11.3 for Wolfram Cloud 1.48 (October 18, 2018)"]
