@@ -7,7 +7,7 @@
 #define max_frequency 36.0
 #define boundary_ratio 0.5
 
-#define qpix 4
+#define qpix 1
 //pixel std. dev
 
 
@@ -844,11 +844,11 @@ public:
            (1-2*Alpha2-2*Alpha*csAlpha+2*Alpha*cos(Alpha-2*delta)+cos(2*(Alpha-delta))+2*Alpha*snAlpha+2*Alpha*sin(Alpha-2*delta)-2*Alpha2*sn2delta))
         );
 
-      ROS_INFO("long element is %f", 1-2*Alpha2-2*Alpha*csAlpha+2*Alpha*cos(Alpha-2*delta)+cos(2*(Alpha-delta))+2*Alpha*snAlpha+2*Alpha*sin(Alpha-2*delta)-2*Alpha2*sn2delta);
+      /* ROS_INFO("long element is %f", 1-2*Alpha2-2*Alpha*csAlpha+2*Alpha*cos(Alpha-2*delta)+cos(2*(Alpha-delta))+2*Alpha*snAlpha+2*Alpha*sin(Alpha-2*delta)-2*Alpha2*sn2delta); */
 
-      ROS_INFO("Alpha = %f, delta = %f, v = %f", Alpha, delta, v);
-      ROS_INFO_STREAM("csAlpha = " << csAlpha << " V1 = " << V1 << " V2 = " << V2);
-      ROS_INFO_STREAM("a = " << a << " b = " << b );
+      /* ROS_INFO("Alpha = %f, delta = %f, v = %f", Alpha, delta, v); */
+      /* ROS_INFO_STREAM("csAlpha = " << csAlpha << " V1 = " << V1 << " V2 = " << V2); */
+      /* ROS_INFO_STREAM("a = " << a << " b = " << b ); */
 
       /* distanceSlider.filterPush(distance); */
       /* orientationSlider.filterPush(angleDist); */
@@ -893,8 +893,8 @@ public:
 
       double relyaw;
 
-      if (expFrequencies.size() == 2)
-        if     ((id(0)==ids[0]) && (id(1)==ids[0]))
+      if (expFrequencies.size() == 2){
+          if ((id(0)==ids[0]) && (id(1)==ids[0]))
           relyaw=(M_PI/2)+delta;
         else if ((id(0)==ids[1]) && (id(1)==ids[1]))
           relyaw=(-M_PI/2)+delta;
@@ -902,22 +902,10 @@ public:
           relyaw=0+delta;
         else
           relyaw=M_PI+delta;
+      }
+      else //if only one f. per target
+        relyaw = 0+delta;
 
-        else 
-          if     ((id(0)==ids[0]) && (id(1)==ids[0]))
-            relyaw=(M_PI/3)+delta;
-          else if ((id(0)==ids[1]) && (id(1)==ids[1]))
-            relyaw=(-M_PI/3)+delta;
-          else if ((id(0)==ids[0]) && (id(1)==ids[1]))
-            relyaw=0+delta;
-          else if ((id(0)==ids[1]) && (id(1)==ids[2]))
-            relyaw=(-2*M_PI/3)+delta;
-          else if ((id(0)==ids[2]) && (id(1)==ids[0]))
-            relyaw=(2*M_PI/3)+delta;
-          else if ((id(0)==ids[2]) && (id(1)==ids[2]))
-            relyaw=(M_PI)+delta;
-          else
-            relyaw=delta;
         
       double latang=atan2(Vc(0),Vc(2));
 
@@ -1051,12 +1039,14 @@ public:
   
       double A = 1.0 / tan(Alpha);
       double B = 1.0 / tan(Beta);
+      std::cout << "a: " << a << " b: " << b << " c: " << c << std::endl;
       std::cout << "alpha: " << Alpha << " beta: " << Beta << std::endl;
       std::cout << "A: " << A << " B: " << B << std::endl;
 
-      double O = sqrt(2 + 2*A + A*A + 2*B + B*B);
+      /* double O = sqrt(2 + 2*A + A*A + 2*B + B*B); */
       /* std::cout << "long operand: " << O << std::endl; */
-      double delta = atan(-((1+A)/(O))/(((1+A+B+A*B)/O)/(1+A)));
+      /* double delta = atan(-((1+A)/(O))/(((1+A+B+A*B)/O)/(1+A))); */
+      double delta = atan(-((1.0+A)*(1.0+A))/(1+A+B+A*B));
 
 
       /* double gamma      = CV_PI - (delta + Alpha); */
@@ -1065,13 +1055,13 @@ public:
       double distMiddle=(_arm_length_*sin(M_PI-(delta+Alpha)))/(sin(Alpha));
 
 
-      double l = sqrt(fmax(0.1, distMiddle * distMiddle + _arm_length_ * _arm_length_ - 2 * distMiddle * _arm_length_ * cos(delta + (CV_PI / 3.0))));
+      double l = sqrt(fmax(0.1, distMiddle * distMiddle + _arm_length_ * _arm_length_ - 2 * distMiddle * _arm_length_ * cos(delta + (CV_PI / 4.0))));
 
-      double Epsilon=asin((_arm_length_/l)*sin(delta+M_PI/4));
+      double Epsilon=asin((_arm_length_/l)*sin(delta+M_PI/4.0));
       /* phi=asin((b/l)*sin(delta+pi/3)); */
 
       /* double phi = asin(sin(delta + (CV_PI / 3.0)) * (_arm_length_ / l)); */
-      double phi = asin(sin(delta + (Epsilon)) * (distMiddle / l));
+      double phi = asin(sin(delta + (CV_PI/4.0)) * (distMiddle / l));
       std::cout << "delta: " << delta << std::endl;
       std::cout << "Estimated distance: " << l << std::endl;
       /* std_msgs::Float32 dM, fdM; */
@@ -1080,7 +1070,7 @@ public:
       /* measuredDist.publish(dM); */
       /* filteredDist.publish(fdM); */
 
-      std::cout << "Estimated angle from mid. LED: " << phi * (180.0 / CV_PI) << std::endl;
+      /* std::cout << "Estimated angle from mid. LED: " << phi * (180.0 / CV_PI) << std::endl; */
 
       double C=acos(V2_c.dot(V2));
       Eigen::Vector3d V2_d=V2_c-V2;
@@ -1115,43 +1105,23 @@ public:
       if (DEBUG)
         ROS_INFO_STREAM("leds: " << id);
 
-      if (expFrequencies.size() == 2){
-        if     ((id(0)==ids[0]) && (id(1)==ids[0]) && (id(2)==ids[0]))
-          relyaw=(M_PI/2);
-        else if ((id(0)==ids[1]) && (id(1)==ids[1]) && (id(2)==ids[1]))
-        relyaw=(-M_PI/2);
-        else if ((id(0)==ids[0]) && (id(1)==ids[0]) && (id(2)==ids[1]))
-        relyaw=(M_PI/6);
+      /* if (expFrequencies.size() == 2){ */
+      if (true){
+        if ((id(0)==ids[0]) && (id(1)==ids[0]) && (id(2)==ids[1]))
+        relyaw=(M_PI/4);
         else if ((id(0)==ids[0]) && (id(1)==ids[1]) && (id(2)==ids[1]))
-        relyaw=(-M_PI/6);
+        relyaw=(-M_PI/4);
         else if ((id(0)==ids[1]) && (id(1)==ids[1]) && (id(2)==ids[0]))
-        relyaw=(-5*M_PI/6);
+        relyaw=(-3*M_PI/4);
         else if ((id(0)==ids[1]) && (id(1)==ids[0]) && (id(2)==ids[0]))
-        relyaw=(5*M_PI/6);
+        relyaw=(3*M_PI/4);
         else
-          if (id(0)==ids[0])
-            relyaw=(M_PI/2)+ambig;
-          else
-            relyaw=(-M_PI/2)+ambig;
-      }
-      else {
-        if     ((id(0)==ids[2]) && (id(1)==ids[0]) && (id(2)==ids[0]))
-          relyaw=(M_PI/2);
-        else if ((id(0)==ids[1]) && (id(1)==ids[1]) && (id(2)==ids[2]))
-        relyaw=(-M_PI/2);
-        else if ((id(0)==ids[0]) && (id(1)==ids[0]) && (id(2)==ids[1]))
-        relyaw=(M_PI/6);
-        else if ((id(0)==ids[0]) && (id(1)==ids[1]) && (id(2)==ids[1]))
-        relyaw=(-M_PI/6);
-        else if ((id(0)==ids[1]) && (id(1)==ids[2]) && (id(2)==ids[2]))
-        relyaw=(-5*M_PI/6);
-        else if ((id(0)==ids[2]) && (id(1)==ids[2]) && (id(2)==ids[0]))
-          relyaw=(5*M_PI/6);
+        if     ((id(0)==ids[0]) && (id(1)==ids[0]) && (id(2)==ids[0]))
+          relyaw=(M_PI/2)+ambig;
+        else if ((id(0)==ids[1]) && (id(1)==ids[1]) && (id(2)==ids[1]))
+          relyaw=(-M_PI/2)+ambig;
         else
-          if (id(0)==ids[0])
-            relyaw=(M_PI/2)+ambig;
-          else
-            relyaw=(-M_PI/2)+ambig;
+            relyaw=2*ambig;
       }
 
       double latnorm=sqrt(sqr(Yt(0))+sqr(Yt(2)));
@@ -1443,17 +1413,17 @@ public:
             points[2].x, points[2].y, 1.0/(double)(points[2].z),
             0;  //to account for ambiguity
           Px3 <<
-            qpix ,0,0,0,0,0,0,0,0,0,
-                 0,qpix ,0,0,0,0,0,0,0,0,
-                 0,0,sqr(perr),0,0,0,0,0,0,0,
-                 0,0,0,qpix ,0,0,0,0,0,0,
-                 0,0,0,0,qpix ,0,0,0,0,0,
-                 0,0,0,0,0,sqr(perr),0,0,0,0,
-                 0,0,0,0,0,0,qpix ,0,0,0,
-                 0,0,0,0,0,0,0,qpix ,0,0,
-                 0,0,0,0,0,0,0,0,sqr(perr),0,
-                 0,0,0,0,0,0,0,0,0,sqr(2*M_PI/3)
-                   ;
+            qpix,0,   0,        0,   0,   0,        0,   0,   0,        0,
+            0,   qpix,0,        0,   0,   0,        0,   0,   0,        0,
+            0,   0,   sqr(perr),0,   0,   0,        0,   0,   0,        0,
+            0,   0,   0,        qpix,0,   0,        0,   0,   0,        0,
+            0,   0,   0,        0,   qpix,0,        0,   0,   0,        0,
+            0,   0,   0,        0,   0,   sqr(perr),0,   0,   0,        0,
+            0,   0,   0,        0,   0,   0,        qpix,0,   0,        0,
+            0,   0,   0,        0,   0,   0,        0,   qpix,0,        0,
+            0,   0,   0,        0,   0,   0,        0,   0,   sqr(perr),0,
+            0,   0,   0,        0,   0,   0,        0,   0,   0,        sqr(2*M_PI/3)
+          ;
           if (DEBUG)
             ROS_INFO_STREAM("X3: " << X3);
           boost::function<Eigen::VectorXd(Eigen::VectorXd,Eigen::VectorXd)> callback;
@@ -1474,7 +1444,7 @@ public:
                  0,0,0,qpix ,0,0,0,0,
                  0,0,0,0,qpix ,0,0,0,
                  0,0,0,0,0,sqr(perr),0,0,
-                 0,0,0,0,0,0,sqr(deg2rad(3)),0,
+                 0,0,0,0,0,0,sqr(deg2rad(10)),0,
                  0,0,0,0,0,0,0,sqr(deg2rad(10))
                    ;
 
