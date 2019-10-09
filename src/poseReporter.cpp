@@ -566,10 +566,11 @@ public:
       /* double gamma      = CV_PI - (delta + Alpha); */
 
       /* double distMiddle = sin(gamma) * _arm_length_ / sin(Alpha); */
-      double distMiddle=(_arm_length_*sin(M_PI-(delta+Alpha)))/(sin(Alpha));
+      /* double distMiddle=(_arm_length_*sin(M_PI-(delta+Alpha)))/(sin(Alpha)); */
+      double distMiddle=0.5*_arm_length*((cos(delta)+sin(delta)*A)+(cos((M_PI*1.5)-delta)+sin((M_PI*1.5)-delta)*B));
 
 
-      double l = sqrt(fmax(0.1, distMiddle * distMiddle + _arm_length_ * _arm_length_ - 2 * distMiddle * _arm_length_ * cos(delta + (CV_PI / 3.0))));
+      double l = sqrt(fmax(0.1, distMiddle * distMiddle + _arm_length_ * _arm_length_ - 2 * distMiddle * _arm_length_ * cos(delta + (M_PI / 3.0))));
 
       double Epsilon=asin((_arm_length_/l)*sin(delta+M_PI/3));
       /* phi=asin((b/l)*sin(delta+pi/3)); */
@@ -838,11 +839,11 @@ public:
         /
         (2*(csdelta*(Alpha-2*snAlpha)+Alpha*sndelta));
 
-      ROS_INFO("sqrt element is %f", sqrt(
-           sqv*
-           (1-2*csdelta*sndelta)*
-           (1-2*Alpha2-2*Alpha*csAlpha+2*Alpha*cos(Alpha-2*delta)+cos(2*(Alpha-delta))+2*Alpha*snAlpha+2*Alpha*sin(Alpha-2*delta)-2*Alpha2*sn2delta))
-        );
+      /* ROS_INFO("sqrt element is %f", sqrt( */
+      /*      sqv* */
+      /*      (1-2*csdelta*sndelta)* */
+      /*      (1-2*Alpha2-2*Alpha*csAlpha+2*Alpha*cos(Alpha-2*delta)+cos(2*(Alpha-delta))+2*Alpha*snAlpha+2*Alpha*sin(Alpha-2*delta)-2*Alpha2*sn2delta)) */
+      /*   ); */
 
       /* ROS_INFO("long element is %f", 1-2*Alpha2-2*Alpha*csAlpha+2*Alpha*cos(Alpha-2*delta)+cos(2*(Alpha-delta))+2*Alpha*snAlpha+2*Alpha*sin(Alpha-2*delta)-2*Alpha2*sn2delta); */
 
@@ -1046,23 +1047,25 @@ public:
       /* double O = sqrt(2 + 2*A + A*A + 2*B + B*B); */
       /* std::cout << "long operand: " << O << std::endl; */
       /* double delta = atan(-((1+A)/(O))/(((1+A+B+A*B)/O)/(1+A))); */
-      double delta = atan(-((1.0+A)*(1.0+A))/(1+A+B+A*B));
+      double delta = atan(-(1.0+A)/(1+B))+(M_PI);
 
 
       /* double gamma      = CV_PI - (delta + Alpha); */
 
       /* double distMiddle = sin(gamma) * _arm_length_ / sin(Alpha); */
-      double distMiddle=(_arm_length_*sin(M_PI-(delta+Alpha)))/(sin(Alpha));
+      /* double distMiddle=(_arm_length_*sin(M_PI-(delta+Alpha)))/(sin(Alpha)); */
+      double v = sqrt(0.5)*_arm_length_;
+      double distMiddle=*v*((cos(delta)+sin(delta)*A)+(cos((M_PI*1.5)-delta)+sin((M_PI*1.5)-delta)*B));
 
 
-      double l = sqrt(fmax(0.1, distMiddle * distMiddle + _arm_length_ * _arm_length_ - 2 * distMiddle * _arm_length_ * cos(delta + (CV_PI / 4.0))));
+      double l = sqrt(fmax(0.1, distMiddle * distMiddle + _arm_length_ * _arm_length_ - 2 * distMiddle * _arm_length_ * cos(delta + (M_PI / 4.0))));
 
       double Epsilon=asin((_arm_length_/l)*sin(delta+M_PI/4.0));
       /* phi=asin((b/l)*sin(delta+pi/3)); */
 
       /* double phi = asin(sin(delta + (CV_PI / 3.0)) * (_arm_length_ / l)); */
       double phi = asin(sin(delta + (CV_PI/4.0)) * (distMiddle / l));
-      std::cout << "delta: " << delta << std::endl;
+      /* std::cout << "delta: " << delta << std::endl; */
       std::cout << "Estimated distance: " << l << std::endl;
       /* std_msgs::Float32 dM, fdM; */
       /* dM.data  = distance; */
