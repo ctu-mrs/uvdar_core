@@ -26,29 +26,36 @@ public:
 
   void setDebug(bool i_DEBUG, bool i_VisDEBUG);
 
+
+  cv::Mat getVisualization();
+
 private:
   template < typename T >
   void resetToZero(T *__restrict__ input, int steps);
   void generateMasks();
-  void applyMasks(std::vector< std::vector< cv::Point3i > > & __restrict__ maskSet,
-      unsigned int *__restrict__ houghSpace);
+  void applyMasks(std::vector< std::vector< cv::Point3i > > & __restrict__ maskSet, unsigned int *__restrict__ houghSpace, double i_weightFactor,bool i_constantNewer,int i_breakPoint);
   void cleanTouched();
   void projectAccumulatorToHT();
   /* cv::Mat downSample(const cv::Mat &input, cv::Mat &output, int bits=8); */
   void flattenTo2D(unsigned int *__restrict__ input,
       int thickness, unsigned int *__restrict__ outputMaxima, cv::Mat &outputIndices);
   std::vector< cv::Point > findHoughPeaks(unsigned int *__restrict__ input, int peakCount);
+  cv::Point findHoughPeakLocal(cv::Point expectedPos);
   double retrieveFreqency(cv::Point originPoint, double &avgYaw, double &avgPitch);
-  void nullifyKnown();
-  bool miniFast(cv::Point input);
+  std::vector<cv::Point> nullifyKnown();
+  static int dummy;
+  bool miniFast(int x, int y, unsigned int thresh, int &smallestDiff = dummy);
   void initFast();
+
+  cv::Mat getCvMat(unsigned int *__restrict__ input, unsigned int threshold);
 
   double mod2(double a, double n);
   double angDiff(double a, double b);
   double angMeanXY(std::vector< cv::Point > input);
 
   int          memSteps, pitchSteps, yawSteps;
-  unsigned int frameScale, maskWidth, houghThresh, nullifyRadius, bitShift;
+  unsigned int frameScale, houghThresh, nullifyRadius, bitShift;
+  int maskWidth;
   int          expectedMatches;
   double       minPitch, pitchDiv, yawDiv;
   int          reasonableRadius;
@@ -71,8 +78,7 @@ private:
   unsigned int * __restrict__ houghSpacePitchMaxima,
                *__restrict__ houghSpaceYawMaxima,
                *__restrict__ combinedMaximaMatrix;
-  cv::Mat                                   pitchMatrix,
-    yawMatrix;
+  cv::Mat                                   pitchMatrix, yawMatrix;
   std::vector< std::vector< cv::Point3i > > pitchMasks, yawMasks;
   std::vector< double >                     pitchVals,
     yawVals, cotSetMin, cotSetMax, sinSet, cosSet;
@@ -86,4 +92,6 @@ private:
   std::mutex mutex_accum;
 
   bool DEBUG, VisDEBUG;
+
+  cv::Mat visualization;
 };

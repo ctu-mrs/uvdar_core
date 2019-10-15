@@ -17,7 +17,7 @@
   <arg name="VisDEBUG" default="false"/>
   <arg name="gui" default="true"/>
 
-  <arg name="frame_uvdar" default="uvcam"/>
+  <arg name="frame_uvdar" default="uvcam_$(arg uav_name)"/>
   <arg name="frame_camera" default="color_camera"/>
 
 

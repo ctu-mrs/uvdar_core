@@ -18,15 +18,15 @@
   <arg name="fps" default="$(arg rate)"/>
 
   <arg name="idpf" default="0"/>
-  <arg name="aec" default="false"/>
+  <arg name="aec" default="true"/>
   <arg name="expose_us" default="10000"/>
-  <arg name="agc" default="false"/>
+  <arg name="agc" default="true"/>
   <arg name="gain_db" default="0.0"/>
   <arg name="cbm" default="0"/>
   <arg name="ctm" default="1"/>
   <arg name="dcfm" default="0"/>
   <arg name="hdr" default="false"/>
-  <arg name="wbp" default="-1"/>
+  <arg name="wbp" default="3"/>
   <arg name="request" default="0"/>
   <arg name="mm" default="0"/>
   <arg name="jpeg_quality" default="80"/>
@@ -36,6 +36,8 @@
   <arg name="proc" default="false"/>
   <arg name="view" default="false"/>
   <arg name="calib" default="false"/>
+
+  <arg name="expose_upper_limit_us" default="100000"/>
 
   <group ns="$(arg uav_name)">
 
@@ -58,6 +60,7 @@
     <param name="wbp" type="int" value="$(arg wbp)"/>
     <param name="request" type="int" value="$(arg request)"/>
     <param name="mm" type="int" value="$(arg mm)"/>
+    <param name="expose_upper_limit_us" type="int" value="$(arg expose_upper_limit_us)"/>
     <param name="image_raw/compressed/jpeg_quality" type="int" value="$(arg jpeg_quality)"/>
   </node>
 </group>

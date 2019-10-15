@@ -8,3 +8,8 @@
     <description>the UVDAR blinking marker processing nodelet</description>
   </class>
 </library>
+<library path="lib/libBluefoxEmulator">
+  <class name="uvdar/BluefoxEmulator" type="uvdar::BluefoxEmulator" base_class_type="nodelet::Nodelet">
+    <description>the UV filtered Bluefox camera emulator nodelet</description>
+  </class>
+</library>

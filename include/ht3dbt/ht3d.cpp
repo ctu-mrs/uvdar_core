@@ -6,7 +6,11 @@
 /* #define maxPixelShift 1 */
 /* #define framerate 70 */
 /* #define weightFactor 0 */
-#define weightFactor 1
+#define weightFactor 1.0
+#define constantNewer false
+#define breakPoint memSteps
+
+#define USE_VISIBLE_ORIGINS true
 
 /* #define timeProfiling false */
 
@@ -33,7 +37,7 @@ double HT3DBlinkerTracker::mod2(double a, double n) {  // modulo without sign
 
 double HT3DBlinkerTracker::angDiff(double a, double b) {
   double diff = a - b;
-  diff        = mod2(diff + CV_PI, 2 * CV_PI) - CV_PI;
+  diff        = mod2(diff + M_PI, 2 * M_PI) - M_PI;
   /* std::cout << "angDiff: " << a <<std::endl << b <<std::endl <<  diff << std::endl; */
   return diff;
 }
@@ -57,12 +61,16 @@ HT3DBlinkerTracker::HT3DBlinkerTracker(int i_memSteps,
   maxPixelShift = i_maxPixelShift;
   frameScale    = round(3 * framerate / 10);
   maskWidth     = 1 + 2 * maxPixelShift * (frameScale - 1);
-  if ((memSteps * memSteps * memSteps * memSteps) * 2.25 > (UINT_MAX))
+  double weightCoeff = (constantNewer?0.375:0.625);
+  weightCoeff = 0.5;
+
+  if ((memSteps * memSteps * memSteps * memSteps) * (1+(weightCoeff*weightFactor))*(1+(weightCoeff*weightFactor))  > (UINT_MAX))
     bitShift = ceil(log2((memSteps * memSteps * memSteps * memSteps) * 2.25 / (UINT_MAX)));
   else
     bitShift       = 0;
   houghThresh      =
-    (unsigned int)((memSteps * memSteps * memSteps * memSteps) * 0.25 * 2.25 * 0.9) >> bitShift;
+    /* (unsigned int)((memSteps * memSteps * memSteps * memSteps) * 2.25 * 0.5 *0.75) >> bitShift; */
+    (unsigned int)((memSteps * memSteps * memSteps * memSteps) * (1+(weightCoeff*weightFactor)) * (1+(weightCoeff*weightFactor)) * 0.25 *0.9) >> bitShift;
   nullifyRadius    = i_nullifyRadius;
   reasonableRadius = i_reasonableRadius;
   imRes            = i_imRes;
@@ -89,19 +97,19 @@ HT3DBlinkerTracker::HT3DBlinkerTracker(int i_memSteps,
     if (i == pitchSteps)
       cotSetMin.push_back(0.0);
     else
-      cotSetMin.push_back(cot(pitchVals[i] + (pitchDiv / 2.0)));
+      cotSetMin.push_back(cot(pitchVals[i] + (pitchDiv / 2)));
 
 
     if (i == 0)
       cotSetMax.push_back(cot(minPitch));
     else
-      cotSetMax.push_back(cot(pitchVals[i] - (pitchDiv / 2.0)));
+      cotSetMax.push_back(cot(pitchVals[i] - (pitchDiv / 2)));
   }
 
 
-  yawDiv = (2.0 * CV_PI) / yawSteps;
+  yawDiv = (2.0 * M_PI) / yawSteps;
   for (int i = 0; i < yawSteps; i++) {
-    yawVals.push_back((i)*yawDiv);
+    yawVals.push_back((i)*yawDiv-M_PI);
     sinSet.push_back(sin(yawVals[i]));
     cosSet.push_back(cos(yawVals[i]));
   }
@@ -231,21 +239,22 @@ std::vector< cv::Point3d > HT3DBlinkerTracker::getResults() {
   /* end         = std::clock(); */
   /* elapsedTime = double(end - begin) / CLOCKS_PER_SEC; */
   /* std::cout << "Fetching points: " << elapsedTime << " s" << std::endl; */
-  begin = std::clock();
+  /* begin = std::clock(); */
 
   projectAccumulatorToHT();
-  end         = std::clock();
-  elapsedTime = double(end - begin) / CLOCKS_PER_SEC;
+  /* end         = std::clock(); */
+  /* elapsedTime = double(end - begin) / CLOCKS_PER_SEC; */
   if (DEBUG)
     std::cout << "Projecting to HT: " << elapsedTime << " s" << std::endl;
   /* begin = std::clock(); */
 
-  nullifyKnown();
   /* end         = std::clock(); */
   /* elapsedTime = double(end - begin) / CLOCKS_PER_SEC; */
   /* std::cout << "Nullification of known: " << elapsedTime << " s" << std::endl; */
 
-  std::vector< cv::Point > originPts = accumulatorLocalCopy[0];
+
+  std::vector< cv::Point > originPts = nullifyKnown();
+  std::vector< cv::Point > originPtsOut = accumulatorLocalCopy[0];
   if (DEBUG)
     std::cout << "Orig. pt. count: " << originPts.size() << std::endl;
 
@@ -275,6 +284,7 @@ std::vector< cv::Point3d > HT3DBlinkerTracker::getResults() {
   }
   begin = std::clock();
   originPts.insert(originPts.end(), houghOrigins.begin(), houghOrigins.end());
+  originPtsOut.insert(originPtsOut.end(), houghOrigins.begin(), houghOrigins.end());
   std::vector< cv::Point3d > result;
 
   pitchAvgs.clear();
@@ -283,15 +293,24 @@ std::vector< cv::Point3d > HT3DBlinkerTracker::getResults() {
 
   if (DEBUG)
     std::cout << "Orig. pt. count: " << originPts.size() << std::endl;
-  for (int i = 0; i < originPts.size(); i++) {
+  for (int i = 0; i < (int)(originPts.size()); i++) {
     if (DEBUG)
       std::cout << "Curr. orig. pt: " << originPts[i] << std::endl;
     double frequency, yawAvg, pitchAvg;
+    /* frequency = retrieveFreqency(originPts[i], yawAvg, pitchAvg); */
     frequency = retrieveFreqency(originPts[i], yawAvg, pitchAvg);
-    result.push_back(cv::Point3d(originPts[i].x, originPts[i].y, frequency));
+    /* frequency = retrieveFreqency(originPtsOut[i], yawAvg, pitchAvg); */
+    result.push_back(cv::Point3d(originPtsOut[i].x, originPtsOut[i].y, frequency));
     frequencies.push_back(frequency);
     yawAvgs.push_back(yawAvg);
     pitchAvgs.push_back(pitchAvg);
+  }
+  if (DEBUG){
+    std::cout << "Differences from the detected: [" << std::endl;
+    for (int op = 0; op < (int)(originPts.size()); op++){
+      std::cout << originPts[op] - originPtsOut[op] << std::endl;
+    }
+    std::cout << "]" << std::endl;
   }
   end         = std::clock();
   elapsedTime = double(end - begin) / CLOCKS_PER_SEC;
@@ -302,21 +321,27 @@ std::vector< cv::Point3d > HT3DBlinkerTracker::getResults() {
   return result;
 }
 
-void HT3DBlinkerTracker::nullifyKnown() {
+//changing the approach - origin point estimate stays on the active markers, but for frequency estimate we'll use local maximum
+std::vector<cv::Point> HT3DBlinkerTracker::nullifyKnown() {
   cv::Point currKnownPt;
   int       top, left, bottom, right;
-  for (int i = 0; i < accumulatorLocalCopy[0].size(); i++) {
-    currKnownPt = accumulatorLocalCopy[0][i];
+  std::vector<cv::Point> maxima;
+  for (int i = 0; i < (int)(accumulatorLocalCopy[0].size()); i++) {
+    currKnownPt = (USE_VISIBLE_ORIGINS?
+        accumulatorLocalCopy[0][i]:
+        findHoughPeakLocal(accumulatorLocalCopy[0][i]));
     top         = std::max(0, currKnownPt.y - (int)(nullifyRadius));
     left        = std::max(0, currKnownPt.x - (int)(nullifyRadius));
-    bottom      = std::min(imRes.height - 1, currKnownPt.y + (int)nullifyRadius);
-    right       = std::min(imRes.width - 1, currKnownPt.x + (int)nullifyRadius);
+    bottom      = std::min(imRes.height - 1, currKnownPt.y + (int)(nullifyRadius));
+    right       = std::min(imRes.width - 1, currKnownPt.x + (int)(nullifyRadius));
     for (int x = left; x <= (right); x++) {
       for (int y = top; y <= (bottom); y++) {
         combinedMaximaMatrix[index2d(x, y)] = 0;
       }
     }
+    maxima.push_back(currKnownPt);
   }
+  return maxima;
   /* expectedMatches -= accumulatorLocalCopy[0].size(); */
 }
 
@@ -327,7 +352,10 @@ void HT3DBlinkerTracker::generateMasks() {
   for (int x = 0; x < maskWidth; x++) {
     for (int y = 0; y < maskWidth; y++) {
       radiusBox.at< float >(y, x) = sqrt((x - center) * (x - center) + (y - center) * (y - center));
-      yawBox.at< float >(y, x)    = atan2((y - center), (x - center)) + CV_PI;
+      /* yawBox.at< float >(y, x)    = atan2((y - center), (x - center))+M_PI; */
+      yawBox.at< float >(y, x)    = atan2((y - center), (x - center));
+      /* if ( (x>39) && (x<45) && (y>39) && (y<45)) */
+      /*   std::cout << "yawBox[" << x << "," << y << "]: " << yawBox.at<float>(y,x) << " atan2: " << atan2((y - center), (x - center)) << std::endl; */
     }
   }
 
@@ -338,23 +366,37 @@ void HT3DBlinkerTracker::generateMasks() {
       double Rmax = (1.0 / tan(pitchVals[j] - (pitchDiv / 2))) * i;
       for (int x = 0; x < maskWidth; x++) {
         for (int y = 0; y < maskWidth; y++) {
-          if ((radiusBox.at< float >(y, x) >= Rmin - 1) && (radiusBox.at< float >(y, x) <= Rmax + 1)) {
+          if ((radiusBox.at< float >(y, x) >= (Rmin - 1)) && (radiusBox.at< float >(y, x) <= (Rmax + 1))) {
             pitchMasks[i].push_back(cv::Point3i(x - center, y - center, j));
           }
         }
       }
     }
   }
+  int sR = 0;
   for (int i = 0; i < memSteps; i++) {
     yawMasks.push_back(std::vector< cv::Point3i >());
     for (int j = 0; j < yawSteps; j++) {
-      yawMasks[i].push_back(cv::Point3i(0, 0, j));
+    /*   for (int k =-sR; k<=sR; k++) for (int l =-sR; l<=sR; l++) */
+        /* yawMasks[i].push_back(cv::Point3i(k, l, j)); */
       for (int x = 0; x < maskWidth; x++) {
         for (int y = 0; y < maskWidth; y++) {
           if (radiusBox.at< float >(y, x) < (i * maxPixelShift)) {               // decay
-            if (fabs(angDiff(yawBox.at< float >(y, x), yawVals[j])) < yawDiv) {  // yaw steps
+            /* if ((j <4) && (i==2)) */
+            /* std::cout << "YawVAL: " << yawVals[j] << " YawBOX[" << x << "," << y << "]: " << yawBox.at< float >(y, x) << " angDiff: " << angDiff(yawBox.at< float >(y, x), yawVals[j]) << std::endl; */
+
+            bool spreadTest=false;
+            for (int k =-sR; k<=sR; k++)
+              for (int l =-sR; l<=sR; l++)
+                if (((x+l) == center) && ((y+k) == center)){  // yaw steps
+                  spreadTest = true;
+                  break;
+                }
+            if ( (fabs(angDiff(yawBox.at< float >(y, x), yawVals[j])) < yawDiv*1.0) || spreadTest )
               yawMasks[i].push_back(cv::Point3i(x - center, y - center, j));
-            }
+            /* std::cout << "M: " << x-center << ":" << y-center << ":" << j << std::endl; */
+            /* if (i==2) */
+            /* std::cout << "M: " << cv::Point3i(x - center, y - center, j) << std::endl; */
           }
         }
       }
@@ -364,18 +406,17 @@ void HT3DBlinkerTracker::generateMasks() {
   return;
 }
 
-void HT3DBlinkerTracker::applyMasks(std::vector< std::vector< cv::Point3i > > & __restrict__ maskSet, unsigned int *__restrict__ houghSpace) {
+void HT3DBlinkerTracker::applyMasks(std::vector< std::vector< cv::Point3i > > & __restrict__ maskSet, unsigned int *__restrict__ houghSpace, double i_weightFactor,bool i_constantNewer,int i_breakPoint) {
   /* for (int i=0;i<houghSpace.size[0];i++){ */
   /*   for (int j=0;j<houghSpace.size[1];j++){ */
   /*     for (int k=0;k<houghSpace.size[2];k++){ */
   /*       houghSpace.at<uint16_t>(i,j,k) = 0; */
   /*     }}} */
   /* houghSpace = cv::Scalar(0); */
-  int index;
   int x, y, z;
   for (int t = 0; t < std::min((int)(accumulatorLocalCopy.size()), memSteps); t++) {
-    for (int j = 0; j < accumulatorLocalCopy[t].size(); j++) {
-      for (int m = 0; m < maskSet[t].size(); m++) {
+    for (int j = 0; j < (int)(accumulatorLocalCopy[t].size()); j++) {
+      for (int m = 0; m < (int)(maskSet[t].size()); m++) {
         /* std::cout << "here a" << std::endl; */
         /* std::cout << "here b: " << cv::Point(maskSet[t][m].x + accumulatorLocalCopy[t][j].x, maskSet[t][m].y + accumulatorLocalCopy[t][j].y) << std::endl; */
         /* std::cout <<  "here" << std::endl; */
@@ -392,7 +433,7 @@ void HT3DBlinkerTracker::applyMasks(std::vector< std::vector< cv::Point3i > > & 
         if (y >= imRes.height)
           continue;
 
-        houghSpace[index3d(x, y, z)] += weightFactor * (memSteps - t) + memSteps;
+        houghSpace[index3d(x, y, z)] += i_weightFactor * (i_constantNewer?std::min((memSteps - t),memSteps-i_breakPoint):std::max((memSteps - t),memSteps-i_breakPoint)) + memSteps;
         touchedMatrix[index2d(x, y)] = 255;
       }
     }
@@ -440,6 +481,8 @@ void HT3DBlinkerTracker::cleanTouched() {
         /* houghSpaceYawMaxima.at< uint16_t >(i, j)   = 0; */
         /* pitchMatrix.at<uint16_t>(i,j) = 0; */
         /* yawMatrix.at<uint16_t>(i,j) = 0; */
+        houghSpacePitchMaxima[index2d(j, i)] = 0;
+        houghSpaceYawMaxima[index2d(j,i)] = 0;
         combinedMaximaMatrix[index2d(j, i)] = 0;
 
 
@@ -460,13 +503,13 @@ void HT3DBlinkerTracker::projectAccumulatorToHT() {
   if (DEBUG)
     std::cout << "  Cleaning touched: " << elapsedTime << " s" << std::endl;
   begin = std::clock();
-  applyMasks(pitchMasks, houghSpacePitch);
+  applyMasks(pitchMasks, houghSpacePitch, 1, true, 0);
   end         = std::clock();
   elapsedTime = double(end - begin) / CLOCKS_PER_SEC;
   if (DEBUG)
     std::cout << "  Pitch masking: " << elapsedTime << " s" << std::endl;
   begin = std::clock();
-  applyMasks(yawMasks, houghSpaceYaw);
+  applyMasks(yawMasks, houghSpaceYaw, 1,true,0);
   end         = std::clock();
   elapsedTime = double(end - begin) / CLOCKS_PER_SEC;
   if (DEBUG)
@@ -493,8 +536,8 @@ void HT3DBlinkerTracker::projectAccumulatorToHT() {
       /* std::cout <<  "BS: " << bitShift << std::endl; */
       /* std::cout <<  "UINT_MAX: " << UINT_MAX << std::endl; */
       if (touchedMatrix[index2d(j, i)] == 255) {
-        /* combinedMaximaMatrix[index2d(j,i)] = (houghSpaceYawMaxima[index2d(j,i)] * houghSpacePitchMaxima[index2d(j,i)]) >> bitShift; */
-        combinedMaximaMatrix[index2d(j, i)] = (houghSpaceYawMaxima[index2d(j, i)] * houghSpacePitchMaxima[index2d(j, i)]);
+        combinedMaximaMatrix[index2d(j,i)] = (houghSpaceYawMaxima[index2d(j,i)] * houghSpacePitchMaxima[index2d(j,i)]) >> bitShift;
+        /* combinedMaximaMatrix[index2d(j, i)] = (houghSpaceYawMaxima[index2d(j, i)] * houghSpacePitchMaxima[index2d(j, i)]); */
       }
     }
   }
@@ -504,26 +547,24 @@ void HT3DBlinkerTracker::projectAccumulatorToHT() {
     std::cout << "  Combining: " << elapsedTime << " s" << std::endl;
   begin = std::clock();
   /* combinedMaximaMatrix = houghSpacePitchMaximaDS.mul(houghSpaceYawMaximaDS); */
-  /* if (VisDEBUG) { */
-  /*   cv::Mat viewerA = cv::Mat(combinedMaximaMatrix.size(), CV_8UC1); */
-  /*   cv::Mat viewerB = cv::Mat(combinedMaximaMatrix.size(), CV_8UC1); */
-  /*   cv::Mat viewerC = cv::Mat(combinedMaximaMatrix.size(), CV_8UC1); */
-  /*   cv::Mat viewerD = cv::Mat(combinedMaximaMatrix.size(), CV_8UC1); */
-  /*   cv::normalize(houghSpacePitchMaxima, viewerA, 0, 255, cv::NORM_MINMAX, CV_8UC1); */
-  /*   cv::normalize(houghSpaceYawMaxima, viewerB, 0, 255, cv::NORM_MINMAX, CV_8UC1); */
-  /*   cv::normalize(combinedMaximaMatrix, viewerC, 0, 255, cv::NORM_MINMAX, CV_8UC1); */
-  /*   cv::normalize(pitchMatrix, viewerD, 0, 255, cv::NORM_MINMAX, CV_8UC1); */
-  /*   cv::Mat combined1, combined2, combined3; */
-  /*   cv::hconcat(viewerA, viewerB, combined1); */
-  /*   cv::hconcat(viewerC, viewerD, combined2); */
-  /*   cv::vconcat(combined1, combined2, combined3); */
+  if (VisDEBUG) {
+    cv::Mat viewerA = getCvMat(houghSpacePitchMaxima,sqrt(houghThresh)*3);
+    cv::Mat viewerB = getCvMat(houghSpaceYawMaxima,sqrt(houghThresh)*3);
+    cv::Mat viewerC = getCvMat(combinedMaximaMatrix, houghThresh*6);;
+    cv::Mat viewerD = pitchMatrix;
+    
 
-  /*   /1* imshow("maxmatPitch", viewerA); *1/ */
-  /*   /1* imshow("maxmatYaw", viewerB); *1/ */
-  /*   /1* imshow("maxmatComb", viewerC); *1/ */
-  /*   imshow("maxmats", combined3); */
-  /*   cv::waitKey(10); */
-  /* } */
+    cv::Mat combined1, combined2, combined3;
+    cv::hconcat(viewerA, viewerB, combined1);
+    cv::hconcat(viewerC, viewerD, combined2);
+    cv::vconcat(combined1, combined2, visualization);
+
+    /* imshow("maxmatPitch", viewerA); */
+    /* imshow("maxmatYaw", viewerB); */
+    /* imshow("maxmatComb", viewerC); */
+    /* imshow("maxmats", combined3); */
+    /* cv::waitKey(10); */
+  }
   return;
 }
 
@@ -537,46 +578,169 @@ void HT3DBlinkerTracker::projectAccumulatorToHT() {
 std::vector< cv::Point > HT3DBlinkerTracker::findHoughPeaks(unsigned int *__restrict__ input, int peakCount) {
   /* cv::Mat                  inputCp = input.clone(); */
   std::vector< cv::Point > peaks;
-  unsigned int             currMax;
+  int             currMax, currMinDiff;
   cv::Point                currMaxPos;
+  bool storeCurrent;
   for (int i = 0; i < peakCount; i++) {
+    storeCurrent = false;
     currMax = 0;
     for (int y = 0; y < imRes.height; y++) {
       for (int x = 0; x < imRes.width; x++) {
         if (touchedMatrix[index2d(x, y)] == 0)
           continue;
-        if (input[index2d(x, y)] > currMax) {
-          currMax    = input[index2d(x, y)];
+
+        if (input[index2d(x,y)] > (unsigned int)currMax) {
+          currMax    = input[index2d(x,y)];
           currMaxPos = cv::Point(x, y);
+          storeCurrent = true;
         }
+          /*     currMax    = currMinDiff; */
+          /*     currMaxPos = cv::Point(x, y); */
+          /*     std::cout << "currMinDiff: " << currMinDiff << std::endl; */
+          /*   } */
+          /*   storeCurrent = true; */
+          /* } */
+
       }
     }
-    if (DEBUG)
-      std::cout << "Bit Shift: " << bitShift << " Thresh: " << houghThresh << " Curr. Peak: " << currMax << std::endl;
-    /* if ((currMax < houghThresh) || !miniFast(currMaxPos))  */
-    if (!miniFast(currMaxPos)) {
-      break;
-    }
-    if (DEBUG)
-      std::cout << "Passed FAST test" << std::endl;
-    peaks.push_back(currMaxPos);
+    /* if (input[index2d(currMaxPos.x,currMaxPos.y)] < houghThresh) { */
+    /*   storeCurrent = false; */
+    /*     if (DEBUG) */
+    /*   std::cout << "Point " << currMaxPos << " with value of " <<input[index2d(currMaxPos.x,currMaxPos.y)] <<" Failed threshold test. Threshold is " << houghThresh << ". Breaking." << std::endl; */
+    /*   break; */
+    /* } */
+    if (!miniFast(currMaxPos.x,currMaxPos.y, houghThresh/4, currMinDiff)) {
+      /* i--; */
+        storeCurrent = false;
+        if (DEBUG)
+          std::cout << "Point " << currMaxPos << " Failed FAST test." << std::endl;
+        break;
+
+      }
+/* if (miniFast(x,y, houghThresh*0.10, currMinDiff)) { */
+/*   if (currMinDiff > currMax) { */
+
+      /* if (!storeCurrent){ */
+      /*   if (DEBUG) */
+      /*     std::cout << "No more high points found, stopping search." << std::endl; */
+      /*   break; */
+      /* } */
+
+      /* if (currMax < houghThresh/8) { */
+      /*   storeCurrent = false; */
+      /*   break; */
+      /* } */
+      /* if (input[index2d(currMaxPos.x,currMaxPos.y)] > houghThresh) { */
+      /*   if (DEBUG) */
+      /*     std::cout << "Point " << currMaxPos << " passed value test, its value is " << input[index2d(currMaxPos.x,currMaxPos.y)] << " against thresh. of " << houghThresh << std::endl; */
+      /* } */
+      /* else { */
+      /*   storeCurrent = false; */
+      /*   if (DEBUG) */
+      /*   std::cout << "Point " << currMaxPos << " failed value test, its value is " << input[index2d(currMaxPos.x,currMaxPos.y)]  << " against thresh. of " << houghThresh << std::endl; */
+      /*   break; */
+      /* } */
+    /* if (DEBUG) */
+    /*   std::cout << "Bit Shift: " << bitShift << " Thresh: " << houghThresh << " Curr. Peak: " << currMax << std::endl; */
+    /* if (currMax < houghThresh){ */
+    /*   if (DEBUG){ std::cout << "Maximum is low" << std::endl; */
+    /*   } */
+    /*   break; */
+    /* } */
+
+    /* if (!miniFast(currMaxPos, houghThresh/8 << bitShift)) { */
+    /*   if (DEBUG){ std::cout << "FAST failed" << std::endl; */
+    /*   } */
+    /*   storeCurrent = false; */
+    /*   i--; //to try again */
+    /* } */
+
     int top, left, bottom, right;
     top    = std::max(0, currMaxPos.y - (int)(nullifyRadius));
     left   = std::max(0, currMaxPos.x - (int)(nullifyRadius));
-    bottom = std::min(imRes.height - 1, currMaxPos.y + (int)nullifyRadius);
+    bottom = std::min(imRes.height - 1, currMaxPos.y + (int)(nullifyRadius));
     right  = std::min(imRes.width - 1, currMaxPos.x + (int)nullifyRadius);
     for (int x = left; x <= (right); x++) {
       for (int y = top; y <= (bottom); y++) {
         input[index2d(x, y)] = 0;
       }
     }
+    if (storeCurrent){
+      /* if (DEBUG) */
+      /*   std::cout << "Point " << currMaxPos<< " passed FAST test, smallest diff. is " << currMax << std::endl; */
+      peaks.push_back(currMaxPos);
+    }
+    /* else */ 
+    /*   break; */
+
   }
   return peaks;
+}
+
+cv::Point HT3DBlinkerTracker::findHoughPeakLocal(cv::Point expectedPos) {
+  /* cv::Mat                  inputCp = input.clone(); */
+  std::vector< cv::Point > peaks;
+  cv::Point                currMaxPos = expectedPos;
+  int top, left, bottom, right;
+  bool found = false;
+  //expanding square outline
+  for (int r = 0; r <= ((int)nullifyRadius); r++) {
+    top    = std::max(0, expectedPos.y - (int)(r));
+    left   = std::max(0, expectedPos.x - (int)(r));
+    bottom = std::min(imRes.height - 1, expectedPos.y + (int)r);
+    right  = std::min(imRes.width - 1, expectedPos.x + (int)r);
+
+    /* std::cout << "Outline with r=" << r << std::endl; */
+    //top and bottom lines of square outline
+    for (int y = top; y <= (bottom); y+=((r==0)?1:(bottom-top))){
+    /* std::cout << "first loop, y=" << y << std::endl; */
+      for (int x = left; x <= (right); x++) {
+        /* std::cout << "first loop, x=" << x << std::endl; */
+        if (miniFast(x,y, 0)){
+          found = true;
+          currMaxPos = cv::Point(x,y);
+          break;
+        }
+      }
+      if(found)
+        break;
+    }
+    if(found)
+      break;
+    //left and right lines of square outline
+    for (int x = left; x <= (right); x+=((r==0)?1:(right-left))) {
+    /* std::cout << "second loop, x=" << x << std::endl; */
+      for (int y = top+1; y <= bottom-1; y++){
+    /* std::cout << "second loop, y=" << y << std::endl; */
+        if (miniFast(x,y, 0)){
+          found = true;
+          currMaxPos = cv::Point(x,y);
+          break;
+        }
+      }
+      if(found)
+        break;
+    }
+    if(found)
+      break;
+  }
+  if (DEBUG)
+    std::cout << "Finding for visible: Bit Shift: " << bitShift << " Thresh: " << houghThresh << " Curr. Peak: " << combinedMaximaMatrix[index2d(currMaxPos.x,currMaxPos.y)] << std::endl;
+  /* if ((currMax < houghThresh) || !miniFast(currMaxPos))  */
+  /* if (!miniFast(currMaxPos)) { */
+  /*   break; */
+  /* } */
+  /* if (DEBUG) */
+  /*   std::cout << "Passed FAST test" << std::endl; */
+  return currMaxPos;
 }
 
 
 double HT3DBlinkerTracker::retrieveFreqency(cv::Point originPoint, double &avgYaw, double &avgPitch) {
   unsigned char initPitch = pitchMatrix.at< unsigned char >(originPoint);
+  if (DEBUG){
+    std::cout << "Initial pitch estimate: " << pitchVals[initPitch]*(180/M_PI) << " deg" << std::endl;
+  }
   int                      stepCount = std::min((int)(accumulatorLocalCopy.size()), memSteps);
   double                   radExpectedMax, radExpectedMin, currPointRadius;
   std::vector< cv::Point > positivePointAccum;
@@ -589,7 +753,7 @@ double HT3DBlinkerTracker::retrieveFreqency(cv::Point originPoint, double &avgYa
     radExpectedMin        = (cotSetMin[initPitch] * t) - (reasonableRadius);  //+t*0.2
     radExpectedMax        = (cotSetMax[initPitch] * t) + (reasonableRadius);  //+t*0.2
     positiveCountAccum[t] = 0;
-    for (int k = 0; k < accumulatorLocalCopy[t].size(); k++) {
+    for (int k = 0; k < (int)(accumulatorLocalCopy[t].size()); k++) {
       currPoint         = accumulatorLocalCopy[t][k];
       currPointCentered = currPoint - originPoint;
       currPointRadius   = cv::norm(currPointCentered);
@@ -612,8 +776,9 @@ double HT3DBlinkerTracker::retrieveFreqency(cv::Point originPoint, double &avgYa
   }
 
   if (DEBUG){
+
     std::cout << "Before culling" << std::endl;
-    for (int i = 0; i < positiveCountAccum.size(); i++) {
+    for (int i = 0; i < (int)(positiveCountAccum.size()); i++) {
       std::cout << positiveCountAccum[i];
     }
   std::cout << std::endl;
@@ -621,7 +786,7 @@ double HT3DBlinkerTracker::retrieveFreqency(cv::Point originPoint, double &avgYa
 
   avgYaw                      = angMeanXY(positivePointAccum);
   std::vector< bool > correct = std::vector< bool >(positivePointAccum.size(), true);
-  for (int u = 0; u < positivePointAccum.size(); u++) {
+  for (int u = 0; u < (int)(positivePointAccum.size()); u++) {
     /* std::cout << "correct: "; */
     if ((fabs(angDiff(yawAccum[u], avgYaw)) > (CV_PI / 4.0)) && (cv::norm(positivePointAccum[u]) > (reasonableRadius))) {
       /* if ((fabs(angDiff(yawAccum[u], avgYaw)) > (CV_PI / 4.0)) )  */
@@ -634,7 +799,7 @@ double HT3DBlinkerTracker::retrieveFreqency(cv::Point originPoint, double &avgYa
   }
   /* std::cout <<  std::endl; */
   int o = 0;
-  for (int u = 0; u < correct.size(); u++) {
+  for (int u = 0; u < (int)(correct.size()); u++) {
     if (!correct[u]) {
       /* std::cout <<  "Culling n. " << u << std::endl; */
       positiveCountAccum[positivePointAccumPitch[o].y]--;
@@ -652,6 +817,14 @@ double HT3DBlinkerTracker::retrieveFreqency(cv::Point originPoint, double &avgYa
   /* std::cout << "avgPitch " << avgPitch * (180.0 / CV_PI) << std::endl; */
 
 
+  if (DEBUG){
+  std::cout << "After culling" << std::endl;
+  for (int i = 0; i < (int)(positiveCountAccum.size()); i++) {
+    std::cout << positiveCountAccum[i];
+  }
+  std::cout << std::endl;
+  }
+
   bool   state             = false;
   bool   prevState         = state;
   bool   downStep          = false;
@@ -659,22 +832,21 @@ double HT3DBlinkerTracker::retrieveFreqency(cv::Point originPoint, double &avgYa
   bool   upStep            = false;
   int    lastUpStepIndex   = 0;
   double period;
+   double upDur, downDur;
   double maxPeriod = 0;
   double minPeriod = memSteps;
   int    cntPeriod = 0;
   int    sumPeriod = 0;
-  for (int t = 0; t < accumulatorLocalCopy.size(); t++) {
+  for (int t = 0; t < (int)(accumulatorLocalCopy.size()); t++) {
     if (positiveCountAccum[t] > 0)
       state = true;
     else
       state = false;
 
+    //11100000011111110011110
     if (!state && prevState) {
-      if (!downStep) {
-        /* std::cout <<  "here" << std::endl; */
-        lastDownStepIndex = t;
-        downStep          = true;
-      } else {
+        upDur = (t-lastUpStepIndex);
+      if (downStep) {
         /* std::cout <<  t << std::endl; */
         period            = (t - lastDownStepIndex);
         if (period < minPeriod)
@@ -683,16 +855,18 @@ double HT3DBlinkerTracker::retrieveFreqency(cv::Point originPoint, double &avgYa
           maxPeriod = period;
         lastDownStepIndex = t;
         sumPeriod         = sumPeriod + period;
-        /* std::cout << "up " << sumPeriod << std::endl; */
+        /* std::cout << "up " << period << std::endl; */
         cntPeriod = cntPeriod + 1;
       }
+      if (!downStep) {
+        /* std::cout <<  "here" << std::endl; */
+        lastDownStepIndex = t;
+        downStep          = true;
+      } 
     }
     if (state && !prevState && (t > 0)) {
-      if (!upStep) {
-        /* std::cout <<  "here" << std::endl; */
-        lastUpStepIndex = t;
-        upStep          = true;
-      } else {
+       downDur = (t-lastDownStepIndex);
+      if (upStep) {
         /* std::cout <<  t << std::endl; */
         period          = (t - lastUpStepIndex);
         if (period < minPeriod)
@@ -701,14 +875,18 @@ double HT3DBlinkerTracker::retrieveFreqency(cv::Point originPoint, double &avgYa
           maxPeriod = period;
         lastUpStepIndex = t;
         sumPeriod       = sumPeriod + period;
-        /* std::cout << "up " << sumPeriod << std::endl; */
+        /* std::cout << "dn " << period << std::endl; */
         cntPeriod = cntPeriod + 1;
+      }
+      if (!upStep) {
+        /* std::cout <<  "here" << std::endl; */
+        lastUpStepIndex = t;
+        upStep          = true;
       }
     }
     prevState = state;
-  }
-  if ((maxPeriod - minPeriod) > 3){
-    return -3;
+    /* if (downStep) std::cout <<"DownStep active" << std::endl; */
+    /* if (upStep) std::cout <<"UpStep active" << std::endl; */
   }
 
   double periodAvg;
@@ -721,22 +899,37 @@ double HT3DBlinkerTracker::retrieveFreqency(cv::Point originPoint, double &avgYa
     /*     periodAvg = 2 * (lastDownStepIndex - lastUpStepIndex); */
     /*   } */
     /* } */
+
+    if (DEBUG){
+      std::cout << "Not one whole period retrieved, returning;" <<std::endl;
+    }
     return -1;
-  } else if (cntPeriod != 0) {
-    periodAvg = (double)sumPeriod / (double)cntPeriod;
+  } else {
+    periodAvg = (double)(sumPeriod) / (double)cntPeriod;
   }
 
+  if ((maxPeriod - minPeriod) > ceil(periodAvg/2)){
+    if (DEBUG)
+      std::cout << "Spread too wide: "<<maxPeriod-minPeriod<<" compared to average of " << periodAvg <<", returning" <<std::endl;
+    return -3;
+  }
 
   if ((periodAvg * ((double)(cntPeriod+1)/2.0) ) < ( memSteps - (1.5*periodAvg))){
+    if (DEBUG){
+      std::cout << "Not enough periods retrieved: "<< cntPeriod <<" for " << periodAvg <<" on average; returning" <<std::endl;
+    }
     return -4;
   }
+  if ((cntPeriod == 1) && (fabs(upDur-downDur)>(periodAvg/2))){
+    if (DEBUG){
+      std::cout << "Long period with uneven phases: "<< upDur-downDur <<" for " << periodAvg <<" on average; returning" <<std::endl;
+    }
+    return -5;
+  }
+
 
   if (DEBUG){
-  std::cout << "After culling" << std::endl;
-  for (int i = 0; i < positiveCountAccum.size(); i++) {
-    std::cout << positiveCountAccum[i];
-  }
-  std::cout << std::endl;
+  /* std::cout << "After culling" << std::endl; */
   /* std::cout << "CNT: " << cntPeriod << " SUM: " <<sumPeriod << std::endl; */
   /* std::cout << "count is " << cntPeriod << std::endl; */
   /* std::cout << framerate << std::endl; */
@@ -745,50 +938,105 @@ double HT3DBlinkerTracker::retrieveFreqency(cv::Point originPoint, double &avgYa
   return (double)framerate / periodAvg;
 }
 
-bool HT3DBlinkerTracker::miniFast(cv::Point input) {
-  if (input.x<3)
+cv::Mat HT3DBlinkerTracker::getCvMat(unsigned int *__restrict__ input, unsigned int threshold){
+  cv::Mat output(imRes,CV_8UC1);
+  for (int i=0; i<imRes.height; i++){
+    for (int j=0; j<imRes.width; j++){
+      output.data[index2d(j,i)] = input[index2d(j,i)]*(255.0/threshold);
+    } }
+  /* std::cout << "testval: " << (int)(output[index2d(imRes.width/2,imRes.height/2)]) << std::endl; */
+  return output;
+}
+
+cv::Mat HT3DBlinkerTracker::getVisualization(){
+  return visualization;
+}
+
+int HT3DBlinkerTracker::dummy = 0;
+
+bool HT3DBlinkerTracker::miniFast(int x, int y, unsigned int thresh, int &smallestDiff) {
+  if (x<3)
     return false;
-  if (input.y<3)
+  if (y<3)
     return false;
-  if (input.x>(imRes.width-4))
+  if (x>(imRes.width-4))
     return false;
-  if (input.y>(imRes.height-4))
+  if (y>(imRes.height-4))
     return false;
-  for (int i = 0; i < fastPoints.size(); i++) {
-    if (
-        (combinedMaximaMatrix[index2d(input.x, input.y)]
-         - 
-         combinedMaximaMatrix[index2d(input.x + fastPoints[i].x, input.y + fastPoints[i].y)])
-       <
-        (houghThresh / 4.0)
-       )
-      return false;
+  smallestDiff = INT_MAX;
+  bool foundOneFit = false;
+  int diff;
+  for (int i = 0; i < (int)(fastPoints.size()); i++) {
+  diff = 
+        (combinedMaximaMatrix[index2d(x, y)] - combinedMaximaMatrix[index2d(x + fastPoints[i].x, y + fastPoints[i].y)]);
+  if (diff > (int)(thresh)){
+    foundOneFit = true;
+    if (smallestDiff > diff){
+      smallestDiff = diff;
+    }
+    /* diffsum+=diff; */
+    /* else std::cout << "DIFF: " << diff << std::endl; */
   }
-  return true;
+  else
+    return false;
+  }
+
+  /* if (DEBUG){ */
+  /*   std::cout << "Peak at " << x << ":" << y << ": " << */ 
+  /*     combinedMaximaMatrix[index2d(x, y)] */
+  /*     << */
+  /*     " Smallest diff was: " << smallestDiff << std::endl; */
+  /* smallestDiff = diffsum/12; */
+  return foundOneFit;
 }
 
 void HT3DBlinkerTracker::initFast() {
   fastPoints.clear();
 
-  fastPoints.push_back(cv::Point(0, -3));
-  fastPoints.push_back(cv::Point(0, 3));
-  fastPoints.push_back(cv::Point(3, 0));
-  fastPoints.push_back(cv::Point(-3, 0));
+  /* fastPoints.push_back(cv::Point(0, -3)); */
+  /* fastPoints.push_back(cv::Point(0, 3)); */
+  /* fastPoints.push_back(cv::Point(3, 0)); */
+  /* fastPoints.push_back(cv::Point(-3, 0)); */
 
-  fastPoints.push_back(cv::Point(2, -2));
-  fastPoints.push_back(cv::Point(-2, 2));
-  fastPoints.push_back(cv::Point(-2, -2));
-  fastPoints.push_back(cv::Point(2, 2));
+  /* fastPoints.push_back(cv::Point(2, -2)); */
+  /* fastPoints.push_back(cv::Point(-2, 2)); */
+  /* fastPoints.push_back(cv::Point(-2, -2)); */
+  /* fastPoints.push_back(cv::Point(2, 2)); */
 
-  fastPoints.push_back(cv::Point(-1, -3));
-  fastPoints.push_back(cv::Point(1, 3));
-  fastPoints.push_back(cv::Point(3, -1));
-  fastPoints.push_back(cv::Point(-3, 1));
+  /* fastPoints.push_back(cv::Point(-1, -3)); */
+  /* fastPoints.push_back(cv::Point(1, 3)); */
+  /* fastPoints.push_back(cv::Point(3, -1)); */
+  /* fastPoints.push_back(cv::Point(-3, 1)); */
 
-  fastPoints.push_back(cv::Point(1, -3));
-  fastPoints.push_back(cv::Point(-1, 3));
-  fastPoints.push_back(cv::Point(3, 1));
-  fastPoints.push_back(cv::Point(-3, -1));
+  /* fastPoints.push_back(cv::Point(1, -3)); */
+  /* fastPoints.push_back(cv::Point(-1, 3)); */
+  /* fastPoints.push_back(cv::Point(3, 1)); */
+  /* fastPoints.push_back(cv::Point(-3, -1)); */
+
+  fastPoints.push_back(cv::Point(0, -4));
+  fastPoints.push_back(cv::Point(0, 4));
+  fastPoints.push_back(cv::Point(4, 0));
+  fastPoints.push_back(cv::Point(-4, 0));
+
+  fastPoints.push_back(cv::Point(2, -3));
+  fastPoints.push_back(cv::Point(-2, 3));
+  fastPoints.push_back(cv::Point(-3, -2));
+  fastPoints.push_back(cv::Point(3, 2));
+
+  fastPoints.push_back(cv::Point(3, -2));
+  fastPoints.push_back(cv::Point(-3, 2));
+  fastPoints.push_back(cv::Point(-2, -3));
+  fastPoints.push_back(cv::Point(2, 3));
+
+  fastPoints.push_back(cv::Point(-1, -4));
+  fastPoints.push_back(cv::Point(1, 4));
+  fastPoints.push_back(cv::Point(4, -1));
+  fastPoints.push_back(cv::Point(-4, 1));
+
+  fastPoints.push_back(cv::Point(1, -4));
+  fastPoints.push_back(cv::Point(-1, 4));
+  fastPoints.push_back(cv::Point(4, 1));
+  fastPoints.push_back(cv::Point(-4, -1));
 }
 
 #endif  // HT3D_H

@@ -16,7 +16,13 @@
   <arg name="DEBUG" default="false"/>
   <arg name="VisDEBUG" default="false"/>
   <arg name="gui" default="true"/>
+  <arg name="frame" default="local_origin_stable"/>
+  <arg name="filterCount" default="1"/>
+  <arg name="useVelocity" default="false"/>
+  <arg name="outputFramerate" default="60"/>
 
+  <arg name="indoor" default="false"/>
+  <arg name="odometryAvailable" default="true"/>
 
   <group ns="$(arg uav_name)">
 
@@ -24,7 +30,7 @@
   
   <!-- <node pkg="uvdar" type="uvdar_kalman_node" name="filterUvdar" output="screen" launch-prefix="debug_roslaunch"> -->
   <node pkg="uvdar" type="uvdar_kalman_node" name="filterUvdar" output="screen">
-    <param name="output_frame" value="local_origin_stable"/>
+    <param name="output_frame" value="$(arg frame)"/>
     <!-- <param name="output_frame" value="fcu_$(arg uav_name)"/> -->
     <!-- <param name="base_footprint_frame" value="fcu_$(arg uav_name)"/> -->
     <!-- <param name="base_footprint_frame" value="uvdar_target_estim"/> -->
@@ -35,13 +41,25 @@
     <!-- <param name="uvdar_used" value="true"/> -->
     <!-- <param name="debug" value="false"/> -->
     <!-- <param name="self_diagnose" value="false"/> -->
+    <param name="useVelocity" value="$(arg useVelocity)" />
+    <param name="outputFramerate" value="$(arg outputFramerate)" />
+
+    <param name="indoor" value="$(arg indoor)" />
+    <param name="odometryAvailable" value="$(arg odometryAvailable)" />
+
+    <param name="filterCount" value="$(arg filterCount)" />
 
     <remap from="measuredPose1" to="/$(arg uav_name)/uvdar/measuredPose1"/>
     <remap from="measuredPose2" to="/$(arg uav_name)/uvdar/measuredPose2"/>
+    <remap from="measuredPose3" to="/$(arg uav_name)/uvdar/measuredPose3"/>
+
     <remap from="filteredPose1" to="/$(arg uav_name)/uvdar/filteredPose1"/>
     <remap from="filteredPose2" to="/$(arg uav_name)/uvdar/filteredPose2"/>
+    <remap from="filteredPose3" to="/$(arg uav_name)/uvdar/filteredPose3"/>
+
     <remap from="filteredPose1/tentative" to="/$(arg uav_name)/uvdar/filteredPose1/tentative"/>
     <remap from="filteredPose2/tentative" to="/$(arg uav_name)/uvdar/filteredPose2/tentative"/>
+    <remap from="filteredPose3/tentative" to="/$(arg uav_name)/uvdar/filteredPose3/tentative"/>
 
   </node>
     </group>

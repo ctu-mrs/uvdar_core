@@ -5,7 +5,7 @@ FILE(GLOB_RECURSE HEADER_FILES include *.h)
 FILE(GLOB_RECURSE LAUNCHER_FILES include *.launch)
 FILE(GLOB_RECURSE YAML_FILES include *.yaml)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-diagnostics-color -fmessage-length=0 -std=c++17 -Wno-return-type -Wno-unused-result")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-diagnostics-color -fmessage-length=0 -std=c++17 -Wno-return-type -Wno-unused-result -Wno-unused-variable -Wall -Wno-maybe-uninitialized -DEIGEN_INITIALIZE_MATRICES_BY_NAN")
 
 find_package(catkin REQUIRED COMPONENTS
   roscpp
@@ -75,6 +75,8 @@ find_package(OpenCV REQUIRED HINTS /usr/local/lib)
 add_message_files(DIRECTORY msg FILES
   ROIVector.msg
   Int32MultiArrayStamped.msg
+  DistRange.msg
+  DistRangeVector.msg
   )
 
 generate_messages(DEPENDENCIES
@@ -103,6 +105,7 @@ include_directories(
 add_library(OCamCalib include/OCamCalib/ocam_functions.cpp )
 
 add_library(ht3dbt include/ht3dbt/ht3d.cpp)
+add_library(ht4dbt include/ht3dbt/ht4d.cpp)
 add_library(uvLedDetect_fast include/detect/uvLedDetect_fast.cpp)
 
 target_link_libraries(uvLedDetect_fast 
@@ -132,6 +135,13 @@ add_dependencies(uvdar_kalman_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_
 add_executable(uvdar_reprojector_node src/reprojector.cpp)
 add_dependencies(uvdar_reprojector_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
+add_library(BluefoxEmulator src/bluefox_emulator.cpp)
+add_dependencies(BluefoxEmulator ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+
+add_executable(uvdar_mask_generator_node src/maskGenerator.cpp)
+add_dependencies(uvdar_mask_generator_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+
+
 add_custom_target(headers SOURCES ${HEADER_FILES} ${LAUNCHER_FILES} ${YAML_FILES})
 
 target_link_libraries(UVDetector
@@ -143,7 +153,7 @@ target_link_libraries(UVDetector
 target_link_libraries(BlinkProcessor
   ${catkin_LIBRARIES}
   ${OpenCV_LIBRARIES}
-  ht3dbt
+  ht4dbt
   )
 
 target_link_libraries(uv_follower_node
@@ -175,6 +185,13 @@ target_link_libraries(uvdar_kalman_node
 #   ${EIGEN3_LIBRARIES}
 #   )
 
+target_link_libraries(BluefoxEmulator
+  ${catkin_LIBRARIES}
+  ${OpenCV_LIBRARIES}
+  ${EIGEN3_LIBRARIES}
+  OCamCalib
+  )
+
 
 target_link_libraries(uvdar_reprojector_node
   ${catkin_LIBRARIES}
@@ -182,5 +199,11 @@ target_link_libraries(uvdar_reprojector_node
   ${EIGEN3_LIBRARIES}
   OCamCalib
   unscented
+  )
+
+target_link_libraries(uvdar_mask_generator_node
+  ${catkin_LIBRARIES}
+  ${OpenCV_LIBRARIES}
+  ${EIGEN3_LIBRARIES}
   )
 

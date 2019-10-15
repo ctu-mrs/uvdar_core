@@ -9,8 +9,9 @@
 class uvLedDetect_fast {
 public:
   uvLedDetect_fast();
+  void addMask(cv::Mat i_mask);
 
-  std::vector< cv::Point2i > processImage(cv::Mat imCurr_t, cv::Mat imView_t, bool i_gui = true, bool i_debug = true,  int threshVal = 200);
+  std::vector< cv::Point2i > processImage(const cv::Mat *imCurr_t, cv::Mat imView_t, bool i_gui = true, bool i_debug = true,  int threshVal = 200, int mask_id=-1);
 
 
   bool initialized;
@@ -32,7 +33,7 @@ bool miniFAST(cv::Point input, cv::Point &maximum, unsigned char threshold);
   int                    m_accumLength;
   int x,y;
 
-  cv::Mat m_imCurr;
+  const cv::Mat *m_imCurr;
   cv::Mat m_imCheck;
   cv::Mat  m_imView;
   cv::Rect m_roi;
@@ -45,6 +46,7 @@ bool miniFAST(cv::Point input, cv::Point &maximum, unsigned char threshold);
   cv::Mat  m_imShowWindows;
   int      m_baseWindowSize;
   cv::Size m_monitorSize;
+  std::vector<cv::Mat> m_masks;
 
 };
 

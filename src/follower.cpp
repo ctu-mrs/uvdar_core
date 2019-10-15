@@ -19,7 +19,8 @@
 #include <geometry_msgs/Twist.h>
 #include <image_transport/image_transport.h>
 #include <mrs_msgs/Vec4.h>
-#include <mrs_msgs/TrackerDiagnostics.h>
+#include <mrs_msgs/MpcTrackerDiagnostics.h>
+#include <mrs_msgs/TrackerTrajectory.h>
 #include <mrs_msgs/TrackerTrajectorySrv.h>
 #include <mrs_msgs/Vec1.h>
 #include <nav_msgs/Odometry.h>
@@ -390,9 +391,9 @@ public:
     ros::Rate transformRate(1.0);
     while (true) {
       try {
-        listener.waitForTransform("fcu_" + uav_name, "uvcam", ros::Time::now(), ros::Duration(1.0));
+        listener.waitForTransform("fcu_" + uav_name, "uvcam"+uav_name, ros::Time::now(), ros::Duration(1.0));
         mutex_tf.lock();
-        listener.lookupTransform("fcu_" + uav_name, "uvcam", ros::Time(0), transformCam2Base);
+        listener.lookupTransform("fcu_" + uav_name, "uvcam"+uav_name, ros::Time(0), transformCam2Base);
         mutex_tf.unlock();
       }
       catch (tf::TransformException ex) {
@@ -428,8 +429,8 @@ public:
     /* ROS_INFO("Yaw: %4.2f", yaw); */
   }
 
-  void diagnosticsCallback(const mrs_msgs::TrackerDiagnostics diag_msg) {
-    if (!(diag_msg.tracking_trajectory))
+  void diagnosticsCallback(const mrs_msgs::MpcTrackerDiagnosticsConstPtr &diag_msg) {
+    if (!(diag_msg->tracking_trajectory))
       reachedTarget = true;
     /* ROS_INFO("Reached target"); */
   }
@@ -459,7 +460,7 @@ public:
     if (points.size() > 1) {
       double maxDist = 100.0;
 
-      for (int i = 0; i < points.size(); i++) {
+      for (int i = 0; i < (int)(points.size()); i++) {
         if (points[i].z < 0) {
           points.erase(points.begin() + i);
           i--;
@@ -467,9 +468,9 @@ public:
         }
       }
       while (points.size() > 3) {
-        for (int i = 0; i < points.size(); i++) {
+        for (int i = 0; i < (int)(points.size()); i++) {
           bool viable = false;
-          for (int j = 0; j < points.size(); j++) {
+          for (int j = 0; j < (int)(points.size()); j++) {
             if (i == j)
               continue;
 

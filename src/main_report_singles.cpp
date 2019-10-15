@@ -13,8 +13,8 @@
 #include <cv_bridge/cv_bridge.h>
 #include <geometry_msgs/Twist.h>
 #include <image_transport/image_transport.h>
-#include <mav_manager/Vec4.h>
-#include <mrs_msgs/TrackerDiagnostics.h>
+#include <mrs_msgs/Vec4.h>
+#include <mrs_msgs/ControlManagerDiagnostics.h>
 #include <mrs_msgs/TrackerTrajectorySrv.h>
 #include <nav_msgs/Odometry.h>
 #include <ros/package.h>
@@ -217,9 +217,9 @@ public:
     ros::Rate transformRate(1.0);
     while (true) {
       try {
-        listener.waitForTransform("fcu_" + uav_name, "uvcam", ros::Time::now(), ros::Duration(1.0));
+        listener.waitForTransform("fcu_" + uav_name, "uvcam"+uav_name, ros::Time::now(), ros::Duration(1.0));
         mutex_tf.lock();
-        listener.lookupTransform("fcu_" + uav_name, "uvcam", ros::Time(0), transformCam2Base);
+        listener.lookupTransform("fcu_" + uav_name, "uvcam"+uav_name, ros::Time(0), transformCam2Base);
         mutex_tf.unlock();
       }
       catch (tf::TransformException ex) {
@@ -255,8 +255,8 @@ public:
     /* ROS_INFO("Yaw: %4.2f", yaw); */
   }
 
-  void diagnosticsCallback(const mrs_msgs::TrackerDiagnostics diag_msg) {
-    if (!(diag_msg.tracking_trajectory))
+  void diagnosticsCallback(const mrs_msgs::ControlManagerDiagnosticsConstPtr &diag_msg) {
+    if (!(diag_msg->tracker_status.tracking_trajectory))
       reachedTarget = true;
     /* ROS_INFO("Reached target"); */
   }
