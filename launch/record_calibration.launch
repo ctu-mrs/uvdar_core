@@ -24,7 +24,7 @@
   <arg name="fps" default="$(arg rate)"/>
   <arg name="idpf" default="0"/>
   <arg name="aec" default="false"/>
-  <arg name="expose_us" default="1000"/>
+  <arg name="expose_us" default="50"/>
   <arg name="agc" default="false"/>
   <arg name="gain_db" default="0.0"/>
   <arg name="cbm" default="0"/>
@@ -116,7 +116,7 @@
       <param name="image_raw/theora/optimize_for" value="0" />
     </node>
 
-    <node pkg="rosbag" type="record" name="rosbag_recorder" args="-a --output-name=$(optenv HOME)/bag_files/$(arg device).bag" output="screen"/>
+    <node pkg="rosbag" type="record" name="rosbag_recorder" args="-a --output-name=$(optenv HOME)/bag_files/uvdar_calibration/$(arg device).bag" output="screen"/>
 
   </group>
 
