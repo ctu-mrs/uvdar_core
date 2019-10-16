@@ -266,7 +266,7 @@ private:
     /* std::cout << "4: " << elapsedTime << " s" << "f: " << 1.0/elapsedTime << std::endl; */
     /* begin2                             = std::clock(); */
     uvdf_mutex.lock();
-    std::vector<cv::Point2i> outvec = uvdf->processImage(&(image->image), localImg_raw, false, DEBUG, threshVal, _use_masks_named_?imageIndex:-1);
+    std::vector<cv::Point2i> outvec = uvdf->processImage(&(image->image), &(image->image), gui, DEBUG, threshVal, _use_masks_named_?imageIndex:-1);
     uvdf_mutex.unlock();
     /* end2         = std::clock(); */
     /* elapsedTime = double(end2 - begin2) / CLOCKS_PER_SEC; */
@@ -316,7 +316,6 @@ private:
 
   cv::VideoCapture  vc;
   cv::Mat mask;
-  cv::Mat localImg_raw, localImg;
   bool              FromBag;
   bool              FromCamera;
 
