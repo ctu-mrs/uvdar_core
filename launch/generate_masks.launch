@@ -38,7 +38,7 @@
 
   <arg name="useFAST" default="true"/>
 
-  <arg name="frameNatoName"/>
+  <arg name="frameNatoName" default="$(optenv NATO_NAME)"/>
 
   <!-- Node Settings -->
   <arg name="output" default="screen"/>
