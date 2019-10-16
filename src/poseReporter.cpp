@@ -121,11 +121,6 @@ public:
 
     prepareFrequencyClassifiers();
 
-    char calib_path[400];
-    private_node_handle.param("calib_file", _calib_file, std::string("calib_results_bf_uv_fe.txt"));
-    sprintf(calib_path, "%s/include/OCamCalib/config/%s", ros::package::getPath("uvdar").c_str(),_calib_file.c_str());
-    get_ocam_model(&oc_model, calib_path);
-
     mask_active = false;
     char mask_path[400];
     private_node_handle.param("mask_file", _mask_file, std::string("dummy"));
@@ -152,6 +147,14 @@ public:
       ROS_INFO_STREAM("[PoseReporter]: Subscribing to " << blinkersSeenTopics[i]);
       blinkersSeenSubscribers.push_back(
           private_node_handle.subscribe(blinkersSeenTopics[i], 1, &blinkers_seen_callback_t::operator(), &blinkersSeenCallbacks[i]));
+    }
+
+    std::vector<std::string> _calib_files;
+    char calib_path[400];
+    for (size_t i = 0; i < _calib_files.size(); ++i) {
+      /* private_node_handle.param("calib_file", _calib_file, std::string("calib_results_bf_uv_fe.txt")); */
+      sprintf(calib_path, "%s/include/OCamCalib/config/%s", ros::package::getPath("uvdar").c_str(),_calib_files[i].c_str());
+      get_ocam_model(&(oc_models[i]), calib_path);
     }
 
     //}
@@ -232,10 +235,10 @@ public:
   //}
 
   /* uvdarHexarotorPose1p //{ */
-  unscented::measurement uvdarHexarotorPose1p_meas(Eigen::Vector2d X,double tubewidth, double tubelength, double meanDist){
+  unscented::measurement uvdarHexarotorPose1p_meas(Eigen::Vector2d X,double tubewidth, double tubelength, double meanDist, int camera_index){
     double v1[3];
     double x[2] = {X.y(),X.x()};
-    cam2world(v1, x, &oc_model);
+    cam2world(v1, x, &oc_models[camera_index]);
     Eigen::Vector3d V1(v1[1], v1[0], -v1[2]);
     V1 = V1*meanDist;
 
@@ -258,7 +261,7 @@ public:
   //}
 
   /* uvdarHexarotorPose2p //{ */
-  Eigen::VectorXd uvdarHexarotorPose2p(Eigen::VectorXd X, Eigen::VectorXd expFrequencies){
+  Eigen::VectorXd uvdarHexarotorPose2p(Eigen::VectorXd X, Eigen::VectorXd expFrequencies, int camera_index){
 
     /* ROS_INFO_STREAM("X: " << X); */
 
@@ -297,8 +300,8 @@ public:
       double      va[2] = {double(a.y), double(a.x)};
       double      vb[2] = {double(b.y), double(b.x)};
       ;
-      cam2world(v1, va, &oc_model);
-      cam2world(v2, vb, &oc_model);
+      cam2world(v1, va, &(oc_models[camera_index]));
+      cam2world(v2, vb, &(oc_models[camera_index]));
       /* double vc[3]; */
       /* double pc[2] = {central.y, central.x}; */
       /* cam2world(vc, pc, &oc_model); */
@@ -488,7 +491,7 @@ public:
   //}
 
   /* uvdarHexarotorPose3p //{ */
-  Eigen::VectorXd uvdarHexarotorPose3p(Eigen::VectorXd X, Eigen::VectorXd expFrequencies){
+  Eigen::VectorXd uvdarHexarotorPose3p(Eigen::VectorXd X, Eigen::VectorXd expFrequencies, int camera_index){
       cv::Point3d tmp;
       cv::Point3d a(X(0),X(1),X(2));
       cv::Point3d b(X(3),X(4),X(5));
@@ -534,9 +537,9 @@ public:
       double vb[2] = {(double)(b.y), (double)(b.x)};
       double vc[2] = {(double)(c.y), (double)(c.x)};
 
-      cam2world(v1, va, &oc_model);
-      cam2world(v2, vb, &oc_model);
-      cam2world(v3, vc, &oc_model);
+      cam2world(v1, va, &(oc_models[camera_index]));
+      cam2world(v2, vb, &(oc_models[camera_index]));
+      cam2world(v3, vc, &(oc_models[camera_index]));
 
       Eigen::Vector3d V1(v1[1], v1[0], -v1[2]);
       Eigen::Vector3d V2(v2[1], v2[0], -v2[2]);
@@ -727,10 +730,10 @@ public:
   //}
 
   /* uvdarQuadrotorPose1p //{ */
-  unscented::measurement uvdarQuadrotorPose1p_meas(Eigen::Vector2d X,double tubewidth, double tubelength, double meanDist){
+  unscented::measurement uvdarQuadrotorPose1p_meas(Eigen::Vector2d X,double tubewidth, double tubelength, double meanDist, int camera_index){
     double v1[3];
     double x[2] = {X.y(),X.x()};
-    cam2world(v1, x, &oc_model);
+    cam2world(v1, x, &(oc_models[camera_index]));
     Eigen::Vector3d V1(v1[1], v1[0], -v1[2]);
     V1 = V1*meanDist;
 
@@ -752,7 +755,7 @@ public:
     //}
 
   /* uvdarQuadrotorPose2p //{ */
-  Eigen::VectorXd uvdarQuadrotorPose2p(Eigen::VectorXd X, Eigen::VectorXd expFrequencies){
+  Eigen::VectorXd uvdarQuadrotorPose2p(Eigen::VectorXd X, Eigen::VectorXd expFrequencies, int camera_index){
     /* ROS_INFO_STREAM("X: " << X); */
 
       cv::Point3d a;
@@ -789,8 +792,8 @@ public:
       double      va[2] = {double(a.y), double(a.x)};
       double      vb[2] = {double(b.y), double(b.x)};
       ;
-      cam2world(v1, va, &oc_model);
-      cam2world(v2, vb, &oc_model);
+      cam2world(v1, va, &(oc_models[camera_index]));
+      cam2world(v2, vb, &(oc_models[camera_index]));
       /* double vc[3]; */
       /* double pc[2] = {central.y, central.x}; */
       /* cam2world(vc, pc, &oc_model); */
@@ -975,7 +978,7 @@ public:
     //}
 
   /* uvdarQuadrotorPose3p //{ */
-  Eigen::VectorXd uvdarQuadrotorPose3p(Eigen::VectorXd X, Eigen::VectorXd expFrequencies){
+  Eigen::VectorXd uvdarQuadrotorPose3p(Eigen::VectorXd X, Eigen::VectorXd expFrequencies, int camera_index){
       cv::Point3d tmp;
       cv::Point3d a(X(0),X(1),X(2));
       cv::Point3d b(X(3),X(4),X(5));
@@ -1021,9 +1024,9 @@ public:
       double vb[2] = {(double)(b.y), (double)(b.x)};
       double vc[2] = {(double)(c.y), (double)(c.x)};
 
-      cam2world(v1, va, &oc_model);
-      cam2world(v2, vb, &oc_model);
-      cam2world(v3, vc, &oc_model);
+      cam2world(v1, va, &(oc_models[camera_index]));
+      cam2world(v2, vb, &(oc_models[camera_index]));
+      cam2world(v3, vc, &(oc_models[camera_index]));
 
       Eigen::Vector3d V1(v1[1], v1[0], -v1[2]);
       Eigen::Vector3d V2(v2[1], v2[0], -v2[2]);
@@ -1429,9 +1432,9 @@ public:
           ;
           if (DEBUG)
             ROS_INFO_STREAM("X3: " << X3);
-          boost::function<Eigen::VectorXd(Eigen::VectorXd,Eigen::VectorXd)> callback;
-          callback=boost::bind(&PoseReporter::uvdarQuadrotorPose3p,this,_1,_2);
-          ms = unscented::unscentedTransform(X3,Px3,callback,leftF,rightF,-1);
+          boost::function<Eigen::VectorXd(Eigen::VectorXd,Eigen::VectorXd,int)> callback;
+          callback=boost::bind(&PoseReporter::uvdarQuadrotorPose3p,this,_1,_2,_3);
+          ms = unscented::unscentedTransform(X3,Px3,callback,leftF,rightF,-1,imageIndex);
         }
         else if (points.size() == 2) {
           if (DEBUG)
@@ -1453,9 +1456,9 @@ public:
 
           if (DEBUG)
             ROS_INFO_STREAM("X2: " << X2q);
-          boost::function<Eigen::VectorXd(Eigen::VectorXd,Eigen::VectorXd)> callback;
-          callback=boost::bind(&PoseReporter::uvdarQuadrotorPose2p,this,_1,_2);
-          ms = unscented::unscentedTransform(X2q,Px2q,callback,leftF,rightF,-1);
+          boost::function<Eigen::VectorXd(Eigen::VectorXd,Eigen::VectorXd, int)> callback;
+          callback=boost::bind(&PoseReporter::uvdarQuadrotorPose2p,this,_1,_2,_3);
+          ms = unscented::unscentedTransform(X2q,Px2q,callback,leftF,rightF,-1,imageIndex);
         }
         else if (points.size() == 1) {
           std::cout << "Only single point visible - no distance information" << std::endl;
@@ -1463,7 +1466,7 @@ public:
           std::cout << "led: " << points[0] << std::endl;
 
 
-          ms = uvdarQuadrotorPose1p_meas(Eigen::Vector2d(points[0].x,points[0].y),_arm_length_, 1000,10.0);
+          ms = uvdarQuadrotorPose1p_meas(Eigen::Vector2d(points[0].x,points[0].y),_arm_length_, 1000,10.0, imageIndex);
 
 
           foundTarget = true;
@@ -1506,9 +1509,9 @@ public:
                    ;
           if (DEBUG)
             ROS_INFO_STREAM("X3: " << X3);
-          boost::function<Eigen::VectorXd(Eigen::VectorXd,Eigen::VectorXd)> callback;
-          callback=boost::bind(&PoseReporter::uvdarHexarotorPose3p,this,_1,_2);
-          ms = unscented::unscentedTransform(X3,Px3,callback,leftF,rightF,-1);
+          boost::function<Eigen::VectorXd(Eigen::VectorXd,Eigen::VectorXd, int)> callback;
+          callback=boost::bind(&PoseReporter::uvdarHexarotorPose3p,this,_1,_2,_3);
+          ms = unscented::unscentedTransform(X3,Px3,callback,leftF,rightF,-1,imageIndex);
         }
         else if (points.size() == 2) {
           if (DEBUG)
@@ -1531,9 +1534,9 @@ public:
 
           if (DEBUG)
             ROS_INFO_STREAM("X2: " << X2);
-          boost::function<Eigen::VectorXd(Eigen::VectorXd,Eigen::VectorXd)> callback;
-          callback=boost::bind(&PoseReporter::uvdarHexarotorPose2p,this,_1,_2);
-          ms = unscented::unscentedTransform(X2,Px2,callback,leftF,rightF,-1);
+          boost::function<Eigen::VectorXd(Eigen::VectorXd,Eigen::VectorXd, int)> callback;
+          callback=boost::bind(&PoseReporter::uvdarHexarotorPose2p,this,_1,_2,_3);
+          ms = unscented::unscentedTransform(X2,Px2,callback,leftF,rightF,-1,imageIndex);
         }
         else if (points.size() == 1) {
           std::cout << "Only single point visible - no distance information" << std::endl;
@@ -1541,7 +1544,7 @@ public:
           std::cout << "led: " << points[0] << std::endl;
 
 
-          ms = uvdarHexarotorPose1p_meas(Eigen::Vector2d(points[0].x,points[0].y),_arm_length_, 1000,10.0);
+          ms = uvdarHexarotorPose1p_meas(Eigen::Vector2d(points[0].x,points[0].y),_arm_length_, 1000,10.0, imageIndex);
 
 
           foundTarget = true;
@@ -1799,7 +1802,7 @@ private:
 
   std::vector< sensor_msgs::Imu > imu_register;
 
-  struct ocam_model oc_model;
+  std::vector<struct ocam_model> oc_models;
 
   ros::ServiceClient             client;
   mrs_msgs::Vec4              tpnt;

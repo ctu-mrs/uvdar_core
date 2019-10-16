@@ -17,7 +17,7 @@ double angdiff(double x,double y){
   return fmod(d+M_PI,2*M_PI)-M_PI;
 }
 
-unscented::measurement unscented::unscentedTransform(e::VectorXd x,e::MatrixXd Px, const boost::function<e::VectorXd(e::VectorXd,e::VectorXd)> &fcn,double fleft,double fright, double fcenter){
+unscented::measurement unscented::unscentedTransform(e::VectorXd x,e::MatrixXd Px, const boost::function<e::VectorXd(e::VectorXd,e::VectorXd,int)> &fcn,double fleft,double fright, double fcenter, int camera_index){
   /* std::cout << "unscented x: " << x << std::endl; */
   // Alpha = double(0.5);
   int L = x.rows();
@@ -71,7 +71,7 @@ unscented::measurement unscented::unscentedTransform(e::VectorXd x,e::MatrixXd P
   
   for (int i=0; i<(1+2*L); i++){
     /* std::cout << "unscented X[" << i << "]: " << X.col(i) << std::endl; */
-    Y.col(i)=fcn(X.col(i),expFrequencies); //this is weird, check please
+    Y.col(i)=fcn(X.col(i),expFrequencies, camera_index); //this is weird, check please
   }
   std::cout << "unscented X: "<< std::endl;
   std::cout << X << std::endl;

@@ -390,7 +390,7 @@ class Reprojector{
     /*   return cv::Point2i(imPos[1],imPos[0]); */
     /* } */
 
-    Eigen::Vector2d projectOmniEigen(Eigen::Vector3d x,[[ maybe_unused ]] Eigen::VectorXd dummy){
+    Eigen::Vector2d projectOmniEigen(Eigen::Vector3d x,[[ maybe_unused ]] Eigen::VectorXd dummy, [[ maybe_unused ]] int dummyIndex){
       if (atan2(x[0]*x[0]+x[1]*x[1],x[2])>maxCamAngle)
         return Eigen::Vector2d(std::nan(""),std::nan(""));
       /* if (x[2]<0) return Eigen::Vector2d(std::nan(""),std::nan("")); */
@@ -414,7 +414,7 @@ class Reprojector{
       return Eigen::Vector2d(imPos[1],imPos[0]);
     }
 
-    Eigen::VectorXd distOmniEigen(Eigen::Vector3d x,[[ maybe_unused ]] Eigen::VectorXd dummy){
+    Eigen::VectorXd distOmniEigen(Eigen::Vector3d x,[[ maybe_unused ]] Eigen::VectorXd dummy, [[ maybe_unused ]] int dummyIndex){
       if (atan2(x[0]*x[0]+x[1]*x[1],x[2])>maxCamAngle){
         Eigen::VectorXd retvaldummy(1);
         retvaldummy(0) = (std::nan(""));
@@ -451,8 +451,8 @@ class Reprojector{
       Px = temp.toRotationMatrix()*Px*temp.toRotationMatrix().transpose();
 
 
-      boost::function<Eigen::VectorXd(Eigen::VectorXd,Eigen::VectorXd)> callback;
-      callback=boost::bind(&Reprojector::projectOmniEigen,this,_1,_2);
+      boost::function<Eigen::VectorXd(Eigen::VectorXd,Eigen::VectorXd,int)> callback;
+      callback=boost::bind(&Reprojector::projectOmniEigen,this,_1,_2,_3);
       auto output =  unscented::unscentedTransform(x,Px, callback,-1.0,-1.0,-1.0);
 
       output.x = output.x.topRows(2);
@@ -485,8 +485,8 @@ class Reprojector{
       Px = temp.toRotationMatrix()*Px*temp.toRotationMatrix().transpose();
 
 
-      boost::function<Eigen::VectorXd(Eigen::VectorXd,Eigen::VectorXd)> callback;
-      callback=boost::bind(&Reprojector::distOmniEigen,this,_1,_2);
+      boost::function<Eigen::VectorXd(Eigen::VectorXd,Eigen::VectorXd,int)> callback;
+      callback=boost::bind(&Reprojector::distOmniEigen,this,_1,_2,_3);
       auto output =  unscented::unscentedTransform(x,Px, callback,-1.0,-1.0,-1.0);
 
       /* output.x = output.x.topRows(2); */
@@ -522,8 +522,8 @@ class Reprojector{
       Px += Pe;
 
 
-      boost::function<Eigen::VectorXd(Eigen::VectorXd,Eigen::VectorXd)> callback;
-      callback=boost::bind(&Reprojector::projectOmniEigen,this,_1,_2);
+      boost::function<Eigen::VectorXd(Eigen::VectorXd,Eigen::VectorXd,int)> callback;
+      callback=boost::bind(&Reprojector::projectOmniEigen,this,_1,_2,_3);
       auto output =  unscented::unscentedTransform(x,Px, callback,-1.0,-1.0,-1.0);
 
       output.x = output.x.topRows(2);
