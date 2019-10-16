@@ -195,7 +195,6 @@
       <param name="gui"             type="bool" value="false"/>
       <param name="Flip"             type="bool" value="false"/>
       <param name="useFAST"             type="bool" value="$(arg useFAST)"/>
-      <!-- <param name="MaskPath"             type="string" value="$(arg MaskPath)"/> -->
       <param name="FromVideo"         type="bool" value="$(arg FromVideo)"/>
       <param name="FromBag"         type="bool" value="$(arg FromBag)"/>
       <param name="FromCamera"         type="bool" value="$(arg FromCamera)"/>
@@ -206,11 +205,12 @@
       <param name="justReport" type="bool" value="true"/>
       <param name="threshold" type="int" value="$(arg threshold)"/>
       <param name="CameraImageCompressed" type="bool" value="false"/>
+
       <param name="useMasksNamed"           type="bool" value="true"/>
+      <rosparam param="maskFileNames" subst_value="True"> ["$(arg left)", "$(arg right)"] </rosparam>
 
       <rosparam param="cameraTopics"> ["camera_left", "camera_right"] </rosparam>
       <rosparam param="pointsSeenTopics"> ["points_seen_left", "points_seen_right"] </rosparam>
-      <rosparam param="maskFileNames" subst_value="True"> ["$(arg left)", "$(arg right)"] </rosparam>
 
       <remap from="~camera_left" to="/$(arg uav_name)/uvdar_bluefox/left/image_raw"/>
       <remap from="~camera_right" to="/$(arg uav_name)/uvdar_bluefox/right/image_raw"/>
