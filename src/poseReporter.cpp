@@ -150,7 +150,9 @@ public:
     }
 
     std::vector<std::string> _calib_files;
+    private_node_handle.param("calibFiles", _calib_files, _calib_files);
     char calib_path[400];
+    oc_models.resize(_calib_files.size());
     for (size_t i = 0; i < _calib_files.size(); ++i) {
       /* private_node_handle.param("calib_file", _calib_file, std::string("calib_results_bf_uv_fe.txt")); */
       sprintf(calib_path, "%s/include/OCamCalib/config/%s", ros::package::getPath("uvdar").c_str(),_calib_files[i].c_str());
