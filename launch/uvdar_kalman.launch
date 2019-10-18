@@ -52,14 +52,17 @@
     <remap from="measuredPose1" to="/$(arg uav_name)/uvdar/measuredPose1"/>
     <remap from="measuredPose2" to="/$(arg uav_name)/uvdar/measuredPose2"/>
     <remap from="measuredPose3" to="/$(arg uav_name)/uvdar/measuredPose3"/>
+    <remap from="measuredPose4" to="/$(arg uav_name)/uvdar/measuredPose4"/>
 
     <remap from="filteredPose1" to="/$(arg uav_name)/uvdar/filteredPose1"/>
     <remap from="filteredPose2" to="/$(arg uav_name)/uvdar/filteredPose2"/>
     <remap from="filteredPose3" to="/$(arg uav_name)/uvdar/filteredPose3"/>
+    <remap from="filteredPose4" to="/$(arg uav_name)/uvdar/filteredPose4"/>
 
     <remap from="filteredPose1/tentative" to="/$(arg uav_name)/uvdar/filteredPose1/tentative"/>
     <remap from="filteredPose2/tentative" to="/$(arg uav_name)/uvdar/filteredPose2/tentative"/>
     <remap from="filteredPose3/tentative" to="/$(arg uav_name)/uvdar/filteredPose3/tentative"/>
+    <remap from="filteredPose4/tentative" to="/$(arg uav_name)/uvdar/filteredPose4/tentative"/>
 
   </node>
     </group>
