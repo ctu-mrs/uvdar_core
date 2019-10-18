@@ -27,7 +27,7 @@
   <arg name="idpf" default="0"/>
   <arg name="aec" default="false"/>
   <arg name="expose_us" default="1000"/>
-  <arg name="agc" default="true"/>
+  <arg name="agc" default="false"/>
   <arg name="gain_db" default="0.0"/>
   <arg name="cbm" default="0"/>
   <arg name="ctm" default="1"/>
@@ -307,6 +307,7 @@
       <remap from="~measuredPose1" to="/$(arg uav_name)/uvdar/measuredPose1"/>
       <remap from="~measuredPose2" to="/$(arg uav_name)/uvdar/measuredPose2"/>
       <remap from="~measuredPose3" to="/$(arg uav_name)/uvdar/measuredPose3"/>
+      <remap from="~measuredPose4" to="/$(arg uav_name)/uvdar/measuredPose4"/>
     </node>
   </group>
 
