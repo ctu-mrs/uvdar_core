@@ -82,6 +82,8 @@ std::vector< cv::Point2i > uvLedDetect_fast::processImage(const cv::Mat *i_imCur
   bool          test;
   unsigned char maximumVal = 0;
   /* bool          gotOne     = false; */
+  bool sunPointPotential = false;
+  std::vector<cv::Point> sunPoints;
   for (int j = 0; j < m_imCurr->rows; j++) {
     for (int i = 0; i < m_imCurr->cols; i++) {
       if (mask_id >= 0)
@@ -89,6 +91,8 @@ std::vector< cv::Point2i > uvLedDetect_fast::processImage(const cv::Mat *i_imCur
           continue;
       if (m_imCheck.data[index2d(i, j)] == 0) {
         if (m_imCurr->data[index2d(i, j)] > threshVal) {
+          int sunTestPoints = 0;
+          sunPointPotential = true;
           /* gotOne = true; */
           test   = true;
           for (int m = 0; m < (int)(fastPoints.size()); m++) {
@@ -122,8 +126,12 @@ std::vector< cv::Point2i > uvLedDetect_fast::processImage(const cv::Mat *i_imCur
               /* std::cout << "BREACH" << std::endl; */
 
               test = false;
-              break;
+              if (!sunPointPotential)
+                break;
+              else sunTestPoints++;
             }
+            else 
+              sunPointPotential = false;
             /* std::cout << (int)(m_imCurr.at< unsigned char >(j, i) - m_imCurr.at< unsigned char >(y, x)) << std::endl; */
           }
           /* std::cout << "here: " << x << ":" << y << std::endl; */
@@ -159,6 +167,12 @@ std::vector< cv::Point2i > uvLedDetect_fast::processImage(const cv::Mat *i_imCur
             }
             outvec.push_back(peakPoint);
           }
+          else{
+            if (sunPointPotential)
+              if (sunTestPoints == (int)(fastPoints.size()))
+                sunPoints.push_back(cv::Point(i,j));
+          }
+
         }
       }
     }
@@ -192,6 +206,15 @@ std::vector< cv::Point2i > uvLedDetect_fast::processImage(const cv::Mat *i_imCur
   /* else */
   /*   std::cout << "@1" <<std::endl; */
 
+  for (int i=0; i<(int)(outvec.size()); i++){
+    for (int j=0; j<(int)(sunPoints.size()); j++){
+      if (cv::norm(outvec[i]-sunPoints[j])<50){
+        outvec.erase(outvec.begin()+i);
+        i--;
+        break;
+      }
+    }
+  }
 
   return outvec;
 }
