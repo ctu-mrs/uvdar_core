@@ -3,9 +3,11 @@
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
 #include <mrs_lib/lkf.h>
 #include <Eigen/Geometry>
+#include <std_msgs/Int16.h>
 
 #include <tf2_ros/transform_listener.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
+
 
 #include <mutex>
 
@@ -198,6 +200,9 @@ class UvdarKalman {
       filtPublisherTentative[i] = nh.advertise<nav_msgs::Odometry>("filteredPose" + std::to_string(i+1) + "/tentative", 1);
 
     }
+
+    targetsSeenCountPublisher = nh.advertise<std_msgs::Int16>("targetsSeenCount",1);
+
     ROS_INFO_STREAM("[UVDAR Kalman]: initiated");
   }
 
@@ -394,6 +399,8 @@ class UvdarKalman {
     std::scoped_lock slck(mtx_kalman);
 
 
+    int targetsSeen = 0;
+    std_msgs::Int16 pubTargetsSeen;
     for (int target=0;target<filterCount;target++){
       if (!gotAnyMeasurement[target])
         continue;
@@ -480,8 +487,10 @@ class UvdarKalman {
       pubPose->header.frame_id = _output_frame;
       pubPose->header.stamp = ros::Time::now();
 
-      if (trackerValidated[target])
+      if (trackerValidated[target]){
         filtPublisher[target].publish(pubPose);
+        targetsSeen++;
+      }
       else
         filtPublisherTentative[target].publish(pubPose);
 
@@ -493,6 +502,8 @@ class UvdarKalman {
       }
 
     }
+    pubTargetsSeen.data = targetsSeen;
+    targetsSeenCountPublisher.publish(pubTargetsSeen);
 
   }
 
@@ -581,6 +592,7 @@ class UvdarKalman {
   std::vector<ros::Subscriber> ImageSubscriber;
   std::vector<ros::Publisher> filtPublisher;
   std::vector<ros::Publisher> filtPublisherTentative;
+  ros::Publisher              targetsSeenCountPublisher;
 
   nav_msgs::OdometryPtr pubPose;
 
