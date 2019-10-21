@@ -201,7 +201,7 @@ class UvdarKalman {
 
     }
 
-    targetsSeenCountPublisher = nh.advertise<std_msgs::Int16>("targetsSeenCount",1);
+    targetsSeenCountPublisher = nh.advertise<std_msgs::Int16>("targetSeenCount",1);
 
     ROS_INFO_STREAM("[UVDAR Kalman]: initiated");
   }

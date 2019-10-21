@@ -17,7 +17,7 @@
   <arg name="VisDEBUG" default="false"/>
   <arg name="gui" default="true"/>
   <arg name="frame" default="local_origin_stable"/>
-  <arg name="filterCount" default="1"/>
+  <arg name="filterCount" default="4"/>
   <arg name="useVelocity" default="false"/>
   <arg name="outputFramerate" default="60"/>
 
@@ -63,6 +63,9 @@
     <remap from="filteredPose2/tentative" to="/$(arg uav_name)/uvdar/filteredPose2/tentative"/>
     <remap from="filteredPose3/tentative" to="/$(arg uav_name)/uvdar/filteredPose3/tentative"/>
     <remap from="filteredPose4/tentative" to="/$(arg uav_name)/uvdar/filteredPose4/tentative"/>
+
+
+    <remap from="targetSeenCount" to="/$(arg uav_name)/uvdar/targetSeenCount"/>
 
   </node>
     </group>
