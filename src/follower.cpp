@@ -164,7 +164,6 @@ public:
         Eigen::Vector3d A = Base2World * Eigen::Vector3d(0, 0, 0);
         ttt.points.clear();
         ttt.fly_now = true;
-        ttt.start_index = 0;
         mrs_msgs::TrackerPoint trp;
         double                 alphaStep = 0.2;
         /* std::cout << "yaw: " << yaw << std::endl; */
@@ -189,7 +188,6 @@ public:
         ttt.fly_now = true;
 
 
-        ttt.start_index = 0;
 
         Eigen::Affine3d Base2World;
         tf::transformTFToEigen(transformBase2World, Base2World);
