@@ -107,7 +107,7 @@
     name="body_uvcam_tf"
     pkg="tf"
     type="static_transform_publisher"
-    args="0.09 0.04 0.2 -1.57079632679 0.00000000000 -1.57079632679 fcu_$(arg uav_name) uvcam_$(arg uav_name) 100"/>
+    args="0.09 0.04 0.2 -1.57079632679 0.00000000000 -1.57079632679 $(arg uav_name)/fcu uvcam_$(arg uav_name) 100"/>
 
   <group ns="$(arg uav_name)">
     <node pkg="nodelet" type="nodelet" name="$(arg nodelet_manager)" args="manager" output="screen">

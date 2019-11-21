@@ -16,7 +16,7 @@
   <arg name="DEBUG" default="false"/>
   <arg name="VisDEBUG" default="false"/>
   <arg name="gui" default="true"/>
-  <arg name="frame" default="local_origin_stable"/>
+  <arg name="frame" default="$(arg uav_name)/local_origin_stable"/>
   <arg name="filterCount" default="4"/>
   <arg name="useVelocity" default="false"/>
   <arg name="outputFramerate" default="60"/>
@@ -31,8 +31,8 @@
   <!-- <node pkg="uvdar" type="uvdar_kalman_node" name="filterUvdar" output="screen" launch-prefix="debug_roslaunch"> -->
   <node pkg="uvdar" type="uvdar_kalman_node" name="filterUvdar" output="screen">
     <param name="output_frame" value="$(arg frame)"/>
-    <!-- <param name="output_frame" value="fcu_$(arg uav_name)"/> -->
-    <!-- <param name="base_footprint_frame" value="fcu_$(arg uav_name)"/> -->
+    <!-- <param name="output_frame" value="$(arg uav_name)/fcu"/> -->
+    <!-- <param name="base_footprint_frame" value="$(arg uav_name)/fcu"/> -->
     <!-- <param name="base_footprint_frame" value="uvdar_target_estim"/> -->
     <!-- <param name="sensor_timeout" value="1.0"/> -->
     <!-- <param name="odom_used" value="false"/> -->

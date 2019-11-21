@@ -6,6 +6,7 @@
 ------------------------------------------------------------------------------*/
 
 #include "ocam_functions.h"
+#include <iostream>
 
 //------------------------------------------------------------------------------
 int get_ocam_model(struct ocam_model *myocam_model, char *filename)
@@ -67,6 +68,11 @@ int get_ocam_model(struct ocam_model *myocam_model, char *filename)
  fscanf(f,"\n");
  fscanf(f,"%d %d", height, width);
 
+ std::cout << "Polynomial degree: " << *length_pol << std::endl;
+ std::cout << "Polynomial: " << std::endl;
+ for (int i=0;i<*length_pol; i++){ std::cout << pol[i] << std::endl;}
+ std::cout << "Center: " << *xc << ":" << *yc << std::endl;
+ std::cout << "Dimensions: " << *width << ":" << *height << std::endl;
  fclose(f);
  return 0;
 }

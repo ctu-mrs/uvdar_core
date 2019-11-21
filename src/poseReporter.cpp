@@ -151,6 +151,11 @@ public:
 
     std::vector<std::string> _calib_files;
     private_node_handle.param("calibFiles", _calib_files, _calib_files);
+    if (_calib_files.size()<1){
+      ROS_ERROR("Calibraiton files not provided. Exiting");
+      exit(2);
+    }
+
     char calib_path[400];
     oc_models.resize(_calib_files.size());
     for (size_t i = 0; i < _calib_files.size(); ++i) {
@@ -1259,9 +1264,9 @@ public:
         transformRate.sleep();
 
         try {
-          listener.waitForTransform("fcu_" + uav_name, cameraFrame, ros::Time::now(), ros::Duration(1.0));
+          listener.waitForTransform( uav_name + "/fcu", cameraFrame, ros::Time::now(), ros::Duration(1.0));
           mutex_tf.lock();
-          listener.lookupTransform("fcu_" + uav_name, cameraFrame, ros::Time(0), transformCam2Base);
+          listener.lookupTransform( uav_name + "/fcu", cameraFrame, ros::Time(0), transformCam2Base);
           mutex_tf.unlock();
         }
         catch (tf::TransformException ex) {

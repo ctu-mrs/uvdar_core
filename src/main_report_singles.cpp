@@ -217,9 +217,9 @@ public:
     ros::Rate transformRate(1.0);
     while (true) {
       try {
-        listener.waitForTransform("fcu_" + uav_name, "uvcam"+uav_name, ros::Time::now(), ros::Duration(1.0));
+        listener.waitForTransform(uav_name + "/fcu", "uvcam"+uav_name, ros::Time::now(), ros::Duration(1.0));
         mutex_tf.lock();
-        listener.lookupTransform("fcu_" + uav_name, "uvcam"+uav_name, ros::Time(0), transformCam2Base);
+        listener.lookupTransform(uav_name + "/fcu", "uvcam"+uav_name, ros::Time(0), transformCam2Base);
         mutex_tf.unlock();
       }
       catch (tf::TransformException ex) {
@@ -229,9 +229,9 @@ public:
         continue;
       }
       try {
-        listener.waitForTransform("local_origin", "fcu_" + uav_name, ros::Time::now(), ros::Duration(1.0));
+        listener.waitForTransform(uav_name + "/local_origin", uav_name + "/fcu", ros::Time::now(), ros::Duration(1.0));
         mutex_tf.lock();
-        listener.lookupTransform("local_origin", "fcu_" + uav_name, ros::Time(0), transformBase2World);
+        listener.lookupTransform(uav_name "/local_origin", uav_name + "/fcu", ros::Time(0), transformBase2World);
         mutex_tf.unlock();
       }
       catch (tf::TransformException ex) {

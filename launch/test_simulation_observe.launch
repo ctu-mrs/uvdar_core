@@ -81,7 +81,7 @@
     name="uvcam_tf_$(arg uav_name)"
     pkg="tf"
     type="static_transform_publisher"
-    args="0.09 0.04 0.2 -1.57079632679 0.00000000000 -1.57079632679 fcu_$(arg uav_name) uvcam_$(arg uav_name) 100"/>
+    args="0.09 0.04 0.2 -1.57079632679 0.00000000000 -1.57079632679 $(arg uav_name)/fcu uvcam_$(arg uav_name) 100"/>
 
       <!-- <origin xyz="0.108 0 0.085" rpy="1.57079632679 4.71238898038 1.57079632679" /> -->
   <!--Usage: static_transform_publisher x y z yaw pitch roll frame_id child_frame_id  period(milliseconds)-->

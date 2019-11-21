@@ -16,7 +16,7 @@
   <arg name="DEBUG" default="false"/>
   <arg name="gui" default="true"/>
 
-  <arg name="frame_estimate" default="local_origin_stable"/>
+  <arg name="frame_estimate" default="$(arg uav_name)/local_origin_stable"/>
   <arg name="frame_camera" default="color_camera_$(arg uav_name)"/>
   <arg name="frame_uvdar" default="uvcam_$(arg uav_name)"/>
 
