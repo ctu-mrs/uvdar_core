@@ -230,6 +230,7 @@
       <param name="legacy" type="bool" value="false"/>
       <!-- <param name="legacy_delay" type="double" value="$(arg legacy_delay)"/> -->
 
+      <rosparam param="calibFiles" subst_value="true"> ["calib_results_bf_uv_fe.txt"] </rosparam>
       <rosparam param="blinkersSeenTopics"> ["blinkersSeen"] </rosparam>
       <rosparam param="estimatedFramerateTopics"> ["estimatedFramerate"] </rosparam>
       <rosparam param="cameraFrames" subst_value="true"> ["uvcam_$(arg uav_name)"] </rosparam>
