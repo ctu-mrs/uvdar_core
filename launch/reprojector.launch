@@ -30,8 +30,8 @@
   <!-- <arg name="pitch_diff" default="-0.01"/> -->
   <!-- <arg name="yaw_diff" default="0.13"/> -->
   <!-- <arg name="pitch_diff" default="0.06"/> -->
-  <arg name="yaw_diff" default="0.20"/>
-  <arg name="pitch_diff" default="0.03"/>
+  <arg name="yaw_diff" default="0.00"/>
+  <arg name="pitch_diff" default="0.00"/>
 
   <node
     name="uvcam_colorcam_tf"
@@ -63,7 +63,7 @@
     <param name="publish_boxes" type="bool" value="$(arg publish_boxes)"/>
 
     <remap from="measuredPose1" to="/$(arg uav_name)/uvdar/measuredPose1"/>
-    <remap from="measuredPose2" to="/$(arg uav_name)/uvdar/measuredPose2"/>
+    <!-- <remap from="measuredPose2" to="/$(arg uav_name)/uvdar/measuredPose2"/> -->
     <remap from="filteredPose1" to="/$(arg uav_name)/uvdar/filteredPose1"/>
     <!-- <remap from="filteredPose2" to="/$(arg uav_name)/uvdar/filteredPose2"/> -->
     <remap from="camera" to="/$(arg uav_name)/bluefox2/image_raw"/>

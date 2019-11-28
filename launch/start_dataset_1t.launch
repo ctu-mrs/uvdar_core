@@ -99,7 +99,7 @@
       <param name="num_worker_threads" value="8" />
     </node>
 
-    <node pkg="nodelet" type="nodelet" name="uvdar_bluefox" args="$(arg nodelet) bluefox2/SingleNodelet $(arg nodelet_manager)" respawn="true" output="screen" launch-prefix="bash -c 'sleep 5; $0 $@'">
+    <node pkg="nodelet" type="nodelet" name="uvdar_bluefox" args="$(arg nodelet) bluefox2/SingleNodelet $(arg nodelet_manager)" respawn="false" output="screen" launch-prefix="bash -c 'sleep 5; $0 $@'">
       <param name="identifier" type="string" value="$(arg serial)"/>
       <param name="frame_id" type="string" value="$(arg frame_id)"/>
       <param name="camera_name" type="string" value="$(arg camera_name)"/>
@@ -135,7 +135,7 @@
 
     </node>
 
-    <node name="uv_detect" pkg="nodelet" type="nodelet" args="$(arg nodelet) uvdar/UVDetector $(arg nodelet_manager)" output="screen" respawn="true" launch-prefix="bash -c 'sleep 5; $0 $@'">
+    <node name="uv_detect" pkg="nodelet" type="nodelet" args="$(arg nodelet) uvdar/UVDetector $(arg nodelet_manager)" output="screen" respawn="false" launch-prefix="bash -c 'sleep 5; $0 $@'">
       <param name="identifier" type="string" value="$(arg serial)"/>
       <param name="uav_name" type = "string" value="$(arg uav_name)"/>
       <param name="DEBUG"		type="bool" value="$(arg DEBUG)"/> 
@@ -168,7 +168,7 @@
       <remap from="~imu" to="mavros/imu/data"/>
       <remap from="~pointsSeen" to="/$(arg uav_name)/uvdar/uvPointsSeen"/>
     </node>
-    <node name="blink_processor" pkg="nodelet" type="nodelet" args="$(arg nodelet) uvdar/BlinkProcessor $(arg nodelet_manager)" output="screen" respawn="true" launch-prefix="bash -c 'sleep 5; $0 $@'"> 
+    <node name="blink_processor" pkg="nodelet" type="nodelet" args="$(arg nodelet) uvdar/BlinkProcessor $(arg nodelet_manager)" output="screen" respawn="false" launch-prefix="bash -c 'sleep 5; $0 $@'"> 
         <!-- <param name="DEBUG"		type="bool" value="true"/> --> 
         <param name="DEBUG"		type="bool" value="$(arg DEBUG)"/> 
         <param name="VisDEBUG"		type="bool" value="$(arg VisDEBUG)"/> 
@@ -220,12 +220,12 @@
       <param name="DEBUG"		type="bool" value="false"/> 
       <param name="gui"             type="bool" value="$(arg gui)"/>
       <param name="publish"         type="bool" value="$(arg publish)"/>
-      <param name="frequenciesPerTarget" type="int" value="2"/>
+      <param name="frequenciesPerTarget" type="int" value="1"/>
       <param name="targetCount" type="int" value="1"/>
       <param name="calib_file" type="string" value="$(arg calib_file_uv)"/>
       <!-- <param name="mask_file" type="string" value="$(arg mask_file)"/> -->
         <param name="frequency1" type="int" value="15"/>
-        <param name="frequency2" type="int" value="30"/>
+        <!-- <param name="frequency2" type="int" value="30"/> -->
 
       <param name="legacy" type="bool" value="false"/>
       <!-- <param name="legacy_delay" type="double" value="$(arg legacy_delay)"/> -->

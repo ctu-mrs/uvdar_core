@@ -391,7 +391,7 @@ class Reprojector{
     /* } */
 
     Eigen::Vector2d projectOmniEigen(Eigen::Vector3d x,[[ maybe_unused ]] Eigen::VectorXd dummy, [[ maybe_unused ]] int dummyIndex){
-      if (atan2(x[0]*x[0]+x[1]*x[1],x[2])>maxCamAngle)
+      if (atan2(sqrt(x[0]*x[0]+x[1]*x[1]),x[2])>maxCamAngle)
         return Eigen::Vector2d(std::nan(""),std::nan(""));
       /* if (x[2]<0) return Eigen::Vector2d(std::nan(""),std::nan("")); */
       /* tf2::Vector3 poseTrans; */
@@ -415,7 +415,7 @@ class Reprojector{
     }
 
     Eigen::VectorXd distOmniEigen(Eigen::Vector3d x,[[ maybe_unused ]] Eigen::VectorXd dummy, [[ maybe_unused ]] int dummyIndex){
-      if (atan2(x[0]*x[0]+x[1]*x[1],x[2])>maxCamAngle){
+      if (atan2(sqrt(x[0]*x[0]+x[1]*x[1]),x[2])>maxCamAngle){
         Eigen::VectorXd retvaldummy(1);
         retvaldummy(0) = (std::nan(""));
         return retvaldummy;

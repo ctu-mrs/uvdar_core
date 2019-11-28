@@ -51,7 +51,7 @@
     <param name="idpf" type="int" value="$(arg idpf)"/>
     <param name="aec" type="bool" value="$(arg aec)"/>
     <param name="expose_us" type="int" value="$(arg expose_us)"/>
-    <param name="agc" type="bool" value="$(arg aec)"/>
+    <param name="agc" type="bool" value="$(arg agc)"/>
     <param name="gain_db" type="double" value="$(arg gain_db)"/>
     <param name="cbm" type="int" value="$(arg cbm)"/>
     <param name="ctm" type="int" value="$(arg ctm)"/>
@@ -66,28 +66,28 @@
 </group>
 
   <!-- Proc -->
-  <node if="$(arg proc)"
-    pkg="image_proc" type="image_proc" name="image_proc" ns="$(arg camera)">
-  </node>
+  <!-- <node if="$(arg proc)" -->
+  <!--   pkg="image_proc" type="image_proc" name="image_proc" ns="$(arg camera)"> -->
+  <!-- </node> -->
 
   <!-- View -->
-  <arg name="image" default="image_raw"/>
-  <node if="$(arg view)"
-    pkg="image_view" type="image_view" name="viewer" ns="$(arg camera)"
-    args="image:=$(arg image)" output="$(arg output)">
-  </node>
+  <!-- <arg name="image" default="image_raw"/> -->
+  <!-- <node if="$(arg view)" -->
+  <!--   pkg="image_view" type="image_view" name="viewer" ns="$(arg camera)" -->
+  <!--   args="image:=$(arg image)" output="$(arg output)"> -->
+  <!-- </node> -->
 
   <!-- Calib -->
-  <group if="$(arg calib)">
-    <arg name="pattern" default="chessboard"/>
-    <arg name="size"/>
-    <arg name="square"/>
-    <arg name="num_dist_coeff" default="2"/>
-    <node pkg="camera_calibration" type="cameracalibrator.py"
-      name="calibrator" output="screen"
-      args="-p $(arg pattern) -s $(arg size) -q $(arg square)
-      -k $(arg num_dist_coeff)
-      image:=/$(arg camera)/image_raw camera:=/$(arg camera)">
-    </node>
-  </group>
+  <!-- <group if="$(arg calib)"> -->
+  <!--   <arg name="pattern" default="chessboard"/> -->
+  <!--   <arg name="size"/> -->
+  <!--   <arg name="square"/> -->
+  <!--   <arg name="num_dist_coeff" default="2"/> -->
+  <!--   <node pkg="camera_calibration" type="cameracalibrator.py" -->
+  <!--     name="calibrator" output="screen" -->
+  <!--     args="-p $(arg pattern) -s $(arg size) -q $(arg square) -->
+  <!--     -k $(arg num_dist_coeff) -->
+  <!--     image:=/$(arg camera)/image_raw camera:=/$(arg camera)"> -->
+  <!--   </node> -->
+  <!-- </group> -->
 </launch>
