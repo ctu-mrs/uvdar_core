@@ -20,8 +20,8 @@
 #include <image_transport/image_transport.h>
 #include <mrs_msgs/Vec4.h>
 #include <mrs_msgs/MpcTrackerDiagnostics.h>
-#include <mrs_msgs/TrackerTrajectory.h>
-#include <mrs_msgs/TrackerTrajectorySrv.h>
+#include <mrs_msgs/TrajectoryReference.h>
+#include <mrs_msgs/TrajectoryReferenceSrv.h>
 #include <mrs_msgs/Vec1.h>
 #include <nav_msgs/Odometry.h>
 #include <ros/package.h>
@@ -87,17 +87,17 @@ public:
 
     get_ocam_model(&oc_model, calib_path);
 
-    targetInCamPub    = node.advertise< geometry_msgs::Pose >("targetInCam", 1);
-    targetInBasePub   = node.advertise< geometry_msgs::Pose >("targetInBase", 1);
-    goalposInWorldPub = node.advertise< geometry_msgs::Pose >("goalposInWorld", 1);
-    goalposInBasePub  = node.advertise< geometry_msgs::Pose >("goalposInBase", 1);
-    yawdiffPub        = node.advertise< std_msgs::Float32 >("yawDifference", 1);
-    yawodomPub        = node.advertise< std_msgs::Float32 >("yawOdom", 1);
-    setpointPub       = node.advertise< geometry_msgs::Pose >("relativeSetpoint", 1);
-    setyawPub         = node.advertise< std_msgs::Float32 >("relativeSetyaw", 1);
+    targetInCamPub    = node.advertise<geometry_msgs::Pose>("targetInCam", 1);
+    targetInBasePub   = node.advertise<geometry_msgs::Pose>("targetInBase", 1);
+    goalposInWorldPub = node.advertise<geometry_msgs::Pose>("goalposInWorld", 1);
+    goalposInBasePub  = node.advertise<geometry_msgs::Pose>("goalposInBase", 1);
+    yawdiffPub        = node.advertise<std_msgs::Float32>("yawDifference", 1);
+    yawodomPub        = node.advertise<std_msgs::Float32>("yawOdom", 1);
+    setpointPub       = node.advertise<geometry_msgs::Pose>("relativeSetpoint", 1);
+    setyawPub         = node.advertise<std_msgs::Float32>("relativeSetyaw", 1);
 
-    measuredDist = node.advertise< std_msgs::Float32 >("measuredDist", 1);
-    filteredDist = node.advertise< std_msgs::Float32 >("filteredDist", 1);
+    measuredDist = node.advertise<std_msgs::Float32>("measuredDist", 1);
+    filteredDist = node.advertise<std_msgs::Float32>("filteredDist", 1);
 
     first            = true;
     pointsSubscriber = node.subscribe("blinkersSeen", 1, &Follower::ProcessPoints, this);
@@ -113,14 +113,14 @@ public:
 
     if (trajectoryControl) {
       target_thread = std::thread(&Follower::TargetThreadTrajectory, this);
-      /* client        = node.serviceClient< mrs_msgs::TrackerTrajectorySrv >( */
+      /* client        = node.serviceClient< mrs_msgs::TrajectoryReferenceSrv >( */
       /*     (std::string("/") + std::string(uav_name) + std::string("/control_manager/mpc_tracker/set_trajectory")).c_str()); */
-      trajectoryPub = node.advertise< mrs_msgs::TrackerTrajectory >(
-          (std::string("/") + std::string(uav_name) + std::string("/control_manager/mpc_tracker/set_trajectory")).c_str(), 1);
+      trajectoryPub = node.advertise<mrs_msgs::TrajectoryReference>(
+          (std::string("/") + std::string(uav_name) + std::string("/control_manager/trajectory_reference")).c_str(), 1);
     } else {
       target_thread = std::thread(&Follower::TargetThreadSimple, this);
-      client        = node.serviceClient< mrs_msgs::Vec4 >(
-          (std::string("/") + std::string(uav_name) + std::string("/control_manager/mpc_tracker/goto_relative")).c_str());
+      client =
+          node.serviceClient<mrs_msgs::Vec4>((std::string("/") + std::string(uav_name) + std::string("/control_manager/mpc_tracker/goto_relative")).c_str());
     }
   }
 
@@ -164,14 +164,15 @@ public:
         Eigen::Vector3d A = Base2World * Eigen::Vector3d(0, 0, 0);
         ttt.points.clear();
         ttt.fly_now = true;
-        mrs_msgs::TrackerPoint trp;
-        double                 alphaStep = 0.2;
+        ttt.dt      = 0.2;
+        mrs_msgs::Reference trp;
+        double              alphaStep = 0.2;
         /* std::cout << "yaw: " << yaw << std::endl; */
         for (int i = 0; i < (CV_PI / alphaStep); i++) {
-          trp.x   = A.x();
-          trp.y   = A.y();
-          trp.z   = A.z();
-          trp.yaw = yaw + (i * alphaStep);
+          trp.position.x = A.x();
+          trp.position.y = A.y();
+          trp.position.z = A.z();
+          trp.yaw        = yaw + (i * alphaStep);
           /* std::cout <<  yaw << std::endl; */
           /* std::cout <<  trp.yaw << std::endl; */
           ttt.points.push_back(trp);
@@ -180,13 +181,13 @@ public:
         if (followTriggered)
           trajectoryPub.publish(ttt);
         ros::Time waiter = ros::Time::now();
-        while ((!foundTarget) && (( ros::Time::now() - waiter ).toSec()<6.0)){
+        while ((!foundTarget) && ((ros::Time::now() - waiter).toSec() < 6.0)) {
           ros::Duration(0.01).sleep();
         }
       } else {
         ttt.points.clear();
         ttt.fly_now = true;
-
+        ttt.dt      = 0.2;
 
 
         Eigen::Affine3d Base2World;
@@ -207,84 +208,84 @@ public:
 
         if ((followDistance - distance) > maxFollowDistDeviation) {
           ROS_INFO("Retreating; distance is: %f, expected: %f", distance, followDistance);
-          Eigen::Vector3d toObserver        = -targetDiff;
-          Eigen::Vector3d toObserverNorm    = toObserver / toObserver.norm();
-          B                                 = S + toObserverNorm * followDistance;
-          Eigen::Vector3d        toGoal     = (B - A);
-          int                    stepCount  = floor(toGoal.norm() / maxStep);
-          Eigen::Vector3d        stepVector = maxStep * (toGoal / toGoal.norm());
-          mrs_msgs::TrackerPoint trp;
-          Eigen::Vector3d        currPt;
-          Eigen::Vector3d        currDiff;
+          Eigen::Vector3d toObserver     = -targetDiff;
+          Eigen::Vector3d toObserverNorm = toObserver / toObserver.norm();
+          B                              = S + toObserverNorm * followDistance;
+          Eigen::Vector3d     toGoal     = (B - A);
+          int                 stepCount  = floor(toGoal.norm() / maxStep);
+          Eigen::Vector3d     stepVector = maxStep * (toGoal / toGoal.norm());
+          mrs_msgs::Reference trp;
+          Eigen::Vector3d     currPt;
+          Eigen::Vector3d     currDiff;
           for (int i = 0; i < std::min(stepCount, maxTrajSteps); i++) {
             currPt   = (A + i * stepVector);
             currDiff = S - currPt;
             /* std::cout << currPt << std::endl; */
-            trp.x   = currPt.x();
-            trp.y   = currPt.y();
-            trp.z   = S.z();
-            trp.yaw = atan2(currDiff.y(), currDiff.x());
+            trp.position.x = currPt.x();
+            trp.position.y = currPt.y();
+            trp.position.z = S.z();
+            trp.yaw        = atan2(currDiff.y(), currDiff.x());
             ttt.points.push_back(trp);
           }
         } else if ((followDistance - distance) > 0) {
           ROS_INFO("Orbiting");
-          double                 alphaStep           = 2 * asin(maxStep / (2 * followDistance));
-          int                    stepCount           = fabs(gamma) / alphaStep;
-          Eigen::Vector3d        targetToObserver    = -targetDiff;
-          Eigen::Vector3d        toClosestOrbitPoint = followDistance * (targetToObserver / targetToObserver.norm());
-          Eigen::Vector3d        currPt;
-          Eigen::Vector3d        currDiff;
-          mrs_msgs::TrackerPoint trp;
+          double              alphaStep           = 2 * asin(maxStep / (2 * followDistance));
+          int                 stepCount           = fabs(gamma) / alphaStep;
+          Eigen::Vector3d     targetToObserver    = -targetDiff;
+          Eigen::Vector3d     toClosestOrbitPoint = followDistance * (targetToObserver / targetToObserver.norm());
+          Eigen::Vector3d     currPt;
+          Eigen::Vector3d     currDiff;
+          mrs_msgs::Reference trp;
           for (int i = 0; i < std::min(stepCount, maxTrajSteps); i++) {
-            currPt   = S + (Eigen::AngleAxisd(sgn(gamma) * i * alphaStep, Eigen::Vector3d(0, 0, 1)) * toClosestOrbitPoint);
-            currDiff = S - currPt;
-            trp.x    = currPt.x();
-            trp.y    = currPt.y();
-            trp.z    = S.z();
-            trp.yaw  = atan2(currDiff.y(), currDiff.x());
+            currPt         = S + (Eigen::AngleAxisd(sgn(gamma) * i * alphaStep, Eigen::Vector3d(0, 0, 1)) * toClosestOrbitPoint);
+            currDiff       = S - currPt;
+            trp.position.x = currPt.x();
+            trp.position.y = currPt.y();
+            trp.position.z = S.z();
+            trp.yaw        = atan2(currDiff.y(), currDiff.x());
             ttt.points.push_back(trp);
           }
         } else if (goalInFront) {
           ROS_INFO("Following");
-          Eigen::Vector3d toObserver        = -targetDiff;
-          Eigen::Vector3d toObserverNorm    = toObserver / toObserver.norm();
-          B                                 = S + Eigen::AngleAxisd(gamma, Eigen::Vector3d(0, 0, 1)) * toObserverNorm * followDistance;
-          Eigen::Vector3d        toGoal     = (B - A);
-          int                    stepCount  = floor(toGoal.norm() / maxStep);
-          Eigen::Vector3d        stepVector = maxStep * (toGoal / toGoal.norm());
-          mrs_msgs::TrackerPoint trp;
-          Eigen::Vector3d        currPt;
-          Eigen::Vector3d        currDiff;
+          Eigen::Vector3d toObserver     = -targetDiff;
+          Eigen::Vector3d toObserverNorm = toObserver / toObserver.norm();
+          B                              = S + Eigen::AngleAxisd(gamma, Eigen::Vector3d(0, 0, 1)) * toObserverNorm * followDistance;
+          Eigen::Vector3d     toGoal     = (B - A);
+          int                 stepCount  = floor(toGoal.norm() / maxStep);
+          Eigen::Vector3d     stepVector = maxStep * (toGoal / toGoal.norm());
+          mrs_msgs::Reference trp;
+          Eigen::Vector3d     currPt;
+          Eigen::Vector3d     currDiff;
           for (int i = 0; i < std::min(stepCount, maxTrajSteps); i++) {
             currPt   = (A + i * stepVector);
             currDiff = S - currPt;
             /* std::cout << currPt << std::endl; */
-            trp.x   = currPt.x();
-            trp.y   = currPt.y();
-            trp.z   = S.z();
-            trp.yaw = atan2(currDiff.y(), currDiff.x());
+            trp.position.x = currPt.x();
+            trp.position.y = currPt.y();
+            trp.position.z = S.z();
+            trp.yaw        = atan2(currDiff.y(), currDiff.x());
             ttt.points.push_back(trp);
           }
         } else {
           ROS_INFO("Flanking");
-          Eigen::Vector3d toObserver        = -targetDiff;
-          Eigen::Vector3d toObserverNorm    = toObserver / toObserver.norm();
-          B                                 = S + Eigen::AngleAxisd(beta, Eigen::Vector3d(0, 0, 1)) * toObserverNorm * followDistance;
-          Eigen::Vector3d        toGoal     = (B - A);
-          int                    stepCount  = floor(toGoal.norm() / maxStep);
-          Eigen::Vector3d        stepVector = maxStep * (toGoal / toGoal.norm());
-          mrs_msgs::TrackerPoint trp;
-          Eigen::Vector3d        currPt;
-          Eigen::Vector3d        currDiff;
-          int                    trimmedStepCount = std::min(stepCount, maxTrajSteps);
+          Eigen::Vector3d toObserver     = -targetDiff;
+          Eigen::Vector3d toObserverNorm = toObserver / toObserver.norm();
+          B                              = S + Eigen::AngleAxisd(beta, Eigen::Vector3d(0, 0, 1)) * toObserverNorm * followDistance;
+          Eigen::Vector3d     toGoal     = (B - A);
+          int                 stepCount  = floor(toGoal.norm() / maxStep);
+          Eigen::Vector3d     stepVector = maxStep * (toGoal / toGoal.norm());
+          mrs_msgs::Reference trp;
+          Eigen::Vector3d     currPt;
+          Eigen::Vector3d     currDiff;
+          int                 trimmedStepCount = std::min(stepCount, maxTrajSteps);
           for (int i = 0; i < trimmedStepCount; i++) {
             currPt   = (A + i * stepVector);
             currDiff = S - currPt;
             /* std::cout << currPt << std::endl; */
-            trp.x   = currPt.x();
-            trp.y   = currPt.y();
-            trp.z   = S.z();
-            trp.yaw = atan2(currDiff.y(), currDiff.x());
+            trp.position.x = currPt.x();
+            trp.position.y = currPt.y();
+            trp.position.z = S.z();
+            trp.yaw        = atan2(currDiff.y(), currDiff.x());
             ttt.points.push_back(trp);
           }
           Eigen::Vector3d targetToTangent = (B - S);
@@ -296,10 +297,10 @@ public:
               currPt   = S + (Eigen::AngleAxisd(sgn(gamma) * i * alphaStep, Eigen::Vector3d(0, 0, 1)) * targetToTangent);
               currDiff = S - currPt;
               /* std::cout << currPt << std::endl; */
-              trp.x   = currPt.x();
-              trp.y   = currPt.y();
-              trp.z   = S.z();
-              trp.yaw = atan2(currDiff.y(), currDiff.x());
+              trp.position.x = currPt.x();
+              trp.position.y = currPt.y();
+              trp.position.z = S.z();
+              trp.yaw        = atan2(currDiff.y(), currDiff.x());
               ttt.points.push_back(trp);
             }
           }
@@ -389,9 +390,9 @@ public:
     ros::Rate transformRate(1.0);
     while (true) {
       try {
-        listener.waitForTransform( uav_name + "/fcu", "uvcam"+uav_name, ros::Time::now(), ros::Duration(1.0));
+        listener.waitForTransform(uav_name + "/fcu", "uvcam" + uav_name, ros::Time::now(), ros::Duration(1.0));
         mutex_tf.lock();
-        listener.lookupTransform( uav_name + "/fcu", "uvcam"+uav_name, ros::Time(0), transformCam2Base);
+        listener.lookupTransform(uav_name + "/fcu", "uvcam" + uav_name, ros::Time(0), transformCam2Base);
         mutex_tf.unlock();
       }
       catch (tf::TransformException ex) {
@@ -427,7 +428,7 @@ public:
     /* ROS_INFO("Yaw: %4.2f", yaw); */
   }
 
-  void diagnosticsCallback(const mrs_msgs::MpcTrackerDiagnosticsConstPtr &diag_msg) {
+  void diagnosticsCallback(const mrs_msgs::MpcTrackerDiagnosticsConstPtr& diag_msg) {
     if (!(diag_msg->tracking_trajectory))
       reachedTarget = true;
     /* ROS_INFO("Reached target"); */
@@ -435,8 +436,8 @@ public:
 
 
   void ProcessPoints(const std_msgs::Int32MultiArrayConstPtr& msg) {
-    int                        countSeen;
-    std::vector< cv::Point3i > points;
+    int                      countSeen;
+    std::vector<cv::Point3i> points;
     countSeen = (int)((msg)->layout.dim[0].size);
     if (DEBUG)
       ROS_INFO("Received points: %d", countSeen);
@@ -526,7 +527,8 @@ public:
       }
 
 
-      double pixDist = (cv::norm(b - a) + cv::norm(c - b)) * 0.5;
+      [[maybe_unused]] double pixDist = (cv::norm(b - a) + cv::norm(c - b)) * 0.5;
+
       double v1[3], v2[3], v3[3];
       double va[2] = {(double)(a.y), (double)(a.x)};
       double vb[2] = {(double)(b.y), (double)(b.x)};
@@ -566,8 +568,8 @@ public:
       }
       distanceSlider.filterPush(distance);
       orientationSlider.filterPush(angleDist);
-      double distanceFiltered    = distanceSlider.filterSlide();
-      double orientationFiltered = orientationSlider.filterSlide();
+      double                  distanceFiltered    = distanceSlider.filterSlide();
+      [[maybe_unused]] double orientationFiltered = orientationSlider.filterSlide();
 
       double phi = asin(sin(delta + (CV_PI / 3.0)) * (armLength / distanceFiltered));
       std::cout << "delta: " << delta << std::endl;
@@ -582,8 +584,8 @@ public:
       std::cout << "Estimated angle from mid. LED: " << phi * (180.0 / CV_PI) << std::endl;
 
 
-      Eigen::Vector3d Pv = V3.cross(V1).normalized();
-      Eigen::Transform< double, 3, Eigen::Affine > Rp(Eigen::AngleAxis< double >(phi, Pv));
+      Eigen::Vector3d                            Pv = V3.cross(V1).normalized();
+      Eigen::Transform<double, 3, Eigen::Affine> Rp(Eigen::AngleAxis<double>(phi, Pv));
       centerEstimInCam = distanceFiltered * (V2);
       /* goalInCam        = (distanceFiltered - followDistance) * (Rp * V2); */
       /* tf::Vector3 centerEstimInCamTF; */
@@ -654,8 +656,8 @@ public:
       }
       distanceSlider.filterPush(distance);
       orientationSlider.filterPush(angleDist);
-      double distanceFiltered    = distanceSlider.filterSlide();
-      double orientationFiltered = orientationSlider.filterSlide();
+      double                  distanceFiltered    = distanceSlider.filterSlide();
+      [[maybe_unused]] double orientationFiltered = orientationSlider.filterSlide();
 
       std::cout << "Estimated distance: " << distance << std::endl;
       std::cout << "Filtered distance: " << distanceFiltered << std::endl;
@@ -695,8 +697,8 @@ public:
       }
       orientationSlider.filterPush(0.0);
 
-      double distanceFiltered = distanceSlider.filterSlide();
-      centerEstimInCam        = distanceSlider.filterSlide() * V1;
+      [[maybe_unused]] double distanceFiltered = distanceSlider.filterSlide();
+      centerEstimInCam                         = distanceSlider.filterSlide() * V1;
       std::cout << "Estimated center in CAM: " << centerEstimInCam << std::endl;
       geometry_msgs::Pose p;
       p.position.x = centerEstimInCam.x();
@@ -767,7 +769,7 @@ public:
     /* tf::vectorTFToEigen(centerEstimInBaseTF, centerEstimInBase); */
     /* std::cout << "Estimated center in BASE: " << centerEstimInBase << std::endl; */
   }
-  template < typename T >
+  template <typename T>
   int sgn(T val) {
     return (T(0) < val) - (val < T(0));
   }
@@ -879,17 +881,17 @@ private:
   std::thread target_thread;
   std::thread tf_thread;
 
-  std::vector< sensor_msgs::Imu > imu_register;
+  std::vector<sensor_msgs::Imu> imu_register;
 
   struct ocam_model oc_model;
 
-  ros::ServiceClient             client;
-  mrs_msgs::Vec4              tpnt;
-  mrs_msgs::TrackerTrajectorySrv tts;
-  mrs_msgs::TrackerTrajectory    ttt;
-  bool                           foundTarget;
-  Eigen::Vector3d                centerEstimInBase;
-  Eigen::Vector3d                goalInBase;
+  ros::ServiceClient               client;
+  mrs_msgs::Vec4                   tpnt;
+  mrs_msgs::TrajectoryReferenceSrv tts;
+  mrs_msgs::TrajectoryReference    ttt;
+  bool                             foundTarget;
+  Eigen::Vector3d                  centerEstimInBase;
+  Eigen::Vector3d                  goalInBase;
 
   /* bool   toRight;    // direction in which we should go to reach the tail */
   double angleDist;  // how large is the angle around the target between us and the tail
