@@ -19,7 +19,6 @@
 #include <geometry_msgs/Twist.h>
 #include <image_transport/image_transport.h>
 #include <mrs_msgs/Vec4.h>
-#include <mrs_msgs/MpcTrackerDiagnostics.h>
 #include <mrs_msgs/TrajectoryReference.h>
 #include <mrs_msgs/TrajectoryReferenceSrv.h>
 #include <mrs_msgs/Vec1.h>
@@ -46,7 +45,7 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <thread>
 #include "slider/slider.h"
-
+#include <mrs_msgs/ControlManagerDiagnostics.h>
 
 namespace enc = sensor_msgs::image_encodings;
 
@@ -114,13 +113,13 @@ public:
     if (trajectoryControl) {
       target_thread = std::thread(&Follower::TargetThreadTrajectory, this);
       /* client        = node.serviceClient< mrs_msgs::TrajectoryReferenceSrv >( */
-      /*     (std::string("/") + std::string(uav_name) + std::string("/control_manager/mpc_tracker/set_trajectory")).c_str()); */
+      /*     (std::string("/") + std::string(uav_name) + std::string("/control_manager/trajectory_reference")).c_str()); */
       trajectoryPub = node.advertise<mrs_msgs::TrajectoryReference>(
           (std::string("/") + std::string(uav_name) + std::string("/control_manager/trajectory_reference")).c_str(), 1);
     } else {
       target_thread = std::thread(&Follower::TargetThreadSimple, this);
       client =
-          node.serviceClient<mrs_msgs::Vec4>((std::string("/") + std::string(uav_name) + std::string("/control_manager/mpc_tracker/goto_relative")).c_str());
+          node.serviceClient<mrs_msgs::Vec4>((std::string("/") + std::string(uav_name) + std::string("/control_manager/goto_relative")).c_str());
     }
   }
 
@@ -428,8 +427,8 @@ public:
     /* ROS_INFO("Yaw: %4.2f", yaw); */
   }
 
-  void diagnosticsCallback(const mrs_msgs::MpcTrackerDiagnosticsConstPtr& diag_msg) {
-    if (!(diag_msg->tracking_trajectory))
+  void diagnosticsCallback(const mrs_msgs::ControlManagerDiagnosticsConstPtr& diag_msg) {
+    if (!(diag_msg->tracker_status.moving_reference))
       reachedTarget = true;
     /* ROS_INFO("Reached target"); */
   }

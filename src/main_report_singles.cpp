@@ -15,7 +15,6 @@
 #include <image_transport/image_transport.h>
 #include <mrs_msgs/Vec4.h>
 #include <mrs_msgs/ControlManagerDiagnostics.h>
-#include <mrs_msgs/TrackerTrajectorySrv.h>
 #include <nav_msgs/Odometry.h>
 #include <ros/package.h>
 #include <ros/ros.h>

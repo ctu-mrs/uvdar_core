@@ -135,7 +135,7 @@
 
 
       <remap from="odometry" to="/$(arg uav_name)/mrs_odometry/new_odom"/>
-      <remap from="diagnostics" to="/$(arg uav_name)/trackers_manager/mpc_tracker/diagnostics"/>
+      <remap from="diagnostics" to="/$(arg uav_name)/control_manager/diagnostics"/>
       <remap from="~imu" to="mavros/imu/data"/>
       <remap from="blinkersSeen" to="/$(arg uav_name)/blinkersSeen"/>
       <rosparam command="load" file="$(find uvdd)/yaml/bluefox_fisheye.yaml" />
