@@ -428,7 +428,7 @@ public:
   }
 
   void diagnosticsCallback(const mrs_msgs::ControlManagerDiagnosticsConstPtr& diag_msg) {
-    if (!(diag_msg->tracker_status.moving_reference))
+    if (!(diag_msg->tracker_status.have_goal))
       reachedTarget = true;
     /* ROS_INFO("Reached target"); */
   }
