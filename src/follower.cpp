@@ -118,8 +118,7 @@ public:
           (std::string("/") + std::string(uav_name) + std::string("/control_manager/trajectory_reference")).c_str(), 1);
     } else {
       target_thread = std::thread(&Follower::TargetThreadSimple, this);
-      client =
-          node.serviceClient<mrs_msgs::Vec4>((std::string("/") + std::string(uav_name) + std::string("/control_manager/goto_relative")).c_str());
+      client        = node.serviceClient<mrs_msgs::Vec4>((std::string("/") + std::string(uav_name) + std::string("/control_manager/goto_relative")).c_str());
     }
   }
 
@@ -152,7 +151,7 @@ public:
   void TargetThreadTrajectory() {
     ros::Rate targetRate(2);
     double    maxStep = (maxSpeed)*0.2;
-    ttt.use_yaw       = true;
+    ttt.use_heading   = true;
     while (true) {
 
       if ((!foundTarget) && ((ros::Time::now() - lastSeen).toSec() > 2.0)) {
@@ -171,9 +170,9 @@ public:
           trp.position.x = A.x();
           trp.position.y = A.y();
           trp.position.z = A.z();
-          trp.yaw        = yaw + (i * alphaStep);
+          trp.heading    = yaw + (i * alphaStep);
           /* std::cout <<  yaw << std::endl; */
-          /* std::cout <<  trp.yaw << std::endl; */
+          /* std::cout <<  trp.heading << std::endl; */
           ttt.points.push_back(trp);
         }
         /* ros::Duration(3.0).sleep(); */
@@ -223,7 +222,7 @@ public:
             trp.position.x = currPt.x();
             trp.position.y = currPt.y();
             trp.position.z = S.z();
-            trp.yaw        = atan2(currDiff.y(), currDiff.x());
+            trp.heading    = atan2(currDiff.y(), currDiff.x());
             ttt.points.push_back(trp);
           }
         } else if ((followDistance - distance) > 0) {
@@ -241,7 +240,7 @@ public:
             trp.position.x = currPt.x();
             trp.position.y = currPt.y();
             trp.position.z = S.z();
-            trp.yaw        = atan2(currDiff.y(), currDiff.x());
+            trp.heading    = atan2(currDiff.y(), currDiff.x());
             ttt.points.push_back(trp);
           }
         } else if (goalInFront) {
@@ -262,7 +261,7 @@ public:
             trp.position.x = currPt.x();
             trp.position.y = currPt.y();
             trp.position.z = S.z();
-            trp.yaw        = atan2(currDiff.y(), currDiff.x());
+            trp.heading    = atan2(currDiff.y(), currDiff.x());
             ttt.points.push_back(trp);
           }
         } else {
@@ -284,7 +283,7 @@ public:
             trp.position.x = currPt.x();
             trp.position.y = currPt.y();
             trp.position.z = S.z();
-            trp.yaw        = atan2(currDiff.y(), currDiff.x());
+            trp.heading    = atan2(currDiff.y(), currDiff.x());
             ttt.points.push_back(trp);
           }
           Eigen::Vector3d targetToTangent = (B - S);
@@ -299,7 +298,7 @@ public:
               trp.position.x = currPt.x();
               trp.position.y = currPt.y();
               trp.position.z = S.z();
-              trp.yaw        = atan2(currDiff.y(), currDiff.x());
+              trp.heading    = atan2(currDiff.y(), currDiff.x());
               ttt.points.push_back(trp);
             }
           }
