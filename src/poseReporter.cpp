@@ -1050,14 +1050,16 @@ public:
   
       double A = 1.0 / tan(Alpha);
       double B = 1.0 / tan(Beta);
-      std::cout << "a: " << a << " b: " << b << " c: " << c << std::endl;
-      std::cout << "alpha: " << Alpha << " beta: " << Beta << std::endl;
-      std::cout << "A: " << A << " B: " << B << std::endl;
+      if (DEBUG){
+        std::cout << "a: " << a << " b: " << b << " c: " << c << std::endl;
+        std::cout << "alpha: " << Alpha << " beta: " << Beta << std::endl;
+        std::cout << "A: " << A << " B: " << B << std::endl;
+      }
 
       /* double O = sqrt(2 + 2*A + A*A + 2*B + B*B); */
       /* std::cout << "long operand: " << O << std::endl; */
       /* double delta = atan(-((1+A)/(O))/(((1+A+B+A*B)/O)/(1+A))); */
-      double delta = atan(-(1.0+A)/(1+B))+(M_PI);
+      double delta = atan(-(1.0+B)/(1+A))+(M_PI);
 
 
       /* double gamma      = CV_PI - (delta + Alpha); */
@@ -1075,8 +1077,11 @@ public:
 
       /* double phi = asin(sin(delta + (CV_PI / 3.0)) * (_arm_length_ / l)); */
       double phi = asin(sin(delta + (CV_PI/4.0)) * (distMiddle / l));
-      /* std::cout << "delta: " << delta << std::endl; */
-      std::cout << "Estimated distance: " << l << std::endl;
+      if (DEBUG){
+        std::cout << "delta: " << delta << std::endl;
+        std::cout << "distMiddle: " << distMiddle << std::endl;
+        std::cout << "Estimated distance: " << l << std::endl;
+      }
       /* std_msgs::Float32 dM, fdM; */
       /* dM.data  = distance; */
       /* fdM.data = distanceFiltered; */
