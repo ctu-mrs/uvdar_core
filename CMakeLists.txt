@@ -120,8 +120,8 @@ add_dependencies(unscented ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED
 add_library(BlinkProcessor src/blink_processor.cpp)
 add_dependencies(BlinkProcessor ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
-add_executable(uv_follower_node src/follower.cpp include/slider/slider.cpp)
-add_dependencies(uv_follower_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+# add_executable(uv_follower_node src/follower.cpp include/slider/slider.cpp)
+# add_dependencies(uv_follower_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 add_executable(uv_reporter_node src/poseReporter.cpp)
 add_dependencies(uv_reporter_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
@@ -156,13 +156,13 @@ target_link_libraries(BlinkProcessor
   ht4dbt
   )
 
-target_link_libraries(uv_follower_node
-  ${catkin_LIBRARIES}
-  ${OpenCV_LIBRARIES}
-  ${EIGEN3_LIBRARIES}
-  OCamCalib
-  unscented
-  )
+# target_link_libraries(uv_follower_node
+#   ${catkin_LIBRARIES}
+#   ${OpenCV_LIBRARIES}
+#   ${EIGEN3_LIBRARIES}
+#   OCamCalib
+#   unscented
+#   )
 
 target_link_libraries(uv_reporter_node
   ${catkin_LIBRARIES}
