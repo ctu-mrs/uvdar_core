@@ -13,8 +13,8 @@
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 #include <tf2/LinearMath/Vector3.h>
 #include <tf2/convert.h>
-#include <mrs_lib/param_loader.h>
-#include <mrs_lib/profiler.h>
+#include <mrs_lib/ParamLoader.h>
+#include <mrs_lib/Profiler.h>
 #include <OCamCalib/ocam_functions.h>
 #include <unscented/unscented.h>
 #include <uvdar/ROIVector.h>
@@ -50,13 +50,13 @@ class Reprojector{
       profiler = new mrs_lib::Profiler(pnh, "uvdar_reprojector_node", true);
       mrs_lib::ParamLoader param_loader(pnh, "uvdar_reprojector_node");
 
-      param_loader.loadParam("frame_camera", _frame_camera);
-      param_loader.loadParam("frame_estimate", _frame_estimate);
-      param_loader.loadParam("offline", _offline);
-      param_loader.loadParam("gui", _gui);
-      param_loader.loadParam("calib_file", _calib_file);
-      param_loader.loadParam("publish_boxes", _publish_boxes);
-      param_loader.loadParam("no_draw", _no_draw_, bool(false));
+      param_loader.load_param("frame_camera", _frame_camera);
+      param_loader.load_param("frame_estimate", _frame_estimate);
+      param_loader.load_param("offline", _offline);
+      param_loader.load_param("gui", _gui);
+      param_loader.load_param("calib_file", _calib_file);
+      param_loader.load_param("publish_boxes", _publish_boxes);
+      param_loader.load_param("no_draw", _no_draw_, bool(false));
       /* ROS_INFO_STREAM( "/include/OCamCalib/config/"); */
       /* ROS_INFO_STREAM(ros::package::getPath("uvdar")); */
       /* ROS_INFO_STREAM(_calib_file); */
