@@ -161,7 +161,16 @@ public:
     for (size_t i = 0; i < _calib_files.size(); ++i) {
       /* private_node_handle.param("calib_file", _calib_file, std::string("calib_results_bf_uv_fe.txt")); */
       sprintf(calib_path, "%s/include/OCamCalib/config/%s", ros::package::getPath("uvdar").c_str(),_calib_files[i].c_str());
+      if (DEBUG){
+        ROS_INFO_STREAM("[PoseReporter]: getting calibration file from: " << calib_path);
+      }
       get_ocam_model(&(oc_models[i]), calib_path);
+      if (DEBUG){
+        ROS_INFO_STREAM("[PoseReporter]: calibration poly for [" << i << "]");
+        for (int j=0; j< oc_models[i].length_pol; j++){
+          ROS_INFO_STREAM("[PoseReporter]: " << oc_models[i].pol[j]);
+        }
+      }
     }
 
     //}
@@ -798,7 +807,10 @@ public:
       double      v1[3], v2[3];
       double      va[2] = {double(a.y), double(a.x)};
       double      vb[2] = {double(b.y), double(b.x)};
-      ;
+      
+      if (DEBUG){
+        ROS_INFO_STREAM("[PoseReporter]: a: " << a << " b: " << b);
+      }
       cam2world(v1, va, &(oc_models[camera_index]));
       cam2world(v2, vb, &(oc_models[camera_index]));
       /* double vc[3]; */
@@ -807,6 +819,9 @@ public:
 
       Eigen::Vector3d V1(v1[1], v1[0], -v1[2]);
       Eigen::Vector3d V2(v2[1], v2[0], -v2[2]);
+      if (DEBUG){
+        ROS_INFO_STREAM("[PoseReporter]: V1: " << V1 << " V2: " << V2);
+      }
       /* Eigen::Vector3d Vc(vc[1], vc[0], -vc[2]); */
 
       /* double alpha = acos(V1.dot(V2)); */
@@ -855,21 +870,23 @@ public:
       /*      (1-2*Alpha2-2*Alpha*csAlpha+2*Alpha*cos(Alpha-2*delta)+cos(2*(Alpha-delta))+2*Alpha*snAlpha+2*Alpha*sin(Alpha-2*delta)-2*Alpha2*sn2delta)) */
       /*   ); */
 
-      /* ROS_INFO("long element is %f", 1-2*Alpha2-2*Alpha*csAlpha+2*Alpha*cos(Alpha-2*delta)+cos(2*(Alpha-delta))+2*Alpha*snAlpha+2*Alpha*sin(Alpha-2*delta)-2*Alpha2*sn2delta); */
+      if (DEBUG){
+        /* ROS_INFO("long element is %f", 1-2*Alpha2-2*Alpha*csAlpha+2*Alpha*cos(Alpha-2*delta)+cos(2*(Alpha-delta))+2*Alpha*snAlpha+2*Alpha*sin(Alpha-2*delta)-2*Alpha2*sn2delta); */
 
-      /* ROS_INFO("Alpha = %f, delta = %f, v = %f", Alpha, delta, v); */
-      /* ROS_INFO_STREAM("csAlpha = " << csAlpha << " V1 = " << V1 << " V2 = " << V2); */
-      /* ROS_INFO_STREAM("a = " << a << " b = " << b ); */
+        ROS_INFO("Alpha = %f, delta = %f, v = %f", Alpha, delta, v);
+        /* ROS_INFO_STREAM("csAlpha = " << csAlpha << " V1 = " << V1 << " V2 = " << V2); */
+        /* ROS_INFO_STREAM("a = " << a << " b = " << b ); */
 
-      /* distanceSlider.filterPush(distance); */
-      /* orientationSlider.filterPush(angleDist); */
+        /* distanceSlider.filterPush(distance); */
+        /* orientationSlider.filterPush(angleDist); */
 
-      /* std::cout << "Estimated distance: " << l << std::endl; */
-      /* std::cout << "Filtered distance: " << distanceFiltered << std::endl; */
+        /* std::cout << "Estimated distance: " << l << std::endl; */
+        /* std::cout << "Filtered distance: " << distanceFiltered << std::endl; */
 
-      /* std::cout << "Estimated direction in CAM: " << (Rp*V2) << std::endl; */
-      /* std::cout << "Central LED direction in CAM: " << (V2) << std::endl; */
-      /* std::cout << "Rotation: " << Rp.matrix()   << std::endl; */
+        /* std::cout << "Estimated direction in CAM: " << (Rp*V2) << std::endl; */
+        /* std::cout << "Central LED direction in CAM: " << (V2) << std::endl; */
+        /* std::cout << "Rotation: " << Rp.matrix()   << std::endl; */
+      }
 
       /* foundTarget = true; */
       /* lastSeen    = ros::Time::now(); */

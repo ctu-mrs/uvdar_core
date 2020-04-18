@@ -1,0 +1,11 @@
+location: .gitman
+sources:
+- name: gazebo_plugins
+  type: git
+  repo: git@mrs.felk.cvut.cz:uvdd/gazebo-plugins.git
+  sparse_paths:
+  -
+  rev: master
+  link: gazebo_plugins
+  scripts:
+  - git submodule update --init --recursive
