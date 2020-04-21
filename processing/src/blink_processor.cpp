@@ -189,6 +189,8 @@ public:
 
     nh_.param("InvertedPoints", InvertedPoints, bool(false));
     nh_.param("frequencyCount", frequencyCount, int(4));
+
+    nh_.param("beacon",_beacon_,bool(false));
     /* if (frequencyCount != 2){ */
     /*   ROS_ERROR("HEYYY"); */
     /*   return; */
@@ -198,7 +200,7 @@ public:
     frequencySet.resize(frequencyCount);
     std::vector<double> defaultFrequencySet{6, 10, 15, 30, 8, 12};
     for (int i = 0; i < frequencyCount; ++i) {
-      nh_.param("frequency" + std::to_string(i + 1), frequencySet[i], defaultFrequencySet.at(i));
+      nh_.param("frequency" + std::to_string(i + (_beacon_?0:1)), frequencySet[i], defaultFrequencySet.at(i));
     }
 
     prepareFrequencyClassifiers();
@@ -742,6 +744,8 @@ private:
   int _nullify_radius_;
 
   int frequencyCount;
+
+  bool _beacon_;
 
   ros::Time lastPointsTime;
 

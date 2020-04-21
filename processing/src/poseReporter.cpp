@@ -86,6 +86,7 @@ public:
     }
 
     private_node_handle.param("quadrotor",_quadrotor_,bool(false));
+    private_node_handle.param("beacon",_beacon_,bool(false));
 
     private_node_handle.param("arm_length",_arm_length_,double(0.2775));
 
@@ -93,31 +94,43 @@ public:
     private_node_handle.param("targetCount", targetCount, int(4));
     int frequencyCount = targetCount*frequenciesPerTarget;
  
-    int tempFreq;
-    if ((int)(frequencySet.size()) < frequencyCount) {
-      private_node_handle.param("frequency1", tempFreq, int(6));
-      frequencySet.push_back(double(tempFreq));
+    
+    frequencySet.resize(frequencyCount);
+    std::vector<double> defaultFrequencySet{6, 10, 15, 30, 8, 12};
+    for (int i = 0; i < frequencyCount; ++i) {
+      private_node_handle.param("frequency" + std::to_string(i + (_beacon_?0:1)), frequencySet[i], defaultFrequencySet.at(i));
     }
-    if ((int)(frequencySet.size()) < frequencyCount) {
-      private_node_handle.param("frequency2", tempFreq, int(10));
-      frequencySet.push_back(double(tempFreq));
-    }
-    if ((int)(frequencySet.size()) < frequencyCount) {
-      private_node_handle.param("frequency3", tempFreq, int(15));
-      frequencySet.push_back(double(tempFreq));
-    }
-    if ((int)(frequencySet.size()) < frequencyCount) {
-      private_node_handle.param("frequency4", tempFreq, int(30));
-      frequencySet.push_back(double(tempFreq));
-    }
-    if ((int)(frequencySet.size()) < frequencyCount) {
-      private_node_handle.param("frequency5", tempFreq, int(8));
-      frequencySet.push_back(double(tempFreq));
-    }
-    if ((int)(frequencySet.size()) < frequencyCount) {
-      private_node_handle.param("frequency6", tempFreq, int(12));
-      frequencySet.push_back(double(tempFreq));
-    }
+    /* int tempFreq; */
+    /* if (_beacon_){ */
+    /*   if ((int)(frequencySet.size()) < frequencyCount) { */
+    /*     private_node_handle.param("frequency0", tempFreq, int(6)); */
+    /*     frequencySet.push_back(double(tempFreq)); */
+    /*   } */
+    /* } */
+    /* if ((int)(frequencySet.size()) < frequencyCount) { */
+    /*   private_node_handle.param("frequency1", tempFreq, int(6)); */
+    /*   frequencySet.push_back(double(tempFreq)); */
+    /* } */
+    /* if ((int)(frequencySet.size()) < frequencyCount) { */
+    /*   private_node_handle.param("frequency2", tempFreq, int(10)); */
+    /*   frequencySet.push_back(double(tempFreq)); */
+    /* } */
+    /* if ((int)(frequencySet.size()) < frequencyCount) { */
+    /*   private_node_handle.param("frequency3", tempFreq, int(15)); */
+    /*   frequencySet.push_back(double(tempFreq)); */
+    /* } */
+    /* if ((int)(frequencySet.size()) < frequencyCount) { */
+    /*   private_node_handle.param("frequency4", tempFreq, int(30)); */
+    /*   frequencySet.push_back(double(tempFreq)); */
+    /* } */
+    /* if ((int)(frequencySet.size()) < frequencyCount) { */
+    /*   private_node_handle.param("frequency5", tempFreq, int(8)); */
+    /*   frequencySet.push_back(double(tempFreq)); */
+    /* } */
+    /* if ((int)(frequencySet.size()) < frequencyCount) { */
+    /*   private_node_handle.param("frequency6", tempFreq, int(12)); */
+    /*   frequencySet.push_back(double(tempFreq)); */
+    /* } */
 
     prepareFrequencyClassifiers();
 
@@ -1877,6 +1890,7 @@ private:
   double _arm_length_;
 
   bool _quadrotor_;
+  bool _beacon_;
   //}
 };
 

@@ -45,10 +45,10 @@ windows:
   - flying:
       layout: even-vertical
       panes:
-  # - rviz:
-  #     layout: even-vertical
-  #     panes:
-  #       - waitForControl; roslaunch uvdar_servo uvdar_rviz_uav.launch
+  - rviz:
+      layout: even-vertical
+      panes:
+        - waitForControl; roslaunch uvdar beacon_test_rviz.launch
   - uv_observer:
       layout: even-vertical
       panes:
