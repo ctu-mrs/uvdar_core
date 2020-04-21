@@ -8,7 +8,7 @@
   <arg unless="$(arg standalone)" name="nodelet_manager" value="$(arg uav_name)_uvdar_nodelet_manager"/>
   <arg     if="$(arg standalone)" name="nodelet_manager" value=""/>
 
-  <arg name="threshold" default="50"/>
+  <arg name="threshold" default="100"/>
 
   <arg name="left" default="$(optenv BLUEFOX_UV_LEFT)"/>
   <arg name="right" default="$(optenv BLUEFOX_UV_RIGHT)"/>
@@ -71,13 +71,6 @@
   <arg name="cemeraRotated" default="false"/>
   <arg name="FromBag" default="false"/>
   <arg name="FromCamera" default="true"/>
-  <arg name="FromVideo" default="false"/>
-  <arg name="VideoNumber" default="9"/>
-  <arg name="cellSize" default="64"/>
-  <arg name="cellOverlay" default="16"/>
-  <arg name="camNum" default="0"/>
-  <arg name="useFAST" default="true"/>
-  <arg name="Delay" default="100"/>
   <arg name="TimeScale" default="1.0"/>
 
   <arg name="frameNatoName" default="$(optenv NATO_NAME)"/>
@@ -105,61 +98,13 @@
       <param name="num_worker_threads" value="8" />
     </node>
 
+    <node name="bluefox_emulator" pkg="nodelet" type="nodelet" args="$(arg nodelet) uvdar/BluefoxEmulator $(arg nodelet_manager)" output="screen" respawn="true"> 
+      <rosparam param="cameraOutputTopics"> ["camera_left", "camera_right"] </rosparam>
 
-    <node pkg="nodelet" type="nodelet" name="uvdar_bluefox_left" args="$(arg nodelet) bluefox2/SingleNodelet $(arg nodelet_manager)" respawn="true" output="screen" launch-prefix="bash -c 'sleep 5; $0 $@'">
-      <param name="camera_name" type="string" value="$(arg left_camera_name)"/>
-      <param name="identifier" type="string" value="$(arg left)"/>
-
-      <param name="frame_id" type="string" value="$(arg frame_id)"/>
-      <param name="fps" type="double" value="$(arg fps)"/>
-      <param name="idpf" type="int" value="$(arg idpf)"/>
-      <param name="aec" type="bool" value="$(arg aec)"/>
-      <param name="expose_us" type="int" value="$(arg expose_us_left)"/>
-      <param name="agc" type="bool" value="$(arg agc)"/>
-      <param name="gain_db" type="double" value="$(arg gain_db)"/>
-      <param name="cbm" type="int" value="$(arg cbm)"/>
-      <param name="ctm" type="int" value="$(arg ctm)"/>
-      <param name="dcfm" type="int" value="$(arg dcfm)"/>
-      <param name="hdr" type="bool" value="$(arg hdr)"/>
-      <param name="wbp" type="int" value="$(arg wbp)"/>
-      <param name="request" type="int" value="$(arg request)"/>
-      <param name="mm" type="int" value="$(arg mm)"/>
-
-      <param name="image_raw/compressed/jpeg_quality" type="int" value="$(arg jpeg_quality)"/>
-      <param name="image_raw/theora/keyframe_frequency" value="60" />
-      <param name="image_raw/theora/target_bitrate" value="50000" />
-      <param name="image_raw/theora/quality" value="8" />
-      <param name="image_raw/theora/optimize_for" value="0" />
-
-      <remap from="/$(arg uav_name)/uvdar_bluefox_left/image_raw" to="/$(arg uav_name)/uvdar_bluefox/left/image_raw"/>
-    </node>
-
-    <node pkg="nodelet" type="nodelet" name="uvdar_bluefox_right" args="$(arg nodelet) bluefox2/SingleNodelet $(arg nodelet_manager)" respawn="true" output="screen" launch-prefix="bash -c 'sleep 7; $0 $@'">
-      <param name="camera_name" type="string" value="$(arg right_camera_name)"/>
-      <param name="identifier" type="string" value="$(arg right)"/>
-
-      <param name="frame_id" type="string" value="$(arg frame_id)"/>
-      <param name="fps" type="double" value="$(arg fps)"/>
-      <param name="idpf" type="int" value="$(arg idpf)"/>
-      <param name="aec" type="bool" value="$(arg aec)"/>
-      <param name="expose_us" type="int" value="$(arg expose_us_right)"/>
-      <param name="agc" type="bool" value="$(arg agc)"/>
-      <param name="gain_db" type="double" value="$(arg gain_db)"/>
-      <param name="cbm" type="int" value="$(arg cbm)"/>
-      <param name="ctm" type="int" value="$(arg ctm)"/>
-      <param name="dcfm" type="int" value="$(arg dcfm)"/>
-      <param name="hdr" type="bool" value="$(arg hdr)"/>
-      <param name="wbp" type="int" value="$(arg wbp)"/>
-      <param name="request" type="int" value="$(arg request)"/>
-      <param name="mm" type="int" value="$(arg mm)"/>
-
-      <param name="image_raw/compressed/jpeg_quality" type="int" value="$(arg jpeg_quality)"/>
-      <param name="image_raw/theora/keyframe_frequency" value="60" />
-      <param name="image_raw/theora/target_bitrate" value="50000" />
-      <param name="image_raw/theora/quality" value="8" />
-      <param name="image_raw/theora/optimize_for" value="0" />
-
-      <remap from="/$(arg uav_name)/uvdar_bluefox_right/image_raw" to="/$(arg uav_name)/uvdar_bluefox/right/image_raw"/>
+      <remap from="~camera_left" to="/$(arg uav_name)/uvdar_bluefox_left/image_raw"/>
+      <remap from="~camera_right" to="/$(arg uav_name)/uvdar_bluefox_right/image_raw"/>
+      <remap from="~camera_left_transfer" to="/gazebo/$(arg uav_name)/uvdar_bluefox_left/image_raw"/>
+      <remap from="~camera_right_transfer" to="/gazebo/$(arg uav_name)/uvdar_bluefox_right/image_raw"/>
     </node>
 
 
@@ -167,31 +112,27 @@
     <node name="uv_detect" pkg="nodelet" type="nodelet" args="$(arg nodelet) uvdar/UVDetector $(arg nodelet_manager)" output="screen" respawn="true"> 
     <!-- <node name="uv_detect" pkg="nodelet" type="nodelet" args="$(arg nodelet) uvdar/UVDetector $(arg nodelet_manager)" output="screen" respawn="true" launch-prefix="debug_roslaunch"> --> 
       <!-- <node name="uv_detect" pkg="uvdar" type="uv_detector_node" output="screen" launch-prefix="urxvt -e gdb -q -x /home/viktor/gdb.cmds -/-args"> -->
+        <!-- <node name="uv_detect" pkg="nodelet" type="nodelet" args="$(arg nodelet) uvdar/UVDetector $(arg nodelet_manager)" output="screen" respawn="true" launch-prefix="valgrind -/-tool=callgrind -/-callgrind-out-file=/home/viktor/callgrind.out -/-instr-atstart=no -/-collect-atstart=yes"> --> 
+
       <param name="uav_name" type = "string" value="$(arg uav_name)"/>
-      <param name="nato_name" type = "string" value="$(arg frameNatoName)"/>
       <param name="DEBUG"		type="bool" value="$(arg DEBUG)"/> 
       <param name="gui"             type="bool" value="false"/>
       <param name="Flip"             type="bool" value="false"/>
-      <param name="useFAST"             type="bool" value="$(arg useFAST)"/>
-      <param name="FromVideo"         type="bool" value="$(arg FromVideo)"/>
+      <!-- <param name="MaskPath"             type="string" value="$(arg MaskPath)"/> -->
       <param name="FromBag"         type="bool" value="$(arg FromBag)"/>
       <param name="FromCamera"         type="bool" value="$(arg FromCamera)"/>
-      <param name="VideoNumber"     type="int" value="$(arg VideoNumber)"/>
+      <param name="publish"         type="bool" value="$(arg publish)"/>
       <param name="cameraRotated"    type="bool" value="false"/>
       <param name="useOdom"           type="bool" value="false"/>
-      <param name="camNum"           type="int" value="$(arg camNum)"/>
       <param name="justReport" type="bool" value="true"/>
       <param name="threshold" type="int" value="$(arg threshold)"/>
       <param name="CameraImageCompressed" type="bool" value="false"/>
 
-      <param name="useMasksNamed"           type="bool" value="true"/>
-      <rosparam param="maskFileNames" subst_value="True"> ["$(arg left)", "$(arg right)"] </rosparam>
-
       <rosparam param="cameraTopics"> ["camera_left", "camera_right"] </rosparam>
       <rosparam param="pointsSeenTopics"> ["points_seen_left", "points_seen_right"] </rosparam>
 
-      <remap from="~camera_left" to="/$(arg uav_name)/uvdar_bluefox/left/image_raw"/>
-      <remap from="~camera_right" to="/$(arg uav_name)/uvdar_bluefox/right/image_raw"/>
+      <remap from="~camera_left" to="/$(arg uav_name)/uvdar_bluefox_left/image_raw"/>
+      <remap from="~camera_right" to="/$(arg uav_name)/uvdar_bluefox_right/image_raw"/>
       <remap from="~points_seen_left" to="/$(arg uav_name)/uvdar/points_seen_left"/>
       <remap from="~points_seen_right" to="/$(arg uav_name)/uvdar/points_seen_right"/>
 
@@ -201,22 +142,20 @@
 
     <node name="blink_processor" pkg="nodelet" type="nodelet" args="$(arg nodelet) uvdar/BlinkProcessor $(arg nodelet_manager)" output="screen" respawn="true"> 
     <!-- <node name="blink_processor" pkg="nodelet" type="nodelet" args="$(arg nodelet) uvdar/BlinkProcessor $(arg nodelet_manager)" output="screen" respawn="true" launch-prefix="roslaunch_debug"> --> 
+      <!-- <node name="blink_processor" pkg="nodelet" type="nodelet" args="$(arg nodelet) uvdar/BlinkProcessor $(arg nodelet_manager)" output="screen" respawn="true" launch-prefix="valgrind -/-tool=callgrind -/-callgrind-out-file=/home/viktor/callgrind.out -/-instr-atstart=no -/-collect-atstart=yes"> --> 
       <param name="uav_name" type = "string" value="$(arg uav_name)"/>
-      <param name="DEBUG"		type="bool" value="$(arg DEBUG)"/> 
+      <!-- <param name="DEBUG"		type="bool" value="$(arg DEBUG)"/> --> 
+      <param name="DEBUG"		type="bool" value="false"/> 
       <param name="VisDEBUG"		type="bool" value="$(arg VisDEBUG)"/> 
+      <!-- <param name="GUI"             type="bool" value="false"/> -->
       <param name="GUI"             type="bool" value="$(arg gui)"/>
       <param name="CameraImageCompressed"    type="bool" value="false"/>
       <param name="InvertedPoints"    type="bool" value="false"/>
-      <param name="frequencyCount" type="int" value="4"/>
-      <!-- <param name="frequency1" type="int" value="15"/> -->
-      <!-- <param name="frequency2" type="int" value="24"/> -->
-      <!-- <param name="frequency3" type="int" value="16"/> -->
       <param name="legacy" type="bool" value="false"/>
 
-      <param name="frequency1" type="int" value="6"/>
-      <param name="frequency2" type="int" value="10"/>
-      <param name="frequency3" type="int" value="15"/>
-      <param name="frequency4" type="int" value="30"/>
+      <param name="frequencyCount" type="int" value="2"/>
+      <param name="frequency1" type="int" value="15"/>
+      <param name="frequency2" type="int" value="30"/>
 
       <param name="processRate"         type="int" value="$(arg processRate)"/>
 
@@ -226,15 +165,15 @@
       <param name="maxPixelShift"         type="int" value="$(arg maxPixelShift)"/>
       <param name="returnFrequencies"         type="bool" value="true"/>
       <param name="nullifyRadius"         type="int" value="8"/>
-      <param name="UseCameraForVisualization"         type="bool" value="true"/>
+      <param name="UseCameraForVisualization"         type="bool" value="false"/>
 
       <rosparam param="cameraTopics"> ["camera_left", "camera_right"] </rosparam>
       <rosparam param="pointsSeenTopics"> ["points_seen_left", "points_seen_right"] </rosparam>
       <rosparam param="blinkersSeenTopics"> ["blinkers_seen_left", "blinkers_seen_right"] </rosparam>
       <rosparam param="estimatedFramerateTopics"> ["estimated_framerate_left", "estimated_framerate_right"] </rosparam>
 
-      <remap from="~camera_left" to="/$(arg uav_name)/uvdar_bluefox/left/image_raw"/>
-      <remap from="~camera_right" to="/$(arg uav_name)/uvdar_bluefox/right/image_raw"/>
+      <remap from="~camera_left" to="/$(arg uav_name)/uvdar_bluefox_left/image_raw"/>
+      <remap from="~camera_right" to="/$(arg uav_name)/uvdar_bluefox_right/image_raw"/>
       <remap from="~points_seen_left" to="/$(arg uav_name)/uvdar/points_seen_left"/>
       <remap from="~points_seen_right" to="/$(arg uav_name)/uvdar/points_seen_right"/>
       <remap from="~blinkers_seen_left" to="/$(arg uav_name)/uvdar/blinkers_seen_left"/>
@@ -248,19 +187,13 @@
     <!-- <node name="uv_reporter_node" pkg="uvdar" type="uv_reporter_node" output="screen" launch-prefix="debug_roslaunch"> --> 
     <node name="uv_reporter_node" pkg="uvdar" type="uv_reporter_node" output="screen" > 
       <param name="uav_name" type = "string" value="$(arg uav_name)"/>
-
-      <!-- <param name="calib_file" type="string" value="$(arg calib_file_uv)"/> -->
-
-      <param name="DEBUG"		type="bool" value="true"/> 
+      <param name="DEBUG"		type="bool" value="false"/> 
       <param name="gui"             type="bool" value="$(arg gui)"/>
       <param name="publish"         type="bool" value="$(arg publish)"/>
-      <param name="frequenciesPerTarget" type="int" value="1"/>
-      <param name="targetCount" type="int" value="4"/>
-      <param name="frequency1" type="int" value="6"/>
-      <param name="frequency2" type="int" value="10"/>
-      <param name="frequency3" type="int" value="15"/>
-      <param name="frequency4" type="int" value="30"/>
-
+      <param name="frequenciesPerTarget" type="int" value="2"/>
+      <param name="targetCount" type="int" value="1"/>
+      <param name="frequency1" type="int" value="15"/>
+      <param name="frequency1" type="int" value="30"/>
 
       <param name="quadrotor" type="bool" value="true"/>
       <param name="arm_lenght" type="double" value="0.245"/>
@@ -274,12 +207,11 @@
       <remap from="~estimated_framerate_left" to="/$(arg uav_name)/uvdar/estimated_framerate_left"/>
       <remap from="~estimated_framerate_right" to="/$(arg uav_name)/uvdar/estimated_framerate_right"/>
 
-      <rosparam param="calibFiles" subst_value="true"> ["calib_results_bf_uv_$(arg left).txt", "calib_results_bf_uv_$(arg right).txt"] </rosparam>
+      <rosparam param="calibFiles" subst_value="true"> ["calib_results_bf_uv_fe.txt", "calib_results_bf_uv_fe.txt"] </rosparam>
 
       <remap from="~measuredPose1" to="/$(arg uav_name)/uvdar/measuredPose1"/>
       <remap from="~measuredPose2" to="/$(arg uav_name)/uvdar/measuredPose2"/>
       <remap from="~measuredPose3" to="/$(arg uav_name)/uvdar/measuredPose3"/>
-      <remap from="~measuredPose4" to="/$(arg uav_name)/uvdar/measuredPose4"/>
     </node>
   </group>
 
