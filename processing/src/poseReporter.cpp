@@ -75,12 +75,12 @@ public:
     reachedTarget   = false;
     followTriggered = false;
     ros::NodeHandle private_node_handle("~");
-    private_node_handle.param("uav_name", uav_name, std::string());
+    private_node_handle.param("uav_name", _uav_name_, std::string());
     /* ROS_INFO("UAV_NAME: %s",uav_name.c_str()); */
 
     private_node_handle.param("DEBUG", DEBUG, bool(false));
 
-    private_node_handle.param("gui", gui, bool(false));
+    private_node_handle.param("gui", _gui_, bool(false));
 
     private_node_handle.param("legacy", _legacy, bool(false));
     if (_legacy){
@@ -156,6 +156,7 @@ public:
 
     // Create callbacks for each camera
     blinkersSeenCallbacks.resize(blinkersSeenTopics.size());
+    separatedPoints.resize(blinkersSeenTopics.size());
     for (size_t i = 0; i < blinkersSeenTopics.size(); ++i) {
       blinkers_seen_callback_t callback = [imageIndex=i,this] (const uvdar::Int32MultiArrayStampedConstPtr& pointsMessage) { 
         ProcessPoints(pointsMessage, imageIndex);
@@ -261,6 +262,7 @@ public:
 
     //}
     
+    initialized_ = true;
   }
   //}
 
@@ -316,22 +318,22 @@ public:
       }
     }
 
+    std::scoped_lock lock(mutex_separated_points);
     if ((int)(points.size()) > 0) {
-      std::vector<std::vector<cv::Point3i>> separatedPoints;
       if (_beacon_){
-        separatedPoints = separateByBeacon(points);
+        separatedPoints[imageIndex] = separateByBeacon(points);
         return;
       }
       else {
-        separatedPoints = separateByFrequency(points);
+        separatedPoints[imageIndex] = separateByFrequency(points);
       }
 
       for (int i = 0; i < targetCount; i++) {
         if (DEBUG){
           ROS_INFO_STREAM("target [" << i << "]: ");
-          ROS_INFO_STREAM("p: " << separatedPoints[i]);
+          ROS_INFO_STREAM("p: " << separatedPoints[imageIndex][i]);
         }
-        extractSingleRelative(separatedPoints[i], i, imageIndex);
+        extractSingleRelative(separatedPoints[imageIndex][i], i, imageIndex);
       }
     }
   }
@@ -1372,13 +1374,14 @@ private:
     ros::Rate transformRate(1.0);
 
     for (std::string cameraFrame: cameraFrames) {
-      while (true) {
+      while (ros::ok()) {
+        if (initialized_){
         transformRate.sleep();
 
         try {
-          listener.waitForTransform( uav_name + "/fcu", cameraFrame, ros::Time::now(), ros::Duration(1.0));
+          listener.waitForTransform( _uav_name_ + "/fcu", cameraFrame, ros::Time::now(), ros::Duration(1.0));
           mutex_tf.lock();
-          listener.lookupTransform( uav_name + "/fcu", cameraFrame, ros::Time(0), transformCam2Base);
+          listener.lookupTransform( _uav_name_ + "/fcu", cameraFrame, ros::Time(0), transformCam2Base);
           mutex_tf.unlock();
         }
         catch (tf::TransformException ex) {
@@ -1388,6 +1391,7 @@ private:
           continue;
         }
         break;;
+        }
       }
     }
 
@@ -1893,6 +1897,80 @@ private:
   }
   //}
   
+  /* ShowThread() //{ */
+
+  void ShowThread() {
+    cv::Mat temp;
+
+    while (ros::ok()) {
+      if (initialized_){
+        std::scoped_lock lock(mutex_show);
+
+        if (_gui_){
+          if (GenerateVisualization() >= 0){
+            cv::imshow("ocv_point_separation_" + _uav_name_, view_image_);
+          }
+        }
+
+      }
+      cv::waitKey(1000.0 / 10.0);
+    }
+  }
+
+  //}
+  
+  /* GenerateVisualization() //{ */
+
+    int GenerateVisualization() {
+      
+      int image_count = (int)(separatedPoints.size());
+      int image_width, image_height;
+
+      image_width = 752;
+      image_height = 480;
+      view_image_ = cv::Mat(
+          image_height, 
+          (image_width + 2) * image_count - 2, 
+          CV_8UC3,
+          cv::Scalar(0,0,0));
+
+
+      if (view_image_.rows == 0 || view_image_.cols == 0) return -1;
+
+      /* loop through separated points //{ */
+
+      std::scoped_lock lock(mutex_separated_points);
+      int imageIndex = 0;
+      for (auto &image_point_set : separatedPoints){
+        int differenceX = (image_width + 2) * imageIndex;
+        int i = 0;
+        for (auto &point_group : image_point_set){
+          for (auto &point : point_group){
+            cv::Point center = cv::Point(point.x + differenceX, point.y);
+
+            cv::Scalar color = markerColor(i);
+            cv::circle(view_image_, center, 5, color);
+          }
+          
+          i++;
+        }
+        imageIndex++;
+      }
+
+      //}
+
+      // draw the legend
+      for (int i = 0; i < (int)(frequencySet.size()); ++i) {
+        cv::Scalar color = markerColor(i);
+        cv::circle(view_image_, cv::Point(10, 10 + 15 * i), 5, color);
+        cv::putText(view_image_, cv::String(toStringPrecision(frequencySet[i],0)), cv::Point(15, 15 + 15 * i), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 255, 255));
+      }
+
+      return 0;
+  }
+
+  //}
+
   /* prepareFrequencyClassifiers //{ */
   void prepareFrequencyClassifiers() {
     for (int i = 0; i < (int)(frequencySet.size()); i++) {
@@ -1928,6 +2006,61 @@ private:
   }
   //}
 
+
+  /* color selector functions //{ */
+
+  cv::Scalar rainbow(double value, double max_rainbow) {
+    unsigned char r, g, b;
+
+    //rainbow gradient
+    double fraction = value / max_rainbow;
+    r = 255 * (fraction < 0.25 ? 1 : fraction > 0.5 ? 0 : 2 - fraction * 4);
+    g = 255 * (fraction < 0.25 ? fraction * 4 : fraction < 0.75 ? 1 : 4 - fraction * 4);
+    b = 255 * (fraction < 0.5 ? 0 : fraction < 0.75 ? fraction * 4 - 2 : 1);
+
+    return cv::Scalar(b, g, r);
+  }
+
+  cv::Scalar markerColor(int index, double max_rainbow=14.0){
+    if (index < 7){
+      cv::Scalar selected;
+    //MATLAB colors
+    switch(index){
+      case 0: selected = cv::Scalar(0.7410,        0.4470,   0);
+              break;
+      case 1: selected = cv::Scalar(0.0980,   0.3250,   0.8500);
+              break;
+      case 2: selected = cv::Scalar(0.1250,   0.6940,   0.9290);
+              break;
+      case 3: selected = cv::Scalar(0.5560,   0.1840,   0.4940);
+              break;
+      case 4: selected = cv::Scalar(0.1880,   0.6740,   0.4660);
+              break;
+      case 5: selected = cv::Scalar(0.9330,   0.7450,   0.3010);
+              break;
+      case 6: selected = cv::Scalar(0.1840,   0.0780,   0.6350);
+        
+    }
+    return 255*selected;
+    }
+    else
+      return rainbow((double)(index - 7),max_rainbow); 
+  }
+
+  //}
+  
+/* toStringPrecision //{ */
+
+std::string toStringPrecision(double input, unsigned int precision){
+  std::string output = std::to_string(input);
+  if (precision>=0){
+    if (precision==0)
+      return output.substr(0,output.find_first_of("."));
+  }
+  return "";
+}
+
+//}
 
   /* Variables //{ */
   bool mask_active;
@@ -1981,7 +2114,9 @@ private:
 
   double tailingComponent;
 
-  bool gui;
+  std::mutex mutex_show;
+  bool _gui_;
+  cv::Mat view_image_;
 
   int numberOfBins;
 
@@ -1993,7 +2128,7 @@ private:
   float  maxAccel;
   bool   checkAccel;
 
-  std::string uav_name;
+  std::string _uav_name_;
 
   ros::Time odomSpeedTime;
   float     speed_noise;
@@ -2060,9 +2195,13 @@ private:
 
   bool _quadrotor_;
   bool _beacon_;
+
+  bool initialized_ = false;
+
+  std::mutex mutex_separated_points;
+  std::vector<std::vector<std::vector<cv::Point3i>>> separatedPoints;
   //}
 };
-
 
 int main(int argc, char** argv) {
   ros::init(argc, argv, "uvdar_reporter");

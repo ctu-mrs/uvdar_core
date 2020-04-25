@@ -534,8 +534,8 @@ private:
         image_width = 752;
         image_height = 480;
         viewImage = cv::Mat(
-            480, 
-            (752 + 2) * image_count - 2, 
+            image_height, 
+            (image_width + 2) * image_count - 2, 
             CV_8UC3,
             cv::Scalar(0,0,0));
       }
