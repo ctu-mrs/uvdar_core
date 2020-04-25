@@ -535,7 +535,7 @@ private:
         image_height = 480;
         viewImage = cv::Mat(
             image_height, 
-            (image_width + 2) * image_count - 2, 
+            (image_width + 1) * image_count - 1, 
             CV_8UC3,
             cv::Scalar(0,0,0));
       }
@@ -544,7 +544,7 @@ private:
         image_height = currentImages[0].rows;
         viewImage = cv::Mat(
             currentImages[0].rows, 
-            (currentImages[0].cols + 2) * image_count - 2, 
+            (currentImages[0].cols + 1) * image_count - 1, 
             CV_8UC3,
             cv::Scalar(255, 255, 255));
       }
@@ -555,6 +555,8 @@ private:
       /* loop through all trackers and update the data //{ */
 
       for (int imageIndex = 0; imageIndex < image_count; ++imageIndex) {
+        cv::line(viewImage, cv::Point2i(image_width, 0), cv::Point2i(image_width,image_height-1),cv::Scalar(255,255,255));
+
         auto* ht3dbt = ht3dbt_trackers[imageIndex];
         BlinkData& data = blinkData[imageIndex];
 

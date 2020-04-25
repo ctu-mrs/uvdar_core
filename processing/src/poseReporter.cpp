@@ -137,8 +137,9 @@ public:
     /* } */
 
     prepareFrequencyClassifiers();
-    if (_beacon_)
+    if (_beacon_){
       prepareBlinkerBrackets();
+    }
 
     mask_active = false;
     char mask_path[400];
@@ -156,7 +157,7 @@ public:
 
     // Create callbacks for each camera
     blinkersSeenCallbacks.resize(blinkersSeenTopics.size());
-    separatedPoints.resize(blinkersSeenTopics.size());
+    separated_points_.resize(blinkersSeenTopics.size());
     for (size_t i = 0; i < blinkersSeenTopics.size(); ++i) {
       blinkers_seen_callback_t callback = [imageIndex=i,this] (const uvdar::Int32MultiArrayStampedConstPtr& pointsMessage) { 
         ProcessPoints(pointsMessage, imageIndex);
@@ -258,6 +259,9 @@ public:
           ") is different from blinkersSeenTopics size (" << blinkersSeenTopics.size() << ")");
     }
 
+    if (_gui_) {
+      show_thread  = std::thread(&PoseReporter::ShowThread, this);
+    }
     tf_thread   = std::thread(&PoseReporter::TfThread, this);
 
     //}
@@ -321,19 +325,19 @@ public:
     std::scoped_lock lock(mutex_separated_points);
     if ((int)(points.size()) > 0) {
       if (_beacon_){
-        separatedPoints[imageIndex] = separateByBeacon(points);
+        separated_points_[imageIndex] = separateByBeacon(points);
         return;
       }
       else {
-        separatedPoints[imageIndex] = separateByFrequency(points);
+        separated_points_[imageIndex] = separateByFrequency(points);
       }
 
       for (int i = 0; i < targetCount; i++) {
         if (DEBUG){
           ROS_INFO_STREAM("target [" << i << "]: ");
-          ROS_INFO_STREAM("p: " << separatedPoints[imageIndex][i]);
+          ROS_INFO_STREAM("p: " << separated_points_[imageIndex][i]);
         }
-        extractSingleRelative(separatedPoints[imageIndex][i], i, imageIndex);
+        extractSingleRelative(separated_points_[imageIndex][i], i, imageIndex);
       }
     }
   }
@@ -1401,8 +1405,8 @@ private:
 
   /* separateByFrequency //{ */
   std::vector<std::vector<cv::Point3i>> separateByFrequency(std::vector< cv::Point3i > points){
-    std::vector<std::vector<cv::Point3i>> separatedPoints;
-    separatedPoints.resize(targetCount);
+    std::vector<std::vector<cv::Point3i>> separated_points;
+    separated_points.resize(targetCount);
 
 
       for (int i = 0; i < (int)(points.size()); i++) {
@@ -1411,12 +1415,12 @@ private:
           int tid = classifyMatch(mid);
           if (DEBUG)
             ROS_INFO("[%s]: FR: %d, MID: %d, TID: %d", ros::this_node::getName().c_str(),points[i].z, mid, tid);
-          /* separatedPoints[classifyMatch(findMatch(points[i].z))].push_back(points[i]); */
+          /* separated_points[classifyMatch(findMatch(points[i].z))].push_back(points[i]); */
           if (tid>=0)
-            separatedPoints[tid].push_back(points[i]);
+            separated_points[tid].push_back(points[i]);
         }
       }
-      return separatedPoints;
+      return separated_points;
   }
   //}
 
@@ -1428,29 +1432,41 @@ private:
     int b = 0;
     for (auto &bracket : bracket_set){
       cv::Rect bracket_placed(bracket.tl()+cv::Point(beacon.x,beacon.y), bracket.size());
+      ROS_INFO_STREAM("["<< ros::this_node::getName().c_str() <<"]: beacon: " << cv::Point(beacon.x,beacon.y) << " bracket_placed: " << bracket_placed);
       std::vector<int> curr_selected_points;
 
-      int i = 0;
+      int i = -1;
       for (auto &point : points){
-        if (marked_points[i] = false)
+        i++;
+        ROS_INFO_STREAM("["<< ros::this_node::getName().c_str() <<"]: trying initial point: " << cv::Point2i(point.x, point.y));
+        if (marked_points[i] == true){
+          ROS_INFO("[%s]: MARKED!", ros::this_node::getName().c_str());
           continue;
+        }
 
         if (bracket_placed.contains(cv::Point2i(point.x, point.y))){
             cv::Rect local_bracket(cv::Point2i(bracket_placed.tl().x,point.y-bracket_step), cv::Point2i(bracket_placed.br().x,point.y+bracket_step));
-            int j = 0;
+            ROS_INFO_STREAM("["<< ros::this_node::getName().c_str() <<"]: point: " << point << " local_bracket: " << local_bracket);
+            int j = -1;
             for (auto &point_inner : points){
-              if (marked_points[j] = false)
-                continue;
-              if (local_bracket.contains(cv::Point2i(point_inner.x, point_inner.y))){
-                  curr_selected_points.push_back(i);
-                  }
-
               j++;
+              ROS_INFO_STREAM("["<< ros::this_node::getName().c_str() <<"]: trying point: " << cv::Point2i(point_inner.x, point_inner.y));
+              if (marked_points[j] == true){
+                ROS_INFO("[%s]: MARKED!", ros::this_node::getName().c_str());
+                continue;
+              }
+              if (local_bracket.contains(cv::Point2i(point_inner.x, point_inner.y))){
+                  curr_selected_points.push_back(j);
+                  ROS_INFO_STREAM("["<< ros::this_node::getName().c_str() <<"]: PASSED");
+                  }
+              else{
+                ROS_INFO_STREAM("["<< ros::this_node::getName().c_str() <<"]: FAILED");
+              }
+
             }
             break;
-            }
+        }
 
-        i++;
       }
 
       if (curr_selected_points.size() > 0){
@@ -1471,8 +1487,8 @@ private:
   /* separateByBeacon //{ */
   
   std::vector<std::vector<cv::Point3i>> separateByBeacon(std::vector< cv::Point3i > points){
-    std::vector<std::vector<cv::Point3i>> separatedPoints;
-    /* separatedPoints.resize(targetCount); */
+    std::vector<std::vector<cv::Point3i>> separated_points;
+    /* separated_points.resize(targetCount); */
   
     std::vector<bool> marked_points(points.size(), false);
     std::vector<int> midPoints(points.size(), -1);
@@ -1482,11 +1498,12 @@ private:
     for (int i = 0; i < (int)(points.size()); i++) {
       if (points[i].z > 1) {
         int mid = findMatch(points[i].z);
+        /* ROS_INFO("[%s]: FR: %d, MID: %d", ros::this_node::getName().c_str(),points[i].z, mid); */
         midPoints[i] = mid;
         if (mid == 0){
+          separated_points.push_back(emptySet);
+          separated_points.back().push_back(points[i]);
           marked_points[i] = true;
-          separatedPoints.push_back(emptySet);
-          separatedPoints.back().push_back(points[i]);
         }
       }
     }
@@ -1496,8 +1513,9 @@ private:
     std::vector<bool> marked_beacons(points.size(), false);
     while (marked_beacon_count < (int)(marked_beacons.size())){
       std::vector<std::pair<int,std::vector<int>>> closest_sets;
-      int i = 0;
-      for (auto &curr_set : separatedPoints){
+      int i = -1;
+      for (auto &curr_set : separated_points){
+        i++;
         closest_sets.push_back({-1, std::vector<int>()});
         if ( marked_beacons[i] ){
           continue;
@@ -1505,7 +1523,6 @@ private:
         auto curr_beacon = curr_set[0];
         closest_sets[i] = getClosestSet(curr_beacon, points, marked_points);
 
-        i++;
       }
       int best_index = -1;
       for (int m = 0; m < (int)(closest_sets.size()); m++) {
@@ -1533,7 +1550,7 @@ private:
       }
 
       for (auto &subset_point_index : closest_sets[best_index].second){
-        separatedPoints[best_index].push_back(points[subset_point_index]);
+        separated_points[best_index].push_back(points[subset_point_index]);
         marked_points[subset_point_index] = true;
 
       }
@@ -1543,7 +1560,7 @@ private:
 
     ROS_INFO_STREAM("["<<ros::this_node::getName().c_str()<<"]: Now just implement gathering of the rest!");
 
-    return separatedPoints;
+    return separated_points;
   }
   
   //}
@@ -1871,7 +1888,7 @@ private:
     for (int i = 0; i < (int)(periodSet.size()); i++) {
       /* std::cout << period << " " <<  periodBoundsTop[i] << " " << periodBoundsBottom[i] << " " << periodSet[i] << std::endl; */
       if ((period > periodBoundsBottom[i]) && (period < periodBoundsTop[i])) {
-        return i;
+        return ((int)(periodSet.size())-(i+1));
       }
     }
     return -1;
@@ -1891,7 +1908,7 @@ private:
 
     cv::Rect curr_rect;
       for (int i = 0; i < max_dist/bracket_step; i++) {
-        curr_rect = cv::Rect(cv::Point2i(-frame_ratio*i*bracket_step, 0), cv::Size(frame_ratio*i*bracket_step,i*bracket_step));
+        curr_rect = cv::Rect(cv::Point2i(-frame_ratio*i*bracket_step-5, 0), cv::Point(frame_ratio*i*bracket_step+5,i*bracket_step+5));
         bracket_set.push_back(curr_rect);
       }
   }
@@ -1923,14 +1940,14 @@ private:
 
     int GenerateVisualization() {
       
-      int image_count = (int)(separatedPoints.size());
+      int image_count = (int)(separated_points_.size());
       int image_width, image_height;
 
       image_width = 752;
       image_height = 480;
       view_image_ = cv::Mat(
           image_height, 
-          (image_width + 2) * image_count - 2, 
+          (image_width + 1) * image_count - 1, 
           CV_8UC3,
           cv::Scalar(0,0,0));
 
@@ -1940,11 +1957,14 @@ private:
       /* loop through separated points //{ */
 
       std::scoped_lock lock(mutex_separated_points);
-      int imageIndex = 0;
-      for (auto &image_point_set : separatedPoints){
+      int imageIndex = -1;
+      for (auto &image_point_set : separated_points_){
+        imageIndex++;
+        cv::line(view_image_, cv::Point2i(image_width, 0), cv::Point2i(image_width,image_height-1),cv::Scalar(255,255,255));
         int differenceX = (image_width + 2) * imageIndex;
-        int i = 0;
+        int i = -1;
         for (auto &point_group : image_point_set){
+          i++;
           for (auto &point : point_group){
             cv::Point center = cv::Point(point.x + differenceX, point.y);
 
@@ -1952,19 +1972,18 @@ private:
             cv::circle(view_image_, center, 5, color);
           }
           
-          i++;
+          
         }
-        imageIndex++;
       }
 
       //}
 
-      // draw the legend
-      for (int i = 0; i < (int)(frequencySet.size()); ++i) {
-        cv::Scalar color = markerColor(i);
-        cv::circle(view_image_, cv::Point(10, 10 + 15 * i), 5, color);
-        cv::putText(view_image_, cv::String(toStringPrecision(frequencySet[i],0)), cv::Point(15, 15 + 15 * i), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 255, 255));
-      }
+      /* // draw the legend */
+      /* for (int i = 0; i < (int)(frequencySet.size()); ++i) { */
+      /*   cv::Scalar color = markerColor(i); */
+      /*   cv::circle(view_image_, cv::Point(10, 10 + 15 * i), 5, color); */
+      /*   cv::putText(view_image_, cv::String(toStringPrecision(frequencySet[i],0)), cv::Point(15, 15 + 15 * i), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 255, 255)); */
+      /* } */
 
       return 0;
   }
@@ -2114,8 +2133,9 @@ std::string toStringPrecision(double input, unsigned int precision){
 
   double tailingComponent;
 
-  std::mutex mutex_show;
   bool _gui_;
+  std::thread show_thread;
+  std::mutex mutex_show;
   cv::Mat view_image_;
 
   int numberOfBins;
@@ -2199,7 +2219,7 @@ std::string toStringPrecision(double input, unsigned int precision){
   bool initialized_ = false;
 
   std::mutex mutex_separated_points;
-  std::vector<std::vector<std::vector<cv::Point3i>>> separatedPoints;
+  std::vector<std::vector<std::vector<cv::Point3i>>> separated_points_;
   //}
 };
 
@@ -2214,3 +2234,4 @@ int main(int argc, char** argv) {
 
   return 0;
 }
+
