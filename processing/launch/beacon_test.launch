@@ -166,8 +166,8 @@
 
     </node>
       
-    <!-- <node name="uv_reporter_node" pkg="uvdar" type="uv_reporter_node" output="screen" launch-prefix="debug_roslaunch"> --> 
-    <node name="uv_reporter_node" pkg="uvdar" type="uv_reporter_node" output="screen" > 
+    <node name="uv_reporter_node" pkg="uvdar" type="uv_reporter_node" output="screen" launch-prefix="debug_roslaunch"> 
+    <!-- <node name="uv_reporter_node" pkg="uvdar" type="uv_reporter_node" output="screen" > --> 
       <param name="uav_name" type = "string" value="$(arg uav_name)"/>
       <param name="DEBUG"		type="bool" value="false"/> 
       <param name="gui"             type="bool" value="$(arg gui)"/>
