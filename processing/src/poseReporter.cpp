@@ -1,4 +1,5 @@
 
+#include <opencv2/core/types.hpp>
 #define camera_delay 0.10
 #define maxSpeed 2.0
 #define maxDistInit 100.0
@@ -6,6 +7,8 @@
 #define min_frequency 3
 #define max_frequency 36.0
 #define boundary_ratio 0.5
+
+#define bracket_step 10
 
 #define qpix 1
 //pixel std. dev
@@ -89,6 +92,7 @@ public:
     private_node_handle.param("beacon",_beacon_,bool(false));
 
     private_node_handle.param("arm_length",_arm_length_,double(0.2775));
+    private_node_handle.param("beacon_height",_beacon_height_,double(0.2));
 
     private_node_handle.param("frequenciesPerTarget", frequenciesPerTarget, int(4));
     private_node_handle.param("targetCount", targetCount, int(4));
@@ -133,6 +137,8 @@ public:
     /* } */
 
     prepareFrequencyClassifiers();
+    if (_beacon_)
+      prepareBlinkerBrackets();
 
     mask_active = false;
     char mask_path[400];
@@ -262,6 +268,77 @@ public:
   ~PoseReporter() {
   }
   //}
+
+  /* ProcessPointsUnstamped //{ */
+  //for legacy reasons
+  void ProcessPointsUnstamped(const std_msgs::Int32MultiArrayConstPtr& msg, size_t imageIndex){
+    if (DEBUG)
+      ROS_INFO_STREAM("Getting message: " << *msg);
+    uvdar::Int32MultiArrayStampedPtr msg_stamped(new uvdar::Int32MultiArrayStamped);
+    msg_stamped->stamp = ros::Time::now()-ros::Duration(_legacy_delay);
+    msg_stamped->layout= msg->layout;
+    msg_stamped->data = msg->data;
+    ProcessPoints(msg_stamped, imageIndex);
+  }
+  //}
+
+  /* ProcessPoints //{ */
+  void ProcessPoints(const uvdar::Int32MultiArrayStampedConstPtr& msg, size_t imageIndex) {
+    int                        countSeen;
+    std::vector< cv::Point3i > points;
+    lastBlinkTime = msg->stamp;
+    countSeen = (int)((msg)->layout.dim[0].size);
+    if (DEBUG)
+      ROS_INFO("Received points: %d", countSeen);
+    if (countSeen < 1) {
+      foundTarget = false;
+      return;
+    }
+    if (estimatedFramerate.size() <= imageIndex || estimatedFramerate[imageIndex] < 0) {
+      ROS_INFO("Framerate is not yet estimated. Waiting...");
+      return;
+    }
+    if (!gotCam2Base) {
+      ROS_INFO("Transformation to base is missing...");
+      return;
+    }
+
+    for (int i = 0; i < countSeen; i++) {
+      if (mask_active)
+        if (mask.at<unsigned char>(cv::Point2i(msg->data[(i * 3)], msg->data[(i * 3) + 1])) < 100){
+          /* if (DEBUG) */
+          ROS_INFO_STREAM("Discarding point " << cv::Point3i(msg->data[(i * 3)], msg->data[(i * 3) + 1], msg->data[(i * 3) + 2]));
+          continue;
+        }
+
+      if (msg->data[(i * 3) + 2] <= 200) {
+        points.push_back(cv::Point3i(msg->data[(i * 3)], msg->data[(i * 3) + 1], msg->data[(i * 3) + 2]));
+      }
+    }
+
+    if ((int)(points.size()) > 0) {
+      std::vector<std::vector<cv::Point3i>> separatedPoints;
+      if (_beacon_){
+        separatedPoints = separateByBeacon(points);
+        return;
+      }
+      else {
+        separatedPoints = separateByFrequency(points);
+      }
+
+      for (int i = 0; i < targetCount; i++) {
+        if (DEBUG){
+          ROS_INFO_STREAM("target [" << i << "]: ");
+          ROS_INFO_STREAM("p: " << separatedPoints[i]);
+        }
+        extractSingleRelative(separatedPoints[i], i, imageIndex);
+      }
+    }
+  }
+  //}
+
+
+private:
 
   /* uvdarHexarotorPose1p //{ */
   unscented::measurement uvdarHexarotorPose1p_meas(Eigen::Vector2d X,double tubewidth, double tubelength, double meanDist, int camera_index){
@@ -1318,57 +1395,11 @@ public:
   }
   //}
 
-  /* ProcessPointsUnstamped //{ */
-  //for legacy reasons
-  void ProcessPointsUnstamped(const std_msgs::Int32MultiArrayConstPtr& msg, size_t imageIndex){
-    if (DEBUG)
-      ROS_INFO_STREAM("Getting message: " << *msg);
-    uvdar::Int32MultiArrayStampedPtr msg_stamped(new uvdar::Int32MultiArrayStamped);
-    msg_stamped->stamp = ros::Time::now()-ros::Duration(_legacy_delay);
-    msg_stamped->layout= msg->layout;
-    msg_stamped->data = msg->data;
-    ProcessPoints(msg_stamped, imageIndex);
-  }
-  //}
-
-  /* ProcessPoints //{ */
-  void ProcessPoints(const uvdar::Int32MultiArrayStampedConstPtr& msg, size_t imageIndex) {
-    int                        countSeen;
-    std::vector< cv::Point3i > points;
-    lastBlinkTime = msg->stamp;
-    countSeen = (int)((msg)->layout.dim[0].size);
-    if (DEBUG)
-      ROS_INFO("Received points: %d", countSeen);
-    if (countSeen < 1) {
-      foundTarget = false;
-      return;
-    }
-    if (estimatedFramerate.size() <= imageIndex || estimatedFramerate[imageIndex] < 0) {
-      ROS_INFO("Framerate is not yet estimated. Waiting...");
-      return;
-    }
-    if (!gotCam2Base) {
-      ROS_INFO("Transformation to base is missing...");
-      return;
-    }
-
-    for (int i = 0; i < countSeen; i++) {
-      if (mask_active)
-        if (mask.at<unsigned char>(cv::Point2i(msg->data[(i * 3)], msg->data[(i * 3) + 1])) < 100){
-          /* if (DEBUG) */
-          ROS_INFO_STREAM("Discarding point " << cv::Point3i(msg->data[(i * 3)], msg->data[(i * 3) + 1], msg->data[(i * 3) + 2]));
-          continue;
-        }
-
-      if (msg->data[(i * 3) + 2] <= 200) {
-        points.push_back(cv::Point3i(msg->data[(i * 3)], msg->data[(i * 3) + 1], msg->data[(i * 3) + 2]));
-      }
-    }
-    
+  /* separateByFrequency //{ */
+  std::vector<std::vector<cv::Point3i>> separateByFrequency(std::vector< cv::Point3i > points){
     std::vector<std::vector<cv::Point3i>> separatedPoints;
     separatedPoints.resize(targetCount);
 
-    if ((int)(points.size()) > 0) {
 
       for (int i = 0; i < (int)(points.size()); i++) {
         if (points[i].z > 1) {
@@ -1381,16 +1412,136 @@ public:
             separatedPoints[tid].push_back(points[i]);
         }
       }
+      return separatedPoints;
+  }
+  //}
 
-      for (int i = 0; i < targetCount; i++) {
-        if (DEBUG){
-          ROS_INFO_STREAM("target [" << i << "]: ");
-          ROS_INFO_STREAM("p: " << separatedPoints[i]);
+  /* getClosestSet //{ */
+  
+  std::pair<int,std::vector<int>> getClosestSet(cv::Point3i &beacon, std::vector<cv::Point3i> &points, std::vector<bool> &marked_points){
+    std::pair<int, std::vector<int>> output;
+    output.first = -1;
+    int b = 0;
+    for (auto &bracket : bracket_set){
+      cv::Rect bracket_placed(bracket.tl()+cv::Point(beacon.x,beacon.y), bracket.size());
+      std::vector<int> curr_selected_points;
+
+      int i = 0;
+      for (auto &point : points){
+        if (marked_points[i] = false)
+          continue;
+
+        if (bracket_placed.contains(cv::Point2i(point.x, point.y))){
+            cv::Rect local_bracket(cv::Point2i(bracket_placed.tl().x,point.y-bracket_step), cv::Point2i(bracket_placed.br().x,point.y+bracket_step));
+            int j = 0;
+            for (auto &point_inner : points){
+              if (marked_points[j] = false)
+                continue;
+              if (local_bracket.contains(cv::Point2i(point_inner.x, point_inner.y))){
+                  curr_selected_points.push_back(i);
+                  }
+
+              j++;
+            }
+            break;
+            }
+
+        i++;
+      }
+
+      if (curr_selected_points.size() > 0){
+        output = {b, curr_selected_points};
+        
+        break;
+      }
+
+
+      b++;
+    }
+
+    return output;
+  }
+  
+  //}
+
+  /* separateByBeacon //{ */
+  
+  std::vector<std::vector<cv::Point3i>> separateByBeacon(std::vector< cv::Point3i > points){
+    std::vector<std::vector<cv::Point3i>> separatedPoints;
+    /* separatedPoints.resize(targetCount); */
+  
+    std::vector<bool> marked_points(points.size(), false);
+    std::vector<int> midPoints(points.size(), -1);
+
+    std::vector<cv::Point3i> emptySet;
+  
+    for (int i = 0; i < (int)(points.size()); i++) {
+      if (points[i].z > 1) {
+        int mid = findMatch(points[i].z);
+        midPoints[i] = mid;
+        if (mid == 0){
+          marked_points[i] = true;
+          separatedPoints.push_back(emptySet);
+          separatedPoints.back().push_back(points[i]);
         }
-        extractSingleRelative(separatedPoints[i], i, imageIndex);
       }
     }
+
+
+    int marked_beacon_count = 0;
+    std::vector<bool> marked_beacons(points.size(), false);
+    while (marked_beacon_count < (int)(marked_beacons.size())){
+      std::vector<std::pair<int,std::vector<int>>> closest_sets;
+      int i = 0;
+      for (auto &curr_set : separatedPoints){
+        closest_sets.push_back({-1, std::vector<int>()});
+        if ( marked_beacons[i] ){
+          continue;
+        }
+        auto curr_beacon = curr_set[0];
+        closest_sets[i] = getClosestSet(curr_beacon, points, marked_points);
+
+        i++;
+      }
+      int best_index = -1;
+      for (int m = 0; m < (int)(closest_sets.size()); m++) {
+        if (closest_sets[m].first < 0)
+          continue;
+        if (best_index == -1){
+          best_index = m;
+          continue;
+        }
+
+        if (closest_sets[best_index].first > closest_sets[m].first){
+          best_index = m;
+        }
+        else if (closest_sets[best_index].first == closest_sets[m].first) {
+          if (closest_sets[best_index].second.size() < closest_sets[m].second.size()){
+            best_index = m;
+          }
+        }
+      }
+
+      marked_beacon_count++;
+
+      if (best_index == -1){
+        break;
+      }
+
+      for (auto &subset_point_index : closest_sets[best_index].second){
+        separatedPoints[best_index].push_back(points[subset_point_index]);
+        marked_points[subset_point_index] = true;
+
+      }
+      marked_beacons[best_index] = true;
+
+    }
+
+    ROS_INFO_STREAM("["<<ros::this_node::getName().c_str()<<"]: Now just implement gathering of the rest!");
+
+    return separatedPoints;
   }
+  
   //}
 
   /* extractSingleRelative //{ */
@@ -1452,81 +1603,85 @@ public:
       double perr=0.2/estimatedFramerate[imageIndex];
 
       if (_quadrotor_) {
-        if (points.size() == 3) {
-          if (DEBUG)
-            ROS_INFO_STREAM("points: " << points);
-          X3 <<
-            points[0].x ,points[0].y, 1.0/(double)(points[0].z),
-            points[1].x ,points[1].y, 1.0/(double)(points[1].z),
-            points[2].x, points[2].y, 1.0/(double)(points[2].z),
-            0;  //to account for ambiguity
-          Px3 <<
-            qpix,0,   0,        0,   0,   0,        0,   0,   0,        0,
-            0,   qpix,0,        0,   0,   0,        0,   0,   0,        0,
-            0,   0,   sqr(perr),0,   0,   0,        0,   0,   0,        0,
-            0,   0,   0,        qpix,0,   0,        0,   0,   0,        0,
-            0,   0,   0,        0,   qpix,0,        0,   0,   0,        0,
-            0,   0,   0,        0,   0,   sqr(perr),0,   0,   0,        0,
-            0,   0,   0,        0,   0,   0,        qpix,0,   0,        0,
-            0,   0,   0,        0,   0,   0,        0,   qpix,0,        0,
-            0,   0,   0,        0,   0,   0,        0,   0,   sqr(perr),0,
-            0,   0,   0,        0,   0,   0,        0,   0,   0,        sqr(2*M_PI/3)
-          ;
-          if (DEBUG)
-            ROS_INFO_STREAM("X3: " << X3);
-          boost::function<Eigen::VectorXd(Eigen::VectorXd,Eigen::VectorXd,int)> callback;
-          callback=boost::bind(&PoseReporter::uvdarQuadrotorPose3p,this,_1,_2,_3);
-          ms = unscented::unscentedTransform(X3,Px3,callback,leftF,rightF,-1,imageIndex);
+        if (_beacon_){
+          ROS_INFO_STREAM("[PoseReporter]: beacons not yet implemented");
         }
-        else if (points.size() == 2) {
-          if (DEBUG)
-            ROS_INFO_STREAM("points: " << points);
-          X2q <<
-            (double)(points[0].x) ,(double)(points[0].y),1.0/(double)(points[0].z),
-            (double)(points[1].x) ,(double)(points[1].y),1.0/(double)(points[1].z),
-            0.0,0.0;
-          Px2q <<
-                qpix ,0,0,0,0,0,0,0,
-                 0,qpix ,0,0,0,0,0,0,
-                 0,0,sqr(perr),0,0,0,0,0,
-                 0,0,0,qpix ,0,0,0,0,
-                 0,0,0,0,qpix ,0,0,0,
-                 0,0,0,0,0,sqr(perr),0,0,
-                 0,0,0,0,0,0,sqr(deg2rad(10)),0,
-                 0,0,0,0,0,0,0,sqr(deg2rad(10))
-                   ;
+        else {
+          if (points.size() == 3) {
+            if (DEBUG)
+              ROS_INFO_STREAM("points: " << points);
+            X3 <<
+              points[0].x ,points[0].y, 1.0/(double)(points[0].z),
+              points[1].x ,points[1].y, 1.0/(double)(points[1].z),
+              points[2].x, points[2].y, 1.0/(double)(points[2].z),
+              0;  //to account for ambiguity
+            Px3 <<
+              qpix,0,   0,        0,   0,   0,        0,   0,   0,        0,
+              0,   qpix,0,        0,   0,   0,        0,   0,   0,        0,
+              0,   0,   sqr(perr),0,   0,   0,        0,   0,   0,        0,
+              0,   0,   0,        qpix,0,   0,        0,   0,   0,        0,
+              0,   0,   0,        0,   qpix,0,        0,   0,   0,        0,
+              0,   0,   0,        0,   0,   sqr(perr),0,   0,   0,        0,
+              0,   0,   0,        0,   0,   0,        qpix,0,   0,        0,
+              0,   0,   0,        0,   0,   0,        0,   qpix,0,        0,
+              0,   0,   0,        0,   0,   0,        0,   0,   sqr(perr),0,
+              0,   0,   0,        0,   0,   0,        0,   0,   0,        sqr(2*M_PI/3)
+                ;
+            if (DEBUG)
+              ROS_INFO_STREAM("X3: " << X3);
+            boost::function<Eigen::VectorXd(Eigen::VectorXd,Eigen::VectorXd,int)> callback;
+            callback=boost::bind(&PoseReporter::uvdarQuadrotorPose3p,this,_1,_2,_3);
+            ms = unscented::unscentedTransform(X3,Px3,callback,leftF,rightF,-1,imageIndex);
+          }
+          else if (points.size() == 2) {
+            if (DEBUG)
+              ROS_INFO_STREAM("points: " << points);
+            X2q <<
+              (double)(points[0].x) ,(double)(points[0].y),1.0/(double)(points[0].z),
+              (double)(points[1].x) ,(double)(points[1].y),1.0/(double)(points[1].z),
+              0.0,0.0;
+            Px2q <<
+              qpix ,0,0,0,0,0,0,0,
+                   0,qpix ,0,0,0,0,0,0,
+                   0,0,sqr(perr),0,0,0,0,0,
+                   0,0,0,qpix ,0,0,0,0,
+                   0,0,0,0,qpix ,0,0,0,
+                   0,0,0,0,0,sqr(perr),0,0,
+                   0,0,0,0,0,0,sqr(deg2rad(10)),0,
+                   0,0,0,0,0,0,0,sqr(deg2rad(10))
+                     ;
 
-          if (DEBUG)
-            ROS_INFO_STREAM("X2: " << X2q);
-          boost::function<Eigen::VectorXd(Eigen::VectorXd,Eigen::VectorXd, int)> callback;
-          callback=boost::bind(&PoseReporter::uvdarQuadrotorPose2p,this,_1,_2,_3);
-          ms = unscented::unscentedTransform(X2q,Px2q,callback,leftF,rightF,-1,imageIndex);
+            if (DEBUG)
+              ROS_INFO_STREAM("X2: " << X2q);
+            boost::function<Eigen::VectorXd(Eigen::VectorXd,Eigen::VectorXd, int)> callback;
+            callback=boost::bind(&PoseReporter::uvdarQuadrotorPose2p,this,_1,_2,_3);
+            ms = unscented::unscentedTransform(X2q,Px2q,callback,leftF,rightF,-1,imageIndex);
+          }
+          else if (points.size() == 1) {
+            std::cout << "Only single point visible - no distance information" << std::endl;
+            angleDist = 0.0;
+            std::cout << "led: " << points[0] << std::endl;
+
+
+            ms = uvdarQuadrotorPose1p_meas(Eigen::Vector2d(points[0].x,points[0].y),_arm_length_, 1000,10.0, imageIndex);
+
+
+            foundTarget = true;
+            lastSeen    = ros::Time::now();
+          } else {
+            std::cout << "No valid points seen. Waiting" << std::endl;
+            centerEstimInCam.x()  = 0;
+            centerEstimInCam.y()  = 0;
+            centerEstimInCam.z()  = 0;
+            /* centerEstimInBase.x() = 0; */
+            /* centerEstimInBase.y() = 0; */
+            /* centerEstimInBase.z() = 0; */
+            tailingComponent      = 0;
+            foundTarget           = false;
+            return;
+          }
+
         }
-        else if (points.size() == 1) {
-          std::cout << "Only single point visible - no distance information" << std::endl;
-          angleDist = 0.0;
-          std::cout << "led: " << points[0] << std::endl;
-
-
-          ms = uvdarQuadrotorPose1p_meas(Eigen::Vector2d(points[0].x,points[0].y),_arm_length_, 1000,10.0, imageIndex);
-
-
-          foundTarget = true;
-          lastSeen    = ros::Time::now();
-        } else {
-          std::cout << "No valid points seen. Waiting" << std::endl;
-          centerEstimInCam.x()  = 0;
-          centerEstimInCam.y()  = 0;
-          centerEstimInCam.z()  = 0;
-          /* centerEstimInBase.x() = 0; */
-          /* centerEstimInBase.y() = 0; */
-          /* centerEstimInBase.z() = 0; */
-          tailingComponent      = 0;
-          foundTarget           = false;
-          return;
-        }
-    
-
       }
       else {
         if (points.size() == 3) {
@@ -1616,7 +1771,7 @@ public:
       /* std::cout << "Py: " << ms.C << std::endl; */
       /* } */
 
-      msgOdom = boost::make_shared<geometry_msgs::PoseWithCovarianceStamped>();;
+      msgOdom = boost::make_shared<geometry_msgs::PoseWithCovarianceStamped>();
       /* msgOdom->twist.covariance = msgOdom->pose.covariance; */
 
       /* geometry_msgs::PoseWithCovarianceStampedPtr msgPose = boost::make_shared<geometry_msgs::PoseWithCovarianceStamped>();; */
@@ -1725,6 +1880,19 @@ public:
   }
   //}
 
+  /* prepareBlinkerBrackets //{ */
+  void prepareBlinkerBrackets() {
+    double frame_ratio = _arm_length_/_beacon_height_;
+    double max_dist = 100;
+
+    cv::Rect curr_rect;
+      for (int i = 0; i < max_dist/bracket_step; i++) {
+        curr_rect = cv::Rect(cv::Point2i(-frame_ratio*i*bracket_step, 0), cv::Size(frame_ratio*i*bracket_step,i*bracket_step));
+        bracket_set.push_back(curr_rect);
+      }
+  }
+  //}
+  
   /* prepareFrequencyClassifiers //{ */
   void prepareFrequencyClassifiers() {
     for (int i = 0; i < (int)(frequencySet.size()); i++) {
@@ -1746,8 +1914,6 @@ public:
     /* periodBoundsBottom[secondToLast] = 0.5 * periodSet.back() + 0.5 * periodSet[secondToLast]; */
   }
   //}
-
-private:
 
   /* setMask //{ */
   void setMask(std::string mask_file){
@@ -1881,6 +2047,8 @@ private:
   std::vector<double> periodBoundsTop;
   std::vector<double> periodBoundsBottom;
 
+  std::vector<cv::Rect> bracket_set;
+
   std::string _calib_file;
   std::string _mask_file;
 
@@ -1888,6 +2056,7 @@ private:
   double _legacy_delay;
 
   double _arm_length_;
+  double _beacon_height_;
 
   bool _quadrotor_;
   bool _beacon_;
