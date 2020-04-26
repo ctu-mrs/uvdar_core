@@ -1,4 +1,3 @@
-
 #include <opencv2/core/types.hpp>
 #define camera_delay 0.10
 #define maxSpeed 2.0
@@ -67,6 +66,7 @@ namespace enc = sensor_msgs::image_encodings;
 
 class PoseReporter {
 public:
+
 
     /* Constructor //{ */
 
@@ -240,10 +240,16 @@ public:
 
     X2 = Eigen::VectorXd(9,9);
     X2q = Eigen::VectorXd(8,8);
+    X2qb = Eigen::VectorXd(6,6);
     X3 = Eigen::VectorXd(10,10);
+    X3qb = Eigen::VectorXd(9,9);
+    X4qb = Eigen::VectorXd(13,13);
     Px2 = Eigen::MatrixXd(9,9);
     Px2q = Eigen::MatrixXd(8,8);
+    Px2qb = Eigen::MatrixXd(8,8);
     Px3 = Eigen::MatrixXd(10,10);
+    Px3qb = Eigen::MatrixXd(9,9);
+    Px4qb = Eigen::MatrixXd(13,13);
 
     if (_legacy){
       ROS_ERROR("[%s] Legacy is not supported any more", ros::this_node::getName().c_str());
@@ -1322,6 +1328,27 @@ private:
   }
     //}
 
+  /* uvdarQuadrotorPose2pB //{ */
+  Eigen::VectorXd uvdarQuadrotorPose2pB(Eigen::VectorXd X, Eigen::VectorXd expFrequencies, int camera_index){
+    ROS_WARN("[%s]: One point beacon measurement Not Implemented yet", ros::this_node::getName().c_str());
+    return Eigen::VectorXd();
+  }
+    //}
+    
+  /* uvdarQuadrotorPose3pB //{ */
+  Eigen::VectorXd uvdarQuadrotorPose3pB(Eigen::VectorXd X, Eigen::VectorXd expFrequencies, int camera_index){
+    ROS_WARN("[%s]: Two point beacon measurement Implemented yet", ros::this_node::getName().c_str());
+    return Eigen::VectorXd();
+  }
+    //}
+    
+  /* uvdarQuadrotorPose4pB //{ */
+  Eigen::VectorXd uvdarQuadrotorPose4pB(Eigen::VectorXd X, Eigen::VectorXd expFrequencies, int camera_index){
+    ROS_WARN("[%s]: Three point beacon measusrement Not Implemented yet", ros::this_node::getName().c_str());
+    return Eigen::VectorXd();
+  }
+    //}
+
   /* rotate_covariance //{ */
   static Eigen::Matrix3d rotate_covariance(const Eigen::Matrix3d& covariance, const Eigen::Matrix3d& rotation) {
     return rotation * covariance * rotation.transpose();  // rotate the covariance to point in direction of est. position
@@ -1558,7 +1585,25 @@ private:
 
     }
 
-    ROS_INFO_STREAM("["<<ros::this_node::getName().c_str()<<"]: Now just implement gathering of the rest!");
+    int i=-1;
+    for (auto &point: points){
+      i++;
+      if (marked_points[i])
+        continue;
+
+      separated_points.push_back(emptySet);
+      separated_points.back().push_back(cv::Point3i(-1,-1,-1)); //this means that this set does not have a beacon
+      separated_points.back().push_back(points[i]);
+      marked_points[i] = true;
+      for (int j = i+1; j < (int)(points.size()); j++) {
+        if (marked_points[j])
+          continue;
+        if (cv::norm(point - points[j]) < maxDistInit){
+          separated_points.back().push_back(points[j]);
+          marked_points[j] = true;
+        }
+      }
+    }
 
     return separated_points;
   }
@@ -1567,7 +1612,7 @@ private:
 
   /* extractSingleRelative //{ */
   void extractSingleRelative(std::vector< cv::Point3i > points, int target, size_t imageIndex) {
-    
+
     double leftF = frequencySet[target*2];
     double rightF = frequencySet[target*2+1];
     Eigen::Vector3d centerEstimInCam;
@@ -1575,43 +1620,50 @@ private:
 
     int countSeen = (int)(points.size());
 
+    bool missing_beacon = (_beacon_)&&(points[0].x == -1);
 
-    if ((int)(points.size()) > 1) {
+    if (missing_beacon){
+      points.erase(points.begin());
+    }
 
-      for (int i = 0; i < (int)(points.size()); i++) {
-        if (points[i].z < 1) {
-          points.erase(points.begin() + i);
-          i--;
-          continue;
-        }
-      }
-      bool separated = false;
-      while ((points.size() > 3) || (!separated)) {
-        separated = true;
+    if ((!_beacon_) || (missing_beacon)){
+      if ((int)(points.size()) > 1) {
+
         for (int i = 0; i < (int)(points.size()); i++) {
-          bool viable = false;
-          for (int j = 0; j < (int)(points.size()); j++) {
-            if (i == j)
-              continue;
-
-            /* if ((cv::norm(points[i] - points[j]) < maxDist) && (abs(points[i].y - points[j].y) < abs(points[i].x - points[j].x))) { */
-            if (DEBUG)
-              ROS_INFO_STREAM("Distance: " <<cv::norm(cv::Point2i(points[i].x,points[i].y) - cv::Point2i(points[j].x,points[j].y)) << " maxDist: " << maxDist);
-
-            if ((cv::norm(cv::Point2i(points[i].x,points[i].y) - cv::Point2i(points[j].x,points[j].y)) < maxDist)) {
-              viable = true;
-            }
-            else{
-              separated = false;
-            }
-          }
-          if (!viable) {
+          if (points[i].z < 1) {
             points.erase(points.begin() + i);
             i--;
+            continue;
           }
+        }
+        bool separated = false;
+        while ((points.size() > 3) || (!separated)) {
+          separated = true;
+          for (int i = 0; i < (int)(points.size()); i++) {
+            bool viable = false;
+            for (int j = 0; j < (int)(points.size()); j++) {
+              if (i == j)
+                continue;
+
+              /* if ((cv::norm(points[i] - points[j]) < maxDist) && (abs(points[i].y - points[j].y) < abs(points[i].x - points[j].x))) { */
+              if (DEBUG)
+                ROS_INFO_STREAM("Distance: " <<cv::norm(cv::Point2i(points[i].x,points[i].y) - cv::Point2i(points[j].x,points[j].y)) << " maxDist: " << maxDist);
+
+              if ((cv::norm(cv::Point2i(points[i].x,points[i].y) - cv::Point2i(points[j].x,points[j].y)) < maxDist)) {
+                viable = true;
+              }
+              else{
+                separated = false;
+              }
+            }
+            if (!viable) {
+              points.erase(points.begin() + i);
+              i--;
+            }
+            }
+            maxDist = 0.5 * maxDist;
+            /* std::cout << "maxDist: " << maxDist << std::endl; */
           }
-          maxDist = 0.5 * maxDist;
-          /* std::cout << "maxDist: " << maxDist << std::endl; */
         }
       }
 
@@ -1624,7 +1676,109 @@ private:
       double perr=0.2/estimatedFramerate[imageIndex];
 
       if (_quadrotor_) {
-        if (_beacon_){
+        if ((_beacon_) && (!missing_beacon)){
+          if (points.size() == 1) {
+            ROS_INFO("[%s]: Only beacon visible - no distance information", ros::this_node::getName().c_str());
+            angleDist = 0.0;
+            if (DEBUG)
+              std::cout << "led: " << points[0] << std::endl;
+
+
+            ms = uvdarQuadrotorPose1p_meas(Eigen::Vector2d(points[0].x,points[0].y),_arm_length_, 1000,10.0, imageIndex);
+
+
+            foundTarget = true;
+            lastSeen    = ros::Time::now();
+          }
+          else if (points.size() == 2){
+            if (DEBUG)
+              ROS_INFO_STREAM("points: " << points);
+            X2qb <<
+              points[0].x ,points[0].y, 1.0/(double)(points[0].z),
+              points[1].x ,points[1].y, 1.0/(double)(points[1].z),
+              0;  //to account for ambiguity (roll)
+              0;  //to account for ambiguity (pitch)
+            Px2qb <<
+              qpix,0,   0,        0,   0,   0,        0,   0,   0,            0,
+              0,   qpix,0,        0,   0,   0,        0,   0,   0,            0,
+              0,   0,   sqr(perr),0,   0,   0,        0,   0,   0,            0,
+              0,   0,   0,        qpix,0,   0,        0,   0,   0,            0,
+              0,   0,   0,        0,   qpix,0,        0,   0,   0,            0,
+              0,   0,   0,        0,   0,   sqr(perr),0,   0,   0,            0,
+              0,   0,   0,        0,   0,   0,        0,   0,   sqr(M_PI/18), 0,
+              0,   0,   0,        0,   0,   0,        0,   0,   0,            sqr(M_PI/18)
+                ;
+            if (DEBUG)
+              ROS_INFO_STREAM("X2qb: " << X2qb);
+            boost::function<Eigen::VectorXd(Eigen::VectorXd,Eigen::VectorXd,int)> callback;
+            callback=boost::bind(&PoseReporter::uvdarQuadrotorPose2pB,this,_1,_2,_3);
+            ms = unscented::unscentedTransform(X2qb,Px2qb,callback,leftF,rightF,-1,imageIndex);
+          }
+          else if (points.size() == 3){
+            if (DEBUG)
+              ROS_INFO_STREAM("points: " << points);
+            X3qb <<
+              points[0].x ,points[0].y, 1.0/(double)(points[0].z),
+              points[1].x ,points[1].y, 1.0/(double)(points[1].z),
+              points[2].x ,points[2].y, 1.0/(double)(points[2].z),
+            Px3qb <<
+              qpix,0,   0,        0,   0,   0,        0,   0,   0,
+              0,   qpix,0,        0,   0,   0,        0,   0,   0,
+              0,   0,   sqr(perr),0,   0,   0,        0,   0,   0, 
+              0,   0,   0,        qpix,0,   0,        0,   0,   0,   
+              0,   0,   0,        0,   qpix,0,        0,   0,   0,  
+              0,   0,   0,        0,   0,   sqr(perr),0,   0,   0,    
+              0,   0,   0,        0,   0,   0,        qpix,0,   0,     
+              0,   0,   0,        0,   0,   0,        0,   qpix,0,      
+              0,   0,   0,        0,   0,   0,        0,   0,   sqr(perr)
+                ;
+            if (DEBUG)
+              ROS_INFO_STREAM("X3qb: " << X3qb);
+            boost::function<Eigen::VectorXd(Eigen::VectorXd,Eigen::VectorXd,int)> callback;
+            callback=boost::bind(&PoseReporter::uvdarQuadrotorPose3pB,this,_1,_2,_3);
+            ms = unscented::unscentedTransform(X3qb,Px3qb,callback,leftF,rightF,-1,imageIndex);
+          }
+          else if points.size() == 4(){
+            if (DEBUG)
+              ROS_INFO_STREAM("points: " << points);
+            X4qb <<
+              points[0].x ,points[0].y, 1.0/(double)(points[0].z),
+              points[1].x ,points[1].y, 1.0/(double)(points[1].z),
+              points[2].x ,points[2].y, 1.0/(double)(points[2].z),
+              points[3].x ,points[3].y, 1.0/(double)(points[3].z),
+            Px4qb <<
+              qpix,0,   0,        0,   0,   0,        0,   0,   0,        0,   0,   0,        0,
+              0,   qpix,0,        0,   0,   0,        0,   0,   0,        0,   0,   0,        0,
+              0,   0,   sqr(perr),0,   0,   0,        0,   0,   0,        0,   0,   0,        0, 
+              0,   0,   0,        qpix,0,   0,        0,   0,   0,        0,   0,   0,        0,   
+              0,   0,   0,        0,   qpix,0,        0,   0,   0,        0,   0,   0,        0,  
+              0,   0,   0,        0,   0,   sqr(perr),0,   0,   0,        0,   0,   0,        0,    
+              0,   0,   0,        0,   0,   0,        qpix,0,   0,        0,   0,   0,        0,     
+              0,   0,   0,        0,   0,   0,        0,   qpix,0,        0,   0,   0,        0,      
+              0,   0,   0,        0,   0,   0,        0,   0,   sqr(perr) 0,   0,   0,        0,
+              0,   0,   0,        0,   0,   0,        0,   0,   0,        qpix,0,   0,        0, 
+              0,   0,   0,        0,   0,   0,        0,   0,   0,        0,   qpix,0,        0, 
+              0,   0,   0,        0,   0,   0,        0,   0,   0,        0,   0,   sqr(perr) 0,
+              0,   0,   0,        0,   0,   0,        0,   0,   0,        0,   0,   0,        sqr(2*M_PI/3)
+                ;
+            if (DEBUG)
+              ROS_INFO_STREAM("X4qb: " << X4qb);
+            boost::function<Eigen::VectorXd(Eigen::VectorXd,Eigen::VectorXd,int)> callback;
+            callback=boost::bind(&PoseReporter::uvdarQuadrotorPose4pB,this,_1,_2,_3);
+            ms = unscented::unscentedTransform(X4qb,Px4qb,callback,leftF,rightF,-1,imageIndex);
+          }
+          else {
+            ROS_INFO("[%s]: No valid points seen. Waiting", ros::this_node::getName().c_str());
+            centerEstimInCam.x()  = 0;
+            centerEstimInCam.y()  = 0;
+            centerEstimInCam.z()  = 0;
+            /* centerEstimInBase.x() = 0; */
+            /* centerEstimInBase.y() = 0; */
+            /* centerEstimInBase.z() = 0; */
+            tailingComponent      = 0;
+            foundTarget           = false;
+            return;
+          }
           ROS_INFO_STREAM("[PoseReporter]: beacons not yet implemented");
         }
         else {
@@ -1679,9 +1833,10 @@ private:
             ms = unscented::unscentedTransform(X2q,Px2q,callback,leftF,rightF,-1,imageIndex);
           }
           else if (points.size() == 1) {
-            std::cout << "Only single point visible - no distance information" << std::endl;
+            ROS_INFO("[%s]: Only single point visible - no distance information", ros::this_node::getName().c_str());
             angleDist = 0.0;
-            std::cout << "led: " << points[0] << std::endl;
+            if (DEBUG)
+              std::cout << "led: " << points[0] << std::endl;
 
 
             ms = uvdarQuadrotorPose1p_meas(Eigen::Vector2d(points[0].x,points[0].y),_arm_length_, 1000,10.0, imageIndex);
@@ -1690,7 +1845,7 @@ private:
             foundTarget = true;
             lastSeen    = ros::Time::now();
           } else {
-            std::cout << "No valid points seen. Waiting" << std::endl;
+            ROS_INFO("[%s]: No valid points seen. Waiting", ros::this_node::getName().c_str());
             centerEstimInCam.x()  = 0;
             centerEstimInCam.y()  = 0;
             centerEstimInCam.z()  = 0;
@@ -1786,7 +1941,7 @@ private:
       /* iden.setIdentity(); */
       /* ms.C +=iden*0.1; */
 
-        ROS_INFO_STREAM("Y: \n" << ms.x );
+      ROS_INFO_STREAM("Y: \n" << ms.x );
       if (DEBUG)
         ROS_INFO_STREAM("Py: \n" << ms.C );
       /* std::cout << "Py: " << ms.C << std::endl; */
@@ -2177,7 +2332,9 @@ std::string toStringPrecision(double input, unsigned int precision){
   double angleDist;  // how large is the angle around the target between us and the tail
 
   Eigen::MatrixXd Px2,Px3,Px2q;
+  Eigen::VectorXd Px2qb,Px3qb,Px4qb;
   Eigen::VectorXd X2,X3,X2q;
+  Eigen::VectorXd X2qb,X3qb,X4qb;
 
 
   ros::Subscriber OdomSubscriber;
@@ -2233,5 +2390,6 @@ int main(int argc, char** argv) {
   ros::spin();
 
   return 0;
+shit
 }
 
