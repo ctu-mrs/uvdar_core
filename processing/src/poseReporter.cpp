@@ -1738,7 +1738,7 @@ private:
             callback=boost::bind(&PoseReporter::uvdarQuadrotorPose3pB,this,_1,_2,_3);
             ms = unscented::unscentedTransform(X3qb,Px3qb,callback,leftF,rightF,-1,imageIndex);
           }
-          else if points.size() == 4(){
+          else if (points.size() == 4){
             if (DEBUG)
               ROS_INFO_STREAM("points: " << points);
             X4qb <<
@@ -1747,19 +1747,19 @@ private:
               points[2].x ,points[2].y, 1.0/(double)(points[2].z),
               points[3].x ,points[3].y, 1.0/(double)(points[3].z),
             Px4qb <<
-              qpix,0,   0,        0,   0,   0,        0,   0,   0,        0,   0,   0,        0,
-              0,   qpix,0,        0,   0,   0,        0,   0,   0,        0,   0,   0,        0,
-              0,   0,   sqr(perr),0,   0,   0,        0,   0,   0,        0,   0,   0,        0, 
-              0,   0,   0,        qpix,0,   0,        0,   0,   0,        0,   0,   0,        0,   
-              0,   0,   0,        0,   qpix,0,        0,   0,   0,        0,   0,   0,        0,  
-              0,   0,   0,        0,   0,   sqr(perr),0,   0,   0,        0,   0,   0,        0,    
-              0,   0,   0,        0,   0,   0,        qpix,0,   0,        0,   0,   0,        0,     
-              0,   0,   0,        0,   0,   0,        0,   qpix,0,        0,   0,   0,        0,      
-              0,   0,   0,        0,   0,   0,        0,   0,   sqr(perr) 0,   0,   0,        0,
-              0,   0,   0,        0,   0,   0,        0,   0,   0,        qpix,0,   0,        0, 
-              0,   0,   0,        0,   0,   0,        0,   0,   0,        0,   qpix,0,        0, 
-              0,   0,   0,        0,   0,   0,        0,   0,   0,        0,   0,   sqr(perr) 0,
-              0,   0,   0,        0,   0,   0,        0,   0,   0,        0,   0,   0,        sqr(2*M_PI/3)
+              qpix,0,   0,        0,   0,   0,        0,   0,   0,         0,   0,    0,         0,
+              0,   qpix,0,        0,   0,   0,        0,   0,   0,         0,   0,    0,         0,
+              0,   0,   sqr(perr),0,   0,   0,        0,   0,   0,         0,   0,    0,         0, 
+              0,   0,   0,        qpix,0,   0,        0,   0,   0,         0,   0,    0,         0,   
+              0,   0,   0,        0,   qpix,0,        0,   0,   0,         0,   0,    0,         0,  
+              0,   0,   0,        0,   0,   sqr(perr),0,   0,   0,         0,   0,    0,         0,    
+              0,   0,   0,        0,   0,   0,        qpix,0,   0,         0,   0,    0,         0,     
+              0,   0,   0,        0,   0,   0,        0,   qpix,0,         0,   0,    0,         0,      
+              0,   0,   0,        0,   0,   0,        0,   0,   sqr(perr), 0,   0,    0,         0,
+              0,   0,   0,        0,   0,   0,        0,   0,   0,         qpix,0,    0,         0, 
+              0,   0,   0,        0,   0,   0,        0,   0,   0,         0,   qpix, 0,         0, 
+              0,   0,   0,        0,   0,   0,        0,   0,   0,         0,   0,    sqr(perr), 0,
+              0,   0,   0,        0,   0,   0,        0,   0,   0,         0,   0,    0,         sqr(2*M_PI/3)
                 ;
             if (DEBUG)
               ROS_INFO_STREAM("X4qb: " << X4qb);
@@ -2390,6 +2390,5 @@ int main(int argc, char** argv) {
   ros::spin();
 
   return 0;
-shit
 }
 
