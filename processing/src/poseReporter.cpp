@@ -25,6 +25,7 @@
 #include <mrs_msgs/ControlManagerDiagnostics.h>
 /* #include <mrs_msgs/TrackerTrajectorySrv.h> */
 #include <mrs_msgs/Vec1.h>
+#include <mrs_msgs/PoseWithCovarianceArrayStamped.h>
 /* #include <nav_msgs/Odometry.h> */
 #include <ros/package.h>
 #include <ros/ros.h>
@@ -97,8 +98,8 @@ public:
     private_node_handle.param("beacon_height",_beacon_height_,double(0.2));
 
     private_node_handle.param("frequenciesPerTarget", frequenciesPerTarget, int(4));
-    private_node_handle.param("targetCount", targetCount, int(4));
-    int frequencyCount = targetCount*frequenciesPerTarget;
+    private_node_handle.param("targetCount", _target_count_, int(4));
+    int frequencyCount = (_beacon_?1:_target_count_)*frequenciesPerTarget;
  
     
     frequencySet.resize(frequencyCount);
@@ -233,11 +234,21 @@ public:
 
     //}
 
-    measuredPose.resize(targetCount);
-    ROS_INFO("[%s]: targetCount: %d", ros::this_node::getName().c_str(), targetCount );
-    for (int i=0;i<targetCount;i++){
-      ROS_INFO("[%s]: Advertising measuredPose%d", ros::this_node::getName().c_str(), i+1);
-      measuredPose[i] = private_node_handle.advertise<geometry_msgs::PoseWithCovarianceStamped>("measuredPose" + std::to_string(i+1), 1);
+    if (!_beacon_){
+      measuredPose.resize(_target_count_);
+      ROS_INFO("[%s]: targetCount: %d", ros::this_node::getName().c_str(), _target_count_ );
+      for (int i=0;i<_target_count_;i++){
+        ROS_INFO("[%s]: Advertising measuredPose%d", ros::this_node::getName().c_str(), i+1);
+        measuredPose[i] = private_node_handle.advertise<geometry_msgs::PoseWithCovarianceStamped>("measuredPose" + std::to_string(i+1), 1);
+      }
+    }
+    else {
+      msg_measrement_array_.resize(blinkersSeenTopics.size());
+      measured_poses_.resize(blinkersSeenTopics.size());
+      ROS_INFO("[%s]: Advertising measuredPoses", ros::this_node::getName().c_str());
+      for (int i = 0; i < (int)(blinkersSeenTopics.size()); i++) {
+        measured_poses_[i] = private_node_handle.advertise<mrs_msgs::PoseWithCovarianceArrayStamped>("measuredPoses"+std::to_string(i+1), 1);
+      }
     }
 
     X2 = Eigen::VectorXd(9,9);
@@ -331,6 +342,13 @@ public:
     }
 
     std::scoped_lock lock(mutex_separated_points);
+
+    if (_beacon_){
+      msg_measrement_array_[imageIndex] = boost::make_shared<mrs_msgs::PoseWithCovarianceArrayStamped>();
+      msg_measrement_array_[imageIndex]->header.frame_id = cameraFrames[imageIndex];
+      msg_measrement_array_[imageIndex]->header.stamp = lastBlinkTime;
+    }
+
     if ((int)(points.size()) > 0) {
       if (_beacon_){
         separated_points_[imageIndex] = separateByBeacon(points);
@@ -340,17 +358,20 @@ public:
         separated_points_[imageIndex] = separateByFrequency(points);
       }
 
-      for (int i = 0; i < (_beacon_?((int)(separated_points_[imageIndex].size())):targetCount); i++) {
+      for (int i = 0; i < (_beacon_?((int)(separated_points_[imageIndex].size())):_target_count_); i++) {
         if (DEBUG){
-        /* if (true){ */
+          /* if (true){ */
           ROS_INFO_STREAM("target [" << i << "]: ");
           ROS_INFO_STREAM("p: " << separated_points_[imageIndex][i]);
         }
         extractSingleRelative(separated_points_[imageIndex][i], i, imageIndex);
+        }
+      }
+      if (_beacon_){
+        measured_poses_[imageIndex].publish(msg_measrement_array_[imageIndex]);
       }
     }
-  }
-  //}
+    //}
 
 
 private:
@@ -1334,6 +1355,7 @@ private:
 
   /* uvdarQuadrotorPose2pB //{ */
   Eigen::VectorXd uvdarQuadrotorPose2pB(Eigen::VectorXd X, Eigen::VectorXd expFrequencies, int camera_index){
+      ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: 2p: input: " << X);
       cv::Point3d a;
       cv::Point3d b;
 
@@ -1378,10 +1400,24 @@ private:
         q = -q;
 
       double c = p*cos(xi); //p, c, s, q are angles - approaching orthogonal projection at distance
-      double s = sin(tilt_perp)*c*(_arm_length_/_beacon_height_);
-      double yaw = -asin((q*cos(tilt_perp)*_beacon_height_) / (_arm_length_*(c-s)))+(M_PI/4);
+      double s = -sin(tilt_perp)*c*(_arm_length_/_beacon_height_);
+      double yaw = -asin(std::fmin(std::fmax((q*cos(tilt_perp)*_beacon_height_) / (_arm_length_*(c-s)), -1),1))+(M_PI/4);
+      ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: 2p: (q*cos(tilt_perp)*_beacon_height_): " << (q*cos(tilt_perp)*_beacon_height_));
+      ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: 2p: (_arm_length_*(c-s)): " << (_arm_length_*(c-s)));
+      ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: 2p: ((q*cos(tilt_perp)*_beacon_height_) / (_arm_length_*(c-s))): " << (q*cos(tilt_perp)*_beacon_height_) / (_arm_length_*(c-s)));
+      ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: 2p: yaw origin: " << yaw);
 
       double l = ((_beacon_height_*cos(tilt_perp)) / tan(c-s) );
+
+      ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: 2p: c: " << c);
+      ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: 2p: p: " << p);
+      ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: 2p: rho: " << rho);
+      ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: 2p: xi: " << xi);
+      ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: 2p: q: " << q);
+      ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: 2p: s: " << s);
+      ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: 2p: tilt_par: " << tilt_par);
+      ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: 2p: tilt_perp: " << tilt_perp);
+      ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: 2p: l: " << l);
 
       Eigen::Transform< double, 3, Eigen::Affine > Rc(Eigen::AngleAxis< double >( c-s,(V1.cross(DW)).normalized()));
       e::Vector3d VC = Rc*V1; 
@@ -1420,6 +1456,14 @@ private:
       output(3) = troll;
       output(4) = tpitch;
       output(5) = yaw;
+      ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: 2p: troll: " << troll);
+      ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: 2p: tpitch: " << tpitch);
+      ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: 2p: yaw: " << yaw);
+      ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: 2p: relyaw: " << relyaw);
+      ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: 2p: yaw_view: " << yaw_view);
+      ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: 2p: latang: " << latang);
+      ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: 2p: VC: " << VC);
+      ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: 2p: output: " << output);
     /* ROS_WARN("[%s]: One point beacon measurement Not Implemented yet", ros::this_node::getName().c_str()); */
     return output;
   }
@@ -1810,7 +1854,7 @@ private:
   /* separateByFrequency //{ */
   std::vector<std::vector<cv::Point3i>> separateByFrequency(std::vector< cv::Point3i > points){
     std::vector<std::vector<cv::Point3i>> separated_points;
-    separated_points.resize(targetCount);
+    separated_points.resize(_target_count_);
 
 
       for (int i = 0; i < (int)(points.size()); i++) {
@@ -1892,7 +1936,6 @@ private:
   
   std::vector<std::vector<cv::Point3i>> separateByBeacon(std::vector< cv::Point3i > points){
     std::vector<std::vector<cv::Point3i>> separated_points;
-    /* separated_points.resize(targetCount); */
   
     std::vector<bool> marked_points(points.size(), false);
     std::vector<int> midPoints(points.size(), -1);
@@ -2095,8 +2138,8 @@ private:
               0,   0,     qpix,0,   0,         0,            0,           0,
               0,   0,     0,   qpix,0,         0,            0,           0,
               0,   0,     0,   0,   sqr(perr), 0,            0,           0,
-              0,   0,     0,   0,   0,         sqr(M_PI/18), 0,           0,          //tilt_par
-              0,   0,     0,   0,   0,         0,           sqr(M_PI/9),   0,          //tilt_perp
+              0,   0,     0,   0,   0,         sqr(M_PI/36), 0,           0,          //tilt_par
+              0,   0,     0,   0,   0,         0,           sqr(M_PI/18),   0,          //tilt_perp
               0,   0,     0,   0,   0,         0,            0,           sqr(M_PI_2) //ambig
                 ;
             if (DEBUG)
@@ -2250,6 +2293,10 @@ private:
         }
       }
       else {
+        if (_beacon_) {
+            ROS_WARN("[%s]: Beacon-based estimation for hexarotors is not implemented!", ros::this_node::getName().c_str());
+        }
+
         if (points.size() == 3) {
           if (DEBUG)
             ROS_INFO_STREAM("points: " << points);
@@ -2340,57 +2387,63 @@ private:
       /* std::cout << "Py: " << ms.C << std::endl; */
       /* } */
 
-      msgOdom = boost::make_shared<geometry_msgs::PoseWithCovarianceStamped>();
-      /* msgOdom->twist.covariance = msgOdom->pose.covariance; */
+      /* msg_odom_->twist.covariance = msg_odom_->pose.covariance; */
 
       /* geometry_msgs::PoseWithCovarianceStampedPtr msgPose = boost::make_shared<geometry_msgs::PoseWithCovarianceStamped>();; */
       /* geometry_msgs::PoseWithCovariancePtr msgPose = boost::make_shared<geometry_msgs::PoseWithCovariance>();; */
       /* msgPose->header.frame_id ="uvcam"; */
       /* msgPose->header.stamp = ros::Time::now(); */
-      msgOdom->pose.pose.position.x = ms.x(0);
-      msgOdom->pose.pose.position.y = ms.x(1);
-      msgOdom->pose.pose.position.z = ms.x(2);
+
+
+
       tf::Quaternion qtemp;
       qtemp.setRPY(ms.x(3), ms.x(4), ms.x(5));
-      ROS_INFO_STREAM("[PoseReporter]: qtemp: " << qtemp.x() << " : " << qtemp.y() << " : " << qtemp.z() << " : " << qtemp.w());
+      /* ROS_INFO_STREAM("[PoseReporter]: qtemp: " << qtemp.x() << " : " << qtemp.y() << " : " << qtemp.z() << " : " << qtemp.w()); */
       qtemp=(transformCam2Base.getRotation().inverse())*qtemp;
-      ROS_INFO_STREAM("[PoseReporter]: qtemp: " << qtemp.x() << " : " << qtemp.y() << " : " << qtemp.z() << " : " << qtemp.w());
-      /* qtemp.normalize(); */
+      /* ROS_INFO_STREAM("[PoseReporter]: qtemp: " << qtemp.x() << " : " << qtemp.y() << " : " << qtemp.z() << " : " << qtemp.w()); */
+      qtemp.normalize();
       /* ROS_INFO_STREAM("[PoseReporter]: qtemp: " << qtemp.x() << " : " << qtemp.y() << " : " << qtemp.z() << " : " << qtemp.w()); */
       /* Eigen::Affine3d aTtemp; */
       /* tf::transformTFToEigen(transformCam2Base, aTtemp); */
       /* qtemp = aTtemp*qtemp; */
-      msgOdom->pose.pose.orientation.x = qtemp.x();
-      msgOdom->pose.pose.orientation.y = qtemp.y();
-      msgOdom->pose.pose.orientation.z = qtemp.z();
-      msgOdom->pose.pose.orientation.w = qtemp.w();
-      for (int i=0; i<ms.C.cols(); i++){
-        for (int j=0; j<ms.C.rows(); j++){
-          msgOdom->pose.covariance[ms.C.cols()*j+i] =  ms.C(j,i);
+      if (!_beacon_){
+        msg_odom_ = boost::make_shared<geometry_msgs::PoseWithCovarianceStamped>();
+
+        msg_odom_->pose.pose.position.x = ms.x(0);
+        msg_odom_->pose.pose.position.y = ms.x(1);
+        msg_odom_->pose.pose.position.z = ms.x(2);
+        msg_odom_->pose.pose.orientation.x = qtemp.x();
+        msg_odom_->pose.pose.orientation.y = qtemp.y();
+        msg_odom_->pose.pose.orientation.z = qtemp.z();
+        msg_odom_->pose.pose.orientation.w = qtemp.w();
+        for (int i=0; i<ms.C.cols(); i++){
+          for (int j=0; j<ms.C.rows(); j++){
+            msg_odom_->pose.covariance[ms.C.cols()*j+i] =  ms.C(j,i);
+          }
         }
+        msg_odom_->header.frame_id = cameraFrames[imageIndex];
+        msg_odom_->header.stamp = lastBlinkTime;
+
+        measuredPose[target].publish(msg_odom_);
       }
+      else {
 
-      msgOdom->header.frame_id = cameraFrames[imageIndex];
-      msgOdom->header.stamp = lastBlinkTime;
-      /* msgOdom->pose = *(msgPose); */
+        geometry_msgs::PoseWithCovariance pose;
 
-      /* msgOdom->twist.twist.linear.x = 0.0; */
-      /* msgOdom->twist.twist.linear.y = 0.0; */
-      /* msgOdom->twist.twist.linear.z = 0.0; */
-      /* msgOdom->twist.twist.angular.x = 0.0; */
-      /* msgOdom->twist.twist.angular.y = 0.0; */
-      /* msgOdom->twist.twist.angular.z = 0.0; */
-
-      /* msgOdom->twist.covariance = { */
-      /*   4,0,0,0,0,0, */
-      /*   0,4,0,0,0,0, */
-      /*   0,0,4,0,0,0, */
-      /*   0,0,0,2,0,0, */
-      /*   0,0,0,0,2,0, */
-      /*   0,0,0,0,0,2}; */
-
-
-      measuredPose[target].publish(msgOdom);
+        pose.pose.position.x = ms.x(0);
+        pose.pose.position.y = ms.x(1);
+        pose.pose.position.z = ms.x(2);
+        pose.pose.orientation.x = qtemp.x();
+        pose.pose.orientation.y = qtemp.y();
+        pose.pose.orientation.z = qtemp.z();
+        pose.pose.orientation.w = qtemp.w();
+        for (int i=0; i<ms.C.cols(); i++){
+          for (int j=0; j<ms.C.rows(); j++){
+            pose.covariance[ms.C.cols()*j+i] =  ms.C(j,i);
+          }
+        }
+        msg_measrement_array_[imageIndex]->poses.push_back(pose);
+      }
 
       tf::Vector3 goalInCamTF, centerEstimInCamTF;
       /* tf::vectorEigenToTF(goalInCam, goalInCamTF); */
@@ -2759,14 +2812,15 @@ double rotmatToRoll(e::Matrix3d m){
   ros::ServiceServer ser_trigger;
 
   std::vector<ros::Publisher> measuredPose;
+  std::vector<ros::Publisher> measured_poses_;
 
   /* Lkf* trackers[2]; */
 
-  /* nav_msgs::OdometryPtr msgOdom; */
-  geometry_msgs::PoseWithCovarianceStampedPtr msgOdom;
+  geometry_msgs::PoseWithCovarianceStampedPtr msg_odom_;
+  std::vector<mrs_msgs::PoseWithCovarianceArrayStampedPtr> msg_measrement_array_;
 
   int frequenciesPerTarget;
-  int targetCount;
+  int _target_count_;
   std::vector<double> frequencySet;
   std::vector<double> periodSet;
   std::vector<double> periodBoundsTop;

@@ -193,9 +193,8 @@
 
       <rosparam param="calibFiles" subst_value="true"> ["calib_results_bf_uv_fe.txt", "calib_results_bf_uv_fe.txt"] </rosparam>
 
-      <remap from="~measuredPose1" to="/$(arg uav_name)/uvdar/measuredPose1"/>
-      <remap from="~measuredPose2" to="/$(arg uav_name)/uvdar/measuredPose2"/>
-      <remap from="~measuredPose3" to="/$(arg uav_name)/uvdar/measuredPose3"/>
+      <remap from="~measuredPoses1" to="/$(arg uav_name)/uvdar/measuredPoseL"/>
+      <remap from="~measuredPoses2" to="/$(arg uav_name)/uvdar/measuredPoseR"/>
     </node>
   </group>
 
