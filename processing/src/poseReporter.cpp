@@ -242,13 +242,13 @@ public:
 
     X2 = Eigen::VectorXd(9,9);
     X2q = Eigen::VectorXd(8,8);
-    X2qb = Eigen::VectorXd(7,7);
+    X2qb = Eigen::VectorXd(8,8);
     X3 = Eigen::VectorXd(10,10);
     X3qb = Eigen::VectorXd(8,8);
     X4qb = Eigen::VectorXd(12,12);
     Px2 = Eigen::MatrixXd(9,9);
     Px2q = Eigen::MatrixXd(8,8);
-    Px2qb = Eigen::MatrixXd(7,7);
+    Px2qb = Eigen::MatrixXd(8,8);
     Px3 = Eigen::MatrixXd(10,10);
     Px3qb = Eigen::MatrixXd(8,8);
     Px4qb = Eigen::MatrixXd(12,12);
@@ -1334,10 +1334,93 @@ private:
 
   /* uvdarQuadrotorPose2pB //{ */
   Eigen::VectorXd uvdarQuadrotorPose2pB(Eigen::VectorXd X, Eigen::VectorXd expFrequencies, int camera_index){
+      cv::Point3d a;
+      cv::Point3d b;
 
-    e::VectorXd output(6,6); 
-    output << 0,0,0,0,0,0;
-    ROS_WARN("[%s]: One point beacon measurement Not Implemented yet", ros::this_node::getName().c_str());
+      a = cv::Point3d(X(0),X(1),0);
+      b = cv::Point3d(X(2),X(3),X(4));
+      double tilt_par=X(5); //tilt about the line of sight
+      double tilt_perp=X(6);//basically pitch wrt the line of sight
+
+      double ambig=X(7);
+
+      /* std::cout << "right led: " << b << std::endl; */
+      Eigen::Vector3i ids;
+      ids << 0,1,2;
+      Eigen::Vector3d expPeriods;
+      expPeriods = expFrequencies.cwiseInverse(); 
+      Eigen::Vector3d periods;
+      periods << b.z;
+      Eigen::Vector3d id;
+      Eigen::MatrixXd::Index   minIndex;
+      ((expPeriods.array()-(periods(0))).cwiseAbs()).minCoeff(&minIndex);
+      id(0) = minIndex;
+
+      double      v1[3], v2[3];
+      double      va[2] = {double(a.y), double(a.x)};
+      double      vb[2] = {double(b.y), double(b.x)};
+      
+      cam2world(v1, va, &(oc_models[camera_index]));
+      cam2world(v2, vb, &(oc_models[camera_index]));
+
+      Eigen::Vector3d V1(v1[1], v1[0], -v1[2]);
+      Eigen::Vector3d V2(v2[1], v2[0], -v2[2]);
+      Eigen::Vector3d DW(0, 1, 0); //downwards
+
+      double p = acos(V1.dot(V2));
+      double rho = acos((V2-V1).normalized().dot(DW));
+      double xi = rho - tilt_par;
+      double q = p*sin(xi);
+
+      Eigen::Transform<double, 3, Eigen::Affine > Rt(Eigen::AngleAxis< double >( tilt_par,V1.normalized()));
+      e::Vector3d DWt = Rt*DW;
+      if (acos(((V2-V1).normalized().cross(DWt)).dot(V1.normalized())) < M_PI_2)
+        q = -q;
+
+      double c = p*cos(xi); //p, c, s, q are angles - approaching orthogonal projection at distance
+      double s = sin(tilt_perp)*c*(_arm_length_/_beacon_height_);
+      double yaw = -asin((q*cos(tilt_perp)*_beacon_height_) / (_arm_length_*(c-s)))+(M_PI/4);
+
+      double l = ((_beacon_height_*cos(tilt_perp)) / tan(c-s) );
+
+      Eigen::Transform< double, 3, Eigen::Affine > Rc(Eigen::AngleAxis< double >( c-s,(V1.cross(DW)).normalized()));
+      e::Vector3d VC = Rc*V1; 
+
+      e::VectorXd output(6,6); 
+
+      output.topRows(3) = VC*l;
+
+      double latang=atan2(VC(0),VC(2));
+
+
+      double relyaw = 2*ambig;
+      if (expFrequencies.size() == 2){
+        if (fabs(expFrequencies[1] - expFrequencies[0]) > 1.0)
+        {
+          if ((id(0)==ids[0]))
+            relyaw= (M_PI_2) + ambig;
+          else
+            relyaw= (-M_PI_2) + ambig;
+        }
+      }
+      yaw += relyaw;
+
+      double yaw_view=yaw;
+      yaw=yaw-latang;
+
+      double reltilt_abs=atan(sqrt(sqr(tan(tilt_perp))+sqr(tan(tilt_par))));
+      double tiltdir=atan2(-tan(tilt_par),tan(tilt_perp));
+      double tiltdir_adj=tiltdir-yaw_view;
+      double ta=cos(tiltdir_adj);
+      double tb=-sin(tiltdir_adj);
+      double tc=cot(reltilt_abs);
+      double tpitch=atan2(ta,tc);
+      double troll=atan2(tb,tc);
+
+      output(3) = troll;
+      output(4) = tpitch;
+      output(5) = yaw;
+    /* ROS_WARN("[%s]: One point beacon measurement Not Implemented yet", ros::this_node::getName().c_str()); */
     return output;
   }
     //}
@@ -2004,15 +2087,17 @@ private:
               points[0].x ,points[0].y, // presume that the beacon really is a beacon
               points[1].x ,points[1].y, 1.0/(double)(points[1].z),
               0,  //to account for ambiguity (roll)
-              0;  //to account for ambiguity (pitch)
+              0,  //to account for ambiguity (pitch)
+              0;  //ambiguity - which of the two markers of a given ID is it?
             Px2qb <<
-              qpix,0,     0,   0,   0,         0,            0,
-              0,   qpix,  0,   0,   0,         0,            0,
-              0,   0,     qpix,0,   0,         0,            0,
-              0,   0,     0,   qpix,0,         0,            0,
-              0,   0,     0,   0,   sqr(perr), 0,            0,
-              0,   0,     0,   0,   0,         sqr(M_PI/18), 0,
-              0,   0,     0,   0,   0,         0,            sqr(M_PI/18)
+              qpix,0,     0,   0,   0,         0,            0,           0,
+              0,   qpix,  0,   0,   0,         0,            0,           0,
+              0,   0,     qpix,0,   0,         0,            0,           0,
+              0,   0,     0,   qpix,0,         0,            0,           0,
+              0,   0,     0,   0,   sqr(perr), 0,            0,           0,
+              0,   0,     0,   0,   0,         sqr(M_PI/18), 0,           0,          //tilt_par
+              0,   0,     0,   0,   0,         0,           sqr(M_PI/9),   0,          //tilt_perp
+              0,   0,     0,   0,   0,         0,            0,           sqr(M_PI_2) //ambig
                 ;
             if (DEBUG)
               ROS_INFO_STREAM("X2qb: " << X2qb);
@@ -2127,7 +2212,7 @@ private:
                    0,0,0,qpix ,0,0,0,0,
                    0,0,0,0,qpix ,0,0,0,
                    0,0,0,0,0,sqr(perr),0,0,
-                   0,0,0,0,0,0,sqr(deg2rad(10)),0,
+                   0,0,0,0,0,0,sqr(deg2rad((missing_beacon?70:10))),0,
                    0,0,0,0,0,0,0,sqr(deg2rad(10))
                      ;
 
