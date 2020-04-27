@@ -585,11 +585,8 @@ class UvdarKalman {
   double dt;
 
   std::vector<bool>  gotAnyMeasurement;
-  /* std::vector<bool> gotMeasurement, gotAnyMeasurement; */
-  /* ros::Duration sinceMeasurement[filterCount]; */
   std::vector<ros::Time> lastMeasurement;
   std::vector<ros::Subscriber> measSubscriber;
-  std::vector<ros::Subscriber> ImageSubscriber;
   std::vector<ros::Publisher> filtPublisher;
   std::vector<ros::Publisher> filtPublisherTentative;
   ros::Publisher              targetsSeenCountPublisher;
@@ -615,7 +612,7 @@ class UvdarKalman {
 };
 
 int main(int argc, char** argv) {
-  ros::init(argc, argv, "uvdar_reporter");
+  ros::init(argc, argv, "uvdar_kalman");
   ros::NodeHandle nodeA;
   UvdarKalman        kl(nodeA);
 
