@@ -66,9 +66,8 @@ windows:
   - kalman_filter:
       layout: even-vertical
       panes:
-        - export UAV_NAME=uav1; waitForControl; roslaunch uvdar uvdar_kalman.launch frame:=$UAV_NAME/fcu filterCount:=4
-        - waitForSimulation; export UAV_NAME=uav1; rostopic echo /$UAV_NAME/uvdar/filteredPose1
+        - export UAV_NAME=uav1; waitForControl; roslaunch uvdar uvdar_kalman_anonymous.launch frame:=$UAV_NAME/fcu
   - goto:
       layout: even-vertical
       panes:
-        - 'history -s rosservice call /uav3/control_manager/goto_fcu \"goal: \[0.0, -1.0, 0.0, 0.0\]\"'
+        - 'history -s rosservice call /uav3/control_manager/goto_fcu \"goal: \[0.0, 0.0, 0.0, 0.7\]\"'

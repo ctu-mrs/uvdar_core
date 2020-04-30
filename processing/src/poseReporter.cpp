@@ -255,13 +255,13 @@ public:
     X2q = Eigen::VectorXd(8,8);
     X2qb = Eigen::VectorXd(8,8);
     X3 = Eigen::VectorXd(10,10);
-    X3qb = Eigen::VectorXd(8,8);
+    X3qb = Eigen::VectorXd(9,9);
     X4qb = Eigen::VectorXd(12,12);
     Px2 = Eigen::MatrixXd(9,9);
     Px2q = Eigen::MatrixXd(8,8);
     Px2qb = Eigen::MatrixXd(8,8);
     Px3 = Eigen::MatrixXd(10,10);
-    Px3qb = Eigen::MatrixXd(8,8);
+    Px3qb = Eigen::MatrixXd(9,9);
     Px4qb = Eigen::MatrixXd(12,12);
 
     if (_legacy){
@@ -1429,7 +1429,7 @@ private:
       double latang=atan2(VC(0),VC(2));
 
 
-      double relyaw = 2*ambig;
+      double relyaw = 4*ambig;
       if (expFrequencies.size() == 2){
         if (fabs(expFrequencies[1] - expFrequencies[0]) > 1.0)
         {
@@ -1475,6 +1475,7 @@ private:
       cv::Point3d a(X(0),X(1),0);
       cv::Point3d b;
       cv::Point3d c;
+      double ambig = X(8);
 
       if ((X(2)) < (X(5))) {
         b = cv::Point3d(X(2),X(3),X(4));
@@ -1579,7 +1580,7 @@ private:
       }
       /* output_candidate = output_candidate / (int)(output_candidates.size()); // this should be done with unscentedTransform, but I'll do this for now. */
 
-      double relyaw = 0;
+      double relyaw = ambig;
 
       if (expFrequencies.size() == 2){
         if (fabs(expFrequencies[1] - expFrequencies[0]) > 1.0)
@@ -1730,7 +1731,7 @@ private:
       }
       /* output_candidate = output_candidate / (int)(output_candidates.size()); // this should be done with unscentedTransform, but I'll do this for now. */
 
-      double relyaw = 0;
+      double relyaw = ambig;
       /* ROS_INFO_STREAM("relyaw: " << relyaw); */
 
       if (DEBUG)
@@ -2155,15 +2156,17 @@ private:
               points[0].x ,points[0].y, // presume that the beacon really is a beacon
               points[1].x ,points[1].y, 1.0/(double)(points[1].z),
               points[2].x ,points[2].y, 1.0/(double)(points[2].z),
+              0;
             Px3qb <<
-              qpix,0,    0,   0,   0,        0,   0,   0,
-              0,   qpix, 0,   0,   0,        0,   0,   0,
-              0,   0,    qpix,0,   0,        0,   0,   0,   
-              0,   0,    0,   qpix,0,        0,   0,   0,  
-              0,   0,    0,   0,   sqr(perr),0,   0,   0,    
-              0,   0,    0,   0,   0,        qpix,0,   0,     
-              0,   0,    0,   0,   0,        0,   qpix,0,      
-              0,   0,    0,   0,   0,        0,   0,   sqr(perr)
+              qpix,0,    0,   0,   0,        0,   0,   0,         0,
+              0,   qpix, 0,   0,   0,        0,   0,   0,         0,
+              0,   0,    qpix,0,   0,        0,   0,   0,         0,   
+              0,   0,    0,   qpix,0,        0,   0,   0,         0,  
+              0,   0,    0,   0,   sqr(perr),0,   0,   0,         0,    
+              0,   0,    0,   0,   0,        qpix,0,   0,         0,     
+              0,   0,    0,   0,   0,        0,   qpix,0,         0,      
+              0,   0,    0,   0,   0,        0,   0,   sqr(perr), 0,
+              0,   0,    0,   0,   0,        0,   0,   0,         sqr(M_PI*2)
                 ;
             if (DEBUG)
               ROS_INFO_STREAM("X3qb: " << X3qb);
@@ -2212,7 +2215,7 @@ private:
             foundTarget           = false;
             return;
           }
-          ROS_INFO_STREAM("[PoseReporter]: beacons not yet implemented");
+          /* ROS_INFO_STREAM("[PoseReporter]: beacons not yet implemented"); */
         }
         else {
           if (points.size() == 3) {
