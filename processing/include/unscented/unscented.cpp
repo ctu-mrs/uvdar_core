@@ -74,6 +74,7 @@ unscented::measurement unscented::unscentedTransform(e::VectorXd x,e::MatrixXd P
     Y.col(i)=fcn(X.col(i),expFrequencies, camera_index); //this is weird, check please
   }
   if (false){
+  /* if (true){ */
     std::cout << "unscented X: "<< std::endl;
     std::cout << X << std::endl;
     std::cout << "unscented Y: "<< std::endl;
