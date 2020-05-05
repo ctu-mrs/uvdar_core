@@ -34,6 +34,7 @@
 #define DEBUG true
 #define freq 20.0
 #define DECAY_AGE_NORMAL 5.0
+#define DECAY_AGE_UNVALIDATED 1.0
 #define minMeasurementsToValidation 10
 #define POS_THRESH 2.0
 #define MAH_THRESH 2.0
@@ -323,7 +324,12 @@ void spin([[ maybe_unused ]] const ros::TimerEvent& unused){
     double decay_age;
     /*   decay_age = 2.5; */
     /* }else{ */
+    if (fd[target].update_count > minMeasurementsToValidation){
       decay_age = DECAY_AGE_NORMAL;
+    }
+    else {
+      decay_age = DECAY_AGE_UNVALIDATED;
+    }
     /* } */
     if (age>decay_age){
       ROS_INFO_STREAM("[UvdarKalmanAnonymous]: Removing state " << target << ": " << fd[target].td.state_x.x.transpose() << " due to old age of " << age << " s." );
@@ -520,7 +526,8 @@ void applyMeasurements(std::vector<std::pair<e::VectorXd,e::MatrixXd>> &measurem
           );
       tentative_states.back().back() = filter->correct(tentative_states.back().back(), measurement_curr.value().first, measurement_curr.value().second);
       double dt_t = 0.1;
-      tentative_states.back().back() = filter->predict(tentative_states.back().back(), u_t(), (state_curr.value().td.Q), dt_t); // just to fatten it for next matching
+      if ((ros::Time::now() - state_curr.value().latest_measurement).toSec() < dt_t) // just in case - in simulation the camera outputs follow one another immediately, so no inflation happens in between
+        tentative_states.back().back() = filter->predict(tentative_states.back().back(), u_t(), (state_curr.value().td.Q), dt_t); // just to fatten it for next matching
     }
   }
 
@@ -531,16 +538,19 @@ void applyMeasurements(std::vector<std::pair<e::VectorXd,e::MatrixXd>> &measurem
   int best_index;
   /* double best_reduction; */
   double best_match_level;
+  double best_update_count;
   /* double curr_reduction; */
   double curr_match_level;
   for (int f_i = 0; f_i < (int)(fd.size()); f_i++) {
+    best_update_count = -1;
     best_index = -1;
     best_match_level = -1;
     for (int m_i = 0; m_i < (int)(measurements.size()); m_i++) {
       curr_match_level = match_matrix(m_i,f_i);  
-      if ((curr_match_level > MATCH_LEVEL_THRESHOLD) && (curr_match_level > best_match_level)){
+      if ((curr_match_level > MATCH_LEVEL_THRESHOLD) && ( (fd[f_i].update_count > best_update_count) || ((fd[f_i].update_count == best_update_count) && (curr_match_level > best_match_level)) ) ){
         best_match_level = curr_match_level;
         best_index = m_i;
+        best_update_count = fd[f_i].update_count;
       }
     }
 

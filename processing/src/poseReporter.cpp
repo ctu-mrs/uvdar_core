@@ -63,6 +63,9 @@ static double cot(double input) {
 static double deg2rad(double input) {
   return input*0.01745329251;
 }
+static double rad2deg(double input) {
+  return input/0.01745329251;
+}
 
 namespace enc = sensor_msgs::image_encodings;
 namespace e = Eigen;
@@ -1706,11 +1709,16 @@ private:
           double roll   = rotmatToRoll(camToBase*object_orientation_cam);
           double pitch  = rotmatToPitch(camToBase*object_orientation_cam);
           double yaw    = rotmatToYaw(camToBase*object_orientation_cam);
-          ROS_INFO_STREAM("["<< ros::this_node::getName().c_str() << "]: 4p:  cam_center: " << (object_position).transpose());
-          ROS_INFO_STREAM("["<< ros::this_node::getName().c_str() << "]: 4p:  cam_rotations: " << roll << " : " << pitch << " : " << yaw);
+          ROS_INFO_STREAM("["<< ros::this_node::getName().c_str() << "]: 4p:  object_center: " << (object_position).transpose());
+          ROS_INFO_STREAM("["<< ros::this_node::getName().c_str() << "]: 4p:  object_rotations: " << roll << " : " << pitch << " : " << yaw);
+          double yaw_view_offset = yaw+atan2(object_position_cam(0),object_position_cam(2));
+          yaw_view_offset -= deg2rad(45);
+          ROS_INFO_STREAM("["<< ros::this_node::getName().c_str() << "]: 4p:  view_relative_yaw: " << rad2deg(yaw_view_offset));
          if ( ( fabs(roll) > (deg2rad(50)) ) || (fabs(pitch) > (deg2rad(50)) )  
                ||
               ( acos(object_position_cam.normalized().dot(V1)) > deg2rad(10) ) 
+              ||
+              (fabs(yaw_view_offset) > (deg2rad(70)))
             )
            continue;
          output_candidate <<
@@ -2202,6 +2210,8 @@ private:
             boost::function<Eigen::VectorXd(Eigen::VectorXd,Eigen::VectorXd,int)> callback;
             callback=boost::bind(&PoseReporter::uvdarQuadrotorPose4pB,this,_1,_2,_3);
             ms = unscented::unscentedTransform(X4qb,Px4qb,callback,leftF,rightF,-1,imageIndex);
+            /* if (DEBUG) */
+              /* ROS_INFO_STREAM("Vert. angle: " << deg2rad(atan2(ms.x(1),sqrt(ms.x(0)*ms.x(0)+ms.x(2)*ms.x(2))))); */
           }
           else {
             ROS_INFO("[%s]: No valid points seen. Waiting", ros::this_node::getName().c_str());
