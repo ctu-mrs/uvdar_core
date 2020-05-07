@@ -1709,6 +1709,7 @@ private:
           double roll   = rotmatToRoll(camToBase*object_orientation_cam);
           double pitch  = rotmatToPitch(camToBase*object_orientation_cam);
           double yaw    = rotmatToYaw(camToBase*object_orientation_cam);
+          here is something potentially wrong
           ROS_INFO_STREAM("["<< ros::this_node::getName().c_str() << "]: 4p:  object_center: " << (object_position).transpose());
           ROS_INFO_STREAM("["<< ros::this_node::getName().c_str() << "]: 4p:  object_rotations: " << roll << " : " << pitch << " : " << yaw);
           double yaw_view_offset = yaw+atan2(object_position_cam(0),object_position_cam(2));
