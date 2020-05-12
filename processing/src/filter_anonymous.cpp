@@ -2,7 +2,7 @@
 #include <ros/package.h>
 #include <nodelet/nodelet.h>
 
-#include <mrs_lib/ParamLoader.h>
+#include <mrs_lib/param_loader.h>
 #include <mrs_lib/transformer.h>
 
 #include <mrs_lib/lkf.h>
@@ -127,14 +127,14 @@ class UvdarKalmanAnonymous {
 
 
     mrs_lib::ParamLoader param_loader(pnh, "UvdarKalmanAnonymous");
-    param_loader.load_param("uav_name", _uav_name_);
-    param_loader.load_param("output_frame", _output_frame_, std::string("local_origin"));
-    param_loader.load_param("output_framerate", _output_framerate_, double(freq));
+    param_loader.loadParam("uav_name", _uav_name_);
+    param_loader.loadParam("output_frame", _output_frame_, std::string("local_origin"));
+    param_loader.loadParam("output_framerate", _output_framerate_, double(freq));
 
-    param_loader.load_param("indoor", _indoor_, bool(false));
-    param_loader.load_param("odometryAvailable", _odometry_available_, bool(true));
+    param_loader.loadParam("indoor", _indoor_, bool(false));
+    param_loader.loadParam("odometryAvailable", _odometry_available_, bool(true));
 
-    param_loader.load_param("input_count", _input_count_);
+    param_loader.loadParam("input_count", _input_count_);
 
     if (_indoor_){
       vl = 1;
@@ -202,7 +202,7 @@ class UvdarKalmanAnonymous {
      filter = new mrs_lib::lkf_t(td_template.A, td_template.B, td_template.H);
 
 
-    if (param_loader.loaded_successfully()) {
+    if (param_loader.loadedSuccessfully()) {
       is_initialized = true;
       ROS_INFO_STREAM("[UvdarKalmanAnonymous]: initiated");
     } else {
@@ -234,7 +234,7 @@ class UvdarKalmanAnonymous {
       tf = transformer_.getTransform(msg_local.header.frame_id, _output_frame_, msg.header.stamp);
     }
     if (!tf) { 
-      ROS_ERROR("[UvdarKalmanAnonymous]: Could not obtain transform from %s to %s",msg_local.header.frame_id, _output_frame_.c_str());
+      ROS_ERROR("[UvdarKalmanAnonymous]: Could not obtain transform from %s to %s",msg_local.header.frame_id.c_str(), _output_frame_.c_str());
       return;
     }
     std::vector<std::pair<e::VectorXd,e::MatrixXd>> meas_converted;
@@ -244,7 +244,8 @@ class UvdarKalmanAnonymous {
 
       std::optional<geometry_msgs::PoseWithCovarianceStamped> meas_t;
       geometry_msgs::PoseWithCovarianceStamped meas_s;
-      meas_s.pose = meas;
+      meas_s.pose.pose = meas.pose;
+      meas_s.pose.covariance = meas.covariance;
       meas_s.header = msg_local.header;
       {
         std::scoped_lock lock(transformer_mutex);
@@ -274,7 +275,7 @@ class UvdarKalmanAnonymous {
         return;
       }
 
-    e::Vector3d tmp  = qtemp.toRotationMatrix().eulerAngles(0, 1, 2);
+    /* e::Vector3d tmp  = qtemp.toRotationMatrix().eulerAngles(0, 1, 2); */
         ROS_INFO_STREAM("[UvdarKalmanAnonymous]: eulerAngles give: " << qtemp.toRotationMatrix().eulerAngles(0, 1, 2).transpose() << " while my angles are: " << poseVec.bottomRows(3).transpose());
 
       for (int i=0; i<6; i++){
@@ -473,7 +474,7 @@ double gaussJointMaxVal(e::MatrixXd si0,e::MatrixXd si1,e::VectorXd mu0,e::Vecto
     N=(1.0/pow((2*M_PI),k)*sqrt((si0).determinant()*(si1).determinant()))*exp(N_v(0));
   }
   if (isnan(N))
-    ROS_INFO("[UvdarKalmanAnonymous]: Joint Gaussian value came out NaN", ros::this_node::getName().c_str());
+    ROS_INFO("[UvdarKalmanAnonymous]: Joint Gaussian value came out NaN");
 
   return N;
 
@@ -610,7 +611,7 @@ void applyMeasurements(std::vector<std::pair<e::VectorXd,e::MatrixXd>> &measurem
       /*   ROS_ERROR("[UvdarKalmanAnonymous]: Could not obtain transform to fcu_untilted"); */
       /*   return; */
       /* } */
-      geometry_msgs::PoseWithCovariance temp;
+      mrs_msgs::PoseWithCovarianceIdentified temp;
       e::Quaterniond qtemp;
       for (auto const& fd_curr : fd | indexed(0)){
         temp.pose.position.x = fd_curr.value().td.state_x.x[0];
