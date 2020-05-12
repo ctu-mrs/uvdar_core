@@ -246,7 +246,7 @@ public:
       }
     }
     else {
-      msg_measrement_array_.resize(blinkersSeenTopics.size());
+      msg_measurement_array_.resize(blinkersSeenTopics.size());
       measured_poses_.resize(blinkersSeenTopics.size());
       ROS_INFO("[%s]: Advertising measuredPoses", ros::this_node::getName().c_str());
       for (int i = 0; i < (int)(blinkersSeenTopics.size()); i++) {
@@ -347,9 +347,9 @@ public:
     std::scoped_lock lock(mutex_separated_points);
 
     if (_beacon_){
-      msg_measrement_array_[imageIndex] = boost::make_shared<mrs_msgs::PoseWithCovarianceArrayStamped>();
-      msg_measrement_array_[imageIndex]->header.frame_id = cameraFrames[imageIndex];
-      msg_measrement_array_[imageIndex]->header.stamp = lastBlinkTime;
+      msg_measurement_array_[imageIndex] = boost::make_shared<mrs_msgs::PoseWithCovarianceArrayStamped>();
+      msg_measurement_array_[imageIndex]->header.frame_id = cameraFrames[imageIndex];
+      msg_measurement_array_[imageIndex]->header.stamp = lastBlinkTime;
     }
 
     if ((int)(points.size()) > 0) {
@@ -371,7 +371,7 @@ public:
         }
       }
       if (_beacon_){
-        measured_poses_[imageIndex].publish(msg_measrement_array_[imageIndex]);
+        measured_poses_[imageIndex].publish(msg_measurement_array_[imageIndex]);
       }
     }
     //}
@@ -2442,8 +2442,9 @@ private:
       }
       else {
 
-        geometry_msgs::PoseWithCovariance pose;
+        mrs_msgs::PoseWithCovarianceIdentified pose;
 
+        pose.id = imageIndex*1000+msg_measurement_array_[imageIndex]->poses.size();
         pose.pose.position.x = ms.x(0);
         pose.pose.position.y = ms.x(1);
         pose.pose.position.z = ms.x(2);
@@ -2456,7 +2457,7 @@ private:
             pose.covariance[ms.C.cols()*j+i] =  ms.C(j,i);
           }
         }
-        msg_measrement_array_[imageIndex]->poses.push_back(pose);
+        msg_measurement_array_[imageIndex]->poses.push_back(pose);
       }
 
       tf::Vector3 goalInCamTF, centerEstimInCamTF;
@@ -2831,7 +2832,7 @@ double rotmatToRoll(e::Matrix3d m){
   /* Lkf* trackers[2]; */
 
   geometry_msgs::PoseWithCovarianceStampedPtr msg_odom_;
-  std::vector<mrs_msgs::PoseWithCovarianceArrayStampedPtr> msg_measrement_array_;
+  std::vector<mrs_msgs::PoseWithCovarianceArrayStampedPtr> msg_measurement_array_;
 
   int frequenciesPerTarget;
   int _target_count_;
