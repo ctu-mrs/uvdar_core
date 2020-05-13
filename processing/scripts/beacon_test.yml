@@ -14,9 +14,9 @@ windows:
   - status:
       layout: even-vertical
       panes:
-        - export UAV_NAME=uav1; waitForRos; roslaunch mrs_status status.launch
-        - export UAV_NAME=uav2; waitForRos; roslaunch mrs_status status.launch
-        - export UAV_NAME=uav3; waitForRos; roslaunch mrs_status status.launch
+        - export UAV_NAME=uav1; waitForRos; roslaunch mrs_uav_status status.launch
+        - export UAV_NAME=uav2; waitForRos; roslaunch mrs_uav_status status.launch
+        - export UAV_NAME=uav3; waitForRos; roslaunch mrs_uav_status status.launch
   - spawn:
       layout: even-vertical
       panes:
@@ -26,9 +26,9 @@ windows:
   - control:
       layout: even-vertical
       panes:
-        - export UAV_NAME=uav1; waitForOdometry; roslaunch mrs_general core.launch config_mpc_tracker:=./custom_configs/mpc_tracker.yaml
-        - export UAV_NAME=uav2; waitForOdometry; roslaunch mrs_general core.launch config_mpc_tracker:=./custom_configs/mpc_tracker.yaml
-        - export UAV_NAME=uav3; waitForOdometry; roslaunch mrs_general core.launch config_mpc_tracker:=./custom_configs/mpc_tracker.yaml
+        - export UAV_NAME=uav1; waitForOdometry; roslaunch mrs_uav_general core.launch config_mpc_tracker:=./custom_configs/mpc_tracker.yaml
+        - export UAV_NAME=uav2; waitForOdometry; roslaunch mrs_uav_general core.launch config_mpc_tracker:=./custom_configs/mpc_tracker.yaml
+        - export UAV_NAME=uav3; waitForOdometry; roslaunch mrs_uav_general core.launch config_mpc_tracker:=./custom_configs/mpc_tracker.yaml
   - takeoff:
       layout: even-vertical
       panes:
@@ -57,7 +57,7 @@ windows:
   - rviz:
       layout: even-vertical
       panes:
-        - waitForControl; roslaunch uvdar beacon_test_rviz.launch
+        - export UAV_NAME=uav1; waitForControl; roslaunch uvdar beacon_test_rviz.launch
   - uv_observer:
       layout: even-vertical
       panes:

@@ -80,6 +80,7 @@ struct filter_data{
   int update_count;
   ros::Time latest_update;
   ros::Time latest_measurement;
+  unsigned long long int id;
 };
 
 class UvdarKalmanAnonymous {
@@ -114,6 +115,7 @@ class UvdarKalmanAnonymous {
       ros::Timer timer;
       ros::Duration filter_update_period;
       double dt;
+      unsigned long long int latest_id = 0;
 
 
 
@@ -408,7 +410,7 @@ void initiateNew(e::VectorXd x, e::MatrixXd C, ros::Time stamp){
   int index = (int)(fd.size());
   ROS_INFO_STREAM("[UvdarKalmanAnonymous]: Initiating state " << index << "  with: " << x.transpose());
 
-  fd.push_back({.td = td_template, .update_count = 0, .latest_update = stamp, .latest_measurement = stamp});
+  fd.push_back({.td = td_template, .update_count = 0, .latest_update = stamp, .latest_measurement = stamp, .id = (latest_id++)});
 
 
   fd[index].td.state_x.x[0]=x(0);
@@ -614,6 +616,10 @@ void applyMeasurements(std::vector<std::pair<e::VectorXd,e::MatrixXd>> &measurem
       mrs_msgs::PoseWithCovarianceIdentified temp;
       e::Quaterniond qtemp;
       for (auto const& fd_curr : fd | indexed(0)){
+
+        temp.id = fd_curr.value().id;
+
+
         temp.pose.position.x = fd_curr.value().td.state_x.x[0];
         temp.pose.position.y = fd_curr.value().td.state_x.x[1];
         temp.pose.position.z = fd_curr.value().td.state_x.x[2];

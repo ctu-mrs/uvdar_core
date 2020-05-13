@@ -28,11 +28,11 @@
   <arg     if="$(arg debug)" name="script_type" value="debug"/>
 
   
-  <rosparam command="load" 
-	file="$(find uvdar_servo)/config/joints.yaml"
-	ns="/uvdar_servo" />
+  <!-- <rosparam command="load" --> 
+  <!--   file="$(find uvdar)/../config/joints.yaml" -->
+	<!-- ns="/uvdar" /> -->
 
-<param name="robot_description" command="$(find xacro)/xacro $(find uvdar_servo)/urdf/rangefinder2/model.xacro"/>
+<!-- <param name="robot_description" command="$(find xacro)/xacro $(find uvdar_servo)/urdf/rangefinder2/model.xacro"/> -->
 
 
 <!--
