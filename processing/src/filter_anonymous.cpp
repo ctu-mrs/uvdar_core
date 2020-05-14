@@ -40,7 +40,7 @@
 #define MAH_THRESH 2.0
 #define YAW_THRESH 1.5
 
-#define MATCH_LEVEL_THRESHOLD 0.5
+#define MATCH_LEVEL_THRESHOLD 0.3
 
 using namespace boost::adaptors;
 

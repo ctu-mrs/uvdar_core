@@ -66,7 +66,7 @@ windows:
   - kalman_filter:
       layout: even-vertical
       panes:
-        - export UAV_NAME=uav1; waitForControl; roslaunch uvdar uvdar_kalman_anonymous.launch frame:=$UAV_NAME/fcu
+        - export UAV_NAME=uav1; waitForControl; roslaunch uvdar uvdar_kalman_anonymous.launch frame:=$UAV_NAME/stable_origin
   - goto:
       layout: even-vertical
       panes:
