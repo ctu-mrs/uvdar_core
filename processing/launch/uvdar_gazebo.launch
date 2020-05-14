@@ -9,7 +9,7 @@
   <arg name="debug" default="false"/>
   <arg name="physics" default="ode"/>
   <arg name="verbose" default="true"/>
-  <arg name="world_name" default="$(find simulation)/worlds/grass_plane.world"/> 
+  <arg name="world_name" default="$(find mrs_gazebo_common_resources)/worlds/grass_plane.world"/> 
 
   <!-- set use_sim_time flag -->
   <group if="$(arg use_sim_time)">

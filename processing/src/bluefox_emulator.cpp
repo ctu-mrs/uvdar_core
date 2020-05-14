@@ -33,6 +33,16 @@ public:
     sprintf(calib_path, "%s/include/OCamCalib/config/%s", ros::package::getPath("uvdar").c_str(),_calib_file.c_str());
     get_ocam_model(&oc_model, calib_path);
 
+    ROS_ERROR("[Bluefox emulator]: Calibration came from the file %s.",calib_path);
+    
+    for (int i=0; i<oc_model.length_pol; i++){
+      if (isnan(oc_model.pol[i])){
+        ROS_ERROR("[Bluefox emulator]: Calibration polynomial containts NaNs, returning.");
+        return;
+        }
+    }
+    
+
     std::vector<std::string> _camera_output_topics;
     nh_.param("cameraOutputTopics", _camera_output_topics, _camera_output_topics);
     /* std::vector<std::string> _virtual_points_topics; */
@@ -113,6 +123,9 @@ private:
     ImageData(struct ocam_model &oc_model_i){
       outputImage = cv_bridge::CvImage(std_msgs::Header(), "mono8", cv::Mat(oc_model_i.height, oc_model_i.width, CV_8UC1, cv::Scalar(0)));
       backgroundColour = std::rand() % 100;
+      if ( (outputImage.image.cols < oc_model_i.width) || (outputImage.image.rows < oc_model_i.height) ){
+        ROS_ERROR("[Bluefox emulator]: Calibration polynomial contains NaNs, exiting.");
+      }
     };
     ~ImageData(){};
   };

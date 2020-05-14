@@ -318,6 +318,7 @@ void deleteFilter(int &index){
 void spin([[ maybe_unused ]] const ros::TimerEvent& unused){
   std::scoped_lock lock(filter_mutex);
   removeNANs();
+  removeOverlaps();
   /* timeTransform(); */
   for (int target=0; target<(int)(fd.size());target++){
   int targetsSeen = 0;
@@ -660,6 +661,56 @@ void removeNANs(){
         (fd[i].td.state_x.P.array().isNaN().any() )){
       fd.erase(fd.begin()+i);
       i--;
+    }
+  }
+}
+
+//}
+//
+/* removeOverlaps //{ */
+
+void removeOverlaps(){
+  double curr_match_level;
+  for (int i=0; i<(int)(fd.size());i++){
+    for (int j=i+1; j<(int)(fd.size()); j++){
+       curr_match_level = gaussJointMaxVal(
+          fd[i].td.state_x.P.topLeftCorner(3,3),
+          fd[j].td.state_x.P.topLeftCorner(3,3),
+          fd[i].td.state_x.x.topRows(3),
+          fd[j].td.state_x.x.topRows(3)
+          );
+      if (curr_match_level > MATCH_LEVEL_THRESHOLD){
+          auto eigens = fd[i].td.state_x.P.topLeftCorner(3,3).eigenvalues();
+          double size_i = (eigens.topLeftCorner(3, 1)).norm();
+          eigens = fd[j].td.state_x.P.topLeftCorner(3,3).eigenvalues();
+          double size_j = (eigens.topLeftCorner(3, 1)).norm();
+          int n = -1;
+          int m = -1;
+          if ( (fd[i].update_count < minMeasurementsToValidation) == (fd[j].update_count < minMeasurementsToValidation) ){
+              if ( size_j > size_i ){
+              n = j;
+              m = i;
+              }
+              else {
+              n = i;
+              m = j;
+              }
+            }
+          else {
+            if (fd[i].update_count < minMeasurementsToValidation){
+              n = i;
+              m = j;
+            }
+            else {
+              n = j;
+              m = i;
+            }
+
+          }
+            fd.erase(fd.begin()+n);
+            n--;
+            ROS_INFO_STREAM("[UvdarKalmanAnonymous]: Removing state " << n << ": " << fd[n].td.state_x.x.transpose() << " due to large overlap with state " << m << ": " << fd[m].td.state_x.x.transpose());
+      }
     }
   }
 }

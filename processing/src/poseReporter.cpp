@@ -1668,7 +1668,13 @@ private:
       Eigen::Vector3d V3(v3[1], v3[0], -v3[2]);
       Eigen::Vector3d V4(v4[1], v4[0], -v4[2]);
 
-      std::vector<e::Vector3d> direction_vectors = {V1, V2, V4};
+      Eigen::Matrix3d camToBase;
+      camToBase <<
+        0,  0,  1,
+       -1,  0,  0,
+        0, -1,  0;
+
+      std::vector<e::Vector3d> direction_vectors = {camToBase*V1, camToBase*V2, camToBase*V4};
 
       std::vector<e::Vector3d> object_points;
       double armCoord = _arm_length_*sqrt(0.5);
@@ -1684,11 +1690,6 @@ private:
         ROS_INFO_STREAM("["<< ros::this_node::getName().c_str() << "]: object_points: " << object_points[it].transpose());
       }
 
-      Eigen::Matrix3d camToBase;
-      camToBase <<
-        0,  0,  1,
-       -1,  0,  0,
-        0, -1,  0;
       p3p_kneip::P3PComputePoses(
           direction_vectors,
           object_points,
@@ -1703,23 +1704,30 @@ private:
         ROS_INFO("[%s]: No solution found.", ros::this_node::getName().c_str());
       else {
         for (int i = 0; i < (int)(cam_centers.size()); i++) {
-          e::Matrix3d object_orientation_cam = cam_rotations[i];
-          e::Vector3d object_position_cam = -cam_rotations[i]*cam_centers[i];
-          e::Vector3d object_position = camToBase*object_position_cam;
-          double roll   = rotmatToRoll(camToBase*object_orientation_cam);
-          double pitch  = rotmatToPitch(camToBase*object_orientation_cam);
-          double yaw    = rotmatToYaw(camToBase*object_orientation_cam);
+          e::Matrix3d object_orientation = cam_rotations[i];
+          e::Matrix3d object_orientation_cam = camToBase.transpose()*cam_rotations[i];
+          e::Vector3d object_position= -cam_rotations[i]*cam_centers[i];
+          e::Vector3d object_position_cam  = camToBase.transpose()*object_position;
+          /* ROS_INFO_STREAM("["<< ros::this_node::getName().c_str() << "]: 4p:  rotation_matrix: "); */
+          /* ROS_INFO_STREAM(std::endl << object_orientation_cam); */
+          /* ROS_INFO_STREAM("["<< ros::this_node::getName().c_str() << "]: 4p:  rotation_matrix_original: "); */
+          /* ROS_INFO_STREAM(std::endl << object_orientation); */
+          double roll   = rotmatToRoll(object_orientation);
+          double pitch  = rotmatToPitch(object_orientation);
+          double yaw    = rotmatToYaw(object_orientation);
           /* here is something potentially wrong */
+          ROS_INFO_STREAM("["<< ros::this_node::getName().c_str() << "]: 4p:  camera_center: " << (cam_centers[i]).transpose());
           ROS_INFO_STREAM("["<< ros::this_node::getName().c_str() << "]: 4p:  object_center: " << (object_position).transpose());
           ROS_INFO_STREAM("["<< ros::this_node::getName().c_str() << "]: 4p:  object_rotations: " << roll << " : " << pitch << " : " << yaw);
           double yaw_view_offset = yaw+atan2(object_position_cam(0),object_position_cam(2));
           yaw_view_offset -= deg2rad(45);
+          ROS_INFO_STREAM("["<< ros::this_node::getName().c_str() << "]: 4p:  view_relative_yaw_zero: " << atan2(object_position_cam(0),object_position_cam(2)));
           ROS_INFO_STREAM("["<< ros::this_node::getName().c_str() << "]: 4p:  view_relative_yaw: " << rad2deg(yaw_view_offset));
          if ( ( fabs(roll) > (deg2rad(50)) ) || (fabs(pitch) > (deg2rad(50)) )  
                ||
               ( acos(object_position_cam.normalized().dot(V1)) > deg2rad(10) ) 
               ||
-              (fabs(yaw_view_offset) > (deg2rad(70)))
+              (fabs(yaw_view_offset) > (deg2rad(60)))
             )
            continue;
          output_candidate <<
