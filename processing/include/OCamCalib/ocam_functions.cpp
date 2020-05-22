@@ -27,6 +27,7 @@ int get_ocam_model(struct ocam_model *myocam_model, char *filename)
  int i;
  
  //Open file
+ std::cout << "Filename is: " << filename << std::endl;
  if(!(f=fopen(filename,"r")))
  {
    printf("File %s cannot be opened\n", filename);				  
@@ -39,7 +40,7 @@ int get_ocam_model(struct ocam_model *myocam_model, char *filename)
  fscanf(f,"%d", length_pol);
  for (i = 0; i < *length_pol; i++)
  {
-     fscanf(f," %lf",&pol[i]);
+   std::fscanf(f," %lf",&pol[i]);
  }
 
  //Read inverse polynomial coefficients

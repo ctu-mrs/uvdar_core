@@ -73,10 +73,13 @@ unscented::measurement unscented::unscentedTransform(e::VectorXd x,e::MatrixXd P
     /* std::cout << "unscented X[" << i << "]: " << X.col(i) << std::endl; */
     Y.col(i)=fcn(X.col(i),expFrequencies, camera_index); //this is weird, check please
   }
-  std::cout << "unscented X: "<< std::endl;
-  std::cout << X << std::endl;
-  std::cout << "unscented Y: "<< std::endl;
-  std::cout << Y << std::endl;
+  if (false){
+  /* if (true){ */
+    std::cout << "unscented X: "<< std::endl;
+    std::cout << X << std::endl;
+    std::cout << "unscented Y: "<< std::endl;
+    std::cout << Y << std::endl;
+  }
   e::Vector3d mr;
     mr << 0,0,0;
   /* mr = [0;0;0]; */

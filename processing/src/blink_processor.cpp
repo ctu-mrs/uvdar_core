@@ -189,6 +189,8 @@ public:
 
     nh_.param("InvertedPoints", InvertedPoints, bool(false));
     nh_.param("frequencyCount", frequencyCount, int(4));
+
+    nh_.param("beacon",_beacon_,bool(false));
     /* if (frequencyCount != 2){ */
     /*   ROS_ERROR("HEYYY"); */
     /*   return; */
@@ -198,7 +200,7 @@ public:
     frequencySet.resize(frequencyCount);
     std::vector<double> defaultFrequencySet{6, 10, 15, 30, 8, 12};
     for (int i = 0; i < frequencyCount; ++i) {
-      nh_.param("frequency" + std::to_string(i + 1), frequencySet[i], defaultFrequencySet.at(i));
+      nh_.param("frequency" + std::to_string(i + (_beacon_?0:1)), frequencySet[i], defaultFrequencySet.at(i));
     }
 
     prepareFrequencyClassifiers();
@@ -532,8 +534,8 @@ private:
         image_width = 752;
         image_height = 480;
         viewImage = cv::Mat(
-            480, 
-            (752 + 2) * image_count - 2, 
+            image_height, 
+            (image_width + 1) * image_count - 1, 
             CV_8UC3,
             cv::Scalar(0,0,0));
       }
@@ -542,7 +544,7 @@ private:
         image_height = currentImages[0].rows;
         viewImage = cv::Mat(
             currentImages[0].rows, 
-            (currentImages[0].cols + 2) * image_count - 2, 
+            (currentImages[0].cols + 1) * image_count - 1, 
             CV_8UC3,
             cv::Scalar(255, 255, 255));
       }
@@ -553,6 +555,8 @@ private:
       /* loop through all trackers and update the data //{ */
 
       for (int imageIndex = 0; imageIndex < image_count; ++imageIndex) {
+        cv::line(viewImage, cv::Point2i(image_width, 0), cv::Point2i(image_width,image_height-1),cv::Scalar(255,255,255));
+
         auto* ht3dbt = ht3dbt_trackers[imageIndex];
         BlinkData& data = blinkData[imageIndex];
 
@@ -742,6 +746,8 @@ private:
   int _nullify_radius_;
 
   int frequencyCount;
+
+  bool _beacon_;
 
   ros::Time lastPointsTime;
 

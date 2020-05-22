@@ -73,9 +73,6 @@ public:
     nh_.param("silentDebug", silent_debug, bool(false));
 
 
-    nh_.param("storeVideo", storeVideo, bool(false));
-
-
     nh_.param("cameraRotated", cameraRotated, bool(false));
     // nh_.getParam("camera_rotation_matrix/data", camRot);
     nh_.getParam("alpha", gamma);
@@ -358,7 +355,6 @@ private:
   bool justReport;
   int  threshVal;
   bool silent_debug;
-  bool storeVideo;
   bool AccelerationBounding;
   // std::vector<double> camRot;
   double gamma;  // rotation of camera in the helicopter frame (positive)
