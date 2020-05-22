@@ -127,7 +127,7 @@ add_dependencies(BlinkProcessor ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXP
 # add_executable(uv_follower_node src/follower.cpp include/slider/slider.cpp)
 # add_dependencies(uv_follower_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
-add_executable(uv_reporter_node src/poseReporter.cpp)
+add_executable(uv_reporter_node src/uav_pose_calculator.cpp)
 add_dependencies(uv_reporter_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 add_executable(uvdar_kalman_node src/filter.cpp)
@@ -144,7 +144,7 @@ add_dependencies(uvdar_reprojector_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${ca
 add_library(BluefoxEmulator src/bluefox_emulator.cpp)
 add_dependencies(BluefoxEmulator ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
-add_executable(uvdar_mask_generator_node src/maskGenerator.cpp)
+add_executable(uvdar_mask_generator_node src/mask_generator.cpp)
 add_dependencies(uvdar_mask_generator_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 
