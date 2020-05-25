@@ -33,7 +33,7 @@ public:
     sprintf(calib_path, "%s/include/OCamCalib/config/%s", ros::package::getPath("uvdar").c_str(),_calib_file.c_str());
     get_ocam_model(&oc_model, calib_path);
 
-    ROS_ERROR("[Bluefox emulator]: Calibration came from the file %s.",calib_path);
+    ROS_INFO("[Bluefox emulator]: Calibration came from the file %s.",calib_path);
     
     for (int i=0; i<oc_model.length_pol; i++){
       if (isnan(oc_model.pol[i])){
