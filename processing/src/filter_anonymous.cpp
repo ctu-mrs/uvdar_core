@@ -40,7 +40,8 @@
 #define MAH_THRESH 2.0
 #define YAW_THRESH 1.5
 
-#define MATCH_LEVEL_THRESHOLD 0.3
+#define MATCH_LEVEL_THRESHOLD_ASSOCIATE 0.3
+#define MATCH_LEVEL_THRESHOLD_REMOVE 0.5
 
 using namespace boost::adaptors;
 
@@ -551,7 +552,7 @@ void applyMeasurements(std::vector<std::pair<e::VectorXd,e::MatrixXd>> &measurem
     best_match_level = -1;
     for (int m_i = 0; m_i < (int)(measurements.size()); m_i++) {
       curr_match_level = match_matrix(m_i,f_i);  
-      if ((curr_match_level > MATCH_LEVEL_THRESHOLD) && ( (fd[f_i].update_count > best_update_count) || ((fd[f_i].update_count == best_update_count) && (curr_match_level > best_match_level)) ) ){
+      if ((curr_match_level > MATCH_LEVEL_THRESHOLD_ASSOCIATE) && ( (fd[f_i].update_count > best_update_count) || ((fd[f_i].update_count == best_update_count) && (curr_match_level > best_match_level)) ) ){
         best_match_level = curr_match_level;
         best_index = m_i;
         best_update_count = fd[f_i].update_count;
@@ -563,13 +564,13 @@ void applyMeasurements(std::vector<std::pair<e::VectorXd,e::MatrixXd>> &measurem
       matches.push_back({best_index,f_i});
       /* for (int f_j = f_i+1; f_j < (int)(fd.size()); f_j++) { */
       for (int f_j = 0; f_j < (int)(fd.size()); f_j++) {
-        if (match_matrix(best_index,f_j) > MATCH_LEVEL_THRESHOLD){
+        /* if (match_matrix(best_index,f_j) > MATCH_LEVEL_THRESHOLD_ASSOCIATE){ */
           match_matrix(best_index,f_j) = std::nan("");
-        }
+        /* } */
       }
     }
     for (int m_j = 0; m_j < (int)(measurements.size()); m_j++) {
-      if (match_matrix(m_j,f_i) > MATCH_LEVEL_THRESHOLD){
+      if (match_matrix(m_j,f_i) > MATCH_LEVEL_THRESHOLD_ASSOCIATE){
         match_matrix(m_j,f_i) = std::nan("");
       }
     }
@@ -585,8 +586,10 @@ void applyMeasurements(std::vector<std::pair<e::VectorXd,e::MatrixXd>> &measurem
   }
 
   ROS_INFO_STREAM("[UvdarKalmanAnonymous]: match_matrix post: " << std::endl <<match_matrix);
-  for (int f_i = 0; f_i < (int)(fd.size()); f_i++) {
+  int fd_size_orig = (int)(fd.size());
+  for (int f_i = 0; f_i < fd_size_orig; f_i++) {
     for (int m_i = 0; m_i < (int)(measurements.size()); m_i++) {
+      ROS_INFO_STREAM("[UvdarKalmanAnonymous]: match_matrix at: [" << m_i << ":" << f_i << "] is: " << match_matrix(m_i,f_i));
       if (!isnan(match_matrix(m_i,f_i))){
           initiateNew(measurements[m_i].first, measurements[m_i].second, header.stamp);
        }
@@ -671,7 +674,8 @@ void removeNANs(){
 
 void removeOverlaps(){
   double curr_match_level;
-  for (int i=0; i<(int)(fd.size());i++){
+  for (int i=0; i<((int)(fd.size())-1);i++){
+    bool remove_first = false;
     for (int j=i+1; j<(int)(fd.size()); j++){
        curr_match_level = gaussJointMaxVal(
           fd[i].td.state_x.P.topLeftCorner(3,3),
@@ -679,7 +683,7 @@ void removeOverlaps(){
           fd[i].td.state_x.x.topRows(3),
           fd[j].td.state_x.x.topRows(3)
           );
-      if (curr_match_level > MATCH_LEVEL_THRESHOLD){
+      if (curr_match_level > MATCH_LEVEL_THRESHOLD_REMOVE){
           auto eigens = fd[i].td.state_x.P.topLeftCorner(3,3).eigenvalues();
           double size_i = (eigens.topLeftCorner(3, 1)).norm();
           eigens = fd[j].td.state_x.P.topLeftCorner(3,3).eigenvalues();
@@ -708,10 +712,20 @@ void removeOverlaps(){
 
           }
             fd.erase(fd.begin()+n);
-            n--;
             ROS_INFO_STREAM("[UvdarKalmanAnonymous]: Removing state " << n << ": " << fd[n].td.state_x.x.transpose() << " due to large overlap with state " << m << ": " << fd[m].td.state_x.x.transpose());
+            if (n<m){
+              remove_first=true;
+              break;
+            }
+            else {
+              j--;
+            }
       }
     }
+    if (remove_first){
+      i--;
+    }
+
   }
 }
 
