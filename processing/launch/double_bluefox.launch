@@ -15,16 +15,17 @@
   <arg name="right" default="$(optenv BLUEFOX_UV_RIGHT)"/>
   <arg name="left_camera_name" default="mv_$(arg left)"/>
   <arg name="right_camera_name" default="mv_$(arg right)"/>
+  <arg name="expose_us_left" default="$(optenv BLUEFOX_UV_LEFT_EXPOSE_US)"/>
+  <arg name="expose_us_right" default="$(optenv BLUEFOX_UV_RIGHT_EXPOSE_US)"/>
 
   <arg name="rate" default="100"/>
   <arg name="camera_name" default="bluefox"/>
   <arg name="camera" default="$(arg camera_name)"/>
   <arg name="frame_id" default="$(arg camera)"/>
-  <arg name="calib_url" default="file://$(find mrs_general)/camera_info/bluefox_$(arg uav_name).yaml"/>
+  <arg name="calib_url" default="file://$(find mrs_uav_general)/camera_info/bluefox_$(arg uav_name).yaml"/>
   <arg name="fps" default="$(arg rate)"/>
   <arg name="idpf" default="0"/>
   <arg name="aec" default="false"/>
-  <arg name="expose_us" default="1000"/>
   <arg name="agc" default="false"/>
   <arg name="gain_db" default="0.0"/>
   <arg name="cbm" default="0"/>
@@ -141,7 +142,7 @@
       <param name="fps" type="double" value="$(arg fps)"/>
       <param name="idpf" type="int" value="$(arg idpf)"/>
       <param name="aec" type="bool" value="$(arg aec)"/>
-      <param name="expose_us" type="int" value="$(arg expose_us)"/>
+      <param name="expose_us" type="int" value="$(arg expose_us_left)"/>
       <param name="agc" type="bool" value="$(arg agc)"/>
       <param name="gain_db" type="double" value="$(arg gain_db)"/>
       <param name="cbm" type="int" value="$(arg cbm)"/>
@@ -167,7 +168,7 @@
       <param name="fps" type="double" value="$(arg fps)"/>
       <param name="idpf" type="int" value="$(arg idpf)"/>
       <param name="aec" type="bool" value="$(arg aec)"/>
-      <param name="expose_us" type="int" value="$(arg expose_us)"/>
+      <param name="expose_us" type="int" value="$(arg expose_us_right)"/>
       <param name="agc" type="bool" value="$(arg agc)"/>
       <param name="gain_db" type="double" value="$(arg gain_db)"/>
       <param name="cbm" type="int" value="$(arg cbm)"/>

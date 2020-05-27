@@ -19,7 +19,7 @@
   <arg name="camera_name" default="bluefox"/>
   <arg name="camera" default="$(arg camera_name)"/>
   <arg name="frame_id" default="$(arg camera)"/>
-  <arg name="calib_url" default="file://$(find mrs_general)/camera_info/bluefox_$(arg uav_name).yaml"/>
+  <arg name="calib_url" default="file://$(find mrs_uav_general)/camera_info/bluefox_$(arg uav_name).yaml"/>
   <arg name="fps" default="$(arg rate)"/>
   <arg name="idpf" default="0"/>
   <arg name="aec" default="false"/>
