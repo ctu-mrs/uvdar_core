@@ -588,11 +588,18 @@ void applyMeasurements(std::vector<std::pair<e::VectorXd,e::MatrixXd>> &measurem
   ROS_INFO_STREAM("[UvdarKalmanAnonymous]: match_matrix post: " << std::endl <<match_matrix);
   int fd_size_orig = (int)(fd.size());
   for (int f_i = 0; f_i < fd_size_orig; f_i++) {
+    bool found_unused_measurement = false;
     for (int m_i = 0; m_i < (int)(measurements.size()); m_i++) {
+      if (!found_unused_measurement){
       ROS_INFO_STREAM("[UvdarKalmanAnonymous]: match_matrix at: [" << m_i << ":" << f_i << "] is: " << match_matrix(m_i,f_i));
       if (!isnan(match_matrix(m_i,f_i))){
           initiateNew(measurements[m_i].first, measurements[m_i].second, header.stamp);
-       }
+          found_unused_measurement = true;
+      }
+      else{
+        match_matrix(m_i,f_i) = std::nan("");
+      }
+      }
      }
    }
 
