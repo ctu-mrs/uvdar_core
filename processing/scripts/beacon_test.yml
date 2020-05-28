@@ -51,9 +51,6 @@ windows:
           rosservice call /$UAV_NAME/mavros/set_mode 0 offboard;
           rosservice call /$UAV_NAME/uav_manager/takeoff'
         # #}
-  - flying:
-      layout: even-vertical
-      panes:
   - rviz:
       layout: even-vertical
       panes:
