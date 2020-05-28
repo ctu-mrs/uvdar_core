@@ -113,8 +113,8 @@ add_library(uv_led_detect_fast include/detect/uv_led_detect_fast.cpp)
 target_link_libraries(uv_led_detect_fast 
   debug ${OpenCV_LIBRARIES} ${catkin_LIBRARIES})
 
-add_library(uvdar_detector src/detector.cpp)
-add_dependencies(uvdar_detector ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+add_library(UVDARDetector src/detector.cpp)
+add_dependencies(UVDARDetector ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 add_library(unscented include/unscented/unscented.cpp)
 add_dependencies(unscented ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
@@ -122,14 +122,14 @@ add_dependencies(unscented ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED
 add_library(p3p include/p3p/P3p.cpp)
 add_dependencies(p3p ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
-add_library(uvdar_blink_processor src/blink_processor.cpp)
-add_dependencies(uvdar_blink_processor ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+add_library(UVDARBlinkProcessor src/blink_processor.cpp)
+add_dependencies(UVDARBlinkProcessor ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 # add_executable(uv_follower_node src/follower.cpp include/slider/slider.cpp)
 # add_dependencies(uv_follower_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
-add_executable(uvdar_pose_reporter_node src/uav_pose_calculator.cpp)
-add_dependencies(uvdar_pose_reporter_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+add_executable(uvdar_uav_pose_calculator_node src/uav_pose_calculator.cpp)
+add_dependencies(uvdar_uav_pose_calculator_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 add_executable(uvdar_kalman_node src/filter.cpp)
 add_dependencies(uvdar_kalman_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
@@ -142,8 +142,8 @@ add_dependencies(uvdar_kalman_anonymous_node ${${PROJECT_NAME}_EXPORTED_TARGETS}
 add_executable(uvdar_reprojector_node src/reprojector.cpp)
 add_dependencies(uvdar_reprojector_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
-add_library(uvdar_bluefox_emulator src/bluefox_emulator.cpp)
-add_dependencies(uvdar_bluefox_emulator ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+add_library(UVDARBluefoxEmulator src/bluefox_emulator.cpp)
+add_dependencies(UVDARBluefoxEmulator ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 add_executable(uvdar_mask_generator_node src/mask_generator.cpp)
 add_dependencies(uvdar_mask_generator_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
@@ -153,13 +153,13 @@ add_dependencies(uvdar_frequency_setter_node ${${PROJECT_NAME}_EXPORTED_TARGETS}
 
 add_custom_target(headers SOURCES ${HEADER_FILES} ${LAUNCHER_FILES} ${YAML_FILES})
 
-target_link_libraries(uvdar_detector
+target_link_libraries(UVDARDetector
   ${catkin_LIBRARIES}
   ${OpenCV_LIBRARIES}
   uv_led_detect_fast
   )
 
-target_link_libraries(uvdar_blink_processor
+target_link_libraries(UVDARBlinkProcessor
   ${catkin_LIBRARIES}
   ${OpenCV_LIBRARIES}
   ht4dbt
@@ -173,7 +173,7 @@ target_link_libraries(uvdar_blink_processor
 #   unscented
 #   )
 
-target_link_libraries(uvdar_pose_reporter_node
+target_link_libraries(uvdar_uav_pose_calculator_node
   ${catkin_LIBRARIES}
   ${OpenCV_LIBRARIES}
   ${EIGEN3_LIBRARIES}
@@ -201,7 +201,7 @@ target_link_libraries(uvdar_kalman_anonymous_node
 #   ${EIGEN3_LIBRARIES}
 #   )
 
-target_link_libraries(uvdar_bluefox_emulator
+target_link_libraries(UVDARBluefoxEmulator
   ${catkin_LIBRARIES}
   ${OpenCV_LIBRARIES}
   ${EIGEN3_LIBRARIES}

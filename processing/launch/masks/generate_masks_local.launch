@@ -1,0 +1,79 @@
+<launch>
+  <arg name="uav_name" default="$(optenv UAV_NAME uav2)"/>
+
+  <arg name="standalone" default="false"/>
+
+  <arg unless="$(arg standalone)" name="nodelet" value="load"/>
+  <arg     if="$(arg standalone)" name="nodelet" value="standalone"/>
+  <arg unless="$(arg standalone)" name="nodelet_manager" value="$(arg uav_name)_uvdar_nodelet_manager"/>
+  <arg     if="$(arg standalone)" name="nodelet_manager" value=""/>
+
+  <arg name="threshold" default="50"/>
+
+  <arg name="left" default="$(optenv BLUEFOX_UV_LEFT)"/>
+  <arg name="right" default="$(optenv BLUEFOX_UV_RIGHT)"/>
+  <arg name="left_camera_name" default="mv_$(arg left)"/>
+  <arg name="right_camera_name" default="mv_$(arg right)"/>
+
+  <arg name="rate" default="100"/>
+  <arg name="camera_name" default="bluefox"/>
+  <arg name="camera" default="$(arg camera_name)"/>
+  <arg name="frame_id" default="$(arg camera)"/>
+  <arg name="calib_url" default="file://$(find mrs_uav_general)/camera_info/bluefox_$(arg uav_name).yaml"/>
+  <arg name="fps" default="$(arg rate)"/>
+  <arg name="idpf" default="0"/>
+  <arg name="aec" default="false"/>
+  <arg name="expose_us" default="1000"/>
+  <arg name="agc" default="false"/>
+  <arg name="gain_db" default="0.0"/>
+  <arg name="cbm" default="0"/>
+  <arg name="ctm" default="1"/>
+  <arg name="dcfm" default="0"/>
+  <arg name="hdr" default="false"/>
+  <arg name="wbp" default="-1"/>
+  <arg name="request" default="0"/>
+  <arg name="mm" default="0"/>
+  <arg name="jpeg_quality" default="90"/>
+
+
+  <arg name="useFAST" default="true"/>
+
+  <arg name="frameNatoName" default="$(optenv NATO_NAME)"/>
+
+  <!-- Node Settings -->
+  <arg name="output" default="screen"/>
+  <arg name="proc" default="false"/>
+  <arg name="view" default="false"/>
+  <arg name="calib" default="false"/>
+
+  <arg name="DEBUG" default="false"/>
+  <arg name="gui" default="true"/>
+  <!-- <arg name="gui" default="false"/> -->
+
+  <arg name="trajectoryControl" default="true"/>
+
+  <arg name="expansionSize" default="8"/>
+
+
+  <group ns="$(arg uav_name)">
+
+    <node name="mask_generator" pkg="uvdar" type="uvdar_mask_generator_node" output="screen">
+    <!-- <node name="mask_generator" pkg="uvdar" type="uvdar_mask_generator_node" output="screen" launch-prefix="debug_roslaunch"> -->
+      <param name="uav_name" type = "string" value="$(arg uav_name)"/>
+      <param name="nato_name" type = "string" value="$(arg frameNatoName)"/>
+      <param name="DEBUG"		type="bool" value="$(arg DEBUG)"/> 
+      <param name="GUI"             type="bool" value="$(arg gui)"/>
+      <param name="expansionSize" type="int" value="$(arg expansionSize)"/>
+
+      <rosparam param="maskFileNames" subst_value="True"> ["$(arg left)", "$(arg right)"] </rosparam>
+      <rosparam param="pointsSeenTopics"> ["points_seen_left", "points_seen_right"] </rosparam>
+
+      <remap from="~points_seen_left" to="/$(arg uav_name)/uvdar/points_seen_left"/>
+      <remap from="~points_seen_right" to="/$(arg uav_name)/uvdar/points_seen_right"/>
+    </node>
+
+  </group>
+
+
+  <!-- </group> -->
+</launch>

@@ -1,15 +1,15 @@
-<library path="lib/libUVDetector">
-  <class name="uvdar/UVDetector" type="uvdar::UVDetector" base_class_type="nodelet::Nodelet">
+<library path="lib/libUVDARDetector">
+  <class name="uvdar/UVDARDetector" type="uvdar::UVDetector" base_class_type="nodelet::Nodelet">
     <description>the UV LED detector nodelet</description>
   </class>
 </library>
-<library path="lib/libBlinkProcessor">
-  <class name="uvdar/BlinkProcessor" type="uvdar::BlinkProcessor" base_class_type="nodelet::Nodelet">
+<library path="lib/libUVDARBlinkProcessor">
+  <class name="uvdar/UVDARBlinkProcessor" type="uvdar::BlinkProcessor" base_class_type="nodelet::Nodelet">
     <description>the UVDAR blinking marker processing nodelet</description>
   </class>
 </library>
-<library path="lib/libBluefoxEmulator">
-  <class name="uvdar/BluefoxEmulator" type="uvdar::BluefoxEmulator" base_class_type="nodelet::Nodelet">
+<library path="lib/libUVDARBluefoxEmulator">
+  <class name="uvdar/UVDARBluefoxEmulator" type="uvdar::BluefoxEmulator" base_class_type="nodelet::Nodelet">
     <description>the UV filtered Bluefox camera emulator nodelet</description>
   </class>
 </library>

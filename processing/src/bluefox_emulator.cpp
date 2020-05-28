@@ -20,7 +20,7 @@
 namespace enc = sensor_msgs::image_encodings;
 
 namespace uvdar {
-class BluefoxEmulator : public nodelet::Nodelet{
+class UVDARBluefoxEmulator : public nodelet::Nodelet{
 public:
 
   void onInit() {
@@ -48,7 +48,7 @@ public:
     /* std::vector<std::string> _virtual_points_topics; */
     /* nh_.param("virtualPointsTopics", _virtual_points_topics, _virtual_points_topics); */
     if (_camera_output_topics.empty()) {
-      ROS_WARN("[BluefoxEmulator]: No topics of cameraOutputTopics were supplied");
+      ROS_WARN("[UVDARBluefoxEmulator]: No topics of cameraOutputTopics were supplied");
     }
     // Create callbacks for each camera
     virtualPointsCallbacks.resize(_camera_output_topics.size());
@@ -73,7 +73,7 @@ public:
     ROS_INFO("[Bluefox emulator]: initialized");
   }
 
-  ~BluefoxEmulator() {
+  ~UVDARBluefoxEmulator() {
   }
 
 private:
@@ -135,7 +135,7 @@ private:
 /* int main(int argc, char** argv) { */
 /*   ros::init(argc, argv, "uv_marker_detector"); */
 /*   ros::NodeHandle nodeA; */
-/*   UVDetector   uvd(nodeA); */
+/*   UVDARDetector   uvd(nodeA); */
 
 /*   ROS_INFO("UV LED marker detector node initiated"); */
 
@@ -146,4 +146,4 @@ private:
 
 } //namespace uvdar
 #include <pluginlib/class_list_macros.h>
-PLUGINLIB_EXPORT_CLASS(uvdar::BluefoxEmulator, nodelet::Nodelet)
+PLUGINLIB_EXPORT_CLASS(uvdar::UVDARBluefoxEmulator, nodelet::Nodelet)

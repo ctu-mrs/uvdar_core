@@ -1,4 +1,3 @@
-
 <launch>
 
   <arg name="uav_name" default="$(optenv UAV_NAME uav3)"/>
@@ -27,7 +26,7 @@
 
   <arg name="threshold" default="180"/>
 
-  <arg name="publishVisualization"         default="false"/>
+  <arg name="publishVisualization"         default="true"/>
   <arg name="visualizationRate"         default="1"/>
 
   <arg name="legacy"         default="False"/>
@@ -57,14 +56,12 @@
   <arg name="mm" default="0"/>
   <arg name="jpeg_quality" default="90"/>
 
-  <arg name="processRate" default="20"/>
+  <arg name="processRate" default="10"/>
 
   <arg name="accumulatorLength"         default="23"/>
-  <arg name="pitchSteps"         default="12"/>
-  <arg name="yawSteps"         default="16"/>
+  <arg name="pitchSteps"         default="16"/>
+  <arg name="yawSteps"         default="8"/>
   <arg name="maxPixelShift"         default="2"/>
-  <arg name="reasonableRadius"         default="3"/>
-  <arg name="nullifyRadius"         default="8"/>
 
   <arg name="filterDistLength"         default="10"/>
   <arg name="filterOrientationLength"         default="10"/>
@@ -90,6 +87,8 @@
   <arg name="FromCamera" default="true"/>
   <arg name="FromVideo" default="false"/>
   <arg name="VideoNumber" default="9"/>
+  <arg name="cellSize" default="64"/>
+  <arg name="cellOverlay" default="16"/>
   <arg name="surroundRadius" default="3"/>
   <arg name="camNum" default="0"/>
   <arg name="useFAST" default="true"/>
@@ -103,87 +102,28 @@
       <!-- <origin xyz="0.108 0 0.085" rpy="1.57079632679 4.71238898038 1.57079632679" /> -->
   <!--Usage: static_transform_publisher x y z yaw pitch roll frame_id child_frame_id  period(milliseconds)-->
 <!-- OR -->
-  <node
-    name="body_uvcam_tf"
-    pkg="tf"
-    type="static_transform_publisher"
-    args="0.09 0.04 0.2 -1.57079632679 0.00000000000 -1.57079632679 fcu_$(arg uav_name) uvcam_$(arg uav_name) 100"/>
-
   <group ns="$(arg uav_name)">
-    <node pkg="nodelet" type="nodelet" name="$(arg nodelet_manager)" args="manager" output="screen">
-    <!-- <node pkg="nodelet" type="nodelet" name="$(arg nodelet_manager)" args="manager" output="screen" launch-prefix="debug_roslaunch"> -->
-      <param name="num_worker_threads" value="8" />
-    </node>
   
-    <node name="blink_processor" pkg="nodelet" type="nodelet" args="$(arg nodelet) uvdar/BlinkProcessor $(arg nodelet_manager)" output="screen" respawn="true" launch-prefix="bash -c 'sleep 5; $0 $@'"> 
-        <!-- <param name="DEBUG"		type="bool" value="true"/> --> 
-        <param name="DEBUG"		type="bool" value="$(arg DEBUG)"/> 
-        <param name="VisDEBUG"		type="bool" value="$(arg VisDEBUG)"/> 
-        <param name="GUI"             type="bool" value="$(arg gui)"/>
-        <param name="CameraImageCompressed"    type="bool" value="false"/>
-        <param name="InvertedPoints"    type="bool" value="false"/>
-        <param name="frequencyCount" type="int" value="2"/>
-        <param name="frequency1" type="int" value="15"/>
-        <param name="frequency2" type="int" value="30"/>
-  
-
-        <param name="publishVisualization"         type="bool" value="$(arg publishVisualization)"/>
-        <param name="visualizationRate"         type="int" value="$(arg visualizationRate)"/>
- 
-
-      <param name="processRate"         type="int" value="$(arg processRate)"/>
-
-      <param name="accumulatorLength"         type="int" value="$(arg accumulatorLength)"/>
-      <param name="pitchSteps"         type="int" value="$(arg pitchSteps)"/>
-      <param name="yawSteps"         type="int" value="$(arg yawSteps)"/>
-      <param name="maxPixelShift"         type="int" value="$(arg maxPixelShift)"/>
-      <param name="reasonableRadius"         type="int" value="$(arg reasonableRadius)"/>
-      <param name="nullifyRadius"         type="int" value="$(arg nullifyRadius)"/>
-      <param name="returnFrequencies"         type="bool" value="true"/>
-      <param name="UseCameraForVisualization"         type="bool" value="false"/>
-
-      <param name="legacy" type="bool" value="false"/>
-
-      <rosparam param="cameraTopics"> ["camera"] </rosparam>
-      <rosparam param="pointsSeenTopics"> ["pointsSeen"] </rosparam>
-      <rosparam param="blinkersSeenTopics"> ["blinkersSeen"] </rosparam>
-      <rosparam param="estimatedFramerateTopics"> ["estimatedFramerate"] </rosparam>
-
-      <remap from="~camera" to="/$(arg uav_name)/uvdar_bluefox/image_raw"/>
-      <remap from="~pointsSeen" to="/$(arg uav_name)/uvdar/uvPointsSeen"/>
-      <remap from="~blinkersSeen" to="/$(arg uav_name)/uvdar/blinkersSeen"/>
-      <remap from="~estimatedFramerate" to="/$(arg uav_name)/uvdar/estimatedFramerate"/>
-      <remap from="~visualization" to="/$(arg uav_name)/uvdar/blink_visualization/image_raw"/>
-
-
-      </node>
       
-    <!-- <node name="uv_reporter_node" pkg="uvdar" type="uv_reporter_node" output="screen" launch-prefix="debug_roslaunch"> --> 
-    <node name="uv_reporter_node" pkg="uvdar" type="uv_reporter_node" output="screen"> 
+    <!-- <node name="uvdar_uav_pose_calculator_node" pkg="uvdar" type="uvdar_uav_pose_calculator_node" output="screen" launch-prefix="debug_roslaunch"> --> 
+    <node name="uvdar_uav_pose_calculator_node" pkg="uvdar" type="uvdar_uav_pose_calculator_node" output="screen"> 
       <param name="uav_name" type = "string" value="$(arg uav_name)"/>
 
       <param name="DEBUG"		type="bool" value="false"/> 
       <param name="gui"             type="bool" value="$(arg gui)"/>
       <param name="publish"         type="bool" value="$(arg publish)"/>
       <param name="frequenciesPerTarget" type="int" value="2"/>
-      <param name="targetCount" type="int" value="1"/>
+      <param name="targetCount" type="int" value="2"/>
       <param name="calib_file" type="string" value="$(arg calib_file_uv)"/>
+      <param name="mask_file" type="string" value="$(arg mask_file)"/>
 
-      <param name="frequency1" type="int" value="15"/>
-      <param name="frequency2" type="int" value="30"/>
-
-      <param name="legacy" type="bool" value="false"/>
+      <param name="legacy" type="bool" value="$(arg legacy)"/>
       <param name="legacy_delay" type="double" value="$(arg legacy_delay)"/>
 
-      <rosparam param="calibFiles" subst_value="true"> ["calib_results_bf_uv_fe.txt"] </rosparam>
-      <rosparam param="blinkersSeenTopics"> ["blinkersSeen"] </rosparam>
-      <rosparam param="estimatedFramerateTopics"> ["estimatedFramerate"] </rosparam>
-      <rosparam param="cameraFrames" subst_value="true"> ["uvcam_$(arg uav_name)"] </rosparam>
-
-      <remap from="~blinkersSeen" to="/$(arg uav_name)/uvdar/blinkersSeen"/>
-      <remap from="~estimatedFramerate" to="/$(arg uav_name)/uvdar/estimatedFramerate"/>
-      <remap from="~measuredPose1" to="/$(arg uav_name)/uvdar/measuredPose1"/>
-      <remap from="~measuredPose2" to="/$(arg uav_name)/uvdar/measuredPose2"/>
+      <remap from="blinkersSeen" to="/$(arg uav_name)/uvdar/blinkersSeen"/>
+      <remap from="estimatedFramerate" to="/$(arg uav_name)/uvdar/estimatedFramerate"/>
+      <remap from="measuredPose1" to="/$(arg uav_name)/uvdar/measuredPose1"/>
+      <remap from="measuredPose2" to="/$(arg uav_name)/uvdar/measuredPose2"/>
     </node>
 
 

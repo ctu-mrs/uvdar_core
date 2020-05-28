@@ -27,7 +27,7 @@
 namespace enc = sensor_msgs::image_encodings;
 
 namespace uvdar {
-class UVDetector : public nodelet::Nodelet{
+class UVDARDetector : public nodelet::Nodelet{
 public:
 
   void onInit() {
@@ -63,7 +63,7 @@ public:
       pitchRate = 0.0;
       rollRate  = 0.0;
       /* listener = new tf::TransformListener(); */
-      TiltSubscriber = nh_.subscribe("imu", 1, &UVDetector::TiltCallback, this, ros::TransportHints().tcpNoDelay());
+      TiltSubscriber = nh_.subscribe("imu", 1, &UVDARDetector::TiltCallback, this, ros::TransportHints().tcpNoDelay());
     }
 
     bool ImgCompressed;
@@ -97,7 +97,7 @@ public:
     std::vector<std::string> cameraTopics;
     nh_.param("cameraTopics", cameraTopics, cameraTopics);
     if (cameraTopics.empty()) {
-      ROS_ERROR("[UVDetector]: No topics of cameras were supplied");
+      ROS_ERROR("[UVDARDetector]: No topics of cameras were supplied");
     }
 
     nh_.param("useMasksNamed", _use_masks_named_, bool(false));
@@ -131,7 +131,7 @@ public:
       nh_.param("pointsSeenTopics", pointsSeenTopics, pointsSeenTopics);
       // if the number of subscribed topics doesn't match the numbe of published
       if ((FromBag || FromCamera) && pointsSeenTopics.size() != cameraTopics.size()) {
-        ROS_ERROR_STREAM("[UVDetector] The number of cameraTopics (" << cameraTopics.size() 
+        ROS_ERROR_STREAM("[UVDARDetector] The number of cameraTopics (" << cameraTopics.size() 
             << ") is not matching the number of pointsSeenTopics (" << pointsSeenTopics.size() << ")!");
       }
 
@@ -144,10 +144,10 @@ public:
     //}
 
     initialized = true;
-    ROS_INFO("[UVDetector]: initialized");
+    ROS_INFO("[UVDARDetector]: initialized");
   }
 
-  ~UVDetector() {
+  ~UVDARDetector() {
   }
 
 private:
@@ -413,7 +413,7 @@ private:
 /* int main(int argc, char** argv) { */
 /*   ros::init(argc, argv, "uv_marker_detector"); */
 /*   ros::NodeHandle nodeA; */
-/*   UVDetector   uvd(nodeA); */
+/*   UVDARDetector   uvd(nodeA); */
 
 /*   ROS_INFO("UV LED marker detector node initiated"); */
 
@@ -424,4 +424,4 @@ private:
 
 } //namespace uvdar
 #include <pluginlib/class_list_macros.h>
-PLUGINLIB_EXPORT_CLASS(uvdar::UVDetector, nodelet::Nodelet)
+PLUGINLIB_EXPORT_CLASS(uvdar::UVDARDetector, nodelet::Nodelet)

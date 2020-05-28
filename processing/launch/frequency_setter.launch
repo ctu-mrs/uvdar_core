@@ -33,7 +33,7 @@
 
     </node>
 
-    <node name="uvdar_frequency_setter" pkg="uvdar" type="frequency_setter_node" output="screen" respawn="true">
+    <node name="uvdar_frequency_setter_node" pkg="uvdar" type="uvdar_frequency_setter_node" output="screen" respawn="true">
 
         <!-- Subscriber -->
       <remap from="~frequencies_in" to="~set_frequencies" />
