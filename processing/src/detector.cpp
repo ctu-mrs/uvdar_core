@@ -22,7 +22,7 @@
 #include <thread>
 #include <functional>
 
-#include "detect/uvLedDetect_fast.h"
+#include "detect/uv_led_detect_fast.h"
 
 namespace enc = sensor_msgs::image_encodings;
 
