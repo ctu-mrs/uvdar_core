@@ -78,6 +78,7 @@ add_message_files(DIRECTORY msg FILES
   Int32MultiArrayStamped.msg
   DistRange.msg
   DistRangeVector.msg
+  FrequencySet.msg
   )
 
 generate_messages(DEPENDENCIES
@@ -147,6 +148,8 @@ add_dependencies(BluefoxEmulator ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EX
 add_executable(uvdar_mask_generator_node src/mask_generator.cpp)
 add_dependencies(uvdar_mask_generator_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
+add_executable(frequency_setter_node src/frequency_setter.cpp)
+add_dependencies(frequency_setter_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 add_custom_target(headers SOURCES ${HEADER_FILES} ${LAUNCHER_FILES} ${YAML_FILES})
 
@@ -218,5 +221,9 @@ target_link_libraries(uvdar_mask_generator_node
   ${catkin_LIBRARIES}
   ${OpenCV_LIBRARIES}
   ${EIGEN3_LIBRARIES}
+  )
+
+target_link_libraries(frequency_setter_node
+  ${catkin_LIBRARIES}
   )
 
