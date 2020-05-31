@@ -285,13 +285,13 @@ private:
         msg_sun.stamp = image->header.stamp;
         msg_sun.layout.dim.push_back(std_msgs::MultiArrayDimension());
         msg_sun.layout.dim.push_back(std_msgs::MultiArrayDimension());
-        msg_sun.layout.dim[0].size   = outvec.size();
+        msg_sun.layout.dim[0].size   = sun_points.size();
         msg_sun.layout.dim[0].label  = "count";
-        msg_sun.layout.dim[0].stride = outvec.size() * 3;
+        msg_sun.layout.dim[0].stride = sun_points.size() * 3;
         msg_sun.layout.dim[1].size   = 3;
         msg_sun.layout.dim[1].label  = "value";
         msg_sun.layout.dim[1].stride = 3;
-        for (int i = 0; i < (int)(outvec.size()); i++) {
+        for (int i = 0; i < (int)(sun_points.size()); i++) {
           convert.push_back(sun_points[i].x);
           convert.push_back(sun_points[i].y);
           convert.push_back(0);
