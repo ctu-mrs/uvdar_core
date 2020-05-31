@@ -115,6 +115,8 @@
       <remap from="~camera_right" to="/$(arg uav_name)/uvdar_bluefox_right/image_raw"/>
       <remap from="~points_seen_left" to="/$(arg uav_name)/uvdar/points_seen_left"/>
       <remap from="~points_seen_right" to="/$(arg uav_name)/uvdar/points_seen_right"/>
+      <remap from="~points_seen_left/sun" to="/$(arg uav_name)/uvdar/points_seen_left/sun"/>
+      <remap from="~points_seen_right/sun" to="/$(arg uav_name)/uvdar/points_seen_right/sun"/>
 
       <remap from="~odometry" to="/$(arg uav_name)/mrs_odometry/new_odom"/>
       <remap from="~imu" to="mavros/imu/data"/>

@@ -11,7 +11,7 @@ public:
   uvLedDetect_fast();
   void addMask(cv::Mat i_mask);
 
-  std::vector< cv::Point2i > processImage(const cv::Mat *imCurr_t, const cv::Mat *imView_t, bool i_gui = true, bool i_debug = true,  int threshVal = 200, int mask_id=-1);
+  std::vector< cv::Point2i > processImage(const cv::Mat *imCurr_t, const cv::Mat *imView_t, std::vector<cv::Point2i> sunPoint, bool i_gui = true, bool i_debug = true,  int threshVal = 200, int mask_id=-1);
 
 
   bool initialized;

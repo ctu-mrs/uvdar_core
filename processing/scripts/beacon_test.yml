@@ -29,27 +29,30 @@ windows:
         - export UAV_NAME=uav1; waitForOdometry; roslaunch mrs_uav_general core.launch config_mpc_tracker:=./custom_configs/mpc_tracker.yaml
         - export UAV_NAME=uav2; waitForOdometry; roslaunch mrs_uav_general core.launch config_mpc_tracker:=./custom_configs/mpc_tracker.yaml
         - export UAV_NAME=uav3; waitForOdometry; roslaunch mrs_uav_general core.launch config_mpc_tracker:=./custom_configs/mpc_tracker.yaml
+  - autostart:
+      layout: even-vertical
+      panes:
+        - export UAV_NAME=uav1; waitForSimulation; roslaunch mrs_uav_general automatic_start.launch
+        - export UAV_NAME=uav2; waitForSimulation; roslaunch mrs_uav_general automatic_start.launch
+        - export UAV_NAME=uav3; waitForSimulation; roslaunch mrs_uav_general automatic_start.launch
   - takeoff:
       layout: even-vertical
       panes:
         - 'export UAV_NAME=uav1;
           waitForControl;
-          rosservice call /$UAV_NAME/control_manager/motors 1;
           rosservice call /$UAV_NAME/mavros/cmd/arming 1;
-          rosservice call /$UAV_NAME/mavros/set_mode 0 offboard;
-          rosservice call /$UAV_NAME/uav_manager/takeoff'
+          sleep 0.1;
+          rosservice call /$UAV_NAME/mavros/set_mode 0 offboard'
         - 'export UAV_NAME=uav2;
           waitForControl;
-          rosservice call /$UAV_NAME/control_manager/motors 1;
           rosservice call /$UAV_NAME/mavros/cmd/arming 1;
-          rosservice call /$UAV_NAME/mavros/set_mode 0 offboard;
-          rosservice call /$UAV_NAME/uav_manager/takeoff'
+          sleep 0.1;
+          rosservice call /$UAV_NAME/mavros/set_mode 0 offboard'
         - 'export UAV_NAME=uav3;
           waitForControl;
-          rosservice call /$UAV_NAME/control_manager/motors 1;
           rosservice call /$UAV_NAME/mavros/cmd/arming 1;
-          rosservice call /$UAV_NAME/mavros/set_mode 0 offboard;
-          rosservice call /$UAV_NAME/uav_manager/takeoff'
+          sleep 0.1;
+          rosservice call /$UAV_NAME/mavros/set_mode 0 offboard'
         # #}
   - rviz:
       layout: even-vertical
@@ -64,6 +67,10 @@ windows:
       layout: even-vertical
       panes:
         - export UAV_NAME=uav1; waitForControl; roslaunch uvdar uvdar_kalman_anonymous.launch frame:=$UAV_NAME/stable_origin
+  - slow_down:
+      layout: even-vertical
+      panes:
+        - waitForSimulation; waitForRos; sleep 15; gz physics -u 100
   - goto:
       layout: even-vertical
       panes:

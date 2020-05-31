@@ -36,10 +36,10 @@ public:
 
     nh_.param("uav_name", uav_name, std::string());
 
-    nh_.param("justReport", justReport, false);
+    /* nh_.param("justReport", justReport, false); */
     nh_.param("threshold", threshVal, 200);
-    if (justReport)
-      ROS_INFO("Thresh: %d", threshVal);
+    /* if (justReport) */
+    /*   ROS_INFO("Thresh: %d", threshVal); */
 
     nh_.param("FromBag", FromBag, bool(true));
     nh_.param("FromCamera", FromCamera, bool(false));
@@ -127,7 +127,7 @@ public:
     /* create pubslishers //{ */
 
     std::vector<std::string> pointsSeenTopics;
-    if (justReport) {
+    if (true) {
       nh_.param("pointsSeenTopics", pointsSeenTopics, pointsSeenTopics);
       // if the number of subscribed topics doesn't match the numbe of published
       if ((FromBag || FromCamera) && pointsSeenTopics.size() != cameraTopics.size()) {
@@ -137,6 +137,7 @@ public:
 
       // Create the publishers
       for (size_t i = 0; i < pointsSeenTopics.size(); ++i) {
+        sunPointsPublishers.push_back(nh_.advertise<uvdar::Int32MultiArrayStamped>(pointsSeenTopics[i]+"/sun", 1));
         pointsPublishers.push_back(nh_.advertise<uvdar::Int32MultiArrayStamped>(pointsSeenTopics[i], 1));
       }
     }
@@ -262,8 +263,9 @@ private:
     /* elapsedTime = double(end - begin) / CLOCKS_PER_SEC; */
     /* std::cout << "4: " << elapsedTime << " s" << "f: " << 1.0/elapsedTime << std::endl; */
     /* begin2                             = std::clock(); */
+    std::vector<cv::Point2i> sun_points;
     uvdf_mutex.lock();
-    std::vector<cv::Point2i> outvec = uvdf->processImage(&(image->image), &(image->image), gui, DEBUG, threshVal, _use_masks_named_?imageIndex:-1);
+    std::vector<cv::Point2i> outvec = uvdf->processImage(&(image->image), &(image->image), sun_points, gui, DEBUG, threshVal, _use_masks_named_?imageIndex:-1);
     uvdf_mutex.unlock();
     /* end2         = std::clock(); */
     /* elapsedTime = double(end2 - begin2) / CLOCKS_PER_SEC; */
@@ -276,7 +278,28 @@ private:
       ROS_INFO("Over 30 points received. Skipping noisy image");
       return;
     }
-    else if (justReport) {
+    else {
+      std::vector< int > convert;
+      if ((int)(sun_points.size()) > 0) {
+        uvdar::Int32MultiArrayStamped msg_sun;
+        msg_sun.stamp = image->header.stamp;
+        msg_sun.layout.dim.push_back(std_msgs::MultiArrayDimension());
+        msg_sun.layout.dim.push_back(std_msgs::MultiArrayDimension());
+        msg_sun.layout.dim[0].size   = outvec.size();
+        msg_sun.layout.dim[0].label  = "count";
+        msg_sun.layout.dim[0].stride = outvec.size() * 3;
+        msg_sun.layout.dim[1].size   = 3;
+        msg_sun.layout.dim[1].label  = "value";
+        msg_sun.layout.dim[1].stride = 3;
+        for (int i = 0; i < (int)(outvec.size()); i++) {
+          convert.push_back(sun_points[i].x);
+          convert.push_back(sun_points[i].y);
+          convert.push_back(0);
+        }
+        msg_sun.data = convert;
+        sunPointsPublishers[imageIndex].publish(msg_sun);
+      }
+
       uvdar::Int32MultiArrayStamped msg;
       msg.stamp = image->header.stamp;
       msg.layout.dim.push_back(std_msgs::MultiArrayDimension());
@@ -287,7 +310,7 @@ private:
       msg.layout.dim[1].size   = 3;
       msg.layout.dim[1].label  = "value";
       msg.layout.dim[1].stride = 3;
-      std::vector< int > convert;
+      convert.clear();
       for (int i = 0; i < (int)(outvec.size()); i++) {
         convert.push_back(outvec[i].x);
         convert.push_back(outvec[i].y);
@@ -331,6 +354,7 @@ private:
 
   std::vector<cv::Mat> masks;
 
+  std::vector<ros::Publisher> sunPointsPublishers;
   std::vector<ros::Publisher> pointsPublishers;
 
   tf::TransformListener* listener;
@@ -352,7 +376,6 @@ private:
 
   // Input arguments
   bool DEBUG;
-  bool justReport;
   int  threshVal;
   bool silent_debug;
   bool AccelerationBounding;
