@@ -280,7 +280,7 @@ private:
     }
     else {
       std::vector< int > convert;
-      if ((int)(sun_points.size()) > 0) {
+      /* if ((int)(sun_points.size()) > 0) { */
         uvdar::Int32MultiArrayStamped msg_sun;
         msg_sun.stamp = image->header.stamp;
         msg_sun.layout.dim.push_back(std_msgs::MultiArrayDimension());
@@ -298,7 +298,7 @@ private:
         }
         msg_sun.data = convert;
         sunPointsPublishers[imageIndex].publish(msg_sun);
-      }
+      /* } */
 
       uvdar::Int32MultiArrayStamped msg;
       msg.stamp = image->header.stamp;
