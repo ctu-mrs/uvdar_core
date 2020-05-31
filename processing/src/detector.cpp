@@ -271,35 +271,32 @@ private:
     /* elapsedTime = double(end2 - begin2) / CLOCKS_PER_SEC; */
     /* std::cout << "5: " << elapsedTime << " s" << "f: " << 1.0/elapsedTime << std::endl; */
 
+    std::vector< int > convert;
 
-    /* std::cout <<  outvec << std::endl; */
+    uvdar::Int32MultiArrayStamped msg_sun;
+    msg_sun.stamp = image->header.stamp;
+    msg_sun.layout.dim.push_back(std_msgs::MultiArrayDimension());
+    msg_sun.layout.dim.push_back(std_msgs::MultiArrayDimension());
+    msg_sun.layout.dim[0].size   = sun_points.size();
+    msg_sun.layout.dim[0].label  = "count";
+    msg_sun.layout.dim[0].stride = sun_points.size() * 3;
+    msg_sun.layout.dim[1].size   = 3;
+    msg_sun.layout.dim[1].label  = "value";
+    msg_sun.layout.dim[1].stride = 3;
+    for (int i = 0; i < (int)(sun_points.size()); i++) {
+      convert.push_back(sun_points[i].x);
+      convert.push_back(sun_points[i].y);
+      convert.push_back(0);
+    }
+    msg_sun.data = convert;
+    sunPointsPublishers[imageIndex].publish(msg_sun);
+
 
     if (outvec.size()>30){
       ROS_INFO("Over 30 points received. Skipping noisy image");
       return;
     }
     else {
-      std::vector< int > convert;
-      /* if ((int)(sun_points.size()) > 0) { */
-        uvdar::Int32MultiArrayStamped msg_sun;
-        msg_sun.stamp = image->header.stamp;
-        msg_sun.layout.dim.push_back(std_msgs::MultiArrayDimension());
-        msg_sun.layout.dim.push_back(std_msgs::MultiArrayDimension());
-        msg_sun.layout.dim[0].size   = sun_points.size();
-        msg_sun.layout.dim[0].label  = "count";
-        msg_sun.layout.dim[0].stride = sun_points.size() * 3;
-        msg_sun.layout.dim[1].size   = 3;
-        msg_sun.layout.dim[1].label  = "value";
-        msg_sun.layout.dim[1].stride = 3;
-        for (int i = 0; i < (int)(sun_points.size()); i++) {
-          convert.push_back(sun_points[i].x);
-          convert.push_back(sun_points[i].y);
-          convert.push_back(0);
-        }
-        msg_sun.data = convert;
-        sunPointsPublishers[imageIndex].publish(msg_sun);
-      /* } */
-
       uvdar::Int32MultiArrayStamped msg;
       msg.stamp = image->header.stamp;
       msg.layout.dim.push_back(std_msgs::MultiArrayDimension());

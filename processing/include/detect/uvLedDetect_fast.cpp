@@ -38,7 +38,7 @@ void uvLedDetect_fast::addMask(cv::Mat i_mask){
   m_masks.push_back(i_mask);
 }
 
-std::vector< cv::Point2i > uvLedDetect_fast::processImage(const cv::Mat *i_imCurr,const cv::Mat *i_imView, std::vector<cv::Point2i> sunPoints, bool i_gui, bool i_debug, int threshVal, int mask_id) {
+std::vector< cv::Point2i > uvLedDetect_fast::processImage(const cv::Mat *i_imCurr,const cv::Mat *i_imView, std::vector<cv::Point2i>& sunPoints, bool i_gui, bool i_debug, int threshVal, int mask_id) {
   /* clock_t begin, end; */
   /* double  elapsedTime; */
   /* begin                             = std::clock(); */

@@ -75,8 +75,8 @@
       type="static_transform_publisher"
       args="0.04 -0.11 0.06 -2.792526803 0.0 -1.57079632679 $(arg uav_name)/fcu $(arg uav_name)/uvcam_right 100"/>
 
-    <!-- <node pkg="nodelet" type="nodelet" name="$(arg uav_name)_uvdar_nodelet_manager" args="manager" output="screen" > -->
-    <node pkg="nodelet" type="nodelet" name="$(arg uav_name)_uvdar_nodelet_manager" args="manager" output="screen" launch-prefix="debug_roslaunch">
+    <node pkg="nodelet" type="nodelet" name="$(arg uav_name)_uvdar_nodelet_manager" args="manager" output="screen" >
+    <!-- <node pkg="nodelet" type="nodelet" name="$(arg uav_name)_uvdar_nodelet_manager" args="manager" output="screen" launch-prefix="debug_roslaunch"> -->
       <param name="num_worker_threads" value="8" />
     </node>
 
