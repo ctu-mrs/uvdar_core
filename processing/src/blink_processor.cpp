@@ -595,7 +595,7 @@ private:
         auto* ht3dbt = ht3dbt_trackers[imageIndex];
         BlinkData& data = blinkData[imageIndex];
 
-        int differenceX = (image_width + 2) * imageIndex;
+        int differenceX = (image_width + 1) * imageIndex;
 
         if (use_camera_for_visualization_){
           if (currentImagesReceived[imageIndex])
