@@ -57,13 +57,6 @@
   <arg name="beacon" default="true"/>
   <arg name="beacon_height" default="0.17"/>
 
-  <arg name="left" default="$(optenv BLUEFOX_UV_LEFT)"/>
-  <arg name="right" default="$(optenv BLUEFOX_UV_RIGHT)"/>
-  <arg name="left_camera_name" default="mv_$(arg left)"/>
-  <arg name="right_camera_name" default="mv_$(arg right)"/>
-  <arg name="expose_us_left" default="$(optenv BLUEFOX_UV_LEFT_EXPOSE_US)"/>
-  <arg name="expose_us_right" default="$(optenv BLUEFOX_UV_RIGHT_EXPOSE_US)"/>
-
   <arg name="rate" default="100"/>
   <arg name="fps" default="$(arg rate)"/>
   <arg name="idpf" default="0"/>
