@@ -275,27 +275,86 @@ bool uvLedDetect_fast::miniFAST(cv::Point input, cv::Point& maximum, unsigned ch
 
 
 void uvLedDetect_fast::initFAST() {
+  /* fastPoints.clear(); */
+
+  /* fastPoints.push_back(cv::Point(0, -3)); */
+  /* fastPoints.push_back(cv::Point(0, 3)); */
+  /* fastPoints.push_back(cv::Point(3, 0)); */
+  /* fastPoints.push_back(cv::Point(-3, 0)); */
+
+  /* fastPoints.push_back(cv::Point(2, -2)); */
+  /* fastPoints.push_back(cv::Point(-2, 2)); */
+  /* fastPoints.push_back(cv::Point(-2, -2)); */
+  /* fastPoints.push_back(cv::Point(2, 2)); */
+
+  /* fastPoints.push_back(cv::Point(-1, -3)); */
+  /* fastPoints.push_back(cv::Point(1, 3)); */
+  /* fastPoints.push_back(cv::Point(3, -1)); */
+  /* fastPoints.push_back(cv::Point(-3, 1)); */
+
+  /* fastPoints.push_back(cv::Point(1, -3)); */
+  /* fastPoints.push_back(cv::Point(-1, 3)); */
+  /* fastPoints.push_back(cv::Point(3, 1)); */
+  /* fastPoints.push_back(cv::Point(-3, -1)); */
+
+  /* fastInterior.clear(); */
+
+  /* /1* fastInterior.push_back(cv::Point(-1, -2)); *1/ */
+  /* /1* fastInterior.push_back(cv::Point(0, -2)); *1/ */
+  /* /1* fastInterior.push_back(cv::Point(1, -2)); *1/ */
+
+  /* /1* fastInterior.push_back(cv::Point(-2, -1)); *1/ */
+  /* /1* fastInterior.push_back(cv::Point(-1, -1)); *1/ */
+  /* /1* fastInterior.push_back(cv::Point(0, -1)); *1/ */
+  /* /1* fastInterior.push_back(cv::Point(1, -1)); *1/ */
+  /* /1* fastInterior.push_back(cv::Point(2, -1)); *1/ */
+
+  /* /1* fastInterior.push_back(cv::Point(-2, 0)); *1/ */
+  /* /1* fastInterior.push_back(cv::Point(-1, 0)); *1/ */
+  /* fastInterior.push_back(cv::Point(0, 0)); */
+  /* fastInterior.push_back(cv::Point(1, 0)); */
+  /* fastInterior.push_back(cv::Point(2, 0)); */
+
+  /* /1* fastInterior.push_back(cv::Point(-2, 1)); *1/ */
+  /* /1* fastInterior.push_back(cv::Point(-1, 1)); *1/ */
+  /* fastInterior.push_back(cv::Point(0, 1)); */
+  /* fastInterior.push_back(cv::Point(1, 1)); */
+  /* fastInterior.push_back(cv::Point(2, 1)); */
+
+  /* /1* fastInterior.push_back(cv::Point(-1, 2)); *1/ */
+  /* fastInterior.push_back(cv::Point(0, 2)); */
+  /* fastInterior.push_back(cv::Point(1, 2)); */
   fastPoints.clear();
 
-  fastPoints.push_back(cv::Point(0, -3));
-  fastPoints.push_back(cv::Point(0, 3));
-  fastPoints.push_back(cv::Point(3, 0));
-  fastPoints.push_back(cv::Point(-3, 0));
+  fastPoints.push_back(cv::Point(0, -4));
+  fastPoints.push_back(cv::Point(0, 4));
+  fastPoints.push_back(cv::Point(4, 0));
+  fastPoints.push_back(cv::Point(-4, 0));
 
-  fastPoints.push_back(cv::Point(2, -2));
-  fastPoints.push_back(cv::Point(-2, 2));
-  fastPoints.push_back(cv::Point(-2, -2));
-  fastPoints.push_back(cv::Point(2, 2));
+  fastPoints.push_back(cv::Point(3, -3));
+  fastPoints.push_back(cv::Point(-3, 3));
+  fastPoints.push_back(cv::Point(-3, -3));
+  fastPoints.push_back(cv::Point(3, 3));
 
-  fastPoints.push_back(cv::Point(-1, -3));
-  fastPoints.push_back(cv::Point(1, 3));
-  fastPoints.push_back(cv::Point(3, -1));
-  fastPoints.push_back(cv::Point(-3, 1));
+  fastPoints.push_back(cv::Point(-1, -4));
+  fastPoints.push_back(cv::Point(1, 4));
+  fastPoints.push_back(cv::Point(4, -1));
+  fastPoints.push_back(cv::Point(-4, 1));
 
-  fastPoints.push_back(cv::Point(1, -3));
-  fastPoints.push_back(cv::Point(-1, 3));
-  fastPoints.push_back(cv::Point(3, 1));
-  fastPoints.push_back(cv::Point(-3, -1));
+  fastPoints.push_back(cv::Point(1, -4));
+  fastPoints.push_back(cv::Point(-1, 4));
+  fastPoints.push_back(cv::Point(4, 1));
+  fastPoints.push_back(cv::Point(-4, -1));
+
+  fastPoints.push_back(cv::Point(-2, -4));
+  fastPoints.push_back(cv::Point(2, 4));
+  fastPoints.push_back(cv::Point(4, -2));
+  fastPoints.push_back(cv::Point(-4, 2));
+
+  fastPoints.push_back(cv::Point(2, -4));
+  fastPoints.push_back(cv::Point(-2, 4));
+  fastPoints.push_back(cv::Point(4, 2));
+  fastPoints.push_back(cv::Point(-4, -2));
 
   fastInterior.clear();
 
@@ -314,14 +373,22 @@ void uvLedDetect_fast::initFAST() {
   fastInterior.push_back(cv::Point(0, 0));
   fastInterior.push_back(cv::Point(1, 0));
   fastInterior.push_back(cv::Point(2, 0));
+  fastInterior.push_back(cv::Point(3, 0));
 
   /* fastInterior.push_back(cv::Point(-2, 1)); */
   /* fastInterior.push_back(cv::Point(-1, 1)); */
   fastInterior.push_back(cv::Point(0, 1));
   fastInterior.push_back(cv::Point(1, 1));
   fastInterior.push_back(cv::Point(2, 1));
+  fastInterior.push_back(cv::Point(3, 1));
 
-  /* fastInterior.push_back(cv::Point(-1, 2)); */
   fastInterior.push_back(cv::Point(0, 2));
   fastInterior.push_back(cv::Point(1, 2));
+  fastInterior.push_back(cv::Point(2, 2));
+  fastInterior.push_back(cv::Point(3, 2));
+
+  /* fastInterior.push_back(cv::Point(-1, 2)); */
+  fastInterior.push_back(cv::Point(0, 3));
+  fastInterior.push_back(cv::Point(1, 3));
+  fastInterior.push_back(cv::Point(2, 3));
 }
