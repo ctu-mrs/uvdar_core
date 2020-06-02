@@ -258,7 +258,7 @@
       <remap from="~estimated_framerate_left" to="/$(arg uav_name)/uvdar/estimated_framerate_left"/>
       <remap from="~estimated_framerate_right" to="/$(arg uav_name)/uvdar/estimated_framerate_right"/>
 
-      <rosparam param="calibFiles" subst_value="true"> ["calib_results_bf_uv_fe.txt", "calib_results_bf_uv_fe.txt"] </rosparam>
+      <rosparam param="calibFiles" subst_value="true"> ["calib_results_bf_uv_$(arg left).txt", "calib_results_bf_uv_$(arg right).txt"] </rosparam>
 
       <remap from="~measuredPoses1" to="/$(arg uav_name)/uvdar/measuredPosesL"/>
       <remap from="~measuredPoses2" to="/$(arg uav_name)/uvdar/measuredPosesR"/>
