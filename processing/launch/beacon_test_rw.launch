@@ -154,6 +154,7 @@
         <!-- <node name="uv_detect" pkg="nodelet" type="nodelet" args="$(arg nodelet) uvdar/UVDetector $(arg nodelet_manager)" output="screen" respawn="true" launch-prefix="valgrind -/-tool=callgrind -/-callgrind-out-file=/home/viktor/callgrind.out -/-instr-atstart=no -/-collect-atstart=yes"> --> 
 
       <param name="uav_name" type = "string" value="$(arg uav_name)"/>
+      <param name="nato_name" type = "string" value="$(arg frameNatoName)"/>
       <param name="DEBUG"		type="bool" value="$(arg DEBUG)"/> 
       <param name="gui"             type="bool" value="false"/>
       <param name="Flip"             type="bool" value="false"/>
