@@ -52,7 +52,7 @@
   <arg name="FromCamera" default="true"/>
   <arg name="TimeScale" default="1.0"/>
 
-  <arg name="frameNatoName" default="$(optenv NATO_NAME)"/>
+  <arg name="frameNatoName" default="$(env NATO_NAME)"/>
 
   <arg name="beacon" default="true"/>
   <arg name="beacon_height" default="0.17"/>
