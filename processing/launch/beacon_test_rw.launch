@@ -205,6 +205,9 @@
 
       <param name="processRate"         type="int" value="$(arg processRate)"/>
 
+      <param name="publishVisualization" type="bool" value="true"/>
+      <param name="visualizatoinRate" type="int" value="2"/>
+
       <param name="accumulatorLength"         type="int" value="$(arg accumulatorLength)"/>
       <param name="pitchSteps"         type="int" value="$(arg pitchSteps)"/>
       <param name="yawSteps"         type="int" value="$(arg yawSteps)"/>
