@@ -75,6 +75,8 @@ unscented::measurement unscented::unscentedTransform(e::VectorXd x,e::MatrixXd P
   }
   if (false){
   /* if (true){ */
+    std::cout << "unscented W: "<< std::endl;
+    std::cout << W.transpose() << std::endl;
     std::cout << "unscented X: "<< std::endl;
     std::cout << X << std::endl;
     std::cout << "unscented Y: "<< std::endl;
@@ -83,13 +85,13 @@ unscented::measurement unscented::unscentedTransform(e::VectorXd x,e::MatrixXd P
   e::Vector3d mr;
     mr << 0,0,0;
   /* mr = [0;0;0]; */
-  for (int i=3; i<6; i++){
-    if (abs(angdiff(Y(i),M_PI))<(M_PI/2)){
-      /* Y.row(i)=mod(Y.row(i),2*M_PI); */
-      Y.row(i) = Y.row(i).unaryExpr([](double x) { return fmod(x,(2*M_PI)); });
-      mr(i-3)=1;
-    }
-  }
+  /* for (int i=3; i<6; i++){ */
+  /*   if (abs(angdiff(Y(i),M_PI))<(M_PI/2)){ */
+  /*     /1* Y.row(i)=mod(Y.row(i),2*M_PI); *1/ */
+  /*     Y.row(i) = Y.row(i).unaryExpr([](double x) { return fmod(x,(2*M_PI)); }); */
+  /*     mr(i-3)=1; */
+  /*   } */
+  /* } */
   e::VectorXd y = Y*W;
   /* if (norm(y(1:3)-Y(1:3,1))>1) */
   // if (true)
@@ -111,10 +113,10 @@ unscented::measurement unscented::unscentedTransform(e::VectorXd x,e::MatrixXd P
   e::MatrixXd Py = ((Ye*W.asDiagonal())*Ye.transpose());
 
   for (int i=0; i<3; i++){
-    if (mr(i)==1){
+    /* if (mr(i)==1){ */
       if (y(3+i)>M_PI){
         y(3+i)=-2*M_PI+y(3+i);
-      }
+      /* } */
     }
   }
   struct measurement output;

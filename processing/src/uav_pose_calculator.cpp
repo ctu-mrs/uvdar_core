@@ -1440,10 +1440,13 @@ private:
 
 
       double relyaw = 4*ambig;
+        /* ROS_INFO_STREAM("[0]"); */
       if (expFrequencies.size() == 2){
-        if (fabs(expFrequencies[1] - expFrequencies[0]) > 1.0)
+        /* ROS_INFO_STREAM("[A]"); */
+        if (fabs(expFrequencies[0] - expFrequencies[0]) > 1.0)
         {
-          if ((id(0)==ids[0]))
+        /* ROS_INFO_STREAM("[B]"); */
+          if (id(0)==ids[0])
             relyaw= (M_PI_2) + ambig;
           else
             relyaw= (-M_PI_2) + ambig;
