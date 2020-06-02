@@ -73,6 +73,18 @@ unscented::measurement unscented::unscentedTransform(e::VectorXd x,e::MatrixXd P
     /* std::cout << "unscented X[" << i << "]: " << X.col(i) << std::endl; */
     Y.col(i)=fcn(X.col(i),expFrequencies, camera_index); //this is weird, check please
   }
+  int nan_index = -1;
+  int nan_count = 0;
+  for (int i=0; i<(1+2*L); i++){
+    if (Y.col(i).array().isNaN().any()){
+      nan_count++;
+      nan_index = i;
+    }
+  }
+
+  if (nan_count == 1){
+    Y.col(nan_index) = Y.col(0);
+  }
   if (false){
   /* if (true){ */
     std::cout << "unscented W: "<< std::endl;

@@ -273,6 +273,7 @@ class UvdarKalmanAnonymous {
       poseVec(4) = fixAngle(quatToPitch(qtemp), 0);
       poseVec(5) = fixAngle(quatToYaw(qtemp), 0);
 
+      ROS_INFO_STREAM("[UvdarKalmanAnonymous]: Transformed measurement input is: [" << poseVec.transpose() << "]");
       if (poseVec.array().isNaN().any()){
         ROS_INFO("[UvdarKalmanAnonymous]: Discarding input, it includes Nans.");
         return;
@@ -409,6 +410,27 @@ void initiateNew(e::VectorXd x, e::MatrixXd C, ros::Time stamp){
   /* ROS_INFO("[%s]: HERE G", ros::this_node::getName().c_str()); */
   if (fd.size() > 20)
     return;
+
+  bool changed = false;
+  auto eigens = C.topLeftCorner(3,3).eigenvalues();
+  for (int i=0; i<3; i++){
+    if (eigens(i).real() > (x.topLeftCorner(3,1).norm())){
+      eigens(i) = (x.topLeftCorner(3,1).norm())*1.0;
+      changed = true;
+    }
+  }
+
+  if (changed){
+    e::EigenSolver<e::Matrix3d> es(C.topLeftCorner(3,3));
+    C.topLeftCorner(3,3) = es.eigenvectors().real()*eigens.real().asDiagonal()*es.eigenvectors().real().transpose();
+    //so that we don't initialize with the long covariances intersecting in the origin
+  }
+
+  /* double size_cov = (eigens.topLeftCorner(3, 1)).norm(); */
+  /* if (size_cov > 3.0){ */
+  /*   return; //mainly to avoid initializing with single point measurements */
+  /* } */
+
   int index = (int)(fd.size());
   ROS_INFO_STREAM("[UvdarKalmanAnonymous]: Initiating state " << index << "  with: " << x.transpose());
 

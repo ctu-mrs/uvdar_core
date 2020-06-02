@@ -1369,6 +1369,7 @@ private:
       b = cv::Point3d(X(2),X(3),X(4));
       double tilt_par=X(5); //tilt about the line of sight
       double tilt_perp=X(6);//basically pitch wrt the line of sight
+      tilt_perp = std::fmin(std::fmax(tilt_perp,-(M_PI_2/2.0)),(M_PI_2/2.0));
 
       double ambig=X(7);
 
