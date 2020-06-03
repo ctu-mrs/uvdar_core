@@ -50,7 +50,7 @@ input=(
 '
   'uvdar_beacon' 'waitForRos; roslaunch uvdar beacon_test_rw.launch gui:=false
 '
-  'uvdar_kalman_anon' 'waitForRos; roslaunch uvdar uvdar_kalman_anonymous.launch
+  'uvdar_kalman_anon' 'waitForRos; roslaunch uvdar uvdar_kalman_anonymous.launch frame:='"$UAV_NAME"'/gps_origin
 '
 )
 
