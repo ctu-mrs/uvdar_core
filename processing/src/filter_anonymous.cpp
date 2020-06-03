@@ -415,7 +415,7 @@ void initiateNew(e::VectorXd x, e::MatrixXd C, ros::Time stamp){
   auto eigens = C.topLeftCorner(3,3).eigenvalues();
   for (int i=0; i<3; i++){
     if (eigens(i).real() > (x.topLeftCorner(3,1).norm())){
-      eigens(i) = (x.topLeftCorner(3,1).norm())*1.0;
+      eigens(i) = 5.0;
       changed = true;
     }
   }
@@ -423,6 +423,7 @@ void initiateNew(e::VectorXd x, e::MatrixXd C, ros::Time stamp){
   if (changed){
     e::EigenSolver<e::Matrix3d> es(C.topLeftCorner(3,3));
     C.topLeftCorner(3,3) = es.eigenvectors().real()*eigens.real().asDiagonal()*es.eigenvectors().real().transpose();
+    x.topLeftCorner(3,1) = x.topLeftCorner(3,1).normalized()*15;
     //so that we don't initialize with the long covariances intersecting in the origin
   }
 
@@ -610,20 +611,19 @@ void applyMeasurements(std::vector<std::pair<e::VectorXd,e::MatrixXd>> &measurem
   ROS_INFO_STREAM("[UvdarKalmanAnonymous]: match_matrix post: " << std::endl <<match_matrix);
   int fd_size_orig = (int)(fd.size());
   for (int f_i = 0; f_i < fd_size_orig; f_i++) {
-    bool found_unused_measurement = false;
     for (int m_i = 0; m_i < (int)(measurements.size()); m_i++) {
-      if (!found_unused_measurement){
-        ROS_INFO_STREAM("[UvdarKalmanAnonymous]: match_matrix at: [" << m_i << ":" << f_i << "] is: " << match_matrix(m_i,f_i));
-        if (!isnan(match_matrix(m_i,f_i))){
-          initiateNew(measurements[m_i].first, measurements[m_i].second, header.stamp);
-          found_unused_measurement = true;
+      ROS_INFO_STREAM("[UvdarKalmanAnonymous]: match_matrix at: [" << m_i << ":" << f_i << "] is: " << match_matrix(m_i,f_i));
+      if (!isnan(match_matrix(m_i,f_i))){
+        initiateNew(measurements[m_i].first, measurements[m_i].second, header.stamp);
+        for (int f_j = 0; f_j < fd_size_orig; f_j++) {
+          match_matrix(m_i,f_j) = std::nan("");
+        }
+        for (int m_j = 0; m_j < (int)(measurements.size()); m_j++) {
+          match_matrix(m_j,f_i) = std::nan("");
         }
       }
-      else{
-        match_matrix(m_i,f_i) = std::nan("");
-      }
     }
-   }
+  }
 
     /* ROS_INFO("[%s]: HERE E", ros::this_node::getName().c_str()); */
 }

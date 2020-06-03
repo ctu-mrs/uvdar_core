@@ -11,6 +11,8 @@
 
 #define qpix 1
 //pixel std. dev
+//
+#define TUBE_LENGTH (_beacon_?10:1000)
 
 
 /* #include <std_srvs/Trigger.h> */
@@ -2415,7 +2417,7 @@ private:
           /* std::cout << "led: " << points[0] << std::endl; */
 
 
-          ms = uvdarHexarotorPose1p_meas(Eigen::Vector2d(points[0].x,points[0].y),_arm_length_, 1000,10.0, imageIndex);
+          ms = uvdarHexarotorPose1p_meas(Eigen::Vector2d(points[0].x,points[0].y),_arm_length_, (TUBE_LENGTH),10.0, imageIndex);
 
 
           foundTarget = true;
@@ -2445,6 +2447,13 @@ private:
         ROS_INFO_STREAM("Y: \n" << ms.x );
         ROS_INFO_STREAM("Py: \n" << ms.C );
       }
+      if (ms.x.topLeftCorner(3,1).norm() < 1.5)
+        return;
+
+      e::Vector3d unit_vec;
+      unit_vec << 0,0,1.0;
+      if (acos(ms.x.topLeftCorner(3,1).normalized().dot(unit_vec)) > rad2deg(190))
+        return;
       /* std::cout << "Py: " << ms.C << std::endl; */
       /* } */
 
