@@ -78,8 +78,8 @@
 <!-- OR -->
   <group ns="$(arg uav_name)">
 
-    <include file="$(find uvdar)/extrinsics/$(arg frameNatoName)_left.xml" />
-    <include file="$(find uvdar)/extrinsics/$(arg frameNatoName)_right.xml" />
+    <include file="$(find uvdar)/extrinsics/$(arg frameNatoName)_left.xml" pass_all_args="true" />
+    <include file="$(find uvdar)/extrinsics/$(arg frameNatoName)_right.xml" pass_all_args="true" />
 
     <node pkg="nodelet" type="nodelet" name="$(arg uav_name)_uvdar_nodelet_manager" args="manager" output="screen" >
     <!-- <node pkg="nodelet" type="nodelet" name="$(arg uav_name)_uvdar_nodelet_manager" args="manager" output="screen" launch-prefix="debug_roslaunch"> -->
