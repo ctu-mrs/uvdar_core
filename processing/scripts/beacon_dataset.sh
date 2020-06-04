@@ -54,7 +54,7 @@ input=(
 '
   'frequency_setter' 'waitForRos; roslaunch uvdar frequency_setter.launch
 '
-  'frequency_setter' 'waitForRos; sleep 6;  rostopic pub /'"$UAV_NAME"'/uvdar_frequency_setter/set_frequencies uvdar/FrequencySet "{f1: 30, f2: 30, f3: 15, f4: 15, f5: 15, f6: 15, f7: 30, f8: 30}"
+  'frequency_setter' 'waitForRos; sleep 6;  rostopic pub /'"$UAV_NAME"'/uvdar_frequency_setter/set_frequencies uvdar/FrequencySet -1 "{f1: 30, f2: 30, f3: 15, f4: 15, f5: 15, f6: 15, f7: 30, f8: 30}"
 '
 )
 
