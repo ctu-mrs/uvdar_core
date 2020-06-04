@@ -92,7 +92,9 @@ std::vector< cv::Point2i > uvLedDetect_fast::processImage(const cv::Mat *i_imCur
       if (m_imCheck.data[index2d(i, j)] == 0) {
         if (m_imCurr->data[index2d(i, j)] > threshVal) {
           int sunTestPoints = 0;
-          sunPointPotential = true;
+          if (m_imCurr->data[index2d(i, j)] > (threshVal*2)) {
+            sunPointPotential = true;
+          }
           /* gotOne = true; */
           test   = true;
           for (int m = 0; m < (int)(fastPoints.size()); m++) {
