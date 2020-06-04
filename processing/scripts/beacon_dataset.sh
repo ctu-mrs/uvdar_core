@@ -56,7 +56,7 @@ input=(
 '
   'frequency_setter' 'waitForRos; sleep 6;
   if [ '"$NATO_NAME"' = "quebec" ]; then
-    frequencies_set="{f1: 30, f2: 30, f3: 15, f4: 15, f5: 15, f6: 15, f7: 30, f8: 30}"
+    frequencies_set="{f1: 15, f2: 30, f3: 30, f4: 15, f5: 30, f6: 15, f7: 15, f8: 15}"
   else
     frequencies_set="{f1: 15, f2: 15, f3: 15, f4: 15, f5: 30, f6: 30, f7: 30, f8: 30}"
   fi
