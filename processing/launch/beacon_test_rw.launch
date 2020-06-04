@@ -55,7 +55,7 @@
   <arg name="frameNatoName" default="$(env NATO_NAME)"/>
 
   <arg name="beacon" default="true"/>
-  <arg name="beacon_height" default="0.17"/>
+  <arg name="beacon_height" default="0.12"/>
 
   <arg name="rate" default="100"/>
   <arg name="fps" default="$(arg rate)"/>
