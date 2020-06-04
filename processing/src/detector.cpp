@@ -289,7 +289,7 @@ private:
       convert.push_back(0);
     }
     msg_sun.data = convert;
-    /* sunPointsPublishers[imageIndex].publish(msg_sun); */
+    sunPointsPublishers[imageIndex].publish(msg_sun);
 
 
     if (outvec.size()>30){
