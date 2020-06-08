@@ -41,8 +41,6 @@ public:
     /* if (justReport) */
     /*   ROS_INFO("Thresh: %d", threshVal); */
 
-    nh_.param("FromBag", FromBag, bool(true));
-    nh_.param("FromCamera", FromCamera, bool(false));
     nh_.param("Flip", Flip, bool(false));
 
     nh_.param("GPU", useGpu, bool(false));
@@ -81,10 +79,7 @@ public:
     gotCamInfo = false;
 
 
-    if (FromBag) {
-      ros::Time::waitForValid();
-      begin = ros::Time::now();
-    }
+    ros::Time::waitForValid();
 
     nh_.param("lines", lines, bool(false));
     nh_.param("accumLength", accumLength, int(5));
@@ -107,7 +102,6 @@ public:
       LoadMasks((int)(cameraTopics.size()));
     }
 
-    stopped = false;
     // Create callbacks for each camera
     for (size_t i = 0; i < cameraTopics.size(); ++i) {
       image_callback_t callback = [imageIndex=i,this] (const sensor_msgs::ImageConstPtr& image_msg) { 
@@ -130,7 +124,7 @@ public:
     if (true) {
       nh_.param("pointsSeenTopics", pointsSeenTopics, pointsSeenTopics);
       // if the number of subscribed topics doesn't match the numbe of published
-      if ((FromBag || FromCamera) && pointsSeenTopics.size() != cameraTopics.size()) {
+      if (pointsSeenTopics.size() != cameraTopics.size()) {
         ROS_ERROR_STREAM("[UVDARDetector] The number of cameraTopics (" << cameraTopics.size() 
             << ") is not matching the number of pointsSeenTopics (" << pointsSeenTopics.size() << ")!");
       }
@@ -144,7 +138,7 @@ public:
 
     //}
 
-    initialized = true;
+    initialized_ = true;
     ROS_INFO("[UVDARDetector]: initialized");
   }
 
@@ -230,23 +224,12 @@ private:
 
 
   void ProcessSingleImage(const cv_bridge::CvImageConstPtr image, size_t imageIndex) {
-    if (!initialized) return;
+    if (!initialized_) return;
   /* clock_t begin1, begin2, end1, end2; */
   /* double  elapsedTime; */
   /* begin1                             = std::clock(); */
 
-    if (stopped)
-      return;
     int key = -1;
-
-    // First things first
-    if (first) {
-      if (DEBUG) {
-        ROS_INFO("Source img: %dx%d", image->image.cols, image->image.rows);
-      }
-      /* cv::namedWindow("cv_Main", CV_GUI_NORMAL|CV_WINDOW_AUTOSIZE); */
-      first = false;
-    }
 
     /* imshow("wtf", localImg_raw); */
   /* end         = std::clock(); */
@@ -329,15 +312,7 @@ private:
   }
 
 private:
-  bool initialized = false;
-
-  cv::VideoCapture  vc;
-  cv::Mat mask;
-  bool              FromBag;
-  bool              FromCamera;
-
-  bool first;
-  bool stopped;
+  bool initialized_ = false;
 
   bool Flip;
 
@@ -368,8 +343,6 @@ private:
   bool        coordsAcquired;
   cv::Rect    frameRect;
 
-
-  ros::Time begin;
 
   // Input arguments
   bool DEBUG;
@@ -430,18 +403,8 @@ private:
   std::vector<std::string> _mask_file_names_;
 };
 
-/* int main(int argc, char** argv) { */
-/*   ros::init(argc, argv, "uv_marker_detector"); */
-/*   ros::NodeHandle nodeA; */
-/*   UVDARDetector   uvd(nodeA); */
-
-/*   ROS_INFO("UV LED marker detector node initiated"); */
-
-/*   ros::spin(); */
-
-/*   return 0; */
-/* } */
 
 } //namespace uvdar
+
 #include <pluginlib/class_list_macros.h>
 PLUGINLIB_EXPORT_CLASS(uvdar::UVDARDetector, nodelet::Nodelet)

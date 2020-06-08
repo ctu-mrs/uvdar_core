@@ -69,8 +69,6 @@
   <arg name="publish" default="true"/>
   <arg name="useOdom" default="false"/>
   <arg name="cemeraRotated" default="false"/>
-  <arg name="FromBag" default="false"/>
-  <arg name="FromCamera" default="true"/>
   <arg name="FromVideo" default="false"/>
   <arg name="VideoNumber" default="9"/>
   <arg name="cellSize" default="64"/>
@@ -171,11 +169,8 @@
       <param name="nato_name" type = "string" value="$(arg frameNatoName)"/>
       <param name="DEBUG"		type="bool" value="$(arg DEBUG)"/> 
       <param name="gui"             type="bool" value="false"/>
-      <param name="Flip"             type="bool" value="false"/>
       <param name="useFAST"             type="bool" value="$(arg useFAST)"/>
       <param name="FromVideo"         type="bool" value="$(arg FromVideo)"/>
-      <param name="FromBag"         type="bool" value="$(arg FromBag)"/>
-      <param name="FromCamera"         type="bool" value="$(arg FromCamera)"/>
       <param name="VideoNumber"     type="int" value="$(arg VideoNumber)"/>
       <param name="cameraRotated"    type="bool" value="false"/>
       <param name="useOdom"           type="bool" value="false"/>

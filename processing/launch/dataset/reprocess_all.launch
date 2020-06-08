@@ -85,8 +85,6 @@
   <arg name="publish" default="true"/>
   <arg name="useOdom" default="false"/>
   <arg name="cemeraRotated" default="false"/>
-  <arg name="FromBag" default="false"/>
-  <arg name="FromCamera" default="true"/>
   <arg name="FromVideo" default="false"/>
   <arg name="VideoNumber" default="9"/>
   <arg name="surroundRadius" default="3"/>

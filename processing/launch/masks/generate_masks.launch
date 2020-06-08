@@ -114,12 +114,9 @@
       <param name="uav_name" type = "string" value="$(arg uav_name)"/>
       <param name="DEBUG"		type="bool" value="$(arg DEBUG)"/> 
       <param name="gui"             type="bool" value="false"/>
-      <param name="Flip"             type="bool" value="false"/>
       <param name="useFAST"             type="bool" value="$(arg useFAST)"/>
       <!-- <param name="MaskPath"             type="string" value="$(arg MaskPath)"/> -->
       <param name="FromVideo"         type="bool" value="false"/>
-      <param name="FromBag"         type="bool" value="false"/>
-      <param name="FromCamera"         type="bool" value="false"/>
       <param name="justReport" type="bool" value="true"/>
       <param name="threshold" type="int" value="$(arg threshold)"/>
       <param name="CameraImageCompressed" type="bool" value="false"/>

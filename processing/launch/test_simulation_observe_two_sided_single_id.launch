@@ -63,8 +63,6 @@
   <arg name="publish" default="true"/>
   <arg name="useOdom" default="false"/>
   <arg name="cemeraRotated" default="false"/>
-  <arg name="FromBag" default="false"/>
-  <arg name="FromCamera" default="true"/>
   <arg name="TimeScale" default="1.0"/>
 
   <!--
@@ -122,11 +120,8 @@
       <param name="uav_name" type = "string" value="$(arg uav_name)"/>
       <param name="DEBUG"		type="bool" value="$(arg DEBUG)"/> 
       <param name="gui"             type="bool" value="false"/>
-      <param name="Flip"             type="bool" value="false"/>
       <!-- <param name="MaskPath"             type="string" value="$(arg MaskPath)"/> -->
       <param name="FromVideo"         type="bool" value="$(arg FromVideo)"/>
-      <param name="FromBag"         type="bool" value="$(arg FromBag)"/>
-      <param name="FromCamera"         type="bool" value="$(arg FromCamera)"/>
       <param name="publish"         type="bool" value="$(arg publish)"/>
       <param name="cameraRotated"    type="bool" value="false"/>
       <param name="useOdom"           type="bool" value="false"/>
