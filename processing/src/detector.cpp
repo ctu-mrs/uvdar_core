@@ -12,7 +12,7 @@
 #include <sensor_msgs/Imu.h>
 #include <std_msgs/Float32.h>
 #include <std_msgs/MultiArrayDimension.h>
-#include <uvdar/Int32MultiArrayStamped.h>
+#include <mrs_msgs/Int32MultiArrayStamped.h>
 #include <stdint.h>
 #include <tf/tf.h>
 #include <tf/transform_listener.h>
@@ -99,10 +99,10 @@ public:
 
       // Create the publishers
       for (size_t i = 0; i < _points_seen_topics.size(); ++i) {
-        pub_candidate_points_.push_back(nh_.advertise<uvdar::Int32MultiArrayStamped>(_points_seen_topics[i], 1));
+        pub_candidate_points_.push_back(nh_.advertise<mrs_msgs::Int32MultiArrayStamped>(_points_seen_topics[i], 1));
         
         if (_publish_sun_points_){
-          pub_sun_points_.push_back(nh_.advertise<uvdar::Int32MultiArrayStamped>(_points_seen_topics[i]+"/sun", 1));
+          pub_sun_points_.push_back(nh_.advertise<mrs_msgs::Int32MultiArrayStamped>(_points_seen_topics[i]+"/sun", 1));
         }
       }
     //}
@@ -205,7 +205,7 @@ private:
 
     std::vector< int > convert;
 
-    uvdar::Int32MultiArrayStamped msg_sun;
+    mrs_msgs::Int32MultiArrayStamped msg_sun;
     msg_sun.stamp = image->header.stamp;
     msg_sun.layout.dim.push_back(std_msgs::MultiArrayDimension());
     msg_sun.layout.dim.push_back(std_msgs::MultiArrayDimension());
@@ -229,7 +229,7 @@ private:
       return;
     }
     else {
-      uvdar::Int32MultiArrayStamped msg;
+      mrs_msgs::Int32MultiArrayStamped msg;
       msg.stamp = image->header.stamp;
       msg.layout.dim.push_back(std_msgs::MultiArrayDimension());
       msg.layout.dim.push_back(std_msgs::MultiArrayDimension());

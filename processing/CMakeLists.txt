@@ -26,20 +26,9 @@ find_package(catkin REQUIRED COMPONENTS
   tf2_geometry_msgs
   )
 
-# find_package(Eigen3)
-# if(NOT EIGEN3_FOUND)
-#   # Fallback to cmake_modules
-#   find_package(cmake_modules REQUIRED)
-#   find_package(Eigen REQUIRED)
-#   set(EIGEN3_INCLUDE_DIRS ${EIGEN_INCLUDE_DIRS})
-#   set(EIGEN3_LIBRARIES ${EIGEN_LIBRARIES})
-# endif()
-
-# include Eigen3
 find_package(Eigen3 REQUIRED)
 set(Eigen_INCLUDE_DIRS ${EIGEN3_INCLUDE_DIRS})
 set(Eigen_LIBRARIES ${Eigen_LIBRARIES})
-message(${EIGEN3_INCLUDE_DIRS})
 
 find_package(OpenCV REQUIRED HINTS /usr/local/lib)
 
@@ -75,7 +64,6 @@ find_package(OpenCV REQUIRED HINTS /usr/local/lib)
 
 add_message_files(DIRECTORY msg FILES
   ROIVector.msg
-  Int32MultiArrayStamped.msg
   DistRange.msg
   DistRangeVector.msg
   FrequencySet.msg
