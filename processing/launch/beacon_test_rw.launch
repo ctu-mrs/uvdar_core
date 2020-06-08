@@ -143,13 +143,12 @@
       <!-- <node name="uv_detect" pkg="uvdar" type="uv_detector_node" output="screen" launch-prefix="urxvt -e gdb -q -x /home/viktor/gdb.cmds -/-args"> -->
         <!-- <node name="uv_detect" pkg="nodelet" type="nodelet" args="$(arg nodelet) uvdar/UVDetector $(arg nodelet_manager)" output="screen" respawn="true" launch-prefix="valgrind -/-tool=callgrind -/-callgrind-out-file=/home/viktor/callgrind.out -/-instr-atstart=no -/-collect-atstart=yes"> --> 
 
-      <param name="DEBUG"		type="bool" value="$(arg DEBUG)"/> 
+      <param name="debug"		type="bool" value="$(arg DEBUG)"/> 
       <param name="gui"             type="bool" value="false"/>
       <!-- <param name="MaskPath"             type="string" value="$(arg MaskPath)"/> -->
       <param name="publish"         type="bool" value="$(arg publish)"/>
       <param name="justReport" type="bool" value="true"/>
       <param name="threshold" type="int" value="$(arg threshold)"/>
-      <param name="CameraImageCompressed" type="bool" value="false"/>
 
       <rosparam param="camera_topics"> ["camera_left", "camera_right"] </rosparam>
       <rosparam param="pointsSeenTopics"> ["points_seen_left", "points_seen_right"] </rosparam>
@@ -180,7 +179,6 @@
       <param name="VisDEBUG"		type="bool" value="$(arg VisDEBUG)"/> 
       <!-- <param name="GUI"             type="bool" value="false"/> -->
       <param name="GUI"             type="bool" value="$(arg gui)"/>
-      <param name="CameraImageCompressed"    type="bool" value="false"/>
       <param name="InvertedPoints"    type="bool" value="false"/>
       <param name="legacy" type="bool" value="false"/>
 

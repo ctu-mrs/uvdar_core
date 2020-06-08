@@ -34,31 +34,10 @@ public:
 
     ros::NodeHandle nh_ = nodelet::Nodelet::getMTPrivateNodeHandle();
 
-
-    /* nh_.param("justReport", justReport, false); */
-    nh_.param("threshold", _threshold_, 200);
-    /* if (justReport) */
-    /*   ROS_INFO("Thresh: %d", threshVal); */
-
-
-    nh_.param("DEBUG", _debug_, bool(false));
-
-
+    nh_.param("debug", _debug_, bool(false));
     nh_.param("gui", _gui_, bool(false));
 
-
-
-    bool ImgCompressed;
-    nh_.param("CameraImageCompressed", ImgCompressed, bool(false));
-
-
-
-
-    ros::Time::waitForValid();
-
-
-    ROS_INFO("Initializing FAST-based marker detection");
-    uvdf_ = new uvLedDetect_fast();
+    nh_.param("threshold", _threshold_, 200);
 
     /* subscribe to cameras //{ */
 
@@ -84,7 +63,6 @@ public:
 
     //}
 
-
     /* prepare masks if necessary //{ */
     nh_.param("use_masks", _use_masks_, bool(false));
     if (_use_masks_){
@@ -106,8 +84,6 @@ public:
       }
     }
     //}
-
-    
     
     /* create pubslishers //{ */
 
@@ -129,8 +105,18 @@ public:
 
     //}
 
+    ROS_INFO("[UVDARDetector]: Initializing FAST-based marker detection...");
+    uvdf_ = new uvLedDetect_fast();
+    if ( uvdf_ == nullptr){
+      ROS_ERROR("[UVDARDetector]: Failed to initialize FAST-based marker detection!");
+      return;
+    }
+
+    ROS_INFO("[UVDARDetector]: Waiting for time...");
+    ros::Time::waitForValid();
+
     initialized_ = true;
-    ROS_INFO("[UVDARDetector]: initialized");
+    ROS_INFO("[UVDARDetector]: Initialized.");
   }
 
   ~UVDARDetector() {

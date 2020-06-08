@@ -66,7 +66,6 @@
   <arg name="cellOverlay" default="16"/>
   <arg name="surroundRadius" default="3"/>
   <arg name="camNum" default="0"/>
-  <arg name="useFAST" default="true"/>
   <arg name="Delay" default="100"/>
   <arg name="TimeScale" default="1.0"/>
 
@@ -84,9 +83,8 @@
 
     <node name="uvdd_detect" pkg="uvdd" type="uv_detector_node" output="screen"> 
       <!-- <node name="uvdd_detect" pkg="uvdd" type="uv_detector_node" output="screen" launch-prefix="urxvt -e gdb -q -x /home/viktor/gdb.cmds -/-args"> -->
-        <param name="DEBUG"		type="bool" value="$(arg DEBUG)"/> 
+        <param name="debug"		type="bool" value="$(arg DEBUG)"/> 
         <param name="gui"             type="bool" value="false"/>
-        <param name="useFAST"             type="bool" value="$(arg useFAST)"/>
         <!-- <param name="MaskPath"             type="string" value="$(arg MaskPath)"/> -->
         <param name="FromVideo"         type="bool" value="$(arg FromVideo)"/>
         <param name="camTopic"         type="string" value="camera"/>
@@ -100,7 +98,6 @@
         <param name="camNum"           type="int" value="$(arg camNum)"/>
         <param name="justReport" type="bool" value="true"/>
         <param name="threshold" type="int" value="$(arg threshold)"/>
-        <param name="CameraImageCompressed" type="bool" value="false"/>
 
         <remap from="odometry" to="/$(arg uav_name)/mrs_odometry/new_odom"/>
         <remap from="camera" to="/$(arg uav_name)/bluefox_uv/image_raw"/>
@@ -139,7 +136,6 @@
           <param name="DEBUG"		type="bool" value="false"/> 
           <param name="VisDEBUG"		type="bool" value="$(arg VisDEBUG)"/> 
           <param name="GUI"             type="bool" value="$(arg gui)"/>
-          <param name="CameraImageCompressed"    type="bool" value="false"/>
           <param name="InvertedPoints"    type="bool" value="false"/>
           <param name="frequencyCount" type="int" value="3"/>
           <param name="frequency1" type="int" value="6"/>

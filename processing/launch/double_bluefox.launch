@@ -76,7 +76,6 @@
   <arg name="cellOverlay" default="16"/>
   <arg name="surroundRadius" default="3"/>
   <arg name="camNum" default="0"/>
-  <arg name="useFAST" default="true"/>
   <arg name="Delay" default="100"/>
   <arg name="TimeScale" default="1.0"/>
 

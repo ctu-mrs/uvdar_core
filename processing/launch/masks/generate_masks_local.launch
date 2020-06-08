@@ -36,7 +36,6 @@
   <arg name="jpeg_quality" default="90"/>
 
 
-  <arg name="useFAST" default="true"/>
 
   <arg name="frameNatoName" default="$(optenv NATO_NAME)"/>
 
