@@ -197,7 +197,7 @@
       <param name="threshold" type="int" value="$(arg threshold)"/>
 
       <rosparam param="camera_topics"> ["camera"] </rosparam>
-      <rosparam param="pointsSeenTopics"> ["points_seen"] </rosparam>
+      <rosparam param="points_seen_topics"> ["points_seen"] </rosparam>
 
       <remap from="~camera" to="/$(arg uav_name)/uvdar_bluefox/image_raw"/>
       <remap from="~points_seen" to="/$(arg uav_name)/uvdar/points_seen"/>
@@ -234,7 +234,7 @@
       <param name="UseCameraForVisualization"         type="bool" value="true"/>
 
       <rosparam param="camera_topics"> ["camera"] </rosparam>
-      <rosparam param="pointsSeenTopics"> ["points_seen"] </rosparam>
+      <rosparam param="points_seen_topics"> ["points_seen"] </rosparam>
       <rosparam param="blinkersSeenTopics"> ["blinkers_seen"] </rosparam>
       <rosparam param="estimatedFramerateTopics"> ["estimated_framerate"] </rosparam>
 

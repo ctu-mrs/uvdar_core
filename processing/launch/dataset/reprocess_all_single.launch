@@ -140,7 +140,7 @@
       <param name="legacy" type="bool" value="false"/>
 
       <rosparam param="camera_topics"> ["camera"] </rosparam>
-      <rosparam param="pointsSeenTopics"> ["pointsSeen"] </rosparam>
+      <rosparam param="points_seen_topics"> ["pointsSeen"] </rosparam>
       <rosparam param="blinkersSeenTopics"> ["blinkersSeen"] </rosparam>
       <rosparam param="estimatedFramerateTopics"> ["estimatedFramerate"] </rosparam>
 

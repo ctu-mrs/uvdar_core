@@ -120,7 +120,7 @@
       <param name="useMasks" type="bool" value="false"/>
 
       <rosparam param="camera_topics"> ["camera_left", "camera_right"] </rosparam>
-      <rosparam param="pointsSeenTopics"> ["points_seen_left", "points_seen_right"] </rosparam>
+      <rosparam param="points_seen_topics"> ["points_seen_left", "points_seen_right"] </rosparam>
 
       <remap from="~camera_left" to="/$(arg uav_name)/uvdar_bluefox/left/image_raw"/>
       <remap from="~camera_right" to="/$(arg uav_name)/uvdar_bluefox/right/image_raw"/>
@@ -140,7 +140,7 @@
       <param name="expansionSize" type="int" value="$(arg expansionSize)"/>
 
       <rosparam param="maskFileNames" subst_value="True"> ["$(arg left)", "$(arg right)"] </rosparam>
-      <rosparam param="pointsSeenTopics"> ["points_seen_left", "points_seen_right"] </rosparam>
+      <rosparam param="points_seen_topics"> ["points_seen_left", "points_seen_right"] </rosparam>
 
       <remap from="~points_seen_left" to="/$(arg uav_name)/uvdar/points_seen_left"/>
       <remap from="~points_seen_right" to="/$(arg uav_name)/uvdar/points_seen_right"/>

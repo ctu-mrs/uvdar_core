@@ -21,6 +21,7 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <thread>
 #include <functional>
+#include <boost/filesystem/operations.hpp>
 
 #include "detect/uv_led_detect_fast.h"
 
@@ -30,6 +31,7 @@ namespace uvdar {
 class UVDARDetector : public nodelet::Nodelet{
 public:
 
+/* onInit() //{ */
   void onInit() {
 
     ros::NodeHandle nh_ = nodelet::Nodelet::getMTPrivateNodeHandle();
@@ -47,10 +49,10 @@ public:
       ROS_ERROR("[UVDARDetector]: No camera topics were supplied!");
       return;
     }
-    _camera_count_ = (unsigned int)(_camera_topics_.size());
+    _camera_count_ = (unsigned int)(_camera_topics.size());
 
     // Create callbacks for each camera
-    for (int i = 0; i < _camera_count_; ++i) {
+    for (unsigned int i = 0; i < _camera_count_; ++i) {
       image_callback_t callback = [image_index=i,this] (const sensor_msgs::ImageConstPtr& image_msg) { 
         processRaw(image_msg, image_index);
       };
@@ -58,7 +60,7 @@ public:
     }
     // Subscribe to corresponding topics
     for (size_t i = 0; i < _camera_topics.size(); ++i) {
-      sub_images_.push_back(nh_.subscribe(cameraTopics[i], 1, &image_callback_t::operator(), &cals_image_[i]));
+      sub_images_.push_back(nh_.subscribe(_camera_topics[i], 1, &image_callback_t::operator(), &cals_image_[i]));
     }
 
     //}
@@ -69,7 +71,7 @@ public:
       nh_.param("mask_file_names", _mask_file_names_);
 
       if (_mask_file_names_.size() != _camera_count_){
-        ROS_ERROR("[UVDARDetector]: Masks are enabled, but the number of mask filenames provided does not match the number of camera topics!");
+        ROS_ERROR_STREAM("[UVDARDetector]: Masks are enabled, but the number of mask filenames provided does not match the number of camera topics (" << _camera_count_ << ")!");
         return;
       }
 
@@ -86,28 +88,28 @@ public:
     //}
     
     /* create pubslishers //{ */
+    nh_.param("publish_sun_points", _publish_sun_points_, bool(false));
 
-    std::vector<std::string> pointsSeenTopics;
-    if (true) {
-      nh_.param("pointsSeenTopics", pointsSeenTopics, pointsSeenTopics);
-      // if the number of subscribed topics doesn't match the numbe of published
-      if (pointsSeenTopics.size() != cameraTopics.size()) {
-        ROS_ERROR_STREAM("[UVDARDetector] The number of cameraTopics (" << cameraTopics.size() 
-            << ") is not matching the number of pointsSeenTopics (" << pointsSeenTopics.size() << ")!");
+    std::vector<std::string> _points_seen_topics;
+      nh_.param("points_seen_topics", _points_seen_topics);
+      if (_points_seen_topics.size() != _camera_count_) {
+        ROS_ERROR_STREAM("[UVDARDetector] The number of output topics (" << _points_seen_topics.size()  << ") does not match the number of cameras (" << _camera_count_ << ")!");
+        return;
       }
 
       // Create the publishers
-      for (size_t i = 0; i < pointsSeenTopics.size(); ++i) {
-        pub_sun_points_.push_back(nh_.advertise<uvdar::Int32MultiArrayStamped>(pointsSeenTopics[i]+"/sun", 1));
-        pub_candidate_points_.push_back(nh_.advertise<uvdar::Int32MultiArrayStamped>(pointsSeenTopics[i], 1));
+      for (size_t i = 0; i < _points_seen_topics.size(); ++i) {
+        pub_candidate_points_.push_back(nh_.advertise<uvdar::Int32MultiArrayStamped>(_points_seen_topics[i], 1));
+        
+        if (_publish_sun_points_){
+          pub_sun_points_.push_back(nh_.advertise<uvdar::Int32MultiArrayStamped>(_points_seen_topics[i]+"/sun", 1));
+        }
       }
-    }
-
     //}
 
     ROS_INFO("[UVDARDetector]: Initializing FAST-based marker detection...");
-    uvdf_ = new uvLedDetect_fast();
-    if ( uvdf_ == nullptr){
+    uvdf_ = std::make_unique<uvLedDetect_fast>();
+    if (!uvdf_){
       ROS_ERROR("[UVDARDetector]: Failed to initialize FAST-based marker detection!");
       return;
     }
@@ -118,6 +120,7 @@ public:
     initialized_ = true;
     ROS_INFO("[UVDARDetector]: Initialized.");
   }
+  //}
 
   ~UVDARDetector() {
   }
@@ -127,7 +130,7 @@ private:
     /* loadMasks //{ */
     bool loadMasks(){
       std::string file_name;
-      for (int i=0; i<_camera_count_; i++){
+      for (unsigned int i=0; i<_camera_count_; i++){
 
         if (_masks_mrs_named_){
           file_name = ros::package::getPath("uvdar")+"/masks/"+_body_name_+"_"+_mask_file_names_[i]+".bmp";
@@ -142,7 +145,7 @@ private:
         }
 
         _masks_.push_back(cv::imread(file_name, cv::IMREAD_GRAYSCALE));
-        if (!(_masks_.back())){
+        if (!(_masks_.back().data)){
           ROS_ERROR_STREAM("[UVDARDetector]: Mask [" << file_name << "] could not be loaded!");
           return false;
         }
@@ -167,11 +170,11 @@ private:
   /* begin1                             = std::clock(); */
     cv_bridge::CvImageConstPtr image;
     image = cv_bridge::toCvShare(image_msg, enc::MONO8);
-    ProcessSingleImage(image, imageIndex);
+    ProcessSingleImage(image, image_index);
   }
 
 
-  void ProcessSingleImage(const cv_bridge::CvImageConstPtr image, size_t imageIndex) {
+  void ProcessSingleImage(const cv_bridge::CvImageConstPtr image, int image_index) {
     if (!initialized_) return;
   /* clock_t begin1, begin2, end1, end2; */
   /* double  elapsedTime; */
@@ -195,7 +198,7 @@ private:
     /* std::cout << "4: " << elapsedTime << " s" << "f: " << 1.0/elapsedTime << std::endl; */
     /* begin2                             = std::clock(); */
     std::vector<cv::Point2i> sun_points;
-    std::vector<cv::Point2i> outvec = uvdf_->processImage(&(image->image), &(image->image), sun_points, _gui_, _debug_, _threshold_, _masks_mrs_named_?imageIndex:-1);
+    std::vector<cv::Point2i> outvec = uvdf_->processImage(&(image->image), &(image->image), sun_points, _gui_, _debug_, _threshold_, _masks_mrs_named_?image_index:-1);
     /* end2         = std::clock(); */
     /* elapsedTime = double(end2 - begin2) / CLOCKS_PER_SEC; */
     /* std::cout << "5: " << elapsedTime << " s" << "f: " << 1.0/elapsedTime << std::endl; */
@@ -218,7 +221,7 @@ private:
       convert.push_back(0);
     }
     msg_sun.data = convert;
-    pub_sun_points_[imageIndex].publish(msg_sun);
+    pub_sun_points_[image_index].publish(msg_sun);
 
 
     if (outvec.size()>30){
@@ -243,13 +246,12 @@ private:
         convert.push_back(0);
       }
       msg.data = convert;
-      pub_candidate_points_[imageIndex].publish(msg);
+      pub_candidate_points_[image_index].publish(msg);
     }
-    if (_gui_)
-      key = cv::waitKey(10);
 
-    if (key == 13)
-      stopped = true;
+    if (_gui_){
+      cv::waitKey(10);
+    }
 
   /* end1         = std::clock(); */
   /* elapsedTime = double(end1 - begin1) / CLOCKS_PER_SEC; */
@@ -261,11 +263,14 @@ private:
   bool initialized_ = false;
 
   std::vector<ros::Subscriber> sub_images_;
+  unsigned int _camera_count_;
   using image_callback_t = std::function<void (const sensor_msgs::ImageConstPtr&)>;
   std::vector<image_callback_t> cals_image_;
 
 
+  bool _publish_sun_points_ = false;
   std::vector<ros::Publisher> pub_sun_points_;
+
   std::vector<ros::Publisher> pub_candidate_points_;
 
   bool _debug_;
@@ -279,7 +284,7 @@ private:
   std::vector<std::string> _mask_file_names_;
   std::vector<cv::Mat> _masks_;
 
-  uvLedDetect_fast* uvdf_;
+  std::unique_ptr<uvLedDetect_fast> uvdf_;
 
 };
 

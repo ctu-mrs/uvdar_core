@@ -142,7 +142,7 @@
       <param name="legacy_delay" type="double" value="$(arg legacy_delay)"/>
 
       <rosparam param="camera_topics"> ["camera"] </rosparam>
-      <rosparam param="pointsSeenTopics"> ["pointsSeen"] </rosparam>
+      <rosparam param="points_seen_topics"> ["pointsSeen"] </rosparam>
       <rosparam param="blinkersSeenTopics"> ["blinkersSeen"] </rosparam>
       <rosparam param="estimatedFramerateTopics"> ["estimatedFramerate"] </rosparam>
 

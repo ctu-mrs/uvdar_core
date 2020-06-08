@@ -178,7 +178,7 @@
       <rosparam param="mask_file_names" subst_value="True"> ["$(arg left)", "$(arg right)"] </rosparam>
 
       <rosparam param="camera_topics"> ["camera_left", "camera_right"] </rosparam>
-      <rosparam param="pointsSeenTopics"> ["points_seen_left", "points_seen_right"] </rosparam>
+      <rosparam param="points_seen_topics"> ["points_seen_left", "points_seen_right"] </rosparam>
 
       <remap from="~camera_left" to="/$(arg uav_name)/uvdar_bluefox/left/image_raw"/>
       <remap from="~camera_right" to="/$(arg uav_name)/uvdar_bluefox/right/image_raw"/>
@@ -218,7 +218,7 @@
       <param name="UseCameraForVisualization"         type="bool" value="true"/>
 
       <rosparam param="camera_topics"> ["camera_left", "camera_right"] </rosparam>
-      <rosparam param="pointsSeenTopics"> ["points_seen_left", "points_seen_right"] </rosparam>
+      <rosparam param="points_seen_topics"> ["points_seen_left", "points_seen_right"] </rosparam>
       <rosparam param="blinkersSeenTopics"> ["blinkers_seen_left", "blinkers_seen_right"] </rosparam>
       <rosparam param="estimatedFramerateTopics"> ["estimated_framerate_left", "estimated_framerate_right"] </rosparam>
 

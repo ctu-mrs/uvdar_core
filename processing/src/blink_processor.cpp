@@ -86,7 +86,7 @@ public:
     /* pointsPublisher  = nh_.advertise<uvdar::Int32MultiArrayStamped>("blinkersSeen", 1); */
 
     std::vector<std::string> _points_seen_topics;
-    nh_.param("pointsSeenTopics", _points_seen_topics, _points_seen_topics);
+    nh_.param("points_seen_topics", _points_seen_topics, _points_seen_topics);
     if (_points_seen_topics.empty()) {
       ROS_WARN("[UVDARBlinkProcessor]: No topics of pointsSeen were supplied");
     }
