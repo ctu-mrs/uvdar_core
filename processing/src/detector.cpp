@@ -1,26 +1,14 @@
 #define camera_delay 0.50
+#define MAX_POINTS_PER_IMAGE 30
 
 #include <ros/ros.h>
 #include <ros/package.h>
 #include <nodelet/nodelet.h>
 
 #include <cv_bridge/cv_bridge.h>
-#include <geometry_msgs/Twist.h>
-#include <image_transport/image_transport.h>
-#include <nav_msgs/Odometry.h>
-#include <sensor_msgs/CameraInfo.h>
-#include <sensor_msgs/Imu.h>
-#include <std_msgs/Float32.h>
-#include <std_msgs/MultiArrayDimension.h>
-#include <mrs_msgs/Int32MultiArrayStamped.h>
-#include <stdint.h>
-#include <tf/tf.h>
-#include <tf/transform_listener.h>
-#include <mutex>
 #include <opencv2/core/core.hpp>
-#include <opencv2/highgui/highgui.hpp>
-#include <thread>
-#include <functional>
+#include <opencv2/imgcodecs/imgcodecs.hpp>
+#include <mrs_msgs/Int32MultiArrayStamped.h>
 #include <boost/filesystem/operations.hpp>
 
 #include "detect/uv_led_detect_fast.h"
@@ -32,6 +20,10 @@ class UVDARDetector : public nodelet::Nodelet{
 public:
 
 /* onInit() //{ */
+
+  /**
+   * @brief Initializer - loads parameters and initializes necessary structures
+   */
   void onInit() {
 
     ros::NodeHandle nh_ = nodelet::Nodelet::getMTPrivateNodeHandle();
@@ -42,7 +34,6 @@ public:
     nh_.param("threshold", _threshold_, 200);
 
     /* subscribe to cameras //{ */
-
     std::vector<std::string> _camera_topics;
     nh_.param("camera_topics", _camera_topics);
     if (_camera_topics.empty()) {
@@ -54,7 +45,7 @@ public:
     // Create callbacks for each camera
     for (unsigned int i = 0; i < _camera_count_; ++i) {
       image_callback_t callback = [image_index=i,this] (const sensor_msgs::ImageConstPtr& image_msg) { 
-        processRaw(image_msg, image_index);
+        callbackImage(image_msg, image_index);
       };
       cals_image_.push_back(callback);
     }
@@ -108,7 +99,11 @@ public:
     //}
 
     ROS_INFO("[UVDARDetector]: Initializing FAST-based marker detection...");
-    uvdf_ = std::make_unique<uvLedDetect_fast>();
+    uvdf_ = std::make_unique<uvLedDetect_fast>(
+        _gui_,
+        _debug_,
+        _threshold_
+        );
     if (!uvdf_){
       ROS_ERROR("[UVDARDetector]: Failed to initialize FAST-based marker detection!");
       return;
@@ -122,12 +117,22 @@ public:
   }
   //}
 
+  /* destructor //{ */
+  /**
+   * @brief destructor
+   */
   ~UVDARDetector() {
   }
+  //}
 
 private:
 
     /* loadMasks //{ */
+  /**
+   * @brief Load the mask files - either form absolute path or composite filename found in the uvdar package.
+   *
+   * @return success
+   */
     bool loadMasks(){
       std::string file_name;
       for (unsigned int i=0; i<_camera_count_; i++){
@@ -156,108 +161,97 @@ private:
     }
     //}
 
-  void ProcessCompressed(const sensor_msgs::CompressedImageConstPtr& image_msg, int image_index) {
-
-    cv_bridge::CvImagePtr image;
-    if (image_msg != NULL)
-      image = cv_bridge::toCvCopy(image_msg);
-    ProcessSingleImage(image, image_index);
-  }
-
-  void processRaw(const sensor_msgs::ImageConstPtr& image_msg, int image_index) {
-  /* clock_t begin1, begin2, end1, end2; */
-  /* double  elapsedTime; */
-  /* begin1                             = std::clock(); */
+    /* callbackImage //{ */
+    /**
+     * @brief Callback for the input raw image topic from camera
+     *
+     * @param image_msg - current image message
+     * @param image_index - index of the camera that produced this image message
+     */
+  void callbackImage(const sensor_msgs::ImageConstPtr& image_msg, int image_index) {
     cv_bridge::CvImageConstPtr image;
     image = cv_bridge::toCvShare(image_msg, enc::MONO8);
-    ProcessSingleImage(image, image_index);
+    processSingleImage(image, image_index);
   }
+  //}
 
 
-  void ProcessSingleImage(const cv_bridge::CvImageConstPtr image, int image_index) {
+  /* processSingleImage //{ */
+
+  /**
+   * @brief Extracts small bright points from input image and publishes them. Optionally also publishes points corresponding to the sun.
+   *
+   * @param image - the input image
+   * @param image_index - index of the camera that produced this image
+   */
+  void processSingleImage(const cv_bridge::CvImageConstPtr image, int image_index) {
     if (!initialized_) return;
-  /* clock_t begin1, begin2, end1, end2; */
-  /* double  elapsedTime; */
-  /* begin1                             = std::clock(); */
 
-    int key = -1;
-
-    /* imshow("wtf", localImg_raw); */
-  /* end         = std::clock(); */
-  /* elapsedTime = double(end - begin) / CLOCKS_PER_SEC; */
-  /* std::cout << "3: " << elapsedTime << " s" << "f: " << 1.0/elapsedTime << std::endl; */
-  /* begin                             = std::clock(); */
-
-
-    /* localImg_raw.copyTo(localImg, mask); */
-
-
-
-    /* end         = std::clock(); */
-    /* elapsedTime = double(end - begin) / CLOCKS_PER_SEC; */
-    /* std::cout << "4: " << elapsedTime << " s" << "f: " << 1.0/elapsedTime << std::endl; */
-    /* begin2                             = std::clock(); */
     std::vector<cv::Point2i> sun_points;
-    std::vector<cv::Point2i> outvec = uvdf_->processImage(&(image->image), &(image->image), sun_points, _gui_, _debug_, _threshold_, _masks_mrs_named_?image_index:-1);
-    /* end2         = std::clock(); */
-    /* elapsedTime = double(end2 - begin2) / CLOCKS_PER_SEC; */
-    /* std::cout << "5: " << elapsedTime << " s" << "f: " << 1.0/elapsedTime << std::endl; */
+    std::vector<cv::Point2i> detected_points;
+
+    if ( ! (uvdf_->processImage(
+            image->image,
+            detected_points,
+            sun_points,
+            _masks_mrs_named_?image_index:-1
+            )
+          )
+       ){
+      ROS_ERROR_STREAM("Failed to extract markers from the image!");
+      return;
+    }
 
     std::vector< int > convert;
 
-    mrs_msgs::Int32MultiArrayStamped msg_sun;
-    msg_sun.stamp = image->header.stamp;
-    msg_sun.layout.dim.push_back(std_msgs::MultiArrayDimension());
-    msg_sun.layout.dim.push_back(std_msgs::MultiArrayDimension());
-    msg_sun.layout.dim[0].size   = sun_points.size();
-    msg_sun.layout.dim[0].label  = "count";
-    msg_sun.layout.dim[0].stride = sun_points.size() * 3;
-    msg_sun.layout.dim[1].size   = 3;
-    msg_sun.layout.dim[1].label  = "value";
-    msg_sun.layout.dim[1].stride = 3;
-    for (int i = 0; i < (int)(sun_points.size()); i++) {
-      convert.push_back(sun_points[i].x);
-      convert.push_back(sun_points[i].y);
-      convert.push_back(0);
-    }
-    msg_sun.data = convert;
-    pub_sun_points_[image_index].publish(msg_sun);
-
-
-    if (outvec.size()>30){
-      ROS_INFO("Over 30 points received. Skipping noisy image");
+    if (detected_points.size()>MAX_POINTS_PER_IMAGE){
+      ROS_WARN_STREAM("[UVDARDetector]: Over " << MAX_POINTS_PER_IMAGE << " points received. Skipping noisy image.");
       return;
     }
+
+    if (_publish_sun_points_){
+      mrs_msgs::Int32MultiArrayStamped msg_sun;
+      msg_sun.stamp = image->header.stamp;
+      msg_sun.layout.dim.push_back(std_msgs::MultiArrayDimension());
+      msg_sun.layout.dim.push_back(std_msgs::MultiArrayDimension());
+      msg_sun.layout.dim[0].size   = sun_points.size();
+      msg_sun.layout.dim[0].label  = "count";
+      msg_sun.layout.dim[0].stride = sun_points.size() * 3;
+      msg_sun.layout.dim[1].size   = 3;
+      msg_sun.layout.dim[1].label  = "value";
+      msg_sun.layout.dim[1].stride = 3;
+      for (int i = 0; i < (int)(sun_points.size()); i++) {
+        convert.push_back(sun_points[i].x);
+        convert.push_back(sun_points[i].y);
+        convert.push_back(0);
+      }
+      msg_sun.data = convert;
+      pub_sun_points_[image_index].publish(msg_sun);
+    }
+
     else {
       mrs_msgs::Int32MultiArrayStamped msg;
       msg.stamp = image->header.stamp;
       msg.layout.dim.push_back(std_msgs::MultiArrayDimension());
       msg.layout.dim.push_back(std_msgs::MultiArrayDimension());
-      msg.layout.dim[0].size   = outvec.size();
+      msg.layout.dim[0].size   = detected_points.size();
       msg.layout.dim[0].label  = "count";
-      msg.layout.dim[0].stride = outvec.size() * 3;
+      msg.layout.dim[0].stride = detected_points.size() * 3;
       msg.layout.dim[1].size   = 3;
       msg.layout.dim[1].label  = "value";
       msg.layout.dim[1].stride = 3;
       convert.clear();
-      for (int i = 0; i < (int)(outvec.size()); i++) {
-        convert.push_back(outvec[i].x);
-        convert.push_back(outvec[i].y);
+      for (int i = 0; i < (int)(detected_points.size()); i++) {
+        convert.push_back(detected_points[i].x);
+        convert.push_back(detected_points[i].y);
         convert.push_back(0);
       }
       msg.data = convert;
       pub_candidate_points_[image_index].publish(msg);
     }
 
-    if (_gui_){
-      cv::waitKey(10);
-    }
-
-  /* end1         = std::clock(); */
-  /* elapsedTime = double(end1 - begin1) / CLOCKS_PER_SEC; */
-  /* std::cout << "6: " << elapsedTime << " s" << "f: " << 1.0/elapsedTime << std::endl; */
-
   }
+  //}
 
 private:
   bool initialized_ = false;
