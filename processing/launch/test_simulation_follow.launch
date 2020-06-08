@@ -92,7 +92,6 @@
 
     <node name="uv_detect" pkg="nodelet" type="nodelet" args="$(arg nodelet) uvdar/UVDARDetector $(arg nodelet_manager)" output="screen" respawn="true"> 
       <!-- <node name="uv_detect" pkg="uvdar" type="uv_detector_node" output="screen" launch-prefix="urxvt -e gdb -q -x /home/viktor/gdb.cmds -/-args"> -->
-      <param name="uav_name" type = "string" value="$(arg uav_name)"/>
       <param name="DEBUG"		type="bool" value="$(arg DEBUG)"/> 
       <param name="gui"             type="bool" value="false"/>
       <param name="useFAST"             type="bool" value="$(arg useFAST)"/>
@@ -106,8 +105,6 @@
       <param name="cellOverlay"	type="int" value="$(arg cellOverlay)"/>
       <param name="surroundRadius"	type="int" value="$(arg surroundRadius)"/>
       <param name="publish"         type="bool" value="$(arg publish)"/>
-      <param name="cameraRotated"    type="bool" value="false"/>
-      <param name="useOdom"           type="bool" value="false"/>
       <param name="camNum"           type="int" value="$(arg camNum)"/>
       <param name="justReport" type="bool" value="true"/>
       <param name="threshold" type="int" value="$(arg threshold)"/>

@@ -147,7 +147,7 @@ public:
       /* subscribe to cameras //{ */
 
       std::vector<std::string> _camera_topics;
-      nh_.param("cameraTopics", _camera_topics, _camera_topics);
+      nh_.param("camera_topics", _camera_topics, _camera_topics);
       if (_camera_topics.empty()) {
         ROS_WARN("[UVDARBlinkProcessor]: No topics of cameras were supplied");
         use_camera_for_visualization_ = false;

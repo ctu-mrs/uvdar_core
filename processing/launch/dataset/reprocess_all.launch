@@ -83,7 +83,6 @@
   <arg name="SamplePointSize" default="8"/>
   <arg name="StepSize" default="10"/>
   <arg name="publish" default="true"/>
-  <arg name="useOdom" default="false"/>
   <arg name="cemeraRotated" default="false"/>
   <arg name="FromVideo" default="false"/>
   <arg name="VideoNumber" default="9"/>
@@ -144,7 +143,7 @@
       <param name="legacy" type="bool" value="$(arg legacy)"/>
       <param name="legacy_delay" type="double" value="$(arg legacy_delay)"/>
 
-      <rosparam param="cameraTopics"> ["camera"] </rosparam>
+      <rosparam param="camera_topics"> ["camera"] </rosparam>
       <rosparam param="pointsSeenTopics"> ["pointsSeen"] </rosparam>
       <rosparam param="blinkersSeenTopics"> ["blinkersSeen"] </rosparam>
       <rosparam param="estimatedFramerateTopics"> ["estimatedFramerate"] </rosparam>

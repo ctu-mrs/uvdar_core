@@ -111,7 +111,6 @@
     <node name="uv_detect" pkg="nodelet" type="nodelet" args="$(arg nodelet) uvdar/UVDARDetector $(arg nodelet_manager)" output="screen" respawn="true"> 
     <!-- <node name="uv_detect" pkg="nodelet" type="nodelet" args="$(arg nodelet) uvdar/UVDARDetector $(arg nodelet_manager)" output="screen" respawn="false" launch-prefix="debug_roslaunch"> --> 
       <!-- <node name="uv_detect" pkg="uvdar" type="uv_detector_node" output="screen" launch-prefix="urxvt -e gdb -q -x /home/viktor/gdb.cmds -/-args"> -->
-      <param name="uav_name" type = "string" value="$(arg uav_name)"/>
       <param name="DEBUG"		type="bool" value="$(arg DEBUG)"/> 
       <param name="gui"             type="bool" value="false"/>
       <param name="useFAST"             type="bool" value="$(arg useFAST)"/>
@@ -123,7 +122,7 @@
 
       <param name="useMasks" type="bool" value="false"/>
 
-      <rosparam param="cameraTopics"> ["camera_left", "camera_right"] </rosparam>
+      <rosparam param="camera_topics"> ["camera_left", "camera_right"] </rosparam>
       <rosparam param="pointsSeenTopics"> ["points_seen_left", "points_seen_right"] </rosparam>
 
       <remap from="~camera_left" to="/$(arg uav_name)/uvdar_bluefox/left/image_raw"/>

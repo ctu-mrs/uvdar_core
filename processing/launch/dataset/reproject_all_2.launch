@@ -134,7 +134,6 @@
 
     <node name="uv_detect" pkg="nodelet" type="nodelet" args="$(arg nodelet) uvdar/UVDARDetector $(arg nodelet_manager)" output="screen" respawn="true" launch-prefix="bash -c 'sleep 5; $0 $@'">
       <param name="identifier" type="string" value="$(arg serial)"/>
-      <param name="uav_name" type = "string" value="$(arg uav_name)"/>
       <param name="DEBUG"		type="bool" value="$(arg DEBUG)"/> 
       <param name="gui"             type="bool" value="false"/>
       <param name="useFAST"             type="bool" value="$(arg useFAST)"/>
@@ -147,14 +146,12 @@
       <param name="cellOverlay"	type="int" value="$(arg cellOverlay)"/>
       <param name="surroundRadius"	type="int" value="$(arg surroundRadius)"/>
       <param name="publish"         type="bool" value="$(arg publish)"/>
-      <param name="cameraRotated"    type="bool" value="false"/>
-      <param name="useOdom"           type="bool" value="false"/>
       <param name="camNum"           type="int" value="$(arg camNum)"/>
       <param name="justReport" type="bool" value="true"/>
       <param name="threshold" type="int" value="$(arg threshold)"/>
       <param name="CameraImageCompressed" type="bool" value="false"/>
 
-      <rosparam param="cameraTopics"> ["camera"] </rosparam>
+      <rosparam param="camera_topics"> ["camera"] </rosparam>
       <rosparam param="pointsSeenTopics"> ["pointsSeen"] </rosparam>
 
       <remap from="~odometry" to="/$(arg uav_name)/mrs_odometry/new_odom"/>
@@ -193,7 +190,7 @@
 
       <param name="legacy" type="bool" value="false"/>
 
-      <rosparam param="cameraTopics"> ["camera"] </rosparam>
+      <rosparam param="camera_topics"> ["camera"] </rosparam>
       <rosparam param="pointsSeenTopics"> ["pointsSeen"] </rosparam>
       <rosparam param="blinkersSeenTopics"> ["blinkersSeen"] </rosparam>
       <rosparam param="estimatedFramerateTopics"> ["estimatedFramerate"] </rosparam>

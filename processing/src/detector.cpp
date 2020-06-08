@@ -34,88 +34,79 @@ public:
 
     ros::NodeHandle nh_ = nodelet::Nodelet::getMTPrivateNodeHandle();
 
-    nh_.param("uav_name", uav_name, std::string());
 
     /* nh_.param("justReport", justReport, false); */
-    nh_.param("threshold", threshVal, 200);
+    nh_.param("threshold", _threshold_, 200);
     /* if (justReport) */
     /*   ROS_INFO("Thresh: %d", threshVal); */
 
-    nh_.param("Flip", Flip, bool(false));
 
-    nh_.param("GPU", useGpu, bool(false));
-
-    nh_.param("DEBUG", DEBUG, bool(false));
+    nh_.param("DEBUG", _debug_, bool(false));
 
 
-    nh_.param("gui", gui, bool(false));
-
-    nh_.param("useOdom", useOdom, bool(false));
+    nh_.param("gui", _gui_, bool(false));
 
 
-    ROS_INFO("UseOdom? %s", useOdom ? "true" : "false");
-    if (useOdom) {
-
-      imu_register.clear();
-      yawRate   = 0.0;
-      pitchRate = 0.0;
-      rollRate  = 0.0;
-      /* listener = new tf::TransformListener(); */
-      TiltSubscriber = nh_.subscribe("imu", 1, &UVDARDetector::TiltCallback, this, ros::TransportHints().tcpNoDelay());
-    }
 
     bool ImgCompressed;
     nh_.param("CameraImageCompressed", ImgCompressed, bool(false));
 
 
-    nh_.param("silentDebug", silent_debug, bool(false));
-
-
-    nh_.param("cameraRotated", cameraRotated, bool(false));
-    // nh_.getParam("camera_rotation_matrix/data", camRot);
-    nh_.getParam("alpha", gamma);
-
-
-    gotCamInfo = false;
 
 
     ros::Time::waitForValid();
 
-    nh_.param("lines", lines, bool(false));
-    nh_.param("accumLength", accumLength, int(5));
 
     ROS_INFO("Initializing FAST-based marker detection");
-    uvdf = new uvLedDetect_fast();
+    uvdf_ = new uvLedDetect_fast();
 
     /* subscribe to cameras //{ */
 
-    std::vector<std::string> cameraTopics;
-    nh_.param("cameraTopics", cameraTopics, cameraTopics);
-    if (cameraTopics.empty()) {
-      ROS_ERROR("[UVDARDetector]: No topics of cameras were supplied");
+    std::vector<std::string> _camera_topics;
+    nh_.param("camera_topics", _camera_topics);
+    if (_camera_topics.empty()) {
+      ROS_ERROR("[UVDARDetector]: No camera topics were supplied!");
+      return;
     }
-
-    nh_.param("useMasksNamed", _use_masks_named_, bool(false));
-    if (_use_masks_named_){
-      nh_.param("nato_name", _nato_name_, _nato_name_);
-      nh_.param("maskFileNames", _mask_file_names_, _mask_file_names_);
-      LoadMasks((int)(cameraTopics.size()));
-    }
+    _camera_count_ = (unsigned int)(_camera_topics_.size());
 
     // Create callbacks for each camera
-    for (size_t i = 0; i < cameraTopics.size(); ++i) {
-      image_callback_t callback = [imageIndex=i,this] (const sensor_msgs::ImageConstPtr& image_msg) { 
-        ProcessRaw(image_msg, imageIndex);
+    for (int i = 0; i < _camera_count_; ++i) {
+      image_callback_t callback = [image_index=i,this] (const sensor_msgs::ImageConstPtr& image_msg) { 
+        processRaw(image_msg, image_index);
       };
-      imageCallbacks.push_back(callback);
+      cals_image_.push_back(callback);
     }
     // Subscribe to corresponding topics
-    for (size_t i = 0; i < cameraTopics.size(); ++i) {
-      imageSubscribers.push_back(nh_.subscribe(cameraTopics[i], 1, &image_callback_t::operator(), &imageCallbacks[i]));
+    for (size_t i = 0; i < _camera_topics.size(); ++i) {
+      sub_images_.push_back(nh_.subscribe(cameraTopics[i], 1, &image_callback_t::operator(), &cals_image_[i]));
     }
 
-
     //}
+
+
+    /* prepare masks if necessary //{ */
+    nh_.param("use_masks", _use_masks_, bool(false));
+    if (_use_masks_){
+      nh_.param("mask_file_names", _mask_file_names_);
+
+      if (_mask_file_names_.size() != _camera_count_){
+        ROS_ERROR("[UVDARDetector]: Masks are enabled, but the number of mask filenames provided does not match the number of camera topics!");
+        return;
+      }
+
+      nh_.param("masks_mrs_named", _masks_mrs_named_, bool(false));
+      if (_masks_mrs_named_){
+        nh_.param("body_name", _body_name_);
+      }
+
+      if (!loadMasks()){
+        ROS_ERROR("[UVDARDetector]: Masks are enabled, but the mask files could not be loaded!");
+        return;
+      }
+    }
+    //}
+
     
     
     /* create pubslishers //{ */
@@ -131,8 +122,8 @@ public:
 
       // Create the publishers
       for (size_t i = 0; i < pointsSeenTopics.size(); ++i) {
-        sunPointsPublishers.push_back(nh_.advertise<uvdar::Int32MultiArrayStamped>(pointsSeenTopics[i]+"/sun", 1));
-        pointsPublishers.push_back(nh_.advertise<uvdar::Int32MultiArrayStamped>(pointsSeenTopics[i], 1));
+        pub_sun_points_.push_back(nh_.advertise<uvdar::Int32MultiArrayStamped>(pointsSeenTopics[i]+"/sun", 1));
+        pub_candidate_points_.push_back(nh_.advertise<uvdar::Int32MultiArrayStamped>(pointsSeenTopics[i], 1));
       }
     }
 
@@ -147,73 +138,44 @@ public:
 
 private:
 
-    /* LoadMasks //{ */
-    void LoadMasks(int size){
-      for (int i=0; i<size; i++){
-        ROS_INFO_STREAM("Loading mask file [" << ros::package::getPath("uvdar")+"/masks/"+_nato_name_+"_"+_mask_file_names_[i]+".bmp" << "]");
-        masks.push_back(cv::imread( ros::package::getPath("uvdar")+"/masks/"+_nato_name_+"_"+_mask_file_names_[i]+".bmp", cv::IMREAD_GRAYSCALE));
-        uvdf->addMask(masks[i]);
+    /* loadMasks //{ */
+    bool loadMasks(){
+      std::string file_name;
+      for (int i=0; i<_camera_count_; i++){
+
+        if (_masks_mrs_named_){
+          file_name = ros::package::getPath("uvdar")+"/masks/"+_body_name_+"_"+_mask_file_names_[i]+".bmp";
+        } else {
+          file_name = _mask_file_names_[i];
+        }
+
+        ROS_INFO_STREAM("[UVDARDetector]: Loading mask file [" << file_name << "]");
+        if (!(boost::filesystem::exists(file_name))){
+          ROS_ERROR_STREAM("[UVDARDetector]: Mask [" << file_name << "] does not exist!");
+          return false;
+        }
+
+        _masks_.push_back(cv::imread(file_name, cv::IMREAD_GRAYSCALE));
+        if (!(_masks_.back())){
+          ROS_ERROR_STREAM("[UVDARDetector]: Mask [" << file_name << "] could not be loaded!");
+          return false;
+        }
+
+        uvdf_->addMask(_masks_[i]);
       }
+      return true;
     }
     //}
-    //
-  void TiltCallback(const sensor_msgs::ImuConstPtr& imu_msg) {
-    imu_register.insert(imu_register.begin(), *imu_msg);
-    bool caughtUp   = false;
-    bool reachedEnd = false;
-    while (!reachedEnd) {
 
-      ros::Time::waitForValid();
-
-      ros::Time     tcurr    = ros::Time::now();
-      ros::Time     tlast    = imu_register.back().header.stamp;
-      ros::Duration difftime = (tcurr - tlast);
-      /* ROS_INFO("sec: %f",tcurr.toSec()); */
-      /* ROS_INFO("sec: %f",tlast.toSec()); */
-      /* ROS_INFO("sec: %f",difftime.toSec()); */
-      if (difftime > ros::Duration(100.0 * camera_delay)) {
-        imu_register.pop_back();
-        return;
-      }
-      if (difftime > ros::Duration(camera_delay)) {
-        caughtUp = true;
-        if (imu_register.size() > 0)
-          imu_register.pop_back();
-        /* ROS_INFO("size:%d", (int)(imu_register.size())); */
-        for (int i = 0; i < (int)(imu_register.size()); i++) {
-          /* ROS_INFO("%d:%f", i,imu_register[i].angular_velocity.z); */
-        }
-      } else {
-        /* ROS_INFO("size:%d", imu_register.size()); */
-        reachedEnd = true;
-      }
-    }
-
-    ros::Duration dur = (ros::Time::now() - imu_register.back().header.stamp);
-
-    if (!caughtUp)
-      return;
-
-    mutex_imu.lock();
-    {
-      yawRate   = imu_register.back().angular_velocity.z;
-      pitchRate = imu_register.back().angular_velocity.y;
-      rollRate  = imu_register.back().angular_velocity.x;
-    }
-    mutex_imu.unlock();
-
-    /* ROS_INFO( "Y:%f, P:%f, R:%f, B:%d", yawRate, pitchRate, rollRate, (int)(imu_register.size())); */
-  }
-
-  void ProcessCompressed(const sensor_msgs::CompressedImageConstPtr& image_msg, size_t imageIndex) {
+  void ProcessCompressed(const sensor_msgs::CompressedImageConstPtr& image_msg, int image_index) {
 
     cv_bridge::CvImagePtr image;
     if (image_msg != NULL)
       image = cv_bridge::toCvCopy(image_msg);
-    ProcessSingleImage(image, imageIndex);
+    ProcessSingleImage(image, image_index);
   }
 
-  void ProcessRaw(const sensor_msgs::ImageConstPtr& image_msg, size_t imageIndex) {
+  void processRaw(const sensor_msgs::ImageConstPtr& image_msg, int image_index) {
   /* clock_t begin1, begin2, end1, end2; */
   /* double  elapsedTime; */
   /* begin1                             = std::clock(); */
@@ -247,9 +209,7 @@ private:
     /* std::cout << "4: " << elapsedTime << " s" << "f: " << 1.0/elapsedTime << std::endl; */
     /* begin2                             = std::clock(); */
     std::vector<cv::Point2i> sun_points;
-    uvdf_mutex.lock();
-    std::vector<cv::Point2i> outvec = uvdf->processImage(&(image->image), &(image->image), sun_points, gui, DEBUG, threshVal, _use_masks_named_?imageIndex:-1);
-    uvdf_mutex.unlock();
+    std::vector<cv::Point2i> outvec = uvdf_->processImage(&(image->image), &(image->image), sun_points, _gui_, _debug_, _threshold_, _masks_mrs_named_?imageIndex:-1);
     /* end2         = std::clock(); */
     /* elapsedTime = double(end2 - begin2) / CLOCKS_PER_SEC; */
     /* std::cout << "5: " << elapsedTime << " s" << "f: " << 1.0/elapsedTime << std::endl; */
@@ -272,7 +232,7 @@ private:
       convert.push_back(0);
     }
     msg_sun.data = convert;
-    sunPointsPublishers[imageIndex].publish(msg_sun);
+    pub_sun_points_[imageIndex].publish(msg_sun);
 
 
     if (outvec.size()>30){
@@ -297,9 +257,9 @@ private:
         convert.push_back(0);
       }
       msg.data = convert;
-      pointsPublishers[imageIndex].publish(msg);
+      pub_candidate_points_[imageIndex].publish(msg);
     }
-    if (gui)
+    if (_gui_)
       key = cv::waitKey(10);
 
     if (key == 13)
@@ -314,93 +274,27 @@ private:
 private:
   bool initialized_ = false;
 
-  bool Flip;
-
-  ros::Time RangeRecTime;
-
-  ros::Subscriber CamInfoSubscriber;
-  ros::Subscriber TiltSubscriber;
-  std::vector<ros::Subscriber> imageSubscribers;
+  std::vector<ros::Subscriber> sub_images_;
   using image_callback_t = std::function<void (const sensor_msgs::ImageConstPtr&)>;
-  std::vector<image_callback_t> imageCallbacks;
-
-  std::vector<cv::Mat> masks;
-
-  std::vector<ros::Publisher> sunPointsPublishers;
-  std::vector<ros::Publisher> pointsPublishers;
-
-  tf::TransformListener* listener;
-
-  cv::Mat imOrigScaled;
-  cv::Mat imCurr;
-  cv::Mat imPrev;
-
-  double vxm, vym, vam;
-
-  int         imCenterX, imCenterY;  // center of original image
-  int         xi, xf, yi, yf;        // frame corner coordinates
-  cv::Point2i midPoint;
-  bool        coordsAcquired;
-  cv::Rect    frameRect;
+  std::vector<image_callback_t> cals_image_;
 
 
-  // Input arguments
-  bool DEBUG;
-  int  threshVal;
-  bool silent_debug;
-  bool AccelerationBounding;
-  // std::vector<double> camRot;
-  double gamma;  // rotation of camera in the helicopter frame (positive)
+  std::vector<ros::Publisher> pub_sun_points_;
+  std::vector<ros::Publisher> pub_candidate_points_;
 
+  bool _debug_;
+  bool _gui_;
 
+  int  _threshold_;
 
-  double cx, cy, fx, fy, s;
-  double k1, k2, p1, p2, k3;
-  bool   gotCamInfo;
-
-  bool gui, useOdom, _use_masks_named_;
-
-  int numberOfBins;
-
-  bool cameraRotated;
-
-  bool lines;
-  int  accumLength;
-
-  int   RansacNumOfChosen;
-  int   RansacNumOfIter;
-  float RansacThresholdRadSq;
-  bool  Allsac;
-
-  double     rollRate, pitchRate, yawRate;
-  std::mutex mutex_imu;
-
-  double max_px_speed_t;
-  float  maxSpeed;
-  float  maxAccel;
-  bool   checkAccel;
-
-  std::string uav_name;
-  std::string _nato_name_;
-
-  ros::Time odomSpeedTime;
-  float     speed_noise;
-
-  int    lastSpeedsSize;
-  double analyseDuration;
-
-
-  bool              useGpu;
-  uvLedDetect_fast* uvdf;
-  std::mutex  uvdf_mutex;
-  /* uvLedDetect_gpu *uvdg; */
-
-  // thread
-  std::thread main_thread;
-
-  std::vector< sensor_msgs::Imu > imu_register;
-
+  bool _use_masks_;
+  bool _masks_mrs_named_;
+  std::string _body_name_;
   std::vector<std::string> _mask_file_names_;
+  std::vector<cv::Mat> _masks_;
+
+  uvLedDetect_fast* uvdf_;
+
 };
 
 
