@@ -104,7 +104,7 @@
       <param name="num_worker_threads" value="8" />
     </node>
 
-    <node name="bluefox_emulator" pkg="nodelet" type="nodelet" args="$(arg nodelet) uvdar/BluefoxEmulator $(arg nodelet_manager)" output="screen" respawn="true"> 
+    <node name="bluefox_emulator" pkg="nodelet" type="nodelet" args="$(arg nodelet) uvdar/UVDARBluefoxEmulator $(arg nodelet_manager)" output="screen" respawn="true"> 
       <rosparam param="cameraOutputTopics"> ["camera_left", "camera_right"] </rosparam>
 
       <remap from="~camera_left" to="/$(arg uav_name)/uvdar_bluefox_left/image_raw"/>
@@ -114,10 +114,10 @@
     </node>
 
 
-    <node name="uv_detect" pkg="nodelet" type="nodelet" args="$(arg nodelet) uvdar/UVDetector $(arg nodelet_manager)" output="screen" respawn="true"> 
-    <!-- <node name="uv_detect" pkg="nodelet" type="nodelet" args="$(arg nodelet) uvdar/UVDetector $(arg nodelet_manager)" output="screen" respawn="true" launch-prefix="debug_roslaunch"> --> 
+    <node name="uv_detect" pkg="nodelet" type="nodelet" args="$(arg nodelet) uvdar/UVDARDetector $(arg nodelet_manager)" output="screen" respawn="true"> 
+    <!-- <node name="uv_detect" pkg="nodelet" type="nodelet" args="$(arg nodelet) uvdar/UVDARDetector $(arg nodelet_manager)" output="screen" respawn="true" launch-prefix="debug_roslaunch"> --> 
       <!-- <node name="uv_detect" pkg="uvdar" type="uv_detector_node" output="screen" launch-prefix="urxvt -e gdb -q -x /home/viktor/gdb.cmds -/-args"> -->
-        <!-- <node name="uv_detect" pkg="nodelet" type="nodelet" args="$(arg nodelet) uvdar/UVDetector $(arg nodelet_manager)" output="screen" respawn="true" launch-prefix="valgrind -/-tool=callgrind -/-callgrind-out-file=/home/viktor/callgrind.out -/-instr-atstart=no -/-collect-atstart=yes"> --> 
+        <!-- <node name="uv_detect" pkg="nodelet" type="nodelet" args="$(arg nodelet) uvdar/UVDARDetector $(arg nodelet_manager)" output="screen" respawn="true" launch-prefix="valgrind -/-tool=callgrind -/-callgrind-out-file=/home/viktor/callgrind.out -/-instr-atstart=no -/-collect-atstart=yes"> --> 
 
       <param name="uav_name" type = "string" value="$(arg uav_name)"/>
       <param name="DEBUG"		type="bool" value="$(arg DEBUG)"/> 
@@ -147,9 +147,9 @@
       <remap from="~imu" to="mavros/imu/data"/>
     </node>
 
-    <node name="blink_processor" pkg="nodelet" type="nodelet" args="$(arg nodelet) uvdar/BlinkProcessor $(arg nodelet_manager)" output="screen" respawn="true"> 
-    <!-- <node name="blink_processor" pkg="nodelet" type="nodelet" args="$(arg nodelet) uvdar/BlinkProcessor $(arg nodelet_manager)" output="screen" respawn="true" launch-prefix="roslaunch_debug"> --> 
-      <!-- <node name="blink_processor" pkg="nodelet" type="nodelet" args="$(arg nodelet) uvdar/BlinkProcessor $(arg nodelet_manager)" output="screen" respawn="true" launch-prefix="valgrind -/-tool=callgrind -/-callgrind-out-file=/home/viktor/callgrind.out -/-instr-atstart=no -/-collect-atstart=yes"> --> 
+    <node name="blink_processor" pkg="nodelet" type="nodelet" args="$(arg nodelet) uvdar/UVDARBlinkProcessor $(arg nodelet_manager)" output="screen" respawn="true"> 
+    <!-- <node name="blink_processor" pkg="nodelet" type="nodelet" args="$(arg nodelet) uvdar/UVDARBlinkProcessor $(arg nodelet_manager)" output="screen" respawn="true" launch-prefix="roslaunch_debug"> --> 
+      <!-- <node name="blink_processor" pkg="nodelet" type="nodelet" args="$(arg nodelet) uvdar/UVDARBlinkProcessor $(arg nodelet_manager)" output="screen" respawn="true" launch-prefix="valgrind -/-tool=callgrind -/-callgrind-out-file=/home/viktor/callgrind.out -/-instr-atstart=no -/-collect-atstart=yes"> --> 
       <param name="uav_name" type = "string" value="$(arg uav_name)"/>
       <!-- <param name="DEBUG"		type="bool" value="$(arg DEBUG)"/> --> 
       <param name="DEBUG"		type="bool" value="false"/> 
@@ -195,8 +195,8 @@
 
     </node>
       
-    <!-- <node name="uv_reporter_node" pkg="uvdar" type="uv_reporter_node" output="screen" launch-prefix="debug_roslaunch"> --> 
-    <node name="uv_reporter_node" pkg="uvdar" type="uv_reporter_node" output="screen" > 
+    <!-- <node name="uvdar_uav_pose_calculator_node" pkg="uvdar" type="uvdar_uav_pose_calculator_node" output="screen" launch-prefix="debug_roslaunch"> --> 
+    <node name="uvdar_uav_pose_calculator_node" pkg="uvdar" type="uvdar_uav_pose_calculator_node" output="screen" > 
       <param name="uav_name" type = "string" value="$(arg uav_name)"/>
       <param name="DEBUG"		type="bool" value="false"/> 
       <param name="gui"             type="bool" value="$(arg gui)"/>

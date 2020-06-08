@@ -33,7 +33,7 @@ namespace enc = sensor_msgs::image_encodings;
 
 namespace uvdar {
 
-class BlinkProcessor : public nodelet::Nodelet {
+class UVDARBlinkProcessor : public nodelet::Nodelet {
 public:
 
   /* onInit() //{ */
@@ -49,9 +49,9 @@ public:
     nh_.param("VisDEBUG", _visual_debug_, bool(false));
     nh_.param("GUI", GUI, bool(false));
     if (GUI)
-      ROS_INFO("[BlinkProcessor]: GUI is true");
+      ROS_INFO("[UVDARBlinkProcessor]: GUI is true");
     else
-      ROS_INFO("[BlinkProcessor]: GUI is false");
+      ROS_INFO("[UVDARBlinkProcessor]: GUI is false");
 
     nh_.param("accumulatorLength", accumulatorLength, int(23));
     nh_.param("pitchSteps", pitchSteps, int(16));
@@ -70,17 +70,17 @@ public:
     nh_.param("legacy", _legacy, bool(false));
     if (_legacy){
       nh_.param("legacy_delay", _legacy_delay, double(0.2));
-      ROS_INFO_STREAM("[BlinkProcessor]: Legacy mode in effect. Set delay is " << _legacy_delay << "s");
+      ROS_INFO_STREAM("[UVDARBlinkProcessor]: Legacy mode in effect. Set delay is " << _legacy_delay << "s");
     }
 
     
     /* subscribe to pointsSeen //{ */
 
     /* if (_legacy){ */
-    /*   pointsSubscriberLegacy = nh_.subscribe("pointsSeen", 1, &BlinkProcessor::insertPointsLegacy, this); */
+    /*   pointsSubscriberLegacy = nh_.subscribe("pointsSeen", 1, &UVDARBlinkProcessor::insertPointsLegacy, this); */
     /* } */
     /* else{ */
-    /*   pointsSubscriber = nh_.subscribe("pointsSeen", 1, &BlinkProcessor::insertPoints, this); */
+    /*   pointsSubscriber = nh_.subscribe("pointsSeen", 1, &UVDARBlinkProcessor::insertPoints, this); */
     /* } */
 
     /* pointsPublisher  = nh_.advertise<uvdar::Int32MultiArrayStamped>("blinkersSeen", 1); */
@@ -88,7 +88,7 @@ public:
     std::vector<std::string> _points_seen_topics;
     nh_.param("pointsSeenTopics", _points_seen_topics, _points_seen_topics);
     if (_points_seen_topics.empty()) {
-      ROS_WARN("[BlinkProcessor]: No topics of pointsSeen were supplied");
+      ROS_WARN("[UVDARBlinkProcessor]: No topics of pointsSeen were supplied");
     }
     blinkData.resize(_points_seen_topics.size());
 
@@ -101,7 +101,7 @@ public:
     for (size_t i = 0; i < _points_seen_topics.size(); ++i) {
 
     // Subscribe to corresponding topics
-    /* ROS_INFO("[BlinkProcessor]: HERE A"); */
+    /* ROS_INFO("[UVDARBlinkProcessor]: HERE A"); */
       if (_legacy){
         points_seen_callback_legacy_t callback = [imageIndex=i,this] (const std_msgs::UInt32MultiArrayConstPtr& pointsMessage) { 
           InsertPointsLegacy(pointsMessage, imageIndex);
@@ -123,7 +123,7 @@ public:
         pointsSeenSubscribers.push_back(nh_.subscribe(_points_seen_topics[i], 1, &points_seen_callback_t::operator(), &pointsSeenCallbacks[i]));
         sunPointsSeenSubscribers.push_back(nh_.subscribe(_points_seen_topics[i]+"/sun", 1, &points_seen_callback_t::operator(), &sunPointsSeenCallbacks[i]));
       }
-    /* ROS_INFO("[BlinkProcessor]: HERE B"); */
+    /* ROS_INFO("[UVDARBlinkProcessor]: HERE B"); */
     }
 
     //}
@@ -149,7 +149,7 @@ public:
       std::vector<std::string> _camera_topics;
       nh_.param("cameraTopics", _camera_topics, _camera_topics);
       if (_camera_topics.empty()) {
-        ROS_WARN("[BlinkProcessor]: No topics of cameras were supplied");
+        ROS_WARN("[UVDARBlinkProcessor]: No topics of cameras were supplied");
         use_camera_for_visualization_ = false;
       }
       else {
@@ -177,11 +177,11 @@ public:
     nh_.param("estimatedFramerateTopics", _estimated_framerate_topics, _estimated_framerate_topics);
 
     if (_blinkers_seen_topics.size() != _points_seen_topics.size()) {
-      ROS_ERROR_STREAM("[BlinkProcessor] The number of poinsSeenTopics (" << _points_seen_topics.size() 
+      ROS_ERROR_STREAM("[UVDARBlinkProcessor] The number of poinsSeenTopics (" << _points_seen_topics.size() 
           << ") is not matching the number of _blinkers_seen_topics (" << _blinkers_seen_topics.size() << ")!");
     }
     if (_estimated_framerate_topics.size() != _points_seen_topics.size()) {
-      ROS_ERROR_STREAM("[BlinkProcessor] The number of poinsSeenTopics (" << _points_seen_topics.size() 
+      ROS_ERROR_STREAM("[UVDARBlinkProcessor] The number of poinsSeenTopics (" << _points_seen_topics.size() 
           << ") is not matching the number of _blinkers_seen_topics (" << _estimated_framerate_topics.size() << ")!");
     }
 
@@ -213,7 +213,7 @@ public:
     prepareFrequencyClassifiers();
 
     for (size_t i = 0; i < _points_seen_topics.size(); ++i) {
-      process_threads.emplace_back(&BlinkProcessor::ProcessThread, this, i);
+      process_threads.emplace_back(&UVDARBlinkProcessor::ProcessThread, this, i);
     }
 
     if (GUI || publishVisualization) {
@@ -221,17 +221,17 @@ public:
     }
 
     if (GUI || _visual_debug_) {
-      show_thread  = std::thread(&BlinkProcessor::ShowThread, this);
+      show_thread  = std::thread(&UVDARBlinkProcessor::ShowThread, this);
     }
 
     if (publishVisualization) {
       image_transport::ImageTransport it(nh_);
       imPub = it.advertise("visualization", 1);
-      visualization_thread  = std::thread(&BlinkProcessor::VisualizeThread, this);
+      visualization_thread  = std::thread(&UVDARBlinkProcessor::VisualizeThread, this);
     }
 
     initialized_ = true;
-    ROS_INFO("[BlinkProcessor]: initialized");
+    ROS_INFO("[UVDARBlinkProcessor]: initialized");
   }
 
   //}
@@ -816,7 +816,7 @@ private:
 /*   ros::init(argc, argv, "blink_processor"); */
 /*   ROS_INFO("Starting the Blink processor node"); */
 /*   ros::NodeHandle nodeA; */
-/*   BlinkProcessor  bp(nodeA); */
+/*   UVDARBlinkProcessor  bp(nodeA); */
 
 /*   ROS_INFO("Blink processor node initiated"); */
 
@@ -833,4 +833,4 @@ private:
 } //namsepace uvdar
 
 #include <pluginlib/class_list_macros.h>
-PLUGINLIB_EXPORT_CLASS(uvdar::BlinkProcessor, nodelet::Nodelet)
+PLUGINLIB_EXPORT_CLASS(uvdar::UVDARBlinkProcessor, nodelet::Nodelet)
