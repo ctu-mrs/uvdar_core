@@ -49,6 +49,16 @@ public:
         callbackImage(image_msg, image_index);
       };
       cals_image_.push_back(callback);
+      ROS_INFO("[UVDARDetector]: Initializing FAST-based marker detection...");
+      uvdf_.push_back(std::make_unique<UVLedDetectFAST>(
+            _gui_,
+            _debug_,
+            _threshold_
+            ));
+      if (!uvdf_.back()){
+        ROS_ERROR("[UVDARDetector]: Failed to initialize FAST-based marker detection!");
+        return;
+    }
     }
     // Subscribe to corresponding topics
     for (size_t i = 0; i < _camera_topics.size(); ++i) {
@@ -99,16 +109,6 @@ public:
       }
     //}
 
-    ROS_INFO("[UVDARDetector]: Initializing FAST-based marker detection...");
-    uvdf_ = std::make_unique<UVLedDetectFAST>(
-        _gui_,
-        _debug_,
-        _threshold_
-        );
-    if (!uvdf_){
-      ROS_ERROR("[UVDARDetector]: Failed to initialize FAST-based marker detection!");
-      return;
-    }
 
     ROS_INFO("[UVDARDetector]: Waiting for time...");
     ros::Time::waitForValid();
@@ -156,7 +156,9 @@ private:
           return false;
         }
 
-        uvdf_->addMask(_masks_[i]);
+        for (unsigned int j=0; j<uvdf_.size(); j++){
+          uvdf_[j]->addMask(_masks_[i]);
+        }
       }
       return true;
     }
@@ -186,14 +188,15 @@ private:
    * @param image_index - index of the camera that produced this image
    */
   void processSingleImage(const cv_bridge::CvImageConstPtr image, int image_index) {
-    if (!initialized_) return;
+    if (!initialized_){
+      ROS_WARN_STREAM_THROTTLE(1.0,"[UVDARDetector]: Not yet initialized, dropping message...");
+      return;
+    }
 
     std::vector<cv::Point2i> sun_points;
     std::vector<cv::Point2i> detected_points;
 
-    {
-      std::scoped_lock lock(uvdf_mutex_);
-      if ( ! (uvdf_->processImage(
+      if ( ! (uvdf_[image_index]->processImage(
               image->image,
               detected_points,
               sun_points,
@@ -204,7 +207,6 @@ private:
         ROS_ERROR_STREAM("Failed to extract markers from the image!");
         return;
       }
-    }
 
     std::vector< int > convert;
 
@@ -282,7 +284,7 @@ private:
   std::vector<std::string> _mask_file_names_;
   std::vector<cv::Mat> _masks_;
 
-  std::unique_ptr<UVLedDetectFAST> uvdf_;
+  std::vector<std::unique_ptr<UVLedDetectFAST>> uvdf_;
   std::mutex  uvdf_mutex_;
 
 };
