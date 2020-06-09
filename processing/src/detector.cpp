@@ -10,6 +10,7 @@
 #include <opencv2/imgcodecs/imgcodecs.hpp>
 #include <mrs_msgs/Int32MultiArrayStamped.h>
 #include <boost/filesystem/operations.hpp>
+#include <mutex>
 
 #include "detect/uv_led_detect_fast.h"
 
@@ -35,7 +36,7 @@ public:
 
     /* subscribe to cameras //{ */
     std::vector<std::string> _camera_topics;
-    nh_.param("camera_topics", _camera_topics);
+    nh_.param("camera_topics", _camera_topics, _camera_topics);
     if (_camera_topics.empty()) {
       ROS_ERROR("[UVDARDetector]: No camera topics were supplied!");
       return;
@@ -59,7 +60,7 @@ public:
     /* prepare masks if necessary //{ */
     nh_.param("use_masks", _use_masks_, bool(false));
     if (_use_masks_){
-      nh_.param("mask_file_names", _mask_file_names_);
+      nh_.param("mask_file_names", _mask_file_names_, _mask_file_names_);
 
       if (_mask_file_names_.size() != _camera_count_){
         ROS_ERROR_STREAM("[UVDARDetector]: Masks are enabled, but the number of mask filenames provided does not match the number of camera topics (" << _camera_count_ << ")!");
@@ -82,7 +83,7 @@ public:
     nh_.param("publish_sun_points", _publish_sun_points_, bool(false));
 
     std::vector<std::string> _points_seen_topics;
-      nh_.param("points_seen_topics", _points_seen_topics);
+      nh_.param("points_seen_topics", _points_seen_topics, _points_seen_topics);
       if (_points_seen_topics.size() != _camera_count_) {
         ROS_ERROR_STREAM("[UVDARDetector] The number of output topics (" << _points_seen_topics.size()  << ") does not match the number of cameras (" << _camera_count_ << ")!");
         return;
@@ -190,16 +191,19 @@ private:
     std::vector<cv::Point2i> sun_points;
     std::vector<cv::Point2i> detected_points;
 
-    if ( ! (uvdf_->processImage(
-            image->image,
-            detected_points,
-            sun_points,
-            _masks_mrs_named_?image_index:-1
+    {
+      std::scoped_lock lock(uvdf_mutex_);
+      if ( ! (uvdf_->processImage(
+              image->image,
+              detected_points,
+              sun_points,
+              _use_masks_?image_index:-1
+              )
             )
-          )
-       ){
-      ROS_ERROR_STREAM("Failed to extract markers from the image!");
-      return;
+         ){
+        ROS_ERROR_STREAM("Failed to extract markers from the image!");
+        return;
+      }
     }
 
     std::vector< int > convert;
@@ -279,6 +283,7 @@ private:
   std::vector<cv::Mat> _masks_;
 
   std::unique_ptr<UVLedDetectFAST> uvdf_;
+  std::mutex  uvdf_mutex_;
 
 };
 

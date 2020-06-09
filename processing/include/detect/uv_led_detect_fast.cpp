@@ -46,12 +46,12 @@ bool UVLedDetectFAST::processImage(const cv::Mat i_image, std::vector<cv::Point2
   image_curr_=i_image;
 
   if (mask_id >= 0){
-    if (image_curr_.size() != masks_[mask_id].size()){
-      std::cerr << "[UVDARDetectorFAST]: The size of the selected mask does not match the current image!" << std::endl;
-      return false;
-    }
     if (mask_id >= (int)(masks_.size())){
       std::cerr << "[UVDARDetectorFAST]: Mask index " << mask_id << " is greater than the current number of loaded masks!" << std::endl;
+      return false;
+    }
+    if (image_curr_.size() != masks_[mask_id].size()){
+      std::cerr << "[UVDARDetectorFAST]: The size of the selected mask does not match the current image!" << std::endl;
       return false;
     }
   }
@@ -66,26 +66,16 @@ bool UVLedDetectFAST::processImage(const cv::Mat i_image, std::vector<cv::Point2
     image_check_ = cv::Mat(image_curr_.size(), CV_8UC1);
     image_check_ = cv::Scalar(0);
   }
-  /* std::cout << "hey" << std::endl; */
-  /* end         = std::clock(); */
-  /* elapsedTime = double(end - begin) / CLOCKS_PER_SEC; */
-  /* std::cout << "2: " << elapsedTime << " s" << std::endl; */
-
-  /* begin = std::clock(); */
   clearMarks();
-
-  /* end         = std::clock(); */
-  /* elapsedTime = double(end - begin) / CLOCKS_PER_SEC; */
-  /* std::cout << "3: " << elapsedTime << " s" << std::endl; */
 
   cv::Point peakPoint;
 
   int x,y;
   /* begin = std::clock(); */
-  bool          test;
+  bool          marker_potential;
   unsigned char maximumVal = 0;
   /* bool          gotOne     = false; */
-  bool sunPointPotential = false;
+  bool sun_point_potential = false;
   /* std::vector<cv::Point> sun_points; */
   for (int j = 0; j < image_curr_.rows; j++) {
     for (int i = 0; i < image_curr_.cols; i++) {
@@ -98,10 +88,10 @@ bool UVLedDetectFAST::processImage(const cv::Mat i_image, std::vector<cv::Point2
         if (image_curr_.data[index2d(i, j)] > _threshold_) {
           int sunTestPoints = 0;
           if (image_curr_.data[index2d(i, j)] > (_threshold_*2)) {
-            sunPointPotential = true;
+            sun_point_potential = true;
           }
           /* gotOne = true; */
-          test   = true;
+          marker_potential   = true;
 
           int n = -1;
           for (auto fast_points : fast_points_set_){
@@ -109,26 +99,26 @@ bool UVLedDetectFAST::processImage(const cv::Mat i_image, std::vector<cv::Point2
             for (int m = 0; m < (int)(fast_points.size()); m++) {
               x = i + fast_points[m].x;
               if (x < 0) {
-                test = false;
+                marker_potential = false;
                 break;
               }
               if (x >= roi_.width) {
-                test = false;
+                marker_potential = false;
                 break;
               }
 
               y = j + fast_points[m].y;
               if (y < 0) {
-                test = false;
+                marker_potential = false;
                 break;
               }
               if (y >= roi_.height) {
-                test = false;
+                marker_potential = false;
                 break;
               }
 
               if (image_check_.data[index2d(x,y)] == 255){
-                test =false;
+                marker_potential =false;
                 break;
               }
 
@@ -136,21 +126,19 @@ bool UVLedDetectFAST::processImage(const cv::Mat i_image, std::vector<cv::Point2
               if ((image_curr_.data[index2d(i, j)] - image_curr_.data[index2d(x, y)]) < (_threshold_/2)) {
                 /* std::cout << "BREACH" << std::endl; */
 
-                test = false;
-                if (!sunPointPotential)
+                marker_potential = false;
+                if (!sun_point_potential)
                   break;
                 else sunTestPoints++;
               }
               else 
-                sunPointPotential = false;
-              /* std::cout << (int)(image_curr_.at< unsigned char >(j, i) - image_curr_.at< unsigned char >(y, x)) << std::endl; */
+                sun_point_potential = false;
             }
-            if (test){
+            if (marker_potential){
               break;
             }
           }
-          /* std::cout << "here: " << x << ":" << y << std::endl; */
-          if (test) {
+          if (marker_potential) {
             maximumVal = 0;
             for (int m = 0; m < (int)(fast_interior_set_[n].size()); m++) {
             /* for (int m = 0; m < 1; m++) { */
@@ -169,7 +157,6 @@ bool UVLedDetectFAST::processImage(const cv::Mat i_image, std::vector<cv::Point2
               if (y >= roi_.height) {
                 continue;
               }
-              /* std::cout << "here: " << x << ":" << y << std::endl; */
 
               if (image_check_.data[index2d(x, y)] == 0) {
                 if (image_curr_.data[index2d(x, y)] > maximumVal) {
@@ -183,7 +170,7 @@ bool UVLedDetectFAST::processImage(const cv::Mat i_image, std::vector<cv::Point2
             detected_points.push_back(peakPoint);
           }
           else{
-            if (sunPointPotential)
+            if (sun_point_potential)
               if (sunTestPoints == (int)(fast_points_set_[n].size()))
                 sun_points.push_back(cv::Point(i,j));
           }
@@ -192,12 +179,6 @@ bool UVLedDetectFAST::processImage(const cv::Mat i_image, std::vector<cv::Point2
       }
     }
   }
-  /* end         = std::clock(); */
-  /* elapsedTime = double(end - begin) / CLOCKS_PER_SEC; */
-  /* std::cout << "5: " << elapsedTime << " s" << std::endl; */
-
-  /* begin = std::clock(); */
-
 
   if (_gui_ && (step_in_period_ == 75)) {
     for (int i = 0; i < (int)(detected_points.size()); i++) {
@@ -208,18 +189,6 @@ bool UVLedDetectFAST::processImage(const cv::Mat i_image, std::vector<cv::Point2
     cv::waitKey(0);
   }
   step_in_period_++;
-
-  /* end         = std::clock(); */
-  /* elapsedTime = double(end - begin) / CLOCKS_PER_SEC; */
-  /* std::cout << "1: " << elapsedTime << " s" << "f: " << 1.0/elapsedTime << std::endl; */
-
-  /* begin = std::clock(); */
-  /* if ((detected_points.size() == 0) && (gotOne)) */
-  /*   std::cout << "@2" <<std::endl; */
-  /* else if (detected_points.size() == 0) */
-  /*   std::cout << "@0" <<std::endl; */
-  /* else */
-  /*   std::cout << "@1" <<std::endl; */
 
   for (int i=0; i<(int)(detected_points.size()); i++){
     for (int j=0; j<(int)(sun_points.size()); j++){
@@ -318,7 +287,7 @@ void UVLedDetectFAST::initFAST() {
   fast_interior.push_back(cv::Point(0, 2));
   fast_interior.push_back(cv::Point(1, 2));
 
-  fast_points_set_.push_back(fast_interior);
+  fast_interior_set_.push_back(fast_interior);
 
   fast_interior.clear();
 
@@ -342,6 +311,6 @@ void UVLedDetectFAST::initFAST() {
   fast_interior.push_back(cv::Point(1, 3));
   fast_interior.push_back(cv::Point(2, 3));
 
-  fast_points_set_.push_back(fast_interior);
+  fast_interior_set_.push_back(fast_interior);
 
 }
