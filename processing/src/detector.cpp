@@ -215,45 +215,48 @@ private:
       return;
     }
 
-    if (_publish_sun_points_){
-      mrs_msgs::Int32MultiArrayStamped msg_sun;
-      msg_sun.stamp = image->header.stamp;
-      msg_sun.layout.dim.push_back(std_msgs::MultiArrayDimension());
-      msg_sun.layout.dim.push_back(std_msgs::MultiArrayDimension());
-      msg_sun.layout.dim[0].size   = sun_points.size();
-      msg_sun.layout.dim[0].label  = "count";
-      msg_sun.layout.dim[0].stride = sun_points.size() * 3;
-      msg_sun.layout.dim[1].size   = 3;
-      msg_sun.layout.dim[1].label  = "value";
-      msg_sun.layout.dim[1].stride = 3;
-      for (int i = 0; i < (int)(sun_points.size()); i++) {
-        convert.push_back(sun_points[i].x);
-        convert.push_back(sun_points[i].y);
-        convert.push_back(0);
+    {
+      std::scoped_lock lock(pub_mutex_);
+      if (_publish_sun_points_){
+        mrs_msgs::Int32MultiArrayStamped msg_sun;
+        msg_sun.stamp = image->header.stamp;
+        msg_sun.layout.dim.push_back(std_msgs::MultiArrayDimension());
+        msg_sun.layout.dim.push_back(std_msgs::MultiArrayDimension());
+        msg_sun.layout.dim[0].size   = sun_points.size();
+        msg_sun.layout.dim[0].label  = "count";
+        msg_sun.layout.dim[0].stride = sun_points.size() * 3;
+        msg_sun.layout.dim[1].size   = 3;
+        msg_sun.layout.dim[1].label  = "value";
+        msg_sun.layout.dim[1].stride = 3;
+        for (int i = 0; i < (int)(sun_points.size()); i++) {
+          convert.push_back(sun_points[i].x);
+          convert.push_back(sun_points[i].y);
+          convert.push_back(0);
+        }
+        msg_sun.data = convert;
+        pub_sun_points_[image_index].publish(msg_sun);
       }
-      msg_sun.data = convert;
-      pub_sun_points_[image_index].publish(msg_sun);
-    }
 
-    else {
-      mrs_msgs::Int32MultiArrayStamped msg;
-      msg.stamp = image->header.stamp;
-      msg.layout.dim.push_back(std_msgs::MultiArrayDimension());
-      msg.layout.dim.push_back(std_msgs::MultiArrayDimension());
-      msg.layout.dim[0].size   = detected_points.size();
-      msg.layout.dim[0].label  = "count";
-      msg.layout.dim[0].stride = detected_points.size() * 3;
-      msg.layout.dim[1].size   = 3;
-      msg.layout.dim[1].label  = "value";
-      msg.layout.dim[1].stride = 3;
-      convert.clear();
-      for (int i = 0; i < (int)(detected_points.size()); i++) {
-        convert.push_back(detected_points[i].x);
-        convert.push_back(detected_points[i].y);
-        convert.push_back(0);
+      else {
+        mrs_msgs::Int32MultiArrayStamped msg;
+        msg.stamp = image->header.stamp;
+        msg.layout.dim.push_back(std_msgs::MultiArrayDimension());
+        msg.layout.dim.push_back(std_msgs::MultiArrayDimension());
+        msg.layout.dim[0].size   = detected_points.size();
+        msg.layout.dim[0].label  = "count";
+        msg.layout.dim[0].stride = detected_points.size() * 3;
+        msg.layout.dim[1].size   = 3;
+        msg.layout.dim[1].label  = "value";
+        msg.layout.dim[1].stride = 3;
+        convert.clear();
+        for (int i = 0; i < (int)(detected_points.size()); i++) {
+          convert.push_back(detected_points[i].x);
+          convert.push_back(detected_points[i].y);
+          convert.push_back(0);
+        }
+        msg.data = convert;
+        pub_candidate_points_[image_index].publish(msg);
       }
-      msg.data = convert;
-      pub_candidate_points_[image_index].publish(msg);
     }
 
   }
@@ -285,7 +288,7 @@ private:
   std::vector<cv::Mat> _masks_;
 
   std::vector<std::unique_ptr<UVLedDetectFAST>> uvdf_;
-  std::mutex  uvdf_mutex_;
+  std::mutex  pub_mutex_;
 
 };
 
