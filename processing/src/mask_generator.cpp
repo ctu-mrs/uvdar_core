@@ -8,7 +8,7 @@
 #include <std_msgs/Float32.h>
 #include <std_msgs/MultiArrayDimension.h>
 #include <std_msgs/UInt32MultiArray.h>
-#include <uvdar/Int32MultiArrayStamped.h>
+#include <mrs_msgs/Int32MultiArrayStamped.h>
 #include <stdint.h>
 #include <mutex>
 #include <thread>
@@ -52,7 +52,7 @@ public:
 
     for (size_t i = 0; i < _points_seen_topics.size(); ++i) {
       maskData[i].camera_id = _mask_file_names[i];
-      points_seen_callback_t callback = [imageIndex=i,this] (const uvdar::Int32MultiArrayStampedConstPtr& pointsMessage) { 
+      points_seen_callback_t callback = [imageIndex=i,this] (const mrs_msgs::Int32MultiArrayStampedConstPtr& pointsMessage) { 
         InsertPoints(pointsMessage, imageIndex);
       };
       pointsSeenCallbacks[i] = callback;
@@ -78,7 +78,7 @@ private:
   
   /* InsertPoints //{ */
 
-  void InsertPoints(const uvdar::Int32MultiArrayStampedConstPtr& msg, size_t imageIndex) {
+  void InsertPoints(const mrs_msgs::Int32MultiArrayStampedConstPtr& msg, size_t imageIndex) {
     if (!initialized_) return;
 
     std::scoped_lock lock(mutex_show);
@@ -186,7 +186,7 @@ private:
   std::thread              show_thread;
   std::mutex               mutex_show;
 
-  using points_seen_callback_t = std::function<void (const uvdar::Int32MultiArrayStampedConstPtr&)>;
+  using points_seen_callback_t = std::function<void (const mrs_msgs::Int32MultiArrayStampedConstPtr&)>;
   std::vector<points_seen_callback_t> pointsSeenCallbacks;
   std::vector<ros::Subscriber> pointsSeenSubscribers;
 

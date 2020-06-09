@@ -99,7 +99,7 @@ public:
     //}
 
     ROS_INFO("[UVDARDetector]: Initializing FAST-based marker detection...");
-    uvdf_ = std::make_unique<uvLedDetect_fast>(
+    uvdf_ = std::make_unique<UVLedDetectFAST>(
         _gui_,
         _debug_,
         _threshold_
@@ -278,7 +278,7 @@ private:
   std::vector<std::string> _mask_file_names_;
   std::vector<cv::Mat> _masks_;
 
-  std::unique_ptr<uvLedDetect_fast> uvdf_;
+  std::unique_ptr<UVLedDetectFAST> uvdf_;
 
 };
 

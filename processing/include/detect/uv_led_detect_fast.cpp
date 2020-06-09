@@ -26,7 +26,7 @@
 
 #define index2d(X, Y) (image_curr_.cols * (Y) + (X))
 
-uvLedDetect_fast::uvLedDetect_fast(bool i_gui, bool i_debug, int i_threshold) {
+UVLedDetectFAST::UVLedDetectFAST(bool i_gui, bool i_debug, int i_threshold) {
   _debug_                             = i_debug;
   _gui_                               = i_gui;
   _threshold_                         = i_threshold;
@@ -37,11 +37,11 @@ uvLedDetect_fast::uvLedDetect_fast(bool i_gui, bool i_debug, int i_threshold) {
   return;
 }
 
-void uvLedDetect_fast::addMask(cv::Mat i_mask){
+void UVLedDetectFAST::addMask(cv::Mat i_mask){
   masks_.push_back(i_mask);
 }
 
-bool uvLedDetect_fast::processImage(const cv::Mat i_image, std::vector<cv::Point2i>& detected_points, std::vector<cv::Point2i>& sun_points, int mask_id) {
+bool UVLedDetectFAST::processImage(const cv::Mat i_image, std::vector<cv::Point2i>& detected_points, std::vector<cv::Point2i>& sun_points, int mask_id) {
   detected_points = std::vector< cv::Point2i >();
   image_curr_=i_image;
 
@@ -102,51 +102,59 @@ bool uvLedDetect_fast::processImage(const cv::Mat i_image, std::vector<cv::Point
           }
           /* gotOne = true; */
           test   = true;
-          for (int m = 0; m < (int)(fast_points_.size()); m++) {
-            x = i + fast_points_[m].x;
-            if (x < 0) {
-              test = false;
-              break;
-            }
-            if (x >= roi_.width) {
-              test = false;
-              break;
-            }
 
-            y = j + fast_points_[m].y;
-            if (y < 0) {
-              test = false;
-              break;
-            }
-            if (y >= roi_.height) {
-              test = false;
-              break;
-            }
-
-            if (image_check_.data[index2d(x,y)] == 255){
-              test =false;
-              break;
-            }
-
-
-            if ((image_curr_.data[index2d(i, j)] - image_curr_.data[index2d(x, y)]) < (_threshold_/2)) {
-              /* std::cout << "BREACH" << std::endl; */
-
-              test = false;
-              if (!sunPointPotential)
+          int n = -1;
+          for (auto fast_points : fast_points_set_){
+            n++;
+            for (int m = 0; m < (int)(fast_points.size()); m++) {
+              x = i + fast_points[m].x;
+              if (x < 0) {
+                test = false;
                 break;
-              else sunTestPoints++;
+              }
+              if (x >= roi_.width) {
+                test = false;
+                break;
+              }
+
+              y = j + fast_points[m].y;
+              if (y < 0) {
+                test = false;
+                break;
+              }
+              if (y >= roi_.height) {
+                test = false;
+                break;
+              }
+
+              if (image_check_.data[index2d(x,y)] == 255){
+                test =false;
+                break;
+              }
+
+
+              if ((image_curr_.data[index2d(i, j)] - image_curr_.data[index2d(x, y)]) < (_threshold_/2)) {
+                /* std::cout << "BREACH" << std::endl; */
+
+                test = false;
+                if (!sunPointPotential)
+                  break;
+                else sunTestPoints++;
+              }
+              else 
+                sunPointPotential = false;
+              /* std::cout << (int)(image_curr_.at< unsigned char >(j, i) - image_curr_.at< unsigned char >(y, x)) << std::endl; */
             }
-            else 
-              sunPointPotential = false;
-            /* std::cout << (int)(image_curr_.at< unsigned char >(j, i) - image_curr_.at< unsigned char >(y, x)) << std::endl; */
+            if (test){
+              break;
+            }
           }
           /* std::cout << "here: " << x << ":" << y << std::endl; */
           if (test) {
             maximumVal = 0;
-            for (int m = 0; m < (int)(fast_interior_.size()); m++) {
+            for (int m = 0; m < (int)(fast_interior_set_[n].size()); m++) {
             /* for (int m = 0; m < 1; m++) { */
-              x = i + fast_interior_[m].x;
+              x = i + fast_interior_set_[n][m].x;
               if (x < 0) {
                 continue;
               }
@@ -154,7 +162,7 @@ bool uvLedDetect_fast::processImage(const cv::Mat i_image, std::vector<cv::Point
                 continue;
               }
 
-              y = j + fast_interior_[m].y;
+              y = j + fast_interior_set_[n][m].y;
               if (y < 0) {
                 continue;
               }
@@ -176,7 +184,7 @@ bool uvLedDetect_fast::processImage(const cv::Mat i_image, std::vector<cv::Point
           }
           else{
             if (sunPointPotential)
-              if (sunTestPoints == (int)(fast_points_.size()))
+              if (sunTestPoints == (int)(fast_points_set_[n].size()))
                 sun_points.push_back(cv::Point(i,j));
           }
 
@@ -226,7 +234,7 @@ bool uvLedDetect_fast::processImage(const cv::Mat i_image, std::vector<cv::Point
   return true;
 }
 
-void uvLedDetect_fast::clearMarks() {
+void UVLedDetectFAST::clearMarks() {
   for (int j = 0; j < image_curr_.rows; j++) {
     for (int i = 0; i < image_curr_.cols; i++) {
       if (image_check_.at< unsigned char >(j, i) == 255) {
@@ -237,122 +245,103 @@ void uvLedDetect_fast::clearMarks() {
 }
 
 
-void uvLedDetect_fast::initFAST() {
-  /* fast_points_.clear(); */
+void UVLedDetectFAST::initFAST() {
+  std::vector< cv::Point > fast_points;
 
-  /* fast_points_.push_back(cv::Point(0, -3)); */
-  /* fast_points_.push_back(cv::Point(0, 3)); */
-  /* fast_points_.push_back(cv::Point(3, 0)); */
-  /* fast_points_.push_back(cv::Point(-3, 0)); */
+  fast_points.push_back(cv::Point(0, -3));
+  fast_points.push_back(cv::Point(0, 3));
+  fast_points.push_back(cv::Point(3, 0));
+  fast_points.push_back(cv::Point(-3, 0));
 
-  /* fast_points_.push_back(cv::Point(2, -2)); */
-  /* fast_points_.push_back(cv::Point(-2, 2)); */
-  /* fast_points_.push_back(cv::Point(-2, -2)); */
-  /* fast_points_.push_back(cv::Point(2, 2)); */
+  fast_points.push_back(cv::Point(2, -2));
+  fast_points.push_back(cv::Point(-2, 2));
+  fast_points.push_back(cv::Point(-2, -2));
+  fast_points.push_back(cv::Point(2, 2));
 
-  /* fast_points_.push_back(cv::Point(-1, -3)); */
-  /* fast_points_.push_back(cv::Point(1, 3)); */
-  /* fast_points_.push_back(cv::Point(3, -1)); */
-  /* fast_points_.push_back(cv::Point(-3, 1)); */
+  fast_points.push_back(cv::Point(-1, -3));
+  fast_points.push_back(cv::Point(1, 3));
+  fast_points.push_back(cv::Point(3, -1));
+  fast_points.push_back(cv::Point(-3, 1));
 
-  /* fast_points_.push_back(cv::Point(1, -3)); */
-  /* fast_points_.push_back(cv::Point(-1, 3)); */
-  /* fast_points_.push_back(cv::Point(3, 1)); */
-  /* fast_points_.push_back(cv::Point(-3, -1)); */
+  fast_points.push_back(cv::Point(1, -3));
+  fast_points.push_back(cv::Point(-1, 3));
+  fast_points.push_back(cv::Point(3, 1));
+  fast_points.push_back(cv::Point(-3, -1));
 
-  /* fast_interior_.clear(); */
+  fast_points_set_.push_back(fast_points);
 
-  /* /1* fast_interior_.push_back(cv::Point(-1, -2)); *1/ */
-  /* /1* fast_interior_.push_back(cv::Point(0, -2)); *1/ */
-  /* /1* fast_interior_.push_back(cv::Point(1, -2)); *1/ */
+  fast_points.clear();
 
-  /* /1* fast_interior_.push_back(cv::Point(-2, -1)); *1/ */
-  /* /1* fast_interior_.push_back(cv::Point(-1, -1)); *1/ */
-  /* /1* fast_interior_.push_back(cv::Point(0, -1)); *1/ */
-  /* /1* fast_interior_.push_back(cv::Point(1, -1)); *1/ */
-  /* /1* fast_interior_.push_back(cv::Point(2, -1)); *1/ */
+  fast_points.push_back(cv::Point(0, -4));
+  fast_points.push_back(cv::Point(0, 4));
+  fast_points.push_back(cv::Point(4, 0));
+  fast_points.push_back(cv::Point(-4, 0));
 
-  /* /1* fast_interior_.push_back(cv::Point(-2, 0)); *1/ */
-  /* /1* fast_interior_.push_back(cv::Point(-1, 0)); *1/ */
-  /* fast_interior_.push_back(cv::Point(0, 0)); */
-  /* fast_interior_.push_back(cv::Point(1, 0)); */
-  /* fast_interior_.push_back(cv::Point(2, 0)); */
+  fast_points.push_back(cv::Point(3, -3));
+  fast_points.push_back(cv::Point(-3, 3));
+  fast_points.push_back(cv::Point(-3, -3));
+  fast_points.push_back(cv::Point(3, 3));
 
-  /* /1* fast_interior_.push_back(cv::Point(-2, 1)); *1/ */
-  /* /1* fast_interior_.push_back(cv::Point(-1, 1)); *1/ */
-  /* fast_interior_.push_back(cv::Point(0, 1)); */
-  /* fast_interior_.push_back(cv::Point(1, 1)); */
-  /* fast_interior_.push_back(cv::Point(2, 1)); */
+  fast_points.push_back(cv::Point(-1, -4));
+  fast_points.push_back(cv::Point(1, 4));
+  fast_points.push_back(cv::Point(4, -1));
+  fast_points.push_back(cv::Point(-4, 1));
 
-  /* /1* fast_interior_.push_back(cv::Point(-1, 2)); *1/ */
-  /* fast_interior_.push_back(cv::Point(0, 2)); */
-  /* fast_interior_.push_back(cv::Point(1, 2)); */
-  fast_points_.clear();
+  fast_points.push_back(cv::Point(1, -4));
+  fast_points.push_back(cv::Point(-1, 4));
+  fast_points.push_back(cv::Point(4, 1));
+  fast_points.push_back(cv::Point(-4, -1));
 
-  fast_points_.push_back(cv::Point(0, -4));
-  fast_points_.push_back(cv::Point(0, 4));
-  fast_points_.push_back(cv::Point(4, 0));
-  fast_points_.push_back(cv::Point(-4, 0));
+  fast_points.push_back(cv::Point(-2, -4));
+  fast_points.push_back(cv::Point(2, 4));
+  fast_points.push_back(cv::Point(4, -2));
+  fast_points.push_back(cv::Point(-4, 2));
 
-  fast_points_.push_back(cv::Point(3, -3));
-  fast_points_.push_back(cv::Point(-3, 3));
-  fast_points_.push_back(cv::Point(-3, -3));
-  fast_points_.push_back(cv::Point(3, 3));
+  fast_points.push_back(cv::Point(2, -4));
+  fast_points.push_back(cv::Point(-2, 4));
+  fast_points.push_back(cv::Point(4, 2));
+  fast_points.push_back(cv::Point(-4, -2));
 
-  fast_points_.push_back(cv::Point(-1, -4));
-  fast_points_.push_back(cv::Point(1, 4));
-  fast_points_.push_back(cv::Point(4, -1));
-  fast_points_.push_back(cv::Point(-4, 1));
+  fast_points_set_.push_back(fast_points);
 
-  fast_points_.push_back(cv::Point(1, -4));
-  fast_points_.push_back(cv::Point(-1, 4));
-  fast_points_.push_back(cv::Point(4, 1));
-  fast_points_.push_back(cv::Point(-4, -1));
 
-  fast_points_.push_back(cv::Point(-2, -4));
-  fast_points_.push_back(cv::Point(2, 4));
-  fast_points_.push_back(cv::Point(4, -2));
-  fast_points_.push_back(cv::Point(-4, 2));
+  std::vector< cv::Point > fast_interior;
 
-  fast_points_.push_back(cv::Point(2, -4));
-  fast_points_.push_back(cv::Point(-2, 4));
-  fast_points_.push_back(cv::Point(4, 2));
-  fast_points_.push_back(cv::Point(-4, -2));
+  fast_interior.push_back(cv::Point(0, 0));
+  fast_interior.push_back(cv::Point(1, 0));
+  fast_interior.push_back(cv::Point(2, 0));
 
-  fast_interior_.clear();
+  fast_interior.push_back(cv::Point(0, 1));
+  fast_interior.push_back(cv::Point(1, 1));
+  fast_interior.push_back(cv::Point(2, 1));
 
-  /* fast_interior_.push_back(cv::Point(-1, -2)); */
-  /* fast_interior_.push_back(cv::Point(0, -2)); */
-  /* fast_interior_.push_back(cv::Point(1, -2)); */
+  fast_interior.push_back(cv::Point(0, 2));
+  fast_interior.push_back(cv::Point(1, 2));
 
-  /* fast_interior_.push_back(cv::Point(-2, -1)); */
-  /* fast_interior_.push_back(cv::Point(-1, -1)); */
-  /* fast_interior_.push_back(cv::Point(0, -1)); */
-  /* fast_interior_.push_back(cv::Point(1, -1)); */
-  /* fast_interior_.push_back(cv::Point(2, -1)); */
+  fast_points_set_.push_back(fast_interior);
 
-  /* fast_interior_.push_back(cv::Point(-2, 0)); */
-  /* fast_interior_.push_back(cv::Point(-1, 0)); */
-  fast_interior_.push_back(cv::Point(0, 0));
-  fast_interior_.push_back(cv::Point(1, 0));
-  fast_interior_.push_back(cv::Point(2, 0));
-  fast_interior_.push_back(cv::Point(3, 0));
+  fast_interior.clear();
 
-  /* fast_interior_.push_back(cv::Point(-2, 1)); */
-  /* fast_interior_.push_back(cv::Point(-1, 1)); */
-  fast_interior_.push_back(cv::Point(0, 1));
-  fast_interior_.push_back(cv::Point(1, 1));
-  fast_interior_.push_back(cv::Point(2, 1));
-  fast_interior_.push_back(cv::Point(3, 1));
+  fast_interior.push_back(cv::Point(0, 0));
+  fast_interior.push_back(cv::Point(1, 0));
+  fast_interior.push_back(cv::Point(2, 0));
+  fast_interior.push_back(cv::Point(3, 0));
 
-  fast_interior_.push_back(cv::Point(0, 2));
-  fast_interior_.push_back(cv::Point(1, 2));
-  fast_interior_.push_back(cv::Point(2, 2));
-  fast_interior_.push_back(cv::Point(3, 2));
 
-  /* fast_interior_.push_back(cv::Point(-1, 2)); */
-  fast_interior_.push_back(cv::Point(0, 3));
-  fast_interior_.push_back(cv::Point(1, 3));
-  fast_interior_.push_back(cv::Point(2, 3));
-  make double pass with smaller and then larger circle
+  fast_interior.push_back(cv::Point(0, 1));
+  fast_interior.push_back(cv::Point(1, 1));
+  fast_interior.push_back(cv::Point(2, 1));
+  fast_interior.push_back(cv::Point(3, 1));
+
+  fast_interior.push_back(cv::Point(0, 2));
+  fast_interior.push_back(cv::Point(1, 2));
+  fast_interior.push_back(cv::Point(2, 2));
+  fast_interior.push_back(cv::Point(3, 2));
+
+  fast_interior.push_back(cv::Point(0, 3));
+  fast_interior.push_back(cv::Point(1, 3));
+  fast_interior.push_back(cv::Point(2, 3));
+
+  fast_points_set_.push_back(fast_interior);
+
 }

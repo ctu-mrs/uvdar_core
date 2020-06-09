@@ -35,7 +35,7 @@
 #include <sensor_msgs/Imu.h>
 #include <std_msgs/Float32.h>
 #include <std_msgs/MultiArrayDimension.h>
-#include <uvdar/Int32MultiArrayStamped.h>
+#include <mrs_msgs/Int32MultiArrayStamped.h>
 #include <std_msgs/Int32MultiArray.h>
 #include <std_srvs/SetBool.h>
 #include <stdint.h>
@@ -167,7 +167,7 @@ public:
     blinkersSeenCallbacks.resize(blinkersSeenTopics.size());
     separated_points_.resize(blinkersSeenTopics.size());
     for (size_t i = 0; i < blinkersSeenTopics.size(); ++i) {
-      blinkers_seen_callback_t callback = [imageIndex=i,this] (const uvdar::Int32MultiArrayStampedConstPtr& pointsMessage) { 
+      blinkers_seen_callback_t callback = [imageIndex=i,this] (const mrs_msgs::Int32MultiArrayStampedConstPtr& pointsMessage) { 
         ProcessPoints(pointsMessage, imageIndex);
       };
       blinkersSeenCallbacks[i] = callback;
@@ -304,7 +304,7 @@ public:
   void ProcessPointsUnstamped(const std_msgs::Int32MultiArrayConstPtr& msg, size_t imageIndex){
     if (DEBUG)
       ROS_INFO_STREAM("Getting message: " << *msg);
-    uvdar::Int32MultiArrayStampedPtr msg_stamped(new uvdar::Int32MultiArrayStamped);
+    mrs_msgs::Int32MultiArrayStampedPtr msg_stamped(new mrs_msgs::Int32MultiArrayStamped);
     msg_stamped->stamp = ros::Time::now()-ros::Duration(_legacy_delay);
     msg_stamped->layout= msg->layout;
     msg_stamped->data = msg->data;
@@ -313,7 +313,7 @@ public:
   //}
 
   /* ProcessPoints //{ */
-  void ProcessPoints(const uvdar::Int32MultiArrayStampedConstPtr& msg, size_t imageIndex) {
+  void ProcessPoints(const mrs_msgs::Int32MultiArrayStampedConstPtr& msg, size_t imageIndex) {
     int                        countSeen;
     std::vector< cv::Point3i > points;
     lastBlinkTime = msg->stamp;
@@ -1736,7 +1736,7 @@ private:
       else {
         for (int i = 0; i < (int)(cam_centers.size()); i++) {
           e::Matrix3d object_orientation = cam_rotations[i];
-          e::Matrix3d object_orientation_cam = camToBase.transpose()*cam_rotations[i];
+          /* e::Matrix3d object_orientation_cam = camToBase.transpose()*cam_rotations[i]; */
           e::Vector3d object_position= -cam_rotations[i]*cam_centers[i];
           e::Vector3d object_position_cam  = camToBase.transpose()*object_position;
           /* ROS_INFO_STREAM("["<< ros::this_node::getName().c_str() << "]: 4p:  rotation_matrix: "); */
@@ -2789,7 +2789,7 @@ double rotmatToRoll(e::Matrix3d m){
 
   std::vector<std::string> cameraFrames;
 
-  using blinkers_seen_callback_t = std::function<void (const uvdar::Int32MultiArrayStampedConstPtr& msg)>;
+  using blinkers_seen_callback_t = std::function<void (const mrs_msgs::Int32MultiArrayStampedConstPtr& msg)>;
   std::vector<blinkers_seen_callback_t> blinkersSeenCallbacks;
   std::vector<ros::Subscriber> blinkersSeenSubscribers;
 

@@ -19,7 +19,7 @@
 #include <std_msgs/Float32.h>
 #include <std_msgs/MultiArrayDimension.h>
 #include <std_msgs/UInt32MultiArray.h>
-#include <uvdar/Int32MultiArrayStamped.h>
+#include <mrs_msgs/Int32MultiArrayStamped.h>
 #include <stdint.h>
 #include <tf/tf.h>
 #include <tf/transform_listener.h>
@@ -111,11 +111,11 @@ public:
         pointsSeenSubscribers.push_back(nh_.subscribe(_points_seen_topics[i], 1, &points_seen_callback_legacy_t::operator(), &pointsSeenCallbacksLegacy[i]));
       }
       else {
-        points_seen_callback_t callback = [imageIndex=i,this] (const uvdar::Int32MultiArrayStampedConstPtr& pointsMessage) { 
+        points_seen_callback_t callback = [imageIndex=i,this] (const mrs_msgs::Int32MultiArrayStampedConstPtr& pointsMessage) { 
           InsertPoints(pointsMessage, imageIndex);
         };
         pointsSeenCallbacks[i] = callback;
-        points_seen_callback_t sun_callback = [imageIndex=i,this] (const uvdar::Int32MultiArrayStampedConstPtr& sunPointsMessage) { 
+        points_seen_callback_t sun_callback = [imageIndex=i,this] (const mrs_msgs::Int32MultiArrayStampedConstPtr& sunPointsMessage) { 
           InsertSunPoints(sunPointsMessage, imageIndex);
         };
         pointsSeenCallbacks[i] = callback;
@@ -186,7 +186,7 @@ public:
     }
 
     for (size_t i = 0; i < _blinkers_seen_topics.size(); ++i) {
-      blinkersSeenPublishers.push_back(nh_.advertise<uvdar::Int32MultiArrayStamped>(_blinkers_seen_topics[i], 1));
+      blinkersSeenPublishers.push_back(nh_.advertise<mrs_msgs::Int32MultiArrayStamped>(_blinkers_seen_topics[i], 1));
     }
     for (size_t i = 0; i < _estimated_framerate_topics.size(); ++i) {
       estimatedFrameratePublishers.push_back(nh_.advertise<std_msgs::Float32>(_estimated_framerate_topics[i], 1));
@@ -265,7 +265,7 @@ private:
   void InsertPointsLegacy(const std_msgs::UInt32MultiArrayConstPtr& msg, size_t imageIndex){
     /* if (DEBUG) */
     /*   ROS_INFO_STREAM("Getting message: " << *msg); */
-    uvdar::Int32MultiArrayStampedPtr msg_stamped(new uvdar::Int32MultiArrayStamped);
+    mrs_msgs::Int32MultiArrayStampedPtr msg_stamped(new mrs_msgs::Int32MultiArrayStamped);
     msg_stamped->stamp = ros::Time::now()-ros::Duration(_legacy_delay);
     msg_stamped->layout= msg->layout;
     std::vector<int> intVec(msg->data.begin(), msg->data.end());
@@ -277,7 +277,7 @@ private:
   
   /* InsertPoints //{ */
 
-  void InsertPoints(const uvdar::Int32MultiArrayStampedConstPtr& msg, size_t imageIndex) {
+  void InsertPoints(const mrs_msgs::Int32MultiArrayStampedConstPtr& msg, size_t imageIndex) {
     if (!initialized_) return;
 
     int                      countSeen;
@@ -345,7 +345,7 @@ private:
 
   /* InsertSunPoints //{ */
 
-  void InsertSunPoints(const uvdar::Int32MultiArrayStampedConstPtr& msg, size_t imageIndex) {
+  void InsertSunPoints(const mrs_msgs::Int32MultiArrayStampedConstPtr& msg, size_t imageIndex) {
     if (!initialized_) return;
 
     int                      countSeen;
@@ -375,7 +375,7 @@ private:
 
   void ProcessThread(size_t imageIndex) {
     std::vector<int>  msgdata;
-    uvdar::Int32MultiArrayStamped msg;
+    mrs_msgs::Int32MultiArrayStamped msg;
     clock_t                    begin, end;
     double                     elapsedTime;
 
@@ -741,7 +741,7 @@ private:
   std::vector<image_callback_t> imageCallbacks;
   std::vector<ros::Subscriber> imageSubscribers;
 
-  using points_seen_callback_t = std::function<void (const uvdar::Int32MultiArrayStampedConstPtr&)>;
+  using points_seen_callback_t = std::function<void (const mrs_msgs::Int32MultiArrayStampedConstPtr&)>;
   using points_seen_callback_legacy_t = std::function<void (const std_msgs::UInt32MultiArrayConstPtr&)>;
   std::vector<points_seen_callback_t> pointsSeenCallbacks;
   std::vector<points_seen_callback_t> sunPointsSeenCallbacks;
