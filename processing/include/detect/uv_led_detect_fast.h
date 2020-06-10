@@ -8,7 +8,7 @@
 
 class UVLedDetectFAST {
 public:
-  UVLedDetectFAST(bool i_gui, bool i_debug, int i_threshold);
+  UVLedDetectFAST(bool i_gui, bool i_debug, int i_threshold, std::vector<cv::Mat> i_masks);
   void addMask(cv::Mat i_mask);
   bool processImage(const cv::Mat i_image, std::vector<cv::Point2i>& detected_points, std::vector<cv::Point2i>& sun_points, int mask_id=-1);
 

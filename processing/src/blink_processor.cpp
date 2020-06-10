@@ -136,7 +136,6 @@ public:
       processSpinRates.push_back(new ros::Rate((double)processRate));
     }
 
-    /* initialize the publishers //{ */
 
     /* currImage = cv::Mat(cv::Size(752, 480), CV_8UC3, cv::Scalar(0, 0, 0)); */
     /* viewImage = currImage.clone(); */

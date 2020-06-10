@@ -1,6 +1,4 @@
 #include "uv_led_detect_fast.h"
-#include <opencv2/highgui/highgui.hpp>
-#include <opencv2/imgproc/imgproc.hpp>
 #include <dirent.h>
 #include <algorithm>
 #include <iostream>
@@ -26,43 +24,46 @@
 
 #define index2d(X, Y) (image_curr_.cols * (Y) + (X))
 
-UVLedDetectFAST::UVLedDetectFAST(bool i_gui, bool i_debug, int i_threshold) {
-  _debug_                             = i_debug;
-  _gui_                               = i_gui;
-  _threshold_                         = i_threshold;
+UVLedDetectFAST::UVLedDetectFAST(bool i_gui, bool i_debug, int i_threshold, std::vector<cv::Mat> i_masks) {
+  _debug_     = i_debug;
+  _gui_       = i_gui;
+  _threshold_ = i_threshold;
 
   if (_debug_)
     std::cout << "[UVDARDetectorFAST]: Threshold: " << _threshold_ << std::endl;
   initFAST();
+  for (auto mask : i_masks) {
+    addMask(mask);
+  }
   return;
 }
 
-void UVLedDetectFAST::addMask(cv::Mat i_mask){
+void UVLedDetectFAST::addMask(cv::Mat i_mask) {
   masks_.push_back(i_mask);
 }
 
 bool UVLedDetectFAST::processImage(const cv::Mat i_image, std::vector<cv::Point2i>& detected_points, std::vector<cv::Point2i>& sun_points, int mask_id) {
-  detected_points = std::vector< cv::Point2i >();
-  image_curr_=i_image;
+  detected_points = std::vector<cv::Point2i>();
+  image_curr_     = i_image;
 
-  if (mask_id >= 0){
-    if (mask_id >= (int)(masks_.size())){
+  if (mask_id >= 0) {
+    if (mask_id >= (int)(masks_.size())) {
       std::cerr << "[UVDARDetectorFAST]: Mask index " << mask_id << " is greater than the current number of loaded masks!" << std::endl;
       return false;
     }
-    if (image_curr_.size() != masks_[mask_id].size()){
+    if (image_curr_.size() != masks_[mask_id].size()) {
       std::cerr << "[UVDARDetectorFAST]: The size of the selected mask does not match the current image!" << std::endl;
       return false;
     }
   }
 
-  if (_gui_){
+  if (_gui_) {
     (image_curr_).copyTo(image_view_);
   }
-   
+
   if (first_) {
-    first_ = false;
-    roi_     = cv::Rect(cv::Point(0, 0), image_curr_.size());
+    first_       = false;
+    roi_         = cv::Rect(cv::Point(0, 0), image_curr_.size());
     image_check_ = cv::Mat(image_curr_.size(), CV_8UC1);
     image_check_ = cv::Scalar(0);
   }
@@ -70,31 +71,30 @@ bool UVLedDetectFAST::processImage(const cv::Mat i_image, std::vector<cv::Point2
 
   cv::Point peakPoint;
 
-  int x,y;
+  int x, y;
   /* begin = std::clock(); */
-  bool          marker_potential;
-  unsigned char maximumVal = 0;
+  bool marker_potential;
   /* bool          gotOne     = false; */
   bool sun_point_potential = false;
   /* std::vector<cv::Point> sun_points; */
   for (int j = 0; j < image_curr_.rows; j++) {
     for (int i = 0; i < image_curr_.cols; i++) {
-      if (mask_id >= 0){
-        if (masks_[mask_id].data[index2d(i, j)] == 0){
+      if (mask_id >= 0) {
+        if (masks_[mask_id].data[index2d(i, j)] == 0) {
           continue;
         }
       }
       if (image_check_.data[index2d(i, j)] == 0) {
         if (image_curr_.data[index2d(i, j)] > _threshold_) {
           int sunTestPoints = 0;
-          if (image_curr_.data[index2d(i, j)] > (_threshold_*2)) {
+          if (image_curr_.data[index2d(i, j)] > (_threshold_ * 2)) {
             sun_point_potential = true;
           }
           /* gotOne = true; */
-          marker_potential   = true;
+          marker_potential = true;
 
           int n = -1;
-          for (auto fast_points : fast_points_set_){
+          for (auto fast_points : fast_points_set_) {
             n++;
             for (int m = 0; m < (int)(fast_points.size()); m++) {
               x = i + fast_points[m].x;
@@ -117,31 +117,32 @@ bool UVLedDetectFAST::processImage(const cv::Mat i_image, std::vector<cv::Point2
                 break;
               }
 
-              if (image_check_.data[index2d(x,y)] == 255){
-                marker_potential =false;
+              if (image_check_.data[index2d(x, y)] == 255) {
+                marker_potential = false;
                 break;
               }
 
 
-              if ((image_curr_.data[index2d(i, j)] - image_curr_.data[index2d(x, y)]) < (_threshold_/2)) {
+              if ((image_curr_.data[index2d(i, j)] - image_curr_.data[index2d(x, y)]) < (_threshold_ / 2)) {
                 /* std::cout << "BREACH" << std::endl; */
 
                 marker_potential = false;
                 if (!sun_point_potential)
                   break;
-                else sunTestPoints++;
-              }
-              else 
+                else
+                  sunTestPoints++;
+              } else
                 sun_point_potential = false;
             }
-            if (marker_potential){
+            if (marker_potential) {
               break;
             }
           }
+          unsigned char maximum_val;
           if (marker_potential) {
-            maximumVal = 0;
+            maximum_val = 0;
             for (int m = 0; m < (int)(fast_interior_set_[n].size()); m++) {
-            /* for (int m = 0; m < 1; m++) { */
+              /* for (int m = 0; m < 1; m++) { */
               x = i + fast_interior_set_[n][m].x;
               if (x < 0) {
                 continue;
@@ -159,8 +160,8 @@ bool UVLedDetectFAST::processImage(const cv::Mat i_image, std::vector<cv::Point2
               }
 
               if (image_check_.data[index2d(x, y)] == 0) {
-                if (image_curr_.data[index2d(x, y)] > maximumVal) {
-                  maximumVal  = image_curr_.data[index2d(x, y)];
+                if (image_curr_.data[index2d(x, y)] > maximum_val) {
+                  maximum_val = image_curr_.data[index2d(x, y)];
                   peakPoint.x = x;
                   peakPoint.y = y;
                 }
@@ -168,32 +169,20 @@ bool UVLedDetectFAST::processImage(const cv::Mat i_image, std::vector<cv::Point2
               }
             }
             detected_points.push_back(peakPoint);
-          }
-          else{
+          } else {
             if (sun_point_potential)
               if (sunTestPoints == (int)(fast_points_set_[n].size()))
-                sun_points.push_back(cv::Point(i,j));
+                sun_points.push_back(cv::Point(i, j));
           }
-
         }
       }
     }
   }
 
-  if (_gui_ && (step_in_period_ == 75)) {
-    for (int i = 0; i < (int)(detected_points.size()); i++) {
-      cv::circle(image_view_, detected_points[i], 5, cv::Scalar(200));
-    }
-    cv::imshow("ocv_uvdar_detector_fast", image_view_);
-    step_in_period_ = 0;
-    cv::waitKey(0);
-  }
-  step_in_period_++;
-
-  for (int i=0; i<(int)(detected_points.size()); i++){
-    for (int j=0; j<(int)(sun_points.size()); j++){
-      if (cv::norm(detected_points[i]-sun_points[j])<50){
-        detected_points.erase(detected_points.begin()+i);
+  for (int i = 0; i < (int)(detected_points.size()); i++) {
+    for (int j = 0; j < (int)(sun_points.size()); j++) {
+      if (cv::norm(detected_points[i] - sun_points[j]) < 50) {
+        detected_points.erase(detected_points.begin() + i);
         i--;
         break;
       }
@@ -206,8 +195,8 @@ bool UVLedDetectFAST::processImage(const cv::Mat i_image, std::vector<cv::Point2
 void UVLedDetectFAST::clearMarks() {
   for (int j = 0; j < image_curr_.rows; j++) {
     for (int i = 0; i < image_curr_.cols; i++) {
-      if (image_check_.at< unsigned char >(j, i) == 255) {
-        image_check_.at< unsigned char >(j, i) = 0;
+      if (image_check_.at<unsigned char>(j, i) == 255) {
+        image_check_.at<unsigned char>(j, i) = 0;
       }
     }
   }
@@ -215,7 +204,7 @@ void UVLedDetectFAST::clearMarks() {
 
 
 void UVLedDetectFAST::initFAST() {
-  std::vector< cv::Point > fast_points;
+  std::vector<cv::Point> fast_points;
 
   fast_points.push_back(cv::Point(0, -3));
   fast_points.push_back(cv::Point(0, 3));
@@ -274,7 +263,7 @@ void UVLedDetectFAST::initFAST() {
   fast_points_set_.push_back(fast_points);
 
 
-  std::vector< cv::Point > fast_interior;
+  std::vector<cv::Point> fast_interior;
 
   fast_interior.push_back(cv::Point(0, 0));
   fast_interior.push_back(cv::Point(1, 0));
@@ -312,5 +301,4 @@ void UVLedDetectFAST::initFAST() {
   fast_interior.push_back(cv::Point(2, 3));
 
   fast_interior_set_.push_back(fast_interior);
-
 }
