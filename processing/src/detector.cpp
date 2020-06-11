@@ -140,13 +140,6 @@ public:
     if (_gui_ || _publish_visualization_){
       timer_visualization_ = nh_.createTimer(ros::Duration(0.1), &UVDARDetector::VisualizationThread, this, false);
     }
-    if (_publish_visualization_){
-      timer_publish_visualization_ = nh_.createTimer(ros::Duration(0.5), &UVDARDetector::PublishVisualizationThread, this, false);
-    }
-    if (_gui_){
-      timer_gui_visualization_ = nh_.createTimer(ros::Duration(0.1), &UVDARDetector::GuiVisualizationThread, this, false);
-    }
-    //}
 
 
     ROS_INFO("[UVDARDetector]: Waiting for time...");
@@ -308,28 +301,17 @@ private:
   /* VisualizationThread() //{ */
   void VisualizationThread([[maybe_unused]] const ros::TimerEvent& te) {
     if (initialized_){
-      std::scoped_lock lock(mutex_visualization_);
+      /* std::scoped_lock lock(mutex_visualization_); */
       GenerateVisualization(image_visualization_);
-    }
-  }
-  //}
-  /* GuiVisualizationThread() //{ */
-  void GuiVisualizationThread([[maybe_unused]] const ros::TimerEvent& te) {
-    if (initialized_){
       if ((image_visualization_.cols != 0) && (image_visualization_.rows != 0)){
-        std::scoped_lock lock(mutex_visualization_);
-        cv::imshow("ocv_uvdar_detection_" + _uav_name_, image_visualization_);
-        cv::waitKey(25);
-      }
-    }
-  }
-  //}
-  /* PublishVisualizationThread() //{ */
-  void PublishVisualizationThread([[maybe_unused]] const ros::TimerEvent& te) {
-    if (initialized_){
-      if ((image_visualization_.cols != 0) && (image_visualization_.rows != 0)){
-        std::scoped_lock lock(mutex_visualization_);
-        pub_visualization_->publish("uvdar_detection_visualization", 0.01, image_visualization_);
+        /* std::scoped_lock lock(mutex_visualization_); */
+        if (_publish_visualization_){
+          pub_visualization_->publish("uvdar_detection_visualization", 0.01, image_visualization_, true);
+        }
+        if (_gui_){
+          cv::imshow("ocv_uvdar_detection_" + _uav_name_, image_visualization_);
+          cv::waitKey(25);
+        }
       }
     }
   }
