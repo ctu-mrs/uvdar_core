@@ -13,6 +13,7 @@
 #include <mrs_msgs/Int32MultiArrayStamped.h>
 #include <mrs_msgs/ImagePoints3Stamped.h>
 #include <mrs_lib/image_publisher.h>
+#include <mrs_lib/param_loader.h>
 #include <boost/filesystem/operations.hpp>
 #include <mutex>
 
@@ -33,17 +34,19 @@ public:
 
     ros::NodeHandle nh_ = nodelet::Nodelet::getMTPrivateNodeHandle();
 
-    nh_.param("uav_name", _uav_name_);
+    mrs_lib::ParamLoader param_loader(nh_, "UVDARDetector");
 
-    nh_.param("debug", _debug_, bool(false));
-    nh_.param("gui", _gui_, bool(false));
-    nh_.param("publish_visualization", _publish_visualization_, bool(false));
+    param_loader.loadParam("uav_name", _uav_name_);
 
-    nh_.param("threshold", _threshold_, 200);
+    param_loader.loadParam("debug", _debug_, bool(false));
+    param_loader.loadParam("gui", _gui_, bool(false));
+    param_loader.loadParam("publish_visualization", _publish_visualization_, bool(false));
+
+    param_loader.loadParam("threshold", _threshold_, 200);
 
     /* subscribe to cameras //{ */
     std::vector<std::string> _camera_topics;
-    nh_.param("camera_topics", _camera_topics, _camera_topics);
+    param_loader.loadParam("camera_topics", _camera_topics, _camera_topics);
     if (_camera_topics.empty()) {
       ROS_ERROR("[UVDARDetector]: No camera topics were supplied!");
       return;
@@ -51,18 +54,18 @@ public:
     _camera_count_ = (unsigned int)(_camera_topics.size());
 
     /* prepare masks if necessary //{ */
-    nh_.param("use_masks", _use_masks_, bool(false));
+    param_loader.loadParam("use_masks", _use_masks_, bool(false));
     if (_use_masks_){
-      nh_.param("mask_file_names", _mask_file_names_, _mask_file_names_);
+      param_loader.loadParam("mask_file_names", _mask_file_names_, _mask_file_names_);
 
       if (_mask_file_names_.size() != _camera_count_){
         ROS_ERROR_STREAM("[UVDARDetector]: Masks are enabled, but the number of mask filenames provided does not match the number of camera topics (" << _camera_count_ << ")!");
         return;
       }
 
-      nh_.param("masks_mrs_named", _masks_mrs_named_, bool(false));
+      param_loader.loadParam("masks_mrs_named", _masks_mrs_named_, bool(false));
       if (_masks_mrs_named_){
-        nh_.param("body_name", _body_name_);
+        param_loader.loadParam("body_name", _body_name_);
       }
 
       if (!loadMasks()){
@@ -88,9 +91,7 @@ public:
       detected_points_.push_back(std::vector<cv::Point>());
       sun_points_.push_back(std::vector<cv::Point>());
 
-      if (_gui_ || _publish_visualization_){
-        mutex_camera_image_.push_back(std::make_unique<std::mutex>());
-      }
+      mutex_camera_image_.push_back(std::make_unique<std::mutex>());
 
       ROS_INFO("[UVDARDetector]: Initializing FAST-based marker detection...");
       uvdf_.push_back(std::make_unique<UVLedDetectFAST>(
@@ -114,10 +115,10 @@ public:
 
     
     /* create pubslishers //{ */
-    nh_.param("publish_sun_points", _publish_sun_points_, bool(false));
+    param_loader.loadParam("publish_sun_points", _publish_sun_points_, bool(false));
 
     std::vector<std::string> _points_seen_topics;
-    nh_.param("points_seen_topics", _points_seen_topics, _points_seen_topics);
+    param_loader.loadParam("points_seen_topics", _points_seen_topics, _points_seen_topics);
     if (_points_seen_topics.size() != _camera_count_) {
       ROS_ERROR_STREAM("[UVDARDetector] The number of output topics (" << _points_seen_topics.size()  << ") does not match the number of cameras (" << _camera_count_ << ")!");
       return;
