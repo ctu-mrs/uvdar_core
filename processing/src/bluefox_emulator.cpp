@@ -1,16 +1,14 @@
-#define camera_delay 0.50
-
 #include <ros/ros.h>
 #include <ros/package.h>
 #include <nodelet/nodelet.h>
 
 #include <cv_bridge/cv_bridge.h>
-#include <image_transport/image_transport.h>
+/* #include <image_transport/image_transport.h> */
 #include <sensor_msgs/PointCloud.h>
 #include <sensor_msgs/Image.h>
 #include <stdint.h>
 #include <opencv2/core/core.hpp>
-#include <opencv2/highgui/highgui.hpp>
+/* #include <opencv2/highgui/highgui.hpp> */
 #include <OCamCalib/ocam_functions.h>
 #include <functional>
 
@@ -27,50 +25,78 @@ public:
 
     ros::NodeHandle nh_ = nodelet::Nodelet::getMTPrivateNodeHandle();
 
-    char calib_path[400];
-    std::string _calib_file;
-    nh_.param("calib_file", _calib_file, std::string("calib_results_bf_uv_fe.txt"));
-    sprintf(calib_path, "%s/include/OCamCalib/config/%s", ros::package::getPath("uvdar").c_str(),_calib_file.c_str());
-    get_ocam_model(&oc_model, calib_path);
+    mrs_lib::ParamLoader param_loader(nh_, "UVDARBluefoxEmulator");
 
-    ROS_INFO("[Bluefox emulator]: Calibration came from the file %s.",calib_path);
-    
-    for (int i=0; i<oc_model.length_pol; i++){
-      if (isnan(oc_model.pol[i])){
-        ROS_ERROR("[Bluefox emulator]: Calibration polynomial containts NaNs, returning.");
-        return;
-        }
+    /* Load calibration files //{ */
+    std::vector<std::string> _calib_files;
+    param_loader.loadParam("calib_file", _calib_files, _calib_files);
+    if (_calib_fies.empty()) {
+      ROS_ERROR("[UVDARBluefoxEmulator]: No camera calibration files were supplied. You can even use \"default\" for the cameras, but some calibration files must be chosen. Returning.");
+      return;
     }
-    
+    bool _calib_files_mrs_named;
+    param_loader.loadParam("calib_files_mrs_named", _calib_files_mrs_named, bool(false));
+    std::string file_name;
+    oc_models.resize(_calib_files.size());
+    int i=0;
+    for (auto calib_file : _calib_files){
+      if (calib_file == "default"){
+        file_name = ros::package::getPath("uvdar")+"/include/OCamCalib/config/calib_results_bf_uv_fe.txt";
+      }
+      else if (_calib_files_mrs_named){
+        file_name = ros::package::getPath("uvdar")+"/include/OCamCalib/config/"+calib_file;
+      }
+      else {
+        file_name = calib_file;
+      }
 
+      get_ocam_model(&oc_models[i], file_name);
+      ROS_INFO("[UVDARBluefoxEmulator]: Calibration parameters for virtual camera %d came from the file %s.", i, file_name);
+      for (int j=0; j<oc_models[i].length_pol; j++){
+        if (isnan(oc_models[i].pol[j])){
+          ROS_ERROR("[UVDARBluefoxEmulator]: Calibration polynomial containts NaNs! Returning.");
+          return;
+        }
+      }
+      i++;
+    }
+    //}
+
+    /* Load virtual camera image topics //{ */
     std::vector<std::string> _camera_output_topics;
     nh_.param("cameraOutputTopics", _camera_output_topics, _camera_output_topics);
-    /* std::vector<std::string> _virtual_points_topics; */
-    /* nh_.param("virtualPointsTopics", _virtual_points_topics, _virtual_points_topics); */
     if (_camera_output_topics.empty()) {
-      ROS_WARN("[UVDARBluefoxEmulator]: No topics of cameraOutputTopics were supplied");
+      ROS_ERROR("[UVDARBluefoxEmulator]: No topics of cameraOutputTopics were supplied! Returning.");
+      return;
     }
-    // Create callbacks for each camera
-    virtualPointsCallbacks.resize(_camera_output_topics.size());
+    if (_camera_output_topics.size() != _calib_files.size()){
+      ROS_ERROR_STREAM("[UVDARBluefoxEmulator] The number of output topics (" << _camera_output_topics.size()  << ") does not match the number of camera calibration files (" << _calib_files.size() << ")! Returning.");
+      return;
+    }
+    //}
 
-    /* imageTransports.resize(_camera_output_topics.size()); */
-    imagePublishers.resize(_camera_output_topics.size());
-    imageTransport = new image_transport::ImageTransport(nh_);
+
+    /* imageTransport = new image_transport::ImageTransport(nh_); */
 
 
+    /* Create Gazebo metadata callbacks for each camera //{ */
     for (size_t i = 0; i < _camera_output_topics.size(); ++i) {
-
         virtual_points_callback_t callback = [imageIndex=i,this] (const sensor_msgs::PointCloudConstPtr& pointsMessage) { 
           drawPoints(pointsMessage, imageIndex);
         };
-        virtualPointsCallbacks[i] = callback;
-        virtualPointsSubscribers.push_back(nh_.subscribe(_camera_output_topics[i]+"_transfer", 1, &virtual_points_callback_t::operator(), &virtualPointsCallbacks[i]));
-        imageData.push_back(ImageData(oc_model));
-        imagePublishers[i] = imageTransport->advertise(_camera_output_topics[i], 1);
+        cals_virtual_points_.push_back(callback);
+        sub_virtual_points_.push_back(nh_.subscribe(_camera_output_topics[i]+"_transfer", 1, &virtual_points_callback_t::operator(), &cals_virtual_points_[i]));
+        image_data.push_back(ImageData(oc_model));
+
+        /* imageTransport = new image_transport::ImageTransport(nh_); */
+
+        pub_image_.push_back(nh_.advertise<sensor_msgs::Image>(_camera_output_topics[i], 1));
+        /* pub_image_.push_back(imageTransport->advertise(_camera_output_topics[i], 1)); */
     }
+    //}
 
 
-    ROS_INFO("[Bluefox emulator]: initialized");
+    ROS_INFO("[UVDARBluefoxEmulator]: initialized");
   }
 
   ~UVDARBluefoxEmulator() {
@@ -83,10 +109,10 @@ private:
     sensor_msgs::ImagePtr msg_o;
     /* begin         = std::clock(); */
     //CHECK: Optimize the following
-    for (int j = 0; j < imageData[imageIndex].outputImage.image.rows; j++) {
-      for (int i = 0; i < imageData[imageIndex].outputImage.image.cols; i++) {
-        if (imageData[imageIndex].outputImage.image.data[index2d(i, j)] != imageData[imageIndex].backgroundColour)
-          (imageData[imageIndex].outputImage.image.data[index2d(i, j)] = imageData[imageIndex].backgroundColour);
+    for (int j = 0; j < image_data[imageIndex].outputImage.image.rows; j++) {
+      for (int i = 0; i < image_data[imageIndex].outputImage.image.cols; i++) {
+        if (image_data[imageIndex].outputImage.image.data[index2d(i, j)] != image_data[imageIndex].backgroundColour)
+          (image_data[imageIndex].outputImage.image.data[index2d(i, j)] = image_data[imageIndex].backgroundColour);
       }
       }
       /* end_p         = std::clock(); */
@@ -95,11 +121,11 @@ private:
       /* for (std::pair<ignition::math::Pose3d,ignition::math::Pose3d>& i : buffer){ */
       for (auto point : msg_i->points){
         /* ROS_INFO_STREAM("Point: " << point); */
-        cv::circle(imageData[imageIndex].outputImage.image, cv::Point2i(point.x, point.y), point.z, cv::Scalar(255), -1);
+        cv::circle(image_data[imageIndex].outputImage.image, cv::Point2i(point.x, point.y), point.z, cv::Scalar(255), -1);
       }
-      msg_o = imageData[imageIndex].outputImage.toImageMsg();
+      msg_o = image_data[imageIndex].outputImage.toImageMsg();
       msg_o->header.stamp = msg_i->header.stamp;
-      imagePublishers[imageIndex].publish(msg_o);
+      pub_image_[imageIndex].publish(msg_o);
       /* end         = std::clock(); */
       /* elapsedTime = double(end - begin) / CLOCKS_PER_SEC; */
       /* std::cout << "UV CAM: Drawing took : " << elapsedTime << " s" << std::endl; */
@@ -108,13 +134,14 @@ private:
     //}
 
 private:
-  struct ocam_model oc_model;
+  /* struct ocam_model oc_model; */
+  std::vector<struct ocam_model> oc_models;
   using virtual_points_callback_t = std::function<void (const sensor_msgs::PointCloudConstPtr&)>;
-  std::vector<virtual_points_callback_t> virtualPointsCallbacks;
-  std::vector<ros::Subscriber> virtualPointsSubscribers;
-  /* std::vector<image_transport::ImageTransport*> imageTransports; */
+  std::vector<virtual_points_callback_t> cals_virtual_points_;
+  std::vector<ros::Subscriber> sub_virtual_points_;
   image_transport::ImageTransport* imageTransport;
-  std::vector<image_transport::Publisher>       imagePublishers;
+  /* std::vector<image_transport::Publisher> pub_image_; */
+  std::vector<ros::Publisher> pub_image_;
 
   struct ImageData {
     cv_bridge::CvImage          outputImage;
@@ -124,12 +151,12 @@ private:
       outputImage = cv_bridge::CvImage(std_msgs::Header(), "mono8", cv::Mat(oc_model_i.height, oc_model_i.width, CV_8UC1, cv::Scalar(0)));
       backgroundColour = std::rand() % 100;
       if ( (outputImage.image.cols < oc_model_i.width) || (outputImage.image.rows < oc_model_i.height) ){
-        ROS_ERROR("[Bluefox emulator]: Calibration polynomial contains NaNs, exiting.");
+        ROS_ERROR("[UVDARBluefoxEmulator]: Calibration polynomial contains NaNs, exiting.");
       }
     };
     ~ImageData(){};
   };
-  std::vector<ImageData> imageData;
+  std::vector<ImageData> image_data;
 };
 
 /* int main(int argc, char** argv) { */
