@@ -60,10 +60,8 @@ public:
     param_loader.loadParam("pitch_steps", _pitch_steps_, int(16));
     param_loader.loadParam("yaw_steps", _yaw_steps_, int(8));
     param_loader.loadParam("max_pixel_shift", _max_pixel_shift_, int(1));
-
-
     param_loader.loadParam("reasonable_radius", _reasonable_radius_, int(3));
-    param_loader.loadParam("nullifyRadius", _nullify_radius_, int(5));
+    param_loader.loadParam("nullify_radius", _nullify_radius_, int(5));
     param_loader.loadParam("blink_process_rate", _proces_rate_, int(10));
 
     std::vector<std::string> _points_seen_topics;
@@ -74,8 +72,7 @@ public:
     blink_data_.resize(_points_seen_topics.size());
 
     // Create callbacks for each camera
-    pointsSeenCallbacks.resize(_points_seen_topics.size());
-    pointsSeenCallbacksLegacy.resize(_points_seen_topics.size());
+    cals_points_seen_.resize(_points_seen_topics.size());
 
     sun_points_.resize(_points_seen_topics.size());
 
@@ -83,27 +80,17 @@ public:
 
     // Subscribe to corresponding topics
     /* ROS_INFO("[UVDARBlinkProcessor]: HERE A"); */
-      if (_legacy){
-        points_seen_callback_legacy_t callback = [imageIndex=i,this] (const std_msgs::UInt32MultiArrayConstPtr& pointsMessage) { 
-          InsertPointsLegacy(pointsMessage, imageIndex);
-        };
-        pointsSeenCallbacksLegacy[i] = callback;
-        /* pointsSeenCallbacksLegacy.push_back(callback); */
-        pointsSeenSubscribers.push_back(nh_.subscribe(_points_seen_topics[i], 1, pointsSeenCallbacksLegacy[i]));
-      }
-      else {
-        points_seen_callback_t callback = [imageIndex=i,this] (const mrs_msgs::Int32MultiArrayStampedConstPtr& pointsMessage) { 
-          InsertPoints(pointsMessage, imageIndex);
-        };
-        pointsSeenCallbacks[i] = callback;
-        points_seen_callback_t sun_callback = [imageIndex=i,this] (const mrs_msgs::Int32MultiArrayStampedConstPtr& sunPointsMessage) { 
-          InsertSunPoints(sunPointsMessage, imageIndex);
-        };
-        pointsSeenCallbacks[i] = callback;
-        /* pointsSeenCallbacks.push_back(callback); */
-        pointsSeenSubscribers.push_back(nh_.subscribe(_points_seen_topics[i], 1, pointsSeenCallbacks[i]));
-        sunPointsSeenSubscribers.push_back(nh_.subscribe(_points_seen_topics[i]+"/sun", 1, sunPointsSeenCallbacks[i]));
-      }
+      points_seen_callback_t callback = [imageIndex=i,this] (const mrs_msgs::Int32MultiArrayStampedConstPtr& pointsMessage) { 
+        InsertPoints(pointsMessage, imageIndex);
+      };
+      cals_points_seen_[i] = callback;
+      points_seen_callback_t sun_callback = [imageIndex=i,this] (const mrs_msgs::Int32MultiArrayStampedConstPtr& sunPointsMessage) { 
+        InsertSunPoints(sunPointsMessage, imageIndex);
+      };
+      cals_points_seen_[i] = callback;
+      /* cals_points_seen_.push_back(callback); */
+      sub_points_seen_.push_back(nh_.subscribe(_points_seen_topics[i], 1, cals_points_seen_[i]));
+      sub_sun_points_.push_back(nh_.subscribe(_points_seen_topics[i]+"/sun", 1, cals_sun_points_[i]));
     /* ROS_INFO("[UVDARBlinkProcessor]: HERE B"); */
     }
 
@@ -136,16 +123,16 @@ public:
         currentImagesReceived.resize(_camera_topics.size());
         currentImages.resize(_camera_topics.size());
         // Create callbacks for each camera
-        imageCallbacks.resize(_camera_topics.size());
+        cals_image_.resize(_camera_topics.size());
         for (size_t i = 0; i < _camera_topics.size(); ++i) {
           currentImagesReceived[i] = false;
           image_callback_t callback = [imageIndex=i,this] (const sensor_msgs::ImageConstPtr& image_msg) { 
             ProcessRaw(image_msg, imageIndex);
           };
-          imageCallbacks[i] = callback;
-          /* imageCallbacks.push_back(callback); */
+          cals_image_[i] = callback;
+          /* cals_image_.push_back(callback); */
           // Subscribe to corresponding topics
-          imageSubscribers.push_back(nh_.subscribe(_camera_topics[i], 1, imageCallbacks[i]));
+          imageSubscribers.push_back(nh_.subscribe(_camera_topics[i], 1, cals_image_[i]));
         }
       }
 
@@ -166,15 +153,13 @@ public:
     }
 
     for (size_t i = 0; i < _blinkers_seen_topics.size(); ++i) {
-      blinkersSeenPublishers.push_back(nh_.advertise<mrs_msgs::Int32MultiArrayStamped>(_blinkers_seen_topics[i], 1));
+      pub_blinkers_seen_.push_back(nh_.advertise<mrs_msgs::Int32MultiArrayStamped>(_blinkers_seen_topics[i], 1));
     }
     for (size_t i = 0; i < _estimated_framerate_topics.size(); ++i) {
-      estimatedFrameratePublishers.push_back(nh_.advertise<std_msgs::Float32>(_estimated_framerate_topics[i], 1));
+      pub_estimated_framerate_.push_back(nh_.advertise<std_msgs::Float32>(_estimated_framerate_topics[i], 1));
     }
 
       //}
-
-    nh_.param("InvertedPoints", InvertedPoints, bool(false));
 
     nh_.param("beacon",_beacon_,bool(false));
 
@@ -220,19 +205,6 @@ public:
 
 private:
 
-  void InsertPointsLegacy(const std_msgs::UInt32MultiArrayConstPtr& msg, size_t imageIndex){
-    /* if (_debug_) */
-    /*   ROS_INFO_STREAM("Getting message: " << *msg); */
-    mrs_msgs::Int32MultiArrayStampedPtr msg_stamped(new mrs_msgs::Int32MultiArrayStamped);
-    msg_stamped->stamp = ros::Time::now()-ros::Duration(_legacy_delay);
-    msg_stamped->layout= msg->layout;
-    std::vector<int> intVec(msg->data.begin(), msg->data.end());
-    msg_stamped->data = intVec;
-    /* msg_stamped->data = msg->data; */
-    InsertPoints(msg_stamped, imageIndex);
-    //CHECK
-  }
-  
   /* InsertPoints //{ */
 
   void InsertPoints(const mrs_msgs::Int32MultiArrayStampedConstPtr& msg, size_t imageIndex) {
@@ -273,10 +245,7 @@ private:
     /* bool      hasTwin; */
     for (int i = 0; i < countSeen; i++) {
       if (msg->data[(i * 3) + 2] <= 200) {
-        if (InvertedPoints)
-          currPoint = cv::Point2d(currentImages[imageIndex].cols - msg->data[(i * 3)], currentImages[imageIndex].rows - msg->data[(i * 3) + 1]);
-        else
-          currPoint = cv::Point2d(msg->data[(i * 3)], msg->data[(i * 3) + 1]);
+        currPoint = cv::Point2d(msg->data[(i * 3)], msg->data[(i * 3) + 1]);
 
         /* hasTwin = false; */
         /* for (int n = 0; n < points.size(); n++) { */
@@ -293,7 +262,6 @@ private:
     /* } */
 
     {
-      /* std::scoped_lock lock(*(blinkData[imageIndex].retrievedBlinkersMutex)); */
       lastPointsTime = msg->stamp;
       ht3dbt->insertFrame(points);
     }
@@ -313,9 +281,6 @@ private:
     cv::Point currPoint;
     for (int i = 0; i < countSeen; i++) {
       if (msg->data[(i * 3) + 2] <= 200) {
-        if (InvertedPoints)
-          currPoint = cv::Point2d(currentImages[imageIndex].cols - msg->data[(i * 3)], currentImages[imageIndex].rows - msg->data[(i * 3) + 1]);
-        else
           currPoint = cv::Point2d(msg->data[(i * 3)], msg->data[(i * 3) + 1]);
         points.push_back(currPoint);
       }
@@ -341,7 +306,7 @@ private:
       processSpinRates[imageIndex]->sleep();
 
     auto* ht3dbt = ht3dbt_trackers[imageIndex];
-    auto& retrievedBlinkers = blinkData[imageIndex].retrievedBlinkers;
+    auto& retrievedBlinkers = blink_data_[imageIndex].retrievedBlinkers;
 
     processSpinRates[imageIndex]->reset();
     while (ros::ok()) {
@@ -359,7 +324,7 @@ private:
       ros::Time local_lastPointsTime = lastPointsTime;
 
       {
-        /* std::scoped_lock lock(*(blinkData[imageIndex].retrievedBlinkersMutex)); */
+        /* std::scoped_lock lock(*(blink_data_[imageIndex].retrievedBlinkersMutex)); */
         retrievedBlinkers = ht3dbt->getResults();
       }
       end         = std::clock();
@@ -385,11 +350,11 @@ private:
 
 
       msg.data = msgdata;
-      blinkersSeenPublishers[imageIndex].publish(msg);
+      pub_blinkers_seen_[imageIndex].publish(msg);
 
       std_msgs::Float32 msgFramerate;
-      msgFramerate.data = blinkData[imageIndex].framerateEstim;
-      estimatedFrameratePublishers[imageIndex].publish(msgFramerate);
+      msgFramerate.data = blink_data_[imageIndex].framerateEstim;
+      pub_estimated_framerate_[imageIndex].publish(msgFramerate);
 
       processSpinRates[imageIndex]->sleep();
 
@@ -503,7 +468,7 @@ private:
       if (current_visualization_done_)
         return 1;
       
-      int image_count = blinkData.size();
+      int image_count = blink_data_.size();
       int image_width, image_height;
 
       if (!use_camera_for_visualization_){
@@ -534,7 +499,7 @@ private:
         cv::line(viewImage, cv::Point2i(image_width, 0), cv::Point2i(image_width,image_height-1),cv::Scalar(255,255,255));
 
         auto* ht3dbt = ht3dbt_trackers[imageIndex];
-        BlinkData& data = blinkData[imageIndex];
+        BlinkData& data = blink_data_[imageIndex];
 
         int differenceX = (image_width + 1) * imageIndex;
 
@@ -663,11 +628,9 @@ private:
   std::atomic_bool images_received_ = false;
 
   std::string              _uav_name_;
-  bool                     currBatchProcessed;
   bool                     _debug_;
   bool                     _visual_debug_;
   bool                     _gui_;
-  bool                     InvertedPoints;
   std::vector<cv::Mat>     currentImages;
   std::vector<bool>        currentImagesReceived;
   cv::Mat                  viewImage;
@@ -679,19 +642,17 @@ private:
   bool                     use_camera_for_visualization_;
 
   using image_callback_t = boost::function<void (const sensor_msgs::ImageConstPtr&)>;
-  std::vector<image_callback_t> imageCallbacks;
+  std::vector<image_callback_t> cals_image_;
   std::vector<ros::Subscriber> imageSubscribers;
 
   using points_seen_callback_t = boost::function<void (const mrs_msgs::Int32MultiArrayStampedConstPtr&)>;
-  using points_seen_callback_legacy_t = boost::function<void (const std_msgs::UInt32MultiArrayConstPtr&)>;
-  std::vector<points_seen_callback_t> pointsSeenCallbacks;
-  std::vector<points_seen_callback_t> sunPointsSeenCallbacks;
-  std::vector<points_seen_callback_legacy_t> pointsSeenCallbacksLegacy;
-  std::vector<ros::Subscriber> pointsSeenSubscribers;
-  std::vector<ros::Subscriber> sunPointsSeenSubscribers;
+  std::vector<points_seen_callback_t> cals_points_seen_;
+  std::vector<points_seen_callback_t> cals_sun_points_;
+  std::vector<ros::Subscriber> sub_points_seen_;
+  std::vector<ros::Subscriber> sub_sun_points_;
 
-  std::vector<ros::Publisher> blinkersSeenPublishers;
-  std::vector<ros::Publisher> estimatedFrameratePublishers;
+  std::vector<ros::Publisher> pub_blinkers_seen_;
+  std::vector<ros::Publisher> pub_estimated_framerate_;
   //CHECK
 
   bool _publish_visualization_;
@@ -740,9 +701,6 @@ private:
 
   ros::Time lastPointsTime;
 
-  bool _legacy;
-  double _legacy_delay;
-  //CHECK
 
   //}
 };
