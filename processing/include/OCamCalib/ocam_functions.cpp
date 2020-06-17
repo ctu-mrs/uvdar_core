@@ -27,7 +27,7 @@ int get_ocam_model(struct ocam_model *myocam_model, char *filename)
  int i;
  
  //Open file
- std::cout << "Filename is: " << filename << std::endl;
+ /* std::cout << "Filename is: " << filename << std::endl; */
  if(!(f=fopen(filename,"r")))
  {
    printf("File %s cannot be opened\n", filename);				  

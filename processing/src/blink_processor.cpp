@@ -45,15 +45,15 @@ public:
     ros::NodeHandle nh_ = nodelet::Nodelet::getMTPrivateNodeHandle();
 
     nh_.param("uav_name", _uav_name_, std::string());
-    nh_.param("DEBUG", DEBUG, bool(false));
+    nh_.param("DEBUG", _debug_, bool(false));
     nh_.param("VisDEBUG", _visual_debug_, bool(false));
-    nh_.param("GUI", GUI, bool(false));
-    if (GUI)
+    nh_.param("GUI", _gui_, bool(false));
+    if (_gui_)
       ROS_INFO("[UVDARBlinkProcessor]: GUI is true");
     else
       ROS_INFO("[UVDARBlinkProcessor]: GUI is false");
 
-    nh_.param("accumulatorLength", accumulatorLength, int(23));
+    nh_.param("accumulatorLength", _accumulator_length_, int(23));
     nh_.param("pitchSteps", pitchSteps, int(16));
     nh_.param("yawSteps", yawSteps, int(8));
     nh_.param("maxPixelShift", maxPixelShift, int(1));
@@ -130,9 +130,9 @@ public:
     
     for (size_t i = 0; i < _points_seen_topics.size(); ++i) {
       ht3dbt_trackers.push_back(
-          new HT4DBlinkerTracker(accumulatorLength, pitchSteps, yawSteps, maxPixelShift, cv::Size(752, 480), _nullify_radius_, _reasonable_radius_));
+          new HT4DBlinkerTracker(_accumulator_length_, pitchSteps, yawSteps, maxPixelShift, cv::Size(752, 480), _nullify_radius_, _reasonable_radius_));
 
-      ht3dbt_trackers.back()->setDebug(DEBUG, _visual_debug_);
+      ht3dbt_trackers.back()->setDebug(_debug_, _visual_debug_);
       processSpinRates.push_back(new ros::Rate((double)processRate));
     }
 
@@ -215,11 +215,11 @@ public:
       process_threads.emplace_back(&UVDARBlinkProcessor::ProcessThread, this, i);
     }
 
-    if (GUI || publishVisualization) {
+    if (_gui_ || publishVisualization) {
       current_visualization_done_ = false;
     }
 
-    if (GUI || _visual_debug_) {
+    if (_gui_ || _visual_debug_) {
       show_thread  = std::thread(&UVDARBlinkProcessor::ShowThread, this);
     }
 
@@ -262,7 +262,7 @@ public:
 private:
 
   void InsertPointsLegacy(const std_msgs::UInt32MultiArrayConstPtr& msg, size_t imageIndex){
-    /* if (DEBUG) */
+    /* if (_debug_) */
     /*   ROS_INFO_STREAM("Getting message: " << *msg); */
     mrs_msgs::Int32MultiArrayStampedPtr msg_stamped(new mrs_msgs::Int32MultiArrayStamped);
     msg_stamped->stamp = ros::Time::now()-ros::Duration(_legacy_delay);
@@ -292,14 +292,14 @@ private:
       ros::Time nowTime = ros::Time::now();
 
       data.framerateEstim = 10000000000.0 / (double)((nowTime - data.lastSignal).toNSec());
-      if (DEBUG)
+      if (_debug_)
         std::cout << "Updating frequency: " << data.framerateEstim << " Hz" << std::endl;
       data.lastSignal = nowTime;
       ht3dbt->updateFramerate(data.framerateEstim);
       data.timeSamples = 0;
     }
 
-    if (DEBUG) {
+    if (_debug_) {
       ROS_INFO("Received contours: %d", countSeen);
     }
     if (countSeen < 1) {
@@ -387,13 +387,13 @@ private:
     processSpinRates[imageIndex]->reset();
     while (ros::ok()) {
       /* if (ht3dbt->isCurrentBatchProcessed()){ */
-      /*   /1* if (DEBUG) *1/ */
+      /*   /1* if (_debug_) *1/ */
       /*     ROS_INFO("Skipping batch, already processed."); */
       /*   continue; */
       /*   /1* ros::Duration(10).sleep(); *1/ */
       /* } */
 
-      if (DEBUG)
+      if (_debug_)
         ROS_INFO("Processing accumulated points.");
 
       begin = std::clock();
@@ -405,7 +405,7 @@ private:
       }
       end         = std::clock();
       elapsedTime = double(end - begin) / CLOCKS_PER_SEC;
-      if (DEBUG)
+      if (_debug_)
         std::cout << "Processing: " << elapsedTime << " s, " << 1.0 / elapsedTime << " Hz" << std::endl;
 
       msgdata.clear();
@@ -534,7 +534,7 @@ private:
         std::scoped_lock lock(mutex_show);
 
 
-        if (GUI){
+        if (_gui_){
           if (GenerateVisualization() >= 0){
             cv::imshow("ocv_blink_retrieval_" + _uav_name_, viewImage);
           }
@@ -722,9 +722,9 @@ private:
 
   std::string              _uav_name_;
   bool                     currBatchProcessed;
-  bool                     DEBUG;
+  bool                     _debug_;
   bool                     _visual_debug_;
-  bool                     GUI;
+  bool                     _gui_;
   bool                     InvertedPoints;
   std::vector<cv::Mat>     currentImages;
   std::vector<bool>        currentImagesReceived;
@@ -791,7 +791,7 @@ private:
   std::vector<ros::Rate*> processSpinRates;
   int        processRate;
 
-  int accumulatorLength;
+  int _accumulator_length_;
   int pitchSteps;
   int yawSteps;
   int maxPixelShift;

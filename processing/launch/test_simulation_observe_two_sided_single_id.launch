@@ -103,7 +103,8 @@
     </node>
 
     <node name="bluefox_emulator" pkg="nodelet" type="nodelet" args="$(arg nodelet) uvdar/UVDARBluefoxEmulator $(arg nodelet_manager)" output="screen" respawn="true"> 
-      <rosparam param="cameraOutputTopics"> ["camera_left", "camera_right"] </rosparam>
+      <rosparam param="camera_output_topics"> ["camera_left", "camera_right"] </rosparam>
+      <rosparam param="calib_files"> ["default", "default"] </rosparam>
 
       <remap from="~camera_left" to="/$(arg uav_name)/uvdar_bluefox_left/image_raw"/>
       <remap from="~camera_right" to="/$(arg uav_name)/uvdar_bluefox_right/image_raw"/>
