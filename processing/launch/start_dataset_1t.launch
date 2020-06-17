@@ -81,6 +81,9 @@
 
   <arg name="calib_file_uv" default="calib_results_bf_uv_fe.txt"/>
 
+  <arg name="frequency1"  default="15"/>
+  <arg name="frequency2"  default="30"/>
+
   <node
     name="uvcam_tf"
     pkg="tf"
@@ -163,11 +166,8 @@
         <param name="VisDEBUG"		type="bool" value="$(arg VisDEBUG)"/> 
         <param name="GUI"             type="bool" value="$(arg gui)"/>
         <param name="InvertedPoints"    type="bool" value="false"/>
-        <param name="frequencyCount" type="int" value="2"/>
-        <!-- <param name="frequency1" type="int" value="6"/> -->
-        <!-- <param name="frequency2" type="int" value="10"/> -->
-        <param name="frequency1" type="int" value="15"/>
-        <param name="frequency2" type="int" value="30"/>
+
+      <rosparam param="frequencies" subst_value="true"> [$(arg frequency1), $(arg frequency2)] </rosparam>
   
 
         <param name="publishVisualization"         type="bool" value="$(arg publishVisualization)"/>
@@ -182,7 +182,6 @@
       <param name="maxPixelShift"         type="int" value="$(arg maxPixelShift)"/>
       <param name="reasonableRadius"         type="int" value="3"/>
       <param name="nullifyRadius"         type="int" value="8"/>
-      <param name="returnFrequencies"         type="bool" value="true"/>
       <param name="UseCameraForVisualization"         type="bool" value="true"/>
 
       <param name="legacy" type="bool" value="false"/>
@@ -212,8 +211,7 @@
       <param name="targetCount" type="int" value="1"/>
       <param name="calib_file" type="string" value="$(arg calib_file_uv)"/>
       <!-- <param name="mask_file" type="string" value="$(arg mask_file)"/> -->
-        <param name="frequency1" type="int" value="15"/>
-        <!-- <param name="frequency2" type="int" value="30"/> -->
+      <rosparam param="frequencies" subst_value="true"> [$(arg frequency1), $(arg frequency2)] </rosparam>
 
       <param name="legacy" type="bool" value="false"/>
       <!-- <param name="legacy_delay" type="double" value="$(arg legacy_delay)"/> -->

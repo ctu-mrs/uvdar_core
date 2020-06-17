@@ -74,6 +74,11 @@
   <arg name="Delay" default="100"/>
   <arg name="TimeScale" default="1.0"/>
 
+  <arg name="frequency1"  default="6"/>
+  <arg name="frequency2"  default="10"/>
+  <arg name="frequency3"  default="15"/>
+  <arg name="frequency4"  default="30"/>
+
   <node
     name="uvcam_left_tf_$(arg uav_name)"
     pkg="tf"
@@ -213,15 +218,8 @@
       <param name="VisDEBUG"		type="bool" value="$(arg VisDEBUG)"/> 
       <param name="GUI"             type="bool" value="$(arg gui)"/>
       <param name="InvertedPoints"    type="bool" value="false"/>
-      <param name="frequencyCount" type="int" value="2"/>
-      <!-- <param name="frequency1" type="int" value="12"/> -->
-      <!-- <param name="frequency2" type="int" value="24"/> -->
-      <!-- <param name="frequency3" type="int" value="16"/> -->
-      <param name="legacy" type="bool" value="false"/>
 
-      <param name="frequency1" type="int" value="15"/>
-      <param name="frequency2" type="int" value="28"/>
-      <param name="frequency3" type="int" value="28"/>
+      <rosparam param="frequencies" subst_value="true"> [$(arg frequency1), $(arg frequency2), $(arg frequency3), $(arg frequency4)] </rosparam>
 
       <param name="processRate"         type="int" value="$(arg processRate)"/>
 
@@ -229,7 +227,6 @@
       <param name="pitchSteps"         type="int" value="$(arg pitchSteps)"/>
       <param name="yawSteps"         type="int" value="$(arg yawSteps)"/>
       <param name="maxPixelShift"         type="int" value="$(arg maxPixelShift)"/>
-      <param name="returnFrequencies"         type="bool" value="true"/>
       <param name="nullifyRadius"         type="int" value="8"/>
       <param name="UseCameraForVisualization"         type="bool" value="true"/>
 
@@ -257,9 +254,7 @@
       <param name="publish"         type="bool" value="$(arg publish)"/>
       <param name="frequenciesPerTarget" type="int" value="2"/>
       <param name="targetCount" type="int" value="2"/>
-      <param name="frequency1" type="int" value="15"/>
-      <param name="frequency2" type="int" value="28"/>
-      <param name="frequency3" type="int" value="28"/>
+      <rosparam param="frequencies" subst_value="true"> [$(arg frequency1), $(arg frequency2), $(arg frequency3), $(arg frequency4)] </rosparam>
 
       <rosparam param="blinkersSeenTopics"> ["blinkers_seen"] </rosparam>
       <rosparam param="estimatedFramerateTopics"> ["estimated_framerate"] </rosparam>

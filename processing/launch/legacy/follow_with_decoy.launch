@@ -69,6 +69,9 @@
   <arg name="Delay" default="100"/>
   <arg name="TimeScale" default="1.0"/>
 
+  <arg name="frequency1"  default="6"/>
+  <arg name="frequency2"  default="10"/>
+  <arg name="frequency3"  default="30"/>
 
   <node
     name="uvcam_tf"
@@ -137,10 +140,8 @@
           <param name="VisDEBUG"		type="bool" value="$(arg VisDEBUG)"/> 
           <param name="GUI"             type="bool" value="$(arg gui)"/>
           <param name="InvertedPoints"    type="bool" value="false"/>
-          <param name="frequencyCount" type="int" value="3"/>
-          <param name="frequency1" type="int" value="6"/>
-          <param name="frequency2" type="int" value="10"/>
-          <param name="frequency3" type="int" value="30"/>
+
+          <rosparam param="frequencies" subst_value="true"> [$(arg frequency1), $(arg frequency2), $(arg frequency3)] </rosparam>
 
           <param name="processRate"         type="int" value="$(arg processRate)"/>
 

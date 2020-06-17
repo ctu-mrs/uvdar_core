@@ -54,6 +54,8 @@
 
   <arg name="beacon" default="true"/>
 
+  <arg name="frequency0" value="30"/>
+  <arg name="frequency1" value="15"/>
 
   <!-- ideal angle: 1.221730476 - pi/2 -->
 
@@ -125,15 +127,13 @@
       <!-- <param name="DEBUG"		type="bool" value="$(arg DEBUG)"/> --> 
       <param name="DEBUG"		type="bool" value="false"/> 
       <param name="VisDEBUG"		type="bool" value="$(arg VisDEBUG)"/> 
-      <param name="GUI"             type="bool" value="false"/>
+      <param name="GUI"             type="bool" value="true"/>
       <!-- <param name="GUI"             type="bool" value="$(arg gui)"/> -->
       <param name="InvertedPoints"    type="bool" value="false"/>
       <param name="legacy" type="bool" value="false"/>
 
       <param name="beacon" type="bool" value="$(arg beacon)"/>
-      <param name="frequencyCount" type="int" value="2"/>
-      <param name="frequency1" type="int" value="15"/>
-      <param name="frequency0" type="int" value="30"/>
+      <rosparam param="frequencies" subst_value="true"> [$(arg frequency0), $(arg frequency1)] </rosparam>
 
       <param name="processRate"         type="int" value="$(arg processRate)"/>
 
@@ -141,7 +141,6 @@
       <param name="pitchSteps"         type="int" value="$(arg pitchSteps)"/>
       <param name="yawSteps"         type="int" value="$(arg yawSteps)"/>
       <param name="maxPixelShift"         type="int" value="$(arg maxPixelShift)"/>
-      <param name="returnFrequencies"         type="bool" value="true"/>
       <param name="nullifyRadius"         type="int" value="8"/>
       <param name="UseCameraForVisualization"         type="bool" value="false"/>
 
@@ -171,8 +170,7 @@
       <param name="publish"         type="bool" value="false"/>
       <param name="frequenciesPerTarget" type="int" value="2"/>
       <param name="targetCount" type="int" value="1"/>
-      <param name="frequency1" type="int" value="15"/>
-      <param name="frequency0" type="int" value="30"/>
+      <rosparam param="frequencies" subst_value="true"> [$(arg frequency0), $(arg frequency1)] </rosparam>
 
       <param name="quadrotor" type="bool" value="true"/>
       <param name="beacon" type="bool" value="$(arg beacon)"/>

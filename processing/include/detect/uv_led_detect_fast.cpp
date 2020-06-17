@@ -24,7 +24,7 @@
 
 #define index2d(X, Y) (image_curr_.cols * (Y) + (X))
 
-UVLedDetectFAST::UVLedDetectFAST(bool i_gui, bool i_debug, int i_threshold, std::vector<cv::Mat> i_masks) {
+uvdar::UVLedDetectFAST::UVLedDetectFAST(bool i_gui, bool i_debug, int i_threshold, std::vector<cv::Mat> i_masks) {
   _debug_     = i_debug;
   _gui_       = i_gui;
   _threshold_ = i_threshold;
@@ -38,11 +38,11 @@ UVLedDetectFAST::UVLedDetectFAST(bool i_gui, bool i_debug, int i_threshold, std:
   return;
 }
 
-void UVLedDetectFAST::addMask(cv::Mat i_mask) {
+void uvdar::UVLedDetectFAST::addMask(cv::Mat i_mask) {
   masks_.push_back(i_mask);
 }
 
-bool UVLedDetectFAST::processImage(const cv::Mat i_image, std::vector<cv::Point2i>& detected_points, std::vector<cv::Point2i>& sun_points, int mask_id) {
+bool uvdar::UVLedDetectFAST::processImage(const cv::Mat i_image, std::vector<cv::Point2i>& detected_points, std::vector<cv::Point2i>& sun_points, int mask_id) {
   detected_points = std::vector<cv::Point2i>();
   image_curr_     = i_image;
 
@@ -192,7 +192,7 @@ bool UVLedDetectFAST::processImage(const cv::Mat i_image, std::vector<cv::Point2
   return true;
 }
 
-void UVLedDetectFAST::clearMarks() {
+void uvdar::UVLedDetectFAST::clearMarks() {
   for (int j = 0; j < image_curr_.rows; j++) {
     for (int i = 0; i < image_curr_.cols; i++) {
       if (image_check_.at<unsigned char>(j, i) == 255) {
@@ -203,7 +203,7 @@ void UVLedDetectFAST::clearMarks() {
 }
 
 
-void UVLedDetectFAST::initFAST() {
+void uvdar::UVLedDetectFAST::initFAST() {
   std::vector<cv::Point> fast_points;
 
   fast_points.push_back(cv::Point(0, -3));

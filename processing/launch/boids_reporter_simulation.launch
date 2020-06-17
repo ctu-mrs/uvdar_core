@@ -39,7 +39,6 @@
   <arg name="yawSteps"         default="8"/>
   <arg name="maxPixelShift"         default="2"/>
 
-  <arg name="frequencyCount" default="4"/>
   <arg name="frequency1" default="6"/>
   <arg name="frequency2" default="10"/>
   <arg name="frequency3" default="15"/>
@@ -122,12 +121,8 @@
         <param name="GUI"             type="bool" value="$(arg gui)"/>
         <param name="CameraImageompressed"    type="bool" value="false"/>
         <param name="InvertedPoints"    type="bool" value="false"/>
-        <param name="frequencyCount" type="int" value="$(arg frequencyCount)"/>
 
-        <param name="frequency1" type="int" value="6"/>
-        <param name="frequency2" type="int" value="10"/>
-        <param name="frequency3" type="int" value="15"/>
-        <param name="frequency4" type="int" value="30"/>
+        <rosparam param="frequencies" subst_value="true"> [$(arg frequency1), $(arg frequency2), $(arg frequency3), $(arg frequency4)] </rosparam>
 
       <param name="processRate"         type="int" value="$(arg processRate)"/>
 

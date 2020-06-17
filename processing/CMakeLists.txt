@@ -97,8 +97,12 @@ add_library(OCamCalib include/OCamCalib/ocam_functions.cpp )
 add_library(ht3dbt include/ht3dbt/ht3d.cpp)
 add_library(ht4dbt include/ht3dbt/ht4d.cpp)
 add_library(uv_led_detect_fast include/detect/uv_led_detect_fast.cpp)
+add_library(frequency_classifier include/frequency_classifier/frequency_classifier.cpp)
 
 target_link_libraries(uv_led_detect_fast 
+  debug ${OpenCV_LIBRARIES} ${catkin_LIBRARIES})
+
+target_link_libraries(frequency_classifier 
   debug ${OpenCV_LIBRARIES} ${catkin_LIBRARIES})
 
 add_library(UVDARDetector src/detector.cpp)
@@ -151,6 +155,7 @@ target_link_libraries(UVDARBlinkProcessor
   ${catkin_LIBRARIES}
   ${OpenCV_LIBRARIES}
   ht4dbt
+  frequency_classifier
   )
 
 # target_link_libraries(uv_follower_node

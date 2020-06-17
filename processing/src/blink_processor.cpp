@@ -20,6 +20,7 @@
 #include <std_msgs/MultiArrayDimension.h>
 #include <std_msgs/UInt32MultiArray.h>
 #include <mrs_msgs/Int32MultiArrayStamped.h>
+#include <mrs_lib/param_loader.h>
 #include <stdint.h>
 #include <tf/tf.h>
 #include <tf/transform_listener.h>
@@ -28,6 +29,8 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <thread>
 #include <atomic>
+
+#include <frequency_classifier/frequency_classifier.h>
 
 namespace enc = sensor_msgs::image_encodings;
 
@@ -44,6 +47,8 @@ public:
 
     ros::NodeHandle nh_ = nodelet::Nodelet::getMTPrivateNodeHandle();
 
+    mrs_lib::ParamLoader param_loader(nh_, "UVDARBlinkProcessor");
+
     nh_.param("uav_name", _uav_name_, std::string());
     nh_.param("DEBUG", _debug_, bool(false));
     nh_.param("VisDEBUG", _visual_debug_, bool(false));
@@ -54,17 +59,16 @@ public:
       ROS_INFO("[UVDARBlinkProcessor]: GUI is false");
 
     nh_.param("accumulatorLength", _accumulator_length_, int(23));
-    nh_.param("pitchSteps", pitchSteps, int(16));
-    nh_.param("yawSteps", yawSteps, int(8));
-    nh_.param("maxPixelShift", maxPixelShift, int(1));
+    nh_.param("pitchSteps", _pitch_steps_, int(16));
+    nh_.param("yawSteps", _yaw_steps_, int(8));
+    nh_.param("maxPixelShift", _max_pixel_shift_, int(1));
 
-    nh_.param("publishVisualization", publishVisualization, bool(false));
+    nh_.param("publishVisualization", _publish_visualization_, bool(false));
     nh_.param("visualizationRate", _visualization_rate_, int(5));
 
     nh_.param("reasonableRadius", _reasonable_radius_, int(3));
     nh_.param("nullifyRadius", _nullify_radius_, int(5));
-    nh_.param("processRate", processRate, int(10));
-    nh_.param("returnFrequencies", returnFrequencies, bool(false));
+    nh_.param("processRate", _proces_rate_, int(10));
 
 
     nh_.param("legacy", _legacy, bool(false));
@@ -130,10 +134,10 @@ public:
     
     for (size_t i = 0; i < _points_seen_topics.size(); ++i) {
       ht3dbt_trackers.push_back(
-          new HT4DBlinkerTracker(_accumulator_length_, pitchSteps, yawSteps, maxPixelShift, cv::Size(752, 480), _nullify_radius_, _reasonable_radius_));
+          new HT4DBlinkerTracker(_accumulator_length_, _pitch_steps_, _yaw_steps_, _max_pixel_shift_, cv::Size(752, 480), _nullify_radius_, _reasonable_radius_));
 
       ht3dbt_trackers.back()->setDebug(_debug_, _visual_debug_);
-      processSpinRates.push_back(new ros::Rate((double)processRate));
+      processSpinRates.push_back(new ros::Rate((double)_proces_rate_));
     }
 
 
@@ -194,28 +198,29 @@ public:
       //}
 
     nh_.param("InvertedPoints", InvertedPoints, bool(false));
-    nh_.param("frequencyCount", frequencyCount, int(4));
 
     nh_.param("beacon",_beacon_,bool(false));
-    /* if (frequencyCount != 2){ */
-    /*   ROS_ERROR("HEYYY"); */
-    /*   return; */
-    /* } */
 
-    // load the frequencies
-    frequencySet.resize(frequencyCount);
-    std::vector<double> defaultFrequencySet{6, 10, 15, 30, 8, 12};
-    for (int i = 0; i < frequencyCount; ++i) {
-      nh_.param("frequency" + std::to_string(i + (_beacon_?0:1)), frequencySet[i], defaultFrequencySet.at(i));
+    if (_gui_ || _publish_visualization_){
+      // load the frequencies
+      param_loader.loadParam("frequencies", _frequencies_);
+      if (_frequencies_.empty()){
+      std::vector<double> default_frequency_set{5, 6, 8, 10, 15, 30};
+        ROS_WARN("[UVDARBlinkProcessor]: No frequencies were supplied, using the default frequency set. This set is as follows: ");
+        for (auto f : default_frequency_set){
+          ROS_WARN_STREAM("[UVDARBlinkProcessor]: " << f << " hz");
+        }
+        _frequencies_ = default_frequency_set;
+      }
+      ufc_ = std::make_unique<UVDARFrequencyClassifier>(_frequencies_);
+
     }
-
-    prepareFrequencyClassifiers();
 
     for (size_t i = 0; i < _points_seen_topics.size(); ++i) {
       process_threads.emplace_back(&UVDARBlinkProcessor::ProcessThread, this, i);
     }
 
-    if (_gui_ || publishVisualization) {
+    if (_gui_ || _publish_visualization_) {
       current_visualization_done_ = false;
     }
 
@@ -223,7 +228,7 @@ public:
       show_thread  = std::thread(&UVDARBlinkProcessor::ShowThread, this);
     }
 
-    if (publishVisualization) {
+    if (_publish_visualization_) {
       image_transport::ImageTransport it(nh_);
       imPub = it.advertise("visualization", 1);
       visualization_thread  = std::thread(&UVDARBlinkProcessor::VisualizeThread, this);
@@ -235,29 +240,6 @@ public:
 
   //}
 
-
-  /* prepareFrequencyClassifiers() //{ */
-
-  void prepareFrequencyClassifiers() {
-    for (int i = 0; i < (int)(frequencySet.size()); i++) {
-      periodSet.push_back(1.0 / frequencySet[i]);
-    }
-    for (int i = 0; i < (int)(frequencySet.size()) - 1; i++) {
-      periodBoundsBottom.push_back((periodSet[i] * (1.0 - boundary_ratio) + periodSet[i + 1] * boundary_ratio));
-    }
-    periodBoundsBottom.push_back(1.0 / max_frequency);
-
-    periodBoundsTop.push_back(1.0 / min_frequency);
-    for (int i = 1; i < (int)(frequencySet.size()); i++) {
-      periodBoundsTop.push_back((periodSet[i] * boundary_ratio + periodSet[i - 1] * (1.0 - boundary_ratio)));
-    }
-
-
-    /* periodBoundsTop.back()           = 0.5 * periodSet.back() + 0.5 * periodSet[secondToLast]; */
-    /* periodBoundsBottom[secondToLast] = 0.5 * periodSet.back() + 0.5 * periodSet[secondToLast]; */
-  }
-
-  //}
 
 private:
 
@@ -421,10 +403,7 @@ private:
       for (size_t i = 0; i < retrievedBlinkers.size(); i++) {
         msgdata.push_back(retrievedBlinkers[i].x);
         msgdata.push_back(retrievedBlinkers[i].y);
-        if (returnFrequencies)
-          msgdata.push_back(retrievedBlinkers[i].z);
-        else
-          msgdata.push_back(findMatch(retrievedBlinkers[i].z));
+        msgdata.push_back(retrievedBlinkers[i].z);
       }
 
 
@@ -444,20 +423,6 @@ private:
 
   //}
 
-  /* findMatch() //{ */
-
-  int findMatch(double i_frequency) {
-    double period = 1.0 / i_frequency;
-    for (int i = 0; i < (int)(periodSet.size()); i++) {
-      /* std::cout << period << " " <<  periodBoundsTop[i] << " " << periodBoundsBottom[i] << " " << periodSet[i] << std::endl; */
-      if ((period > periodBoundsBottom[i]) && (period < periodBoundsTop[i])) {
-        return i;
-      }
-    }
-    return -1;
-  }
-
-  //}
 
   /* color selector functions //{ */
 
@@ -616,7 +581,7 @@ private:
           for (int i = 0; i < (int)(rbs.size()); i++) {
             cv::Point center = cv::Point(rbs[i].x + differenceX, rbs[i].y);
 
-            int        freqIndex = findMatch(rbs[i].z);
+            int        freqIndex = ufc_->findMatch(rbs[i].z);
             /* std::cout << "f: " << retrievedBlinkers[i].z << std::endl; */
             if (freqIndex >= 0) {
               char       freqText[4];
@@ -658,10 +623,10 @@ private:
       //}
 
       // draw the legend
-      for (int i = 0; i < (int)(frequencySet.size()); ++i) {
+      for (int i = 0; i < (int)(_frequencies_.size()); ++i) {
         cv::Scalar color = marker_color(i);
         cv::circle(viewImage, cv::Point(10, 10 + 15 * i), 5, color);
-        cv::putText(viewImage, cv::String(to_string_precision(frequencySet[i],0)), cv::Point(15, 15 + 15 * i), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 255, 255));
+        cv::putText(viewImage, cv::String(to_string_precision(_frequencies_[i],0)), cv::Point(15, 15 + 15 * i), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 255, 255));
       }
 
       current_visualization_done_ = true;
@@ -752,7 +717,7 @@ private:
   std::vector<ros::Publisher> estimatedFrameratePublishers;
   //CHECK
 
-  bool publishVisualization;
+  bool _publish_visualization_;
   int _visualization_rate_;
   image_transport::Publisher imPub;
 
@@ -781,24 +746,18 @@ private:
   std::vector<std::vector<cv::Point>> sun_points_;
   std::mutex mutex_sun;
 
-  bool returnFrequencies;
-
-  std::vector<double> frequencySet;
-  std::vector<double> periodSet;
-  std::vector<double> periodBoundsTop;
-  std::vector<double> periodBoundsBottom;
+  std::vector<double> _frequencies_;
+  std::unique_ptr<UVDARFrequencyClassifier> ufc_;
 
   std::vector<ros::Rate*> processSpinRates;
-  int        processRate;
+  int        _proces_rate_;
 
   int _accumulator_length_;
-  int pitchSteps;
-  int yawSteps;
-  int maxPixelShift;
+  int _pitch_steps_;
+  int _yaw_steps_;
+  int _max_pixel_shift_;
   int _reasonable_radius_;
   int _nullify_radius_;
-
-  int frequencyCount;
 
   bool _beacon_;
 
