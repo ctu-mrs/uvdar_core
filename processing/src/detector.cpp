@@ -108,7 +108,7 @@ public:
 
     // Subscribe to corresponding topics
     for (size_t i = 0; i < _camera_topics.size(); ++i) {
-      sub_images_.push_back(nh_.subscribe(_camera_topics[i], 1, &image_callback_t::operator(), &cals_image_[i]));
+      sub_images_.push_back(nh_.subscribe(_camera_topics[i], 1, cals_image_[i]));
     }
 
     //}
@@ -205,7 +205,7 @@ private:
     cv_bridge::CvImageConstPtr image;
     image = cv_bridge::toCvShare(image_msg, enc::MONO8);
     ros::NodeHandle nh("~");
-    timer_process_[image_index] = nh.createTimer(ros::Duration(0), boost::bind(&UVDARDetector::processSingleImage, this, _1, image, image_index), NULL, true);
+    timer_process_[image_index] = nh.createTimer(ros::Duration(0), boost::bind(&UVDARDetector::processSingleImage, this, _1, image, image_index), true, true);
     camera_image_sizes_[image_index] = image->image.size();
   }
   //}
@@ -368,7 +368,7 @@ private:
 
   std::vector<ros::Subscriber> sub_images_;
   unsigned int _camera_count_;
-  using image_callback_t = std::function<void (const sensor_msgs::ImageConstPtr&)>;
+  using image_callback_t = boost::function<void (const sensor_msgs::ImageConstPtr&)>;
   std::vector<image_callback_t> cals_image_;
 
 
