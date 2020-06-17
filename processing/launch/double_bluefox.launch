@@ -37,12 +37,6 @@
   <arg name="mm" default="0"/>
   <arg name="jpeg_quality" default="90"/>
 
-  <arg name="processRate" default="10"/>
-
-  <arg name="accumulatorLength"         default="23"/>
-  <arg name="pitchSteps"         default="16"/>
-  <arg name="yawSteps"         default="16"/>
-  <arg name="maxPixelShift"         default="3"/>
 
   <arg name="filterDistLength"         default="10"/>
   <arg name="filterOrientationLength"         default="10"/>
@@ -53,8 +47,8 @@
   <arg name="view" default="false"/>
   <arg name="calib" default="false"/>
 
-  <arg name="DEBUG" default="false"/>
-  <arg name="VisDEBUG" default="false"/>
+  <arg name="debug" default="false"/>
+  <arg name="visual_debug" default="false"/>
   <arg name="gui" default="true"/>
   <!-- <arg name="gui" default="false"/> -->
 

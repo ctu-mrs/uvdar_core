@@ -13,8 +13,8 @@
   <arg name="proc" default="false"/>
   <arg name="calib" default="false"/>
 
-  <arg name="DEBUG" default="false"/>
-  <arg name="VisDEBUG" default="false"/>
+  <arg name="debug" default="false"/>
+  <arg name="visual_debug" default="false"/>
   <arg name="gui" default="true"/>
 
 

@@ -10,8 +10,8 @@
 
   <arg name="threshold" default="180"/>
 
-  <arg name="publishVisualization"         default="true"/>
-  <arg name="visualizationRate"         default="1"/>
+  <arg name="publish_visualization"         default="true"/>
+  <arg name="visualization_rate"         default="1"/>
   
  
 
@@ -37,12 +37,12 @@
   <arg name="mm" default="0"/>
   <arg name="jpeg_quality" default="90"/>
 
-  <arg name="processRate" default="10"/>
+  <arg name="blink_process_rate" default="10"/>
 
-  <arg name="accumulatorLength"         default="23"/>
-  <arg name="pitchSteps"         default="12"/>
-  <arg name="yawSteps"         default="16"/>
-  <arg name="maxPixelShift"         default="2"/>
+  <arg name="accumulator_length"         default="23"/>
+  <arg name="pitch_steps"         default="12"/>
+  <arg name="yaw_steps"         default="16"/>
+  <arg name="max_pixel_shift"         default="2"/>
 
   <arg name="filterDistLength"         default="10"/>
   <arg name="filterOrientationLength"         default="10"/>
@@ -53,8 +53,8 @@
   <arg name="view" default="false"/>
   <arg name="calib" default="false"/>
 
-  <arg name="DEBUG" default="false"/>
-  <arg name="VisDEBUG" default="false"/>
+  <arg name="debug" default="false"/>
+  <arg name="visual_debug" default="false"/>
   <arg name="gui" default="false"/>
   <!-- <arg name="gui" default="false"/> -->
 
@@ -135,7 +135,7 @@
     </node>
 
     <node name="uv_detect" pkg="nodelet" type="nodelet" args="$(arg nodelet) uvdar/UVDARDetector $(arg nodelet_manager)" output="screen" respawn="true" launch-prefix="bash -c 'sleep 5; $0 $@'">
-      <param name="debug"		type="bool" value="$(arg DEBUG)"/> 
+      <param name="debug"		type="bool" value="$(arg debug)"/> 
       <param name="gui"             type="bool" value="false"/>
       <param name="FromVideo"         type="bool" value="$(arg FromVideo)"/>
       <param name="camTopic"         type="string" value="camera"/>
@@ -159,30 +159,29 @@
       <remap from="~pointsSeen" to="/$(arg uav_name)/uvdar/uvPointsSeen"/>
     </node>
     <node name="blink_processor" pkg="nodelet" type="nodelet" args="$(arg nodelet) uvdar/UVDARBlinkProcessor $(arg nodelet_manager)" output="screen" respawn="true" launch-prefix="bash -c 'sleep 5; $0 $@'"> 
-        <!-- <param name="DEBUG"		type="bool" value="true"/> --> 
-        <param name="DEBUG"		type="bool" value="$(arg DEBUG)"/> 
-        <param name="VisDEBUG"		type="bool" value="$(arg VisDEBUG)"/> 
+        <!-- <param name="debug"		type="bool" value="true"/> --> 
+        <param name="debug"		type="bool" value="$(arg debug)"/> 
+        <param name="visual_debug"		type="bool" value="$(arg visual_debug)"/> 
         <param name="GUI"             type="bool" value="$(arg gui)"/>
         <param name="InvertedPoints"    type="bool" value="false"/>
 
       <rosparam param="frequencies" subst_value="true"> [$(arg frequency1), $(arg frequency2)] </rosparam>
   
 
-        <param name="publishVisualization"         type="bool" value="$(arg publishVisualization)"/>
-        <param name="visualizationRate"         type="int" value="$(arg visualizationRate)"/>
+        <param name="publish_visualization"         type="bool" value="$(arg publish_visualization)"/>
+        <param name="visualization_rate"         type="int" value="$(arg visualization_rate)"/>
  
 
-      <param name="processRate"         type="int" value="$(arg processRate)"/>
+      <param name="blink_process_rate"         type="int" value="$(arg blink_process_rate)"/>
 
-      <param name="accumulatorLength"         type="int" value="$(arg accumulatorLength)"/>
-      <param name="pitchSteps"         type="int" value="$(arg pitchSteps)"/>
-      <param name="yawSteps"         type="int" value="$(arg yawSteps)"/>
-      <param name="maxPixelShift"         type="int" value="$(arg maxPixelShift)"/>
-      <param name="reasonableRadius"         type="int" value="3"/>
-      <param name="nullifyRadius"         type="int" value="8"/>
-      <param name="UseCameraForVisualization"         type="bool" value="true"/>
+      <param name="accumulator_length"         type="int" value="$(arg accumulator_length)"/>
+      <param name="pitch_steps"         type="int" value="$(arg pitch_steps)"/>
+      <param name="yaw_steps"         type="int" value="$(arg yaw_steps)"/>
+      <param name="max_pixel_shift"         type="int" value="$(arg max_pixel_shift)"/>
+      <param name="reasonable_radius"         type="int" value="3"/>
+      <param name="nullify_radius"         type="int" value="8"/>
+      <param name="use_camera_for_visualization"         type="bool" value="true"/>
 
-      <param name="legacy" type="bool" value="false"/>
 
       <rosparam param="camera_topics"> ["camera"] </rosparam>
       <rosparam param="points_seen_topics"> ["pointsSeen"] </rosparam>
@@ -202,7 +201,7 @@
     <node name="uvdar_uav_pose_calculator_node" pkg="uvdar" type="uvdar_uav_pose_calculator_node" output="screen"> 
       <param name="uav_name" type = "string" value="$(arg uav_name)"/>
 
-      <param name="DEBUG"		type="bool" value="false"/> 
+      <param name="debug"		type="bool" value="false"/> 
       <param name="gui"             type="bool" value="$(arg gui)"/>
       <param name="publish"         type="bool" value="$(arg publish)"/>
       <param name="frequenciesPerTarget" type="int" value="2"/>
@@ -211,8 +210,6 @@
       <!-- <param name="mask_file" type="string" value="$(arg mask_file)"/> -->
       <rosparam param="frequencies" subst_value="true"> [$(arg frequency1), $(arg frequency2)] </rosparam>
 
-      <param name="legacy" type="bool" value="false"/>
-      <!-- <param name="legacy_delay" type="double" value="$(arg legacy_delay)"/> -->
 
       <rosparam param="blinkersSeenTopics"> ["blinkersSeen"] </rosparam>
       <rosparam param="estimatedFramerateTopics"> ["estimatedFramerate"] </rosparam>

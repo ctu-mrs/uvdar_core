@@ -45,7 +45,7 @@
   <arg name="view" default="false"/>
   <arg name="calib" default="false"/>
 
-  <arg name="DEBUG" default="false"/>
+  <arg name="debug" default="false"/>
   <arg name="gui" default="true"/>
   <!-- <arg name="gui" default="false"/> -->
 
@@ -60,7 +60,7 @@
     <!-- <node name="mask_generator" pkg="uvdar" type="uvdar_mask_generator_node" output="screen" launch-prefix="debug_roslaunch"> -->
       <param name="uav_name" type = "string" value="$(arg uav_name)"/>
       <param name="nato_name" type = "string" value="$(arg frameNatoName)"/>
-      <param name="DEBUG"		type="bool" value="$(arg DEBUG)"/> 
+      <param name="debug"		type="bool" value="$(arg debug)"/> 
       <param name="GUI"             type="bool" value="$(arg gui)"/>
       <param name="expansionSize" type="int" value="$(arg expansionSize)"/>
 

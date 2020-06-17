@@ -39,62 +39,39 @@ namespace uvdar {
 class UVDARBlinkProcessor : public nodelet::Nodelet {
 public:
 
+
+  /**
+   * @brief Initializer - loads parameters and initializes necessary structures
+   */
   /* onInit() //{ */
-
   void onInit() {
-    initialized_ = false;
-    images_received_ = false;
-
     ros::NodeHandle nh_ = nodelet::Nodelet::getMTPrivateNodeHandle();
 
     mrs_lib::ParamLoader param_loader(nh_, "UVDARBlinkProcessor");
 
-    nh_.param("uav_name", _uav_name_, std::string());
-    nh_.param("DEBUG", _debug_, bool(false));
-    nh_.param("VisDEBUG", _visual_debug_, bool(false));
-    nh_.param("GUI", _gui_, bool(false));
-    if (_gui_)
-      ROS_INFO("[UVDARBlinkProcessor]: GUI is true");
-    else
-      ROS_INFO("[UVDARBlinkProcessor]: GUI is false");
+    param_loader.loadParam("uav_name", _uav_name_, std::string());
+    param_loader.loadParam("debug", _debug_, bool(false));
+    param_loader.loadParam("visual_debug", _visual_debug_, bool(false));
+    param_loader.loadParam("gui", _gui_, bool(false));
+    param_loader.loadParam("publish_visualization", _publish_visualization_, bool(false));
+    param_loader.loadParam("visualization_rate", _visualization_rate_, int(2));
 
-    nh_.param("accumulatorLength", _accumulator_length_, int(23));
-    nh_.param("pitchSteps", _pitch_steps_, int(16));
-    nh_.param("yawSteps", _yaw_steps_, int(8));
-    nh_.param("maxPixelShift", _max_pixel_shift_, int(1));
-
-    nh_.param("publishVisualization", _publish_visualization_, bool(false));
-    nh_.param("visualizationRate", _visualization_rate_, int(5));
-
-    nh_.param("reasonableRadius", _reasonable_radius_, int(3));
-    nh_.param("nullifyRadius", _nullify_radius_, int(5));
-    nh_.param("processRate", _proces_rate_, int(10));
+    param_loader.loadParam("accumulator_length", _accumulator_length_, int(23));
+    param_loader.loadParam("pitch_steps", _pitch_steps_, int(16));
+    param_loader.loadParam("yaw_steps", _yaw_steps_, int(8));
+    param_loader.loadParam("max_pixel_shift", _max_pixel_shift_, int(1));
 
 
-    nh_.param("legacy", _legacy, bool(false));
-    if (_legacy){
-      nh_.param("legacy_delay", _legacy_delay, double(0.2));
-      ROS_INFO_STREAM("[UVDARBlinkProcessor]: Legacy mode in effect. Set delay is " << _legacy_delay << "s");
-    }
-
-    
-    /* subscribe to pointsSeen //{ */
-
-    /* if (_legacy){ */
-    /*   pointsSubscriberLegacy = nh_.subscribe("pointsSeen", 1, &UVDARBlinkProcessor::insertPointsLegacy, this); */
-    /* } */
-    /* else{ */
-    /*   pointsSubscriber = nh_.subscribe("pointsSeen", 1, &UVDARBlinkProcessor::insertPoints, this); */
-    /* } */
-
-    /* pointsPublisher  = nh_.advertise<uvdar::Int32MultiArrayStamped>("blinkersSeen", 1); */
+    param_loader.loadParam("reasonable_radius", _reasonable_radius_, int(3));
+    param_loader.loadParam("nullifyRadius", _nullify_radius_, int(5));
+    param_loader.loadParam("blink_process_rate", _proces_rate_, int(10));
 
     std::vector<std::string> _points_seen_topics;
-    nh_.param("points_seen_topics", _points_seen_topics, _points_seen_topics);
+    param_loader.loadParam("points_seen_topics", _points_seen_topics, _points_seen_topics);
     if (_points_seen_topics.empty()) {
-      ROS_WARN("[UVDARBlinkProcessor]: No topics of pointsSeen were supplied");
+      ROS_WARN("[UVDARBlinkProcessor]: No topics of points_seen_topics were supplied");
     }
-    blinkData.resize(_points_seen_topics.size());
+    blink_data_.resize(_points_seen_topics.size());
 
     // Create callbacks for each camera
     pointsSeenCallbacks.resize(_points_seen_topics.size());
@@ -112,7 +89,7 @@ public:
         };
         pointsSeenCallbacksLegacy[i] = callback;
         /* pointsSeenCallbacksLegacy.push_back(callback); */
-        pointsSeenSubscribers.push_back(nh_.subscribe(_points_seen_topics[i], 1, &points_seen_callback_legacy_t::operator(), &pointsSeenCallbacksLegacy[i]));
+        pointsSeenSubscribers.push_back(nh_.subscribe(_points_seen_topics[i], 1, pointsSeenCallbacksLegacy[i]));
       }
       else {
         points_seen_callback_t callback = [imageIndex=i,this] (const mrs_msgs::Int32MultiArrayStampedConstPtr& pointsMessage) { 
@@ -124,8 +101,8 @@ public:
         };
         pointsSeenCallbacks[i] = callback;
         /* pointsSeenCallbacks.push_back(callback); */
-        pointsSeenSubscribers.push_back(nh_.subscribe(_points_seen_topics[i], 1, &points_seen_callback_t::operator(), &pointsSeenCallbacks[i]));
-        sunPointsSeenSubscribers.push_back(nh_.subscribe(_points_seen_topics[i]+"/sun", 1, &points_seen_callback_t::operator(), &sunPointsSeenCallbacks[i]));
+        pointsSeenSubscribers.push_back(nh_.subscribe(_points_seen_topics[i], 1, pointsSeenCallbacks[i]));
+        sunPointsSeenSubscribers.push_back(nh_.subscribe(_points_seen_topics[i]+"/sun", 1, sunPointsSeenCallbacks[i]));
       }
     /* ROS_INFO("[UVDARBlinkProcessor]: HERE B"); */
     }
@@ -168,7 +145,7 @@ public:
           imageCallbacks[i] = callback;
           /* imageCallbacks.push_back(callback); */
           // Subscribe to corresponding topics
-          imageSubscribers.push_back(nh_.subscribe(_camera_topics[i], 1, &image_callback_t::operator(), &imageCallbacks[i]));
+          imageSubscribers.push_back(nh_.subscribe(_camera_topics[i], 1, imageCallbacks[i]));
         }
       }
 
@@ -201,7 +178,7 @@ public:
 
     nh_.param("beacon",_beacon_,bool(false));
 
-    if (_gui_ || _publish_visualization_){
+    if (_gui_ || _publish_visualization_){ //frequency classifier is used here only for visualization purposes
       // load the frequencies
       param_loader.loadParam("frequencies", _frequencies_);
       if (_frequencies_.empty()){
@@ -265,7 +242,7 @@ private:
     std::vector<cv::Point2i> points;
     countSeen = (int)((msg)->layout.dim[0].size);
 
-    BlinkData& data = blinkData[imageIndex];
+    BlinkData& data = blink_data_[imageIndex];
     auto* ht3dbt = ht3dbt_trackers[imageIndex];
 
     data.timeSamples++;
@@ -681,9 +658,9 @@ private:
 
   /* attributes //{ */
 
-  std::atomic_bool initialized_;
-  std::atomic_bool current_visualization_done_;
-  std::atomic_bool images_received_;
+  std::atomic_bool initialized_ = false;
+  std::atomic_bool current_visualization_done_ = false;
+  std::atomic_bool images_received_ = false;
 
   std::string              _uav_name_;
   bool                     currBatchProcessed;
@@ -701,12 +678,12 @@ private:
 
   bool                     use_camera_for_visualization_;
 
-  using image_callback_t = std::function<void (const sensor_msgs::ImageConstPtr&)>;
+  using image_callback_t = boost::function<void (const sensor_msgs::ImageConstPtr&)>;
   std::vector<image_callback_t> imageCallbacks;
   std::vector<ros::Subscriber> imageSubscribers;
 
-  using points_seen_callback_t = std::function<void (const mrs_msgs::Int32MultiArrayStampedConstPtr&)>;
-  using points_seen_callback_legacy_t = std::function<void (const std_msgs::UInt32MultiArrayConstPtr&)>;
+  using points_seen_callback_t = boost::function<void (const mrs_msgs::Int32MultiArrayStampedConstPtr&)>;
+  using points_seen_callback_legacy_t = boost::function<void (const std_msgs::UInt32MultiArrayConstPtr&)>;
   std::vector<points_seen_callback_t> pointsSeenCallbacks;
   std::vector<points_seen_callback_t> sunPointsSeenCallbacks;
   std::vector<points_seen_callback_legacy_t> pointsSeenCallbacksLegacy;
@@ -740,7 +717,7 @@ private:
     ~BlinkData(){};
   };
 
-  std::vector<BlinkData> blinkData;
+  std::vector<BlinkData> blink_data_;
   std::vector<HT4DBlinkerTracker*> ht3dbt_trackers;
 
   std::vector<std::vector<cv::Point>> sun_points_;

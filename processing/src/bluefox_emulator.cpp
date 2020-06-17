@@ -23,7 +23,7 @@ public:
 
 
   /**
-   * @brief Initialization of the bluefox camera emulator
+   * @brief Initializer - loads parameters and initializes necessary structures
    */
   /* onInit //{ */
   void onInit() {

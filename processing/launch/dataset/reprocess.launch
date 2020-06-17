@@ -13,8 +13,8 @@
   <arg name="output" default="screen"/>
   <arg name="calib" default="false"/>
 
-  <arg name="DEBUG" default="false"/>
-  <arg name="VisDEBUG" default="false"/>
+  <arg name="debug" default="false"/>
+  <arg name="visual_debug" default="false"/>
   <arg name="gui" default="true"/>
 
   <arg name="frame_uvdar" default="uvcam_$(arg uav_name)"/>
@@ -26,11 +26,9 @@
 
   <arg name="threshold" default="180"/>
 
-  <arg name="publishVisualization"         default="true"/>
-  <arg name="visualizationRate"         default="1"/>
+  <arg name="publish_visualization"         default="true"/>
+  <arg name="visualization_rate"         default="1"/>
 
-  <arg name="legacy"         default="False"/>
-  <arg name="legacy_delay"         default="0.2"/>
   
  
 
@@ -56,12 +54,12 @@
   <arg name="mm" default="0"/>
   <arg name="jpeg_quality" default="90"/>
 
-  <arg name="processRate" default="10"/>
+  <arg name="blink_process_rate" default="10"/>
 
-  <arg name="accumulatorLength"         default="23"/>
-  <arg name="pitchSteps"         default="16"/>
-  <arg name="yawSteps"         default="8"/>
-  <arg name="maxPixelShift"         default="2"/>
+  <arg name="accumulator_length"         default="23"/>
+  <arg name="pitch_steps"         default="16"/>
+  <arg name="yaw_steps"         default="8"/>
+  <arg name="max_pixel_shift"         default="2"/>
 
   <arg name="filterDistLength"         default="10"/>
   <arg name="filterOrientationLength"         default="10"/>
@@ -106,7 +104,7 @@
     <node name="uvdar_uav_pose_calculator_node" pkg="uvdar" type="uvdar_uav_pose_calculator_node" output="screen"> 
       <param name="uav_name" type = "string" value="$(arg uav_name)"/>
 
-      <param name="DEBUG"		type="bool" value="false"/> 
+      <param name="debug"		type="bool" value="false"/> 
       <param name="gui"             type="bool" value="$(arg gui)"/>
       <param name="publish"         type="bool" value="$(arg publish)"/>
       <param name="frequenciesPerTarget" type="int" value="2"/>
@@ -114,8 +112,6 @@
       <param name="calib_file" type="string" value="$(arg calib_file_uv)"/>
       <param name="mask_file" type="string" value="$(arg mask_file)"/>
 
-      <param name="legacy" type="bool" value="$(arg legacy)"/>
-      <param name="legacy_delay" type="double" value="$(arg legacy_delay)"/>
 
       <remap from="blinkersSeen" to="/$(arg uav_name)/uvdar/blinkersSeen"/>
       <remap from="estimatedFramerate" to="/$(arg uav_name)/uvdar/estimatedFramerate"/>
