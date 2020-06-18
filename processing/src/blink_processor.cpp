@@ -59,7 +59,7 @@ public:
     
     param_loader.loadParam("gui", _gui_, bool(false));
     param_loader.loadParam("publish_visualization", _publish_visualization_, bool(false));
-    param_loader.loadParam("visualization_rate", _visualization_rate_, double(2.0));
+    param_loader.loadParam("visualization_rate", _visualization_rate_, float(2.0));
 
     param_loader.loadParam("accumulator_length", _accumulator_length_, int(23));
     param_loader.loadParam("pitch_steps", _pitch_steps_, int(16));
