@@ -116,7 +116,7 @@
         <!-- <param name="debug"		type="bool" value="true"/> --> 
         <param name="debug"		type="bool" value="$(arg debug)"/> 
         <param name="visual_debug"		type="bool" value="$(arg visual_debug)"/> 
-        <param name="GUI"             type="bool" value="$(arg gui)"/>
+        <param name="gui"             type="bool" value="$(arg gui)"/>
         <param name="InvertedPoints"    type="bool" value="false"/>
 
       <rosparam param="frequencies" subst_value="true"> [$(arg frequency1), $(arg frequency2), $(arg frequency3), $(arg frequency4)] </rosparam>

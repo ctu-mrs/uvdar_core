@@ -21,6 +21,8 @@ public:
   double getFrequency(int index);
   double getYaw(int index);
   double getPitch(int index);
+  std::vector<double> getYaw();
+  std::vector<double> getPitch();
   bool isCurrentBatchProcessed();
   void updateFramerate(double input);
 

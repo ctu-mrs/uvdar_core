@@ -34,9 +34,10 @@
 #include <sensor_msgs/CameraInfo.h>
 #include <sensor_msgs/Imu.h>
 #include <std_msgs/Float32.h>
-#include <std_msgs/MultiArrayDimension.h>
-#include <mrs_msgs/Int32MultiArrayStamped.h>
-#include <std_msgs/Int32MultiArray.h>
+/* #include <std_msgs/MultiArrayDimension.h> */
+/* #include <mrs_msgs/Int32MultiArrayStamped.h> */
+/* #include <std_msgs/Int32MultiArray.h> */
+#include <mrs_msgs/ImagePointsWithFloatStamped.h>
 #include <std_srvs/SetBool.h>
 #include <stdint.h>
 #include <tf/tf.h>
@@ -167,7 +168,7 @@ public:
     blinkersSeenCallbacks.resize(blinkersSeenTopics.size());
     separated_points_.resize(blinkersSeenTopics.size());
     for (size_t i = 0; i < blinkersSeenTopics.size(); ++i) {
-      blinkers_seen_callback_t callback = [imageIndex=i,this] (const mrs_msgs::Int32MultiArrayStampedConstPtr& pointsMessage) { 
+      blinkers_seen_callback_t callback = [imageIndex=i,this] (const mrs_msgs::ImagePointsWithFloatStampedConstPtr& pointsMessage) { 
         ProcessPoints(pointsMessage, imageIndex);
       };
       blinkersSeenCallbacks[i] = callback;
@@ -299,28 +300,28 @@ public:
   }
   //}
 
-  /* ProcessPointsUnstamped //{ */
-  //for legacy reasons
-  void ProcessPointsUnstamped(const std_msgs::Int32MultiArrayConstPtr& msg, size_t imageIndex){
-    if (DEBUG)
-      ROS_INFO_STREAM("Getting message: " << *msg);
-    mrs_msgs::Int32MultiArrayStampedPtr msg_stamped(new mrs_msgs::Int32MultiArrayStamped);
-    msg_stamped->stamp = ros::Time::now()-ros::Duration(_legacy_delay);
-    msg_stamped->layout= msg->layout;
-    msg_stamped->data = msg->data;
-    ProcessPoints(msg_stamped, imageIndex);
-  }
-  //}
+  /* /1* ProcessPointsUnstamped //{ *1/ */
+  /* //for legacy reasons */
+  /* void ProcessPointsUnstamped(const std_msgs::Int32MultiArrayConstPtr& msg, size_t imageIndex){ */
+  /*   if (DEBUG) */
+  /*     ROS_INFO_STREAM("Getting message: " << *msg); */
+  /*   mrs_msgs::Int32MultiArrayStampedPtr msg_stamped(new mrs_msgs::Int32MultiArrayStamped); */
+  /*   msg_stamped->stamp = ros::Time::now()-ros::Duration(_legacy_delay); */
+  /*   msg_stamped->layout= msg->layout; */
+  /*   msg_stamped->data = msg->data; */
+  /*   ProcessPoints(msg_stamped, imageIndex); */
+  /* } */
+  /* //} */
 
   /* ProcessPoints //{ */
-  void ProcessPoints(const mrs_msgs::Int32MultiArrayStampedConstPtr& msg, size_t imageIndex) {
-    int                        countSeen;
+  void ProcessPoints(const mrs_msgs::ImagePointsWithFloatStampedConstPtr& msg, size_t imageIndex) {
+    /* int                        countSeen; */
     std::vector< cv::Point3i > points;
     lastBlinkTime = msg->stamp;
-    countSeen = (int)((msg)->layout.dim[0].size);
+    /* countSeen = (int)((msg)->layout.dim[0].size); */
     if (DEBUG)
-      ROS_INFO("Received points: %d", countSeen);
-    if (countSeen < 1) {
+      ROS_INFO_STREAM("Received points: " << msg->points.size());
+    if (msg->points.size() < 1) {
       foundTarget = false;
       return;
     }
@@ -333,17 +334,18 @@ public:
       return;
     }
 
-    for (int i = 0; i < countSeen; i++) {
-      if (mask_active)
-        if (mask.at<unsigned char>(cv::Point2i(msg->data[(i * 3)], msg->data[(i * 3) + 1])) < 100){
+    for (auto& point : msg->points) {
+      if (mask_active){
+        if (mask.at<unsigned char>(cv::Point2i(point.x, point.y)) < 100){
           if (DEBUG){
-            ROS_INFO_STREAM("Discarding point " << cv::Point3i(msg->data[(i * 3)], msg->data[(i * 3) + 1], msg->data[(i * 3) + 2]));
+            ROS_INFO_STREAM("Discarding point " << cv::Point2i(point.x, point.y) << " with f="  << point.value);
           }
           continue;
         }
+      }
 
-      if (msg->data[(i * 3) + 2] <= 200) {
-        points.push_back(cv::Point3i(msg->data[(i * 3)], msg->data[(i * 3) + 1], msg->data[(i * 3) + 2]));
+      if (point.value <= 200) {
+        points.push_back(cv::Point3i(point.x, point.y, point.value));
       }
     }
 
@@ -2789,7 +2791,7 @@ double rotmatToRoll(e::Matrix3d m){
 
   std::vector<std::string> cameraFrames;
 
-  using blinkers_seen_callback_t = std::function<void (const mrs_msgs::Int32MultiArrayStampedConstPtr& msg)>;
+  using blinkers_seen_callback_t = std::function<void (const mrs_msgs::ImagePointsWithFloatStampedConstPtr& msg)>;
   std::vector<blinkers_seen_callback_t> blinkersSeenCallbacks;
   std::vector<ros::Subscriber> blinkersSeenSubscribers;
 

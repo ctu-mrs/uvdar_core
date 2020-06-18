@@ -124,7 +124,7 @@
       <param name="uav_name" type = "string" value="$(arg uav_name)"/>
         <param name="debug"		type="bool" value="$(arg debug)"/> 
         <param name="visual_debug"		type="bool" value="$(arg visual_debug)"/> 
-        <param name="GUI"             type="bool" value="$(arg gui)"/>
+        <param name="gui"             type="bool" value="$(arg gui)"/>
         <param name="CameraImageompressed"    type="bool" value="false"/>
         <param name="InvertedPoints"    type="bool" value="false"/>
 

@@ -10,8 +10,7 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/imgcodecs/imgcodecs.hpp>
-#include <mrs_msgs/Int32MultiArrayStamped.h>
-#include <mrs_msgs/ImagePoints3Stamped.h>
+#include <mrs_msgs/ImagePointsWithFloatStamped.h>
 #include <mrs_lib/image_publisher.h>
 #include <mrs_lib/param_loader.h>
 #include <boost/filesystem/operations.hpp>
@@ -126,10 +125,10 @@ public:
 
     // Create the publishers
     for (size_t i = 0; i < _points_seen_topics.size(); ++i) {
-      pub_candidate_points_.push_back(nh_.advertise<mrs_msgs::Int32MultiArrayStamped>(_points_seen_topics[i], 1));
+      pub_candidate_points_.push_back(nh_.advertise<mrs_msgs::ImagePointsWithFloatStamped>(_points_seen_topics[i], 1));
 
       if (_publish_sun_points_){
-        pub_sun_points_.push_back(nh_.advertise<mrs_msgs::Int32MultiArrayStamped>(_points_seen_topics[i]+"/sun", 1));
+        pub_sun_points_.push_back(nh_.advertise<mrs_msgs::ImagePointsWithFloatStamped>(_points_seen_topics[i]+"/sun", 1));
       }
     }
 
@@ -245,8 +244,6 @@ private:
       }
     }
 
-    std::vector< int > convert;
-
     if (detected_points_[image_index].size()>MAX_POINTS_PER_IMAGE){
       ROS_WARN_STREAM("[UVDARDetector]: Over " << MAX_POINTS_PER_IMAGE << " points received. Skipping noisy image.");
       return;
@@ -255,45 +252,30 @@ private:
     {
       std::scoped_lock lock(mutex_pub_);
       if (_publish_sun_points_){
-        mrs_msgs::Int32MultiArrayStamped msg_sun;
+        mrs_msgs::ImagePointsWithFloatStamped msg_sun;
         msg_sun.stamp = image->header.stamp;
-        msg_sun.layout.dim.push_back(std_msgs::MultiArrayDimension());
-        msg_sun.layout.dim.push_back(std_msgs::MultiArrayDimension());
-        msg_sun.layout.dim[0].size   = sun_points_[image_index].size();
-        msg_sun.layout.dim[0].label  = "count";
-        msg_sun.layout.dim[0].stride = sun_points_[image_index].size() * 3;
-        msg_sun.layout.dim[1].size   = 3;
-        msg_sun.layout.dim[1].label  = "value";
-        msg_sun.layout.dim[1].stride = 3;
-        for (int i = 0; i < (int)(sun_points_[image_index].size()); i++) {
-          convert.push_back(sun_points_[image_index][i].x);
-          convert.push_back(sun_points_[image_index][i].y);
-          convert.push_back(0);
+        msg_sun.image_width = image->image.cols;
+        msg_sun.image_height = image->image.rows;
+        for (auto& sun_point : sun_points_[image_index]) {
+          mrs_msgs::Point2DWithFloat point;
+          point.x = sun_point.x;
+          point.y = sun_point.y;
+          msg_sun.points.push_back(point);
         }
-        msg_sun.data = convert;
         pub_sun_points_[image_index].publish(msg_sun);
       }
 
-      else {
-        mrs_msgs::Int32MultiArrayStamped msg;
-        msg.stamp = image->header.stamp;
-        msg.layout.dim.push_back(std_msgs::MultiArrayDimension());
-        msg.layout.dim.push_back(std_msgs::MultiArrayDimension());
-        msg.layout.dim[0].size   = detected_points_[image_index].size();
-        msg.layout.dim[0].label  = "count";
-        msg.layout.dim[0].stride = detected_points_[image_index].size() * 3;
-        msg.layout.dim[1].size   = 3;
-        msg.layout.dim[1].label  = "value";
-        msg.layout.dim[1].stride = 3;
-        convert.clear();
-        for (int i = 0; i < (int)(detected_points_[image_index].size()); i++) {
-          convert.push_back(detected_points_[image_index][i].x);
-          convert.push_back(detected_points_[image_index][i].y);
-          convert.push_back(0);
-        }
-        msg.data = convert;
-        pub_candidate_points_[image_index].publish(msg);
+      mrs_msgs::ImagePointsWithFloatStamped msg_detected;
+      msg_detected.stamp = image->header.stamp;
+      msg_detected.image_width = image->image.cols;
+      msg_detected.image_height = image->image.rows;
+      for (auto& detected_point : detected_points_[image_index]) {
+        mrs_msgs::Point2DWithFloat point;
+        point.x = detected_point.x;
+        point.y = detected_point.y;
+        msg_detected.points.push_back(point);
       }
+      pub_candidate_points_[image_index].publish(msg_detected);
     }
 
   }
@@ -302,10 +284,8 @@ private:
   /* VisualizationThread() //{ */
   void VisualizationThread([[maybe_unused]] const ros::TimerEvent& te) {
     if (initialized_){
-      /* std::scoped_lock lock(mutex_visualization_); */
       GenerateVisualization(image_visualization_);
       if ((image_visualization_.cols != 0) && (image_visualization_.rows != 0)){
-        /* std::scoped_lock lock(mutex_visualization_); */
         if (_publish_visualization_){
           pub_visualization_->publish("uvdar_detection_visualization", 0.01, image_visualization_, true);
         }
@@ -334,22 +314,22 @@ private:
     output_image = cv::Mat(cv::Size(sum_image_width+((int)(camera_image_sizes_.size())-1), max_image_height),CV_8UC3);
     output_image = cv::Scalar(255, 255, 255);
 
-    int i = 0;
+    int image_index = 0;
     for ([[maybe_unused]] auto curr_size : camera_image_sizes_){
-      std::scoped_lock lock(*(mutex_camera_image_[i]));
-      cv::Point start_point = cv::Point(start_widths[i]+i, 0);
+      std::scoped_lock lock(*(mutex_camera_image_[image_index]));
+      cv::Point start_point = cv::Point(start_widths[image_index]+image_index, 0);
       cv::Mat image_rgb;
-      cv::cvtColor(images_current_[i], image_rgb, cv::COLOR_GRAY2BGR);
-      image_rgb.copyTo(output_image(cv::Rect(start_point.x,0,images_current_[i].cols,images_current_[i].rows)));
+      cv::cvtColor(images_current_[image_index], image_rgb, cv::COLOR_GRAY2BGR);
+      image_rgb.copyTo(output_image(cv::Rect(start_point.x,0,images_current_[image_index].cols,images_current_[image_index].rows)));
 
-      for (int j = 0; j < (int)(detected_points_[i].size()); j++) {
-        cv::circle(output_image, detected_points_[i][j]+start_point, 5, cv::Scalar(255,0,0));
+      for (int j = 0; j < (int)(detected_points_[image_index].size()); j++) {
+        cv::circle(output_image, detected_points_[image_index][j]+start_point, 5, cv::Scalar(255,0,0));
       }
-      for (int j = 0; j < (int)(sun_points_[i].size()); j++) {
-        cv::circle(output_image, sun_points_[i][j]+start_point, 10, cv::Scalar(0,0,255));
+      for (int j = 0; j < (int)(sun_points_[image_index].size()); j++) {
+        cv::circle(output_image, sun_points_[image_index][j]+start_point, 10, cv::Scalar(0,0,255));
       }
 
-      i++;
+      image_index++;
     }
 
     if ( (output_image.cols == 0) || (output_image.rows == 0) ){

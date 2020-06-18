@@ -226,6 +226,18 @@ double HT4DBlinkerTracker::getPitch(int index) {
   /* throw std::logic_error("Cannot retrieve yaws. Current batch is not processed yet"); */
   return pitchAvgs[index];
 }
+std::vector<double> HT4DBlinkerTracker::getYaw() {
+  /* if (!currBatchProcessed) */
+  /*   return -666.0; */
+  /* throw std::logic_error("Cannot retrieve yaws. Current batch is not processed yet"); */
+  return yawAvgs;
+}
+std::vector<double> HT4DBlinkerTracker::getPitch() {
+  /* if (!currBatchProcessed) */
+  /*   return -666.0; */
+  /* throw std::logic_error("Cannot retrieve yaws. Current batch is not processed yet"); */
+  return pitchAvgs;
+}
 
 std::vector< cv::Point3d > HT4DBlinkerTracker::getResults() {
   clock_t begin, end;

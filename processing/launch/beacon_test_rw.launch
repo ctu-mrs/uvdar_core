@@ -182,8 +182,8 @@
       <!-- <param name="debug"		type="bool" value="$(arg debug)"/> --> 
       <param name="debug"		type="bool" value="false"/> 
       <param name="visual_debug"		type="bool" value="$(arg visual_debug)"/> 
-      <!-- <param name="GUI"             type="bool" value="false"/> -->
-      <param name="GUI"             type="bool" value="$(arg gui)"/>
+      <!-- <param name="gui"             type="bool" value="false"/> -->
+      <param name="gui"             type="bool" value="$(arg gui)"/>
       <param name="InvertedPoints"    type="bool" value="false"/>
 
       <param name="beacon" type="bool" value="$(arg beacon)"/>
