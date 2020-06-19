@@ -25,6 +25,7 @@ public:
   std::vector<double> getPitch();
   bool isCurrentBatchProcessed();
   void updateFramerate(double input);
+  void updateResolution(cv::Size i_size);
 
   void setDebug(bool i_DEBUG, bool i_VisDEBUG);
 
@@ -66,7 +67,6 @@ private:
 
   cv::Size     imRes;
   unsigned int imArea;
-  unsigned int imAreaXPitch;
   cv::Rect     imRect;
 
   std::vector< std::vector< cv::Point2i > > accumulator;

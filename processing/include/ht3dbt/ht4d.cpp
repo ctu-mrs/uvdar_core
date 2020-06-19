@@ -20,7 +20,6 @@
 #define indexYP(X, Y) (pitchSteps * (Y) + (X))
 #define getPitchIndex(X) ((X) % pitchSteps)
 #define getYawIndex(X) ((X) / pitchSteps)
-/* #define index4d(X, Y, Z, W) (imAreaXPitch * (W) + imArea * (Z) + imRes.width * (Y) + (X)) */
 
 double cot(double input) {
   return cos(input) / sin(input);
@@ -84,7 +83,6 @@ HT4DBlinkerTracker::HT4DBlinkerTracker(int i_memSteps,
   reasonableRadius = i_reasonableRadius;
   imRes            = i_imRes;
   imArea           = imRes.width * imRes.height;
-  imAreaXPitch     = imArea*pitchSteps;
   imRect           = cv::Rect(cv::Point(0, 0), imRes);
 
   DEBUG    = false;
@@ -175,6 +173,27 @@ void HT4DBlinkerTracker::updateFramerate(double input) {
   /* std::cout << "I. fr: " << input << std::endl; */
   if (input > 1.0)
     framerate = input;
+}
+
+void HT4DBlinkerTracker::updateResolution(cv::Size i_size){
+  mutex_accum.lock();
+  imRes = i_size;
+  imArea           = imRes.width * imRes.height;
+  imRect           = cv::Rect(cv::Point(0, 0), imRes);
+
+  delete houghSpace;
+  houghSpace = new unsigned int[imArea * pitchSteps * yawSteps];
+  resetToZero(houghSpace, imArea * pitchSteps * yawSteps);
+  delete houghSpaceMaxima;
+  houghSpaceMaxima = new unsigned int[imArea];
+  indexMatrix           = cv::Mat(imRes, CV_8UC1, cv::Scalar(0));
+  delete touchedMatrix;
+  touchedMatrix = new unsigned char[imArea];
+  resetToZero(touchedMatrix, imArea);
+
+
+  accumulator.clear();
+  mutex_accum.unlock();
 }
 
 HT4DBlinkerTracker::~HT4DBlinkerTracker() {

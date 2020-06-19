@@ -186,7 +186,6 @@
       <param name="gui"             type="bool" value="$(arg gui)"/>
       <param name="InvertedPoints"    type="bool" value="false"/>
 
-      <param name="beacon" type="bool" value="$(arg beacon)"/>
       <rosparam param="frequencies" subst_value="true"> [$(arg frequency0), $(arg frequency1)] </rosparam>
 
       <param name="blink_process_rate"         type="int" value="$(arg blink_process_rate)"/>
