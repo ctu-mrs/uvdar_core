@@ -12,6 +12,7 @@
 #include <cv_bridge/cv_bridge.h>
 #include <geometry_msgs/Twist.h>
 #include <ht3dbt/ht4d.h>
+#include <color_selector/color_selector.h>
 #include <image_transport/image_transport.h>
 #include <nav_msgs/Odometry.h>
 #include <sensor_msgs/CameraInfo.h>
@@ -181,7 +182,7 @@ public:
             sub_image_.push_back(nh_.subscribe(_camera_topics[i], 1, cals_image_[i]));
           }
         }
-
+        //}
       }
 
       if (_publish_visualization_){
@@ -229,7 +230,7 @@ private:
 
       blink_data_[image_index].framerateEstim = 10000000000.0 / (double)((nowTime - blink_data_[image_index].lastSignal).toNSec());
       if (_debug_)
-        std::cout << "Updating frequency: " << blink_data_[image_index].framerateEstim << " Hz" << std::endl;
+        ROS_INFO_STREAM("Updating frequency: " << blink_data_[image_index].framerateEstim << " Hz");
       blink_data_[image_index].lastSignal = nowTime;
       ht3dbt_trackers[image_index]->updateFramerate(blink_data_[image_index].framerateEstim);
       blink_data_[image_index].timeSamples = 0;
@@ -308,7 +309,7 @@ private:
       if (_debug_)
         ROS_INFO("Processing accumulated points.");
 
-      begin = std::clock();
+      /* begin = std::clock(); */
       ros::Time local_lastPointsTime = lastPointsTime;
 
       {
@@ -317,10 +318,10 @@ private:
         blink_data_[image_index].pitch = ht3dbt_trackers[image_index]->getPitch();
         blink_data_[image_index].yaw = ht3dbt_trackers[image_index]->getYaw();
       }
-      end         = std::clock();
-      elapsedTime = double(end - begin) / CLOCKS_PER_SEC;
+      /* end         = std::clock(); */
+      /* elapsedTime = double(end - begin) / CLOCKS_PER_SEC; */
       if (_debug_)
-        std::cout << "Processing: " << elapsedTime << " s, " << 1.0 / elapsedTime << " Hz" << std::endl;
+        ROS_INFO_STREAM("Processing: " << elapsedTime << " s, " << 1.0 / elapsedTime << " Hz");
 
       msg.stamp = local_lastPointsTime;
       msg.image_width =  camera_image_sizes_[image_index].width;
@@ -349,47 +350,6 @@ private:
   //}
 
 
-  /* color selector functions //{ */
-
-  cv::Scalar rainbow(double value, double max) {
-    unsigned char r, g, b;
-
-    //rainbow gradient
-    double fraction = value / max;
-    r = 255 * (fraction < 0.25 ? 1 : fraction > 0.5 ? 0 : 2 - fraction * 4);
-    g = 255 * (fraction < 0.25 ? fraction * 4 : fraction < 0.75 ? 1 : 4 - fraction * 4);
-    b = 255 * (fraction < 0.5 ? 0 : fraction < 0.75 ? fraction * 4 - 2 : 1);
-
-    return cv::Scalar(b, g, r);
-  }
-
-  cv::Scalar marker_color(int index, double max=14.0){
-    if (index < 7){
-      cv::Scalar selected;
-    //MATLAB colors
-    switch(index){
-      case 0: selected = cv::Scalar(0.7410,        0.4470,   0);
-              break;
-      case 1: selected = cv::Scalar(0.0980,   0.3250,   0.8500);
-              break;
-      case 2: selected = cv::Scalar(0.1250,   0.6940,   0.9290);
-              break;
-      case 3: selected = cv::Scalar(0.5560,   0.1840,   0.4940);
-              break;
-      case 4: selected = cv::Scalar(0.1880,   0.6740,   0.4660);
-              break;
-      case 5: selected = cv::Scalar(0.9330,   0.7450,   0.3010);
-              break;
-      case 6: selected = cv::Scalar(0.1840,   0.0780,   0.6350);
-        
-    }
-    return 255*selected;
-    }
-    else
-      return rainbow((double)(index - 7),max); 
-  }
-
-  /* //} */
 
   /* /1* VisualizationThread() //{ *1/ */
 
@@ -523,7 +483,7 @@ private:
         if (frequency_index >= 0) {
           std::string frequency_text = std::to_string(std::max((int)blink_data_[image_index].retrievedBlinkers[j].z, 0));
           cv::putText(output_image, cv::String(frequency_text.c_str()), center + cv::Point(-5, -5), cv::FONT_HERSHEY_SIMPLEX, 0.3, cv::Scalar(255, 255, 255));
-          cv::Scalar color = marker_color(frequency_index);
+          cv::Scalar color = ColorSelector::marker_color(frequency_index);
           cv::circle(output_image, center, 5, color);
           double yaw, pitch, len;
           yaw              = blink_data_[image_index].yaw[j];
@@ -550,7 +510,7 @@ private:
 
     // draw the legend
     for (int i = 0; i < (int)(_frequencies_.size()); ++i) {
-      cv::Scalar color = marker_color(i);
+      cv::Scalar color = ColorSelector::marker_color(i);
       cv::circle(output_image, cv::Point(10, 10 + 15 * i), 5, color);
       cv::putText(output_image, cv::String(to_string_precision(_frequencies_[i],0)), cv::Point(15, 15 + 15 * i), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 255, 255));
     }
