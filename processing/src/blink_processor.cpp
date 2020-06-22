@@ -337,6 +337,14 @@ namespace uvdar {
   }
   //}
 
+
+  /**
+   * @brief Method for generating annotated image for optional visualization
+   *
+   * @param output_image - The generated visualization image
+   *
+   * @return - Success status ( 0 - success, 1 - visualization does not need to be generated as the state has not changed, negative - failed, usually due to missing requirements
+   */
   /* GenerateVisualization() //{ */
   int GenerateVisualization(cv::Mat& output_image) {
     if (_use_camera_for_visualization_ && !images_received_)
@@ -427,10 +435,15 @@ namespace uvdar {
     current_visualization_done_ = true;
     return 0;
   }
-
   //}
 
 
+  /**
+   * @brief Updates the latest camera image for background in the optional visualization
+   *
+   * @param image_msg - The input image message
+   * @param image_index - index of the camera image producing this message
+   */
   /* callbackImage //{ */
   void callbackImage(const sensor_msgs::ImageConstPtr& image_msg, size_t image_index) {
     cv_bridge::CvImageConstPtr image;
