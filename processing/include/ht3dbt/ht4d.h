@@ -12,12 +12,12 @@ public:
   /**
    * @brief The constructor of the class
    *
-   * @param i_mem_steps - The length of the accumulator in terms of the number of past camera frames (determines the minimal frequency retrievable, the higher the value the slower the calculation and the worse performance in case of second-rate dynamics of the marker images)
+   * @param i_mem_steps - The length of the accumulator in terms of the number of past camera frames (determines the minimal frequency retrievable by limiting the longest period that can fit in the accumulator - the higher the value the slower the calculation and the worse the reliability in case of second-order dynamics of the marker images)
    * @param i_pitch_steps - The resolution of the "Pitch" dimension of the 4D Hough space (corresponds to the speed in the image at which the point has been moving)
    * @param i_yaw_steps - The resolution of the "Yaw" dimension of the 4D Hough space (corresponds to the direction in the image in which the point has been moving)
    * @param i_max_pixel_shift - The maximum number of pixels in either dimension the marker image is expected to move per frame
    * @param i_im_res - The initial resolution of input image. Determines the resolution of the "X" and "Y" dimensions of the Hough space. This can be updated with the updateResolution method
-   * @param i_nullify_radius - Defines the side (in pixels) of the rectangle centered on an XY position of the Hough space inside of which matrix elements will be nullified while searching for maxima
+   * @param i_nullify_radius - Defines the side (in pixels) of the rectangle centered on an X-Y position of the Hough space inside of which matrix elements will be nullified while searching for maxima
    * @param i_reasonable_radius - Radius (in pixels) around an estimated image trajectory line, inside of which the input points will be counted for the final blinking signal retrieval
    * @param i_framerate - The initial expected framerate (in hz) of the input stream. The requisite minimum framerate must follow the Nyquist criterion for signal retrieval (more than twice the highest expected blinking frequency). This value can be changed on the fly with the updateFramerate method.
    */
