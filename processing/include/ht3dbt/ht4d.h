@@ -137,6 +137,7 @@ public:
   cv::Mat getVisualization();
 
 private:
+
     /**
      * @brief Arccotangent function
      *
