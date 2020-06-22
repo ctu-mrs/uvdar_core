@@ -7,21 +7,7 @@
 #include <utility>
 #include <vector>
 
-#define maxCornersPerBlock 96
-#define invalidFlow -5555
-#define enableBlankBG false
-#define maxPassedPoints 2000
-#define maxConsideredWindows 4
-#define windowAvgMin 10
-#define windowExtendedShell 20
-#define simpleDisplay true
-#define maxWindowNumber 3
-#define vanishTime 2.0
-#define vanishArea 40000.0
-#define maxContours 30
-#define maxConnectionDist 50
-#define minConnectionSimilarity 10
-
+//addressing indices this way is noticeably faster than the "propper" way with .at method - numerous unnecessary checks are skipped. This of course means that we have to do necessary checks ourselves
 #define index2d(X, Y) (image_curr_.cols * (Y) + (X))
 
 uvdar::UVLedDetectFAST::UVLedDetectFAST(bool i_gui, bool i_debug, int i_threshold, std::vector<cv::Mat> i_masks) {

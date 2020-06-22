@@ -232,6 +232,10 @@ std::vector< cv::Point3d > HT4DBlinkerTracker::getResults() {
       pts_per_layer_local_copy_.push_back(pts_per_layer_[i]);
     }
   }
+  if (pts_per_layer_local_copy_.empty()){
+    return std::vector<cv::Point3d>();
+  }
+
   expected_matches_ = *std::max_element(pts_per_layer_local_copy_.begin(), pts_per_layer_local_copy_.end()) - pts_per_layer_local_copy_[0];
   if (debug_){
     std::cout << "Exp. Matches: " << expected_matches_ << std::endl;
