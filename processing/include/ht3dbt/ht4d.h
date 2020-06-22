@@ -156,7 +156,7 @@ private:
   void resetToZero(T *__restrict__ input, int steps);
 
   /**
-   * @brief - generates the Hough masks that are applied to the Hough space for each input point
+   * @brief - generates the Hough masks that are applied to the Hough space for each input point. These are sets of 3D coordinates (w.r.t. the X-Y position of an input point) to be incremented in Hough voting. The 3rd dimension represents an index of the permutated pitch and yaw indices and thus it represents a point in 4D space.
    */
   void generateMasks();
 
@@ -181,7 +181,7 @@ private:
 
 
   /**
-   * @brief Generates 2D matrices (of the input image size) with the maxima in the Hough space per pixel and with the indices of these maxima
+   * @brief Generates 2D matrices (of the size of the input image) with maxima in the Hough space per pixel (X-Y coordinate) and with the indices of these maxima
    */
   void flattenTo2D();
 
