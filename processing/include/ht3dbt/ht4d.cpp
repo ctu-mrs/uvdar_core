@@ -148,9 +148,9 @@ void HT4DBlinkerTracker::resetToZero(T *__restrict__ input, int steps) {
 }
 
 
-void HT4DBlinkerTracker::setDebug(bool i_DEBUG, bool i_VisDEBUG) {
-  debug_    = i_DEBUG;
-  vis_debug_ = i_VisDEBUG;
+void HT4DBlinkerTracker::setDebug(bool i_debug, bool i_vis_debug) {
+  debug_    = i_debug;
+  vis_debug_ = i_vis_debug;
 }
 
 void HT4DBlinkerTracker::updateFramerate(double input) {
@@ -159,7 +159,7 @@ void HT4DBlinkerTracker::updateFramerate(double input) {
 }
 
 void HT4DBlinkerTracker::updateResolution(cv::Size i_size){
-  mutex_accumulator_.lock();
+  std::scoped_lock lock(mutex_accumulator_);
   im_res_ = i_size;
   im_area_           = im_res_.width * im_res_.height;
   im_rect_           = cv::Rect(cv::Point(0, 0), im_res_);
@@ -175,7 +175,6 @@ void HT4DBlinkerTracker::updateResolution(cv::Size i_size){
   resetToZero(touched_matrix_, im_area_);
   accumulator_.clear();
   curr_batch_processed_ = false;
-  mutex_accumulator_.unlock();
 }
 
 HT4DBlinkerTracker::~HT4DBlinkerTracker() {
@@ -183,11 +182,11 @@ HT4DBlinkerTracker::~HT4DBlinkerTracker() {
 }
 
 
-void HT4DBlinkerTracker::insertFrame(std::vector< cv::Point > newPoints) {
-  mutex_accumulator_.lock();
+void HT4DBlinkerTracker::insertFrame(std::vector< cv::Point > new_points) {
+  std::scoped_lock lock(mutex_accumulator_);
   {
-    accumulator_.insert(accumulator_.begin(), newPoints);
-    pts_per_layer_.insert(pts_per_layer_.begin(), (int)(newPoints.size()));
+    accumulator_.insert(accumulator_.begin(), new_points);
+    pts_per_layer_.insert(pts_per_layer_.begin(), (int)(new_points.size()));
     if ((int)(accumulator_.size()) > mem_steps_) {
       accumulator_.pop_back();
       pts_per_layer_.pop_back();
@@ -196,7 +195,6 @@ void HT4DBlinkerTracker::insertFrame(std::vector< cv::Point > newPoints) {
     /* std::cout << "Expected matches: " << expected_matches_ << std::endl; */
     curr_batch_processed_ = false;
   }
-  mutex_accumulator_.unlock();
   return;
 }
 
@@ -243,15 +241,16 @@ std::vector<double> HT4DBlinkerTracker::getPitch() {
 std::vector< cv::Point3d > HT4DBlinkerTracker::getResults() {
   accumulator_local_copy_.clear();
   pts_per_layer_local_copy_.clear();
-  mutex_accumulator_.lock();
-  for (int i = 0; i < (int)(accumulator_.size()); i++) {
-    accumulator_local_copy_.push_back(std::vector< cv::Point2i >());
-    for (int j = 0; j < (int)(accumulator_[i].size()); j++) {
-      accumulator_local_copy_[i].push_back(accumulator_[i][j]);
+  {
+    std::scoped_lock lock(mutex_accumulator_);
+    for (int i = 0; i < (int)(accumulator_.size()); i++) {
+      accumulator_local_copy_.push_back(std::vector< cv::Point2i >());
+      for (int j = 0; j < (int)(accumulator_[i].size()); j++) {
+        accumulator_local_copy_[i].push_back(accumulator_[i][j]);
+      }
+      pts_per_layer_local_copy_.push_back(pts_per_layer_[i]);
     }
-    pts_per_layer_local_copy_.push_back(pts_per_layer_[i]);
   }
-  mutex_accumulator_.unlock();
   expected_matches_ = *std::max_element(pts_per_layer_local_copy_.begin(), pts_per_layer_local_copy_.end()) - pts_per_layer_local_copy_[0];
   if (debug_){
     std::cout << "Exp. Matches: " << expected_matches_ << std::endl;
@@ -451,8 +450,6 @@ void HT4DBlinkerTracker::applyMasks( double i_weight_factor,bool i_constant_newe
           continue;
 
         if (i_weight_factor < 0.001)
-          /* hough_space_[index3d(x, y, z)] +=(mem_steps_-t)+mem_steps_/2; */
-          /* hough_space_[index3d(x, y, z)] +=(mem_steps_-t); */
           hough_space_[index3d(x, y, z)]++;
         else
           hough_space_[index3d(x, y, z)] += ((i_weight_factor * (i_constant_newer?std::min((mem_steps_ - t),mem_steps_-i_break_point):std::max((mem_steps_ - t),mem_steps_-i_break_point)) + mem_steps_) * scaling_factor_);
@@ -787,7 +784,7 @@ double HT4DBlinkerTracker::retrieveFreqency(cv::Point origin_points, double &avg
   for (int u = 0; u < (int)(positivePointAccum.size()); u++) {
     /* std::cout << "correct: "; */
     cv::Point expPt(cos(avg_yaw)*avgPitchCot*positivePointAccumPitch[u].y, sin(avg_yaw)*avgPitchCot*positivePointAccumPitch[u].y);
-    if (floor(cv::norm(expPt-positivePointAccum[u])) > (reasonable_radius_*2)) {
+    if (floor(cv::norm(expPt-positivePointAccum[u])) > (reasonable_radius_)) {
     /* if ((cv::norm(expPt*positivePointAccumPitch[u].y-positivePointAccum[u]) > (CV_PI / 20.0)) && (cv::norm(positivePointAccum[u]) > (reasonable_radius_))) { */
     /* if ((fabs(angDiff(yawAccum[u], avg_yaw)) > (CV_PI / 20.0)) && (cv::norm(positivePointAccum[u]) > (reasonable_radius_))) { */
     /*   std::cout << "Culling" << std::endl; */

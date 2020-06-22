@@ -60,7 +60,7 @@
   <arg name="pitch_steps"         default="16"/>
   <arg name="yaw_steps"         default="16"/>
   <arg name="max_pixel_shift"         default="2"/>
-  <arg name="reasonable_radius"         default="3"/>
+  <arg name="reasonable_radius"         default="6"/>
   <arg name="nullify_radius"         default="8"/>
 
   <arg name="filterDistLength"         default="10"/>

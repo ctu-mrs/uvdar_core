@@ -46,7 +46,7 @@ namespace uvdar {
         param_loader.loadParam("pitch_steps", _pitch_steps_, int(16));
         param_loader.loadParam("yaw_steps", _yaw_steps_, int(8));
         param_loader.loadParam("max_pixel_shift", _max_pixel_shift_, int(1));
-        param_loader.loadParam("reasonable_radius", _reasonable_radius_, int(3));
+        param_loader.loadParam("reasonable_radius", _reasonable_radius_, int(6));
         param_loader.loadParam("nullify_radius", _nullify_radius_, int(5));
 
         int _proces_rate;

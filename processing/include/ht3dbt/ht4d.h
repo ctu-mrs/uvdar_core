@@ -2,8 +2,25 @@
 #include <numeric>
 #include <opencv2/core/core.hpp>
 
+
+/**
+ * @brief The class for retrieving frequencies and image positions of moving blinking markers
+ */
 class HT4DBlinkerTracker {
 public:
+
+  /**
+   * @brief The constructor of the class
+   *
+   * @param i_mem_steps - The length of the accumulator in terms of the number of past camera frames (determines the minimal frequency retrievable, the higher the value the slower the calculation and the worse performance in case of second-rate dynamics of the marker images)
+   * @param i_pitch_steps - The resolution of the "Pitch" dimension of the 4D Hough space (corresponds to the speed in the image at which the point has been moving)
+   * @param i_yaw_steps - The resolution of the "Yaw" dimension of the 4D Hough space (corresponds to the direction in the image in which the point has been moving)
+   * @param i_max_pixel_shift - The maximum number of pixels in either dimension the marker image is expected to move per frame
+   * @param i_im_res - The initial resolution of input image. Determines the resolution of the "X" and "Y" dimensions of the Hough space. This can be updated with the updateResolution method
+   * @param i_nullify_radius - Defines the side (in pixels) of the rectangle centered on an XY position of the Hough space inside of which matrix elements will be nullified while searching for maxima
+   * @param i_reasonable_radius - Radius (in pixels) around an estimated image trajectory line, inside of which the input points will be counted for the final blinking signal retrieval
+   * @param i_framerate - The initial expected framerate (in hz) of the input stream. The requisite minimum framerate must follow the Nyquist criterion for signal retrieval (more than twice the highest expected blinking frequency). This value can be changed on the fly with the updateFramerate method.
+   */
   HT4DBlinkerTracker(
       int i_mem_steps,
       int i_pitch_steps,
@@ -11,25 +28,112 @@ public:
       int i_max_pixel_shift,
       cv::Size i_im_res,
       int i_nullify_radius = 8,
-      int i_reasonable_radius = 3,
+      int i_reasonable_radius = 6,
       double i_framerate = 72);
+
+
+  /**
+   * @brief The destructor of the class
+   */
   ~HT4DBlinkerTracker();
 
-  void insertFrame(std::vector< cv::Point > newPoints);
+  /**
+   * @brief Inserts a set of image points corresponding to the markers in a single new image frame
+   *
+   * @param new_points - The input image points
+   */
+  void insertFrame(std::vector< cv::Point > new_points);
+
+  /**
+   * @brief Retrieval of the blinking image points
+   *
+   * @return - A set of image points - x and y correspond to the expected position of a marker in the newest frame and z corresponds to its blinking frequency (or an error code for points with wrong blinking signal)
+   */
   std::vector< cv::Point3d > getResults();
+
+  /**
+   * @brief Returns the number of tracked image points obtained in the last retrieval cycle. Not all of these will be blinking with an expected signal - some may be e.g. static reflections
+   *
+   * @return - The number of the persistent image points
+   */
   int                        getTrackerCount();
+
+  /**
+   * @brief Retrieves the blinking frequency of a given marker obtained in the last retrieval cycle
+   *
+   * @param index - The index of the retrieved marker
+   *
+   * @return - The retrieved blinking frequency
+   */
   double getFrequency(int index);
+
+  /**
+   * @brief Retrieves the "image yaw" of a given marker obtained in the last retrieval cycle (corresponds to the direction in the image in which the point has been moving)
+   *
+   * @param index - The index of the retrieved marker
+   *
+   * @return - The retrieved "image yaw"
+   */
   double getYaw(int index);
+
+  /**
+   * @brief Retrieves the "image pitch" of a given marker obtained in the last retrieval cycle (corresponds to the speed in the image in which the point has been moving)
+   *
+   * @param index - The index of the retrieved marker
+   *
+   * @return - The retrieved "image pitch"
+   */
   double getPitch(int index);
+
+  /**
+   * @brief Retrieves the set of "image yaw" values of a markers obtained in the last retrieval cycle (they correspond to the direction in the image in which the point has been moving)
+   *
+   * @return - The retrieved "image yaw" values
+   */
   std::vector<double> getYaw();
+
+  /**
+   * @brief Retrieves the set of "image pitch" values of a markers obtained in the last retrieval cycle (they correspond to the speed in the image in which the point has been moving)
+   *
+   * @return - The retrieved "image pitch" values
+   */
   std::vector<double> getPitch();
+
+  /**
+   * @brief Informs on whether the current set of points in the accumulator has already been processed (this flag is reset upon every new received set of points)
+   *
+   * @return - True if the batch has been processed already
+   */
   bool isCurrentBatchProcessed();
+
+  /**
+   * @brief Sets the expected current input framerate to a new value
+   *
+   * @param input - The new framerate (in hz)
+   */
   void updateFramerate(double input);
+
+  /**
+   * @brief Sets the image resolution of the input image (and consequently of all processing matrices such as Hough spaces) to a new value
+   *
+   * @param i_size - the new image resolution
+   */
   void updateResolution(cv::Size i_size);
 
-  void setDebug(bool i_DEBUG, bool i_VisDEBUG);
+  /**
+   * @brief Change the debugging level of the class
+   *
+   * @param i_debug - Defines whether console debugging is active
+   * @param i_vis_debug - Defines whether visual debugging is active (use with care, if active this has significant performance impact)
+   */
+  void setDebug(bool i_debug, bool i_vis_debug);
 
 
+  /**
+   * @brief Returns the OpenCV matrix with the latest visualization. This visualization is only generated if `i_vis_debug` is set to true with the setDebug method
+   *
+   * @return - The visualization OpenCV matrix. If visual debugging has not been activated yet, this will be an empty matrix.
+   */
   cv::Mat getVisualization();
 
 private:

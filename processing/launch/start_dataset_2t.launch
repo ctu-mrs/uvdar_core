@@ -181,7 +181,7 @@
       <param name="pitch_steps"         type="int" value="$(arg pitch_steps)"/>
       <param name="yawSteps"         type="int" value="$(arg yawSteps)"/>
       <param name="maxPixelShift"         type="int" value="$(arg maxPixelShift)"/>
-      <param name="reasonableRadius"         type="int" value="3"/>
+      <param name="reasonableRadius"         type="int" value="6"/>
       <param name="nullifyRadius"         type="int" value="8"/>
       <param name="UseCameraForVisualization"         type="bool" value="true"/>
 
