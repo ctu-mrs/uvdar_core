@@ -4,7 +4,7 @@
 #include "opencv2/highgui/highgui.hpp"
 #include <iostream>
 
-#define WEIGHT_FACTOR 0.0 // we prioritize blinking signal retrieval to origin-point position accuracy - the paper is outdated in this respect
+#define WEIGHT_FACTOR 0.0 // we prioritize blinking signal retrieval to origin point position accuracy - the paper is outdated in this respect
 
 #define USE_VISIBLE_ORIGINS true // if there is a visible marker in the latest time, prefer its position to what is estimated by the HT
 

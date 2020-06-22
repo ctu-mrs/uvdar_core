@@ -87,8 +87,6 @@ namespace uvdar {
               );
           ht4dbt_trackers_.back()->setDebug(_debug_, _visual_debug_);
 
-          process_spin_rate_.push_back(new ros::Rate((double)_proces_rate));
-
           blink_data_.push_back(BlinkData());
 
           mutex_camera_image_.push_back(std::make_shared<std::mutex>());
@@ -171,7 +169,7 @@ namespace uvdar {
         }
 
         for (size_t i = 0; i < _points_seen_topics.size(); ++i) {
-          process_threads.emplace_back(&UVDARBlinkProcessor::ProcessThread, this, i);
+          timer_process_.push_back(nh_.createTimer(ros::Duration(1.0/(double)(_proces_rate)), boost::bind(&UVDARBlinkProcessor::ProcessThread, this, _1, i), false, true));
         }
 
         initialized_ = true;
@@ -183,8 +181,14 @@ namespace uvdar {
 
   private:
 
-  /* InsertPoints //{ */
 
+  /**
+   * @brief Callback to insert new image points to the accumulator of the HT4D process
+   *
+   * @param msg - the input message with image points
+   * @param image_index - index of the camera image producing this message
+   */
+  /* InsertPoints //{ */
   void InsertPoints(const mrs_msgs::ImagePointsWithFloatStampedConstPtr& msg, size_t image_index) {
     if (!initialized_) return;
 
@@ -222,8 +226,14 @@ namespace uvdar {
 
   //}
 
-  /* InsertSunPoints //{ */
 
+  /**
+   * @brief Callback to insert points corresponding to pixels with sun to local variable for visualization
+   *
+   * @param msg - the input message with image points
+   * @param image_index - index of the camera producing the image
+   */
+  /* InsertSunPoints //{ */
   void InsertSunPoints(const mrs_msgs::ImagePointsWithFloatStampedConstPtr& msg, size_t image_index) {
     if (!initialized_) return;
 
@@ -242,15 +252,20 @@ namespace uvdar {
 
   //}
 
+
+  /**
+   * @brief Thread function that processes the accumulated image points and periodically retrieves estimated origin points and frequency estimates of blinking markers
+   *
+   * @param te TimerEvent for the timer spinning this thread
+   * @param image_index = index of the camera producing the image
+   */
   /* ProcessThread //{ */
+  void ProcessThread([[maybe_unused]] const ros::TimerEvent& te, size_t image_index) {
+      if (!initialized_){
+        return;
+      }
 
-  void ProcessThread(size_t image_index) {
-    while (!initialized_) 
-      process_spin_rate_[image_index]->sleep();
-
-    mrs_msgs::ImagePointsWithFloatStamped msg;
-
-    while (ros::ok()) {
+      mrs_msgs::ImagePointsWithFloatStamped msg;
 
       if (_debug_){
         ROS_INFO("Processing accumulated points.");
@@ -268,7 +283,6 @@ namespace uvdar {
       msg.image_width   = camera_image_sizes_[image_index].width;
       msg.image_height  = camera_image_sizes_[image_index].height;
 
-      msg.points.clear();
       for (auto& blinker : blink_data_[image_index].retrieved_blinkers) {
         mrs_msgs::Point2DWithFloat point;
         point.x     = blinker.x;
@@ -285,12 +299,16 @@ namespace uvdar {
 
       current_visualization_done_ = false;
 
-      process_spin_rate_[image_index]->sleep();
-    }
   }
 
   //}
 
+
+  /**
+   * @brief Thread function for optional visualization of the detected blinking markers
+   *
+   * @param te TimerEvent for the timer spinning this thread
+   */
   /* VisualizationThread() //{ */
   void VisualizationThread([[maybe_unused]] const ros::TimerEvent& te) {
     if (initialized_){
@@ -446,7 +464,7 @@ namespace uvdar {
   std::vector<bool>        current_images_received_;
 
   ros::Timer timer_visualization_;
-  std::vector<std::thread> process_threads;
+  std::vector<ros::Timer> timer_process_;
   std::vector<std::shared_ptr<std::mutex>>  mutex_camera_image_;
   bool                     _use_camera_for_visualization_;
   using image_callback_t = boost::function<void (const sensor_msgs::ImageConstPtr&)>;
@@ -489,8 +507,6 @@ namespace uvdar {
 
   std::vector<double> _frequencies_;
   std::unique_ptr<UVDARFrequencyClassifier> ufc_;
-
-  std::vector<ros::Rate*> process_spin_rate_;
 
   int _accumulator_length_;
   int _pitch_steps_;
