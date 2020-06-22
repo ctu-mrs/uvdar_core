@@ -190,9 +190,8 @@ void HT4DBlinkerTracker::updateResolution(cv::Size i_size){
   delete touchedMatrix;
   touchedMatrix = new unsigned char[imArea];
   resetToZero(touchedMatrix, imArea);
-
-
   accumulator.clear();
+  currBatchProcessed = false;
   mutex_accum.unlock();
 }
 

@@ -82,7 +82,7 @@ namespace uvdar {
         for (size_t i = 0; i < _points_seen_topics.size(); ++i) {
           ht4dbt_trackers_.push_back(
                 std::make_shared<HT4DBlinkerTracker>(
-                  _accumulator_length_, _pitch_steps_, _yaw_steps_, _max_pixel_shift_, cv::Size(752, 480), _nullify_radius_, _reasonable_radius_
+                  _accumulator_length_, _pitch_steps_, _yaw_steps_, _max_pixel_shift_, cv::Size(0, 0), _nullify_radius_, _reasonable_radius_
                 )
               );
           ht4dbt_trackers_.back()->setDebug(_debug_, _visual_debug_);
@@ -133,7 +133,7 @@ namespace uvdar {
           ufc_ = std::make_unique<UVDARFrequencyClassifier>(_frequencies_);
 
           for (auto camera : _points_seen_topics){
-            camera_image_sizes_.push_back(cv::Size(0,0));
+            camera_image_sizes_.push_back(cv::Size(-1,-1));
           }
 
           current_visualization_done_ = false;
@@ -212,8 +212,11 @@ namespace uvdar {
     ht4dbt_trackers_[image_index]->insertFrame(points);
 
     if (!_use_camera_for_visualization_){
-      camera_image_sizes_[image_index].width = msg->image_width;
-      camera_image_sizes_[image_index].height = msg->image_height;
+      if ( (camera_image_sizes_[image_index].width <= 0 ) || (camera_image_sizes_[image_index].width <= 0 )){
+        camera_image_sizes_[image_index].width = msg->image_width;
+        camera_image_sizes_[image_index].height = msg->image_height;
+        ht4dbt_trackers_[image_index]->updateResolution(cv::Size(msg->image_width, msg->image_height));
+      }
     }
   }
 
@@ -420,7 +423,10 @@ namespace uvdar {
       current_images_received_[image_index] = true;
       current_visualization_done_ = false;
     }
-    camera_image_sizes_[image_index] = image->image.size();
+    if ( (camera_image_sizes_[image_index].width <= 0 ) || (camera_image_sizes_[image_index].width <= 0 )){
+      camera_image_sizes_[image_index] = image->image.size();
+      ht4dbt_trackers_[image_index]->updateResolution(image->image.size());
+    }
 
     images_received_ = true;
   }
