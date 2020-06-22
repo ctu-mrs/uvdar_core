@@ -69,7 +69,7 @@ bool uvdar::UVLedDetectFAST::processImage(const cv::Mat i_image, std::vector<cv:
   }
   clearMarks();
 
-  cv::Point peakPoint;
+  cv::Point peak_point;
 
   int x, y;
   /* begin = std::clock(); */
@@ -77,111 +77,105 @@ bool uvdar::UVLedDetectFAST::processImage(const cv::Mat i_image, std::vector<cv:
   /* bool          gotOne     = false; */
   bool sun_point_potential = false;
   /* std::vector<cv::Point> sun_points; */
-  for (int j = 0; j < image_curr_.rows; j++) {
-    for (int i = 0; i < image_curr_.cols; i++) {
-      if (mask_id >= 0) {
-        if (masks_[mask_id].data[index2d(i, j)] == 0) {
-          continue;
-        }
+  for (int j = 0; j < image_curr_.rows; j++) { for (int i = 0; i < image_curr_.cols; i++) { //iterate over the image points 
+    if (mask_id >= 0) {
+      if (masks_[mask_id].data[index2d(i, j)] == 0) { //skip over masked out points
+        continue;
       }
-      if (image_check_.data[index2d(i, j)] == 0) {
-        if (image_curr_.data[index2d(i, j)] > _threshold_) {
-          int sunTestPoints = 0;
-          if (image_curr_.data[index2d(i, j)] > (_threshold_ * 2)) {
-            sun_point_potential = true;
-          }
-          /* gotOne = true; */
-          marker_potential = true;
+    }
+    if (image_check_.data[index2d(i, j)] == 0) { // skip over marked points (suppresses clustered bright pixels)
+      if (image_curr_.data[index2d(i, j)] > _threshold_) { //if the point is bright
+        int sun_test_points = 0;
+        if (image_curr_.data[index2d(i, j)] > (_threshold_ * 2)) { //if the point is "very bright" it might be a part of the image of directly observed sun
+          sun_point_potential = true;
+        }
+        marker_potential = true;
 
-          int n = -1;
-          for (auto fast_points : fast_points_set_) {
-            n++;
-            for (int m = 0; m < (int)(fast_points.size()); m++) {
-              x = i + fast_points[m].x;
-              if (x < 0) {
-                marker_potential = false;
-                break;
-              }
-              if (x >= roi_.width) {
-                marker_potential = false;
-                break;
-              }
+        int n = -1;
+        for (auto fast_points : fast_points_set_) { //iterate over the pre-selected sets of points for different sizes of the FAST radius
+          n++;
+          for (int m = 0; m < (int)(fast_points.size()); m++) { //iterate over the points in the current FAST radius
+            x = i + fast_points[m].x;
+            y = j + fast_points[m].y;
 
-              y = j + fast_points[m].y;
-              if (y < 0) {
-                marker_potential = false;
-                break;
-              }
-              if (y >= roi_.height) {
-                marker_potential = false;
-                break;
-              }
-
-              if (image_check_.data[index2d(x, y)] == 255) {
-                marker_potential = false;
-                break;
-              }
-
-
-              if ((image_curr_.data[index2d(i, j)] - image_curr_.data[index2d(x, y)]) < (_threshold_ / 2)) {
-                /* std::cout << "BREACH" << std::endl; */
-
-                marker_potential = false;
-                if (!sun_point_potential)
-                  break;
-                else
-                  sunTestPoints++;
-              } else
-                sun_point_potential = false;
-            }
-            if (marker_potential) {
+            //check for image border breach
+            if (x < 0) {
+              marker_potential = false;
               break;
             }
-          }
-          unsigned char maximum_val;
-          if (marker_potential) {
-            maximum_val = 0;
-            for (int m = 0; m < (int)(fast_interior_set_[n].size()); m++) {
-              /* for (int m = 0; m < 1; m++) { */
-              x = i + fast_interior_set_[n][m].x;
-              if (x < 0) {
-                continue;
-              }
-              if (x >= roi_.width) {
-                continue;
-              }
-
-              y = j + fast_interior_set_[n][m].y;
-              if (y < 0) {
-                continue;
-              }
-              if (y >= roi_.height) {
-                continue;
-              }
-
-              if (image_check_.data[index2d(x, y)] == 0) {
-                if (image_curr_.data[index2d(x, y)] > maximum_val) {
-                  maximum_val = image_curr_.data[index2d(x, y)];
-                  peakPoint.x = x;
-                  peakPoint.y = y;
-                }
-                image_check_.data[index2d(x, y)] = 255;
-              }
+            if (x >= roi_.width) {
+              marker_potential = false;
+              break;
             }
-            detected_points.push_back(peakPoint);
-          } else {
-            if (sun_point_potential)
-              if (sunTestPoints == (int)(fast_points_set_[n].size()))
-                sun_points.push_back(cv::Point(i, j));
+            if (y < 0) {
+              marker_potential = false;
+              break;
+            }
+            if (y >= roi_.height) {
+              marker_potential = false;
+              break;
+            }
+
+            if ((image_curr_.data[index2d(i, j)] - image_curr_.data[index2d(x, y)]) < (_threshold_ / 2)) { //if the difference between the current point and a surrounding point is smaller than desired
+
+              marker_potential = false; //this is not a marker (not concentrated enough)
+              if (!sun_point_potential) //if we expected this to be a part of the sun, can still confirm this hypthesis
+                break;
+              else
+                sun_test_points++;
+            }
+            else { //if the difference is small, this is likely not a part of the sun, as the point is too concentrated (sun usually saturates bigger area in the image than our FAST neighborhood)
+              sun_point_potential = false;
+            }
           }
+          if (marker_potential) { //if the smaller radius check determines that this point is a marker, the larger radius is unnecessary
+            break;
+          }
+        }
+        unsigned char maximum_val;
+        if (marker_potential) {
+          maximum_val = 0;
+          for (int m = 0; m < (int)(fast_interior_set_[n].size()); m++) { //iterate over a subset of points inside of the FAST neighborhood (lower right corner only, due to iterating over the image in this direction)
+            x = i + fast_interior_set_[n][m].x;
+            y = j + fast_interior_set_[n][m].y;
+
+            //check for image border breach
+            if (x < 0) {
+              continue;
+            }
+            if (x >= roi_.width) {
+              continue;
+            }
+            if (y < 0) {
+              continue;
+            }
+            if (y >= roi_.height) {
+              continue;
+            }
+
+            if (image_check_.data[index2d(x, y)] == 0) {
+              if (image_curr_.data[index2d(x, y)] > maximum_val) { //non-maxima suppression - select the brightest point inside the FAST neighborhood
+                maximum_val = image_curr_.data[index2d(x, y)];
+                peak_point.x = x;
+                peak_point.y = y;
+              }
+              image_check_.data[index2d(x, y)] = 255; //mark interior point to prevent additional detections in the same area
+            }
+          }
+          detected_points.push_back(peak_point); //store detected marker point
+        } else {
+          if (sun_point_potential) 
+            if (sun_test_points == (int)(fast_points_set_[n].size())){ //declare this pixel a part of the image of the sun if even its FAST neighborhood was bright
+              sun_points.push_back(cv::Point(i, j));
+            }
         }
       }
     }
-  }
+  } }
 
-  for (int i = 0; i < (int)(detected_points.size()); i++) {
-    for (int j = 0; j < (int)(sun_points.size()); j++) {
-      if (cv::norm(detected_points[i] - sun_points[j]) < 50) {
+  for (int i = 0; i < (int)(detected_points.size()); i++) { //iterate over the detected marker points
+    for (int j = 0; j < (int)(sun_points.size()); j++) { //iterate over the detected sun points
+      if (cv::norm(detected_points[i] - sun_points[j]) < 50) { //if the current detected marker point is close to the sun, it might be merely glare, so we discard it rather than to have numerous false detections here
         detected_points.erase(detected_points.begin() + i);
         i--;
         break;
