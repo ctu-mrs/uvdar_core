@@ -1,17 +1,17 @@
-#include <std_msgs/UInt32MultiArray.h>
 #include <mutex>
 #include <numeric>
 #include <opencv2/core/core.hpp>
 
 class HT4DBlinkerTracker {
 public:
-  HT4DBlinkerTracker(int i_memSteps,
-      int i_pitchSteps,
-      int i_yawSteps,
-      int i_maxPixelShift,
-      cv::Size i_imRes,
-      int i_nullifyRadius = 8,
-      int i_reasonableRadius = 3,
+  HT4DBlinkerTracker(
+      int i_mem_steps,
+      int i_pitch_steps,
+      int i_yaw_steps,
+      int i_max_pixel_shift,
+      cv::Size i_im_res,
+      int i_nullify_radius = 8,
+      int i_reasonable_radius = 3,
       double i_framerate = 72);
   ~HT4DBlinkerTracker();
 
@@ -56,44 +56,45 @@ private:
   double angDiff(double a, double b);
   double angMeanXY(std::vector< cv::Point > input);
 
-  int          memSteps, pitchSteps, yawSteps, totalSteps;
-  unsigned int frameScale, houghThresh, nullifyRadius, bitShift;
-  int maskWidth;
-  int          expectedMatches;
-  double       minPitch, pitchDiv, yawDiv, stepDiv;
-  int          reasonableRadius;
-  double       framerate;
-  int          maxPixelShift;
+  int          mem_steps_, pitch_steps_, yaw_steps_, total_steps_;
+  unsigned int frame_scale_, hough_thresh_, nullify_radius_;
+  double       scaling_factor_;
+  int          mask_width_;
+  int          expected_matches_;
+  double       min_pitch_, pitch_div_, yaw_div_, step_div_;
+  int          reasonable_radius_;
+  double       framerate_;
+  int          max_pixel_shift_;
 
-  cv::Size     imRes;
-  unsigned int imArea;
-  cv::Rect     imRect;
+  cv::Size     im_res_;
+  unsigned int im_area_;
+  cv::Rect     im_rect_;
 
-  std::vector< std::vector< cv::Point2i > > accumulator;
-  std::vector< std::vector< cv::Point2i > > accumulatorLocalCopy;
-  std::vector< int >                        ptsPerLayer;
-  std::vector< int >                        ptsPerLayerLocalCopy;
-  unsigned char *                            touchedMatrix;
-  unsigned int * __restrict__ houghSpace;
-  unsigned int * __restrict__ houghSpaceMaxima;
-  cv::Mat                                   indexMatrix;
-  std::vector< std::vector< cv::Point3i > > hybridMasks;
-  std::vector< double >                     pitchVals,
-                                            yawVals,
-                                            cotSetMin,
-                                            cotSetMax,
-                                            sinSet,
-                                            cosSet;
+  std::vector< std::vector< cv::Point2i > > accumulator_;
+  std::vector< std::vector< cv::Point2i > > accumulator_local_copy_;
+  std::vector< int >                        pts_per_layer_;
+  std::vector< int >                        pts_per_layer_local_copy_;
+  unsigned char *                           touched_matrix_;
+  unsigned int * __restrict__ hough_space_;
+  unsigned int * __restrict__ hough_space_maxima_;
+  cv::Mat                                   index_matrix_;
+  std::vector< std::vector< cv::Point3i > > hybrid_masks_;
+  std::vector< double >                     pitch_vals_,
+                                            yaw_vals_,
+                                            cot_set_min_,
+                                            cot_set_max_,
+                                            sin_set_,
+                                            cos_set_;
 
-  std::vector< double > frequencies, yawAvgs, pitchAvgs;
+  std::vector< double > frequencies_, yaw_averages_, pitch_averages_;
 
-  std::vector< cv::Point > fastPoints;
+  std::vector< cv::Point > fast_points_;
 
-  bool currBatchProcessed;
+  bool curr_batch_processed_;
 
-  std::mutex mutex_accum;
+  std::mutex mutex_accumulator_;
 
-  bool DEBUG, VisDEBUG;
+  bool debug_, vis_debug_;
 
-  cv::Mat visualization;
+  cv::Mat visualization_;
 };
