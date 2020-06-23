@@ -71,7 +71,9 @@ static double rad2deg(double input) {
 }
 
 namespace enc = sensor_msgs::image_encodings;
-namespace e = Eigen;
+/* namespace e = Eigen; */
+
+using namespace uvdar;
 
 class PoseReporter {
 public:

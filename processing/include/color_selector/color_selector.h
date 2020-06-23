@@ -2,7 +2,7 @@
 #define COLOR_PICKER_H
 #include <opencv2/core/core.hpp>
 
-
+namespace uvdar {
 /**
  * @brief Class for selecting visualization color based on an input index. These colors are set such that they ideally differ from each enough for easy recognition.
  */
@@ -29,4 +29,5 @@ class ColorSelector {
      */
     static cv::Scalar markerColor(unsigned int index, double max=14.0);
 };
+} //namespace uvdar
 #endif //COLOR_PICKER_H

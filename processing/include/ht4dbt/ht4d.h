@@ -1,7 +1,11 @@
+#ifndef HT4D_H
+#define HT4D_H
+
 #include <mutex>
 #include <numeric>
 #include <opencv2/core/core.hpp>
 
+namespace uvdar {
 
 /**
  * @brief The class for retrieving frequencies and image positions of moving blinking markers
@@ -320,3 +324,7 @@ private:
 
   cv::Mat visualization_;
 };
+
+} //namespace uvdar
+
+#endif // HT4D_H

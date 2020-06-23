@@ -37,12 +37,13 @@ using statecov_t = mrs_lib::lkf_t::statecov_t;
 
 namespace e = Eigen;
 
+namespace uvdar {
 
-class UvdarKalman {
+class UVDARKalman {
   int filterCount = 2;
 
   public:
-  UvdarKalman(ros::NodeHandle nh) {
+  UVDARKalman(ros::NodeHandle nh) {
 
     ros::NodeHandle pnh("~");
     pnh.param("output_frame", _output_frame, std::string("local_origin"));
@@ -192,10 +193,10 @@ class UvdarKalman {
 
     tf_listener = new tf2_ros::TransformListener(tf_buffer);
 
-    timer = nh.createTimer(ros::Duration(1.0 / fmax(_output_framerate_,1.0)), &UvdarKalman::spin, this);
+    timer = nh.createTimer(ros::Duration(1.0 / fmax(_output_framerate_,1.0)), &UVDARKalman::spin, this);
     for (int i = 0; i < filterCount; ++i) 
     {
-      measSubscriber[i] = nh.subscribe("measuredPose" + std::to_string(i+1), 1, &UvdarKalman::measurementCallback, this);
+      measSubscriber[i] = nh.subscribe("measuredPose" + std::to_string(i+1), 1, &UVDARKalman::measurementCallback, this);
       filtPublisher[i] = nh.advertise<nav_msgs::Odometry>("filteredPose" + std::to_string(i+1), 1);
       filtPublisherTentative[i] = nh.advertise<nav_msgs::Odometry>("filteredPose" + std::to_string(i+1) + "/tentative", 1);
 
@@ -206,7 +207,7 @@ class UvdarKalman {
     ROS_INFO_STREAM("[UVDAR Kalman]: initiated");
   }
 
-  ~UvdarKalman(){
+  ~UVDARKalman(){
     /* for (int i =0;i<filterCount;i++) */
     /*   delete currKalman[i]; */
   }
@@ -614,7 +615,7 @@ class UvdarKalman {
 int main(int argc, char** argv) {
   ros::init(argc, argv, "uvdar_kalman");
   ros::NodeHandle nodeA;
-  UvdarKalman        kl(nodeA);
+  UVDARKalman        kl(nodeA);
 
   ROS_INFO("[UVDAR Kalman]: filter node initiated");
 
@@ -622,3 +623,5 @@ int main(int argc, char** argv) {
 
   return 0;
 }
+
+} //namespace uvdar

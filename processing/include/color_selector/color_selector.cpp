@@ -1,4 +1,7 @@
 #include "color_selector.h"
+
+using namespace uvdar; 
+
 cv::Scalar ColorSelector::rainbow(double value, double max) {
     unsigned char r, g, b;
 

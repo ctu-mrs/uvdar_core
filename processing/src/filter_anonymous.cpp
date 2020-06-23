@@ -76,14 +76,6 @@ struct td_t{
   statecov_t state_x;
 };
 
-struct filter_data{
-  td_t td;
-  int update_count;
-  ros::Time latest_update;
-  ros::Time latest_measurement;
-  unsigned long long int id;
-};
-
 class UvdarKalmanAnonymous {
 
     private:
@@ -103,6 +95,15 @@ class UvdarKalmanAnonymous {
 
       mrs_lib::lkf_t *filter;
       td_t td_template;
+
+      struct filter_data{
+        td_t td;
+        int update_count;
+        ros::Time latest_update;
+        ros::Time latest_measurement;
+        unsigned long long int id;
+      };
+
       std::vector<filter_data> fd;
       // | ----------------------- subscribers ---------------------- |
 

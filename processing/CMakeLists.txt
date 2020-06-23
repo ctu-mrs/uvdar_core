@@ -120,9 +120,6 @@ add_dependencies(p3p ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGE
 add_library(UVDARBlinkProcessor src/blink_processor.cpp)
 add_dependencies(UVDARBlinkProcessor ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
-# add_executable(uv_follower_node src/follower.cpp include/slider/slider.cpp)
-# add_dependencies(uv_follower_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-
 add_executable(uvdar_uav_pose_calculator_node src/uav_pose_calculator.cpp)
 add_dependencies(uvdar_uav_pose_calculator_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 

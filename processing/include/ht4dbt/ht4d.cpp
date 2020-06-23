@@ -1,5 +1,3 @@
-#ifndef HT4D_H
-#define HT4D_H
 #include "ht4d.h"
 #include "opencv2/highgui/highgui.hpp"
 #include <iostream>
@@ -17,6 +15,9 @@
 #define indexYP(X, Y) (pitch_steps_ * (Y) + (X))
 #define getPitchIndex(X) ((X) % pitch_steps_)
 #define getYawIndex(X) ((X) / pitch_steps_)
+
+
+using namespace uvdar;
 
 double HT4DBlinkerTracker::acot(double input) {
   if (input > 0) {
@@ -834,5 +835,3 @@ void HT4DBlinkerTracker::initFast() {
 
   }
 }
-
-#endif  // HT4D_H

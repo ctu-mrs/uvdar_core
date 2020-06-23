@@ -6,10 +6,7 @@
 #include <Eigen/Geometry>
 #include <unsupported/Eigen/MatrixFunctions>
 
-/* using namespace unscented; */
-
-/* namespace unscented { */
-/* namespace e = Eigen; */
+using namespace uvdar;
 
 double angdiff(double x,double y){
   double d = y-x;
