@@ -17,27 +17,27 @@ namespace uvdar {
       /**
        * @brief The constructor of the class
        *
-       * @param i_gui - If true, on-line visualization of the detected markers will be provided - DO NOT use this if no monitor is attached, doing so should result in program crash
-       * @param i_debug - If true, debugging outputs will be sent to the console
-       * @param i_threshold - The threshold difference between a bright point and its surroundings used in selecting pixels representing the markers
-       * @param i_masks - Vector of images of the size of the input stream image - pixels of the input images at positions where the mask has the value 0 will be discarded. This is useful for eliminating markers on the body of the observer or for masking out reflective parts of its body 
+       * @param i_gui If true, on-line visualization of the detected markers will be provided - DO NOT use this if no monitor is attached, doing so should result in program crash
+       * @param i_debug If true, debugging outputs will be sent to the console
+       * @param i_threshold The threshold difference between a bright point and its surroundings used in selecting pixels representing the markers
+       * @param i_masks Vector of images of the size of the input stream image - pixels of the input images at positions where the mask has the value 0 will be discarded. This is useful for eliminating markers on the body of the observer or for masking out reflective parts of its body 
        */
       UVLedDetectFAST(bool i_gui, bool i_debug, int i_threshold, std::vector<cv::Mat> i_masks);
 
       /**
        * @brief Adds an image matrix used for masking out portions of the input stream
        *
-       * @param i_mask - Image of the size of the input stream image - pixels of the input images at positions where the mask has the value 0 will be discarded. This is useful for eliminating markers on the body of the observer or for masking out reflective parts of its body 
+       * @param i_mask Image of the size of the input stream image - pixels of the input images at positions where the mask has the value 0 will be discarded. This is useful for eliminating markers on the body of the observer or for masking out reflective parts of its body 
        */
       void addMask(cv::Mat i_mask);
 
       /**
        * @brief Retrieves bright, concentrated points from the input images
        *
-       * @param i_image - The input image
-       * @param detected_points - The retrieved bright points
-       * @param sun_points - Points presumed to correspond with directly observed sun in the image
-       * @param mask_id - The index of the mask (previously added) to use for discarding sections of the input image
+       * @param i_image The input image
+       * @param detected_points The retrieved bright points
+       * @param sun_points Points presumed to correspond with directly observed sun in the image
+       * @param mask_id The index of the mask (previously added) to use for discarding sections of the input image
        *
        * @return 
        */

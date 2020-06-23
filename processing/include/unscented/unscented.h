@@ -3,7 +3,7 @@
 #include <Eigen/Core>
 #include <boost/function.hpp>
 
-namespace unscented {
+namespace uvdar {
 
 namespace e = Eigen;
 

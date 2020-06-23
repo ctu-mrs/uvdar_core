@@ -94,8 +94,7 @@ include_directories(
 
 add_library(OCamCalib include/OCamCalib/ocam_functions.cpp )
 
-add_library(ht3dbt include/ht3dbt/ht3d.cpp)
-add_library(ht4dbt include/ht3dbt/ht4d.cpp)
+add_library(ht4dbt include/ht4dbt/ht4d.cpp)
 add_library(uv_led_detect_fast include/detect/uv_led_detect_fast.cpp)
 add_library(frequency_classifier include/frequency_classifier/frequency_classifier.cpp)
 add_library(color_selector include/color_selector/color_selector.cpp)

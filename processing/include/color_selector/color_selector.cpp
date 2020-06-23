@@ -11,7 +11,7 @@ cv::Scalar ColorSelector::rainbow(double value, double max) {
     return cv::Scalar(b, g, r);
   }
 
-cv::Scalar ColorSelector::marker_color(int index, double max){
+cv::Scalar ColorSelector::markerColor(unsigned int index, double max){
     if (index < 7){
       cv::Scalar selected;
     //MATLAB colors

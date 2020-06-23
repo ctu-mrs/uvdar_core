@@ -19,6 +19,9 @@
 
 namespace uvdar {
 
+  /**
+   * @brief A nodelet for extracting blinking frequencies and image positions of intermittently appearing image points
+   */
   class UVDARBlinkProcessor : public nodelet::Nodelet {
     public:
 
@@ -181,12 +184,11 @@ namespace uvdar {
 
   private:
 
-
   /**
    * @brief Callback to insert new image points to the accumulator of the HT4D process
    *
-   * @param msg - the input message with image points
-   * @param image_index - index of the camera image producing this message
+   * @param msg The input message with image points
+   * @param Image_index index of the camera image producing this message
    */
   /* InsertPoints //{ */
   void InsertPoints(const mrs_msgs::ImagePointsWithFloatStampedConstPtr& msg, size_t image_index) {
@@ -230,8 +232,8 @@ namespace uvdar {
   /**
    * @brief Callback to insert points corresponding to pixels with sun to local variable for visualization
    *
-   * @param msg - the input message with image points
-   * @param image_index - index of the camera producing the image
+   * @param msg The input message with image points
+   * @param image_index Index of the camera producing the image
    */
   /* InsertSunPoints //{ */
   void InsertSunPoints(const mrs_msgs::ImagePointsWithFloatStampedConstPtr& msg, size_t image_index) {
@@ -257,7 +259,7 @@ namespace uvdar {
    * @brief Thread function that processes the accumulated image points and periodically retrieves estimated origin points and frequency estimates of blinking markers
    *
    * @param te TimerEvent for the timer spinning this thread
-   * @param image_index = index of the camera producing the image
+   * @param Image_index Index of the camera producing the image
    */
   /* ProcessThread //{ */
   void ProcessThread([[maybe_unused]] const ros::TimerEvent& te, size_t image_index) {
@@ -341,9 +343,9 @@ namespace uvdar {
   /**
    * @brief Method for generating annotated image for optional visualization
    *
-   * @param output_image - The generated visualization image
+   * @param output_image The generated visualization image
    *
-   * @return - Success status ( 0 - success, 1 - visualization does not need to be generated as the state has not changed, negative - failed, usually due to missing requirements
+   * @return Success status ( 0 - success, 1 - visualization does not need to be generated as the state has not changed, negative - failed, usually due to missing requirements
    */
   /* GenerateVisualization() //{ */
   int GenerateVisualization(cv::Mat& output_image) {
@@ -399,7 +401,7 @@ namespace uvdar {
           if (frequency_index >= 0) {
             std::string frequency_text = std::to_string(std::max((int)blink_data_[image_index].retrieved_blinkers[j].z, 0));
             cv::putText(output_image, cv::String(frequency_text.c_str()), center + cv::Point(-5, -5), cv::FONT_HERSHEY_SIMPLEX, 0.3, cv::Scalar(255, 255, 255));
-            cv::Scalar color = ColorSelector::marker_color(frequency_index);
+            cv::Scalar color = ColorSelector::markerColor(frequency_index);
             cv::circle(output_image, center, 5, color);
             double yaw, pitch, len;
             yaw              = blink_data_[image_index].yaw[j];
@@ -427,7 +429,7 @@ namespace uvdar {
 
     // draw the legend
     for (int i = 0; i < (int)(_frequencies_.size()); ++i) {
-      cv::Scalar color = ColorSelector::marker_color(i);
+      cv::Scalar color = ColorSelector::markerColor(i);
       cv::circle(output_image, cv::Point(10, 10 + 15 * i), 5, color);
       cv::putText(output_image, cv::String(std::to_string((int)(_frequencies_[i]))), cv::Point(15, 15 + 15 * i), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 255, 255));
     }
@@ -441,8 +443,8 @@ namespace uvdar {
   /**
    * @brief Updates the latest camera image for background in the optional visualization
    *
-   * @param image_msg - The input image message
-   * @param image_index - index of the camera image producing this message
+   * @param image_msg The input image message
+   * @param image_index Index of the camera image producing this message
    */
   /* callbackImage //{ */
   void callbackImage(const sensor_msgs::ImageConstPtr& image_msg, size_t image_index) {
