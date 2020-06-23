@@ -93,7 +93,7 @@ public:
       mutex_camera_image_.push_back(std::make_unique<std::mutex>());
 
       ROS_INFO("[UVDARDetector]: Initializing FAST-based marker detection...");
-      uvdf_.push_back(std::make_unique<UVLedDetectFAST>(
+      uvdf_.push_back(std::make_unique<UVDARLedDetectFAST>(
             _gui_,
             _debug_,
             _threshold_,
@@ -384,7 +384,7 @@ private:
   std::vector<std::string> _mask_file_names_;
   std::vector<cv::Mat> _masks_;
 
-  std::vector<std::unique_ptr<UVLedDetectFAST>> uvdf_;
+  std::vector<std::unique_ptr<UVDARLedDetectFAST>> uvdf_;
   std::mutex  mutex_pub_;
   std::vector<ros::Timer> timer_process_;
 

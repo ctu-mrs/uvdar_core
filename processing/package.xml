@@ -65,6 +65,7 @@
   <depend>mrs_general</depend>
   <depend>mrs_uav_manager</depend>
   <depend>std_msgs</depend>
+  <depend>bluefox2</depend>
 
 
   <!-- The export tag contains other, unspecified, tags -->

@@ -11,7 +11,7 @@ namespace uvdar {
   /**
    * @brief The class for retrieving bright concentrated points from image, expected to represent markers
    */
-  class UVLedDetectFAST {
+  class UVDARLedDetectFAST {
     public:
 
       /**
@@ -22,7 +22,7 @@ namespace uvdar {
        * @param i_threshold The threshold difference between a bright point and its surroundings used in selecting pixels representing the markers
        * @param i_masks Vector of images of the size of the input stream image - pixels of the input images at positions where the mask has the value 0 will be discarded. This is useful for eliminating markers on the body of the observer or for masking out reflective parts of its body 
        */
-      UVLedDetectFAST(bool i_gui, bool i_debug, int i_threshold, std::vector<cv::Mat> i_masks);
+      UVDARLedDetectFAST(bool i_gui, bool i_debug, int i_threshold, std::vector<cv::Mat> i_masks);
 
       /**
        * @brief Adds an image matrix used for masking out portions of the input stream

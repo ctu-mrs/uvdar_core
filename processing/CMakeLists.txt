@@ -32,26 +32,6 @@ set(Eigen_LIBRARIES ${Eigen_LIBRARIES})
 
 find_package(OpenCV REQUIRED HINTS /usr/local/lib)
 
-################################################
-## Declare ROS dynamic reconfigure parameters ##
-################################################
-
-## To declare and build dynamic reconfigure parameters within this
-## package, follow these steps:
-## * In the file package.xml:
-##   * add a build_depend and a exec_depend tag for "dynamic_reconfigure"
-## * In this file (CMakeLists.txt):
-##   * add "dynamic_reconfigure" to
-##     find_package(catkin REQUIRED COMPONENTS ...)
-##   * uncomment the "generate_dynamic_reconfigure_options" section below
-##     and list every .cfg file to be processed
-
-## Generate dynamic reconfigure parameters in the 'cfg' folder
-# generate_dynamic_reconfigure_options(
-#   cfg/DynReconf1.cfg
-#   cfg/DynReconf2.cfg
-# )
-
 ###################################
 ## catkin specific configuration ##
 ###################################
@@ -88,7 +68,6 @@ include_directories(
   include
   ${catkin_INCLUDE_DIRS}
   ${OpenCV_INCLUDE_DIRS}
-  #${OpenCL_INCLUDE_DIRS}
   ${EIGEN3_INCLUDE_DIRS}
   )
 
@@ -128,8 +107,6 @@ add_dependencies(uvdar_kalman_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_
 
 add_executable(uvdar_kalman_anonymous_node src/filter_anonymous.cpp)
 add_dependencies(uvdar_kalman_anonymous_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-# add_executable(uvdar_orientation_calibrator src/orientationCalibrator.cpp)
-# add_dependencies(uvdar_orientation_calibrator ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 add_executable(uvdar_reprojector_node src/reprojector.cpp)
 add_dependencies(uvdar_reprojector_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
@@ -159,14 +136,6 @@ target_link_libraries(UVDARBlinkProcessor
   color_selector
   )
 
-# target_link_libraries(uv_follower_node
-#   ${catkin_LIBRARIES}
-#   ${OpenCV_LIBRARIES}
-#   ${EIGEN3_LIBRARIES}
-#   OCamCalib
-#   unscented
-#   )
-
 target_link_libraries(uvdar_uav_pose_calculator_node
   ${catkin_LIBRARIES}
   ${OpenCV_LIBRARIES}
@@ -174,6 +143,7 @@ target_link_libraries(uvdar_uav_pose_calculator_node
   OCamCalib
   unscented
   p3p
+  color_selector
   stdc++fs
   )
 
@@ -188,12 +158,6 @@ target_link_libraries(uvdar_kalman_anonymous_node
   ${OpenCV_LIBRARIES}
   ${EIGEN3_LIBRARIES}
   )
-
-# target_link_libraries(uvdar_orientation_calibrator
-#   ${catkin_LIBRARIES}
-#   ${OpenCV_LIBRARIES}
-#   ${EIGEN3_LIBRARIES}
-#   )
 
 target_link_libraries(UVDARBluefoxEmulator
   ${catkin_LIBRARIES}

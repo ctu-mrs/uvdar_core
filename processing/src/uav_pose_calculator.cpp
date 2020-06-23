@@ -53,6 +53,7 @@
 #include <thread>
 #include "unscented/unscented.h"
 #include "p3p/P3p.h"
+#include "color_selector/color_selector.h"
 /* #include <mrs_lib/mrs_lib/Lkf.h> */
 
 static double sqr(double a){
@@ -73,7 +74,7 @@ static double rad2deg(double input) {
 namespace enc = sensor_msgs::image_encodings;
 /* namespace e = Eigen; */
 
-using namespace uvdar;
+namespace uvdar {
 
 class PoseReporter {
 public:
@@ -2648,7 +2649,7 @@ private:
           for (auto &point : point_group){
             cv::Point center = cv::Point(point.x + differenceX, point.y);
 
-            cv::Scalar color = markerColor(i);
+            cv::Scalar color = ColorSelector::markerColor(i);
             cv::circle(view_image_, center, 5, color);
           }
           
@@ -2705,49 +2706,6 @@ private:
   }
   //}
 
-
-  /* color selector functions //{ */
-
-  cv::Scalar rainbow(double value, double max_rainbow) {
-    unsigned char r, g, b;
-
-    //rainbow gradient
-    double fraction = value / max_rainbow;
-    r = 255 * (fraction < 0.25 ? 1 : fraction > 0.5 ? 0 : 2 - fraction * 4);
-    g = 255 * (fraction < 0.25 ? fraction * 4 : fraction < 0.75 ? 1 : 4 - fraction * 4);
-    b = 255 * (fraction < 0.5 ? 0 : fraction < 0.75 ? fraction * 4 - 2 : 1);
-
-    return cv::Scalar(b, g, r);
-  }
-
-  cv::Scalar markerColor(int index, double max_rainbow=14.0){
-    if (index < 7){
-      cv::Scalar selected;
-    //MATLAB colors
-    switch(index){
-      case 0: selected = cv::Scalar(0.7410,        0.4470,   0);
-              break;
-      case 1: selected = cv::Scalar(0.0980,   0.3250,   0.8500);
-              break;
-      case 2: selected = cv::Scalar(0.1250,   0.6940,   0.9290);
-              break;
-      case 3: selected = cv::Scalar(0.5560,   0.1840,   0.4940);
-              break;
-      case 4: selected = cv::Scalar(0.1880,   0.6740,   0.4660);
-              break;
-      case 5: selected = cv::Scalar(0.9330,   0.7450,   0.3010);
-              break;
-      case 6: selected = cv::Scalar(0.1840,   0.0780,   0.6350);
-        
-    }
-    return 255*selected;
-    }
-    else
-      return rainbow((double)(index - 7),max_rainbow); 
-  }
-
-  //}
-  
 /* toStringPrecision //{ */
 
 std::string toStringPrecision(double input, unsigned int precision){
@@ -2922,10 +2880,12 @@ double rotmatToRoll(e::Matrix3d m){
   //}
 };
 
+} //uvdar
+
 int main(int argc, char** argv) {
   ros::init(argc, argv, "uvdar_reporter");
   ros::NodeHandle nodeA;
-  PoseReporter        pr(nodeA);
+  uvdar::PoseReporter        pr(nodeA);
 
   ROS_INFO("[PoseReporter]: UVDAR Pose reporter node initiated");
 

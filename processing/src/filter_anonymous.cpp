@@ -32,10 +32,10 @@
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 
 #define DEBUG true
-#define freq 20.0
+#define DEFAULT_OUTPUT_FRAMERATE 20.0
 #define DECAY_AGE_NORMAL 5.0
 #define DECAY_AGE_UNVALIDATED 1.0
-#define minMeasurementsToValidation 10
+#define MIN_MEASUREMENTS_TO_VALIDATION 10
 #define POS_THRESH 2.0
 #define MAH_THRESH 2.0
 #define YAW_THRESH 1.5
@@ -65,18 +65,9 @@ using statecov_t = mrs_lib::lkf_t::statecov_t;
 
 namespace e = Eigen;
 
+namespace uvdar {
 
-struct td_t{
-  A_t A;
-  B_t B;
-  H_t H;
-  Q_t Q;
-  R_t R;
-  /* statecov_t state_m; */
-  statecov_t state_x;
-};
-
-class UvdarKalmanAnonymous {
+class UVDARKalmanAnonymous {
 
     private:
 
@@ -94,6 +85,16 @@ class UvdarKalmanAnonymous {
       std::mutex transformer_mutex;
 
       mrs_lib::lkf_t *filter;
+
+      struct td_t{
+        A_t A;
+        B_t B;
+        H_t H;
+        Q_t Q;
+        R_t R;
+        /* statecov_t state_m; */
+        statecov_t state_x;
+      };
       td_t td_template;
 
       struct filter_data{
@@ -125,15 +126,15 @@ class UvdarKalmanAnonymous {
 
     public:
 
-  UvdarKalmanAnonymous(ros::NodeHandle nh) {
+  UVDARKalmanAnonymous(ros::NodeHandle nh) {
     ros::NodeHandle pnh("~");
     ros::Time::waitForValid();
 
 
-    mrs_lib::ParamLoader param_loader(pnh, "UvdarKalmanAnonymous");
+    mrs_lib::ParamLoader param_loader(pnh, "UVDARKalmanAnonymous");
     param_loader.loadParam("uav_name", _uav_name_);
     param_loader.loadParam("output_frame", _output_frame_, std::string("local_origin"));
-    param_loader.loadParam("output_framerate", _output_framerate_, double(freq));
+    param_loader.loadParam("output_framerate", _output_framerate_, double(DEFAULT_OUTPUT_FRAMERATE));
 
     param_loader.loadParam("indoor", _indoor_, bool(false));
     param_loader.loadParam("odometryAvailable", _odometry_available_, bool(true));
@@ -158,13 +159,13 @@ class UvdarKalmanAnonymous {
 
     filter_update_period = ros::Duration(1.0 / fmax(_output_framerate_,1.0));
     dt = filter_update_period.toSec();
-    timer = nh.createTimer(filter_update_period, &UvdarKalmanAnonymous::spin, this);
+    timer = nh.createTimer(filter_update_period, &UVDARKalmanAnonymous::spin, this);
 
-    transformer_ = mrs_lib::Transformer("UvdarKalmanAnonymous", _uav_name_);
+    transformer_ = mrs_lib::Transformer("UVDARKalmanAnonymous", _uav_name_);
 
     for (int i = 0; i < _input_count_; ++i) {
       ROS_INFO_STREAM("[PoseReporter]: Subscribing to " << "measuredPoses"+std::to_string(i+1));
-      sub_measurements_.push_back(pnh.subscribe("measuredPoses"+std::to_string(i+1), 3, &UvdarKalmanAnonymous::callbackMeasurement, this, ros::TransportHints().tcpNoDelay())); 
+      sub_measurements_.push_back(pnh.subscribe("measuredPoses"+std::to_string(i+1), 3, &UVDARKalmanAnonymous::callbackMeasurement, this, ros::TransportHints().tcpNoDelay())); 
     }
     pub_filter_ = pnh.advertise<mrs_msgs::PoseWithCovarianceArrayStamped>("filteredPoses", 1);
     pub_filter_tent_ = pnh.advertise<mrs_msgs::PoseWithCovarianceArrayStamped>("filteredPoses/tentative", 1);
@@ -208,7 +209,7 @@ class UvdarKalmanAnonymous {
 
     if (param_loader.loadedSuccessfully()) {
       is_initialized = true;
-      ROS_INFO_STREAM("[UvdarKalmanAnonymous]: initiated");
+      ROS_INFO_STREAM("[UVDARKalmanAnonymous]: initiated");
     } else {
       ROS_ERROR_ONCE("PARAMS not loaded correctly, shutdown");
       nh.shutdown();
@@ -223,7 +224,7 @@ class UvdarKalmanAnonymous {
     if ((int)(msg.poses.size()) < 1)
       return;
     if (DEBUG)
-      ROS_INFO_STREAM("[UvdarKalmanAnonymous]: Getting " << (int)(msg.poses.size()) << " measurements...");
+      ROS_INFO_STREAM("[UVDARKalmanAnonymous]: Getting " << (int)(msg.poses.size()) << " measurements...");
 
 
     mrs_msgs::PoseWithCovarianceArrayStamped msg_local;
@@ -238,7 +239,7 @@ class UvdarKalmanAnonymous {
       tf = transformer_.getTransform(msg_local.header.frame_id, _output_frame_, msg.header.stamp);
     }
     if (!tf) { 
-      ROS_ERROR("[UvdarKalmanAnonymous]: Could not obtain transform from %s to %s",msg_local.header.frame_id.c_str(), _output_frame_.c_str());
+      ROS_ERROR("[UVDARKalmanAnonymous]: Could not obtain transform from %s to %s",msg_local.header.frame_id.c_str(), _output_frame_.c_str());
       return;
     }
     std::vector<std::pair<e::VectorXd,e::MatrixXd>> meas_converted;
@@ -256,7 +257,7 @@ class UvdarKalmanAnonymous {
         meas_t = transformer_.transform(tf.value(), meas_s);
       }
       if (!meas_t){
-        ROS_INFO_STREAM("[UvdarKalmanAnonymous]: Failed to get transformation for measurement, returning.");
+        ROS_INFO_STREAM("[UVDARKalmanAnonymous]: Failed to get transformation for measurement, returning.");
         return;
       }
 
@@ -274,14 +275,14 @@ class UvdarKalmanAnonymous {
       poseVec(4) = fixAngle(quatToPitch(qtemp), 0);
       poseVec(5) = fixAngle(quatToYaw(qtemp), 0);
 
-      ROS_INFO_STREAM("[UvdarKalmanAnonymous]: Transformed measurement input is: [" << poseVec.transpose() << "]");
+      ROS_INFO_STREAM("[UVDARKalmanAnonymous]: Transformed measurement input is: [" << poseVec.transpose() << "]");
       if (poseVec.array().isNaN().any()){
-        ROS_INFO("[UvdarKalmanAnonymous]: Discarding input, it includes Nans.");
+        ROS_INFO("[UVDARKalmanAnonymous]: Discarding input, it includes Nans.");
         return;
       }
 
     /* e::Vector3d tmp  = qtemp.toRotationMatrix().eulerAngles(0, 1, 2); */
-        ROS_INFO_STREAM("[UvdarKalmanAnonymous]: eulerAngles give: " << qtemp.toRotationMatrix().eulerAngles(0, 1, 2).transpose() << " while my angles are: " << poseVec.bottomRows(3).transpose());
+        ROS_INFO_STREAM("[UVDARKalmanAnonymous]: eulerAngles give: " << qtemp.toRotationMatrix().eulerAngles(0, 1, 2).transpose() << " while my angles are: " << poseVec.bottomRows(3).transpose());
 
       for (int i=0; i<6; i++){
         for (int j=0; j<6; j++){
@@ -327,11 +328,11 @@ void spin([[ maybe_unused ]] const ros::TimerEvent& unused){
   int targetsSeen = 0;
     /* update_counts[target]--; */
     double age = (ros::Time::now() - fd[target].latest_measurement).toSec();
-    ROS_INFO("[UvdarKalmanAnonymous]: Age of %d is %f", target, age);
+    ROS_INFO("[UVDARKalmanAnonymous]: Age of %d is %f", target, age);
     double decay_age;
     /*   decay_age = 2.5; */
     /* }else{ */
-    if (fd[target].update_count > minMeasurementsToValidation){
+    if (fd[target].update_count > MIN_MEASUREMENTS_TO_VALIDATION){
       decay_age = DECAY_AGE_NORMAL;
     }
     else {
@@ -339,7 +340,7 @@ void spin([[ maybe_unused ]] const ros::TimerEvent& unused){
     }
     /* } */
     if (age>decay_age){
-      ROS_INFO_STREAM("[UvdarKalmanAnonymous]: Removing state " << target << ": " << fd[target].td.state_x.x.transpose() << " due to old age of " << age << " s." );
+      ROS_INFO_STREAM("[UVDARKalmanAnonymous]: Removing state " << target << ": " << fd[target].td.state_x.x.transpose() << " due to old age of " << age << " s." );
       fd.erase(fd.begin()+target);
       target--;
       continue;
@@ -388,7 +389,7 @@ void spin([[ maybe_unused ]] const ros::TimerEvent& unused){
 /*       /1* ROS_INFO_STREAM("diff_pos: " << diff_pos << "; diff_yaw: " << diff_yaw); *1/ */
 /*       /1* if ((diff_pos < POS_THRESH) && (diff_yaw < YAW_THRESH)){ *1/ */
 /*       /1* if (diff_pos < POS_THRESH){ *1/ */
-/*     ROS_INFO_STREAM("[UvdarKalmanAnonymous]: Mah. distance of " << input.topRows(3).transpose() << " from " << fd_curr.value().td.state_x.x.topRows(3).transpose() << " is " << md); */
+/*     ROS_INFO_STREAM("[UVDARKalmanAnonymous]: Mah. distance of " << input.topRows(3).transpose() << " from " << fd_curr.value().td.state_x.x.topRows(3).transpose() << " is " << md); */
 /*       if (md < POS_THRESH){ */
 /*         if (md<best_match_distance) */
 /*           best_match_distance = md; */
@@ -434,7 +435,7 @@ void initiateNew(e::VectorXd x, e::MatrixXd C, ros::Time stamp){
   /* } */
 
   int index = (int)(fd.size());
-  ROS_INFO_STREAM("[UvdarKalmanAnonymous]: Initiating state " << index << "  with: " << x.transpose());
+  ROS_INFO_STREAM("[UVDARKalmanAnonymous]: Initiating state " << index << "  with: " << x.transpose());
 
   fd.push_back({.td = td_template, .update_count = 0, .latest_update = stamp, .latest_measurement = stamp, .id = (latest_id++)});
 
@@ -447,7 +448,7 @@ void initiateNew(e::VectorXd x, e::MatrixXd C, ros::Time stamp){
   fd[index].td.state_x.x[5]=x(5);
 
   fd[index].td.state_x.P = C;
-  /* ROS_INFO_STREAM("[UvdarKalmanAnonymous]: Initiated state " << index << " with: " << td[index].state_x.x.transpose()); */
+  /* ROS_INFO_STREAM("[UVDARKalmanAnonymous]: Initiated state " << index << " with: " << td[index].state_x.x.transpose()); */
 
 }
 
@@ -458,15 +459,15 @@ void initiateNew(e::VectorXd x, e::MatrixXd C, ros::Time stamp){
 void update(int index, e::VectorXd x, e::MatrixXd C, ros::Time stamp){
   std::scoped_lock lock(filter_mutex);
 
-  /* ROS_INFO_STREAM("[UvdarKalmanAnonymous]: PRE: Upding state: " << td[index].state_x.x[3] << " with " << x.w()); */
-  /* ROS_INFO_STREAM("[UvdarKalmanAnonymous]: POST: Upding state: " << td[index].state_x.x[3] << " with " << x.w()); */
+  /* ROS_INFO_STREAM("[UVDARKalmanAnonymous]: PRE: Upding state: " << td[index].state_x.x[3] << " with " << x.w()); */
+  /* ROS_INFO_STREAM("[UVDARKalmanAnonymous]: POST: Upding state: " << td[index].state_x.x[3] << " with " << x.w()); */
   fd[index].td.state_x = filter->predict(fd[index].td.state_x, u_t(), (fd[index].td.Q), std::fmin((stamp-fd[index].latest_update).toSec(),(stamp-fd[index].latest_measurement).toSec()));
   fd[index].td.state_x.x[3] = fixAngle(fd[index].td.state_x.x[3], x[3]);
   fd[index].td.state_x.x[4] = fixAngle(fd[index].td.state_x.x[4], x[4]);
   fd[index].td.state_x.x[5] = fixAngle(fd[index].td.state_x.x[5], x[5]);
   /* ROS_INFO_STREAM("C: " << C << " D: " << td[index].state_x.P); */
   fd[index].td.state_x = filter->correct(fd[index].td.state_x, x, C);
-  /* ROS_INFO_STREAM("[UvdarKalmanAnonymous]: Updated state: " << td[index].state_x.x.transpose()); */
+  /* ROS_INFO_STREAM("[UVDARKalmanAnonymous]: Updated state: " << td[index].state_x.x.transpose()); */
   /* td[index].state_x.P = td_template.R;; */
   /* state_tmp = currKalman[target]->predict(td[target].state_m, u_t(), (td[target].Q), dt); */
   /* td[target].state_m = currKalman[target]->correct(state_tmp, mes, td[target].R); */
@@ -488,13 +489,13 @@ double gaussJointMaxVal(e::MatrixXd si0,e::MatrixXd si1,e::VectorXd mu0,e::Vecto
   // mu1-mu0
   auto d0=K*(mu1-mu0);
   auto d1=(K-e::MatrixXd::Identity(K.rows(),K.rows()))*(mu1-mu0);
-  /* ROS_INFO_STREAM("[UvdarKalmanAnonymous]: K: " << K << " d0: " << d0.transpose() << " d1: " << d1.transpose()); */
+  /* ROS_INFO_STREAM("[UVDARKalmanAnonymous]: K: " << K << " d0: " << d0.transpose() << " d1: " << d1.transpose()); */
   // exp((-1/2)*( (d0'*inv(si0)*d0) ));
   // exp((-1/2)*(  (d1'*inv(si1)*d1) ));
   double N;
   if (scaled){
     auto N_v = ((-0.5)*( (d0.transpose()*(si0).inverse()*d0) + (d1.transpose()*(si1).inverse()*d1) ));
-    /* ROS_INFO_STREAM("[UvdarKalmanAnonymous]: N_v: " << N_v); */
+    /* ROS_INFO_STREAM("[UVDARKalmanAnonymous]: N_v: " << N_v); */
     N=exp(N_v(0));
   }
   else{
@@ -502,7 +503,7 @@ double gaussJointMaxVal(e::MatrixXd si0,e::MatrixXd si1,e::VectorXd mu0,e::Vecto
     N=(1.0/pow((2*M_PI),k)*sqrt((si0).determinant()*(si1).determinant()))*exp(N_v(0));
   }
   if (isnan(N))
-    ROS_INFO("[UvdarKalmanAnonymous]: Joint Gaussian value came out NaN");
+    ROS_INFO("[UVDARKalmanAnonymous]: Joint Gaussian value came out NaN");
 
   return N;
 
@@ -515,7 +516,7 @@ double gaussJointMaxVal(e::MatrixXd si0,e::MatrixXd si1,e::VectorXd mu0,e::Vecto
 /* applyMeasurements //{ */
 
 void applyMeasurements(std::vector<std::pair<e::VectorXd,e::MatrixXd>> &measurements, std_msgs::Header header){
-    /* ROS_INFO("[%s]: HERE A", ros::this_node::getName().c_str()); */
+  /* ROS_INFO("[%s]: HERE A", ros::this_node::getName().c_str()); */
   std::scoped_lock lock(filter_mutex);
   if (fd.size() == 0){
     for (auto const& measurement_curr : measurements | indexed(0)){
@@ -525,7 +526,7 @@ void applyMeasurements(std::vector<std::pair<e::VectorXd,e::MatrixXd>> &measurem
     return;
   }
 
-    /* ROS_INFO("[%s]: HERE B", ros::this_node::getName().c_str()); */
+  /* ROS_INFO("[%s]: HERE B", ros::this_node::getName().c_str()); */
   /* e::MatrixXd reduction_matrix(measurements.size(),fd.size()); */
   e::MatrixXd match_matrix(measurements.size(),fd.size());
   std::vector<std::vector<statecov_t>> tentative_states;
@@ -560,7 +561,7 @@ void applyMeasurements(std::vector<std::pair<e::VectorXd,e::MatrixXd>> &measurem
     }
   }
 
-  ROS_INFO_STREAM("[UvdarKalmanAnonymous]: match_matrix: " << std::endl <<match_matrix);
+  ROS_INFO_STREAM("[UVDARKalmanAnonymous]: match_matrix: " << std::endl <<match_matrix);
 
   std::vector<std::pair<int,int>> matches;
 
@@ -584,12 +585,12 @@ void applyMeasurements(std::vector<std::pair<e::VectorXd,e::MatrixXd>> &measurem
     }
 
     if (best_index >= 0){
-      /* ROS_INFO_STREAM("[UvdarKalmanAnonymous]: selecting m.: " <<best_index << " for f.: " << f_i); */
+      /* ROS_INFO_STREAM("[UVDARKalmanAnonymous]: selecting m.: " <<best_index << " for f.: " << f_i); */
       matches.push_back({best_index,f_i});
       /* for (int f_j = f_i+1; f_j < (int)(fd.size()); f_j++) { */
       for (int f_j = 0; f_j < (int)(fd.size()); f_j++) {
         /* if (match_matrix(best_index,f_j) > MATCH_LEVEL_THRESHOLD_ASSOCIATE){ */
-          match_matrix(best_index,f_j) = std::nan("");
+        match_matrix(best_index,f_j) = std::nan("");
         /* } */
       }
     }
@@ -598,91 +599,91 @@ void applyMeasurements(std::vector<std::pair<e::VectorXd,e::MatrixXd>> &measurem
         match_matrix(m_j,f_i) = std::nan("");
       }
     }
-  }
+    }
 
     /* ROS_INFO("[%s]: HERE C", ros::this_node::getName().c_str()); */
-  for( auto& match_curr : matches){
-  ROS_INFO_STREAM("[UvdarKalmanAnonymous]: Updating state: " << match_curr.second << " with " << measurements[match_curr.first].first.transpose());
-  ROS_INFO_STREAM("[UvdarKalmanAnonymous]: This yelds state: " << tentative_states[match_curr.first][match_curr.second].x.topRows(6).transpose());
-    fd[match_curr.second].td.state_x = tentative_states[match_curr.first][match_curr.second];
-    fd[match_curr.second].update_count++;
-    fd[match_curr.second].latest_measurement= header.stamp;
-  }
-
-  ROS_INFO_STREAM("[UvdarKalmanAnonymous]: match_matrix post: " << std::endl <<match_matrix);
-  int fd_size_orig = (int)(fd.size());
-  for (int f_i = 0; f_i < fd_size_orig; f_i++) {
-    for (int m_i = 0; m_i < (int)(measurements.size()); m_i++) {
-      ROS_INFO_STREAM("[UvdarKalmanAnonymous]: match_matrix at: [" << m_i << ":" << f_i << "] is: " << match_matrix(m_i,f_i));
-      if (!isnan(match_matrix(m_i,f_i))){
-        initiateNew(measurements[m_i].first, measurements[m_i].second, header.stamp);
-        for (int f_j = 0; f_j < fd_size_orig; f_j++) {
-          match_matrix(m_i,f_j) = std::nan("");
-        }
-        for (int m_j = 0; m_j < (int)(measurements.size()); m_j++) {
-          match_matrix(m_j,f_i) = std::nan("");
-        }
-      }
+    for( auto& match_curr : matches){
+      ROS_INFO_STREAM("[UVDARKalmanAnonymous]: Updating state: " << match_curr.second << " with " << measurements[match_curr.first].first.transpose());
+      ROS_INFO_STREAM("[UVDARKalmanAnonymous]: This yelds state: " << tentative_states[match_curr.first][match_curr.second].x.topRows(6).transpose());
+      fd[match_curr.second].td.state_x = tentative_states[match_curr.first][match_curr.second];
+      fd[match_curr.second].update_count++;
+      fd[match_curr.second].latest_measurement= header.stamp;
     }
-  }
 
-    /* ROS_INFO("[%s]: HERE E", ros::this_node::getName().c_str()); */
-}
-
-//}
-/* publishStates //{ */
-
-    void publishStates(){
-
-      
-      /* std::scoped_lock lock(filter_mutex); */
-      mrs_msgs::PoseWithCovarianceArrayStamped msg;
-      mrs_msgs::PoseWithCovarianceArrayStamped msg_tent;
-      msg.header.frame_id = _output_frame_;
-      msg.header.stamp = ros::Time::now();
-      msg_tent.header = msg.header;
-
-      /* auto tfr = transformer_.getTransform("fcu_untilted", "stable_origin", msg.header.stamp); */
-      /* if (!tfr) { */ 
-      /*   ROS_ERROR("[UvdarKalmanAnonymous]: Could not obtain transform to fcu_untilted"); */
-      /*   return; */
-      /* } */
-      mrs_msgs::PoseWithCovarianceIdentified temp;
-      e::Quaterniond qtemp;
-      for (auto const& fd_curr : fd | indexed(0)){
-
-        temp.id = fd_curr.value().id;
-
-
-        temp.pose.position.x = fd_curr.value().td.state_x.x[0];
-        temp.pose.position.y = fd_curr.value().td.state_x.x[1];
-        temp.pose.position.z = fd_curr.value().td.state_x.x[2];
-
-        qtemp = e::AngleAxisd(fd_curr.value().td.state_x.x[3], e::Vector3d::UnitX()) * e::AngleAxisd(fd_curr.value().td.state_x.x[4], e::Vector3d::UnitY()) * e::AngleAxisd(fd_curr.value().td.state_x.x[5], e::Vector3d::UnitZ());
-
-        temp.pose.orientation.x = qtemp.x();
-        temp.pose.orientation.y = qtemp.y();
-        temp.pose.orientation.z = qtemp.z();
-        temp.pose.orientation.w = qtemp.w();
-
-        for (int m=0; m<6; m++){
-          for (int n=0; n<6; n++){
-            temp.covariance[6*n+m] =  fd_curr.value().td.state_x.P(n,m);
+    ROS_INFO_STREAM("[UVDARKalmanAnonymous]: match_matrix post: " << std::endl <<match_matrix);
+    int fd_size_orig = (int)(fd.size());
+    for (int f_i = 0; f_i < fd_size_orig; f_i++) {
+      for (int m_i = 0; m_i < (int)(measurements.size()); m_i++) {
+        ROS_INFO_STREAM("[UVDARKalmanAnonymous]: match_matrix at: [" << m_i << ":" << f_i << "] is: " << match_matrix(m_i,f_i));
+        if (!isnan(match_matrix(m_i,f_i))){
+          initiateNew(measurements[m_i].first, measurements[m_i].second, header.stamp);
+          for (int f_j = 0; f_j < fd_size_orig; f_j++) {
+            match_matrix(m_i,f_j) = std::nan("");
+          }
+          for (int m_j = 0; m_j < (int)(measurements.size()); m_j++) {
+            match_matrix(m_j,f_i) = std::nan("");
           }
         }
-        if (fd_curr.value().update_count < minMeasurementsToValidation)
-          msg_tent.poses.push_back(temp);
-        else{
-          msg.poses.push_back(temp);
-        }
-
-
       }
-
-      pub_filter_.publish(msg);
-      pub_filter_tent_.publish(msg_tent);
-
     }
+
+    /* ROS_INFO("[%s]: HERE E", ros::this_node::getName().c_str()); */
+  }
+
+  //}
+/* publishStates //{ */
+
+void publishStates(){
+
+
+  /* std::scoped_lock lock(filter_mutex); */
+  mrs_msgs::PoseWithCovarianceArrayStamped msg;
+  mrs_msgs::PoseWithCovarianceArrayStamped msg_tent;
+  msg.header.frame_id = _output_frame_;
+  msg.header.stamp = ros::Time::now();
+  msg_tent.header = msg.header;
+
+  /* auto tfr = transformer_.getTransform("fcu_untilted", "stable_origin", msg.header.stamp); */
+  /* if (!tfr) { */ 
+  /*   ROS_ERROR("[UVDARKalmanAnonymous]: Could not obtain transform to fcu_untilted"); */
+  /*   return; */
+  /* } */
+  mrs_msgs::PoseWithCovarianceIdentified temp;
+  e::Quaterniond qtemp;
+  for (auto const& fd_curr : fd | indexed(0)){
+
+    temp.id = fd_curr.value().id;
+
+
+    temp.pose.position.x = fd_curr.value().td.state_x.x[0];
+    temp.pose.position.y = fd_curr.value().td.state_x.x[1];
+    temp.pose.position.z = fd_curr.value().td.state_x.x[2];
+
+    qtemp = e::AngleAxisd(fd_curr.value().td.state_x.x[3], e::Vector3d::UnitX()) * e::AngleAxisd(fd_curr.value().td.state_x.x[4], e::Vector3d::UnitY()) * e::AngleAxisd(fd_curr.value().td.state_x.x[5], e::Vector3d::UnitZ());
+
+    temp.pose.orientation.x = qtemp.x();
+    temp.pose.orientation.y = qtemp.y();
+    temp.pose.orientation.z = qtemp.z();
+    temp.pose.orientation.w = qtemp.w();
+
+    for (int m=0; m<6; m++){
+      for (int n=0; n<6; n++){
+        temp.covariance[6*n+m] =  fd_curr.value().td.state_x.P(n,m);
+      }
+    }
+    if (fd_curr.value().update_count < MIN_MEASUREMENTS_TO_VALIDATION)
+      msg_tent.poses.push_back(temp);
+    else{
+      msg.poses.push_back(temp);
+    }
+
+
+  }
+
+  pub_filter_.publish(msg);
+  pub_filter_tent_.publish(msg_tent);
+
+}
 
 //}
 
@@ -707,49 +708,49 @@ void removeOverlaps(){
   for (int i=0; i<((int)(fd.size())-1);i++){
     bool remove_first = false;
     for (int j=i+1; j<(int)(fd.size()); j++){
-       curr_match_level = gaussJointMaxVal(
+      curr_match_level = gaussJointMaxVal(
           fd[i].td.state_x.P.topLeftCorner(3,3),
           fd[j].td.state_x.P.topLeftCorner(3,3),
           fd[i].td.state_x.x.topRows(3),
           fd[j].td.state_x.x.topRows(3)
           );
       if (curr_match_level > MATCH_LEVEL_THRESHOLD_REMOVE){
-          auto eigens = fd[i].td.state_x.P.topLeftCorner(3,3).eigenvalues();
-          double size_i = (eigens.topLeftCorner(3, 1)).norm();
-          eigens = fd[j].td.state_x.P.topLeftCorner(3,3).eigenvalues();
-          double size_j = (eigens.topLeftCorner(3, 1)).norm();
-          int n = -1;
-          int m = -1;
-          if ( (fd[i].update_count < minMeasurementsToValidation) == (fd[j].update_count < minMeasurementsToValidation) ){
-              if ( size_j > size_i ){
-              n = j;
-              m = i;
-              }
-              else {
-              n = i;
-              m = j;
-              }
-            }
-          else {
-            if (fd[i].update_count < minMeasurementsToValidation){
-              n = i;
-              m = j;
-            }
-            else {
-              n = j;
-              m = i;
-            }
-
+        auto eigens = fd[i].td.state_x.P.topLeftCorner(3,3).eigenvalues();
+        double size_i = (eigens.topLeftCorner(3, 1)).norm();
+        eigens = fd[j].td.state_x.P.topLeftCorner(3,3).eigenvalues();
+        double size_j = (eigens.topLeftCorner(3, 1)).norm();
+        int n = -1;
+        int m = -1;
+        if ( (fd[i].update_count < MIN_MEASUREMENTS_TO_VALIDATION) == (fd[j].update_count < MIN_MEASUREMENTS_TO_VALIDATION) ){
+          if ( size_j > size_i ){
+            n = j;
+            m = i;
           }
-            fd.erase(fd.begin()+n);
-            ROS_INFO_STREAM("[UvdarKalmanAnonymous]: Removing state " << n << ": " << fd[n].td.state_x.x.transpose() << " due to large overlap with state " << m << ": " << fd[m].td.state_x.x.transpose());
-            if (n<m){
-              remove_first=true;
-              break;
-            }
-            else {
-              j--;
-            }
+          else {
+            n = i;
+            m = j;
+          }
+        }
+        else {
+          if (fd[i].update_count < MIN_MEASUREMENTS_TO_VALIDATION){
+            n = i;
+            m = j;
+          }
+          else {
+            n = j;
+            m = i;
+          }
+
+        }
+        fd.erase(fd.begin()+n);
+        ROS_INFO_STREAM("[UVDARKalmanAnonymous]: Removing state " << n << ": " << fd[n].td.state_x.x.transpose() << " due to large overlap with state " << m << ": " << fd[m].td.state_x.x.transpose());
+        if (n<m){
+          remove_first=true;
+          break;
+        }
+        else {
+          j--;
+        }
       }
     }
     if (remove_first){
@@ -795,11 +796,11 @@ double fixAngle(double origAngle, double newAngle){
   double fixedPre;
   if ( (origAngle>(2*M_PI)) || (origAngle<(-2*M_PI)) )  {
     fixedPre = fmod(origAngle,2*M_PI);
-    }
+  }
   else {
     fixedPre = origAngle;
   }
-    /* fixedPre = origAngle; */
+  /* fixedPre = origAngle; */
 
   if (fixedPre>(M_PI))
     fixedPre = fixedPre - (2.0*M_PI);
@@ -831,12 +832,14 @@ static double mahalanobis_distance2(const Eigen::Vector3d& x, const Eigen::Vecto
 //}
 };
 
+} //uvdar
+
 int main(int argc, char** argv) {
   ros::init(argc, argv, "uvdar_kalman_anonymous");
   ros::NodeHandle nodeA;
-  UvdarKalmanAnonymous        kl(nodeA);
+  uvdar::UVDARKalmanAnonymous        kl(nodeA);
 
-  ROS_INFO("[UvdarKalmanAnonymous]: filter node initiated");
+  ROS_INFO("[UVDARKalmanAnonymous]: filter node initiated");
 
   ros::spin();
 

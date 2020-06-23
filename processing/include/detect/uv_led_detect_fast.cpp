@@ -10,7 +10,7 @@
 //addressing indices this way is noticeably faster than the "propper" way with .at method - numerous unnecessary checks are skipped. This of course means that we have to do necessary checks ourselves
 #define index2d(X, Y) (image_curr_.cols * (Y) + (X))
 
-uvdar::UVLedDetectFAST::UVLedDetectFAST(bool i_gui, bool i_debug, int i_threshold, std::vector<cv::Mat> i_masks) {
+uvdar::UVDARLedDetectFAST::UVDARLedDetectFAST(bool i_gui, bool i_debug, int i_threshold, std::vector<cv::Mat> i_masks) {
   _debug_     = i_debug;
   _gui_       = i_gui;
   _threshold_ = i_threshold;
@@ -24,11 +24,11 @@ uvdar::UVLedDetectFAST::UVLedDetectFAST(bool i_gui, bool i_debug, int i_threshol
   return;
 }
 
-void uvdar::UVLedDetectFAST::addMask(cv::Mat i_mask) {
+void uvdar::UVDARLedDetectFAST::addMask(cv::Mat i_mask) {
   masks_.push_back(i_mask);
 }
 
-bool uvdar::UVLedDetectFAST::processImage(const cv::Mat i_image, std::vector<cv::Point2i>& detected_points, std::vector<cv::Point2i>& sun_points, int mask_id) {
+bool uvdar::UVDARLedDetectFAST::processImage(const cv::Mat i_image, std::vector<cv::Point2i>& detected_points, std::vector<cv::Point2i>& sun_points, int mask_id) {
   detected_points = std::vector<cv::Point2i>();
   image_curr_     = i_image;
 
@@ -172,7 +172,7 @@ bool uvdar::UVLedDetectFAST::processImage(const cv::Mat i_image, std::vector<cv:
   return true;
 }
 
-void uvdar::UVLedDetectFAST::clearMarks() {
+void uvdar::UVDARLedDetectFAST::clearMarks() {
   for (int j = 0; j < image_curr_.rows; j++) {
     for (int i = 0; i < image_curr_.cols; i++) {
       if (image_check_.at<unsigned char>(j, i) == 255) {
@@ -183,7 +183,7 @@ void uvdar::UVLedDetectFAST::clearMarks() {
 }
 
 
-void uvdar::UVLedDetectFAST::initFAST() {
+void uvdar::UVDARLedDetectFAST::initFAST() {
   std::vector<cv::Point> fast_points;
 
   fast_points.push_back(cv::Point(0, -3));
