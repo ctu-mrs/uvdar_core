@@ -74,7 +74,7 @@ public:
     param_loader.loadParam("frequenciesPerTarget", frequenciesPerTarget, int(4));
     param_loader.loadParam("targetCount", _target_count_, int(4));
     
-    // load the frequencies
+    /* load the frequencies //{ */
     param_loader.loadParam("frequencies", _frequencies_);
     if (_frequencies_.empty()){
       std::vector<double> default_frequency_set;
@@ -92,11 +92,13 @@ public:
     }
     ufc_ = std::make_unique<UVDARFrequencyClassifier>(_frequencies_);
 
+    //}
+
     if (_beacon_){
       prepareBlinkerBrackets();
     }
 
-    /* subscribe to blinkersSeen //{ */
+    /* Subscribe to blinking point topics //{ */
     std::vector<std::string> _blinkers_seen_topics;
     param_loader.loadParam("blinkers_seen_topics", _blinkers_seen_topics, _blinkers_seen_topics);
     if (_blinkers_seen_topics.empty()) {
@@ -104,20 +106,18 @@ public:
     }
     _camera_count_ = (unsigned int)(_blinkers_seen_topics.size());
 
-    // Create callbacks for each camera
-    blinkersSeenCallbacks.resize(_blinkers_seen_topics.size());
+    cals_blinkers_seen_.resize(_blinkers_seen_topics.size());
     separated_points_.resize(_blinkers_seen_topics.size());
     for (size_t i = 0; i < _blinkers_seen_topics.size(); ++i) {
-      blinkers_seen_callback_t callback = [imageIndex=i,this] (const mrs_msgs::ImagePointsWithFloatStampedConstPtr& pointsMessage) { 
-        ProcessPoints(pointsMessage, imageIndex);
+      blinkers_seen_callback_t callback = [camera_index=i,this] (const mrs_msgs::ImagePointsWithFloatStampedConstPtr& pointsMessage) { 
+        ProcessPoints(pointsMessage, camera_index);
       };
-      blinkersSeenCallbacks[i] = callback;
-      /* blinkersSeenCallbacks.push_back(callback); */
-    // Subscribe to corresponding topics
+      cals_blinkers_seen_[i] = callback;
       ROS_INFO_STREAM("[UVDARPoseCalculator]: Subscribing to " << _blinkers_seen_topics[i]);
-      blinkersSeenSubscribers.push_back(
-          nh_.subscribe(_blinkers_seen_topics[i], 1, &blinkers_seen_callback_t::operator(), &blinkersSeenCallbacks[i]));
+      sub_blinkers_seen_.push_back(
+          nh_.subscribe(_blinkers_seen_topics[i], 1, &blinkers_seen_callback_t::operator(), &cals_blinkers_seen_[i]));
     }
+    //}
 
     /* Load calibration files //{ */
     param_loader.loadParam("calib_files", _calib_files_, _calib_files_);
@@ -149,56 +149,35 @@ public:
 
     //}
     
-    /* subscribe to estimatedFramerate //{ */
-
+    /* Subscribe to estimated framerate topics //{ */
     std::vector<std::string> _estimated_framerate_topics;
-
-    param_loader.loadParam("estimatedFramerateTopics", _estimated_framerate_topics, _estimated_framerate_topics);
+    param_loader.loadParam("estimated_framerate_topics", _estimated_framerate_topics, _estimated_framerate_topics);
     // fill the framerates with -1
-    estimatedFramerate.insert(estimatedFramerate.begin(), _estimated_framerate_topics.size(), -1);
+    estimated_framerate_.insert(estimated_framerate_.begin(), _estimated_framerate_topics.size(), -1);
 
     if (_estimated_framerate_topics.empty()) {
       ROS_WARN("[UVDARPoseCalculator]: No topics of estimated framerates were supplied");
     }
     if (_blinkers_seen_topics.size() != _estimated_framerate_topics.size()) {
       ROS_ERROR_STREAM("[UVDARPoseCalculator]: The size of blinkers_seen_topics (" << _blinkers_seen_topics.size() <<
-          ") is different from estimatedFramerateTopics (" << _estimated_framerate_topics.size() << ")");
+          ") is different from estimated_framerate_topics (" << _estimated_framerate_topics.size() << ")");
     }
-    //}
-
-    /* Create callbacks for each camera //{ */
     for (size_t i = 0; i < _estimated_framerate_topics.size(); ++i) {
-      estimated_framerate_callback_t callback = [imageIndex=i,this] (const std_msgs::Float32ConstPtr& framerateMessage) { 
-        estimatedFramerate[imageIndex] = framerateMessage->data;
+      estimated_framerate_callback_t callback = [camera_index=i,this] (const std_msgs::Float32ConstPtr& framerateMessage) { 
+        estimated_framerate_[camera_index] = framerateMessage->data;
       };
-      estimatedFramerateCallbacks.push_back(callback);
-    }
-    //}
+      cals_estimated_framerate_.push_back(callback);
 
-    /* Subscribe to corresponding topics //{ */
-    for (size_t i = 0; i < _estimated_framerate_topics.size(); ++i) {
       ROS_INFO_STREAM("[UVDARPoseCalculator]: Subscribing to " << _estimated_framerate_topics[i]);
-      estimatedFramerateSubscribers.push_back(
-          nh_.subscribe(_estimated_framerate_topics[i], 1, &estimated_framerate_callback_t::operator(), &estimatedFramerateCallbacks[i]));
+      sub_estimated_framerate_.push_back(
+          nh_.subscribe(_estimated_framerate_topics[i], 1, &estimated_framerate_callback_t::operator(), &cals_estimated_framerate_[i]));
     }
-
     //}
 
-    if (!_beacon_){
-      measuredPose.resize(_target_count_);
-      ROS_INFO("[%s]: targetCount: %d", ros::this_node::getName().c_str(), _target_count_ );
-      for (int i=0;i<_target_count_;i++){
-        ROS_INFO("[%s]: Advertising measuredPose%d", ros::this_node::getName().c_str(), i+1);
-        measuredPose[i] = nh_.advertise<geometry_msgs::PoseWithCovarianceStamped>("measuredPose" + std::to_string(i+1), 1);
-      }
-    }
-    else {
-      msg_measurement_array_.resize(_blinkers_seen_topics.size());
-      measured_poses_.resize(_blinkers_seen_topics.size());
-      ROS_INFO("[%s]: Advertising measuredPoses", ros::this_node::getName().c_str());
-      for (int i = 0; i < (int)(_blinkers_seen_topics.size()); i++) {
-        measured_poses_[i] = nh_.advertise<mrs_msgs::PoseWithCovarianceArrayStamped>("measuredPoses"+std::to_string(i+1), 1);
-      }
+
+    for (int i = 0; i < (int)(_blinkers_seen_topics.size()); i++) {
+      ROS_INFO("[%s]: Advertising measured poses %d", ros::this_node::getName().c_str(), i+1);
+      pub_measured_poses_.push_back(nh_.advertise<mrs_msgs::PoseWithCovarianceArrayStamped>("measuredPoses"+std::to_string(i+1), 1)); 
     }
 
     X2 = Eigen::VectorXd(9,9);
@@ -214,23 +193,19 @@ public:
     Px3qb = Eigen::MatrixXd(9,9);
     Px4qb = Eigen::MatrixXd(12,12);
 
-    foundTarget = false;
 
-    /* transformations for cameras //{ */
-
+    /* Set transformation frames for cameras //{ */
     param_loader.loadParam("camera_frames", _camera_frames_, _camera_frames_);
     if (_camera_frames_.size() != _blinkers_seen_topics.size()) {
       ROS_ERROR_STREAM("The size of camera_frames (" << _camera_frames_.size() << 
           ") is different from blinkers_seen_topics size (" << _blinkers_seen_topics.size() << ")");
     }
+    //}
 
     if (_gui_) {
       show_thread  = std::thread(&UVDARPoseCalculator::ShowThread, this);
     }
 
-    transformer_      = mrs_lib::Transformer("UVDARPoseCalculator", _uav_name_);
-
-    //}
     
     initialized_ = true;
   }
@@ -309,25 +284,24 @@ public:
     //}
 
   /* ProcessPoints //{ */
-  void ProcessPoints(const mrs_msgs::ImagePointsWithFloatStampedConstPtr& msg, size_t imageIndex) {
+  void ProcessPoints(const mrs_msgs::ImagePointsWithFloatStampedConstPtr& msg, size_t camera_index) {
     /* int                        countSeen; */
     std::vector< cv::Point3i > points;
-    lastBlinkTime = msg->stamp;
+    last_blink_time_ = msg->stamp;
     /* countSeen = (int)((msg)->layout.dim[0].size); */
     if (_debug_)
       ROS_INFO_STREAM("Received points: " << msg->points.size());
     if (msg->points.size() < 1) {
-      foundTarget = false;
       return;
     }
-    if (estimatedFramerate.size() <= imageIndex || estimatedFramerate[imageIndex] < 0) {
+    if (estimated_framerate_.size() <= camera_index || estimated_framerate_[camera_index] < 0) {
       ROS_INFO_THROTTLE(1.0,"Framerate is not yet estimated. Waiting...");
       return;
     }
 
     for (auto& point : msg->points) {
       if (_use_masks_){
-        if (_masks_[imageIndex].at<unsigned char>(cv::Point2i(point.x, point.y)) < 100){
+        if (_masks_[camera_index].at<unsigned char>(cv::Point2i(point.x, point.y)) < 100){
           if (_debug_){
             ROS_INFO_STREAM("Discarding point " << cv::Point2i(point.x, point.y) << " with f="  << point.value);
           }
@@ -342,35 +316,32 @@ public:
 
     std::scoped_lock lock(mutex_separated_points);
 
-    if (_beacon_){
-      msg_measurement_array_[imageIndex] = boost::make_shared<mrs_msgs::PoseWithCovarianceArrayStamped>();
-      msg_measurement_array_[imageIndex]->header.frame_id = _camera_frames_[imageIndex];
-      msg_measurement_array_[imageIndex]->header.stamp = lastBlinkTime;
-    }
+    mrs_msgs::PoseWithCovarianceArrayStamped msg_measurement_array;
+    msg_measurement_array.header.frame_id = _camera_frames_[camera_index];
+    msg_measurement_array.header.stamp = last_blink_time_;
 
     if ((int)(points.size()) > 0) {
       if (_beacon_){
-        separated_points_[imageIndex] = separateByBeacon(points);
+        separated_points_[camera_index] = separateByBeacon(points);
         /* return; */
       }
       else {
-        separated_points_[imageIndex] = separateByFrequency(points);
+        separated_points_[camera_index] = separateByFrequency(points);
       }
 
-      for (int i = 0; i < (_beacon_?((int)(separated_points_[imageIndex].size())):_target_count_); i++) {
+      for (int i = 0; i < (_beacon_?((int)(separated_points_[camera_index].size())):_target_count_); i++) {
         if (_debug_){
-          /* if (true){ */
           ROS_INFO_STREAM("target [" << i << "]: ");
-          ROS_INFO_STREAM("p: " << separated_points_[imageIndex][i]);
+          ROS_INFO_STREAM("p: " << separated_points_[camera_index][i]);
         }
-        extractSingleRelative(separated_points_[imageIndex][i], i, imageIndex);
-        }
-      }
-      if (_beacon_){
-        measured_poses_[imageIndex].publish(msg_measurement_array_[imageIndex]);
+        mrs_msgs::PoseWithCovarianceIdentified pose;
+        extractSingleRelative(separated_points_[camera_index][i], i, camera_index, pose);
+        msg_measurement_array.poses.push_back(pose);
       }
     }
-    //}
+    pub_measured_poses_[camera_index].publish(msg_measurement_array);
+  }
+  //}
 
 
 private:
@@ -494,24 +465,6 @@ private:
             4*d*v*Alpha2*sn2delta)))
         /
         (4*d*csdelta*(Alpha - 2*snAlpha) + 8*v*Alpha*sndelta);
-
-      /* distanceSlider.filterPush(distance); */
-
-      /* std::cout << "Estimated distance: " << l << std::endl; */
-      /* std::cout << "Filtered distance: " << distanceFiltered << std::endl; */
-
-      /* std::cout << "Estimated direction in CAM: " << (Rp*V2) << std::endl; */
-      /* std::cout << "Central LED direction in CAM: " << (V2) << std::endl; */
-      /* std::cout << "Rotation: " << Rp.matrix()   << std::endl; */
-
-      /* foundTarget = true; */
-      /* lastSeen    = ros::Time::now(); */
-
-      /* std_msgs::Float32 dM, fdM; */
-      /* dM.data  = distance; */
-      /* fdM.data = distanceFiltered; */
-      /* measuredDist.publish(dM); */
-      /* filteredDist.publish(fdM); */
 
 
 
@@ -987,15 +940,6 @@ private:
         /* std::cout << "Central LED direction in CAM: " << (V2) << std::endl; */
         /* std::cout << "Rotation: " << Rp.matrix()   << std::endl; */
       }
-
-      /* foundTarget = true; */
-      /* lastSeen    = ros::Time::now(); */
-
-      /* std_msgs::Float32 dM, fdM; */
-      /* dM.data  = distance; */
-      /* fdM.data = distanceFiltered; */
-      /* measuredDist.publish(dM); */
-      /* filteredDist.publish(fdM); */
 
 
 
@@ -2002,7 +1946,7 @@ private:
   //}
 
   /* extractSingleRelative //{ */
-  void extractSingleRelative(std::vector< cv::Point3i > points, int target, size_t imageIndex) {
+  void extractSingleRelative(std::vector< cv::Point3i > points, int target, size_t camera_index, mrs_msgs::PoseWithCovarianceIdentified& output_pose) {
 
     double leftF;
     double rightF;
@@ -2072,9 +2016,9 @@ private:
       unscented::measurement ms;
 
       if (_debug_)
-        ROS_INFO_STREAM("framerateEstim: " << estimatedFramerate[imageIndex]);
+        ROS_INFO_STREAM("framerateEstim: " << estimated_framerate_[camera_index]);
 
-      double perr=0.2/estimatedFramerate[imageIndex];
+      double perr=0.2/estimated_framerate_[camera_index];
 
             /* if (_debug_) */
       /* ROS_INFO_STREAM("points: " << points); */
@@ -2086,11 +2030,9 @@ private:
               std::cout << "led: " << points[0] << std::endl;
 
 
-            ms = uvdarQuadrotorPose1p_meas(Eigen::Vector2d(points[0].x,points[0].y),_arm_length_, 1000,10.0, imageIndex);
+            ms = uvdarQuadrotorPose1p_meas(Eigen::Vector2d(points[0].x,points[0].y),_arm_length_, 1000,10.0, camera_index);
 
 
-            foundTarget = true;
-            lastSeen    = ros::Time::now();
           }
           else if (points.size() == 2){
             if (_debug_)
@@ -2115,7 +2057,7 @@ private:
               ROS_INFO_STREAM("X2qb: " << X2qb);
             boost::function<Eigen::VectorXd(Eigen::VectorXd,Eigen::VectorXd,int)> callback;
             callback=boost::bind(&UVDARPoseCalculator::uvdarQuadrotorPose2pB,this,_1,_2,_3);
-            ms = unscented::unscentedTransform(X2qb,Px2qb,callback,leftF,rightF,-1,imageIndex);
+            ms = unscented::unscentedTransform(X2qb,Px2qb,callback,leftF,rightF,-1,camera_index);
           }
           else if (points.size() == 3){
             if (_debug_)
@@ -2140,7 +2082,7 @@ private:
               ROS_INFO_STREAM("X3qb: " << X3qb);
             boost::function<Eigen::VectorXd(Eigen::VectorXd,Eigen::VectorXd,int)> callback;
             callback=boost::bind(&UVDARPoseCalculator::uvdarQuadrotorPose3pB,this,_1,_2,_3);
-            ms = unscented::unscentedTransform(X3qb,Px3qb,callback,leftF,rightF,-1,imageIndex);
+            ms = unscented::unscentedTransform(X3qb,Px3qb,callback,leftF,rightF,-1,camera_index);
           }
           else if (points.size() == 4){
             if (_debug_)
@@ -2169,14 +2111,12 @@ private:
               ROS_INFO_STREAM("X4qb: " << X4qb);
             boost::function<Eigen::VectorXd(Eigen::VectorXd,Eigen::VectorXd,int)> callback;
             callback=boost::bind(&UVDARPoseCalculator::uvdarQuadrotorPose4pB,this,_1,_2,_3);
-            ms = unscented::unscentedTransform(X4qb,Px4qb,callback,leftF,rightF,-1,imageIndex);
+            ms = unscented::unscentedTransform(X4qb,Px4qb,callback,leftF,rightF,-1,camera_index);
             /* if (_debug_) */
               /* ROS_INFO_STREAM("Vert. angle: " << deg2rad(atan2(ms.x(1),sqrt(ms.x(0)*ms.x(0)+ms.x(2)*ms.x(2))))); */
           }
           else {
             ROS_INFO_THROTTLE(1.0,"[%s]: No valid points seen. Waiting", ros::this_node::getName().c_str());
-            tailingComponent      = 0;
-            foundTarget           = false;
             return;
           }
           /* ROS_INFO_STREAM("[UVDARPoseCalculator]: beacons not yet implemented"); */
@@ -2206,7 +2146,7 @@ private:
               ROS_INFO_STREAM("X3: " << X3);
             boost::function<Eigen::VectorXd(Eigen::VectorXd,Eigen::VectorXd,int)> callback;
             callback=boost::bind(&UVDARPoseCalculator::uvdarQuadrotorPose3p,this,_1,_2,_3);
-            ms = unscented::unscentedTransform(X3,Px3,callback,leftF,rightF,-1,imageIndex);
+            ms = unscented::unscentedTransform(X3,Px3,callback,leftF,rightF,-1,camera_index);
           }
           else if (points.size() == 2) {
             if (_debug_)
@@ -2230,7 +2170,7 @@ private:
               ROS_INFO_STREAM("X2: " << X2q);
             boost::function<Eigen::VectorXd(Eigen::VectorXd,Eigen::VectorXd, int)> callback;
             callback=boost::bind(&UVDARPoseCalculator::uvdarQuadrotorPose2p,this,_1,_2,_3);
-            ms = unscented::unscentedTransform(X2q,Px2q,callback,leftF,rightF,-1,imageIndex);
+            ms = unscented::unscentedTransform(X2q,Px2q,callback,leftF,rightF,-1,camera_index);
           }
           else if (points.size() == 1) {
             ROS_INFO_THROTTLE(1.0,"[%s]: Only single point visible - no distance information", ros::this_node::getName().c_str());
@@ -2238,15 +2178,11 @@ private:
               std::cout << "led: " << points[0] << std::endl;
 
 
-            ms = uvdarQuadrotorPose1p_meas(Eigen::Vector2d(points[0].x,points[0].y),_arm_length_, 1000,10.0, imageIndex);
+            ms = uvdarQuadrotorPose1p_meas(Eigen::Vector2d(points[0].x,points[0].y),_arm_length_, 1000,10.0, camera_index);
 
 
-            foundTarget = true;
-            lastSeen    = ros::Time::now();
           } else {
             ROS_INFO_THROTTLE(1.0,"[%s]: No valid points seen. Waiting", ros::this_node::getName().c_str());
-            tailingComponent      = 0;
-            foundTarget           = false;
             return;
           }
 
@@ -2281,7 +2217,7 @@ private:
             ROS_INFO_STREAM("X3: " << X3);
           boost::function<Eigen::VectorXd(Eigen::VectorXd,Eigen::VectorXd, int)> callback;
           callback=boost::bind(&UVDARPoseCalculator::uvdarHexarotorPose3p,this,_1,_2,_3);
-          ms = unscented::unscentedTransform(X3,Px3,callback,leftF,rightF,-1,imageIndex);
+          ms = unscented::unscentedTransform(X3,Px3,callback,leftF,rightF,-1,camera_index);
         }
         else if (points.size() == 2) {
           if (_debug_)
@@ -2306,22 +2242,18 @@ private:
             ROS_INFO_STREAM("X2: " << X2);
           boost::function<Eigen::VectorXd(Eigen::VectorXd,Eigen::VectorXd, int)> callback;
           callback=boost::bind(&UVDARPoseCalculator::uvdarHexarotorPose2p,this,_1,_2,_3);
-          ms = unscented::unscentedTransform(X2,Px2,callback,leftF,rightF,-1,imageIndex);
+          ms = unscented::unscentedTransform(X2,Px2,callback,leftF,rightF,-1,camera_index);
         }
         else if (points.size() == 1) {
           std::cout << "Only single point visible - no distance information" << std::endl;
           /* std::cout << "led: " << points[0] << std::endl; */
 
 
-          ms = uvdarHexarotorPose1p_meas(Eigen::Vector2d(points[0].x,points[0].y),_arm_length_, (TUBE_LENGTH),10.0, imageIndex);
+          ms = uvdarHexarotorPose1p_meas(Eigen::Vector2d(points[0].x,points[0].y),_arm_length_, (TUBE_LENGTH),10.0, camera_index);
 
 
-          foundTarget = true;
-          lastSeen    = ros::Time::now();
         } else {
           std::cout << "No valid points seen. Waiting" << std::endl;
-          tailingComponent      = 0;
-          foundTarget           = false;
           return;
         }
       }
@@ -2350,44 +2282,18 @@ private:
       qtemp=tf::Quaternion(-0.5,0.5,-0.5,-0.5)*qtemp; //bring relative orientations to the optical frame of the camera
       qtemp.normalize();//just in case
 
-      if (!_beacon_){
-        msg_odom_ = boost::make_shared<geometry_msgs::PoseWithCovarianceStamped>();
-
-        msg_odom_->pose.pose.position.x = ms.x(0);
-        msg_odom_->pose.pose.position.y = ms.x(1);
-        msg_odom_->pose.pose.position.z = ms.x(2);
-        msg_odom_->pose.pose.orientation.x = qtemp.x();
-        msg_odom_->pose.pose.orientation.y = qtemp.y();
-        msg_odom_->pose.pose.orientation.z = qtemp.z();
-        msg_odom_->pose.pose.orientation.w = qtemp.w();
-        for (int i=0; i<ms.C.cols(); i++){
-          for (int j=0; j<ms.C.rows(); j++){
-            msg_odom_->pose.covariance[ms.C.cols()*j+i] =  ms.C(j,i);
-          }
+      output_pose.id = target;
+      output_pose.pose.position.x = ms.x(0);
+      output_pose.pose.position.y = ms.x(1);
+      output_pose.pose.position.z = ms.x(2);
+      output_pose.pose.orientation.x = qtemp.x();
+      output_pose.pose.orientation.y = qtemp.y();
+      output_pose.pose.orientation.z = qtemp.z();
+      output_pose.pose.orientation.w = qtemp.w();
+      for (int i=0; i<ms.C.cols(); i++){
+        for (int j=0; j<ms.C.rows(); j++){
+          output_pose.covariance[ms.C.cols()*j+i] =  ms.C(j,i);
         }
-        msg_odom_->header.frame_id = _camera_frames_[imageIndex];
-        msg_odom_->header.stamp = lastBlinkTime;
-
-        measuredPose[target].publish(msg_odom_);
-      }
-      else {
-
-        mrs_msgs::PoseWithCovarianceIdentified pose;
-
-        pose.id = imageIndex*1000+msg_measurement_array_[imageIndex]->poses.size();
-        pose.pose.position.x = ms.x(0);
-        pose.pose.position.y = ms.x(1);
-        pose.pose.position.z = ms.x(2);
-        pose.pose.orientation.x = qtemp.x();
-        pose.pose.orientation.y = qtemp.y();
-        pose.pose.orientation.z = qtemp.z();
-        pose.pose.orientation.w = qtemp.w();
-        for (int i=0; i<ms.C.cols(); i++){
-          for (int j=0; j<ms.C.rows(); j++){
-            pose.covariance[ms.C.cols()*j+i] =  ms.C(j,i);
-          }
-        }
-        msg_measurement_array_[imageIndex]->poses.push_back(pose);
       }
 
   }
@@ -2426,7 +2332,7 @@ private:
 
     while (ros::ok()) {
       if (initialized_){
-        std::scoped_lock lock(mutex_show);
+        std::scoped_lock lock(mutex_show_);
 
         if (_gui_){
           if (GenerateVisualization() >= 0){
@@ -2462,11 +2368,11 @@ private:
       /* loop through separated points //{ */
 
       std::scoped_lock lock(mutex_separated_points);
-      int imageIndex = -1;
+      int camera_index = -1;
       for (auto &image_point_set : separated_points_){
-        imageIndex++;
+        camera_index++;
         cv::line(view_image_, cv::Point2i(image_width, 0), cv::Point2i(image_width,image_height-1),cv::Scalar(255,255,255));
-        int differenceX = (image_width + 2) * imageIndex;
+        int differenceX = (image_width + 2) * camera_index;
         int i = -1;
         for (auto &point_group : image_point_set){
           i++;
@@ -2506,74 +2412,34 @@ double rotmatToRoll(e::Matrix3d m){
 }
 //}
 
-  /* Variables //{ */
+  /* attributes //{ */
+  bool _debug_;
 
-  bool stopped;
-
-  bool Flip;
-
-  ros::Time RangeRecTime;
-
-  ros::Subscriber framerateSubscriber;
+  std::string _uav_name_;
 
   std::vector<std::string> _camera_frames_;
 
   using blinkers_seen_callback_t = std::function<void (const mrs_msgs::ImagePointsWithFloatStampedConstPtr& msg)>;
-  std::vector<blinkers_seen_callback_t> blinkersSeenCallbacks;
-  std::vector<ros::Subscriber> blinkersSeenSubscribers;
+  std::vector<blinkers_seen_callback_t> cals_blinkers_seen_;
+  std::vector<ros::Subscriber> sub_blinkers_seen_;
 
   using estimated_framerate_callback_t = std::function<void (const std_msgs::Float32ConstPtr& msg)>;
-  std::vector<estimated_framerate_callback_t> estimatedFramerateCallbacks;
-  std::vector<ros::Subscriber> estimatedFramerateSubscribers;
+  std::vector<estimated_framerate_callback_t> cals_estimated_framerate_;
+  std::vector<ros::Subscriber> sub_estimated_framerate_;
 
-  std::vector<double> estimatedFramerate;
+  std::vector<double> estimated_framerate_;
 
-  ros::Time begin;
-
-  // Input arguments
-  bool _debug_;
-  bool justReport;
-  int  threshVal;
-  bool silent_debug;
-  bool storeVideo;
-  bool AccelerationBounding;
-  // std::vector<double> camRot;
-  double gamma;  // rotation of camera in the helicopter frame (positive)
-
-
-  int samplePointSize;
-
-  int cellSize;
-  int cellOverlay;
-  int surroundRadius;
-
-  double tailingComponent;
 
   bool _gui_;
   std::thread show_thread;
-  std::mutex mutex_show;
+  std::mutex mutex_show_;
   cv::Mat view_image_;
 
-  bool cameraRotated;
+  ros::Time last_blink_time_;
 
-  double max_px_speed_t;
-  float  maxAccel;
-  bool   checkAccel;
-
-  std::string _uav_name_;
-
-  ros::Time lastBlinkTime;
-
-
-  /* uvLedDetect_gpu *uvdg; */
-
-  mrs_lib::Transformer                        transformer_;
-
-  /* std::vector< sensor_msgs::Imu > imu_register; */
+  /* mrs_lib::Transformer                        transformer_; */
 
   std::vector<struct ocam_model> _oc_models_;
-
-  bool                           foundTarget;
 
 
   Eigen::MatrixXd Px2,Px3,Px2q;
@@ -2581,22 +2447,9 @@ double rotmatToRoll(e::Matrix3d m){
   Eigen::VectorXd X2,X3,X2q;
   Eigen::VectorXd X2qb,X3qb,X4qb;
 
-
-  ros::Subscriber OdomSubscriber;
-  ros::Subscriber DiagSubscriber;
-  bool            reachedTarget = false;
-  ros::Time       lastSeen;
-
-  bool               followTriggered = false;
-  ros::ServiceServer ser_trigger;
-
-  std::vector<ros::Publisher> measuredPose;
-  std::vector<ros::Publisher> measured_poses_;
+  std::vector<ros::Publisher> pub_measured_poses_;
 
   /* Lkf* trackers[2]; */
-
-  geometry_msgs::PoseWithCovarianceStampedPtr msg_odom_;
-  std::vector<mrs_msgs::PoseWithCovarianceArrayStampedPtr> msg_measurement_array_;
 
   int frequenciesPerTarget;
   int _target_count_;
