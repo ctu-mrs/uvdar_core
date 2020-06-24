@@ -3,14 +3,6 @@
 #include <vector>
 
 namespace uvdar {
-  struct FrequencyRange {
-    int order_index;
-    double frequency;
-    double period;
-    double bottom_bound;
-    double top_bound;
-  };
-
 
   /**
    * @brief Structure for classifying frequencies by similarity with templates
@@ -35,6 +27,14 @@ namespace uvdar {
       int findMatch(double i_frequency);
 
     private:
+      struct FrequencyRange {
+        int order_index;
+        double frequency;
+        double period;
+        double bottom_bound;
+        double top_bound;
+      };
+
       std::vector<FrequencyRange> ranges;
 
   };

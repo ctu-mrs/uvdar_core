@@ -165,8 +165,8 @@
 
       <rosparam param="camera_topics"> ["camera_left", "camera_right"] </rosparam>
       <rosparam param="points_seen_topics"> ["points_seen_left", "points_seen_right"] </rosparam>
-      <rosparam param="blinkersSeenTopics"> ["blinkers_seen_left", "blinkers_seen_right"] </rosparam>
-      <rosparam param="estimatedFramerateTopics"> ["estimated_framerate_left", "estimated_framerate_right"] </rosparam>
+      <rosparam param="blinkers_seen_topics"> ["blinkers_seen_left", "blinkers_seen_right"] </rosparam>
+      <rosparam param="estimated_framerate_topics"> ["estimated_framerate_left", "estimated_framerate_right"] </rosparam>
 
       <remap from="~camera_left" to="/$(arg uav_name)/uvdar_bluefox_left/image_raw"/>
       <remap from="~camera_right" to="/$(arg uav_name)/uvdar_bluefox_right/image_raw"/>
@@ -194,9 +194,9 @@
       <param name="quadrotor" type="bool" value="true"/>
       <param name="arm_lenght" type="double" value="0.245"/>
 
-      <rosparam param="blinkersSeenTopics"> ["blinkers_seen_left", "blinkers_seen_right"] </rosparam>
-      <rosparam param="estimatedFramerateTopics"> ["estimated_framerate_left", "estimated_framerate_right"] </rosparam>
-      <rosparam param="cameraFrames" subst_value="true"> ["uvcam_left_$(arg uav_name)", "uvcam_right_$(arg uav_name)"] </rosparam>
+      <rosparam param="blinkers_seen_topics"> ["blinkers_seen_left", "blinkers_seen_right"] </rosparam>
+      <rosparam param="estimated_framerate_topics"> ["estimated_framerate_left", "estimated_framerate_right"] </rosparam>
+      <rosparam param="camera_frames" subst_value="true"> ["uvcam_left_$(arg uav_name)", "uvcam_right_$(arg uav_name)"] </rosparam>
 
       <remap from="~blinkers_seen_left" to="/$(arg uav_name)/uvdar/blinkers_seen_left"/>
       <remap from="~blinkers_seen_right" to="/$(arg uav_name)/uvdar/blinkers_seen_right"/>

@@ -43,9 +43,6 @@ find_package(OpenCV REQUIRED HINTS /usr/local/lib)
 ## DEPENDS: system dependencies of this project that dependent projects also need
 
 add_message_files(DIRECTORY msg FILES
-  ROIVector.msg
-  DistRange.msg
-  DistRangeVector.msg
   FrequencySet.msg
   )
 
@@ -58,6 +55,7 @@ catkin_package(
  INCLUDE_DIRS include
   CATKIN_DEPENDS cv_bridge image_transport roscpp sensor_msgs std_msgs message_runtime mrs_msgs
   DEPENDS Eigen
+  LIBRARIES OCamCalib unscented
 )
 
 ###########
@@ -108,9 +106,6 @@ add_dependencies(uvdar_kalman_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_
 add_executable(uvdar_kalman_anonymous_node src/filter_anonymous.cpp)
 add_dependencies(uvdar_kalman_anonymous_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
-add_executable(uvdar_reprojector_node src/reprojector.cpp)
-add_dependencies(uvdar_reprojector_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-
 add_library(UVDARBluefoxEmulator src/bluefox_emulator.cpp)
 add_dependencies(UVDARBluefoxEmulator ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
@@ -144,7 +139,7 @@ target_link_libraries(uvdar_uav_pose_calculator_node
   unscented
   p3p
   color_selector
-  stdc++fs
+  frequency_classifier
   )
 
 target_link_libraries(uvdar_kalman_node
@@ -164,15 +159,6 @@ target_link_libraries(UVDARBluefoxEmulator
   ${OpenCV_LIBRARIES}
   ${EIGEN3_LIBRARIES}
   OCamCalib
-  )
-
-
-target_link_libraries(uvdar_reprojector_node
-  ${catkin_LIBRARIES}
-  ${OpenCV_LIBRARIES}
-  ${EIGEN3_LIBRARIES}
-  OCamCalib
-  unscented
   )
 
 target_link_libraries(uvdar_mask_generator_node

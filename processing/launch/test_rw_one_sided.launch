@@ -232,8 +232,8 @@
 
       <rosparam param="camera_topics"> ["camera"] </rosparam>
       <rosparam param="points_seen_topics"> ["points_seen"] </rosparam>
-      <rosparam param="blinkersSeenTopics"> ["blinkers_seen"] </rosparam>
-      <rosparam param="estimatedFramerateTopics"> ["estimated_framerate"] </rosparam>
+      <rosparam param="blinkers_seen_topics"> ["blinkers_seen"] </rosparam>
+      <rosparam param="estimated_framerate_topics"> ["estimated_framerate"] </rosparam>
 
       <remap from="~camera" to="/$(arg uav_name)/uvdar_bluefox/image_raw"/>
       <remap from="~points_seen" to="/$(arg uav_name)/uvdar/points_seen"/>
@@ -256,9 +256,9 @@
       <param name="targetCount" type="int" value="2"/>
       <rosparam param="frequencies" subst_value="true"> [$(arg frequency1), $(arg frequency2), $(arg frequency3), $(arg frequency4)] </rosparam>
 
-      <rosparam param="blinkersSeenTopics"> ["blinkers_seen"] </rosparam>
-      <rosparam param="estimatedFramerateTopics"> ["estimated_framerate"] </rosparam>
-      <rosparam param="cameraFrames" subst_value="true"> ["uvcam_left_$(arg uav_name)"] </rosparam>
+      <rosparam param="blinkers_seen_topics"> ["blinkers_seen"] </rosparam>
+      <rosparam param="estimated_framerate_topics"> ["estimated_framerate"] </rosparam>
+      <rosparam param="camera_frames" subst_value="true"> ["uvcam_left_$(arg uav_name)"] </rosparam>
 
       <remap from="~blinkers_seen" to="/$(arg uav_name)/uvdar/blinkers_seen"/>
       <remap from="~estimated_framerate" to="/$(arg uav_name)/uvdar/estimated_framerate"/>

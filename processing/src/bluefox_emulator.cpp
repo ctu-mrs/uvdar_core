@@ -2,15 +2,20 @@
 #include <ros/package.h>
 #include <nodelet/nodelet.h>
 
-#include <mrs_lib/param_loader.h>
 
 #include <cv_bridge/cv_bridge.h>
+#include <opencv2/core/core.hpp>
 #include <sensor_msgs/PointCloud.h>
 #include <sensor_msgs/Image.h>
-#include <stdint.h>
-#include <opencv2/core/core.hpp>
+
+#include <mrs_lib/param_loader.h>
+
 #include <OCamCalib/ocam_functions.h>
+
+#include <stdint.h>
 #include <functional>
+#include <boost/filesystem/operations.hpp>
+/* #include <experimental/filesystem> */
 
 
 #define index2d(X, Y) (_oc_models_.at(image_index).width * (Y) + (X))
@@ -39,8 +44,6 @@ public:
       ROS_ERROR("[UVDARBluefoxEmulator]: No camera calibration files were supplied. You can even use \"default\" for the cameras, but no calibration is not permissible. Returning.");
       return;
     }
-    bool _calib_files_mrs_named;
-    param_loader.loadParam("calib_files_mrs_named", _calib_files_mrs_named, bool(false));
     std::string file_name;
     _oc_models_.resize(_calib_files.size());
     int i=0;
@@ -48,11 +51,13 @@ public:
       if (calib_file == "default"){
         file_name = ros::package::getPath("uvdar")+"/include/OCamCalib/config/calib_results_bf_uv_fe.txt";
       }
-      else if (_calib_files_mrs_named){
-        file_name = ros::package::getPath("uvdar")+"/include/OCamCalib/config/"+calib_file;
-      }
       else {
         file_name = calib_file;
+      }
+      ROS_INFO_STREAM("[UVDARBluefoxEmulator Loading camera calibration file [" << file_name << "]");
+      if (!(boost::filesystem::exists(file_name))){
+        ROS_ERROR_STREAM("[UVDARBluefoxEmulator Calibration file [" << file_name << "] does not exist!");
+        return;
       }
 
       get_ocam_model(&_oc_models_.at(i), (char*)(file_name.c_str()));

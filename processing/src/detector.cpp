@@ -14,6 +14,7 @@
 #include <mrs_lib/image_publisher.h>
 #include <mrs_lib/param_loader.h>
 #include <boost/filesystem/operations.hpp>
+/* #include <experimental/filesystem> */
 #include <mutex>
 
 #include "detect/uv_led_detect_fast.h"
@@ -60,11 +61,6 @@ public:
       if (_mask_file_names_.size() != _camera_count_){
         ROS_ERROR_STREAM("[UVDARDetector]: Masks are enabled, but the number of mask filenames provided does not match the number of camera topics (" << _camera_count_ << ")!");
         return;
-      }
-
-      param_loader.loadParam("masks_mrs_named", _masks_mrs_named_, bool(false));
-      if (_masks_mrs_named_){
-        param_loader.loadParam("body_name", _body_name_);
       }
 
       if (!loadMasks()){
@@ -162,7 +158,7 @@ private:
 
     /* loadMasks //{ */
   /**
-   * @brief Load the mask files - either form absolute path or composite filename found in the uvdar package.
+   * @brief Load the mask files - either form absolute path or composite filename found in the mrs_uav_general package.
    *
    * @return success
    */
@@ -170,11 +166,7 @@ private:
       std::string file_name;
       for (unsigned int i=0; i<_camera_count_; i++){
 
-        if (_masks_mrs_named_){
-          file_name = ros::package::getPath("uvdar")+"/masks/"+_body_name_+"_"+_mask_file_names_[i]+".bmp";
-        } else {
-          file_name = _mask_file_names_[i];
-        }
+        file_name = _mask_file_names_[i];
 
         ROS_INFO_STREAM("[UVDARDetector]: Loading mask file [" << file_name << "]");
         if (!(boost::filesystem::exists(file_name))){
@@ -379,8 +371,6 @@ private:
   int  _threshold_;
 
   bool _use_masks_;
-  bool _masks_mrs_named_;
-  std::string _body_name_;
   std::vector<std::string> _mask_file_names_;
   std::vector<cv::Mat> _masks_;
 

@@ -6,8 +6,10 @@
 #define max_frequency 36.0
 #define boundary_ratio 0.7
 
+using namespace uvdar;
+
 /* constructor //{ */
-uvdar::UVDARFrequencyClassifier::UVDARFrequencyClassifier(std::vector<double> i_frequencies){
+UVDARFrequencyClassifier::UVDARFrequencyClassifier(std::vector<double> i_frequencies){
   std::vector<double> frequencies = i_frequencies;
   int i=0;
   for (auto fr : frequencies){
@@ -15,7 +17,7 @@ uvdar::UVDARFrequencyClassifier::UVDARFrequencyClassifier(std::vector<double> i_
   }
 
   struct {
-    bool operator()(uvdar::FrequencyRange a, uvdar::FrequencyRange b) const
+    bool operator()(FrequencyRange a, FrequencyRange b) const
     {   
       return a.period > b.period;
     }   
@@ -36,7 +38,7 @@ uvdar::UVDARFrequencyClassifier::UVDARFrequencyClassifier(std::vector<double> i_
 //}
 
 /* findMatch() //{ */
-int uvdar::UVDARFrequencyClassifier::findMatch(double i_frequency) {
+int UVDARFrequencyClassifier::findMatch(double i_frequency) {
   double period = 1.0 / i_frequency;
   for (auto r : ranges) { 
     if ((period > r.bottom_bound) && (period < r.top_bound)) {

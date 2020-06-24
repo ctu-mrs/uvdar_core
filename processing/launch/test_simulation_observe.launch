@@ -138,9 +138,9 @@
       <param name="max_pixel_shift"         type="int" value="$(arg max_pixel_shift)"/>
 
       <rosparam param="points_seen_topics"> ["pointsSeen_right"] </rosparam>
-      <rosparam param="blinkersSeenTopics"> ["blinkersSeen_right"] </rosparam>
-      <rosparam param="estimatedFramerateTopics"> ["estimatedFramerate_right"] </rosparam>
-      <rosparam param="cameraFrames" subst_value="true"> ["uvcam_$(arg uav_name)"] </rosparam>
+      <rosparam param="blinkers_seen_topics"> ["blinkersSeen_right"] </rosparam>
+      <rosparam param="estimated_framerate_topics"> ["estimatedFramerate_right"] </rosparam>
+      <rosparam param="camera_frames" subst_value="true"> ["uvcam_$(arg uav_name)"] </rosparam>
 
       <remap from="~camera" to="/$(arg uav_name)/uvdar_bluefox_right/image_raw"/>
       <remap from="~pointsSeen_right" to="/$(arg uav_name)/uvdar/uvPointsSeen_right"/>
@@ -162,9 +162,9 @@
 
       <rosparam param="frequencies" subst_value="true"> [$(arg frequency1), $(arg frequency2), $(arg frequency3)] </rosparam>
 
-      <rosparam param="blinkersSeenTopics"> ["blinkersSeen_right"] </rosparam>
-      <rosparam param="estimatedFramerateTopics"> ["estimatedFramerate_right"] </rosparam>
-      <rosparam param="cameraFrames" subst_value="true"> ["uvcam_$(arg uav_name)"] </rosparam>
+      <rosparam param="blinkers_seen_topics"> ["blinkersSeen_right"] </rosparam>
+      <rosparam param="estimated_framerate_topics"> ["estimatedFramerate_right"] </rosparam>
+      <rosparam param="camera_frames" subst_value="true"> ["uvcam_$(arg uav_name)"] </rosparam>
 
       <remap from="~pointsSeen_right" to="/$(arg uav_name)/uvdar/uvPointsSeen_right"/>
       <remap from="~estimatedFramerate_right" to="/$(arg uav_name)/uvdar/estimatedFramerate_right"/>
