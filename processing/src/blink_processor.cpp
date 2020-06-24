@@ -105,16 +105,16 @@ namespace uvdar {
         if (_blinkers_seen_topics.size() != _points_seen_topics.size()) {
           ROS_ERROR_STREAM("[UVDARBlinkProcessor] The number of poinsSeenTopics (" << _points_seen_topics.size() 
               << ") is not matching the number of blinkers_seen_topics (" << _blinkers_seen_topics.size() << ")!");
+          return;
         }
         if (_estimated_framerate_topics.size() != _points_seen_topics.size()) {
           ROS_ERROR_STREAM("[UVDARBlinkProcessor] The number of poinsSeenTopics (" << _points_seen_topics.size() 
               << ") is not matching the number of blinkers_seen_topics (" << _estimated_framerate_topics.size() << ")!");
+          return;
         }
 
         for (size_t i = 0; i < _blinkers_seen_topics.size(); ++i) {
           pub_blinkers_seen_.push_back(nh_.advertise<mrs_msgs::ImagePointsWithFloatStamped>(_blinkers_seen_topics[i], 1));
-        }
-        for (size_t i = 0; i < _estimated_framerate_topics.size(); ++i) {
           pub_estimated_framerate_.push_back(nh_.advertise<std_msgs::Float32>(_estimated_framerate_topics[i], 1));
         }
 

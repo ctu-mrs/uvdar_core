@@ -115,7 +115,7 @@ public:
       cals_blinkers_seen_[i] = callback;
       ROS_INFO_STREAM("[UVDARPoseCalculator]: Subscribing to " << _blinkers_seen_topics[i]);
       sub_blinkers_seen_.push_back(
-          nh_.subscribe(_blinkers_seen_topics[i], 1, &blinkers_seen_callback_t::operator(), &cals_blinkers_seen_[i]));
+          nh_.subscribe(_blinkers_seen_topics[i], 1, cals_blinkers_seen_[i]));
     }
     //}
 
@@ -170,7 +170,7 @@ public:
 
       ROS_INFO_STREAM("[UVDARPoseCalculator]: Subscribing to " << _estimated_framerate_topics[i]);
       sub_estimated_framerate_.push_back(
-          nh_.subscribe(_estimated_framerate_topics[i], 1, &estimated_framerate_callback_t::operator(), &cals_estimated_framerate_[i]));
+          nh_.subscribe(_estimated_framerate_topics[i], 1, cals_estimated_framerate_[i]));
     }
     //}
 
@@ -2419,11 +2419,11 @@ double rotmatToRoll(e::Matrix3d m){
 
   std::vector<std::string> _camera_frames_;
 
-  using blinkers_seen_callback_t = std::function<void (const mrs_msgs::ImagePointsWithFloatStampedConstPtr& msg)>;
+  using blinkers_seen_callback_t = boost::function<void (const mrs_msgs::ImagePointsWithFloatStampedConstPtr& msg)>;
   std::vector<blinkers_seen_callback_t> cals_blinkers_seen_;
   std::vector<ros::Subscriber> sub_blinkers_seen_;
 
-  using estimated_framerate_callback_t = std::function<void (const std_msgs::Float32ConstPtr& msg)>;
+  using estimated_framerate_callback_t = boost::function<void (const std_msgs::Float32ConstPtr& msg)>;
   std::vector<estimated_framerate_callback_t> cals_estimated_framerate_;
   std::vector<ros::Subscriber> sub_estimated_framerate_;
 
@@ -2448,8 +2448,6 @@ double rotmatToRoll(e::Matrix3d m){
   Eigen::VectorXd X2qb,X3qb,X4qb;
 
   std::vector<ros::Publisher> pub_measured_poses_;
-
-  /* Lkf* trackers[2]; */
 
   int frequenciesPerTarget;
   int _target_count_;
