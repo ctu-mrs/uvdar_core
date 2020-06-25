@@ -362,13 +362,25 @@ namespace uvdar {
 
       /* Specific calculations used for individual cases of UAV models detection of various numbers of their markers//{ */
 
+
+      /**
+       * @brief Generates relative position and error covariance of a hexarotor if only one of its markers, carried on the ends of its arms, is seen. The result is an elongated covariance covering a range of positions along the line of sight towards the marker This is not used with unscented transform
+       *
+       * @param X 2D vector containing the image coordinates of the sole observed marker
+       * @param tubewidth Defines the "width" of the output covariance (standard deviation perpendicular to the line of sight)
+       * @param tubelength Defines the "length" of the output covariance (standard deviation parallel to the line of sight)
+       * @param mean_dist The mean distance of the UAV in the output measurement - with one marker we do not have informaiton on distance, but we want the mean and covariance to cover the possible range as much as possible, and avoid extending too much behind the camera
+       * @param image_index The index of the current camera used to generate the input observed marker
+       *
+       * @return Measurement comprising mean pose and its error covariance
+       */
       /* uvdarHexarotorPose1p //{ */
-      unscented::measurement uvdarHexarotorPose1p_meas(Eigen::Vector2d X,double tubewidth, double tubelength, double meanDist, int image_index){
+      unscented::measurement uvdarHexarotorPose1p_meas(Eigen::Vector2d X,double tubewidth, double tubelength, double mean_dist, int image_index){
         double v1[3];
         double x[2] = {X.y(),X.x()};
         cam2world(v1, x, &_oc_models_[image_index]);
         Eigen::Vector3d V1(v1[1], v1[0], -v1[2]);
-        V1 = V1*meanDist;
+        V1 = V1*mean_dist;
 
         unscented::measurement ms;
         ms.x = Eigen::VectorXd(6);
@@ -388,10 +400,18 @@ namespace uvdar {
       }
       //}
 
+
+      /**
+       * @brief Calculates relative position of a hexarotor if two of its markers, carried on the ends of its arms, is seen. This is used with unscented transform to express error covariance of the estimated pose from the errors of the input
+       *
+       * @param X The input vector containing image positions and frequencies of the markers, as well as the means of ambiguities of relative yaw, relative tilt and a range used to cover ambiguity of a specific sequences of points. These means will be perturbed in the unscented transform to spread the output error covariance accordingly
+       * @param expFrequencies A vector of expected frequencies belonging to the given UAV. These are used to compare to the retrieved frequencies and account for the possible error of frequency retrieval
+       * @param image_index The index of the current camera used to generate the input observed marker
+       *
+       * @return 
+       */
       /* uvdarHexarotorPose2p //{ */
       Eigen::VectorXd uvdarHexarotorPose2p(Eigen::VectorXd X, Eigen::VectorXd expFrequencies, int image_index){
-
-        /* ROS_INFO_STREAM("X: " << X); */
 
         cv::Point3d a;
         cv::Point3d b;
@@ -406,7 +426,6 @@ namespace uvdar {
         double ambig=X(7);
         double delta=X(6);
 
-        /* std::cout << "right led: " << b << std::endl; */
         Eigen::Vector3i ids;
         ids << 0,1,2;
         Eigen::Vector3d expPeriods;
@@ -420,33 +439,18 @@ namespace uvdar {
         ((expPeriods.array()-(periods(1))).cwiseAbs()).minCoeff(&minIndex);
         id(1) = minIndex;
 
-
-
-
-        /* cv::Point3d central = (a+b) / 2.0; */
         double      v1[3], v2[3];
         double      va[2] = {double(a.y), double(a.x)};
         double      vb[2] = {double(b.y), double(b.x)};
         ;
         cam2world(v1, va, &(_oc_models_[image_index]));
         cam2world(v2, vb, &(_oc_models_[image_index]));
-        /* double vc[3]; */
-        /* double pc[2] = {central.y, central.x}; */
-        /* cam2world(vc, pc, &oc_model); */
 
         Eigen::Vector3d V1(v1[1], v1[0], -v1[2]);
         Eigen::Vector3d V2(v2[1], v2[0], -v2[2]);
-        /* Eigen::Vector3d Vc(vc[1], vc[0], -vc[2]); */
 
-        /* double alpha = acos(V1.dot(V2)); */
+        // Details of the following calculation are explained in [V Walter, M Saska and A Franchi. "Fast mutual relative localization of uavs using ultraviolet led markers." (ICUAS 2018). 2018] 
 
-        /* double vd = sqrt(0.75 * _arm_length_); */
-
-        /* double distance = (_arm_length_ / 2.0) / tan(alpha / 2.0) + vd; */
-        /* if (first) { */
-        /*   distanceSlider.filterInit(distance, filterDistLength); */
-        /*   first = false; */
-        /* } */
         double d = _arm_length_;
         double v=d*sqrt(3.0/4.0);
         double sqv=v*v;
@@ -459,9 +463,6 @@ namespace uvdar {
         double sn2delta =sin(2*delta);
         double csdelta =cos(delta);
         double cs2delta =cos(2*delta);
-
-        /* ROS_INFO("Alpha: %f, v: %f, d: %f, delta: %f",Alpha, v, d, delta); */
-        /* ROS_INFO_STREAM("V1:" << V1 << std::endl <<"V2: " << V2); */
 
         double l =
           (4*d*v*Alpha - 
@@ -496,7 +497,7 @@ namespace uvdar {
 
         double relyaw;
 
-        if (expFrequencies.size() == 2)
+        if (expFrequencies.size() == 2) //different frequencies on each side (portside and starboard)
           if     ((id(0)==ids[0]) && (id(1)==ids[0]))
             relyaw=(M_PI/2)+ambig+delta;
           else if ((id(0)==ids[1]) && (id(1)==ids[1]))
@@ -526,14 +527,7 @@ namespace uvdar {
 
         double relyaw_view=relyaw;
 
-        /* ROS_INFO_STREAM("expFrequencies: " << expFrequencies); */
-        /* ROS_INFO_STREAM("expPeriods: " << expPeriods); */
-        /* ROS_INFO_STREAM("periods: " << periods); */
-        /* ROS_INFO_STREAM("id: " << id); */
-        /* ROS_INFO("relyaw_orig: %f",relyaw); */
         relyaw=relyaw-latang;
-        /* ROS_INFO_STREAM("Vc: " << Vc); */
-        /* ROS_INFO("latang: %f",latang); */
 
         double latnorm=sqrt(sqr(Yt(0))+sqr(Yt(2)));
         double Gamma=atan2(Yt(1),latnorm);
@@ -545,7 +539,6 @@ namespace uvdar {
         latComp = latComp/(latComp.norm());
 
         if (Vc(1)<0) latComp = -latComp;
-        /* ROS_INFO_STREAM("cross: " << Vc.cross(latComp)); */
 
         Eigen::Transform< double, 3, Eigen::Affine > Re(Eigen::AngleAxis< double >( Gamma+(M_PI/2),(Vc.cross(latComp)).normalized()));
         Eigen::Vector3d exp_normal=Re*Vc;
@@ -554,11 +547,6 @@ namespace uvdar {
         double tilt_par=acos(obs_normal.dot(exp_normal));
         if (V1(1)<V2(1))
           tilt_par=-tilt_par;
-
-
-        /*       ROS_INFO_STREAM("exp_normal: " << exp_normal); */
-        /*       ROS_INFO_STREAM("obs_normal: " << obs_normal); */
-        /*       ROS_INFO_STREAM("tilt_par: " << tilt_par); */
 
         double dist = Yt.norm();
         Yt= Yt*((dist-xl)/dist);
@@ -586,6 +574,15 @@ namespace uvdar {
 
       //}
 
+      /**
+       * @brief Calculates relative position of a hexarotor if three of its markers, carried on the ends of its arms, is seen. This is used with unscented transform to express error covariance of the estimated pose from the errors of the input
+       *
+       * @param X The input vector containing image positions and frequencies of the markers, as well as the mean of range used to cover ambiguity of a specific sequences of points. This mean will be perturbed in the unscented transform to spread the output error covariance accordingly
+       * @param expFrequencies A vector of expected frequencies belonging to the given UAV. These are used to compare to the retrieved frequencies and account for the possible error of frequency retrieval
+       * @param image_index The index of the current camera used to generate the input observed marker
+       *
+       * @return 
+       */
       /* uvdarHexarotorPose3p //{ */
       Eigen::VectorXd uvdarHexarotorPose3p(Eigen::VectorXd X, Eigen::VectorXd expFrequencies, int image_index){
         cv::Point3d tmp;
@@ -641,6 +638,8 @@ namespace uvdar {
         Eigen::Vector3d V2(v2[1], v2[0], -v2[2]);
         Eigen::Vector3d V3(v3[1], v3[0], -v3[2]);
 
+        // Details of the following calculation are explained in [V Walter, N Staub, A Franchi and M Saska. "UVDAR System for Visual Relative Localization With Application to Leader–Follower Formations of Multirotor UAVs." (IEEE RA-L) July 2019] 
+
         Eigen::Vector3d norm13=V3.cross(V1);
         norm13=norm13/norm13.norm();
         double dist132=V2.dot(norm13);
@@ -652,39 +651,21 @@ namespace uvdar {
 
         double A = 1.0 / tan(Alpha);
         double B = 1.0 / tan(Beta);
-        /* std::cout << "alpha: " << Alpha << " beta: " << Beta << std::endl; */
-        /* std::cout << "A: " << A << " B: " << B << std::endl; */
 
         double O = (A * A - A * B + sqrt(3.0) * A + B * B + sqrt(3.0) * B + 3.0);
-        /* std::cout << "long operand: " << O << std::endl; */
         double delta = 2.0 * atan(((B * (2.0 * sqrt(O / (B * B + 2.0 * sqrt(3.0) + 3.0)) - 1.0)) +
               (6.0 * sqrt(O / ((sqrt(3.0) * B + 3.0) * (sqrt(3.0) * B + 3.0)))) + (2.0 * A + sqrt(3.0))) /
             (sqrt(3.0) * B + 3.0));
 
 
-        /* double gamma      = CV_PI - (delta + Alpha); */
-
-        /* double distMiddle = sin(gamma) * _arm_length_ / sin(Alpha); */
-        /* double distMiddle=(_arm_length_*sin(M_PI-(delta+Alpha)))/(sin(Alpha)); */
         double distMiddle=0.5*_arm_length_*((cos(delta)+sin(delta)*A)+(cos((M_PI*(4.0/3.0))-delta)+sin((M_PI*(4.0/3.0))-delta)*B));
 
 
         double l = sqrt(fmax(0.1, distMiddle * distMiddle + _arm_length_ * _arm_length_ - 2 * distMiddle * _arm_length_ * cos(delta + (M_PI / 3.0))));
 
         double Epsilon=asin((_arm_length_/l)*sin(delta+M_PI/3));
-        /* phi=asin((b/l)*sin(delta+pi/3)); */
 
-        /* double phi = asin(sin(delta + (CV_PI / 3.0)) * (_arm_length_ / l)); */
         double phi = asin(sin(delta + (CV_PI / 3.0)) * (distMiddle / l));
-        /* std::cout << "delta: " << delta << std::endl; */
-        /* std::cout << "Estimated distance: " << l << std::endl; */
-        /* std_msgs::Float32 dM, fdM; */
-        /* dM.data  = distance; */
-        /* fdM.data = distanceFiltered; */
-        /* measuredDist.publish(dM); */
-        /* filteredDist.publish(fdM); */
-
-        /* std::cout << "Estimated angle from mid. LED: " << phi * (180.0 / CV_PI) << std::endl; */
 
         double C=acos(V2_c.dot(V2));
         Eigen::Vector3d V2_d=V2_c-V2;
@@ -694,16 +675,10 @@ namespace uvdar {
 
         double Omega1=asin(fmax(-1.0,fmin(1.0,(C/t)*(2.0*sqrt(3.0)))));
 
-        /* Eigen::Vector3d Pv = V2.cross(V1).normalized(); */
         Eigen::Transform< double, 3, Eigen::Affine > Rc(Eigen::AngleAxis< double >(Epsilon, norm13));
-        /* vc=Rc(1:3,1:3)*v2_c; */
         Eigen::Vector3d Vc = Rc*V2_c;
 
         Eigen::VectorXd Yt=l*Vc;
-
-
-
-        /* std::cout << "Estimated center in CAM: " << Yt << std::endl; */
 
         double tilt_perp=Omega1+atan2(Vc(1),sqrt(sqr(Vc(2))+sqr(Vc(0))));
 
@@ -712,8 +687,8 @@ namespace uvdar {
         if (_debug_)
           ROS_INFO_STREAM("leds: " << id);
 
-        if (expFrequencies.size() == 2){
-          if (fabs(expFrequencies[1] - expFrequencies[0]) > 1.0){
+        if (expFrequencies.size() == 2){ //two frequencies on the UAV (portside and starboard)
+          if (fabs(expFrequencies[1] - expFrequencies[0]) > 1.0){ //the frequencies are not the samw
             if     ((id(0)==ids[0]) && (id(1)==ids[0]) && (id(2)==ids[0]))
               relyaw=(M_PI/2);
             else if ((id(0)==ids[1]) && (id(1)==ids[1]) && (id(2)==ids[1]))
@@ -823,13 +798,24 @@ namespace uvdar {
       }
       //}
 
+      /**
+       * @brief Generates relative position and error covariance of a quadrotor if only one of its markers, carried on the ends of its arms or on top (beacon) , is seen.  The result is an elongated covariance covering a range of positions along the line of sight towards the marker This is not used with unscented transform
+       *
+       * @param X 2D vector containing the image coordinates of the sole observed marker
+       * @param tubewidth Defines the "width" of the output covariance (standard deviation perpendicular to the line of sight)
+       * @param tubelength Defines the "length" of the output covariance (standard deviation parallel to the line of sight)
+       * @param mean_dist The mean distance of the UAV in the output measurement - with one marker we do not have informaiton on distance, but we want the mean and covariance to cover the possible range as much as possible, and avoid extending too much behind the camera
+       * @param image_index The index of the current camera used to generate the input observed marker
+       *
+       * @return Measurement comprising mean pose and its error covariance
+       */
       /* uvdarQuadrotorPose1p //{ */
-      unscented::measurement uvdarQuadrotorPose1p_meas(Eigen::Vector2d X,double tubewidth, double tubelength, double meanDist, int image_index){
+      unscented::measurement uvdarQuadrotorPose1p_meas(Eigen::Vector2d X,double tubewidth, double tubelength, double mean_dist, int image_index){
         double v1[3];
         double x[2] = {X.y(),X.x()};
         cam2world(v1, x, &(_oc_models_[image_index]));
         Eigen::Vector3d V1(v1[1], v1[0], -v1[2]);
-        V1 = V1*meanDist;
+        V1 = V1*mean_dist;
 
         unscented::measurement ms;
         ms.x = Eigen::VectorXd(6);
@@ -840,9 +826,6 @@ namespace uvdar {
         temp.setIdentity(6,6);
         ms.C = temp*666;//large covariance for angles in radians - we have no information on this front
         ms.C.topLeftCorner(3, 3) = getLongCovariance(V1,tubewidth,tubelength);
-
-        /* std::cout << "ms.C: " << ms.C << std::endl; */
-
 
         return ms;
       }
@@ -2022,7 +2005,7 @@ namespace uvdar {
 
 
       /**
-       * @brief Calculates a pose with covariance of a UAV observed as a set of its blinking markers
+       * @brief Calculates a pose with error covariance of a UAV observed as a set of its blinking markers
        *
        * @param points The set of observed blinking markers in the image space of the current camera
        * @param target The index of the current target UAV
