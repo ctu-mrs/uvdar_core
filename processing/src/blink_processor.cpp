@@ -58,7 +58,8 @@ namespace uvdar {
         std::vector<std::string> _points_seen_topics;
         param_loader.loadParam("points_seen_topics", _points_seen_topics, _points_seen_topics);
         if (_points_seen_topics.empty()) {
-          ROS_WARN("[UVDARBlinkProcessor]: No topics of points_seen_topics were supplied");
+          ROS_WARN("[UVDARBlinkProcessor]: No topics of points_seen_topics were supplied. Returning.");
+          return;
         }
 
         // Create callbacks for each camera //{

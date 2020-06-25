@@ -22,7 +22,7 @@
   <arg name="outputFramerate" default="60"/>
 
   <arg name="indoor" default="false"/>
-  <arg name="odometryAvailable" default="true"/>
+  <arg name="odometry_available" default="true"/>
 
   <group ns="$(arg uav_name)">
 
@@ -31,21 +31,11 @@
   <!-- <node pkg="uvdar" type="uvdar_kalman_node" name="filterUvdar" output="screen" launch-prefix="debug_roslaunch"> -->
   <node pkg="uvdar" type="uvdar_kalman_node" name="filterUvdar" output="screen">
     <param name="output_frame" value="$(arg frame)"/>
-    <!-- <param name="output_frame" value="$(arg uav_name)/fcu"/> -->
-    <!-- <param name="base_footprint_frame" value="$(arg uav_name)/fcu"/> -->
-    <!-- <param name="base_footprint_frame" value="uvdar_target_estim"/> -->
-    <!-- <param name="sensor_timeout" value="1.0"/> -->
-    <!-- <param name="odom_used" value="false"/> -->
-    <!-- <param name="imu_used" value="false"/> -->
-    <!-- <param name="vo_used" value="false"/> -->
-    <!-- <param name="uvdar_used" value="true"/> -->
-    <!-- <param name="debug" value="false"/> -->
-    <!-- <param name="self_diagnose" value="false"/> -->
     <param name="useVelocity" value="$(arg useVelocity)" />
     <param name="outputFramerate" value="$(arg outputFramerate)" />
 
     <param name="indoor" value="$(arg indoor)" />
-    <param name="odometryAvailable" value="$(arg odometryAvailable)" />
+    <param name="odometry_available" value="$(arg odometry_available)" />
 
     <param name="filterCount" value="$(arg filterCount)" />
 

@@ -1,8 +1,3 @@
-#define MAX_DIST_INIT 100.0
-#define BRACKET_STEP 10
-#define QPIX 1 //pixel std. dev
-#define TUBE_LENGTH (_beacon_?10:1000)
-
 #include <ros/ros.h>
 #include <ros/package.h>
 
@@ -30,6 +25,11 @@
 #include <color_selector/color_selector.h>
 #include <frequency_classifier/frequency_classifier.h>
 
+#define MAX_DIST_INIT 100.0
+#define BRACKET_STEP 10
+#define QPIX 1 //pixel std. dev
+#define TUBE_LENGTH (_beacon_?10:1000)
+
 
 #define sqr(X) ((X) * (X))
 #define cot(X) (cos(X)/sin(X))
@@ -50,13 +50,13 @@ namespace uvdar {
       /**
        * @brief Constructor - loads parameters and initializes necessary structures
        *
-       * @param nh_ Private NodeHandle of this ROS node
+       * @param nh Private NodeHandle of this ROS node
        */
       /* Constructor //{ */
-      UVDARPoseCalculator(ros::NodeHandle& nh_) {
+      UVDARPoseCalculator(ros::NodeHandle& nh) {
         ROS_INFO("[UVDARPoseCalculator]: Initializing pose calculator...");
 
-        mrs_lib::ParamLoader param_loader(nh_, "UVDARPoseCalculator");
+        mrs_lib::ParamLoader param_loader(nh, "UVDARPoseCalculator");
 
         param_loader.loadParam("uav_name", _uav_name_, std::string());
 
@@ -116,10 +116,10 @@ namespace uvdar {
           cals_blinkers_seen_[i] = callback;
           ROS_INFO_STREAM("[UVDARPoseCalculator]: Subscribing to " << _blinkers_seen_topics[i]);
           sub_blinkers_seen_.push_back(
-              nh_.subscribe(_blinkers_seen_topics[i], 1, cals_blinkers_seen_[i]));
+              nh.subscribe(_blinkers_seen_topics[i], 1, cals_blinkers_seen_[i]));
 
           ROS_INFO_STREAM("[UVDARPoseCalculator]: Advertising measured poses " << i+1);
-          pub_measured_poses_.push_back(nh_.advertise<mrs_msgs::PoseWithCovarianceArrayStamped>("measuredPoses"+std::to_string(i+1), 1)); 
+          pub_measured_poses_.push_back(nh.advertise<mrs_msgs::PoseWithCovarianceArrayStamped>("measuredPoses"+std::to_string(i+1), 1)); 
 
 
           camera_image_sizes_.push_back(cv::Size(-1,-1));
@@ -179,7 +179,7 @@ namespace uvdar {
 
           ROS_INFO_STREAM("[UVDARPoseCalculator]: Subscribing to " << _estimated_framerate_topics[i]);
           sub_estimated_framerate_.push_back(
-              nh_.subscribe(_estimated_framerate_topics[i], 1, cals_estimated_framerate_[i]));
+              nh.subscribe(_estimated_framerate_topics[i], 1, cals_estimated_framerate_[i]));
         }
         //}
 
@@ -207,9 +207,9 @@ namespace uvdar {
 
         if (_gui_ || _publish_visualization_){
           if (_publish_visualization_){
-            pub_visualization_ = std::make_unique<mrs_lib::ImagePublisher>(boost::make_shared<ros::NodeHandle>(nh_));
+            pub_visualization_ = std::make_unique<mrs_lib::ImagePublisher>(boost::make_shared<ros::NodeHandle>(nh));
           }
-          timer_visualization_ = nh_.createTimer(ros::Rate(1), &UVDARPoseCalculator::VisualizationThread, this, false);
+          timer_visualization_ = nh.createTimer(ros::Rate(1), &UVDARPoseCalculator::VisualizationThread, this, false);
         }
 
 
@@ -221,6 +221,8 @@ namespace uvdar {
       ~UVDARPoseCalculator() {
       }
       //}
+
+    private:
 
       /**
        * @brief Load the mask files - either form absolute path or composite filename found in the mrs_uav_general package.
@@ -357,8 +359,6 @@ namespace uvdar {
       }
       //}
 
-
-    private:
 
       /* Specific calculations used for individual cases of UAV models detection of various numbers of their markers//{ */
 

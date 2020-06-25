@@ -1,68 +1,42 @@
 <launch>
   <arg name="uav_name" default="$(optenv UAV_NAME uav1)"/>
 
-  <arg name="standalone" default="false"/>
-
-  <arg unless="$(arg standalone)" name="nodelet" value="load"/>
-  <arg     if="$(arg standalone)" name="nodelet" value="standalone"/>
-  <arg unless="$(arg standalone)" name="nodelet_manager" value="$(arg uav_name)_uvdar_nodelet_manager"/>
-  <arg     if="$(arg standalone)" name="nodelet_manager" value=""/>
-
   <!-- Node Settings -->
-  <arg name="output" default="screen"/>
-  <arg name="proc" default="false"/>
-  <arg name="calib" default="false"/>
-
   <arg name="debug" default="false"/>
-  <arg name="visual_debug" default="false"/>
-  <arg name="gui" default="true"/>
-  <arg name="frame" default="$(arg uav_name)/stable_origin"/>
-  <arg name="useVelocity" default="false"/>
+  <arg name="output_frame" default="local_origin"/>
+  <arg name="use_velocity" default="false"/>
   <arg name="output_framerate" default="10"/>
-  <arg name="input_count" default="2"/>
 
   <arg name="indoor" default="false"/>
-  <arg name="odometryAvailable" default="true"/>
+  <arg name="use_two_cameras" default="true">
 
   <group ns="$(arg uav_name)">
-
-
   
-  <!-- <node pkg="uvdar" type="uvdar_kalman_node" name="filterUvdar" output="screen" launch-prefix="debug_roslaunch"> -->
-  <node pkg="uvdar" type="uvdar_kalman_anonymous_node" name="filterUvdar" output="screen">
-    <param name="uav_name" value="$(arg uav_name)" />
-    <param name="output_frame" value="$(arg frame)"/>
-    <!-- <param name="output_frame" value="$(arg uav_name)/fcu"/> -->
-    <!-- <param name="base_footprint_frame" value="$(arg uav_name)/fcu"/> -->
-    <!-- <param name="base_footprint_frame" value="uvdar_target_estim"/> -->
-    <!-- <param name="sensor_timeout" value="1.0"/> -->
-    <!-- <param name="odom_used" value="false"/> -->
-    <!-- <param name="imu_used" value="false"/> -->
-    <!-- <param name="vo_used" value="false"/> -->
-    <!-- <param name="uvdar_used" value="true"/> -->
-    <!-- <param name="debug" value="false"/> -->
-    <!-- <param name="self_diagnose" value="false"/> -->
-    <param name="useVelocity" value="$(arg useVelocity)" />
-    <param name="output_framerate" value="$(arg output_framerate)" />
+    <!-- <node pkg="uvdar" type="uvdar_kalman_node" name="filterUvdar" output="screen" launch-prefix="debug_roslaunch"> -->
+      <node pkg="uvdar" type="uvdar_kalman_anonymous_node" name="filterUvdar" output="screen">
+        <param name="debug" value="$(arg debug)" />
+        <param name="uav_name" value="$(arg uav_name)" />
+        <param name="output_frame" value="$(arg output_frame)"/>
+        <param name="output_framerate" value="$(arg output_framerate)" />
 
-    <param name="indoor" value="$(arg indoor)" />
-    <param name="odometryAvailable" value="$(arg odometryAvailable)" />
+        <param name="indoor" value="$(arg indoor)" />
+        <param name="use_velocity" value="$(arg use_velocity)" />
 
-    <param name="input_count" value="$(arg input_count)" />
+        <group if="$(arg use_two_cameras)">
+          <rosparam param="measured_poses_topics"> ["measured_poses_L", "measured_poses_R"] </rosparam>
+          <remap from="~measured_poses_L" to="/$(arg uav_name)/uvdar/measuredPosesL"/>
+          <remap from="~measured_poses_R" to="/$(arg uav_name)/uvdar/measuredPosesR"/>
+        </group>
+        <group unless="$(arg use_two_cameras)">
+          <rosparam param="measured_poses_topics"> ["measured_poses"] </rosparam>
+          <remap from="~measured_poses" to="/$(arg uav_name)/uvdar/measuredPoses"/>
+        </group>
 
-    <remap from="~measuredPoses1" to="/$(arg uav_name)/uvdar/measuredPosesL"/>
-    <remap from="~measuredPoses2" to="/$(arg uav_name)/uvdar/measuredPosesR"/>
+        <remap from="~filtered_poses" to="/$(arg uav_name)/uvdar/filteredPoses"/>
 
-    <remap from="~filteredPoses" to="/$(arg uav_name)/uvdar/filteredPoses"/>
+        <remap from="~filtered_poses/tentative" to="/$(arg uav_name)/uvdar/filteredPoses/tentative"/>
 
-    <remap from="~filteredPoses/tentative" to="/$(arg uav_name)/uvdar/filteredPoses/tentative"/>
-
-  </node>
+      </node>
     </group>
-
-
-  <!-- </group> -->
-
-
 
   </launch>
