@@ -93,6 +93,7 @@ namespace uvdar {
           blink_data_.push_back(BlinkData());
 
           mutex_camera_image_.push_back(std::make_shared<std::mutex>());
+          camera_image_sizes_.push_back(cv::Size(-1,-1));
         }
         //}
 
@@ -133,9 +134,6 @@ namespace uvdar {
           }
           ufc_ = std::make_unique<UVDARFrequencyClassifier>(_frequencies_);
 
-          for (auto camera : _points_seen_topics){
-            camera_image_sizes_.push_back(cv::Size(-1,-1));
-          }
 
           current_visualization_done_ = false;
           timer_visualization_ = nh_.createTimer(ros::Rate(_visualization_rate_), &UVDARBlinkProcessor::VisualizationThread, this, false);
@@ -314,8 +312,7 @@ namespace uvdar {
   /* VisualizationThread() //{ */
   void VisualizationThread([[maybe_unused]] const ros::TimerEvent& te) {
     if (initialized_){
-      /* std::scoped_lock lock(mutex_visualization_); */
-      if(GenerateVisualization(image_visualization_) >= 0){
+      if(generateVisualization(image_visualization_) >= 0){
         if ((image_visualization_.cols != 0) && (image_visualization_.rows != 0)){
           if (_publish_visualization_){
             pub_visualization_->publish("uvdar_blink_visualization", 0.01, image_visualization_, true);
@@ -347,8 +344,8 @@ namespace uvdar {
    *
    * @return Success status ( 0 - success, 1 - visualization does not need to be generated as the state has not changed, negative - failed, usually due to missing requirements
    */
-  /* GenerateVisualization() //{ */
-  int GenerateVisualization(cv::Mat& output_image) {
+  /* generateVisualization() //{ */
+  int generateVisualization(cv::Mat& output_image) {
     if (_use_camera_for_visualization_ && !images_received_)
       return -2;
 
@@ -473,12 +470,9 @@ namespace uvdar {
 
   std::string              _uav_name_;
   bool                     _debug_;
-  bool                     _visual_debug_;
-  bool                     _gui_;
   std::vector<cv::Mat>     images_current_;
   std::vector<bool>        current_images_received_;
 
-  ros::Timer timer_visualization_;
   std::vector<ros::Timer> timer_process_;
   std::vector<std::shared_ptr<std::mutex>>  mutex_camera_image_;
   bool                     _use_camera_for_visualization_;
@@ -495,6 +489,9 @@ namespace uvdar {
   std::vector<ros::Publisher> pub_blinkers_seen_;
   std::vector<ros::Publisher> pub_estimated_framerate_;
 
+  ros::Timer timer_visualization_;
+  bool _visual_debug_;
+  bool _gui_;
   bool _publish_visualization_;
   float _visualization_rate_;
   cv::Mat image_visualization_;

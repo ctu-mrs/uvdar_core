@@ -186,8 +186,7 @@
       <param name="debug"		type="bool" value="false"/> 
       <param name="gui"             type="bool" value="$(arg gui)"/>
       <param name="publish"         type="bool" value="$(arg publish)"/>
-      <param name="frequenciesPerTarget" type="int" value="1"/>
-      <param name="targetCount" type="int" value="1"/>
+      <param name="frequencies_per_target" type="int" value="1"/>
       <rosparam param="frequencies" subst_value="true"> [$(arg frequency1)] </rosparam>
       <!-- <param name="frequency3" type="int" value="28"/> -->
 

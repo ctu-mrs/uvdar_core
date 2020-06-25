@@ -207,8 +207,7 @@
       <param name="debug"		type="bool" value="false"/> 
       <param name="gui"             type="bool" value="$(arg gui)"/>
       <param name="publish"         type="bool" value="$(arg publish)"/>
-      <param name="frequenciesPerTarget" type="int" value="2"/>
-      <param name="targetCount" type="int" value="2"/>
+      <param name="frequencies_per_target" type="int" value="2"/>
       <param name="calib_file" type="string" value="$(arg calib_file_uv)"/>
       <!-- <param name="mask_file" type="string" value="$(arg mask_file)"/> -->
 

@@ -276,7 +276,7 @@ private:
   /* VisualizationThread() //{ */
   void VisualizationThread([[maybe_unused]] const ros::TimerEvent& te) {
     if (initialized_){
-      GenerateVisualization(image_visualization_);
+      generateVisualization(image_visualization_);
       if ((image_visualization_.cols != 0) && (image_visualization_.rows != 0)){
         if (_publish_visualization_){
           pub_visualization_->publish("uvdar_detection_visualization", 0.01, image_visualization_, true);
@@ -290,8 +290,8 @@ private:
   }
   //}
 
-  /* GenerateVisualization //{ */
-  int GenerateVisualization(cv::Mat& output_image) {
+  /* generateVisualization //{ */
+  int generateVisualization(cv::Mat& output_image) {
     int max_image_height = 0;
     int sum_image_width = 0;
     std::vector<int> start_widths;

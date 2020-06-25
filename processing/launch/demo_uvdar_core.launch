@@ -194,8 +194,7 @@
       <param name="debug"		type="bool" value="true"/> 
       <param name="gui"             type="bool" value="$(arg gui)"/>
       <param name="publish"         type="bool" value="$(arg publish)"/>
-      <param name="frequenciesPerTarget" type="int" value="2"/>
-      <param name="targetCount" type="int" value="2"/>
+      <param name="frequencies_per_target" type="int" value="2"/>
       <param name="calib_file" type="string" value="$(arg calib_file)"/>
 
       <remap from="blinkersSeen" to="/$(arg uav_name)/uvdar/blinkersSeen"/>
