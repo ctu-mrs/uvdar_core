@@ -40,10 +40,18 @@ namespace e = Eigen;
 
 namespace uvdar {
 
+
+  /**
+   * @brief A processing class for converting retrieved blinking markers from a UV camera image into relative poses of observed UAV that carry these markers
+   */
   class UVDARPoseCalculator {
     public:
 
-
+      /**
+       * @brief Constructor - loads parameters and initializes necessary structures
+       *
+       * @param nh_ Private NodeHandle of this ROS node
+       */
       /* Constructor //{ */
       UVDARPoseCalculator(ros::NodeHandle& nh_) {
         ROS_INFO("[UVDARPoseCalculator]: Initializing pose calculator...");
@@ -214,12 +222,12 @@ namespace uvdar {
       }
       //}
 
-      /* loadMasks //{ */
       /**
        * @brief Load the mask files - either form absolute path or composite filename found in the mrs_uav_general package.
        *
        * @return success
        */
+      /* loadMasks //{ */
       bool loadMasks(){
         std::string file_name;
         for (unsigned int i=0; i<_camera_count_; i++){
@@ -243,12 +251,12 @@ namespace uvdar {
       }
       //}
 
-      /* loadCalibrations //{ */
       /**
        * @brief Load the camera calibration files - either form absolute path or composite filename found in the mrs_uav_general package.
        *
        * @return success
        */
+      /* loadCalibrations //{ */
       bool loadCalibrations(){
         std::string file_name;
         _oc_models_.resize(_calib_files_.size());
@@ -281,12 +289,18 @@ namespace uvdar {
       }
       //}
 
+
+      /**
+       * @brief Callback to process a new set of retrieved blinking markers into estimates of relative poses of observed UAVs
+       *
+       * @param msg The input message - set of retrieved blinking marker points from a UV camera - contain image positions and blinking frequencies
+       * @param image_index The index of the current camera used to generate the input message
+       */
       /* ProcessPoints //{ */
       void ProcessPoints(const mrs_msgs::ImagePointsWithFloatStampedConstPtr& msg, size_t image_index) {
         /* int                        countSeen; */
         std::vector< cv::Point3d > points;
         last_blink_time_ = msg->stamp;
-        /* countSeen = (int)((msg)->layout.dim[0].size); */
         if (_debug_)
           ROS_INFO_STREAM("Received points: " << msg->points.size());
         if (msg->points.size() < 1) {
@@ -324,7 +338,6 @@ namespace uvdar {
         if ((int)(points.size()) > 0) {
           if (_beacon_){
             separated_points_[image_index] = separateByBeacon(points);
-            /* return; */
           }
           else {
             separated_points_[image_index] = separateByFrequency(points);
@@ -346,6 +359,8 @@ namespace uvdar {
 
 
     private:
+
+      /* Specific calculations used for individual cases of UAV models detection of various numbers of their markers//{ */
 
       /* uvdarHexarotorPose1p //{ */
       unscented::measurement uvdarHexarotorPose1p_meas(Eigen::Vector2d X,double tubewidth, double tubelength, double meanDist, int image_index){
@@ -698,25 +713,31 @@ namespace uvdar {
           ROS_INFO_STREAM("leds: " << id);
 
         if (expFrequencies.size() == 2){
-          if     ((id(0)==ids[0]) && (id(1)==ids[0]) && (id(2)==ids[0]))
-            relyaw=(M_PI/2);
-          else if ((id(0)==ids[1]) && (id(1)==ids[1]) && (id(2)==ids[1]))
-            relyaw=(-M_PI/2);
-          else if ((id(0)==ids[0]) && (id(1)==ids[0]) && (id(2)==ids[1]))
-            relyaw=(M_PI/6);
-          else if ((id(0)==ids[0]) && (id(1)==ids[1]) && (id(2)==ids[1]))
-            relyaw=(-M_PI/6);
-          else if ((id(0)==ids[1]) && (id(1)==ids[1]) && (id(2)==ids[0]))
-            relyaw=(-5*M_PI/6);
-          else if ((id(0)==ids[1]) && (id(1)==ids[0]) && (id(2)==ids[0]))
-            relyaw=(5*M_PI/6);
-          else
-            if (id(0)==ids[0])
-              relyaw=(M_PI/2)+ambig;
-            else
-              relyaw=(-M_PI/2)+ambig;
+          if (fabs(expFrequencies[1] - expFrequencies[0]) > 1.0){
+            if     ((id(0)==ids[0]) && (id(1)==ids[0]) && (id(2)==ids[0]))
+              relyaw=(M_PI/2);
+            else if ((id(0)==ids[1]) && (id(1)==ids[1]) && (id(2)==ids[1]))
+              relyaw=(-M_PI/2);
+            else if ((id(0)==ids[0]) && (id(1)==ids[0]) && (id(2)==ids[1]))
+              relyaw=(M_PI/6);
+            else if ((id(0)==ids[0]) && (id(1)==ids[1]) && (id(2)==ids[1]))
+              relyaw=(-M_PI/6);
+            else if ((id(0)==ids[1]) && (id(1)==ids[1]) && (id(2)==ids[0]))
+              relyaw=(-5*M_PI/6);
+            else if ((id(0)==ids[1]) && (id(1)==ids[0]) && (id(2)==ids[0]))
+              relyaw=(5*M_PI/6);
+            else{
+              if (id(0)==ids[0])
+                relyaw=(M_PI/2)+ambig;
+              else
+                relyaw=(-M_PI/2)+ambig;
+            }
+          }
+          else {
+            relyaw=2*ambig;
+          }
         }
-        else {
+        else { //we have three frequencies, with specific arrangement
           if     ((id(0)==ids[2]) && (id(1)==ids[0]) && (id(2)==ids[0]))
             relyaw=(M_PI/2);
           else if ((id(0)==ids[1]) && (id(1)==ids[1]) && (id(2)==ids[2]))
@@ -729,11 +750,12 @@ namespace uvdar {
             relyaw=(-5*M_PI/6);
           else if ((id(0)==ids[2]) && (id(1)==ids[2]) && (id(2)==ids[0]))
             relyaw=(5*M_PI/6);
-          else
+          else{
             if (id(0)==ids[0])
               relyaw=(M_PI/2)+ambig;
             else
               relyaw=(-M_PI/2)+ambig;
+          }
         }
 
         double latnorm=sqrt(sqr(Yt(0))+sqr(Yt(2)));
@@ -816,7 +838,7 @@ namespace uvdar {
         ms.x << V1.x(),V1.y(),V1.z(),0,0,0; 
         Eigen::MatrixXd temp;
         temp.setIdentity(6,6);
-        ms.C = temp*666;//large covariance for angles in radians
+        ms.C = temp*666;//large covariance for angles in radians - we have no information on this front
         ms.C.topLeftCorner(3, 3) = getLongCovariance(V1,tubewidth,tubelength);
 
         /* std::cout << "ms.C: " << ms.C << std::endl; */
@@ -1699,20 +1721,15 @@ namespace uvdar {
           }
         }
 
-        /* ROS_INFO_STREAM("relyaw: " << relyaw); */
-        /* ROS_INFO_STREAM("ambig: " << ambig); */
-        /* ROS_INFO_STREAM("expFr: " << expFrequencies); */
-
         output[5] += relyaw;
 
         if (_debug_){
           ROS_INFO_STREAM("["<< ros::this_node::getName().c_str() << "]: 4p:  output final: " << output.transpose());
         }
-
-
-        /* ROS_WARN("[%s]: Three point beacon measusrement Not Implemented yet", ros::this_node::getName().c_str()); */
         return output;
       }
+      //}
+      
       //}
 
 
@@ -1841,45 +1858,43 @@ namespace uvdar {
       }
       //}
 
-      /* getClosestSet //{ */
 
+      /**
+       * @brief Returns a set of markers associated with the given beacon. These are selected such that they are below the marker roughly in horizontal line, and are the closest set to the beacon if there are multiple such compliant sets.
+       *
+       * @param beacon The beacon for which we are requesting other markers associated to the same UAV
+       * @param points The set of points from which we are selecting the output set
+       * @param marked_points A set of flags for each input point, marking them as already associated with a beacon - this allows us to progressively collect even partially ovelapping clusters
+       *
+       * @return Set of markers associated with the given beacon, paired with index of the searching bracket in which they were found. The bracket index tells us how far are they from the beacon, and if any were found (index = -1)
+       */
+      /* getClosestSet //{ */
       std::pair<int,std::vector<int>> getClosestSet(cv::Point3d &beacon, std::vector<cv::Point3d> &points, std::vector<bool> &marked_points){
         std::pair<int, std::vector<int>> output;
         output.first = -1;
         int b = 0;
         for (auto &bracket : bracket_set){
           cv::Rect bracket_placed(bracket.tl()+cv::Point(beacon.x,beacon.y), bracket.size());
-          /* ROS_INFO_STREAM("["<< ros::this_node::getName().c_str() <<"]: beacon: " << cv::Point(beacon.x,beacon.y) << " bracket_placed: " << bracket_placed); */
           std::vector<int> curr_selected_points;
 
           int i = -1;
           for (auto &point : points){
             i++;
-            /* ROS_INFO_STREAM("["<< ros::this_node::getName().c_str() <<"]: trying initial point: " << cv::Point2i(point.x, point.y)); */
             if (marked_points[i] == true){
-              /* ROS_INFO("[%s]: MARKED!", ros::this_node::getName().c_str()); */
               continue;
             }
 
             if (bracket_placed.contains(cv::Point2i(point.x, point.y))){
               cv::Rect local_bracket(cv::Point2i(bracket_placed.tl().x,point.y-BRACKET_STEP), cv::Point2i(bracket_placed.br().x,point.y+BRACKET_STEP));
-              /* ROS_INFO_STREAM("["<< ros::this_node::getName().c_str() <<"]: point: " << point << " local_bracket: " << local_bracket); */
               int j = -1;
               for (auto &point_inner : points){
                 j++;
-                /* ROS_INFO_STREAM("["<< ros::this_node::getName().c_str() <<"]: trying point: " << cv::Point2i(point_inner.x, point_inner.y)); */
                 if (marked_points[j] == true){
-                  /* ROS_INFO("[%s]: MARKED!", ros::this_node::getName().c_str()); */
                   continue;
                 }
                 if (local_bracket.contains(cv::Point2i(point_inner.x, point_inner.y))){
                   curr_selected_points.push_back(j);
-                  /* ROS_INFO_STREAM("["<< ros::this_node::getName().c_str() <<"]: PASSED"); */
                 }
-                else{
-                  /* ROS_INFO_STREAM("["<< ros::this_node::getName().c_str() <<"]: FAILED"); */
-                }
-
               }
               break;
             }
@@ -2005,6 +2020,15 @@ namespace uvdar {
 
       //}
 
+
+      /**
+       * @brief Calculates a pose with covariance of a UAV observed as a set of its blinking markers
+       *
+       * @param points The set of observed blinking markers in the image space of the current camera
+       * @param target The index of the current target UAV
+       * @param image_index The index of the current camera observing the UAV
+       * @param output_pose The output estimated pose with covariance, encapsulated in a ros message. Also includes the target index
+       */
       /* extractSingleRelative //{ */
       void extractSingleRelative(std::vector< cv::Point3d > points, int target, size_t image_index, mrs_msgs::PoseWithCovarianceIdentified& output_pose) {
 
@@ -2021,7 +2045,7 @@ namespace uvdar {
           leftF = _frequencies_[target*2];
           rightF = _frequencies_[target*2+1];
         }
-        double          maxDist = MAX_DIST_INIT;
+        double          max_dist = MAX_DIST_INIT;
 
         int countSeen = (int)(points.size());
 
@@ -2032,6 +2056,8 @@ namespace uvdar {
         }
 
         if ((!_beacon_) || (missing_beacon)){
+
+          //Remove furthest markers until there are at most 3 in the current set
           if ((int)(points.size()) > 1) {
 
             for (int i = 0; i < (int)(points.size()); i++) {
@@ -2050,11 +2076,10 @@ namespace uvdar {
                   if (i == j)
                     continue;
 
-                  /* if ((cv::norm(points[i] - points[j]) < maxDist) && (abs(points[i].y - points[j].y) < abs(points[i].x - points[j].x))) { */
                   if (_debug_)
-                    ROS_INFO_STREAM("Distance: " <<cv::norm(cv::Point2i(points[i].x,points[i].y) - cv::Point2i(points[j].x,points[j].y)) << " maxDist: " << maxDist);
+                    ROS_INFO_STREAM("Distance: " <<cv::norm(cv::Point2i(points[i].x,points[i].y) - cv::Point2i(points[j].x,points[j].y)) << " max_dist: " << max_dist);
 
-                  if ((cv::norm(cv::Point2i(points[i].x,points[i].y) - cv::Point2i(points[j].x,points[j].y)) < maxDist)) {
+                  if ((cv::norm(cv::Point2i(points[i].x,points[i].y) - cv::Point2i(points[j].x,points[j].y)) < max_dist)) {
                     viable = true;
                   }
                   else{
@@ -2065,506 +2090,495 @@ namespace uvdar {
                   points.erase(points.begin() + i);
                   i--;
                 }
-                }
-                maxDist = 0.5 * maxDist;
-                /* std::cout << "maxDist: " << maxDist << std::endl; */
               }
+              max_dist = 0.5 * max_dist;
             }
           }
+        }
 
 
-          unscented::measurement ms;
+        unscented::measurement ms;
 
-          if (_debug_)
-            ROS_INFO_STREAM("framerateEstim: " << estimated_framerate_[image_index]);
+        if (_debug_){
+          ROS_INFO_STREAM("framerateEstim: " << estimated_framerate_[image_index]);
+        }
 
-          double perr=0.2/estimated_framerate_[image_index];
+        double perr=0.2/estimated_framerate_[image_index]; // The expected error of the frequency estimate (depends on the sampling frequency / camera framerate)
 
-          /* if (_debug_) */
-          /* ROS_INFO_STREAM("points: " << points); */
-          if (_quadrotor_) {
-            if ((_beacon_) && (!missing_beacon)){
-              if (points.size() == 1) {
-                ROS_INFO_THROTTLE(1.0,"[%s]: Only one beacon visible - no distance information", ros::this_node::getName().c_str());
-                if (_debug_)
-                  std::cout << "led: " << points[0] << std::endl;
+        if (_quadrotor_) { //if we are expecting quadrotors (markers on each arm)
+          if ((_beacon_) && (!missing_beacon)){ //if we are using beacons and we see the beacon of the current UAV
+            if (points.size() == 1) { //only the beacon is visible
+              ROS_INFO_THROTTLE(1.0,"[%s]: Only one beacon visible - no distance information", ros::this_node::getName().c_str());
+              if (_debug_)
+                std::cout << "led: " << points[0] << std::endl;
 
-
-                ms = uvdarQuadrotorPose1p_meas(Eigen::Vector2d(points[0].x,points[0].y),_arm_length_, 1000,10.0, image_index);
-
-
-              }
-              else if (points.size() == 2){
-                if (_debug_)
-                  ROS_INFO_STREAM("points: " << points);
-                X2qb <<
-                  points[0].x ,points[0].y, // presume that the beacon really is a beacon
-                  points[1].x ,points[1].y, 1.0/(double)(points[1].z),
-                  0,  //to account for ambiguity (roll)
-                  0,  //to account for ambiguity (pitch)
-                  0;  //ambiguity - which of the two markers of a given ID is it?
-                Px2qb <<
-                  QPIX,0,     0,   0,   0,         0,            0,           0,
-                  0,   QPIX,  0,   0,   0,         0,            0,           0,
-                  0,   0,     QPIX,0,   0,         0,            0,           0,
-                  0,   0,     0,   QPIX,0,         0,            0,           0,
-                  0,   0,     0,   0,   sqr(perr), 0,            0,           0,
-                  0,   0,     0,   0,   0,         sqr(M_PI/36), 0,           0,          //tilt_par
-                  0,   0,     0,   0,   0,         0,           sqr(M_PI/18),   0,          //tilt_perp
-                  0,   0,     0,   0,   0,         0,            0,           sqr(M_PI_2) //ambig
-                    ;
-                if (_debug_)
-                  ROS_INFO_STREAM("X2qb: " << X2qb);
-                boost::function<Eigen::VectorXd(Eigen::VectorXd,Eigen::VectorXd,int)> callback;
-                callback=boost::bind(&UVDARPoseCalculator::uvdarQuadrotorPose2pB,this,_1,_2,_3);
-                ms = unscented::unscentedTransform(X2qb,Px2qb,callback,leftF,rightF,-1,image_index);
-              }
-              else if (points.size() == 3){
-                if (_debug_)
-                  ROS_INFO_STREAM("points: " << points);
-                X3qb <<
-                  points[0].x ,points[0].y, // presume that the beacon really is a beacon
-                  points[1].x ,points[1].y, 1.0/(double)(points[1].z),
-                  points[2].x ,points[2].y, 1.0/(double)(points[2].z),
-                  0;
-                Px3qb <<
-                  QPIX,0,    0,   0,   0,        0,   0,   0,         0,
-                  0,   QPIX, 0,   0,   0,        0,   0,   0,         0,
-                  0,   0,    QPIX,0,   0,        0,   0,   0,         0,   
-                  0,   0,    0,   QPIX,0,        0,   0,   0,         0,  
-                  0,   0,    0,   0,   sqr(perr),0,   0,   0,         0,    
-                  0,   0,    0,   0,   0,        QPIX,0,   0,         0,     
-                  0,   0,    0,   0,   0,        0,   QPIX,0,         0,      
-                  0,   0,    0,   0,   0,        0,   0,   sqr(perr), 0,
-                  0,   0,    0,   0,   0,        0,   0,   0,         sqr(M_PI*2)
-                    ;
-                if (_debug_)
-                  ROS_INFO_STREAM("X3qb: " << X3qb);
-                boost::function<Eigen::VectorXd(Eigen::VectorXd,Eigen::VectorXd,int)> callback;
-                callback=boost::bind(&UVDARPoseCalculator::uvdarQuadrotorPose3pB,this,_1,_2,_3);
-                ms = unscented::unscentedTransform(X3qb,Px3qb,callback,leftF,rightF,-1,image_index);
-              }
-              else if (points.size() == 4){
-                if (_debug_)
-                  ROS_INFO_STREAM("points: " << points);
-                X4qb <<
-                  points[0].x ,points[0].y, // presume that the beacon really is a beacon
-                  points[1].x ,points[1].y, 1.0/(double)(points[1].z),
-                  points[2].x ,points[2].y, 1.0/(double)(points[2].z),
-                  points[3].x ,points[3].y, 1.0/(double)(points[3].z),
-                  0;
-                Px4qb <<
-                  QPIX,0,   0,   0,   0,        0,   0,   0,         0,   0,    0,         0,
-                  0,   QPIX,0,   0,   0,        0,   0,   0,         0,   0,    0,         0,
-                  0,   0,   QPIX,0,   0,        0,   0,   0,         0,   0,    0,         0,   
-                  0,   0,   0,   QPIX,0,        0,   0,   0,         0,   0,    0,         0,  
-                  0,   0,   0,   0,   sqr(perr),0,   0,   0,         0,   0,    0,         0,    
-                  0,   0,   0,   0,   0,        QPIX,0,   0,         0,   0,    0,         0,     
-                  0,   0,   0,   0,   0,        0,   QPIX,0,         0,   0,    0,         0,      
-                  0,   0,   0,   0,   0,        0,   0,   sqr(perr), 0,   0,    0,         0,
-                  0,   0,   0,   0,   0,        0,   0,   0,         QPIX,0,    0,         0, 
-                  0,   0,   0,   0,   0,        0,   0,   0,         0,   QPIX, 0,         0, 
-                  0,   0,   0,   0,   0,        0,   0,   0,         0,   0,    sqr(perr), 0,
-                  0,   0,   0,   0,   0,        0,   0,   0,         0,   0,    0,         sqr(2*M_PI/3)
-                    ;
-                if (_debug_)
-                  ROS_INFO_STREAM("X4qb: " << X4qb);
-                boost::function<Eigen::VectorXd(Eigen::VectorXd,Eigen::VectorXd,int)> callback;
-                callback=boost::bind(&UVDARPoseCalculator::uvdarQuadrotorPose4pB,this,_1,_2,_3);
-                ms = unscented::unscentedTransform(X4qb,Px4qb,callback,leftF,rightF,-1,image_index);
-                /* if (_debug_) */
-                /* ROS_INFO_STREAM("Vert. angle: " << deg2rad(atan2(ms.x(1),sqrt(ms.x(0)*ms.x(0)+ms.x(2)*ms.x(2))))); */
-              }
-              else {
-                ROS_INFO_THROTTLE(1.0,"[%s]: No valid points seen. Waiting", ros::this_node::getName().c_str());
-                return;
-              }
-              /* ROS_INFO_STREAM("[UVDARPoseCalculator]: beacons not yet implemented"); */
+              ms = uvdarQuadrotorPose1p_meas(Eigen::Vector2d(points[0].x,points[0].y),_arm_length_, 1000,10.0, image_index);
             }
-            else {
-              if (points.size() == 3) {
-                if (_debug_)
-                  ROS_INFO_STREAM("points: " << points);
-                X3 <<
-                  points[0].x ,points[0].y, 1.0/(double)(points[0].z),
-                  points[1].x ,points[1].y, 1.0/(double)(points[1].z),
-                  points[2].x, points[2].y, 1.0/(double)(points[2].z),
-                  0;  //to account for ambiguity
-                Px3 <<
-                  QPIX,0,   0,        0,   0,   0,        0,   0,   0,        0,
-                  0,   QPIX,0,        0,   0,   0,        0,   0,   0,        0,
-                  0,   0,   sqr(perr),0,   0,   0,        0,   0,   0,        0,
-                  0,   0,   0,        QPIX,0,   0,        0,   0,   0,        0,
-                  0,   0,   0,        0,   QPIX,0,        0,   0,   0,        0,
-                  0,   0,   0,        0,   0,   sqr(perr),0,   0,   0,        0,
-                  0,   0,   0,        0,   0,   0,        QPIX,0,   0,        0,
-                  0,   0,   0,        0,   0,   0,        0,   QPIX,0,        0,
-                  0,   0,   0,        0,   0,   0,        0,   0,   sqr(perr),0,
-                  0,   0,   0,        0,   0,   0,        0,   0,   0,        sqr(2*M_PI/3)
-                    ;
-                if (_debug_)
-                  ROS_INFO_STREAM("X3: " << X3);
-                boost::function<Eigen::VectorXd(Eigen::VectorXd,Eigen::VectorXd,int)> callback;
-                callback=boost::bind(&UVDARPoseCalculator::uvdarQuadrotorPose3p,this,_1,_2,_3);
-                ms = unscented::unscentedTransform(X3,Px3,callback,leftF,rightF,-1,image_index);
-              }
-              else if (points.size() == 2) {
-                if (_debug_)
-                  ROS_INFO_STREAM("points: " << points);
-                X2q <<
-                  (double)(points[0].x) ,(double)(points[0].y),1.0/(double)(points[0].z),
-                  (double)(points[1].x) ,(double)(points[1].y),1.0/(double)(points[1].z),
-                  0.0,0.0;
-                Px2q <<
-                  QPIX ,0,0,0,0,0,0,0,
-                       0,QPIX ,0,0,0,0,0,0,
-                       0,0,sqr(perr),0,0,0,0,0,
-                       0,0,0,QPIX ,0,0,0,0,
-                       0,0,0,0,QPIX ,0,0,0,
-                       0,0,0,0,0,sqr(perr),0,0,
-                       0,0,0,0,0,0,sqr(deg2rad((missing_beacon?70:10))),0,
-                       0,0,0,0,0,0,0,sqr(deg2rad(10))
-                         ;
-
-                if (_debug_)
-                  ROS_INFO_STREAM("X2: " << X2q);
-                boost::function<Eigen::VectorXd(Eigen::VectorXd,Eigen::VectorXd, int)> callback;
-                callback=boost::bind(&UVDARPoseCalculator::uvdarQuadrotorPose2p,this,_1,_2,_3);
-                ms = unscented::unscentedTransform(X2q,Px2q,callback,leftF,rightF,-1,image_index);
-              }
-              else if (points.size() == 1) {
-                ROS_INFO_THROTTLE(1.0,"[%s]: Only single point visible - no distance information", ros::this_node::getName().c_str());
-                if (_debug_)
-                  std::cout << "led: " << points[0] << std::endl;
-
-
-                ms = uvdarQuadrotorPose1p_meas(Eigen::Vector2d(points[0].x,points[0].y),_arm_length_, 1000,10.0, image_index);
-
-
-              } else {
-                ROS_INFO_THROTTLE(1.0,"[%s]: No valid points seen. Waiting", ros::this_node::getName().c_str());
-                return;
-              }
-
+            else if (points.size() == 2){ //beacon and one other marker is visible
+              if (_debug_)
+                ROS_INFO_STREAM("points: " << points);
+              X2qb <<
+                points[0].x ,points[0].y, // presume that the beacon really is a beacon
+                points[1].x ,points[1].y, 1.0/(double)(points[1].z),
+                0,  //to account for ambiguity (roll)
+                0,  //to account for ambiguity (pitch)
+                0;  //ambiguity - which of the two markers of a given ID is it, or multiplied by 4 if all markers of the UAV (apart from the beacon) have the same ID
+              Px2qb <<
+                QPIX,0,     0,   0,   0,         0,            0,           0,
+                0,   QPIX,  0,   0,   0,         0,            0,           0,
+                0,   0,     QPIX,0,   0,         0,            0,           0,
+                0,   0,     0,   QPIX,0,         0,            0,           0,
+                0,   0,     0,   0,   sqr(perr), 0,            0,           0,
+                0,   0,     0,   0,   0,         sqr(M_PI/36), 0,           0,          //tilt_par
+                0,   0,     0,   0,   0,         0,           sqr(M_PI/18),   0,        //tilt_perp
+                0,   0,     0,   0,   0,         0,            0,           sqr(M_PI_2) //ambig
+                  ;
+              if (_debug_)
+                ROS_INFO_STREAM("X2qb: " << X2qb);
+              boost::function<Eigen::VectorXd(Eigen::VectorXd,Eigen::VectorXd,int)> callback;
+              callback=boost::bind(&UVDARPoseCalculator::uvdarQuadrotorPose2pB,this,_1,_2,_3);
+              ms = unscented::unscentedTransform(X2qb,Px2qb,callback,leftF,rightF,-1,image_index);
+            }
+            else if (points.size() == 3){ //beacon and two other markers are visible
+              if (_debug_)
+                ROS_INFO_STREAM("points: " << points);
+              X3qb <<
+                points[0].x ,points[0].y, // presume that the beacon really is a beacon
+                points[1].x ,points[1].y, 1.0/(double)(points[1].z),
+                points[2].x ,points[2].y, 1.0/(double)(points[2].z),
+                0; // ambiguity - if the UAV has only one frequency for all markers except for the beacon, we don't know the orientation
+              Px3qb <<
+                QPIX,0,    0,   0,   0,        0,   0,   0,         0,
+                0,   QPIX, 0,   0,   0,        0,   0,   0,         0,
+                0,   0,    QPIX,0,   0,        0,   0,   0,         0,   
+                0,   0,    0,   QPIX,0,        0,   0,   0,         0,  
+                0,   0,    0,   0,   sqr(perr),0,   0,   0,         0,    
+                0,   0,    0,   0,   0,        QPIX,0,   0,         0,     
+                0,   0,    0,   0,   0,        0,   QPIX,0,         0,      
+                0,   0,    0,   0,   0,        0,   0,   sqr(perr), 0,
+                0,   0,    0,   0,   0,        0,   0,   0,         sqr(M_PI*2) //ambig
+                  ;
+              if (_debug_)
+                ROS_INFO_STREAM("X3qb: " << X3qb);
+              boost::function<Eigen::VectorXd(Eigen::VectorXd,Eigen::VectorXd,int)> callback;
+              callback=boost::bind(&UVDARPoseCalculator::uvdarQuadrotorPose3pB,this,_1,_2,_3);
+              ms = unscented::unscentedTransform(X3qb,Px3qb,callback,leftF,rightF,-1,image_index);
+            }
+            else if (points.size() == 4){ //beacon and three other markers are visible
+              if (_debug_)
+                ROS_INFO_STREAM("points: " << points);
+              X4qb <<
+                points[0].x ,points[0].y, // presume that the beacon really is a beacon
+                points[1].x ,points[1].y, 1.0/(double)(points[1].z),
+                points[2].x ,points[2].y, 1.0/(double)(points[2].z),
+                points[3].x ,points[3].y, 1.0/(double)(points[3].z),
+                0; //ambiguity - if markers (apart from beacon) have only one frequency, the orientation is ambiguous. Alternatively multiply by 2 if there are two frequencies in an unexpected sequence
+              Px4qb <<
+                QPIX,0,   0,   0,   0,        0,   0,   0,         0,   0,    0,         0,
+                0,   QPIX,0,   0,   0,        0,   0,   0,         0,   0,    0,         0,
+                0,   0,   QPIX,0,   0,        0,   0,   0,         0,   0,    0,         0,   
+                0,   0,   0,   QPIX,0,        0,   0,   0,         0,   0,    0,         0,  
+                0,   0,   0,   0,   sqr(perr),0,   0,   0,         0,   0,    0,         0,    
+                0,   0,   0,   0,   0,        QPIX,0,   0,         0,   0,    0,         0,     
+                0,   0,   0,   0,   0,        0,   QPIX,0,         0,   0,    0,         0,      
+                0,   0,   0,   0,   0,        0,   0,   sqr(perr), 0,   0,    0,         0,
+                0,   0,   0,   0,   0,        0,   0,   0,         QPIX,0,    0,         0, 
+                0,   0,   0,   0,   0,        0,   0,   0,         0,   QPIX, 0,         0, 
+                0,   0,   0,   0,   0,        0,   0,   0,         0,   0,    sqr(perr), 0,
+                0,   0,   0,   0,   0,        0,   0,   0,         0,   0,    0,         sqr(2*M_PI/3)
+                  ;
+              if (_debug_)
+                ROS_INFO_STREAM("X4qb: " << X4qb);
+              boost::function<Eigen::VectorXd(Eigen::VectorXd,Eigen::VectorXd,int)> callback;
+              callback=boost::bind(&UVDARPoseCalculator::uvdarQuadrotorPose4pB,this,_1,_2,_3);
+              ms = unscented::unscentedTransform(X4qb,Px4qb,callback,leftF,rightF,-1,image_index);
+            }
+            else { // No points seen - this section should not be reached, since it implie missing_beacon = true
+              ROS_INFO_THROTTLE(1.0,"[%s]: No valid points seen. Waiting", ros::this_node::getName().c_str());
+              return;
             }
           }
-          else {
-            if (_beacon_) {
-              ROS_WARN_THROTTLE(1.0,"[%s]: Beacon-based estimation for hexarotors is not implemented!", ros::this_node::getName().c_str());
-            }
-
-            if (points.size() == 3) {
+          else { //if we are not using beacons, or we are and we do not see the beacon of the current UAV
+            if (points.size() == 3) { // three markers are visible
               if (_debug_)
                 ROS_INFO_STREAM("points: " << points);
               X3 <<
                 points[0].x ,points[0].y, 1.0/(double)(points[0].z),
                 points[1].x ,points[1].y, 1.0/(double)(points[1].z),
                 points[2].x, points[2].y, 1.0/(double)(points[2].z),
-                0;  //to account for ambiguity
+                0; //ambiguity - if markers have only one frequency, the orientation is ambiguous. Alternatively multiply by 2 if there are two frequencies in an unexpected sequence
               Px3 <<
-                QPIX ,0,0,0,0,0,0,0,0,0,
-                     0,QPIX ,0,0,0,0,0,0,0,0,
-                     0,0,sqr(perr),0,0,0,0,0,0,0,
-                     0,0,0,QPIX ,0,0,0,0,0,0,
-                     0,0,0,0,QPIX ,0,0,0,0,0,
-                     0,0,0,0,0,sqr(perr),0,0,0,0,
-                     0,0,0,0,0,0,QPIX ,0,0,0,
-                     0,0,0,0,0,0,0,QPIX ,0,0,
-                     0,0,0,0,0,0,0,0,sqr(perr),0,
-                     0,0,0,0,0,0,0,0,0,sqr(2*M_PI/3)
-                       ;
+                QPIX,0,   0,        0,   0,   0,        0,   0,   0,        0,
+                0,   QPIX,0,        0,   0,   0,        0,   0,   0,        0,
+                0,   0,   sqr(perr),0,   0,   0,        0,   0,   0,        0,
+                0,   0,   0,        QPIX,0,   0,        0,   0,   0,        0,
+                0,   0,   0,        0,   QPIX,0,        0,   0,   0,        0,
+                0,   0,   0,        0,   0,   sqr(perr),0,   0,   0,        0,
+                0,   0,   0,        0,   0,   0,        QPIX,0,   0,        0,
+                0,   0,   0,        0,   0,   0,        0,   QPIX,0,        0,
+                0,   0,   0,        0,   0,   0,        0,   0,   sqr(perr),0,
+                0,   0,   0,        0,   0,   0,        0,   0,   0,        sqr(2*M_PI/3)
+                  ;
               if (_debug_)
                 ROS_INFO_STREAM("X3: " << X3);
-              boost::function<Eigen::VectorXd(Eigen::VectorXd,Eigen::VectorXd, int)> callback;
-              callback=boost::bind(&UVDARPoseCalculator::uvdarHexarotorPose3p,this,_1,_2,_3);
+              boost::function<Eigen::VectorXd(Eigen::VectorXd,Eigen::VectorXd,int)> callback;
+              callback=boost::bind(&UVDARPoseCalculator::uvdarQuadrotorPose3p,this,_1,_2,_3);
               ms = unscented::unscentedTransform(X3,Px3,callback,leftF,rightF,-1,image_index);
             }
-            else if (points.size() == 2) {
+            else if (points.size() == 2) { //two markers are visible
               if (_debug_)
                 ROS_INFO_STREAM("points: " << points);
-              X2 <<
+              X2q <<
                 (double)(points[0].x) ,(double)(points[0].y),1.0/(double)(points[0].z),
                 (double)(points[1].x) ,(double)(points[1].y),1.0/(double)(points[1].z),
-                0.0,0.0,0.0;
-              Px2 <<
-                QPIX ,0,0,0,0,0,0,0,0,
-                     0,QPIX ,0,0,0,0,0,0,0,
-                     0,0,sqr(perr),0,0,0,0,0,0,
-                     0,0,0,QPIX ,0,0,0,0,0,
-                     0,0,0,0,QPIX ,0,0,0,0,
-                     0,0,0,0,0,sqr(perr),0,0,0,
-                     0,0,0,0,0,0,sqr(deg2rad(15)),0,0,
-                     0,0,0,0,0,0,0,sqr(deg2rad(60)),0,
-                     0,0,0,0,0,0,0,0,sqr(deg2rad(10))
+                0, // ambiguity of the relative yaw - the distance between two markers in the image is also affected by the orientation of the target
+                0; // ambiguity of the relative tilt - the two closest markers (on the arms) do not tell us how much is the UAV tilted towards or away from the camera
+              Px2q <<
+                QPIX ,0,0,0,0,0,0,0,
+                     0,QPIX ,0,0,0,0,0,0,
+                     0,0,sqr(perr),0,0,0,0,0,
+                     0,0,0,QPIX ,0,0,0,0,
+                     0,0,0,0,QPIX ,0,0,0,
+                     0,0,0,0,0,sqr(perr),0,0,
+                     0,0,0,0,0,0,sqr(deg2rad((missing_beacon?70:10))),0,  //the range si normally small, since the markers have to be aimed roughly at the camera to be visible
+                     0,0,0,0,0,0,0,sqr(deg2rad(10)) //limited by realistic flight requirements - we normally don't tilt too much
                        ;
-
               if (_debug_)
-                ROS_INFO_STREAM("X2: " << X2);
+                ROS_INFO_STREAM("X2: " << X2q);
               boost::function<Eigen::VectorXd(Eigen::VectorXd,Eigen::VectorXd, int)> callback;
-              callback=boost::bind(&UVDARPoseCalculator::uvdarHexarotorPose2p,this,_1,_2,_3);
-              ms = unscented::unscentedTransform(X2,Px2,callback,leftF,rightF,-1,image_index);
+              callback=boost::bind(&UVDARPoseCalculator::uvdarQuadrotorPose2p,this,_1,_2,_3);
+              ms = unscented::unscentedTransform(X2q,Px2q,callback,leftF,rightF,-1,image_index);
             }
-            else if (points.size() == 1) {
-              std::cout << "Only single point visible - no distance information" << std::endl;
-              /* std::cout << "led: " << points[0] << std::endl; */
+            else if (points.size() == 1) { // only single marker is visible that is not the beacon
+              ROS_INFO_THROTTLE(1.0,"[%s]: Only single point visible - no distance information", ros::this_node::getName().c_str());
+              if (_debug_)
+                std::cout << "led: " << points[0] << std::endl;
 
 
-              ms = uvdarHexarotorPose1p_meas(Eigen::Vector2d(points[0].x,points[0].y),_arm_length_, (TUBE_LENGTH),10.0, image_index);
+              ms = uvdarQuadrotorPose1p_meas(Eigen::Vector2d(points[0].x,points[0].y),_arm_length_, 1000,10.0, image_index);
 
 
-            } else {
-              std::cout << "No valid points seen. Waiting" << std::endl;
+            } else { //no markers seen by the current camera
+              ROS_INFO_THROTTLE(1.0,"[%s]: No valid points seen. Waiting", ros::this_node::getName().c_str());
               return;
             }
+
+          }
+        }
+        else { //if we are expecting hexarotors (markers on each arm)
+          if (_beacon_) { //not implemented - our current fleet of swarm UAVs is comprised only of quadrotors
+            ROS_WARN_THROTTLE(1.0,"[%s]: Beacon-based estimation for hexarotors is not implemented!", ros::this_node::getName().c_str());
           }
 
-
-          /* Eigen::MatrixXd iden(6,6); */
-          /* iden.setIdentity(); */
-          /* ms.C +=iden*0.1; */
-
-          ms.C += e::MatrixXd::Identity(6,6)*0.0001;
-          if (_debug_){
-            /* if (true){ */
-            ROS_INFO_STREAM("Y: \n" << ms.x );
-            ROS_INFO_STREAM("Py: \n" << ms.C );
+          if (points.size() == 3) { //three markers are visible 
+            if (_debug_)
+              ROS_INFO_STREAM("points: " << points);
+            X3 <<
+              points[0].x ,points[0].y, 1.0/(double)(points[0].z),
+              points[1].x ,points[1].y, 1.0/(double)(points[1].z),
+              points[2].x, points[2].y, 1.0/(double)(points[2].z),
+              0;  //ambiguity - if the three markers have unexpected sequence of frequencies, or if the frequencies are the same on all sides multiplied by 2 (orientation is unknown)
+            Px3 <<
+              QPIX ,0,0,0,0,0,0,0,0,0,
+                   0,QPIX ,0,0,0,0,0,0,0,0,
+                   0,0,sqr(perr),0,0,0,0,0,0,0,
+                   0,0,0,QPIX ,0,0,0,0,0,0,
+                   0,0,0,0,QPIX ,0,0,0,0,0,
+                   0,0,0,0,0,sqr(perr),0,0,0,0,
+                   0,0,0,0,0,0,QPIX ,0,0,0,
+                   0,0,0,0,0,0,0,QPIX ,0,0,
+                   0,0,0,0,0,0,0,0,sqr(perr),0,
+                   0,0,0,0,0,0,0,0,0,sqr(2*M_PI/3)
+                     ;
+            if (_debug_)
+              ROS_INFO_STREAM("X3: " << X3);
+            boost::function<Eigen::VectorXd(Eigen::VectorXd,Eigen::VectorXd, int)> callback;
+            callback=boost::bind(&UVDARPoseCalculator::uvdarHexarotorPose3p,this,_1,_2,_3);
+            ms = unscented::unscentedTransform(X3,Px3,callback,leftF,rightF,-1,image_index);
           }
-          if (ms.x.topLeftCorner(3,1).norm() < 1.5)
+          else if (points.size() == 2) {
+            if (_debug_)
+              ROS_INFO_STREAM("points: " << points);
+            X2 <<
+              (double)(points[0].x) ,(double)(points[0].y),1.0/(double)(points[0].z),
+              (double)(points[1].x) ,(double)(points[1].y),1.0/(double)(points[1].z),
+              0, // ambiguity of the relative yaw - the distance between two markers in the image is also affected by the orientation of the target
+              0, // ambiguity of the pair of markers seen - if we have two frequencies on each side of a hexarotor (three markers adjacent per frequency), we can see adjacent pair of equal frequency which can correspond to one of two pairs or arms
+              0; // ambiguity of the relative tilt - the two closest markers (on the arms) do not tell us how much is the UAV tilted towards or away from the camera
+            Px2 <<
+              QPIX ,0,0,0,0,0,0,0,0,
+                   0,QPIX ,0,0,0,0,0,0,0,
+                   0,0,sqr(perr),0,0,0,0,0,0,
+                   0,0,0,QPIX ,0,0,0,0,0,
+                   0,0,0,0,QPIX ,0,0,0,0,
+                   0,0,0,0,0,sqr(perr),0,0,0,
+                   0,0,0,0,0,0,sqr(deg2rad(15)),0,0,
+                   0,0,0,0,0,0,0,sqr(deg2rad(60)),0,
+                   0,0,0,0,0,0,0,0,sqr(deg2rad(10))
+                     ;
+
+            if (_debug_)
+              ROS_INFO_STREAM("X2: " << X2);
+            boost::function<Eigen::VectorXd(Eigen::VectorXd,Eigen::VectorXd, int)> callback;
+            callback=boost::bind(&UVDARPoseCalculator::uvdarHexarotorPose2p,this,_1,_2,_3);
+            ms = unscented::unscentedTransform(X2,Px2,callback,leftF,rightF,-1,image_index);
+          }
+          else if (points.size() == 1) { //only single marker is visible
+            std::cout << "Only single point visible - no distance information" << std::endl;
+
+            ms = uvdarHexarotorPose1p_meas(Eigen::Vector2d(points[0].x,points[0].y),_arm_length_, (TUBE_LENGTH),10.0, image_index);
+
+          } else { //no markers seen by the current camera
+            std::cout << "No valid points seen. Waiting" << std::endl;
             return;
-
-          e::Vector3d unit_vec;
-          unit_vec << 0,0,1.0;
-          if (acos(ms.x.topLeftCorner(3,1).normalized().dot(unit_vec)) > rad2deg(190))
-            return;
-
-          tf::Quaternion qtemp;
-          qtemp.setRPY((ms.x(3)), (ms.x(4)), (ms.x(5)));
-          qtemp=tf::Quaternion(-0.5,0.5,-0.5,-0.5)*qtemp; //bring relative orientations to the optical frame of the camera
-          qtemp.normalize();//just in case
-
-          output_pose.id = target;
-          output_pose.pose.position.x = ms.x(0);
-          output_pose.pose.position.y = ms.x(1);
-          output_pose.pose.position.z = ms.x(2);
-          output_pose.pose.orientation.x = qtemp.x();
-          output_pose.pose.orientation.y = qtemp.y();
-          output_pose.pose.orientation.z = qtemp.z();
-          output_pose.pose.orientation.w = qtemp.w();
-          for (int i=0; i<ms.C.cols(); i++){
-            for (int j=0; j<ms.C.rows(); j++){
-              output_pose.covariance[ms.C.cols()*j+i] =  ms.C(j,i);
-            }
           }
+        }
 
+
+        ms.C += e::MatrixXd::Identity(6,6)*0.0001;
+        if (_debug_){
+          ROS_INFO_STREAM("Y: \n" << ms.x );
+          ROS_INFO_STREAM("Py: \n" << ms.C );
+        }
+
+        if (ms.x.topLeftCorner(3,1).norm() < 1.5) { //We don't expect to be able to measure relative poses of UAVs this close - the markers would be too bright and too far apart
+          return;
+        }
+
+        e::Vector3d unit_vec;
+        unit_vec << 0,0,1.0;
+        if (acos(ms.x.topLeftCorner(3,1).normalized().dot(unit_vec)) > rad2deg(190)) //our lenses only allow us to see UAVs ~92.5 degrees away from the optical axis of the camera
+          return;
+
+        tf::Quaternion qtemp;
+        qtemp.setRPY((ms.x(3)), (ms.x(4)), (ms.x(5)));
+        qtemp=tf::Quaternion(-0.5,0.5,-0.5,-0.5)*qtemp; //bring relative orientations to the optical frame of the camera (Roll, Pitch and Yaw were estimated in the more intuitive sensor frame (X forward, Y to the left, Z up)
+        qtemp.normalize();//just in case
+
+        output_pose.id = target;
+        output_pose.pose.position.x = ms.x(0);
+        output_pose.pose.position.y = ms.x(1);
+        output_pose.pose.position.z = ms.x(2);
+        output_pose.pose.orientation.x = qtemp.x();
+        output_pose.pose.orientation.y = qtemp.y();
+        output_pose.pose.orientation.z = qtemp.z();
+        output_pose.pose.orientation.w = qtemp.w();
+        for (int i=0; i<ms.C.cols(); i++){
+          for (int j=0; j<ms.C.rows(); j++){
+            output_pose.covariance[ms.C.cols()*j+i] =  ms.C(j,i);
           }
-          //}
+        }
 
-          /**
-           * @brief Returns the index of target UAV with a marker based on the frequency-based ID of that marker
-           *
-           * @param f_i Index of the frequency of the given marker
-           *
-           * @return Index of the target carrying the marker
-           */
-          /* classifyMatch //{ */
-          int classifyMatch(int f_i) {
-            return f_i/_frequencies_per_target_;
-          }
-          //}
+      }
+      //}
+
+      /**
+       * @brief Returns the index of target UAV with a marker based on the frequency-based ID of that marker
+       *
+       * @param f_i Index of the frequency of the given marker
+       *
+       * @return Index of the target carrying the marker
+       */
+      /* classifyMatch //{ */
+      int classifyMatch(int f_i) {
+        return f_i/_frequencies_per_target_;
+      }
+      //}
 
 
-          /**
-           * @brief Prepares structures needed for collecting markers associated with a specific beacon marker
-           */
-          /* prepareBlinkerBrackets //{ */
-          void prepareBlinkerBrackets() {
-            double frame_ratio = _arm_length_/(_beacon_height_*0.75);
-            double max_dist = 100;
+      /**
+       * @brief Prepares structures needed for collecting markers associated with a specific beacon marker
+       */
+      /* prepareBlinkerBrackets //{ */
+      void prepareBlinkerBrackets() {
+        double frame_ratio = _arm_length_/(_beacon_height_*0.75);
+        double max_dist = 100;
 
-            cv::Rect curr_rect;
-            for (int i = 0; i < max_dist/BRACKET_STEP; i++) {
-              curr_rect = cv::Rect(cv::Point2i(-frame_ratio*i*BRACKET_STEP-5, 0), cv::Point(frame_ratio*i*BRACKET_STEP+5,i*BRACKET_STEP+5));
-              bracket_set.push_back(curr_rect);
-            }
-          }
-          //}
+        cv::Rect curr_rect;
+        for (int i = 0; i < max_dist/BRACKET_STEP; i++) {
+          curr_rect = cv::Rect(cv::Point2i(-frame_ratio*i*BRACKET_STEP-5, 0), cv::Point(frame_ratio*i*BRACKET_STEP+5,i*BRACKET_STEP+5));
+          bracket_set.push_back(curr_rect);
+        }
+      }
+      //}
 
-          /**
-           * @brief Thread function for optional visualization of separated markers
-           *
-           * @param te TimerEvent for the timer spinning this thread
-           */
-          /* VisualizationThread() //{ */
-          void VisualizationThread([[maybe_unused]] const ros::TimerEvent& te) {
-            if (initialized_){
-              /* std::scoped_lock lock(mutex_visualization_); */
-              if(generateVisualization(image_visualization_) >= 0){
-                if ((image_visualization_.cols != 0) && (image_visualization_.rows != 0)){
-                  if (_publish_visualization_){
-                    pub_visualization_->publish("ocv_point_separation", 0.01, image_visualization_, true);
-                  }
-                  if (_gui_){
-                    cv::imshow("ocv_point_separation_" + _uav_name_, image_visualization_);
-                    cv::waitKey(25);
-                  }
-                }
+      /**
+       * @brief Thread function for optional visualization of separated markers
+       *
+       * @param te TimerEvent for the timer spinning this thread
+       */
+      /* VisualizationThread() //{ */
+      void VisualizationThread([[maybe_unused]] const ros::TimerEvent& te) {
+        if (initialized_){
+          /* std::scoped_lock lock(mutex_visualization_); */
+          if(generateVisualization(image_visualization_) >= 0){
+            if ((image_visualization_.cols != 0) && (image_visualization_.rows != 0)){
+              if (_publish_visualization_){
+                pub_visualization_->publish("ocv_point_separation", 0.01, image_visualization_, true);
+              }
+              if (_gui_){
+                cv::imshow("ocv_point_separation_" + _uav_name_, image_visualization_);
+                cv::waitKey(25);
               }
             }
           }
-          //}
+        }
+      }
+      //}
 
-          /**
-           * @brief Method for generating annotated image for optional visualization
-           *
-           * @param output_image The generated visualization image
-           *
-           * @return Success status ( 0 - success, 1 - visualization does not need to be generated as the state has not changed, negative - failed, usually due to missing requirements
-           */
-          /* generateVisualization() //{ */
-          int generateVisualization(cv::Mat& output_image) {
+      /**
+       * @brief Method for generating annotated image for optional visualization
+       *
+       * @param output_image The generated visualization image
+       *
+       * @return Success status ( 0 - success, 1 - visualization does not need to be generated as the state has not changed, negative - failed, usually due to missing requirements
+       */
+      /* generateVisualization() //{ */
+      int generateVisualization(cv::Mat& output_image) {
 
-            if (camera_image_sizes_.size() == 0){
-              return -3;
-            }
+        if (camera_image_sizes_.size() == 0){
+          return -3;
+        }
 
-            int max_image_height = 0;
-            int sum_image_width = 0;
-            std::vector<int> start_widths;
-            for (auto curr_size : camera_image_sizes_){
-              if (max_image_height < curr_size.height){
-                max_image_height = curr_size.height;
-              }
-              start_widths.push_back(sum_image_width);
-              sum_image_width += curr_size.width;
-            }
+        int max_image_height = 0;
+        int sum_image_width = 0;
+        std::vector<int> start_widths;
+        for (auto curr_size : camera_image_sizes_){
+          if (max_image_height < curr_size.height){
+            max_image_height = curr_size.height;
+          }
+          start_widths.push_back(sum_image_width);
+          sum_image_width += curr_size.width;
+        }
 
-            if ( (sum_image_width <= 0) || (max_image_height <= 0) ){
-              return -2;
-            }
+        if ( (sum_image_width <= 0) || (max_image_height <= 0) ){
+          return -2;
+        }
 
-            output_image = cv::Mat(cv::Size(sum_image_width+((int)(camera_image_sizes_.size())-1), max_image_height),CV_8UC3);
-            output_image = cv::Scalar(0,0,0);
+        output_image = cv::Mat(cv::Size(sum_image_width+((int)(camera_image_sizes_.size())-1), max_image_height),CV_8UC3);
+        output_image = cv::Scalar(0,0,0);
 
-            if ( (output_image.cols <= 0) || (output_image.rows <= 0) ){
-              return -1;
-            }
+        if ( (output_image.cols <= 0) || (output_image.rows <= 0) ){
+          return -1;
+        }
 
-            int image_index = 0;
-            for (auto &sep_points_image : separated_points_){
-              std::scoped_lock lock(*(mutex_separated_points_[image_index]));
-              cv::Point start_point = cv::Point(start_widths[image_index]+image_index, 0);
-              if (image_index > 0){
-                cv::line(output_image, start_point+cv::Point2i(-1,0), start_point+cv::Point2i(-1,max_image_height-1),cv::Scalar(255,255,255));
-              }
-
-              for (auto &point_group : sep_points_image){
-                for (auto &point : point_group.second){
-                  cv::Point center = start_point + cv::Point2i(point.x,point.y);
-
-                  cv::Scalar color = ColorSelector::markerColor(point_group.first);
-                  cv::circle(output_image, center, 5, color);
-                }
-              }
-              image_index++;
-            }
-
-            return 0;
+        int image_index = 0;
+        for (auto &sep_points_image : separated_points_){
+          std::scoped_lock lock(*(mutex_separated_points_[image_index]));
+          cv::Point start_point = cv::Point(start_widths[image_index]+image_index, 0);
+          if (image_index > 0){
+            cv::line(output_image, start_point+cv::Point2i(-1,0), start_point+cv::Point2i(-1,max_image_height-1),cv::Scalar(255,255,255));
           }
 
-          //}
+          for (auto &point_group : sep_points_image){
+            for (auto &point : point_group.second){
+              cv::Point center = start_point + cv::Point2i(point.x,point.y);
 
-
-
-          /* rotmatToYaw //{ */
-          double rotmatToYaw(e::Matrix3d m){
-            return atan2(m(1,0),m(0,0));
+              cv::Scalar color = ColorSelector::markerColor(point_group.first);
+              cv::circle(output_image, center, 5, color);
+            }
           }
-          //}
-          /* rotmatToPitch //{ */
-          double rotmatToPitch(e::Matrix3d m){
-            return atan2( -m(2,0), sqrt( m(2,1)*m(2,1) +m(2,2)*m(2,2) )  );
-          }
-          //}
-          /* rotmatToRoll //{ */
-          double rotmatToRoll(e::Matrix3d m){
-            return atan2(m(2,1),m(2,2));
-          }
-          //}
+          image_index++;
+        }
 
-          /* attributes //{ */
-          bool _debug_;
+        return 0;
+      }
 
-          std::string _uav_name_;
+      //}
 
 
-          using blinkers_seen_callback_t = boost::function<void (const mrs_msgs::ImagePointsWithFloatStampedConstPtr& msg)>;
-          std::vector<blinkers_seen_callback_t> cals_blinkers_seen_;
-          std::vector<ros::Subscriber> sub_blinkers_seen_;
-          ros::Time last_blink_time_;
+      /* Conversions of rotation matrices to aviation angles //{ */
+      /* rotmatToYaw //{ */
+      double rotmatToYaw(e::Matrix3d m){
+        return atan2(m(1,0),m(0,0));
+      }
+      //}
+      /* rotmatToPitch //{ */
+      double rotmatToPitch(e::Matrix3d m){
+        return atan2( -m(2,0), sqrt( m(2,1)*m(2,1) +m(2,2)*m(2,2) )  );
+      }
+      //}
+      /* rotmatToRoll //{ */
+      double rotmatToRoll(e::Matrix3d m){
+        return atan2(m(2,1),m(2,2));
+      }
+      //}
+      //}
 
-          using estimated_framerate_callback_t = boost::function<void (const std_msgs::Float32ConstPtr& msg)>;
-          std::vector<estimated_framerate_callback_t> cals_estimated_framerate_;
-          std::vector<ros::Subscriber> sub_estimated_framerate_;
-          std::vector<double> estimated_framerate_;
+      /* attributes //{ */
+      bool _debug_;
 
-          std::vector<std::string> _camera_frames_;
-          unsigned int _camera_count_;
-
-
-          bool _gui_;
-          bool _publish_visualization_;
-          ros::Timer timer_visualization_;
-          std::vector<cv::Size> camera_image_sizes_;
-          cv::Mat image_visualization_;
-          std::unique_ptr<mrs_lib::ImagePublisher> pub_visualization_;
-
-
-          std::vector<struct ocam_model> _oc_models_;
-
-
-          Eigen::MatrixXd Px2,Px3,Px2q;
-          Eigen::MatrixXd Px2qb,Px3qb,Px4qb;
-          Eigen::VectorXd X2,X3,X2q;
-          Eigen::VectorXd X2qb,X3qb,X4qb;
-
-          std::vector<ros::Publisher> pub_measured_poses_;
-
-          std::vector<double> _frequencies_;
-          int _frequencies_per_target_;
-          int _target_count_;
-          std::unique_ptr<UVDARFrequencyClassifier> ufc_;
+      std::string _uav_name_;
 
 
-          std::vector<cv::Rect> bracket_set;
+      using blinkers_seen_callback_t = boost::function<void (const mrs_msgs::ImagePointsWithFloatStampedConstPtr& msg)>;
+      std::vector<blinkers_seen_callback_t> cals_blinkers_seen_;
+      std::vector<ros::Subscriber> sub_blinkers_seen_;
+      ros::Time last_blink_time_;
 
-          std::vector<std::string> _calib_files_;
+      using estimated_framerate_callback_t = boost::function<void (const std_msgs::Float32ConstPtr& msg)>;
+      std::vector<estimated_framerate_callback_t> cals_estimated_framerate_;
+      std::vector<ros::Subscriber> sub_estimated_framerate_;
+      std::vector<double> estimated_framerate_;
 
-          bool _use_masks_;
-          std::vector<std::string> _mask_file_names_;
-          std::vector<cv::Mat> _masks_;
+      std::vector<std::string> _camera_frames_;
+      unsigned int _camera_count_;
 
-          double _arm_length_;
-          double _beacon_height_;
 
-          bool _quadrotor_;
-          bool _beacon_;
+      bool _gui_;
+      bool _publish_visualization_;
+      ros::Timer timer_visualization_;
+      std::vector<cv::Size> camera_image_sizes_;
+      cv::Mat image_visualization_;
+      std::unique_ptr<mrs_lib::ImagePublisher> pub_visualization_;
 
-          bool initialized_ = false;
 
-          std::vector<std::shared_ptr<std::mutex>>  mutex_separated_points_;
-          std::vector<std::vector<std::pair<int,std::vector<cv::Point3d>>>> separated_points_;
-          //}
-      };
+      std::vector<struct ocam_model> _oc_models_;
 
-  } //uvdar
 
-  int main(int argc, char** argv) {
-    ros::init(argc, argv, "uvdar_pose_calculator");
+      Eigen::MatrixXd Px2,Px3,Px2q;
+      Eigen::MatrixXd Px2qb,Px3qb,Px4qb;
+      Eigen::VectorXd X2,X3,X2q;
+      Eigen::VectorXd X2qb,X3qb,X4qb;
 
-    ros::NodeHandle nh("~");
-    uvdar::UVDARPoseCalculator        upc(nh);
-    ROS_INFO("[UVDARPoseCalculator]: UVDAR Pose calculator node initiated");
-    ros::spin();
-    return 0;
-  }
+      std::vector<ros::Publisher> pub_measured_poses_;
+
+      std::vector<double> _frequencies_;
+      int _frequencies_per_target_;
+      int _target_count_;
+      std::unique_ptr<UVDARFrequencyClassifier> ufc_;
+
+
+      std::vector<cv::Rect> bracket_set;
+
+      std::vector<std::string> _calib_files_;
+
+      bool _use_masks_;
+      std::vector<std::string> _mask_file_names_;
+      std::vector<cv::Mat> _masks_;
+
+      double _arm_length_;
+      double _beacon_height_;
+
+      bool _quadrotor_;
+      bool _beacon_;
+
+      bool initialized_ = false;
+
+      std::vector<std::shared_ptr<std::mutex>>  mutex_separated_points_;
+      std::vector<std::vector<std::pair<int,std::vector<cv::Point3d>>>> separated_points_;
+      //}
+  };
+
+} //uvdar
+
+int main(int argc, char** argv) {
+  ros::init(argc, argv, "uvdar_pose_calculator");
+
+  ros::NodeHandle nh("~");
+  uvdar::UVDARPoseCalculator        upc(nh);
+  ROS_INFO("[UVDARPoseCalculator]: UVDAR Pose calculator node initiated");
+  ros::spin();
+  return 0;
+}
 
