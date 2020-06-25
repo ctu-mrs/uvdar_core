@@ -293,7 +293,7 @@ public:
   /* ProcessPoints //{ */
   void ProcessPoints(const mrs_msgs::ImagePointsWithFloatStampedConstPtr& msg, size_t image_index) {
     /* int                        countSeen; */
-    std::vector< cv::Point3i > points;
+    std::vector< cv::Point3d > points;
     last_blink_time_ = msg->stamp;
     /* countSeen = (int)((msg)->layout.dim[0].size); */
     if (_debug_)
@@ -320,7 +320,7 @@ public:
       }
 
       if (point.value <= 200) {
-        points.push_back(cv::Point3i(point.x, point.y, point.value));
+        points.push_back(cv::Point3d(point.x, point.y, point.value));
       }
     }
 
@@ -339,13 +339,13 @@ public:
         separated_points_[image_index] = separateByFrequency(points);
       }
 
-      for (int i = 0; i < (_beacon_?((int)(separated_points_[image_index].size())):_target_count_); i++) {
+      for (int i = 0; i < ((int)(separated_points_[image_index].size())); i++) {
         if (_debug_){
-          ROS_INFO_STREAM("target [" << i << "]: ");
-          ROS_INFO_STREAM("p: " << separated_points_[image_index][i]);
+          ROS_INFO_STREAM("target [" << separated_points_[image_index][i].first << "]: ");
+          ROS_INFO_STREAM("p: " << separated_points_[image_index][i].second);
         }
         mrs_msgs::PoseWithCovarianceIdentified pose;
-        extractSingleRelative(separated_points_[image_index][i], i, image_index, pose);
+        extractSingleRelative(separated_points_[image_index][i].second, separated_points_[image_index][i].first, image_index, pose);
         msg_measurement_array.poses.push_back(pose);
       }
     }
@@ -1777,29 +1777,76 @@ private:
   //}
 
   /* separateByFrequency //{ */
-  std::vector<std::vector<cv::Point3i>> separateByFrequency(std::vector< cv::Point3i > points){
-    std::vector<std::vector<cv::Point3i>> separated_points;
+  std::vector<std::pair<int,std::vector<cv::Point3d>>> separateByFrequency(std::vector< cv::Point3d > points){
+    std::vector<std::pair<int,std::vector<cv::Point3d>>> separated_points;
     separated_points.resize(_target_count_);
 
 
-      for (int i = 0; i < (int)(points.size()); i++) {
-        if (points[i].z > 1) {
-          int mid = ufc_->findMatch(points[i].z);
-          int tid = classifyMatch(mid);
-          if (_debug_)
-            ROS_INFO("[%s]: FR: %d, MID: %d, TID: %d", ros::this_node::getName().c_str(),points[i].z, mid, tid);
-          /* separated_points[classifyMatch(findMatch(points[i].z))].push_back(points[i]); */
-          if (tid>=0)
-            separated_points[tid].push_back(points[i]);
+    for (int i = 0; i < (int)(points.size()); i++) {
+      if (points[i].z > 1) {
+        int mid = ufc_->findMatch(points[i].z);
+        int tid = classifyMatch(mid);
+        if (_debug_)
+          ROS_INFO("[%s]: FR: %d, MID: %d, TID: %d", ros::this_node::getName().c_str(),(int)points[i].z, mid, tid);
+        /* separated_points[classifyMatch(findMatch(points[i].z))].push_back(points[i]); */
+        if (tid>=0){
+          separated_points[tid].first = tid;
+          separated_points[tid].second.push_back(points[i]);
+          }
+      }
+    }
+
+
+    auto fullAverage = [] (std::vector<cv::Point3d> points) { 
+      cv::Point2d sum(0,0);
+      for (auto p : points){
+        sum += cv::Point2d(p.x,p.y);
+      }
+      sum /= (double)(points.size());
+      return sum;
+    };
+
+    for (int s = 0; s < (int)(separated_points.size()); s++){
+      std::vector<std::vector<cv::Point3d>> clusters; // subsets of the frequency-separated split apart by distance
+      std::vector<cv::Point2d> cluster_centroids;
+      for (int i=0; i<(int)(separated_points[s].second.size());i++){
+        bool cluster_found = false;
+        for (int j=0; j<(int)(clusters.size());j++){
+          if ( cv::norm((cv::Point2d(separated_points[s].second[i].x,separated_points[s].second[i].y) - cluster_centroids[j])) < maxDistInit){
+            clusters[j].push_back(separated_points[s].second[i]);
+            cluster_centroids.push_back(fullAverage(clusters[j]));
+            cluster_found = true;
+          }
+        }
+        if (!cluster_found){
+          std::vector<cv::Point3d> new_cluster;
+          new_cluster.push_back(separated_points[s].second[i]);
+          clusters.push_back(new_cluster);
+          cv::Point2d init_cluster_pt_2d(separated_points[s].second[i].x, separated_points[s].second[i].y);
+          cluster_centroids.push_back(init_cluster_pt_2d);
         }
       }
-      return separated_points;
+      if (clusters.size() > 1){
+        int tid_orig = separated_points[s].first;
+        separated_points.erase(separated_points.begin()+s);
+
+        auto it = separated_points.begin()+s;
+        int cl_n = 0;
+        for (auto& cluster : clusters){
+          separated_points.insert (it+cl_n,1,{cl_n*1000+tid_orig,cluster});
+          cl_n++;
+        }
+        s+=cl_n++;
+      }
+    }
+
+    return separated_points;
   }
   //}
 
   /* getClosestSet //{ */
   
-  std::pair<int,std::vector<int>> getClosestSet(cv::Point3i &beacon, std::vector<cv::Point3i> &points, std::vector<bool> &marked_points){
+  std::pair<int,std::vector<int>> getClosestSet(cv::Point3d &beacon, std::vector<cv::Point3d> &points, std::vector<bool> &marked_points){
     std::pair<int, std::vector<int>> output;
     output.first = -1;
     int b = 0;
@@ -1859,13 +1906,13 @@ private:
 
   /* separateByBeacon //{ */
   
-  std::vector<std::vector<cv::Point3i>> separateByBeacon(std::vector< cv::Point3i > points){
-    std::vector<std::vector<cv::Point3i>> separated_points;
+  std::vector<std::pair<int,std::vector<cv::Point3d>>> separateByBeacon(std::vector< cv::Point3d > points){
+    std::vector<std::pair<int,std::vector<cv::Point3d>>> separated_points;
   
     std::vector<bool> marked_points(points.size(), false);
     std::vector<int> midPoints(points.size(), -1);
 
-    std::vector<cv::Point3i> emptySet;
+    std::vector<cv::Point3d> emptySet;
   
     for (int i = 0; i < (int)(points.size()); i++) {
       if (points[i].z > 1) {
@@ -1873,8 +1920,8 @@ private:
         /* ROS_INFO("[%s]: FR: %d, MID: %d", ros::this_node::getName().c_str(),points[i].z, mid); */
         midPoints[i] = mid;
         if (mid == 0){
-          separated_points.push_back(emptySet);
-          separated_points.back().push_back(points[i]);
+          separated_points.push_back({(int)(separated_points.size()),emptySet});
+          separated_points.back().second.push_back(points[i]);
           marked_points[i] = true;
         }
       }
@@ -1892,7 +1939,7 @@ private:
         if ( marked_beacons[i] ){
           continue;
         }
-        auto curr_beacon = curr_set[0];
+        auto curr_beacon = curr_set.second[0];
         closest_sets[i] = getClosestSet(curr_beacon, points, marked_points);
 
       }
@@ -1922,7 +1969,7 @@ private:
       }
 
       for (auto &subset_point_index : closest_sets[best_index].second){
-        separated_points[best_index].push_back(points[subset_point_index]);
+        separated_points[best_index].second.push_back(points[subset_point_index]);
         marked_points[subset_point_index] = true;
 
       }
@@ -1936,15 +1983,15 @@ private:
       if (marked_points[i])
         continue;
 
-      separated_points.push_back(emptySet);
-      separated_points.back().push_back(cv::Point3i(-1,-1,-1)); //this means that this set does not have a beacon
-      separated_points.back().push_back(points[i]);
+      separated_points.push_back({(int)(separated_points.size()),emptySet});
+      separated_points.back().second.push_back(cv::Point3d(-1,-1,-1)); //this means that this set does not have a beacon
+      separated_points.back().second.push_back(points[i]);
       marked_points[i] = true;
       for (int j = i+1; j < (int)(points.size()); j++) {
         if (marked_points[j])
           continue;
         if (cv::norm(point - points[j]) < maxDistInit){
-          separated_points.back().push_back(points[j]);
+          separated_points.back().second.push_back(points[j]);
           marked_points[j] = true;
         }
       }
@@ -1956,7 +2003,7 @@ private:
   //}
 
   /* extractSingleRelative //{ */
-  void extractSingleRelative(std::vector< cv::Point3i > points, int target, size_t image_index, mrs_msgs::PoseWithCovarianceIdentified& output_pose) {
+  void extractSingleRelative(std::vector< cv::Point3d > points, int target, size_t image_index, mrs_msgs::PoseWithCovarianceIdentified& output_pose) {
 
     double leftF;
     double rightF;
@@ -2396,22 +2443,20 @@ private:
     }
 
     int image_index = 0;
-    for (auto &image_point_set : separated_points_){
+    for (auto &sep_points_image : separated_points_){
       std::scoped_lock lock(*(mutex_separated_points_[image_index]));
       cv::Point start_point = cv::Point(start_widths[image_index]+image_index, 0);
       if (image_index > 0){
         cv::line(output_image, start_point+cv::Point2i(-1,0), start_point+cv::Point2i(-1,max_image_height-1),cv::Scalar(255,255,255));
       }
 
-      int i = 0;
-      for (auto &point_group : image_point_set){
-        for (auto &point : point_group){
+      for (auto &point_group : sep_points_image){
+        for (auto &point : point_group.second){
           cv::Point center = start_point + cv::Point2i(point.x,point.y);
 
-          cv::Scalar color = ColorSelector::markerColor(i);
+          cv::Scalar color = ColorSelector::markerColor(point_group.first);
           cv::circle(output_image, center, 5, color);
         }
-        i++;
       }
       image_index++;
     }
@@ -2505,7 +2550,7 @@ double rotmatToRoll(e::Matrix3d m){
   bool initialized_ = false;
 
   std::vector<std::shared_ptr<std::mutex>>  mutex_separated_points_;
-  std::vector<std::vector<std::vector<cv::Point3i>>> separated_points_;
+  std::vector<std::vector<std::pair<int,std::vector<cv::Point3d>>>> separated_points_;
   //}
 };
 
