@@ -408,7 +408,7 @@ namespace uvdar {
        * @param expFrequencies A vector of expected frequencies belonging to the given UAV. These are used to compare to the retrieved frequencies and account for the possible error of frequency retrieval
        * @param image_index The index of the current camera used to generate the input observed marker
        *
-       * @return 
+       * @return Estimated relative position of the UAV, as well as its orientation expressed in relative Roll, Pitch and Yaw
        */
       /* uvdarHexarotorPose2p //{ */
       Eigen::VectorXd uvdarHexarotorPose2p(Eigen::VectorXd X, Eigen::VectorXd expFrequencies, int image_index){
@@ -581,7 +581,7 @@ namespace uvdar {
        * @param expFrequencies A vector of expected frequencies belonging to the given UAV. These are used to compare to the retrieved frequencies and account for the possible error of frequency retrieval
        * @param image_index The index of the current camera used to generate the input observed marker
        *
-       * @return 
+       * @return Estimated relative position of the UAV, as well as its orientation expressed in relative Roll, Pitch and Yaw
        */
       /* uvdarHexarotorPose3p //{ */
       Eigen::VectorXd uvdarHexarotorPose3p(Eigen::VectorXd X, Eigen::VectorXd expFrequencies, int image_index){
@@ -831,9 +831,17 @@ namespace uvdar {
       }
       //}
 
+      /**
+       * @brief Calculates relative position of a quadrotor without beacon if two of its markers, carried on the ends of its arms, is seen. This is used with unscented transform to express error covariance of the estimated pose from the errors of the input
+       *
+       * @param X The input vector containing image positions and frequencies of the markers, as well as the means of ambiguities of relative yaw and relative tilt. These means will be perturbed in the unscented transform to spread the output error covariance accordingly
+       * @param expFrequencies A vector of expected frequencies belonging to the given UAV. These are used to compare to the retrieved frequencies and account for the possible error of frequency retrieval
+       * @param image_index The index of the current camera used to generate the input observed marker
+       *
+       * @return Estimated relative position of the UAV, as well as its orientation expressed in relative Roll, Pitch and Yaw
+       */
       /* uvdarQuadrotorPose2p //{ */
       Eigen::VectorXd uvdarQuadrotorPose2p(Eigen::VectorXd X, Eigen::VectorXd expFrequencies, int image_index){
-        /* ROS_INFO_STREAM("X: " << X); */
 
         cv::Point3d a;
         cv::Point3d b;
@@ -847,7 +855,6 @@ namespace uvdar {
         }
         double delta=X(6);
 
-        /* std::cout << "right led: " << b << std::endl; */
         Eigen::Vector3i ids;
         ids << 0,1,2;
         Eigen::Vector3d expPeriods;
@@ -861,10 +868,6 @@ namespace uvdar {
         ((expPeriods.array()-(periods(1))).cwiseAbs()).minCoeff(&minIndex);
         id(1) = minIndex;
 
-
-
-
-        /* cv::Point3d central = (a+b) / 2.0; */
         double      v1[3], v2[3];
         double      va[2] = {double(a.y), double(a.x)};
         double      vb[2] = {double(b.y), double(b.x)};
@@ -874,26 +877,14 @@ namespace uvdar {
         }
         cam2world(v1, va, &(_oc_models_[image_index]));
         cam2world(v2, vb, &(_oc_models_[image_index]));
-        /* double vc[3]; */
-        /* double pc[2] = {central.y, central.x}; */
-        /* cam2world(vc, pc, &oc_model); */
 
         Eigen::Vector3d V1(v1[1], v1[0], -v1[2]);
         Eigen::Vector3d V2(v2[1], v2[0], -v2[2]);
         if (_debug_){
           ROS_INFO_STREAM("[UVDARPoseCalculator]: V1: " << V1 << " V2: " << V2);
         }
-        /* Eigen::Vector3d Vc(vc[1], vc[0], -vc[2]); */
 
-        /* double alpha = acos(V1.dot(V2)); */
-
-        /* double vd = sqrt(0.75 * _arm_length_); */
-
-        /* double distance = (_arm_length_ / 2.0) / tan(alpha / 2.0) + vd; */
-        /* if (first) { */
-        /*   distanceSlider.filterInit(distance, filterDistLength); */
-        /*   first = false; */
-        /* } */
+        // The following calculation is based on analytical solution of the geometrical relation between direction vectors towards two closest markers and the relative position of the UAV carrying them. The equations are equivalent to the hexarotor case in [V Walter, M Saska and A Franchi. "Fast mutual relative localization of uavs using ultraviolet led markers." (ICUAS 2018). 2018]
         double d = _arm_length_;
         double v=d*sqrt(1.0/2.0);
         double sqv=v*v;
@@ -906,9 +897,6 @@ namespace uvdar {
         double sn2delta =sin(2*delta);
         double csdelta =cos(delta);
         double cs2delta =cos(2*delta);
-
-        /* ROS_INFO("Alpha: %f, v: %f, d: %f, delta: %f",Alpha, v, d, delta); */
-        /* ROS_INFO_STREAM("V1:" << V1 << std::endl <<"V2: " << V2); */
 
         double l =
           (2*v*Alpha - 
@@ -924,27 +912,8 @@ namespace uvdar {
           /
           (2*(csdelta*(Alpha-2*snAlpha)+Alpha*sndelta));
 
-        /* ROS_INFO("sqrt element is %f", sqrt( */
-        /*      sqv* */
-        /*      (1-2*csdelta*sndelta)* */
-        /*      (1-2*Alpha2-2*Alpha*csAlpha+2*Alpha*cos(Alpha-2*delta)+cos(2*(Alpha-delta))+2*Alpha*snAlpha+2*Alpha*sin(Alpha-2*delta)-2*Alpha2*sn2delta)) */
-        /*   ); */
-
         if (_debug_){
-          /* ROS_INFO("long element is %f", 1-2*Alpha2-2*Alpha*csAlpha+2*Alpha*cos(Alpha-2*delta)+cos(2*(Alpha-delta))+2*Alpha*snAlpha+2*Alpha*sin(Alpha-2*delta)-2*Alpha2*sn2delta); */
-
-          ROS_INFO("Alpha = %f, delta = %f, v = %f", Alpha, delta, v);
-          /* ROS_INFO_STREAM("csAlpha = " << csAlpha << " V1 = " << V1 << " V2 = " << V2); */
-          /* ROS_INFO_STREAM("a = " << a << " b = " << b ); */
-
-          /* distanceSlider.filterPush(distance); */
-
-          /* std::cout << "Estimated distance: " << l << std::endl; */
-          /* std::cout << "Filtered distance: " << distanceFiltered << std::endl; */
-
-          /* std::cout << "Estimated direction in CAM: " << (Rp*V2) << std::endl; */
-          /* std::cout << "Central LED direction in CAM: " << (V2) << std::endl; */
-          /* std::cout << "Rotation: " << Rp.matrix()   << std::endl; */
+          ROS_INFO("[UVDARPoseCalculator]: Alpha = %f, delta = %f, v = %f", Alpha, delta, v);
         }
 
 
@@ -974,19 +943,11 @@ namespace uvdar {
           }
         }
 
-
         double latang=atan2(Vc(0),Vc(2));
 
         double relyaw_view=relyaw;
 
-        /* ROS_INFO_STREAM("expFrequencies: " << expFrequencies); */
-        /* ROS_INFO_STREAM("expPeriods: " << expPeriods); */
-        /* ROS_INFO_STREAM("periods: " << periods); */
-        /* ROS_INFO_STREAM("id: " << id); */
-        /* ROS_INFO("relyaw_orig: %f",relyaw); */
         relyaw=relyaw-latang;
-        /* ROS_INFO_STREAM("Vc: " << Vc); */
-        /* ROS_INFO("latang: %f",latang); */
 
         double latnorm=sqrt(sqr(Yt(0))+sqr(Yt(2)));
         double Gamma=atan2(Yt(1),latnorm);
@@ -998,7 +959,6 @@ namespace uvdar {
         latComp = latComp/(latComp.norm());
 
         if (Vc(1)<0) latComp = -latComp;
-        /* ROS_INFO_STREAM("cross: " << Vc.cross(latComp)); */
 
         Eigen::Transform< double, 3, Eigen::Affine > Re(Eigen::AngleAxis< double >( Gamma+(M_PI/2),(Vc.cross(latComp)).normalized()));
         Eigen::Vector3d exp_normal=Re*Vc;
@@ -1007,11 +967,6 @@ namespace uvdar {
         double tilt_par=acos(obs_normal.dot(exp_normal));
         if (V1(1)<V2(1))
           tilt_par=-tilt_par;
-
-
-        /*       ROS_INFO_STREAM("exp_normal: " << exp_normal); */
-        /*       ROS_INFO_STREAM("obs_normal: " << obs_normal); */
-        /*       ROS_INFO_STREAM("tilt_par: " << tilt_par); */
 
         double dist = Yt.norm();
         Yt= Yt*((dist-xl)/dist);
@@ -1039,6 +994,15 @@ namespace uvdar {
       }
       //}
 
+      /**
+       * @brief Calculates relative position of a quadrotor if three of its markers, carried on the ends of its arms, is seen. This is used with unscented transform to express error covariance of the estimated pose from the errors of the input
+       *
+       * @param X The input vector containing image positions and frequencies of the markers, as well as the mean of range used to cover ambiguity of relative yaw. This mean will be perturbed in the unscented transform to spread the output error covariance accordingly
+       * @param expFrequencies A vector of expected frequencies belonging to the given UAV. These are used to compare to the retrieved frequencies and account for the possible error of frequency retrieval
+       * @param image_index The index of the current camera used to generate the input observed marker
+       *
+       * @return Estimated relative position of the UAV, as well as its orientation expressed in relative Roll, Pitch and Yaw
+       */
       /* uvdarQuadrotorPose3p //{ */
       Eigen::VectorXd uvdarQuadrotorPose3p(Eigen::VectorXd X, Eigen::VectorXd expFrequencies, int image_index){
         cv::Point3d tmp;
@@ -1063,7 +1027,7 @@ namespace uvdar {
           b   = tmp;
         }
         if (_debug_)
-          ROS_INFO_STREAM("Central led: " << b);
+          ROS_INFO_STREAM("[UVDARPoseCalculator]: Central led: " << b);
         Eigen::Vector3i ids;
         ids << 0,1,2;
         Eigen::Vector3d expPeriods;
@@ -1094,6 +1058,8 @@ namespace uvdar {
         Eigen::Vector3d V2(v2[1], v2[0], -v2[2]);
         Eigen::Vector3d V3(v3[1], v3[0], -v3[2]);
 
+        // The following calculation is based on analytical solution of the geometrical relation between direction vectors towards three closest markers and the relative position of the UAV carrying them. The equations are equivalent to the hexarotor case in [V Walter, N Staub, A Franchi and M Saska. "UVDAR System for Visual Relative Localization With Application to Leader–Follower Formations of Multirotor UAVs." (IEEE RA-L) July 2019]
+        
         Eigen::Vector3d norm13=V3.cross(V1);
         norm13=norm13/norm13.norm();
         double dist132=V2.dot(norm13);
@@ -1105,22 +1071,9 @@ namespace uvdar {
 
         double A = 1.0 / tan(Alpha);
         double B = 1.0 / tan(Beta);
-        if (_debug_){
-          std::cout << "a: " << a << " b: " << b << " c: " << c << std::endl;
-          std::cout << "alpha: " << Alpha << " beta: " << Beta << std::endl;
-          std::cout << "A: " << A << " B: " << B << std::endl;
-        }
 
-        /* double O = sqrt(2 + 2*A + A*A + 2*B + B*B); */
-        /* std::cout << "long operand: " << O << std::endl; */
-        /* double delta = atan(-((1+A)/(O))/(((1+A+B+A*B)/O)/(1+A))); */
         double delta = atan(-(1.0+B)/(1+A))+(M_PI);
 
-
-        /* double gamma      = CV_PI - (delta + Alpha); */
-
-        /* double distMiddle = sin(gamma) * _arm_length_ / sin(Alpha); */
-        /* double distMiddle=(_arm_length_*sin(M_PI-(delta+Alpha)))/(sin(Alpha)); */
         double v = sqrt(0.5)*_arm_length_;
         double distMiddle=v*((cos(delta)+sin(delta)*A)+(cos((M_PI*1.5)-delta)+sin((M_PI*1.5)-delta)*B));
 
@@ -1128,22 +1081,8 @@ namespace uvdar {
         double l = sqrt(fmax(0.1, distMiddle * distMiddle + _arm_length_ * _arm_length_ - 2 * distMiddle * _arm_length_ * cos(delta + (M_PI / 4.0))));
 
         double Epsilon=asin((_arm_length_/l)*sin(delta+M_PI/4.0));
-        /* phi=asin((b/l)*sin(delta+pi/3)); */
 
-        /* double phi = asin(sin(delta + (CV_PI / 3.0)) * (_arm_length_ / l)); */
         double phi = asin(sin(delta + (CV_PI/4.0)) * (distMiddle / l));
-        if (_debug_){
-          std::cout << "delta: " << delta << std::endl;
-          std::cout << "distMiddle: " << distMiddle << std::endl;
-          std::cout << "Estimated distance: " << l << std::endl;
-        }
-        /* std_msgs::Float32 dM, fdM; */
-        /* dM.data  = distance; */
-        /* fdM.data = distanceFiltered; */
-        /* measuredDist.publish(dM); */
-        /* filteredDist.publish(fdM); */
-
-        /* std::cout << "Estimated angle from mid. LED: " << phi * (180.0 / CV_PI) << std::endl; */
 
         double C=acos(V2_c.dot(V2));
         Eigen::Vector3d V2_d=V2_c-V2;
@@ -1153,9 +1092,7 @@ namespace uvdar {
 
         double Omega1=asin(fmax(-1.0,fmin(1.0,(C/t)*(2.0*sqrt(3.0)))));
 
-        /* Eigen::Vector3d Pv = V2.cross(V1).normalized(); */
         Eigen::Transform< double, 3, Eigen::Affine > Rc(Eigen::AngleAxis< double >(Epsilon, norm13));
-        /* vc=Rc(1:3,1:3)*v2_c; */
         Eigen::Vector3d Vc = Rc*V2_c;
 
         Eigen::VectorXd Yt=l*Vc;
@@ -1165,7 +1102,7 @@ namespace uvdar {
         double relyaw = 2*ambig;;
 
         if (_debug_)
-          ROS_INFO_STREAM("leds: " << id);
+          ROS_INFO_STREAM("[UVDARPoseCalculator]: leds: " << id);
 
         if (expFrequencies.size() == 2){
           if (fabs(expFrequencies[1] - expFrequencies[0]) > 1.0){
@@ -1200,21 +1137,19 @@ namespace uvdar {
         Eigen::Vector3d exp_normal=Re*Vc;
         Eigen::Transform< double, 3, Eigen::Affine > Ro(Eigen::AngleAxis< double >( Gamma,(Vc.cross(obs_normal)).normalized()));
         obs_normal=Ro*obs_normal;
-        /* obs_normal=Ro(1:3,1:3)*obs_normal; */
-        /* exp_normal=Re(1:3,1:3)*vc; */
         double tilt_par=acos(obs_normal.dot(exp_normal));
         if (V1(1)<V2(1))
           tilt_par=-tilt_par;
 
 
         if (_debug_){
-          ROS_INFO_STREAM("latComp: " << latComp);
-          ROS_INFO_STREAM("Vc: " << Vc);
-          ROS_INFO_STREAM("Gamma: " << Gamma);
-          ROS_INFO_STREAM("exp_normal: " << exp_normal);
-          ROS_INFO_STREAM("obs_normal: " << obs_normal);
-          ROS_INFO_STREAM("tilt_par: " << tilt_par);
-          ROS_INFO_STREAM("tilt_perp: " << tilt_perp);
+          ROS_INFO_STREAM("[UVDARPoseCalculator]: latComp: " << latComp);
+          ROS_INFO_STREAM("[UVDARPoseCalculator]: Vc: " << Vc);
+          ROS_INFO_STREAM("[UVDARPoseCalculator]: Gamma: " << Gamma);
+          ROS_INFO_STREAM("[UVDARPoseCalculator]: exp_normal: " << exp_normal);
+          ROS_INFO_STREAM("[UVDARPoseCalculator]: obs_normal: " << obs_normal);
+          ROS_INFO_STREAM("[UVDARPoseCalculator]: tilt_par: " << tilt_par);
+          ROS_INFO_STREAM("[UVDARPoseCalculator]: tilt_perp: " << tilt_perp);
         }
 
         double relyaw_view=relyaw+phi;
@@ -1222,7 +1157,6 @@ namespace uvdar {
 
         double xl=(_arm_length_/2)*cos(phi);
         double dist = Yt.norm();
-        /* % X(1:3)=Xt(1:3) */
         Eigen::VectorXd Y(6);
         Yt = Yt*((dist-xl)/dist);
         latnorm=sqrt(sqr(Y(0))+sqr(Y(2)));
@@ -1241,10 +1175,10 @@ namespace uvdar {
         double tpitch=atan2(ta,tc);
         double troll=atan2(tb,tc);
         if (_debug_){
-          ROS_INFO_STREAM("tpitch: " << tpitch << " ta: " << ta << " tc: " << tc);
-          ROS_INFO_STREAM("troll: " << tpitch << " tb: " << ta << " tc: " << tc);
-          ROS_INFO_STREAM("reltilt_abs: " << reltilt_abs << " tilt_perp: " << tilt_perp << " tilt_par: " << tilt_par);
-          ROS_INFO_STREAM("Omega1: " << Omega1 << " t: " << t << " C: " << C);
+          ROS_INFO_STREAM("[UVDARPoseCalculator]: tpitch: " << tpitch << " ta: " << ta << " tc: " << tc);
+          ROS_INFO_STREAM("[UVDARPoseCalculator]: troll: " << tpitch << " tb: " << ta << " tc: " << tc);
+          ROS_INFO_STREAM("[UVDARPoseCalculator]: reltilt_abs: " << reltilt_abs << " tilt_perp: " << tilt_perp << " tilt_par: " << tilt_par);
+          ROS_INFO_STREAM("[UVDARPoseCalculator]: Omega1: " << Omega1 << " t: " << t << " C: " << C);
         }
 
         Y << Yt.x(),Yt.y(),Yt.z(),troll,tpitch,relyaw;
