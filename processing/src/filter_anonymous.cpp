@@ -46,10 +46,7 @@ using A_t = mrs_lib::lkf_t::A_t;
 using B_t = mrs_lib::lkf_t::B_t;
 using H_t = mrs_lib::lkf_t::H_t;
 using Q_t = mrs_lib::lkf_t::Q_t;
-using R_t = mrs_lib::lkf_t::R_t;
 using u_t = mrs_lib::lkf_t::u_t;
-using x_t = mrs_lib::lkf_t::x_t;
-using P_t = mrs_lib::lkf_t::P_t;
 using statecov_t = mrs_lib::lkf_t::statecov_t;
 
 namespace e = Eigen;
@@ -89,7 +86,6 @@ namespace uvdar {
         B_t B;
         H_t H;
         Q_t Q;
-        R_t R;
       };
       td_t filter_matrices;
 
@@ -191,24 +187,7 @@ namespace uvdar {
         if (_anonymous_measurements_){
           filter_matrices.A.resize(6,6);
           filter_matrices.Q.resize(6,6);
-          filter_matrices.R.resize(6,6);
           filter_matrices.H.resize(6,6);
-
-          filter_matrices.A <<
-            1,0,0, 0,0,0,
-            0,1,0, 0,0,0,
-            0,0,1, 0,0,0,
-            0,0,0, 1,0,0,
-            0,0,0, 0,1,0,
-            0,0,0, 0,0,1;
-
-          filter_matrices.Q <<
-            vl, 0 ,0, 0, 0 ,0,
-            0, vl, 0, 0, 0 ,0,
-            0, 0, vv, 0, 0 ,0,
-            0, 0, 0,  1, 0 ,0,
-            0, 0, 0,  0, 1 ,0,
-            0, 0, 0,  0, 0 ,1;
 
           filter_matrices.H <<
             1,0,0,0,0,0,
@@ -218,42 +197,12 @@ namespace uvdar {
             0,0,0,0,1,0,
             0,0,0,0,0,1;
 
-          filter_matrices.R <<
-            1,0,0,0,  0,  0,
-            0,1,0,0,  0,  0,
-            0,0,1,0,  0,  0,
-            0,0,0,0.3,0,  0,
-            0,0,0,0,  0.3,0,
-            0,0,0,0,  0,  0.3;
         }
         else {
           if (_use_velocity_){
             filter_matrices.A.resize(9,9);
             filter_matrices.Q.resize(9,9);
-            filter_matrices.R.resize(6,6);
             filter_matrices.H.resize(6,9);
-
-            filter_matrices.A <<
-              1,0,0,dt,0, 0, 0,0,0,
-              0,1,0,0, dt,0, 0,0,0,
-              0,0,1,0, 0, dt,0,0,0,
-              0,0,0,1, 0, 0, 0,0,0,
-              0,0,0,0, 1, 0, 0,0,0,
-              0,0,0,0, 0, 1, 0,0,0,
-              0,0,0,0, 0, 0, 1,0,0,
-              0,0,0,0, 0, 0, 0,1,0,
-              0,0,0,0, 0, 0, 0,0,1;
-
-            filter_matrices.Q <<
-              vl,0,0,0,0,0,0,0,0,
-              0,vl,0,0,0,0,0,0,0,
-              0,0,vv,0,0,0,0,0,0,
-              0,0,0,0.5,0,0,0,0,0,
-              0,0,0,0,0.5,0,0,0,0,
-              0,0,0,0,0,0.5,0,0,0,
-              0,0,0,0,0,0,1,0,0,
-              0,0,0,0,0,0,0,1,0,
-              0,0,0,0,0,0,0,0,1;
 
             filter_matrices.H <<
               1,0,0,0,0,0,0,0,0,
@@ -264,6 +213,17 @@ namespace uvdar {
               0,0,0,0,0,0,0,0,1;
           }
           else {
+            filter_matrices.A.resize(9,9);
+            filter_matrices.Q.resize(9,9);
+            filter_matrices.H.resize(6,9);
+
+            filter_matrices.H <<
+              1,0,0,0,0,0,
+              0,1,0,0,0,0,
+              0,0,1,0,0,0,
+              0,0,0,1,0,0,
+              0,0,0,0,1,0,
+              0,0,0,0,0,1;
           }
         }
 
@@ -404,12 +364,6 @@ namespace uvdar {
             continue;
           }
           predictTillTime(fd.at(target), ros::Time::now(), true);
-          /* double dt_from_last = std::fmin((ros::Time::now()-fd[target].latest_measurement).toSec(), dt); */
-          /* Q_dt(target, dt_from_last); */
-          /* A_dt(target, dt_from_last); */
-          /* filter->A = fd[target].td.A; */
-          /* fd[target].filter_state = filter->predict(fd[target].filter_state, u_t(), (fd[target].td.Q), ); */
-          /* fd[target].latest_update = ros::Time::now(); */
 
           if (_debug_){
             ROS_INFO_STREAM("[UVDARKalman]: State: ");
@@ -448,30 +402,8 @@ namespace uvdar {
         fd.push_back({.filter_state = {.x = x, .P = C}, .update_count = 0, .latest_update = stamp, .latest_measurement = stamp, .id = ((id<0)?(latest_id++):(id))});
 
 
-        /* fd[index].filter_state.x[0]=x(0); */
-        /* fd[index].filter_state.x[1]=x(1); */
-        /* fd[index].filter_state.x[2]=x(2); */
-        /* fd[index].filter_state.x[3]=x(3); */
-        /* fd[index].filter_state.x[4]=x(4); */
-        /* fd[index].filter_state.x[5]=x(5); */
-
-        /* fd[index].filter_state.P = C; */
       }
       //}
-
-      /* /1* update //{ *1/ */
-      /* void update(int index, e::VectorXd x, e::MatrixXd C, ros::Time stamp){ */
-      /*   std::scoped_lock lock(filter_mutex); */
-
-      /*   fd[index].filter_state = filter->predict(fd[index].filter_state, u_t(), (fd[index].td.Q), std::fmin((stamp-fd[index].latest_update).toSec(),(stamp-fd[index].latest_measurement).toSec())); */
-      /*   fd[index].filter_state.x[3] = fixAngle(fd[index].state_filter_state[3], x[3]); */
-      /*   fd[index].filter_state.x[4] = fixAngle(fd[index].filter_state.x[4], x[4]); */
-      /*   fd[index].filter_state.x[5] = fixAngle(fd[index].filter_state.x[5], x[5]); */
-      /*   fd[index].filter_state = filter->correct(fd[index].filter_state, x, C); */
-      /*   fd[index].update_count++; */
-      /*   fd[index].latest_measurement=stamp; */
-      /* } */
-      /* //} */
 
       statecov_t predictTillTime(struct FilterData &fd_curr, ros::Time target_time, bool apply_update = false){
         double dt_from_last = std::fmin((target_time-fd_curr.latest_update).toSec(),(target_time-fd_curr.latest_measurement).toSec());
@@ -560,26 +492,9 @@ namespace uvdar {
             tentative_states.back().push_back(
                 state_curr.value()
                 );
-                /* { .filter_state = predictTillTime(state_curr.value(), header.stamp, false), */
-                /*   .update_count = 0, */
-                /*   .latest_update = header.stamp, */
-                /*   .latest_measurement = state_curr.value().latest_measurement, */
-                /*   .id = state_curr.value().id */
-                /* }); */
-            /* tentative_states.back().back().filter_state.x[3] = fixAngle(state_curr.value().filter_state.x[3], measurement_curr.value().x[3]); */
-            /* tentative_states.back().back().filter_state.x[4] = fixAngle(state_curr.value().filter_state.x[4], measurement_curr.value().x[4]); */
-            /* tentative_states.back().back().filter_state.x[5] = fixAngle(state_curr.value().filter_state.x[5], measurement_curr.value().x[5]); */
-
-            /* match_matrix(measurement_curr.index(),state_curr.index()) = gaussJointMaxVal( */
-            /*     measurement_curr.value().P.topLeftCorner(3,3), */
-            /*     tentative_states.back().back().filter_state.P.topLeftCorner(3,3), */
-            /*     measurement_curr.value().x.topRows(3), */
-            /*     tentative_states.back().back().filter_state.x.topRows(3) */
-            /*     ); */
             double match_level;
             correctWithMeasurement(tentative_states.back().back(),measurement_curr.value(), match_level, header.stamp, true, true);
             match_matrix(measurement_curr.index(),state_curr.index()) = match_level;
-              /* filter->correct(tentative_states.back().back().filter_state, measurement_curr.value().x, measurement_curr.value().P); */
             double dt_s = 0.1;
             if ((ros::Time::now() - state_curr.value().latest_measurement).toSec() < dt_s){ // just in case - in simulation the camera outputs follow one another immediately, so no inflation happens in between
               tentative_states.back().back().filter_state = predictTillTime(tentative_states.back().back(), ros::Time::now()+ros::Duration(dt_s),false);
@@ -630,9 +545,6 @@ namespace uvdar {
           }
           fd[match_curr.second] = tentative_states[match_curr.first][match_curr.second];
 
-          /* fd[match_curr.second].filter_state = tentative_states[match_curr.first][match_curr.second].filter_state; */
-          /* fd[match_curr.second].update_count++; */
-          /* fd[match_curr.second].latest_measurement= header.stamp; */
         }
 
         if (_debug_){
@@ -675,21 +587,8 @@ namespace uvdar {
             initiateNew(measurement_curr.value().x, measurement_curr.value().P, header.stamp, id_local);
           }
           else {
-            /* predictTillTime(fd.at(target), header.stamp, true); */
-            /* double dt_from_last = std::fmin((header.stamp-fd[target].latest_update).toSec(),(header.stamp-fd[target].latest_measurement).toSec()); */
-            /* Q_dt(target, dt_from_last); */
-            /* A_dt(target, dt_from_last); */
-            /* filter->A = fd[target].td.A; */
-            /* auto new_state = filter->predict(fd[target].filter_state, u_t(), (fd[target].td.Q), dt_from_last); */
-            [[ maybe_unused ]] double match_level;
+            [[ maybe_unused ]] double match_level; //for future use with multiple measurements with the same ID
             correctWithMeasurement(fd.at(target),measurement_curr.value(), match_level,header.stamp,true, true);
-            /* fd[target].filter_state.x[3] = fixAngle(fd[target].filter_state.x[3], measurement_curr.value().x[3]); */
-            /* fd[target].filter_state.x[4] = fixAngle(fd[target].filter_state.x[4], measurement_curr.value().x[4]); */
-            /* fd[target].filter_state.x[5] = fixAngle(fd[target].filter_state.x[5], measurement_curr.value().x[5]); */
-            /* auto new_state = filter->correct(fd[target].filter_state, measurement_curr.value().first, measurement_curr.value().P); */
-            /* fd[target].filter_state = new_state; */
-            /* fd[target].update_count++; */
-            /* fd[target].latest_measurement= header.stamp; */
           }
 
         }
@@ -857,15 +756,6 @@ namespace uvdar {
           return (fixedPre - (2.0*M_PI));
         else
           return (fixedPre + (2.0*M_PI));
-      }
-      //}
-
-      /* mahalanobis_distance2 //{ */
-      static double mahalanobis_distance2(const Eigen::Vector3d& x, const Eigen::Vector3d& mu1, const Eigen::Matrix3d& sigma1)
-      {
-        const auto diff = x - mu1;
-        const double dist2 = diff.transpose() * sigma1.inverse() * diff;
-        return fabs(dist2);
       }
       //}
 
