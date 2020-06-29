@@ -12,8 +12,8 @@
 
   <group ns="$(arg uav_name)">
   
-    <node pkg="uvdar" type="uvdar_filter_node" name="filterUvdar" output="screen" launch-prefix="debug_roslaunch">
-      <!-- <node pkg="uvdar" type="uvdar_filter_node" name="filterUvdar" output="screen"> -->
+    <node pkg="uvdar_core" type="uvdar_filter_node" name="filterUvdar" output="screen" launch-prefix="debug_roslaunch">
+      <!-- <node pkg="uvdar_core" type="uvdar_filter_node" name="filterUvdar" output="screen"> -->
         <param name="debug"             value="$(arg debug)" />
         <param name="uav_name"          value="$(arg uav_name)" />
         <param name="output_frame"      value="$(arg output_frame)"/>

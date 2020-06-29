@@ -25,6 +25,7 @@
   * ROS (Robot Operating System) Melodic Morenia
   * mrs_lib - ROS package with utility libraries used by the MRS group
   * mrs_msgs - ROS package with message types used by the MRS group
+  * bluefox2 - ROS package providing interface with mvBlueFOX cameras
 
 ## Included third party libraries
   * OCamCalib calibration system by Davide Scaramuzza - only the C++ sources

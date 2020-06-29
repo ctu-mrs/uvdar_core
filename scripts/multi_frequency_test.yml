@@ -57,7 +57,7 @@ windows:
   - rviz:
       layout: even-vertical
       panes:
-        - export UAV_NAME=uav1; waitForControl; roslaunch uvdar_core beacon_test_rviz.launch
+        - export UAV_NAME=uav1; waitForControl; roslaunch uvdar_core multi_frequency_test_rviz.launch
   - uv_observer:
       layout: even-vertical
       panes:

@@ -265,7 +265,7 @@ namespace uvdar {
         int i=0;
         for (auto calib_file : _calib_files_){
           if (calib_file == "default"){
-            file_name = ros::package::getPath("uvdar")+"/include/OCamCalib/config/calib_results_bf_uv_fe.txt";
+            file_name = ros::package::getPath("uvdar_core")+"/include/OCamCalib/config/calib_results_bf_uv_fe.txt";
           }
           else {
             file_name = calib_file;
@@ -1743,7 +1743,6 @@ namespace uvdar {
             int tid = classifyMatch(mid);
             if (_debug_)
               ROS_INFO("[%s]: FR: %d, MID: %d, TID: %d", ros::this_node::getName().c_str(),(int)points[i].z, mid, tid);
-            /* separated_points[classifyMatch(findMatch(points[i].z))].push_back(points[i]); */
             if (tid>=0){
               separated_points[tid].first = tid;
               separated_points[tid].second.push_back(points[i]);

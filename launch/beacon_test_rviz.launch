@@ -3,7 +3,7 @@
   <arg name="uav_type" default="$(optenv UAV_TYPE f450)"/>
   <arg name="base_link" default="$(arg uav_name)/fcu"/>
   <arg name="gui" default="false" />
-  <arg name="rvizconfig" default="$(find uvdar)/rviz/beacon_testing.rviz" />
+  <arg name="rvizconfig" default="$(find uvdar_core)/rviz/beacon_testing.rviz" />
 
 	<node name="rviz" pkg="rviz" type="rviz" args="-d $(arg rvizconfig)" required="true" />
 

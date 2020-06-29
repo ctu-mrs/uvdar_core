@@ -364,6 +364,10 @@ namespace uvdar {
       sum_image_width += curr_size.width;
     }
 
+    if ( (sum_image_width <= 0) || (max_image_height <= 0) ){
+      return -3;
+    }
+
     output_image = cv::Mat(cv::Size(sum_image_width+((int)(camera_image_sizes_.size())-1), max_image_height),CV_8UC3);
     output_image = cv::Scalar(255, 255, 255);
 

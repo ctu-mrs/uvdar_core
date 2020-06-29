@@ -211,9 +211,9 @@ namespace uvdar {
               0,0,0,0,0,0,0,0,1;
           }
           else {
-            filter_matrices.A.resize(9,9);
-            filter_matrices.Q.resize(9,9);
-            filter_matrices.H.resize(6,9);
+            filter_matrices.A.resize(6,6);
+            filter_matrices.Q.resize(6,6);
+            filter_matrices.H.resize(6,6);
 
             filter_matrices.H <<
               1,0,0,0,0,0,
