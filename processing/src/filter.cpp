@@ -245,7 +245,6 @@ namespace uvdar {
 
     private:
 
-
       /**
        * @brief Callback to process input messages - array of pose estimates with covariance and identity
        *
@@ -335,7 +334,6 @@ namespace uvdar {
       }
       //}
 
-
       /**
        * @brief Thread for processing, predicting and outputting filter states at a regular rate
        *
@@ -376,7 +374,6 @@ namespace uvdar {
 
       }
       //}
-
 
       /**
        * @brief Initiates a new filter based on a measurement
@@ -436,7 +433,6 @@ namespace uvdar {
       }
       //}
 
-
       /**
        * @brief Predicts the change of the state and error covariance till meas_time, and then corrects the state with measurement
        *
@@ -481,7 +477,6 @@ namespace uvdar {
       }
       //}
 
-
       /**
        * @brief Deletes on of the active filter states
        *
@@ -494,7 +489,6 @@ namespace uvdar {
         index--;
       }
       //}
-
 
       /**
        * @brief Returns a value between 0 and 1 representing the level of overlap between two probability distributions in the form of multivariate Gaussians. Multiplying two Gaussians produces another Gaussian, with the value of its peak roughly corresponding to the level of the overlap between the two inputs. The ouptut of this function is the value of such peak, given that the input Gaussians have been scaled s.t. their peaks have the value of 1. Therefore, the output is 1 if the means of both inputs are identical.
@@ -541,7 +535,7 @@ namespace uvdar {
         std::scoped_lock lock(filter_mutex);
         if (fd.size() == 0){
           for (auto const& measurement_curr : measurements | indexed(0)){
-            initiateNew(measurement_curr.value().x, measurement_curr.value().P, header.stamp);
+            initiateNew(measurement_curr.value().x, measurement_curr.value().P, meas_time);
           }
           return;
         }
@@ -553,14 +547,14 @@ namespace uvdar {
           tentative_states.push_back(std::vector<FilterData>());
           for (auto const& state_curr : fd | indexed(0)){
 
-            double dt_from_last = std::fmin((header.stamp-state_curr.value().latest_update).toSec(),(header.stamp-state_curr.value().latest_measurement).toSec());
+            double dt_from_last = std::fmin((meas_time-state_curr.value().latest_update).toSec(),(meas_time-state_curr.value().latest_measurement).toSec());
             
 
             tentative_states.back().push_back(
                 state_curr.value()
                 );
             double match_level;
-            correctWithMeasurement(tentative_states.back().back(),measurement_curr.value(), match_level, header.stamp, true, true);
+            correctWithMeasurement(tentative_states.back().back(),measurement_curr.value(), match_level, meas_time, true, true);
             match_matrix(measurement_curr.index(),state_curr.index()) = match_level;
             double dt_s = 0.1;
             if ((ros::Time::now() - state_curr.value().latest_measurement).toSec() < dt_s){ // just in case - in simulation the camera outputs follow one another immediately, so no inflation happens in between
@@ -624,7 +618,7 @@ namespace uvdar {
               ROS_INFO_STREAM("[UVDARKalman]: match_matrix at: [" << m_i << ":" << f_i << "] is: " << match_matrix(m_i,f_i));
             }
             if (!isnan(match_matrix(m_i,f_i))){
-              initiateNew(measurements[m_i].x, measurements[m_i].P, header.stamp);
+              initiateNew(measurements[m_i].x, measurements[m_i].P, meas_time);
               for (int f_j = 0; f_j < fd_size_orig; f_j++) {
                 match_matrix(m_i,f_j) = std::nan("");
               }
@@ -637,7 +631,6 @@ namespace uvdar {
 
       }
       //}
-      
 
       /**
        * @brief Applies relative position measurements to states that match their IDs
@@ -650,7 +643,7 @@ namespace uvdar {
       void applyMeasurementsWithIdentity(std::vector<statecov_t> measurements, std::vector<int> ids, ros::Time meas_time){
         std::scoped_lock lock(filter_mutex);
 
-        if (measurements.size() != ids.size(){
+        if (measurements.size() != ids.size()){
             ROS_ERROR("[UVDARKalman]: the sizes of the input measurement vector and of the vector of their identities do not match! Returning.");
             return;
             }
@@ -664,11 +657,11 @@ namespace uvdar {
             }
           }
           if (target < 0){
-            initiateNew(measurement_curr.value().x, measurement_curr.value().P, header.stamp, id_local);
+            initiateNew(measurement_curr.value().x, measurement_curr.value().P, meas_time, id_local);
           }
           else {
             [[ maybe_unused ]] double match_level; //for future use with multiple measurements with the same ID
-            correctWithMeasurement(fd.at(target),measurement_curr.value(), match_level,header.stamp,true, true);
+            correctWithMeasurement(fd.at(target),measurement_curr.value(), match_level,meas_time,true, true);
           }
 
         }
@@ -676,7 +669,6 @@ namespace uvdar {
 
       }
       //}
-
 
       /**
        * @brief Publishes the current set of filter states to an output topic
@@ -722,7 +714,6 @@ namespace uvdar {
         pub_filter_tent_.publish(msg_tent);
       }
       //}
-
 
       /**
        * @brief Removes any filter state that contains NaNs.
@@ -801,7 +792,6 @@ namespace uvdar {
         }
       }
       //}
-
 
       /**
        * @brief Retrieves aviation Roll angle from a quaternion
