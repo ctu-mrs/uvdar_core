@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(uvdar)
+project(uvdar_core)
 
 FILE(GLOB_RECURSE HEADER_FILES include *.h)
 FILE(GLOB_RECURSE LAUNCHER_FILES include *.launch)
