@@ -14,7 +14,7 @@ cd $MY_PATH
 rm .tmuxinator.yml
 
 # link the session file to .tmuxinator.yml
-ln beacon_test.yml .tmuxinator.yml
+ln multi_frequency_test.yml .tmuxinator.yml
 
 # start tmuxinator
 tmuxinator
