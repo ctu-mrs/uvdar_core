@@ -10,7 +10,7 @@ windows:
   - gazebo:
       layout: even-vertical
       panes:
-        - waitForRos; roslaunch uvdar uvdar_gazebo.launch gui:=true
+        - waitForRos; roslaunch uvdar_core uvdar_gazebo.launch gui:=true
   - status:
       layout: even-vertical
       panes:
@@ -20,7 +20,7 @@ windows:
   - spawn:
       layout: even-vertical
       panes:
-        - waitForSimulation; spawn_uav 1 --$UAV_TYPE --run --delete --file "position1.txt" --enable-rangefinder --enable-ground-truth --enable-uv-camera --uv-camera-calibration-file "$HOME/mrs_workspace/src/uav_modules/ros_packages/uvdar/processing/include/OCamCalib/config/calib_results_bf_uv_fe.txt"
+        - waitForSimulation; spawn_uav 1 --$UAV_TYPE --run --delete --file "position1.txt" --enable-rangefinder --enable-ground-truth --enable-uv-camera --uv-camera-calibration-file "$HOME/mrs_workspace/src/uav_modules/ros_packages/uvdar_meta/uvdar_core/include/OCamCalib/config/calib_results_bf_uv_fe.txt"
         - waitForSimulation; spawn_uav 2 --$UAV_TYPE --run --delete --file "position2.txt" --enable-rangefinder --enable-ground-truth --enable-uv-leds --led-frequencies 15 15 --debug
         - waitForSimulation; spawn_uav 3 --$UAV_TYPE --run --delete --file "position3.txt" --enable-rangefinder --enable-ground-truth --enable-uv-leds --led-frequencies 30 30 --debug
   - control:
@@ -57,16 +57,15 @@ windows:
   - rviz:
       layout: even-vertical
       panes:
-        - export UAV_NAME=uav1; waitForControl; roslaunch uvdar beacon_test_rviz.launch
+        - export UAV_NAME=uav1; waitForControl; roslaunch uvdar_core beacon_test_rviz.launch
   - uv_observer:
       layout: even-vertical
       panes:
-        - waitForCompile; gz world --pause=0; sleep 6;  export UAV_NAME=uav1; waitForControl; roslaunch uvdar multi_frequency_test.launch
-        # - export UAV_NAME=uav1; waitForControl; roslaunch uvdar beacon_test.launch
+        - waitForCompile; gz world --pause=0; sleep 6;  export UAV_NAME=uav1; waitForControl; roslaunch uvdar_core multi_frequency_test.launch
   - kalman_filter:
       layout: even-vertical
       panes:
-        - export UAV_NAME=uav1; waitForControl; roslaunch uvdar uvdar_kalman_identified.launch output_frame:=$UAV_NAME/stable_origin
+        - export UAV_NAME=uav1; waitForControl; roslaunch uvdar_core uvdar_kalman_identified.launch output_frame:=$UAV_NAME/stable_origin
   - slow_down:
       layout: even-vertical
       panes:
