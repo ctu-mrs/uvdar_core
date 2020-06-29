@@ -22,7 +22,7 @@ namespace uvdar {
 
 
     private:
-      void frequencyCallback(const uvdar::FrequencySetConstPtr& msg){
+      void frequencyCallback(const uvdar_core::FrequencySetConstPtr& msg){
         mrs_msgs::BacaProtocol serial_msg;
         serial_msg.stamp = ros::Time::now();
         serial_msg.payload.push_back(0x92);
