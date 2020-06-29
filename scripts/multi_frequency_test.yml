@@ -1,0 +1,77 @@
+name: simulation
+root: ./
+startup_window: kalman_filter 
+pre_window: export RUN_TYPE=simulation; export UAV_TYPE=f450; export WORLD_NAME=simulation; export ODOMETRY_TYPE=gps
+windows:
+  - roscore:
+      layout: even-vertical
+      panes:
+        - roscore
+  - gazebo:
+      layout: even-vertical
+      panes:
+        - waitForRos; roslaunch uvdar uvdar_gazebo.launch gui:=true
+  - status:
+      layout: even-vertical
+      panes:
+        - export UAV_NAME=uav1; waitForRos; roslaunch mrs_uav_status status.launch
+        - export UAV_NAME=uav2; waitForRos; roslaunch mrs_uav_status status.launch
+        - export UAV_NAME=uav3; waitForRos; roslaunch mrs_uav_status status.launch
+  - spawn:
+      layout: even-vertical
+      panes:
+        - waitForSimulation; spawn_uav 1 --$UAV_TYPE --run --delete --file "position1.txt" --enable-rangefinder --enable-ground-truth --enable-uv-camera --uv-camera-calibration-file "$HOME/mrs_workspace/src/uav_modules/ros_packages/uvdar/processing/include/OCamCalib/config/calib_results_bf_uv_fe.txt"
+        - waitForSimulation; spawn_uav 2 --$UAV_TYPE --run --delete --file "position2.txt" --enable-rangefinder --enable-ground-truth --enable-uv-leds --led-frequencies 15 15 --debug
+        - waitForSimulation; spawn_uav 3 --$UAV_TYPE --run --delete --file "position3.txt" --enable-rangefinder --enable-ground-truth --enable-uv-leds --led-frequencies 30 30 --debug
+  - control:
+      layout: even-vertical
+      panes:
+        - export UAV_NAME=uav1; waitForOdometry; roslaunch mrs_uav_general core.launch config_mpc_tracker:=./custom_configs/mpc_tracker.yaml
+        - export UAV_NAME=uav2; waitForOdometry; roslaunch mrs_uav_general core.launch config_mpc_tracker:=./custom_configs/mpc_tracker.yaml
+        - export UAV_NAME=uav3; waitForOdometry; roslaunch mrs_uav_general core.launch config_mpc_tracker:=./custom_configs/mpc_tracker.yaml
+  - autostart:
+      layout: even-vertical
+      panes:
+        - export UAV_NAME=uav1; waitForSimulation; roslaunch mrs_uav_general automatic_start.launch
+        - export UAV_NAME=uav2; waitForSimulation; roslaunch mrs_uav_general automatic_start.launch
+        - export UAV_NAME=uav3; waitForSimulation; roslaunch mrs_uav_general automatic_start.launch
+  - takeoff:
+      layout: even-vertical
+      panes:
+        - 'export UAV_NAME=uav1;
+          waitForControl;
+          rosservice call /$UAV_NAME/mavros/cmd/arming 1;
+          sleep 0.1;
+          rosservice call /$UAV_NAME/mavros/set_mode 0 offboard'
+        - 'export UAV_NAME=uav2;
+          waitForControl;
+          rosservice call /$UAV_NAME/mavros/cmd/arming 1;
+          sleep 0.1;
+          rosservice call /$UAV_NAME/mavros/set_mode 0 offboard'
+        - 'export UAV_NAME=uav3;
+          waitForControl;
+          rosservice call /$UAV_NAME/mavros/cmd/arming 1;
+          sleep 0.1;
+          rosservice call /$UAV_NAME/mavros/set_mode 0 offboard'
+        # #}
+  - rviz:
+      layout: even-vertical
+      panes:
+        - export UAV_NAME=uav1; waitForControl; roslaunch uvdar beacon_test_rviz.launch
+  - uv_observer:
+      layout: even-vertical
+      panes:
+        - waitForCompile; gz world --pause=0; sleep 6;  export UAV_NAME=uav1; waitForControl; roslaunch uvdar multi_frequency_test.launch
+        # - export UAV_NAME=uav1; waitForControl; roslaunch uvdar beacon_test.launch
+  - kalman_filter:
+      layout: even-vertical
+      panes:
+        - export UAV_NAME=uav1; waitForControl; roslaunch uvdar uvdar_kalman_identified.launch output_frame:=$UAV_NAME/stable_origin
+  - slow_down:
+      layout: even-vertical
+      panes:
+        - waitForSimulation; waitForRos; sleep 15; gz physics -u 100
+  - goto:
+      layout: even-vertical
+      panes:
+        - 'history -s rosservice call /uav3/control_manager/goto_fcu \"goal: \[0.0, 0.0, 0.0, 0.7\]\"'
