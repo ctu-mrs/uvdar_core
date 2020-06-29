@@ -100,11 +100,8 @@ add_dependencies(UVDARBlinkProcessor ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catki
 add_executable(uvdar_uav_pose_calculator_node src/uav_pose_calculator.cpp)
 add_dependencies(uvdar_uav_pose_calculator_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
-# add_executable(uvdar_kalman_node src/filter.cpp)
-# add_dependencies(uvdar_kalman_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-
-add_executable(uvdar_kalman_anonymous_node src/filter_anonymous.cpp)
-add_dependencies(uvdar_kalman_anonymous_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+add_executable(uvdar_filter_node src/filter.cpp)
+add_dependencies(uvdar_filter_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 add_library(UVDARBluefoxEmulator src/bluefox_emulator.cpp)
 add_dependencies(UVDARBluefoxEmulator ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
@@ -142,13 +139,7 @@ target_link_libraries(uvdar_uav_pose_calculator_node
   frequency_classifier
   )
 
-# target_link_libraries(uvdar_kalman_node
-#   ${catkin_LIBRARIES}
-#   ${OpenCV_LIBRARIES}
-#   ${EIGEN3_LIBRARIES}
-#   )
-
-target_link_libraries(uvdar_kalman_anonymous_node
+target_link_libraries(uvdar_filter_node
   ${catkin_LIBRARIES}
   ${OpenCV_LIBRARIES}
   ${EIGEN3_LIBRARIES}

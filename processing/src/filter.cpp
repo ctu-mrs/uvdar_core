@@ -55,7 +55,7 @@ namespace uvdar {
 
 
   /**
-   * @brief A processing lass for filtering measurements from UVDAR-based relative UAV pose estimator
+   * @brief A processing lass for filtering measurements from UVDAR-based relative UAV pose estimator. This uses a vector of Kalman filter states for tracking multiple targets either if they have known identity or if they are anonymous.
    */
   class UVDARKalman {
 
@@ -117,8 +117,6 @@ namespace uvdar {
       //}
 
     public:
-
-
       /**
        * @brief Constructor - loads parameters and initializes necessary structures
        *
@@ -247,6 +245,12 @@ namespace uvdar {
 
     private:
 
+
+      /**
+       * @brief Callback to process input messages - array of pose estimates with covariance and identity
+       *
+       * @param msg
+       */
       /* calllbackMeasurement //{ */
       void callbackMeasurement(const mrs_msgs::PoseWithCovarianceArrayStamped& msg){
         if ((int)(msg.poses.size()) < 1)
@@ -323,24 +327,22 @@ namespace uvdar {
         }
 
         if (_anonymous_measurements_){
-          applyMeasurementsAnonymous(meas_converted, msg_local.header);
+          applyMeasurementsAnonymous(meas_converted, msg_local.header.stamp);
         }
         else {
-          applyMeasurementsWithIdentity(meas_converted, ids, msg_local.header);
+          applyMeasurementsWithIdentity(meas_converted, ids, msg_local.header.stamp);
         }
       }
       //}
 
-      /* deleteFilter //{ */
-      void deleteFilter(int &index){
-        if (index < 0) return;
-        fd.erase(fd.begin()+index);
-        index--;
-      }
-      //}
 
+      /**
+       * @brief Thread for processing, predicting and outputting filter states at a regular rate
+       *
+       * @param te TimerEvent for the timer spinning this thread
+       */
       /* spin //{ */
-      void spin([[ maybe_unused ]] const ros::TimerEvent& unused){
+      void spin([[ maybe_unused ]] const ros::TimerEvent& te){
         std::scoped_lock lock(filter_mutex);
         removeNANs();
         if (_anonymous_measurements_){
@@ -375,6 +377,15 @@ namespace uvdar {
       }
       //}
 
+
+      /**
+       * @brief Initiates a new filter based on a measurement
+       *
+       * @param x Measurement vector
+       * @param C Error covariance associated with x
+       * @param stamp Time of the measurement
+       * @param id Identity of the target (-1 means that it is unknown or irrelevant)
+       */
       /* initiateNew //{ */
       void initiateNew(e::VectorXd x, e::MatrixXd C, ros::Time stamp, int id = -1){
         if (fd.size() > 20)
@@ -400,11 +411,19 @@ namespace uvdar {
         ROS_INFO_STREAM("[UVDARKalman]: Initiating state " << index << "  with: " << x.transpose());
 
         fd.push_back({.filter_state = {.x = x, .P = C}, .update_count = 0, .latest_update = stamp, .latest_measurement = stamp, .id = ((id<0)?(latest_id++):(id))});
-
-
       }
       //}
 
+      /**
+       * @brief Predicts the filter state at target_time, given that target_time is newer than the last update or measurement
+       *
+       * @param fd_curr The filter data structure to start from (if apply_update is true, this structure will be updated with the result)
+       * @param target_time The time to which the state is to be predicted
+       * @param apply_update If true, the output will be applied to the structure fd_curr. This provides more data than the return value, such as the update time
+       *
+       * @return The resulting state and its output covariance
+       */
+      /* predictTillTime //{ */
       statecov_t predictTillTime(struct FilterData &fd_curr, ros::Time target_time, bool apply_update = false){
         double dt_from_last = std::fmin((target_time-fd_curr.latest_update).toSec(),(target_time-fd_curr.latest_measurement).toSec());
         filter->A = A_dt(dt_from_last);
@@ -415,7 +434,22 @@ namespace uvdar {
         }
         return new_state;
       }
+      //}
 
+
+      /**
+       * @brief Predicts the change of the state and error covariance till meas_time, and then corrects the state with measurement
+       *
+       * @param fd_curr The filter data structure to start from (if apply_update is true, this structure will be updated with the result)
+       * @param measurement The input measurement to correct the state with
+       * @param match_level The output level of overlap between the original state fd_curr and the measurement in terms of position. This is based on the maximum of multivariate Gaussian multiplication between the measurement and the state, and represents information that is normally lost in the Kalman filter process
+       * @param meas_time The time of the input measurement
+       * @param prior_predict if true, the state is first brought to meas_time by predicting its change from the last update or measurement
+       * @param apply_update If true, the output will be applied to the structure fd_curr. This provides more data than the return value, such as the update time
+       *
+       * @return The resulting state and its output covariance
+       */
+      /* correctWithMeasurement //{ */
       statecov_t correctWithMeasurement(struct FilterData &fd_curr, statecov_t measurement, double &match_level, ros::Time meas_time, bool prior_predict, bool apply_update = false){
         auto filter_local = fd_curr;
         if (prior_predict){
@@ -445,7 +479,33 @@ namespace uvdar {
         }
         return filter_local.filter_state;
       }
+      //}
 
+
+      /**
+       * @brief Deletes on of the active filter states
+       *
+       * @param index The index of the filter state to remove
+       */
+      /* deleteFilter //{ */
+      void deleteFilter(int &index){
+        if (index < 0) return;
+        fd.erase(fd.begin()+index);
+        index--;
+      }
+      //}
+
+
+      /**
+       * @brief Returns a value between 0 and 1 representing the level of overlap between two probability distributions in the form of multivariate Gaussians. Multiplying two Gaussians produces another Gaussian, with the value of its peak roughly corresponding to the level of the overlap between the two inputs. The ouptut of this function is the value of such peak, given that the input Gaussians have been scaled s.t. their peaks have the value of 1. Therefore, the output is 1 if the means of both inputs are identical.
+       *
+       * @param si0 The covariance of the first distribution
+       * @param si1 The covariance of the second distribution
+       * @param mu0 The mean of the first distribution
+       * @param mu1 The mean of the second distribution
+       *
+       * @return The level of overlap between the two distribution
+       */
       /* gaussJointMaxVal //{ */
       double gaussJointMaxVal(e::MatrixXd si0,e::MatrixXd si1,e::VectorXd mu0,e::VectorXd mu1){
         bool scaled = true;
@@ -469,8 +529,15 @@ namespace uvdar {
       }
       //}
 
+
+      /**
+       * @brief Applies relative position measurements to states that are the closest to their position component
+       *
+       * @param measurements A vector of measurements with error covariances
+       * @param meas_time The time of the input measurements
+       */
       /* applyMeasurementsAnonymous //{ */
-      void applyMeasurementsAnonymous(std::vector<statecov_t> measurements, std_msgs::Header header){
+      void applyMeasurementsAnonymous(std::vector<statecov_t> measurements, ros::Time meas_time){
         std::scoped_lock lock(filter_mutex);
         if (fd.size() == 0){
           for (auto const& measurement_curr : measurements | indexed(0)){
@@ -571,9 +638,22 @@ namespace uvdar {
       }
       //}
       
+
+      /**
+       * @brief Applies relative position measurements to states that match their IDs
+       *
+       * @param measurements A vector of measurements with error covariances
+       * @param ids A vector of IDs associated with the measurements - deanonymize measurements of multiple targets
+       * @param meas_time
+       */
       /* applyMeasurementsWithIdentity //{ */
-      void applyMeasurementsWithIdentity(std::vector<statecov_t> measurements, std::vector<int> ids, std_msgs::Header header){
+      void applyMeasurementsWithIdentity(std::vector<statecov_t> measurements, std::vector<int> ids, ros::Time meas_time){
         std::scoped_lock lock(filter_mutex);
+
+        if (measurements.size() != ids.size(){
+            ROS_ERROR("[UVDARKalman]: the sizes of the input measurement vector and of the vector of their identities do not match! Returning.");
+            return;
+            }
 
         for(auto const& measurement_curr : measurements | indexed(0)){
           int id_local = ids[measurement_curr.index()] % 1000;
@@ -597,6 +677,10 @@ namespace uvdar {
       }
       //}
 
+
+      /**
+       * @brief Publishes the current set of filter states to an output topic
+       */
       /* publishStates //{ */
       void publishStates(){
         mrs_msgs::PoseWithCovarianceArrayStamped msg;
@@ -639,6 +723,10 @@ namespace uvdar {
       }
       //}
 
+
+      /**
+       * @brief Removes any filter state that contains NaNs.
+       */
       /* removeNANs //{ */
       void removeNANs(){
         for (int i=0; i<(int)(fd.size());i++){
@@ -651,6 +739,10 @@ namespace uvdar {
       }
       //}
 
+
+      /**
+       * @brief Remove filter states that overlap too much with others in terms of their state vectors and associated covariances. Of each overlapping pair, the one removed is either the one that was not yet validated with sufficient number of measurements, or the one with larger covariance (less precise knowledge).
+       */
       /* removeOverlaps //{ */
       void removeOverlaps(){
         double curr_match_level;
@@ -710,6 +802,14 @@ namespace uvdar {
       }
       //}
 
+
+      /**
+       * @brief Retrieves aviation Roll angle from a quaternion
+       *
+       * @param q The input quaternion
+       *
+       * @return The ouput angle
+       */
       /* quatRotateRoll //{ */
       double quatToRoll(e::Quaterniond q){
         e::Matrix3d m = q.matrix();
@@ -717,6 +817,13 @@ namespace uvdar {
       }
       //}
 
+      /**
+       * @brief Retrieves aviation Pitch angle from a quaternion
+       *
+       * @param q The input quaternion
+       *
+       * @return The ouput angle
+       */
       /* quatRotatePitch //{ */
       double quatToPitch(e::Quaterniond q){
         e::Matrix3d m = q.matrix();
@@ -724,6 +831,13 @@ namespace uvdar {
       }
       //}
 
+      /**
+       * @brief Retrieves aviation Yaw angle from a quaternion
+       *
+       * @param q The input quaternion
+       *
+       * @return The ouput angle
+       */
       /* quatRotateYaw //{ */
       double quatToYaw(e::Quaterniond q){
         e::Matrix3d m = q.matrix();
@@ -731,6 +845,14 @@ namespace uvdar {
       }
       //}
 
+      /**
+       * @brief Changes the expression of the origAngle, such that if it is updated in a filtering process with newAngle, circularity issues will be avoided
+       *
+       * @param origAngle The angle, representing prior state, to be updated
+       * @param newAngle The new angle, representing new measurement, that affects origAngle in filtering
+       *
+       * @return The new expression of origAngle
+       */
       /* fixAngle //{ */
       double fixAngle(double origAngle, double newAngle){
         double fixedPre;
@@ -740,7 +862,6 @@ namespace uvdar {
         else {
           fixedPre = origAngle;
         }
-        /* fixedPre = origAngle; */
 
         if (fixedPre>(M_PI))
           fixedPre = fixedPre - (2.0*M_PI);
@@ -759,6 +880,15 @@ namespace uvdar {
       }
       //}
 
+
+      /**
+       * @brief Updates the shared system matrix in case that it is time step-dependent. This is useful for non-uniform time-steps
+       *
+       * @param dt - The current time step of the kalman filter process
+       *
+       * @return The new system matrix
+       */
+      /* A_dt //{ */
       A_t A_dt(double dt){
         if (_anonymous_measurements_){
           filter_matrices.A <<
@@ -793,7 +923,16 @@ namespace uvdar {
         }
         return filter_matrices.A;
       }
+      //}
 
+      /**
+       * @brief Updates the shared process noise covariance matrix in case that it is time step-dependent. This is useful for non-uniform time-steps
+       *
+       * @param dt - The current time step of the kalman filter process
+       *
+       * @return The new process noise matrix
+       */
+      // Q_dt //{ */
       Q_t Q_dt(double dt){
         if (_anonymous_measurements_){
           //simplified to the process described in detail below. These two approaches will be compared
@@ -841,6 +980,7 @@ namespace uvdar {
         }
         return filter_matrices.Q;
       }
+      //}
 
   };
 
