@@ -1,7 +1,7 @@
 #include <ros/ros.h>
 #include <ros/package.h>
 #include <mrs_msgs/BacaProtocol.h>
-#include <uvdar/FrequencySet.h>
+#include <uvdar_core/FrequencySet.h>
 
 namespace uvdar {
   class FrequencySetter {
