@@ -1734,7 +1734,7 @@ namespace uvdar {
       /* separateByFrequency //{ */
       std::vector<std::pair<int,std::vector<cv::Point3d>>> separateByFrequency(std::vector< cv::Point3d > points){
         std::vector<std::pair<int,std::vector<cv::Point3d>>> separated_points;
-        separated_points.resize(_target_count_);
+        /* separated_points.resize(_target_count_); */
 
 
         for (int i = 0; i < (int)(points.size()); i++) {
@@ -1744,8 +1744,22 @@ namespace uvdar {
             if (_debug_)
               ROS_INFO("[%s]: FR: %d, MID: %d, TID: %d", ros::this_node::getName().c_str(),(int)points[i].z, mid, tid);
             if (tid>=0){
-              separated_points[tid].first = tid;
-              separated_points[tid].second.push_back(points[i]);
+              int index = -1;
+              int j=0;
+              for (auto& sep_pts : separated_points){
+                if (sep_pts.first == tid){
+                  index = j;
+                  break;
+                }
+                j++;
+              }
+              if (index < 0){
+                separated_points.push_back({tid,{points[i]}});
+              }
+              else {
+                separated_points[index].second.push_back(points[i]);
+              }
+
             }
           }
         }
