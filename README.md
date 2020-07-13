@@ -39,7 +39,10 @@ If you are using the `mrs_modules` meta package (currently only accessable inter
 Build the package using catkin tools (e.g. `catkin build uvdar_core`)
 
 ## Testing
-In order to test the system in simulation, install all the dependencies (Above) and run one of the start scripts in the [scripts](scripts/) folder
+In order to test the system in simulation, install all the dependencies (Above) and run one of the two start scripts in the [scripts](scripts/) folder:
+  * For testing separation of units based on position and beacons use [beacon_test.sh](scripts/beacon_test.sh)
+  * For testing separation of units based on different blinking frequencies [multi_frequency_test.sh](scripts/multi_frequency_test.sh)
+
 
 ## Acknowledgements
 
