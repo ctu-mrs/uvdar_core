@@ -28,10 +28,25 @@
   * [mrs_msgs](https://github.com/ctu-mrs/mrs_msgs) - ROS package with message types used by the MRS group
   * [bluefox2](https://github.com/ctu-mrs/bluefox2) - ROS package providing interface with mvBlueFOX cameras
 
-#### Included third party libraries
-  * [OCamCalib](https://sites.google.com/site/scarabotix/ocamcalib-toolbox) calibration system by Davide Scaramuzza - only the C++ sources
-  * [P3P](https://www.laurentkneip.com/software) library by Laurent Kneip
 
 #### For testing in simulation
   * [mrs_uav_system](https://github.com/ctu-mrs/mrs_uav_system) Our ROS-based ecosystem for flying and testing multi-UAV systems
 
+## Installation
+Install the dependencies.
+Clone this repository into a ROS workspace as a package.
+If you are using the `mrs_modules` meta package (currently only accessable internally to MRS staff, to be released at later date), this repository is already included.
+Build the package using catkin tools (e.g. `catkin build uvdar_core`)
+
+## Testing
+In order to test the system in simulation, install all the dependencies (Above) and run one of the start scripts in the [scripts](scripts/) folder
+
+## Acknowledgements
+
+### MRS group
+This work would not be possible without the hard work, resources and support from the Multi-Robot Systems (MRS) group from Czech Technical University.
+
+### Included libraries
+This package contains the following third-party libraries by the respective authors:
+  * [OCamCalib](https://sites.google.com/site/scarabotix/ocamcalib-toolbox) calibration system by Davide Scaramuzza - only the C++ sources
+  * [P3P](https://www.laurentkneip.com/software) library by Laurent Kneip
