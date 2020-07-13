@@ -23,7 +23,7 @@
   * For quadrotors, the markers comprise two LEDs each, rotated 90&deg; from each other in the "yaw" axis of the UAV
 
 #### Software
-  * ROS (Robot Operating System) Melodic Morenia
+  * [ROS (Robot Operating System)](https://www.ros.org/) Melodic Morenia
   * [mrs_lib](https://github.com/ctu-mrs/mrs_lib) - ROS package with utility libraries used by the MRS group
   * [mrs_msgs](https://github.com/ctu-mrs/mrs_msgs) - ROS package with message types used by the MRS group
   * [bluefox2](https://github.com/ctu-mrs/bluefox2) - ROS package providing interface with mvBlueFOX cameras
