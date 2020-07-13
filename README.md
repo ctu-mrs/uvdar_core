@@ -39,10 +39,20 @@ If you are using the `mrs_modules` meta package (currently only accessable inter
 Build the package using catkin tools (e.g. `catkin build uvdar_core`)
 
 ## Testing
-In order to test the system in simulation, install all the dependencies (Above) and run one of the two start scripts in the [scripts](scripts/) folder:
+In order to test the system in simulation, install all the dependencies including `mrs_uav_system` (Above) and run one of the two start scripts in the [scripts](scripts/) folder:
   * For testing separation of units based on position and beacons use [beacon_test.sh](scripts/beacon_test.sh)
   * For testing separation of units based on different blinking frequencies [multi_frequency_test.sh](scripts/multi_frequency_test.sh)
 
+## Node description
+The package comprises multiple ROS nodes and nodelets:
+  * [UVDARDetector](src/detector.cpp) - detects bright points from the UV camera image. These are used as candidates for UV LED markers
+  * [UVDARBlinkProcessor](src/blink_processor.cpp) - Extracts blinking frequencies and image positions of the markers detected previously
+  * [UVDARPoseCalculator](src/uav_pose_calculator.cpp) - Calculates approximate pose and error covariances of the MAVs carrying the UV LED markers. Note, that this is an example for the specific layouts on quadrotors and hexarotors we use. If you need a different layout, you will also need to write your custom pose calculation
+  * [UVDARKalman](src/filter.cpp) - Filters out sets of detected poses with covariances based on positions or the included identities. This filtering occurs in a selected coordinate frame
+
+  * [UVDARBluefoxEmulator](src/bluefox_emulator.cpp) - Generates an image stream similar to the output of our Bluefox cameras with UV bandpass filters (above). This image is currently rudimentary, with background of a constant shade of grey and white circles where the markers appeared. The function of this node depends on our Gazebo plugin (TODO), with which it needs to communicate
+  * [MaskGenerator](src/mask_generator.cpp) - Generates masks for specific camearas on specific MAVs. This is necessary to suppress detections of marers on the given observer, as well as reflection from e.g. its metallic surfaces in front of the camera. The masks can be also generated manually.
+  * [FrequencySetter](src/frequency_setter.cpp) - Sends commands to our controller boards that set the frequencies of the blinking UV LEDs on the current MAV
 
 ## Acknowledgements
 
