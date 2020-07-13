@@ -57,7 +57,7 @@ The package comprises multiple ROS nodes (N) and nodelets (n):
 ## Acknowledgements
 
 ### MRS group
-This work would not be possible without the hard work, resources and support from the Multi-Robot Systems (MRS) group from Czech Technical University.
+This work would not be possible without the hard work, resources and support from the [Multi-Robot Systems (MRS)])(http://mrs.felk.cvut.cz/) group from Czech Technical University.
 
 ### Included libraries
 This package contains the following third-party libraries by the respective authors:
