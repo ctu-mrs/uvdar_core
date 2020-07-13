@@ -32,3 +32,6 @@
   * [OCamCalib](https://sites.google.com/site/scarabotix/ocamcalib-toolbox) calibration system by Davide Scaramuzza - only the C++ sources
   * [P3P](https://www.laurentkneip.com/software) library by Laurent Kneip
 
+#### For testing in simulation
+  * [mrs_uav_system](https://github.com/ctu-mrs/mrs_uav_system) Our ROS-based ecosystem for flying and testing multi-UAV systems
+
