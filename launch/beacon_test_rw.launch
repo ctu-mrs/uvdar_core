@@ -192,7 +192,7 @@
 
       <param name="publish_visualization" type="bool" value="true"/>
       <param name="visualizatoinRate" type="int" value="2"/>
-      <param name="use_camera_for_visualization"         type="bool" value="true"/>
+      <param name="use_camera_for_visualization"         type="bool" value="false"/>
 
       <param name="accumulator_length"         type="int" value="$(arg accumulator_length)"/>
       <param name="pitch_steps"         type="int" value="$(arg pitch_steps)"/>

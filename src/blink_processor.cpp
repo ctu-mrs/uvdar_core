@@ -216,7 +216,7 @@ namespace uvdar {
     }
     ht4dbt_trackers_[image_index]->insertFrame(points);
 
-    if (!_use_camera_for_visualization_){
+    if ((!_use_camera_for_visualization_) || ((!_gui_) && (!_publish_visualization_))){
       if ( (camera_image_sizes_[image_index].width <= 0 ) || (camera_image_sizes_[image_index].width <= 0 )){
         camera_image_sizes_[image_index].width = msg->image_width;
         camera_image_sizes_[image_index].height = msg->image_height;
