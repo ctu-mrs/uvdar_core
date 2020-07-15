@@ -46,6 +46,12 @@ namespace uvdar {
    * @brief A processing class for converting retrieved blinking markers from a UV camera image into relative poses of observed UAV that carry these markers, as well as the error covariances of these estimates
    */
   class UVDARPoseCalculator {
+    struct LEDMarker {
+      e::Vector3d position;
+      e::Quaterniond orientation;
+      int type; // 0 - directional, 1 - omni ring, 2 - full omni
+      int freq_id;
+    };
     public:
 
       /**
@@ -829,235 +835,14 @@ namespace uvdar {
 
         double perr=0.2/estimated_framerate_[image_index]; // The expected error of the frequency estimate (depends on the sampling frequency / camera framerate)
 
-        if (_quadrotor_) { //if we are expecting quadrotors (markers on each arm)
-          if ((_beacon_) && (!missing_beacon)){ //if we are using beacons and we see the beacon of the current UAV
-            if (points.size() == 1) { //only the beacon is visible
-              ROS_INFO_THROTTLE(1.0,"[%s]: Only one beacon visible - no distance information", ros::this_node::getName().c_str());
-              if (_debug_)
-                std::cout << "led: " << points[0] << std::endl;
-
-              /* ms = uvdarQuadrotorPose1p_meas(Eigen::Vector2d(points[0].x,points[0].y),_arm_length_, 1000,10.0, image_index); */
-            }
-            else if (points.size() == 2){ //beacon and one other marker is visible
-              if (_debug_)
-                ROS_INFO_STREAM("[UVDARPoseCalculator]: points: " << points);
-              X2qb <<
-                points[0].x ,points[0].y, // presume that the beacon really is a beacon
-                points[1].x ,points[1].y, 1.0/(double)(points[1].z),
-                0,  //to account for ambiguity (roll)
-                0,  //to account for ambiguity (pitch)
-                0;  //ambiguity - which of the two markers of a given ID is it, or multiplied by 4 if all markers of the UAV (apart from the beacon) have the same ID
-              Px2qb <<
-                QPIX,0,     0,   0,   0,         0,            0,           0,
-                0,   QPIX,  0,   0,   0,         0,            0,           0,
-                0,   0,     QPIX,0,   0,         0,            0,           0,
-                0,   0,     0,   QPIX,0,         0,            0,           0,
-                0,   0,     0,   0,   sqr(perr), 0,            0,           0,
-                0,   0,     0,   0,   0,         sqr(M_PI/36), 0,           0,          //tilt_par
-                0,   0,     0,   0,   0,         0,           sqr(M_PI/18),   0,        //tilt_perp
-                0,   0,     0,   0,   0,         0,            0,           sqr(M_PI_2) //ambig
-                  ;
-              if (_debug_)
-                ROS_INFO_STREAM("[UVDARPoseCalculator]: X2qb: " << X2qb);
-              boost::function<Eigen::VectorXd(Eigen::VectorXd,Eigen::VectorXd,int)> callback;
-              /* callback=boost::bind(&UVDARPoseCalculator::uvdarQuadrotorPose2pB,this,_1,_2,_3); */
-              /* ms = unscented::unscentedTransform(X2qb,Px2qb,callback,leftF,rightF,-1,image_index); */
-            }
-            else if (points.size() == 3){ //beacon and two other markers are visible
-              if (_debug_)
-                ROS_INFO_STREAM("[UVDARPoseCalculator]: points: " << points);
-              X3qb <<
-                points[0].x ,points[0].y, // presume that the beacon really is a beacon
-                points[1].x ,points[1].y, 1.0/(double)(points[1].z),
-                points[2].x ,points[2].y, 1.0/(double)(points[2].z),
-                0; // ambiguity - if the UAV has only one frequency for all markers except for the beacon, we don't know the orientation
-              Px3qb <<
-                QPIX,0,    0,   0,   0,        0,   0,   0,         0,
-                0,   QPIX, 0,   0,   0,        0,   0,   0,         0,
-                0,   0,    QPIX,0,   0,        0,   0,   0,         0,   
-                0,   0,    0,   QPIX,0,        0,   0,   0,         0,  
-                0,   0,    0,   0,   sqr(perr),0,   0,   0,         0,    
-                0,   0,    0,   0,   0,        QPIX,0,   0,         0,     
-                0,   0,    0,   0,   0,        0,   QPIX,0,         0,      
-                0,   0,    0,   0,   0,        0,   0,   sqr(perr), 0,
-                0,   0,    0,   0,   0,        0,   0,   0,         sqr(M_PI*2) //ambig
-                  ;
-              if (_debug_)
-                ROS_INFO_STREAM("[UVDARPoseCalculator]: X3qb: " << X3qb);
-              boost::function<Eigen::VectorXd(Eigen::VectorXd,Eigen::VectorXd,int)> callback;
-              /* callback=boost::bind(&UVDARPoseCalculator::uvdarQuadrotorPose3pB,this,_1,_2,_3); */
-              /* ms = unscented::unscentedTransform(X3qb,Px3qb,callback,leftF,rightF,-1,image_index); */
-            }
-            else if (points.size() == 4){ //beacon and three other markers are visible
-              if (_debug_)
-                ROS_INFO_STREAM("[UVDARPoseCalculator]: points: " << points);
-              X4qb <<
-                points[0].x ,points[0].y, // presume that the beacon really is a beacon
-                points[1].x ,points[1].y, 1.0/(double)(points[1].z),
-                points[2].x ,points[2].y, 1.0/(double)(points[2].z),
-                points[3].x ,points[3].y, 1.0/(double)(points[3].z),
-                0; //ambiguity - if markers (apart from beacon) have only one frequency, the orientation is ambiguous. Alternatively multiply by 2 if there are two frequencies in an unexpected sequence
-              Px4qb <<
-                QPIX,0,   0,   0,   0,        0,   0,   0,         0,   0,    0,         0,
-                0,   QPIX,0,   0,   0,        0,   0,   0,         0,   0,    0,         0,
-                0,   0,   QPIX,0,   0,        0,   0,   0,         0,   0,    0,         0,   
-                0,   0,   0,   QPIX,0,        0,   0,   0,         0,   0,    0,         0,  
-                0,   0,   0,   0,   sqr(perr),0,   0,   0,         0,   0,    0,         0,    
-                0,   0,   0,   0,   0,        QPIX,0,   0,         0,   0,    0,         0,     
-                0,   0,   0,   0,   0,        0,   QPIX,0,         0,   0,    0,         0,      
-                0,   0,   0,   0,   0,        0,   0,   sqr(perr), 0,   0,    0,         0,
-                0,   0,   0,   0,   0,        0,   0,   0,         QPIX,0,    0,         0, 
-                0,   0,   0,   0,   0,        0,   0,   0,         0,   QPIX, 0,         0, 
-                0,   0,   0,   0,   0,        0,   0,   0,         0,   0,    sqr(perr), 0,
-                0,   0,   0,   0,   0,        0,   0,   0,         0,   0,    0,         sqr(2*M_PI/3)
-                  ;
-              if (_debug_)
-                ROS_INFO_STREAM("[UVDARPoseCalculator]: X4qb: " << X4qb);
-              boost::function<Eigen::VectorXd(Eigen::VectorXd,Eigen::VectorXd,int)> callback;
-              /* callback=boost::bind(&UVDARPoseCalculator::uvdarQuadrotorPose4pB,this,_1,_2,_3); */
-              /* ms = unscented::unscentedTransform(X4qb,Px4qb,callback,leftF,rightF,-1,image_index); */
-            }
-            else { // No points seen - this section should not be reached, since it implie missing_beacon = true
-              ROS_INFO_THROTTLE(1.0,"[%s]: No valid points seen. Waiting", ros::this_node::getName().c_str());
-              return;
-            }
-          }
-          else { //if we are not using beacons, or we are and we do not see the beacon of the current UAV
-            if (points.size() == 3) { // three markers are visible
-              if (_debug_)
-                ROS_INFO_STREAM("[UVDARPoseCalculator]: points: " << points);
-              X3 <<
-                points[0].x ,points[0].y, 1.0/(double)(points[0].z),
-                points[1].x ,points[1].y, 1.0/(double)(points[1].z),
-                points[2].x, points[2].y, 1.0/(double)(points[2].z),
-                0; //ambiguity - if markers have only one frequency, the orientation is ambiguous. Alternatively multiply by 2 if there are two frequencies in an unexpected sequence
-              Px3 <<
-                QPIX,0,   0,        0,   0,   0,        0,   0,   0,        0,
-                0,   QPIX,0,        0,   0,   0,        0,   0,   0,        0,
-                0,   0,   sqr(perr),0,   0,   0,        0,   0,   0,        0,
-                0,   0,   0,        QPIX,0,   0,        0,   0,   0,        0,
-                0,   0,   0,        0,   QPIX,0,        0,   0,   0,        0,
-                0,   0,   0,        0,   0,   sqr(perr),0,   0,   0,        0,
-                0,   0,   0,        0,   0,   0,        QPIX,0,   0,        0,
-                0,   0,   0,        0,   0,   0,        0,   QPIX,0,        0,
-                0,   0,   0,        0,   0,   0,        0,   0,   sqr(perr),0,
-                0,   0,   0,        0,   0,   0,        0,   0,   0,        sqr(2*M_PI/3)
-                  ;
-              if (_debug_)
-                ROS_INFO_STREAM("[UVDARPoseCalculator]: X3: " << X3);
-              boost::function<Eigen::VectorXd(Eigen::VectorXd,Eigen::VectorXd,int)> callback;
-              /* callback=boost::bind(&UVDARPoseCalculator::uvdarQuadrotorPose3p,this,_1,_2,_3); */
-              /* ms = unscented::unscentedTransform(X3,Px3,callback,leftF,rightF,-1,image_index); */
-            }
-            else if (points.size() == 2) { //two markers are visible
-              if (_debug_)
-                ROS_INFO_STREAM("[UVDARPoseCalculator]: points: " << points);
-              X2q <<
-                (double)(points[0].x) ,(double)(points[0].y),1.0/(double)(points[0].z),
-                (double)(points[1].x) ,(double)(points[1].y),1.0/(double)(points[1].z),
-                0, // ambiguity of the relative yaw - the distance between two markers in the image is also affected by the orientation of the target
-                0; // ambiguity of the relative tilt - the two closest markers (on the arms) do not tell us how much is the UAV tilted towards or away from the camera
-              Px2q <<
-                QPIX ,0,0,0,0,0,0,0,
-                     0,QPIX ,0,0,0,0,0,0,
-                     0,0,sqr(perr),0,0,0,0,0,
-                     0,0,0,QPIX ,0,0,0,0,
-                     0,0,0,0,QPIX ,0,0,0,
-                     0,0,0,0,0,sqr(perr),0,0,
-                     0,0,0,0,0,0,sqr(deg2rad((missing_beacon?70:10))),0,  //the range si normally small, since the markers have to be aimed roughly at the camera to be visible
-                     0,0,0,0,0,0,0,sqr(deg2rad(10)) //limited by realistic flight requirements - we normally don't tilt too much
-                       ;
-              if (_debug_)
-                ROS_INFO_STREAM("[UVDARPoseCalculator]: X2: " << X2q);
-              boost::function<Eigen::VectorXd(Eigen::VectorXd,Eigen::VectorXd, int)> callback;
-              /* callback=boost::bind(&UVDARPoseCalculator::uvdarQuadrotorPose2p,this,_1,_2,_3); */
-              /* ms = unscented::unscentedTransform(X2q,Px2q,callback,leftF,rightF,-1,image_index); */
-            }
-            else if (points.size() == 1) { // only single marker is visible that is not the beacon
-              ROS_INFO_THROTTLE(1.0,"[%s]: Only single point visible - no distance information", ros::this_node::getName().c_str());
-              if (_debug_)
-                std::cout << "led: " << points[0] << std::endl;
-
-
-              /* ms = uvdarQuadrotorPose1p_meas(Eigen::Vector2d(points[0].x,points[0].y),_arm_length_, 1000,10.0, image_index); */
-
-
-            } else { //no markers seen by the current camera
-              ROS_INFO_THROTTLE(1.0,"[%s]: No valid points seen. Waiting", ros::this_node::getName().c_str());
-              return;
-            }
-
-          }
-        }
-        else { //if we are expecting hexarotors (markers on each arm)
-          if (_beacon_) { //not implemented - our current fleet of swarm UAVs is comprised only of quadrotors
-            ROS_WARN_THROTTLE(1.0,"[%s]: Beacon-based estimation for hexarotors is not implemented!", ros::this_node::getName().c_str());
-          }
-
-          if (points.size() == 3) { //three markers are visible 
-            if (_debug_)
-              ROS_INFO_STREAM("[UVDARPoseCalculator]: points: " << points);
-            X3 <<
-              points[0].x ,points[0].y, 1.0/(double)(points[0].z),
-              points[1].x ,points[1].y, 1.0/(double)(points[1].z),
-              points[2].x, points[2].y, 1.0/(double)(points[2].z),
-              0;  //ambiguity - if the three markers have unexpected sequence of frequencies, or if the frequencies are the same on all sides multiplied by 2 (orientation is unknown)
-            Px3 <<
-              QPIX ,0,0,0,0,0,0,0,0,0,
-                   0,QPIX ,0,0,0,0,0,0,0,0,
-                   0,0,sqr(perr),0,0,0,0,0,0,0,
-                   0,0,0,QPIX ,0,0,0,0,0,0,
-                   0,0,0,0,QPIX ,0,0,0,0,0,
-                   0,0,0,0,0,sqr(perr),0,0,0,0,
-                   0,0,0,0,0,0,QPIX ,0,0,0,
-                   0,0,0,0,0,0,0,QPIX ,0,0,
-                   0,0,0,0,0,0,0,0,sqr(perr),0,
-                   0,0,0,0,0,0,0,0,0,sqr(2*M_PI/3)
-                     ;
-            if (_debug_)
-              ROS_INFO_STREAM("[UVDARPoseCalculator]: X3: " << X3);
-            boost::function<Eigen::VectorXd(Eigen::VectorXd,Eigen::VectorXd, int)> callback;
-            /* callback=boost::bind(&UVDARPoseCalculator::uvdarHexarotorPose3p,this,_1,_2,_3); */
-            /* ms = unscented::unscentedTransform(X3,Px3,callback,leftF,rightF,-1,image_index); */
-          }
-          else if (points.size() == 2) {
-            if (_debug_)
-              ROS_INFO_STREAM("[UVDARPoseCalculator]: points: " << points);
-            X2 <<
-              (double)(points[0].x) ,(double)(points[0].y),1.0/(double)(points[0].z),
-              (double)(points[1].x) ,(double)(points[1].y),1.0/(double)(points[1].z),
-              0, // ambiguity of the relative yaw - the distance between two markers in the image is also affected by the orientation of the target
-              0, // ambiguity of the pair of markers seen - if we have two frequencies on each side of a hexarotor (three markers adjacent per frequency), we can see adjacent pair of equal frequency which can correspond to one of two pairs or arms
-              0; // ambiguity of the relative tilt - the two closest markers (on the arms) do not tell us how much is the UAV tilted towards or away from the camera
-            Px2 <<
-              QPIX ,0,0,0,0,0,0,0,0,
-                   0,QPIX ,0,0,0,0,0,0,0,
-                   0,0,sqr(perr),0,0,0,0,0,0,
-                   0,0,0,QPIX ,0,0,0,0,0,
-                   0,0,0,0,QPIX ,0,0,0,0,
-                   0,0,0,0,0,sqr(perr),0,0,0,
-                   0,0,0,0,0,0,sqr(deg2rad(15)),0,0,
-                   0,0,0,0,0,0,0,sqr(deg2rad(60)),0,
-                   0,0,0,0,0,0,0,0,sqr(deg2rad(10))
-                     ;
-
-            if (_debug_)
-              ROS_INFO_STREAM("[UVDARPoseCalculator]: X2: " << X2);
-            boost::function<Eigen::VectorXd(Eigen::VectorXd,Eigen::VectorXd, int)> callback;
-            /* callback=boost::bind(&UVDARPoseCalculator::uvdarHexarotorPose2p,this,_1,_2,_3); */
-            /* ms = unscented::unscentedTransform(X2,Px2,callback,leftF,rightF,-1,image_index); */
-          }
-          else if (points.size() == 1) { //only single marker is visible
-            std::cout << "Only single point visible - no distance information" << std::endl;
-
-            /* ms = uvdarHexarotorPose1p_meas(Eigen::Vector2d(points[0].x,points[0].y),_arm_length_, (TUBE_LENGTH),10.0, image_index); */
-
-          } else { //no markers seen by the current camera
-            std::cout << "No valid points seen. Waiting" << std::endl;
-            return;
-          }
-        }
-
+        e::VectorXd rough_initialization = getRoughInit(model_, points, image_index);
+        /* std::vector<e::VectorXd> minima_rough_estimates = getLocalMinimaEstimates(model_,rough_initialization, points); */
+        /* std::vector<e::VectorXd> minima_refined_estimates; */
+        /* unscented::measurement ms; */
+        /* for (auto& minimum : minima_rough_estimates){ */
+        /*   minima_refined_estimates.push_back(refineEstimate(model_,minima_rough_estimates, points)); */
+        /* } */
+        /* ms = getPoseWithCovariance(model_,minima_refined_estimates, points); */
 
         ms.C += e::MatrixXd::Identity(6,6)*0.0001;
         if (_debug_){
@@ -1095,6 +880,18 @@ namespace uvdar {
 
       }
       //}
+
+      e::Vector3d getRoughInit(std::vector<LEDMarker> model, std::vector<cv::Point3d> observed_points, int image_index){
+        
+        std::vector<e::Vector3d> v_w;
+        for (auto& point: observed_points){
+          double v_i[2] = {(double)(point.y), (double)(point.x)};
+          double v_w_raw[3];
+          cam2world(v_w_raw, v_i, &(_oc_models_[image_index]));
+          v_w.push_back(e::Vector3d(v_w_raw[1], v_w_raw[0], -v_w_raw[2]));
+        }
+
+      }
 
       /**
        * @brief Returns the index of target UAV with a marker based on the frequency-based ID of that marker
@@ -1291,12 +1088,6 @@ namespace uvdar {
       bool _custom_model_;
 
 
-      struct LEDMarker {
-        e::Vector3d position;
-        e::Quaterniond orientation;
-        int type; // 0 - directional, 1 - omni ring, 2 - full omni
-        int freq_id;
-      };
       std::vector<LEDMarker> model_;
 
       bool initialized_ = false;
