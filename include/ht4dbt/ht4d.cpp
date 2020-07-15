@@ -221,6 +221,13 @@ std::vector<double> HT4DBlinkerTracker::getPitch() {
 }
 
 std::vector< cv::Point3d > HT4DBlinkerTracker::getResults() {
+  if ((im_res_.width <= 0) || (im_res_.height <= 0)){
+    if (debug_){
+      std::cout << "Resolution was not yet set..." << std::endl;
+    }
+    return std::vector<cv::Point3d>();
+  }
+
   accumulator_local_copy_.clear();
   pts_per_layer_local_copy_.clear();
   {
