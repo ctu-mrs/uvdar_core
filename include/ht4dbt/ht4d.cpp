@@ -160,6 +160,9 @@ void HT4DBlinkerTracker::updateFramerate(double input) {
 }
 
 void HT4DBlinkerTracker::updateResolution(cv::Size i_size){
+  if (debug_){
+    std::cout << "Setting resolution to " << i_size << std::endl;
+  }
   std::scoped_lock lock(mutex_accumulator_);
   im_res_ = i_size;
   im_area_           = im_res_.width * im_res_.height;
