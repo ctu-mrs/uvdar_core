@@ -9,7 +9,7 @@
   <group ns="$(arg UAV_NAME)">
 
     <!-- launch the node -->
-    <node name="serial$(arg name)" pkg="mrs_serial" type="baca_protocol" output="screen" respawn="true">
+    <node name="serial$(arg name)" pkg="mrs_serial" type="BacaProtocol" output="screen" respawn="true">
 
       <param name="uav_name" type="string" value="$(arg UAV_NAME)"/>
 
