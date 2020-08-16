@@ -105,7 +105,8 @@
 <!-- OR -->
   <group ns="$(arg uav_name)">
   
-    <node pkg="nodelet" type="nodelet" name="$(arg uav_name)_uvdar_nodelet_manager" args="manager" output="screen" >
+    <!-- <node pkg="nodelet" type="nodelet" name="$(arg uav_name)_uvdar_nodelet_manager" args="manager" output="screen" launch-prefix="debug_roslaunch"> -->
+    <node pkg="nodelet" type="nodelet" name="$(arg uav_name)_uvdar_nodelet_manager" args="manager" output="screen">
       <param name="num_worker_threads" value="8" />
     </node>
 
@@ -201,6 +202,8 @@
       <param name="debug"		type="bool" value="$(arg debug)"/> 
       <param name="visual_debug"		type="bool" value="$(arg visual_debug)"/> 
       <param name="gui"             type="bool" value="$(arg gui)"/>
+      <param name="publish_visualization"         type="bool" value="$(arg publish_visualization)"/>
+      <param name="visualization_rate"         type="int" value="$(arg visualization_rate)"/>
       <param name="InvertedPoints"    type="bool" value="false"/>
       <rosparam param="frequencies" subst_value="true"> [$(arg frequency1), $(arg frequency2), $(arg frequency3), $(arg frequency4)] </rosparam>
 
@@ -232,14 +235,14 @@
     </node>
       
     <!-- <node name="uvdar_uav_pose_calculator_node" pkg="uvdar" type="uvdar_uav_pose_calculator_node" output="screen" launch-prefix="debug_roslaunch"> --> 
-    <node name="uvdar_uav_pose_calculator_node" pkg="uvdar" type="uvdar_uav_pose_calculator_node" output="screen" > 
+    <node name="uvdar_uav_pose_calculator_node" pkg="uvdar_core" type="uvdar_uav_pose_calculator_node" output="screen" > 
       <param name="uav_name" type = "string" value="$(arg uav_name)"/>
 
       <!-- <param name="calib_file" type="string" value="$(arg calib_file_uv)"/> -->
 
       <param name="debug"		type="bool" value="true"/> 
       <param name="gui"             type="bool" value="$(arg gui)"/>
-      <param name="publish_visualization"         type="bool" value="$(arg publish_visualization)"/>
+      <param name="publish_visualization"         type="bool" value="false"/>
       <param name="visualization_rate"         type="int" value="$(arg visualization_rate)"/>
       <param name="publish"         type="bool" value="$(arg publish)"/>
       <param name="frequencies_per_target" type="int" value="1"/>
@@ -260,10 +263,8 @@
 
       <rosparam param="calib_files" subst_value="True"> ["$(arg calibrations_folder)/camera_calibrations/calib_results_bf_uv_$(arg left).txt", "$(arg calibrations_folder)/camera_calibrations/calib_results_bf_uv_$(arg right).txt"] </rosparam>
 
-      <remap from="~measuredPose1" to="/$(arg uav_name)/uvdar/measuredPose1"/>
-      <remap from="~measuredPose2" to="/$(arg uav_name)/uvdar/measuredPose2"/>
-      <remap from="~measuredPose3" to="/$(arg uav_name)/uvdar/measuredPose3"/>
-      <remap from="~measuredPose4" to="/$(arg uav_name)/uvdar/measuredPose4"/>
+      <remap from="~measuredPoses1" to="/$(arg uav_name)/uvdar/measuredPosesL"/>
+      <remap from="~measuredPoses2" to="/$(arg uav_name)/uvdar/measuredPosesR"/>
     </node>
   </group>
 

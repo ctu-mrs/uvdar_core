@@ -382,6 +382,7 @@ namespace uvdar {
       if (_use_camera_for_visualization_){
         if (current_images_received_[image_index]){
           cv::Mat image_rgb;
+          ROS_INFO_STREAM("[UVDARBlinkProcessor]: Channel count: " << images_current_[image_index].channels());
           cv::cvtColor(images_current_[image_index], image_rgb, cv::COLOR_GRAY2BGR);
           image_rgb.copyTo(output_image(cv::Rect(start_point.x,0,images_current_[image_index].cols,images_current_[image_index].rows)));
         }
@@ -451,7 +452,7 @@ namespace uvdar {
   /* callbackImage //{ */
   void callbackImage(const sensor_msgs::ImageConstPtr& image_msg, size_t image_index) {
     cv_bridge::CvImageConstPtr image;
-    image = cv_bridge::toCvShare(image_msg, sensor_msgs::image_encodings::RGB8);
+    image = cv_bridge::toCvShare(image_msg, sensor_msgs::image_encodings::MONO8);
     {
       std::scoped_lock lock(*(mutex_camera_image_[image_index]));
       images_current_[image_index] = image->image; 
