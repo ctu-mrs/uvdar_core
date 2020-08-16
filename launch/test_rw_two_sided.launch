@@ -56,8 +56,9 @@
 
   <arg name="debug" default="false"/>
   <arg name="visual_debug" default="false"/>
-  <arg name="gui" default="true"/>
-  <!-- <arg name="gui" default="false"/> -->
+  <!-- <arg name="gui" default="true"/> -->
+  <arg name="gui" default="false"/>
+  <arg name="publish_visualization" default="true"/>
 
   <arg name="trajectoryControl" default="true"/>
 
@@ -237,6 +238,8 @@
 
       <param name="debug"		type="bool" value="true"/> 
       <param name="gui"             type="bool" value="$(arg gui)"/>
+      <param name="publish_visualization"         type="bool" value="$(arg publish_visualization)"/>
+      <param name="visualization_rate"         type="int" value="$(arg visualization_rate)"/>
       <param name="publish"         type="bool" value="$(arg publish)"/>
       <param name="frequencies_per_target" type="int" value="1"/>
       <rosparam param="frequencies" subst_value="true"> [$(arg frequency1), $(arg frequency2), $(arg frequency3), $(arg frequency4)] </rosparam>
