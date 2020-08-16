@@ -59,7 +59,7 @@
   <!-- <arg name="gui" default="true"/> -->
   <arg name="gui" default="false"/>
   <arg name="publish_visualization" default="true"/>
-  <arg name="visualization_rate" default="1"
+  <arg name="visualization_rate" default="1"/>
 
   <arg name="trajectoryControl" default="true"/>
 
