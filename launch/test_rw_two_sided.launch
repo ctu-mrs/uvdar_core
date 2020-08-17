@@ -232,7 +232,7 @@
     </node>
       
     <!-- <node name="uvdar_uav_pose_calculator_node" pkg="uvdar" type="uvdar_uav_pose_calculator_node" output="screen" launch-prefix="debug_roslaunch"> --> 
-    <node name="uvdar_uav_pose_calculator_node" pkg="uvdar" type="uvdar_uav_pose_calculator_node" output="screen" > 
+    <node name="uvdar_uav_pose_calculator_node" pkg="uvdar_core" type="uvdar_uav_pose_calculator_node" output="screen" > 
       <param name="uav_name" type = "string" value="$(arg uav_name)"/>
 
       <!-- <param name="calib_file" type="string" value="$(arg calib_file_uv)"/> -->
