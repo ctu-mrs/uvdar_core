@@ -1796,12 +1796,12 @@ namespace uvdar {
           }
           if (clusters.size() > 1){
             int tid_orig = separated_points[s].first;
-            separated_points.erase(separated_points.begin()+s);
-
-            auto it = separated_points.begin()+s;
+            auto it = separated_points.erase(separated_points.begin()+s);
+            /* auto it = separated_points.begin()+s; */
             int cl_n = 0;
             for (auto& cluster : clusters){
-              separated_points.insert (it+cl_n,1,{cl_n*1000+tid_orig,cluster});
+              /* it = separated_points.insert(it,1,{cl_n*1000+tid_orig,cluster}); */
+              it = separated_points.insert(it+((separated_points.size()>0)?1:0),1,{cl_n*1000+tid_orig,cluster});
               cl_n++;
             }
             s+=cl_n++;
