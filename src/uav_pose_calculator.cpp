@@ -1801,7 +1801,7 @@ namespace uvdar {
             int cl_n = 0;
             for (auto& cluster : clusters){
               /* it = separated_points.insert(it,1,{cl_n*1000+tid_orig,cluster}); */
-              it = separated_points.insert(it+((separated_points.size()>0)?1:0),1,{cl_n*1000+tid_orig,cluster});
+              it = separated_points.insert(it+(0),1,{cl_n*1000+tid_orig,cluster});
               cl_n++;
             }
             s+=cl_n++;
