@@ -20,9 +20,9 @@ windows:
   - spawn:
       layout: even-vertical
       panes:
-        - waitForSimulation; spawn_uav 1 --$UAV_TYPE --run --delete --file "position1.txt" --enable-rangefinder --enable-ground-truth --enable-uv-camera --uv-camera-calibration-file "$HOME/mrs_workspace/src/uav_modules/ros_packages/uvdar_meta/uvdar_core/include/OCamCalib/config/calib_results_bf_uv_fe.txt"
-        - waitForSimulation; spawn_uav 2 --$UAV_TYPE --run --delete --file "position2.txt" --enable-rangefinder --enable-ground-truth --enable-uv-leds --led-frequencies 15 15 --debug
-        - waitForSimulation; spawn_uav 3 --$UAV_TYPE --run --delete --file "position3.txt" --enable-rangefinder --enable-ground-truth --enable-uv-leds --led-frequencies 30 30 --debug
+        - waitForSimulation; spawn_uav 1 --$UAV_TYPE --run --delete --file "position1.csv" --enable-rangefinder --enable-ground-truth --enable-uv-camera --uv-camera-calibration-file "$(rospack find uvdar_core)/include/OCamCalib/config/calib_results_bf_uv_fe.txt"
+        - waitForSimulation; spawn_uav 2 --$UAV_TYPE --run --delete --file "position2.csv" --enable-rangefinder --enable-ground-truth --enable-uv-leds --led-frequencies 15 15 --debug
+        - waitForSimulation; spawn_uav 3 --$UAV_TYPE --run --delete --file "position3.csv" --enable-rangefinder --enable-ground-truth --enable-uv-leds --led-frequencies 30 30 --debug
   - control:
       layout: even-vertical
       panes:

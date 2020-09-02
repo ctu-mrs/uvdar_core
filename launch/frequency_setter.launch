@@ -9,8 +9,7 @@
   <group ns="$(arg UAV_NAME)">
 
     <!-- launch the node -->
-    <node name="serial$(arg name)" pkg="mrs_serial" type="baca_protocol" output="screen" respawn="true">
-
+    <node pkg="nodelet" type="nodelet" name="serial_uvdar" args="standalone baca_protocol/BacaProtocol" respawn="true" output="screen">
       <param name="uav_name" type="string" value="$(arg UAV_NAME)"/>
 
       <rosparam file="$(find mrs_serial)/config/mrs_serial.yaml" />
