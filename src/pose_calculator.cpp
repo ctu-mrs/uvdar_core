@@ -193,18 +193,18 @@ namespace uvdar {
         }
         //}
 
-        X2 = Eigen::VectorXd(9,9);
-        X2q = Eigen::VectorXd(8,8);
-        X2qb = Eigen::VectorXd(8,8);
-        X3 = Eigen::VectorXd(10,10);
-        X3qb = Eigen::VectorXd(9,9);
-        X4qb = Eigen::VectorXd(12,12);
-        Px2 = Eigen::MatrixXd(9,9);
-        Px2q = Eigen::MatrixXd(8,8);
-        Px2qb = Eigen::MatrixXd(8,8);
-        Px3 = Eigen::MatrixXd(10,10);
-        Px3qb = Eigen::MatrixXd(9,9);
-        Px4qb = Eigen::MatrixXd(12,12);
+        /* X2 = Eigen::VectorXd(9,9); */
+        /* X2q = Eigen::VectorXd(8,8); */
+        /* X2qb = Eigen::VectorXd(8,8); */
+        /* X3 = Eigen::VectorXd(10,10); */
+        /* X3qb = Eigen::VectorXd(9,9); */
+        /* X4qb = Eigen::VectorXd(12,12); */
+        /* Px2 = Eigen::MatrixXd(9,9); */
+        /* Px2q = Eigen::MatrixXd(8,8); */
+        /* Px2qb = Eigen::MatrixXd(8,8); */
+        /* Px3 = Eigen::MatrixXd(10,10); */
+        /* Px3qb = Eigen::MatrixXd(9,9); */
+        /* Px4qb = Eigen::MatrixXd(12,12); */
 
 
         /* Set transformation frames for cameras //{ */
@@ -766,19 +766,19 @@ namespace uvdar {
       /* extractSingleRelative //{ */
       void extractSingleRelative(std::vector< cv::Point3d > points, int target, size_t image_index, mrs_msgs::PoseWithCovarianceIdentified& output_pose) {
 
-        double leftF;
-        double rightF;
-        if (_beacon_){
-          leftF = _frequencies_[1];
-          if (_frequencies_.size() == 3)
-            rightF = _frequencies_[2];
-          else
-            rightF = _frequencies_[1];
-        }
-        else {
-          leftF = _frequencies_[target*2];
-          rightF = _frequencies_[target*2+1];
-        }
+        /* double leftF; */
+        /* double rightF; */
+        /* if (_beacon_){ */
+        /*   leftF = _frequencies_[1]; */
+        /*   if (_frequencies_.size() == 3) */
+        /*     rightF = _frequencies_[2]; */
+        /*   else */
+        /*     rightF = _frequencies_[1]; */
+        /* } */
+        /* else { */
+        /*   leftF = _frequencies_[target*2]; */
+        /*   rightF = _frequencies_[target*2+1]; */
+        /* } */
         double          max_dist = MAX_DIST_INIT;
 
         int countSeen = (int)(points.size());
@@ -843,36 +843,31 @@ namespace uvdar {
         if (_debug_){
           ROS_INFO_STREAM("[UVDARPoseCalculator]: Rough initialization: " << rough_initialization);
         }
-        auto fitted_position = iterFitPosition(model_, points, rough_initialization);
+        auto fitted_position = iterFitPosition(model_, points, rough_initialization, image_index);
         if (_debug_){
-          ROS_INFO_STREAM("[UVDARPoseCalculator]: Fitted position: " << fitted_position);
+          ROS_INFO_STREAM("[UVDARPoseCalculator]: Fitted position: " << fitted_position.transpose());
         }
-        auto fitted_pose = iterFitFull(model_, points, fitted_position);
+        auto fitted_pose = iterFitFull(model_, points, fitted_position, image_index);
         if (_debug_){
-          ROS_INFO_STREAM("[UVDARPoseCalculator]: Fitted pose: " << fitted_pose);
+          ROS_INFO_STREAM("[UVDARPoseCalculator]: Fitted pose: " << fitted_pose.first.transpose());
         }
-        e::MatrixXd covariance = getCovarianceEstimate(model_, points, fitted_pose);
+        e::MatrixXd covariance = getCovarianceEstimate(model_, points, fitted_pose, image_index);
         if (_debug_){
           ROS_INFO_STREAM("[UVDARPoseCalculator]: Covariance: [\n" << covariance << "\n]");
         }
       
-        ms.x.topLeftCorner(3,1) = fitted_pose.first();
-        ms.x.bottomLeftCorner(4,1) = fitted_pose.second();
-        ms.C = getCovarianceEstimate();
+      /*   ms.x.topLeftCorner(3,1) = fitted_pose.first; */
+      /*   ms.x.bottomLeftCorner(4,1) = fitted_pose.second; */
+      /*   ms.C = covariance; */
 
-        ms.C += e::MatrixXd::Identity(6,6)*0.0001;
-        if (_debug_){
-          ROS_INFO_STREAM("[UVDARPoseCalculator]: Y: \n" << ms.x );
-          ROS_INFO_STREAM("[UVDARPoseCalculator]: Py: \n" << ms.C );
-        }
-
-        if (ms.x.topLeftCorner(3,1).norm() < 1.5) { //We don't expect to be able to measure relative poses of UAVs this close - the markers would be too bright and too far apart
+        covariance += e::MatrixXd::Identity(6,6)*0.0001;
+        if (fitted_pose.first.norm() < 1.5) { //We don't expect to be able to measure relative poses of UAVs this close - the markers would be too bright and too far apart
           return;
         }
 
         e::Vector3d unit_vec;
         unit_vec << 0,0,1.0;
-        if (acos(ms.x.topLeftCorner(3,1).normalized().dot(unit_vec)) > rad2deg(190)) //our lenses only allow us to see UAVs ~92.5 degrees away from the optical axis of the camera
+        if (acos(fitted_pose.first.normalized().dot(unit_vec)) > rad2deg(190)) //our lenses only allow us to see UAVs ~92.5 degrees away from the optical axis of the camera
           return;
 
         /* tf::Quaternion qtemp; */
@@ -881,39 +876,81 @@ namespace uvdar {
         /* qtemp.normalize();//just in case */
 
         output_pose.id = target;
-        output_pose.pose.position.x = ms.x(0);
-        output_pose.pose.position.y = ms.x(1);
-        output_pose.pose.position.z = ms.x(2);
-        output_pose.pose.orientation.x = ms.x(3);
-        output_pose.pose.orientation.y = ms.x(4);
-        output_pose.pose.orientation.z = ms.x(5);
-        output_pose.pose.orientation.w = ms.x(6);
-        for (int i=0; i<ms.C.cols(); i++){
-          for (int j=0; j<ms.C.rows(); j++){
-            output_pose.covariance[ms.C.cols()*j+i] =  ms.C(j,i);
+        output_pose.pose.position.x = fitted_pose.first.x();
+        output_pose.pose.position.y = fitted_pose.first.y();
+        output_pose.pose.position.z = fitted_pose.first.z();
+        output_pose.pose.orientation.x = fitted_pose.second.x();
+        output_pose.pose.orientation.y = fitted_pose.second.y();
+        output_pose.pose.orientation.z = fitted_pose.second.z();
+        output_pose.pose.orientation.w = fitted_pose.second.w();
+        for (int i=0; i<covariance.cols(); i++){
+          for (int j=0; j<covariance.rows(); j++){
+            output_pose.covariance[covariance.cols()*j+i] =  ms.C(j,i);
           }
         }
+
+        if (_debug_){
+          ROS_INFO_STREAM("[UVDARPoseCalculator]: Y: \n" << fitted_pose.first.transpose() << " : [" << fitted_pose.second.x() << "," << fitted_pose.second.y() << "," <<fitted_pose.second.z() << "," <<fitted_pose.second.w() << "]" );
+          ROS_INFO_STREAM("[UVDARPoseCalculator]: Py: \n" << covariance );
+        }
+
 
       }
       //}
 
       e::Vector3d getRoughInit(std::vector<LEDMarker> model, std::vector<cv::Point3d> observed_points, int image_index){
-        
         std::vector<e::Vector3d> v_w;
-        Vector3d v_avg = {0,0,0};
+        e::Vector3d v_avg = {0,0,0};
         for (auto& point: observed_points){
-          v_w.push_back(directionFromCamPoint(point));
-          v_avg += v_w;
+          v_w.push_back(directionFromCamPoint(point, image_index));
+          v_avg += v_w.back();
         }
         v_avg /= (double)(v_avg.size());
         v_avg = v_avg.normalized();
-        double d_model = getRoughDiameter(model);
-        double alpha_max = getLargesAngle(v_w);
-        l_rough = (d_model)/tan(alpha_max/2.0);
+        double d_model = getRoughVisibleDiameter(model);
+        double alpha_max = getLargestAngle(v_w);
+        double l_rough = (d_model)/tan(alpha_max/2.0);
         return v_avg*l_rough;
       }
 
-      std::pair<e::Vector3d, e::Quaterniond> iterFitPosition(std::vector<LEDMarker> model, std::vector<cv::Point3d> observed_points, e::Vector3d rough_initialization, int image_index){
+      double getRoughVisibleDiameter(std::vector<LEDMarker> model){
+        double max_dist = 0;
+        for (int i=0; i<((int)(model.size())-1); i++){
+          for (int j=i+1; j<(int)(model.size()); j++){
+            if (areBothVisible(model[i],model[j])){
+              double tent_dist = (model[i].position - model[j].position).norm();
+              if (tent_dist > max_dist){
+                max_dist = tent_dist;
+              }
+            }
+          }
+        }
+        if (max_dist < 0.0001){
+          ROS_ERROR_STREAM("[UVDARPoseCalculator]: Visible diameter of the model evaluated as ZERO!");
+        }
+        return max_dist;
+      }
+
+      double getLargestAngle(std::vector<e::Vector3d> directions){
+        double max_angle = 0;
+        for (int i = 0; i < ((int)(directions.size()) - 1); i++){
+          for (int j = i+1; j < (int)(directions.size()); j++){
+            double tent_angle = acos(directions[i].normalized().dot(directions[j].normalized()));
+            if (tent_angle > max_angle){
+              max_angle = tent_angle;
+            }
+          }
+        }
+
+        return max_angle;
+      }
+
+      double areBothVisible(LEDMarker a, LEDMarker b){
+      return 0;
+        /* double angle_between = model[i].orientation.angularDisance(model[j].orientation); */
+      }
+
+      e::Vector3d iterFitPosition(std::vector<LEDMarker> model, std::vector<cv::Point3d> observed_points, e::Vector3d rough_initialization, int image_index){
         e::Vector3d position_curr = rough_initialization;
         auto model_curr = translateModel(model, position_curr);
         double x_step = 0.1;
@@ -926,20 +963,20 @@ namespace uvdar {
         double top_error, bottom_error;
         double left_error, right_error;
         double front_error, back_error;
-        gradient = e::Vector3d (
+        auto gradient = e::Vector3d (
             std::numeric_limits<double>::max(),
             std::numeric_limits<double>::max(),
             std::numeric_limits<double>::max()
             );
-        double threshold = (int)(input.size())*0.001;
+        double threshold = (int)(observed_points.size())*0.001;
         int iters = 0;
         while ((error_total > threshold) && ((gradient.norm()) > 0.0001) && (iters < 50)){
-          shape_top     = translateShape(shape_shifted, e::Vector3d(0,0,z_step));
-          shape_bottom  = translateShape(shape_shifted, e::Vector3d(0,0,-z_step));
-          shape_left    = translateShape(shape_shifted, e::Vector2d(0,y_step,0));
-          shape_right   = translateShape(shape_shifted, e::Vector2d(0,-y_step,0));
-          shape_front   = translateShape(shape_shifted, e::Vector2d(0,x_step,0));
-          shape_back    = translateShape(shape_shifted, e::Vector2d(0,-x_step,0));
+          shape_top     = translateModel(model_curr, e::Vector3d(0,0,z_step));
+          shape_bottom  = translateModel(model_curr, e::Vector3d(0,0,-z_step));
+          shape_left    = translateModel(model_curr, e::Vector2d(0,y_step,0));
+          shape_right   = translateModel(model_curr, e::Vector2d(0,-y_step,0));
+          shape_front   = translateModel(model_curr, e::Vector2d(0,x_step,0));
+          shape_back    = translateModel(model_curr, e::Vector2d(0,-x_step,0));
           top_error = totalError(shape_top, observed_points, image_index);
           bottom_error = totalError(shape_bottom, observed_points, image_index);
           left_error = totalError(shape_left, observed_points, image_index);
@@ -964,9 +1001,9 @@ namespace uvdar {
             z_diff = 0;
 
           position_curr = position_curr + e::Vector3d(x_diff, y_diff, z_diff);
-          model_curr = translateShape(shape_shifted, e::Vector3d(x_diff, y_diff, z_diff));
+          model_curr = translateModel(model_curr, e::Vector3d(x_diff, y_diff, z_diff));
 
-          error_total = totalError(shape_shifted, observed_points, image_index);
+          error_total = totalError(model_curr, observed_points, image_index);
           iters++;
         }
         //final gradient check
@@ -974,12 +1011,12 @@ namespace uvdar {
         x_step = 0.10;
         y_step = 0.10;
         z_step = 0.10;
-        shape_top   = translateShape(shape_shifted, e::Vector2d(0,0,z_step));
-        shape_bottom= translateShape(shape_shifted, e::Vector2d(0,0,-z_step));
-        shape_left  = translateShape(shape_shifted, e::Vector2d(0,y_step,0));
-        shape_right = translateShape(shape_shifted, e::Vector2d(0,-y_step,0));
-        shape_front = translateShape(shape_shifted, e::Vector2d(x_step,0,0));
-        shape_back  = translateShape(shape_shifted, e::Vector2d(-x_step,0,0));
+        shape_top   = translateModel(model_curr, e::Vector2d(0,0,z_step));
+        shape_bottom= translateModel(model_curr, e::Vector2d(0,0,-z_step));
+        shape_left  = translateModel(model_curr, e::Vector2d(0,y_step,0));
+        shape_right = translateModel(model_curr, e::Vector2d(0,-y_step,0));
+        shape_front = translateModel(model_curr, e::Vector2d(x_step,0,0));
+        shape_back  = translateModel(model_curr, e::Vector2d(-x_step,0,0));
         gradient.x() = ((((abs(front_error)+abs(back_error))/2)-mean_error)/(x_step))/((double)(observed_points.size()));
         gradient.y() = ((((abs(left_error)+abs(right_error))/2)-mean_error)/(y_step))/((double)(observed_points.size()));
         gradient.z() = ((((abs(top_error)+abs(bottom_error))/2)-mean_error)/(z_step))/((double)(observed_points.size()));
@@ -988,8 +1025,183 @@ namespace uvdar {
       }
 
       std::pair<e::Vector3d, e::Quaterniond> iterFitFull(std::vector<LEDMarker> model, std::vector<cv::Point3d> observed_points, e::Vector3d init_position, int image_index){
-        std::pair<e::Vector3d, e::Quaterniond> pose_curr = {fitted_position, e::Quaterniond(1,0,0,0)};
-        
+        e::Vector3d position_curr = init_position;
+        e::Vector3d RPY_curr = e::Vector3d(0,0,0);
+        e::Quaterniond orientation_curr  = e::Quaterniond(1,0,0,0);
+        auto model_curr = translateModel(model, position_curr);
+        double x_step     = 0.1;
+        double y_step     = 0.1;
+        double z_step     = 0.1;
+        double yaw_step   = 0.1;//rad
+        double pitch_step = 0.1;//rad
+        double roll_step  = 0.1;//rad
+
+        double error_total = totalError(model_curr, observed_points, image_index);
+        std::vector<LEDMarker> shape_top, shape_bottom;
+        std::vector<LEDMarker> shape_left, shape_right;
+        std::vector<LEDMarker> shape_front, shape_back;
+        std::vector<LEDMarker> shape_ccw, shape_cw;
+        std::vector<LEDMarker> shape_pd, shape_pu;
+        std::vector<LEDMarker> shape_rr, shape_rl;
+        double top_error, bottom_error;
+        double left_error, right_error;
+        double front_error, back_error;
+        double ccw_error, cw_error; //yaw
+        double pd_error, pu_error; //pitch
+        double rr_error, rl_error; //roll
+        e::VectorXd gradient;
+        gradient <<
+            std::numeric_limits<double>::max(),
+            std::numeric_limits<double>::max(),
+            std::numeric_limits<double>::max(),
+            std::numeric_limits<double>::max(),
+            std::numeric_limits<double>::max(),
+            std::numeric_limits<double>::max();
+        double threshold = (int)(observed_points.size())*0.001;
+        int iters = 0;
+        while ((error_total > threshold) && ((gradient.norm()) > 0.0001) && (iters < 50)){
+          shape_top     = translateModel(model_curr, e::Vector3d(0,0,z_step));
+          shape_bottom  = translateModel(model_curr, e::Vector3d(0,0,-z_step));
+          shape_left    = translateModel(model_curr, e::Vector3d(0,y_step,0));
+          shape_right   = translateModel(model_curr, e::Vector3d(0,-y_step,0));
+          shape_front   = translateModel(model_curr, e::Vector3d(0,x_step,0));
+          shape_back    = translateModel(model_curr, e::Vector3d(0,-x_step,0));
+          shape_ccw     = rotateModel(model_curr, position_curr,  orientation_curr*e::Vector3d(0,0,1), yaw_step);
+          shape_cw      = rotateModel(model_curr, position_curr,  orientation_curr*e::Vector3d(0,0,1), -yaw_step);
+          shape_pd      = rotateModel(model_curr, position_curr,  orientation_curr*e::Vector3d(0,1,0), pitch_step);
+          shape_pu      = rotateModel(model_curr, position_curr,  orientation_curr*e::Vector3d(0,1,0), -pitch_step);
+          shape_rr      = rotateModel(model_curr, position_curr,  orientation_curr*e::Vector3d(1,0,0), roll_step);
+          shape_rl      = rotateModel(model_curr, position_curr,  orientation_curr*e::Vector3d(1,0,0), -roll_step);
+          /* shape_pd      = rotateModel(model_curr, position_curr,  e::Vector3d(-sin(RPY_curr.z()),cos(RPY_curr.z()),0), pitch_step); */
+          /* shape_pu      = rotateModel(model_curr, position_curr,  e::Vector3d(-sin(RPY_curr.z()),cos(RPY_curr.z()),0), -pitch_step); */
+          /* shape_rr      = rotateModel(model_curr, position_curr,  e::Vector3d(cos(RPY_curr.z()),sin(RPY_curr.z()),0), roll_step); */
+          /* shape_rl      = rotateModel(model_curr, position_curr,  e::Vector3d(cos(RPY_curr.z()),sin(RPY_curr.z()),0), -roll_step); */
+
+          top_error = totalError(shape_top, observed_points, image_index);
+          bottom_error = totalError(shape_bottom, observed_points, image_index);
+          left_error = totalError(shape_left, observed_points, image_index);
+          right_error = totalError(shape_right, observed_points, image_index);
+          front_error = totalError(shape_front, observed_points, image_index);
+          back_error = totalError(shape_back, observed_points, image_index);
+          ccw_error = totalError(shape_ccw, observed_points, image_index);
+          cw_error = totalError(shape_cw, observed_points, image_index);
+          pd_error = totalError(shape_pd, observed_points, image_index);
+          pu_error = totalError(shape_pu, observed_points, image_index);
+          rr_error = totalError(shape_pd, observed_points, image_index);
+          rl_error = totalError(shape_pu, observed_points, image_index);
+
+          gradient(0) = ((top_error-bottom_error)/(2*z_step))/((double)(observed_points.size()));
+          gradient(1) = ((left_error-right_error)/(2*y_step))/((double)(observed_points.size()));
+          gradient(2) = ((front_error-back_error)/(2*x_step))/((double)(observed_points.size()));
+          gradient(3) = ((ccw_error-cw_error)/(2*yaw_step))/((double)(observed_points.size()));
+          gradient(4) = ((pd_error-pu_error)/(2*pitch_step))/((double)(observed_points.size()));
+          gradient(5) = ((rr_error-rl_error)/(2*roll_step))/((double)(observed_points.size()));
+
+          double x_diff, y_diff, z_diff, yaw_diff, pitch_diff, roll_diff;
+          if (abs(gradient(0)) > 1E-9)
+            x_diff = -gradient(0);
+          else
+            x_diff = 0;
+          if (abs(gradient(1)) > 1E-9)
+            y_diff = -gradient(1);
+          else
+            y_diff = 0;
+          if (abs(gradient(2)) > 1E-9)
+            z_diff = -gradient(2);
+          else
+            z_diff = 0;
+          if (abs(gradient(3)) > 1E-9)
+            yaw_diff = -gradient(3);
+          else
+            yaw_diff = 0;
+          if (abs(gradient(4)) > 1E-9)
+            pitch_diff = -gradient(4);
+          else
+            pitch_diff = 0;
+          if (abs(gradient(5)) > 1E-9)
+            roll_diff = -gradient(5);
+          else
+            roll_diff = 0;
+
+          position_curr = position_curr + e::Vector3d(x_diff, y_diff, z_diff);
+          RPY_curr = RPY_curr + e::Vector3d(roll_diff, pitch_diff, yaw_diff);
+          orientation_curr =
+              e::AngleAxisd(RPY_curr.x(), e::Vector3d::UnitX())
+            * e::AngleAxisd(RPY_curr.y(), e::Vector3d::UnitY())
+            * e::AngleAxisd(RPY_curr.z(), e::Vector3d::UnitZ());
+          model_curr = translateModel(rotateModel(model, e::Vector3d(0,0,0), orientation_curr), position_curr);
+
+          error_total = totalError(model_curr, observed_points, image_index);
+          iters++;
+        }
+        //final gradient check
+        double mean_error = error_total/((double)(observed_points.size()));
+        x_step = 0.10;
+        y_step = 0.10;
+        z_step = 0.10;
+        shape_top   = translateModel(model_curr, e::Vector2d(0,0,z_step));
+        shape_bottom= translateModel(model_curr, e::Vector2d(0,0,-z_step));
+        shape_left  = translateModel(model_curr, e::Vector2d(0,y_step,0));
+        shape_right = translateModel(model_curr, e::Vector2d(0,-y_step,0));
+        shape_front = translateModel(model_curr, e::Vector2d(x_step,0,0));
+        shape_back  = translateModel(model_curr, e::Vector2d(-x_step,0,0));
+        gradient.x() = ((((abs(front_error)+abs(back_error))/2)-mean_error)/(x_step))/((double)(observed_points.size()));
+        gradient.y() = ((((abs(left_error)+abs(right_error))/2)-mean_error)/(y_step))/((double)(observed_points.size()));
+        gradient.z() = ((((abs(top_error)+abs(bottom_error))/2)-mean_error)/(z_step))/((double)(observed_points.size()));
+
+        return {position_curr, orientation_curr};
+      }
+
+      std::vector<LEDMarker> translateModel(std::vector<LEDMarker> model, e::Vector3d position){
+        std::vector<LEDMarker> output;
+        for (auto marker : model){
+          marker.position += position;
+          output.push_back(marker);
+        }
+        return output;
+      }
+
+      std::vector<LEDMarker> rotateModel(std::vector<LEDMarker> model, e::Vector3d center, e::Vector3d axis, double angle){
+        e::Quaterniond rotation(e::AngleAxisd(angle, axis));
+        return rotateModel(model, center, rotation);
+      }
+
+      std::vector<LEDMarker> rotateModel(std::vector<LEDMarker> model, e::Vector3d center, e::Quaterniond orientation){
+        std::vector<LEDMarker> output;
+        for (auto marker : model){
+          marker.position -= center;
+          marker.position = orientation*marker.position;
+          marker.position += center;
+          marker.orientation *= orientation;
+          output.push_back(marker);
+        }
+        return output;
+      }
+
+      double totalError(std::vector<LEDMarker> model, std::vector<cv::Point3d> observed_points, int image_index){
+        struct ProjectedMarker {
+          cv::Point2d position;
+          int freq_id;
+          double view_angle;
+        };
+        double total_error = 0;
+
+        std::vector<ProjectedMarker> projected_markers;
+        for (auto marker : model){
+          auto curr_projected =  camPointFromModelPoint(marker, image_index);
+          projected_markers.push_back({
+              .position = curr_projected.first,
+              .freq_id = marker.freq_id,
+              .view_angle = curr_projected.second
+              });
+        }
+        remove orverlapping 
+
+        return total_error;
+      }
+
+      e::MatrixXd getCovarianceEstimate(std::vector<LEDMarker> model, std::vector<cv::Point3d> observed_points, std::pair<e::Vector3d, e::Quaterniond> pose, int image_index){
+        return e::MatrixXd();
       }
 
       e::Vector3d directionFromCamPoint(cv::Point3d point, int image_index){
@@ -998,10 +1210,25 @@ namespace uvdar {
           cam2world(v_w_raw, v_i, &(_oc_models_[image_index]));
           return e::Vector3d(v_w_raw[1], v_w_raw[0], -v_w_raw[2]);
       }
-      e::Vector3d camPointFromObjectPoint(e::Vector3d point, int image_index){
+
+      std::pair<cv::Point2d, double> camPointFromModelPoint(LEDMarker marker, int image_index){
+        auto marker_cam_pos = opticalFromMarker(marker);
+        auto output_position = camPointFromObjectPoint(marker_cam_pos.first, image_index);
+        e::Vector3d view_vector = -(marker_cam_pos.first.normalized());
+        e::Vector3d led_vector = marker_cam_pos.second*e::Vector3d(0,0,1);
+        double view_angle = acos(view_vector.dot(led_vector));
+        return {output_position, view_angle};
+      }
+
+      std::pair<e::Vector3d, e::Quaterniond> opticalFromMarker(LEDMarker marker){
+        e::Quaterniond rotator(-0.5,0.5,-0.5,-0.5);
+        return {rotator*marker.position, rotator*marker.orientation};
+      }
+
+      cv::Point2d camPointFromObjectPoint(e::Vector3d point, int image_index){
           double v_w[3] = {point.y(), point.x(),-point.z()};
           double v_i_raw[2];
-          world2cam(v_i_raw, v_i, &(_oc_models_[image_index]));
+          world2cam(v_i_raw, v_w, &(_oc_models_[image_index]));
           return cv::Point2d(v_i_raw[1], v_i_raw[0]);
       }
 
@@ -1169,10 +1396,10 @@ namespace uvdar {
       std::vector<struct ocam_model> _oc_models_;
 
 
-      Eigen::MatrixXd Px2,Px3,Px2q;
-      Eigen::MatrixXd Px2qb,Px3qb,Px4qb;
-      Eigen::VectorXd X2,X3,X2q;
-      Eigen::VectorXd X2qb,X3qb,X4qb;
+      /* Eigen::MatrixXd Px2,Px3,Px2q; */
+      /* Eigen::MatrixXd Px2qb,Px3qb,Px4qb; */
+      /* Eigen::VectorXd X2,X3,X2q; */
+      /* Eigen::VectorXd X2qb,X3qb,X4qb; */
 
       std::vector<ros::Publisher> pub_measured_poses_;
 

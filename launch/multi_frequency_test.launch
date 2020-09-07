@@ -163,7 +163,8 @@
 
     </node>
       
-    <node name="uvdar_uav_pose_calculator_node" pkg="uvdar_core" type="uvdar_uav_pose_calculator_node" output="screen" launch-prefix="debug_roslaunch"> 
+    <!-- <node name="uvdar_uav_pose_calculator_node" pkg="uvdar_core" type="uvdar_uav_pose_calculator_node" output="screen" launch-prefix="debug_roslaunch"> --> 
+    <node name="uvdar_pose_calculator_node" pkg="uvdar_core" type="uvdar_uav_pose_calculator_node" output="screen" launch-prefix="debug_roslaunch"> 
     <!-- <node name="uvdar_uav_pose_calculator_node" pkg="uvdar_core" type="uvdar_uav_pose_calculator_node" output="screen" launch-prefix="valgrind -!-leak-check=full -v"> --> 
     <!-- <node name="uvdar_uav_pose_calculator_node" pkg="uvdar_core" type="uvdar_uav_pose_calculator_node" output="screen" > --> 
       <param name="uav_name" type = "string" value="$(arg uav_name)"/>
