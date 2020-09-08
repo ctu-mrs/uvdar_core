@@ -1193,9 +1193,35 @@ namespace uvdar {
               .position = curr_projected.first,
               .freq_id = marker.freq_id,
               .view_angle = curr_projected.second
+              .distance = marker.position.norm();
               });
         }
-        remove orverlapping 
+
+        std::vector<ProjectedMarker> selected_markers;
+        for (auto marker : projected_markers){
+          double distance = marker.distance;
+          double cos_angle =  cos(marker.view_angle);
+          double led_intensity =
+            round(std::max(.0, cos_angle) * (led_projection_coefs_[0] + (led_projection_coefs_[1] / ((distance + led_projection_coefs_[2]) * (distance + led_projection_coefs_[2])))));
+          if (led_intensity > 0) { // otherwise they will probably not be visible
+            selected_markers.push_back(marker);
+          }
+        }
+
+        for (int i = 0; i < ((int)(selected_markers.size()) - 1); i++){
+          for (int j = i+1; j < (int)(selected_markers.size()); j++){
+            double tent_dist = cv::norm(selected_markers[i]-selected_markers[j]);
+            if (tent_dist < 3){
+              if (selected_markers[i].freq_id == selected_markers[j].freq_id){ // if the frequencies are the same, they tend to merge. Otherwise, the result varies
+                selected_markers[i].position = (selected_markers[i].position + selected_markers[j].position)/2; //average them
+                separated_points.erase(separated_points.begin()+j); //remove the other
+                j--; //we are not expecting many 2+ clusters, so we will not define special case for this
+              }
+            }
+          }
+        }
+
+        Now match the projection
 
         return total_error;
       }
@@ -1433,6 +1459,8 @@ namespace uvdar {
 
       std::vector<std::shared_ptr<std::mutex>>  mutex_separated_points_;
       std::vector<std::vector<std::pair<int,std::vector<cv::Point3d>>>> separated_points_;
+
+      double led_projection_coefs_[3] = {1.3398, 31.4704, 0.0154}; //empirically measured coefficients of the decay of blob radius wrt. distance of a LED in our UVDAR cameras.
       //}
   };
 
