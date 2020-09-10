@@ -848,11 +848,11 @@ namespace uvdar {
         if (_debug_){
           ROS_INFO_STREAM("[UVDARPoseCalculator]: Rough initialization: " << rough_initialization);
         }
-        auto fitted_position = iterFitPosition(model_, points, rough_initialization, target,  image_index);
-        if (_debug_){
-          ROS_INFO_STREAM("[UVDARPoseCalculator]: Fitted position: " << fitted_position.transpose());
-        }
-        auto fitted_pose = iterFitFull(model_, points, fitted_position, target,  image_index);
+        /* auto fitted_position = iterFitPosition(model_, points, rough_initialization, target,  image_index); */
+        /* if (_debug_){ */
+        /*   ROS_INFO_STREAM("[UVDARPoseCalculator]: Fitted position: " << fitted_position.transpose()); */
+        /* } */
+        auto fitted_pose = iterFitFull(model_, points, rough_initialization, target,  image_index);
         if (_debug_){
           ROS_INFO_STREAM("[UVDARPoseCalculator]: Fitted pose: " << fitted_pose.first.transpose());
         }
@@ -865,7 +865,7 @@ namespace uvdar {
       /*   ms.x.bottomLeftCorner(4,1) = fitted_pose.second; */
       /*   ms.C = covariance; */
 
-        covariance += e::MatrixXd::Identity(6,6)*0.0001;
+        /* covariance += e::MatrixXd::Identity(6,6)*0.0001; */
         if (fitted_pose.first.norm() < 1.5) { //We don't expect to be able to measure relative poses of UAVs this close - the markers would be too bright and too far apart
           return;
         }
@@ -879,18 +879,19 @@ namespace uvdar {
         /* qtemp.setRPY((ms.x(3)), (ms.x(4)), (ms.x(5))); */
         /* qtemp=tf::Quaternion(-0.5,0.5,-0.5,-0.5)*qtemp; //bring relative orientations to the optical frame of the camera (Roll, Pitch and Yaw were estimated in the more intuitive sensor frame (X forward, Y to the left, Z up) */
         /* qtemp.normalize();//just in case */
+        auto fitted_pose_optical = opticalFromBase(fitted_pose,covariance);
 
         output_pose.id = target;
-        output_pose.pose.position.x = fitted_pose.first.x();
-        output_pose.pose.position.y = fitted_pose.first.y();
-        output_pose.pose.position.z = fitted_pose.first.z();
-        output_pose.pose.orientation.x = fitted_pose.second.x();
-        output_pose.pose.orientation.y = fitted_pose.second.y();
-        output_pose.pose.orientation.z = fitted_pose.second.z();
-        output_pose.pose.orientation.w = fitted_pose.second.w();
-        for (int i=0; i<covariance.cols(); i++){
-          for (int j=0; j<covariance.rows(); j++){
-            output_pose.covariance[covariance.cols()*j+i] =  ms.C(j,i);
+        output_pose.pose.position.x = fitted_pose_optical.first.first.x();
+        output_pose.pose.position.y = fitted_pose_optical.first.first.y();
+        output_pose.pose.position.z = fitted_pose_optical.first.first.z();
+        output_pose.pose.orientation.x = fitted_pose_optical.first.second.x();
+        output_pose.pose.orientation.y = fitted_pose_optical.first.second.y();
+        output_pose.pose.orientation.z = fitted_pose_optical.first.second.z();
+        output_pose.pose.orientation.w = fitted_pose_optical.first.second.w();
+        for (int i=0; i<fitted_pose_optical.second.cols(); i++){
+          for (int j=0; j<fitted_pose_optical.second.rows(); j++){
+            output_pose.covariance[fitted_pose_optical.second.cols()*j+i] =  fitted_pose_optical.second(j,i);
           }
         }
 
@@ -915,7 +916,8 @@ namespace uvdar {
         /* ROS_ERROR_STREAM("[UVDARPoseCalculator]: model size: " << model.size()); */
         double d_model = getRoughVisibleDiameter(model);
         double alpha_max = getLargestAngle(v_w);
-        double l_rough = (d_model)/tan(alpha_max/2.0);
+        double l_rough = (d_model/2.0)/tan(alpha_max/2.0);
+        ROS_INFO_STREAM("[UVDARPoseCalculator]: d_model: " << d_model << "; alpha_max: " << alpha_max << "; l_rough: " << l_rough);
         return baseFromOptical(v_avg*l_rough);
       }
 
@@ -971,9 +973,10 @@ namespace uvdar {
       e::Vector3d iterFitPosition(std::vector<LEDMarker> model, std::vector<cv::Point3d> observed_points, e::Vector3d rough_initialization, int target, int image_index){
         e::Vector3d position_curr = rough_initialization;
         auto model_curr = translateModel(model, position_curr);
-        double x_step = 0.1;
-        double y_step = 0.1;
-        double z_step = 0.1;
+        double step_init = 0.1;
+        double step = step_init;
+        /* double y_step = step_init; */
+        /* double z_step = step_init; */
         double error_total = totalError(model_curr, observed_points, target, image_index);
         std::vector<LEDMarker> shape_top, shape_bottom;
         std::vector<LEDMarker> shape_left, shape_right;
@@ -990,34 +993,56 @@ namespace uvdar {
         int iters = 0;
         ROS_INFO_STREAM("[UVDARPoseCalculator]: total error init: " << error_total);
         while ((error_total > threshold) && ((gradient.norm()) > 0.0001) && (iters < 50)){
-          shape_top     = translateModel(model_curr, e::Vector3d(0,0,z_step));
-          shape_bottom  = translateModel(model_curr, e::Vector3d(0,0,-z_step));
-          shape_left    = translateModel(model_curr, e::Vector3d(0,y_step,0));
-          shape_right   = translateModel(model_curr, e::Vector3d(0,-y_step,0));
-          shape_front   = translateModel(model_curr, e::Vector3d(x_step,0,0));
-          shape_back    = translateModel(model_curr, e::Vector3d(-x_step,0,0));
-          top_error = totalError(shape_top, observed_points, target, image_index);
-        ROS_INFO_STREAM("[UVDARPoseCalculator]: top: " << top_error);
-          bottom_error = totalError(shape_bottom, observed_points, target, image_index);
-        ROS_INFO_STREAM("[UVDARPoseCalculator]: bottom: " << bottom_error);
-          left_error = totalError(shape_left, observed_points, target, image_index);
-        ROS_INFO_STREAM("[UVDARPoseCalculator]: left: " << left_error);
-          right_error = totalError(shape_right, observed_points, target, image_index);
-        ROS_INFO_STREAM("[UVDARPoseCalculator]: right:" << right_error);
-          front_error = totalError(shape_front, observed_points, target, image_index);
-        ROS_INFO_STREAM("[UVDARPoseCalculator]: front: " << front_error);
-          back_error = totalError(shape_back, observed_points, target, image_index);
-        ROS_INFO_STREAM("[UVDARPoseCalculator]: back: " << back_error);
-          gradient.z() = ((top_error-bottom_error)/(2*z_step))/((double)(observed_points.size()));
-          gradient.y() = ((left_error-right_error)/(2*y_step))/((double)(observed_points.size()));
-          gradient.x() = ((front_error-back_error)/(2*x_step))/((double)(observed_points.size()));
+          step = step_init;
+          while (true){
+            shape_top     = translateModel(model_curr, e::Vector3d(0,0,step));
+            shape_bottom  = translateModel(model_curr, e::Vector3d(0,0,-step));
+            shape_left    = translateModel(model_curr, e::Vector3d(0,step,0));
+            shape_right   = translateModel(model_curr, e::Vector3d(0,-step,0));
+            shape_front   = translateModel(model_curr, e::Vector3d(step,0,0));
+            shape_back    = translateModel(model_curr, e::Vector3d(-step,0,0));
+            top_error = totalError(shape_top, observed_points, target, image_index);
+            /* ROS_INFO_STREAM("[UVDARPoseCalculator]: top: " << top_error); */
+            bottom_error = totalError(shape_bottom, observed_points, target, image_index);
+            /* ROS_INFO_STREAM("[UVDARPoseCalculator]: bottom: " << bottom_error); */
+            if ( (step > 0.0001) && (sgn(bottom_error - error_total) == sgn(top_error - error_total))) {
+              step /= 2;
+              continue;
+            }
+            left_error = totalError(shape_left, observed_points, target, image_index);
+            /* ROS_INFO_STREAM("[UVDARPoseCalculator]: left: " << left_error); */
+            right_error = totalError(shape_right, observed_points, target, image_index);
+            /* ROS_INFO_STREAM("[UVDARPoseCalculator]: right:" << right_error); */
+            if ( (step > 0.0001) && (sgn(left_error - error_total) == sgn(right_error - error_total))) {
+              step /= 2;
+              continue;
+            }
+            front_error = totalError(shape_front, observed_points, target, image_index);
+            /* ROS_INFO_STREAM("[UVDARPoseCalculator]: front: " << front_error); */
+            back_error = totalError(shape_back, observed_points, target, image_index);
+            /* ROS_INFO_STREAM("[UVDARPoseCalculator]: back: " << back_error); */
+            if ( (step > 0.0001) && (sgn(front_error - error_total) == sgn(back_error - error_total))) {
+              step /= 2;
+              continue;
+            }
 
-          if (gradient.norm() > x_step){
-            gradient = gradient.normalized()
-            gradient.x() = gradient.x()*x_step;
-            gradient.y() = gradient.y()*y_step;
-            gradient.z() = gradient.z()*z_step;
+            break;
           }
+          gradient.z() = ((top_error-bottom_error)/(2*step))/((double)(observed_points.size()));
+          gradient.y() = ((left_error-right_error)/(2*step))/((double)(observed_points.size()));
+          gradient.x() = ((front_error-back_error)/(2*step))/((double)(observed_points.size()));
+
+          /* gradient.x() = gradient.x()*x_step; */
+          /* gradient.y() = gradient.y()*y_step; */
+          /* gradient.z() = gradient.z()*z_step; */
+
+          /* if ( */ 
+          /*     (gradient.x() > x_step) || */
+          /*     (gradient.y() > y_step) || */
+          /*     (gradient.z() > z_step) */
+          /*    ){ */
+            gradient = gradient.normalized()*step;
+          /* } */
 
           double x_diff, y_diff, z_diff;
           if (abs(gradient.x()) > 1E-9)
@@ -1034,7 +1059,7 @@ namespace uvdar {
             z_diff = 0;
 
 
-          ROS_INFO_STREAM("[UVDARPoseCalculator]: gradient: " << gradient);
+          /* ROS_INFO_STREAM("[UVDARPoseCalculator]: gradient: " << gradient); */
           position_curr = position_curr + e::Vector3d(x_diff, y_diff, z_diff);
           model_curr = translateModel(model_curr, e::Vector3d(x_diff, y_diff, z_diff));
 
@@ -1046,18 +1071,18 @@ namespace uvdar {
         }
         //final gradient check
         double mean_error = error_total/((double)(observed_points.size()));
-        x_step = 0.10;
-        y_step = 0.10;
-        z_step = 0.10;
-        shape_top   = translateModel(model_curr, e::Vector3d(0,0,z_step));
-        shape_bottom= translateModel(model_curr, e::Vector3d(0,0,-z_step));
-        shape_left  = translateModel(model_curr, e::Vector3d(0,y_step,0));
-        shape_right = translateModel(model_curr, e::Vector3d(0,-y_step,0));
-        shape_front = translateModel(model_curr, e::Vector3d(x_step,0,0));
-        shape_back  = translateModel(model_curr, e::Vector3d(-x_step,0,0));
-        gradient.x() = ((((abs(front_error)+abs(back_error))/2)-mean_error)/(x_step))/((double)(observed_points.size()));
-        gradient.y() = ((((abs(left_error)+abs(right_error))/2)-mean_error)/(y_step))/((double)(observed_points.size()));
-        gradient.z() = ((((abs(top_error)+abs(bottom_error))/2)-mean_error)/(z_step))/((double)(observed_points.size()));
+        step = 0.10;
+        /* y_step = 0.10; */
+        /* z_step = 0.10; */
+        shape_top   = translateModel(model_curr, e::Vector3d(0,0,step));
+        shape_bottom= translateModel(model_curr, e::Vector3d(0,0,-step));
+        shape_left  = translateModel(model_curr, e::Vector3d(0,step,0));
+        shape_right = translateModel(model_curr, e::Vector3d(0,-step,0));
+        shape_front = translateModel(model_curr, e::Vector3d(step,0,0));
+        shape_back  = translateModel(model_curr, e::Vector3d(-step,0,0));
+        gradient.x() = ((((abs(front_error)+abs(back_error))/2)-mean_error)/(step))/((double)(observed_points.size()));
+        gradient.y() = ((((abs(left_error)+abs(right_error))/2)-mean_error)/(step))/((double)(observed_points.size()));
+        gradient.z() = ((((abs(top_error)+abs(bottom_error))/2)-mean_error)/(step))/((double)(observed_points.size()));
 
         return position_curr;
       }
@@ -1067,12 +1092,15 @@ namespace uvdar {
         e::Vector3d RPY_curr = e::Vector3d(0,0,0);
         e::Quaterniond orientation_curr  = e::Quaterniond(1,0,0,0);
         auto model_curr = translateModel(model, position_curr);
+
+        double pos_step_init = 0.1;
+        double angle_step_init = 0.1;
         double x_step     = 0.1;
         double y_step     = 0.1;
         double z_step     = 0.1;
-        double yaw_step   = 0.1;//rad
-        double pitch_step = 0.1;//rad
-        double roll_step  = 0.1;//rad
+        double angle_step   = 0.1;//rad
+        /* double pitch_step = 0.1;//rad */
+        /* double roll_step  = 0.1;//rad */
 
         double error_total = totalError(model_curr, observed_points, target, image_index);
         std::vector<LEDMarker> shape_top, shape_bottom;
@@ -1097,57 +1125,150 @@ namespace uvdar {
             std::numeric_limits<double>::max();
         double threshold = (int)(observed_points.size())*0.001;
         int iters = 0;
+        /* ROS_INFO_STREAM("[UVDARPoseCalculator]: total error init: " << error_total); */
         while ((error_total > threshold) && ((gradient.norm()) > 0.0001) && (iters < 50)){
-          shape_top     = translateModel(model_curr, e::Vector3d(0,0,z_step));
-          shape_bottom  = translateModel(model_curr, e::Vector3d(0,0,-z_step));
-          shape_left    = translateModel(model_curr, e::Vector3d(0,y_step,0));
-          shape_right   = translateModel(model_curr, e::Vector3d(0,-y_step,0));
-          shape_front   = translateModel(model_curr, e::Vector3d(0,x_step,0));
-          shape_back    = translateModel(model_curr, e::Vector3d(0,-x_step,0));
-          shape_ccw     = rotateModel(model_curr, position_curr,  orientation_curr*e::Vector3d(0,0,1), yaw_step);
-          shape_cw      = rotateModel(model_curr, position_curr,  orientation_curr*e::Vector3d(0,0,1), -yaw_step);
-          shape_pd      = rotateModel(model_curr, position_curr,  orientation_curr*e::Vector3d(0,1,0), pitch_step);
-          shape_pu      = rotateModel(model_curr, position_curr,  orientation_curr*e::Vector3d(0,1,0), -pitch_step);
-          shape_rr      = rotateModel(model_curr, position_curr,  orientation_curr*e::Vector3d(1,0,0), roll_step);
-          shape_rl      = rotateModel(model_curr, position_curr,  orientation_curr*e::Vector3d(1,0,0), -roll_step);
-          /* shape_pd      = rotateModel(model_curr, position_curr,  e::Vector3d(-sin(RPY_curr.z()),cos(RPY_curr.z()),0), pitch_step); */
-          /* shape_pu      = rotateModel(model_curr, position_curr,  e::Vector3d(-sin(RPY_curr.z()),cos(RPY_curr.z()),0), -pitch_step); */
-          /* shape_rr      = rotateModel(model_curr, position_curr,  e::Vector3d(cos(RPY_curr.z()),sin(RPY_curr.z()),0), roll_step); */
-          /* shape_rl      = rotateModel(model_curr, position_curr,  e::Vector3d(cos(RPY_curr.z()),sin(RPY_curr.z()),0), -roll_step); */
+          x_step = y_step = z_step = pos_step_init;
+          angle_step = angle_step_init;
+          while (true){ //get local position gradient
+            shape_top     = translateModel(model_curr, e::Vector3d(0,0,z_step));
+            shape_bottom  = translateModel(model_curr, e::Vector3d(0,0,-z_step));
+            shape_left    = translateModel(model_curr, e::Vector3d(0,y_step,0));
+            shape_right   = translateModel(model_curr, e::Vector3d(0,-y_step,0));
+            shape_front   = translateModel(model_curr, e::Vector3d(0,x_step,0));
+            shape_back    = translateModel(model_curr, e::Vector3d(0,-x_step,0));
+            /* shape_pd      = rotateModel(model_curr, position_curr,  e::Vector3d(-sin(RPY_curr.z()),cos(RPY_curr.z()),0), pitch_step); */
+            /* shape_pu      = rotateModel(model_curr, position_curr,  e::Vector3d(-sin(RPY_curr.z()),cos(RPY_curr.z()),0), -pitch_step); */
+            /* shape_rr      = rotateModel(model_curr, position_curr,  e::Vector3d(cos(RPY_curr.z()),sin(RPY_curr.z()),0), roll_step); */
+            /* shape_rl      = rotateModel(model_curr, position_curr,  e::Vector3d(cos(RPY_curr.z()),sin(RPY_curr.z()),0), -roll_step); */
 
-          top_error = totalError(shape_top, observed_points, target, image_index);
-          bottom_error = totalError(shape_bottom, observed_points, target, image_index);
-          left_error = totalError(shape_left, observed_points, target, image_index);
-          right_error = totalError(shape_right, observed_points, target, image_index);
-          front_error = totalError(shape_front, observed_points, target, image_index);
-          back_error = totalError(shape_back, observed_points, target, image_index);
-          ccw_error = totalError(shape_ccw, observed_points, target, image_index);
-          cw_error = totalError(shape_cw, observed_points, target, image_index);
-          pd_error = totalError(shape_pd, observed_points, target, image_index);
-          pu_error = totalError(shape_pu, observed_points, target, image_index);
-          rr_error = totalError(shape_pd, observed_points, target, image_index);
-          rl_error = totalError(shape_pu, observed_points, target, image_index);
+            top_error = totalError(shape_top, observed_points, target, image_index);
+            /* ROS_INFO_STREAM("[UVDARPoseCalculator]: top: " << top_error); */
+            bottom_error = totalError(shape_bottom, observed_points, target, image_index);
+            /* ROS_INFO_STREAM("[UVDARPoseCalculator]: bottom: " << bottom_error); */
+            if ( (z_step > 0.0001) && (sgn(bottom_error - error_total) == sgn(top_error - error_total))) {
+              z_step /= 2;
+              continue;
+            }
+            left_error = totalError(shape_left, observed_points, target, image_index);
+            /* ROS_INFO_STREAM("[UVDARPoseCalculator]: left: " << left_error); */
+            right_error = totalError(shape_right, observed_points, target, image_index);
+            /* ROS_INFO_STREAM("[UVDARPoseCalculator]: right:" << right_error); */
+            if ( (y_step > 0.0001) && (sgn(left_error - error_total) == sgn(right_error - error_total))) {
+              y_step /= 2;
+              continue;
+            }
+            front_error = totalError(shape_front, observed_points, target, image_index);
+            /* ROS_INFO_STREAM("[UVDARPoseCalculator]: front: " << front_error); */
+            back_error = totalError(shape_back, observed_points, target, image_index);
+            /* ROS_INFO_STREAM("[UVDARPoseCalculator]: back: " << back_error); */
+            if ( (x_step > 0.0001) && (sgn(front_error - error_total) == sgn(back_error - error_total))) {
+              x_step /= 2;
+              continue;
+            }
 
-          gradient(0) = ((top_error-bottom_error)/(2*z_step))/((double)(observed_points.size()));
+            break;
+          }
+          gradient(0) = ((top_error-bottom_error)/(2*x_step))/((double)(observed_points.size()));
           gradient(1) = ((left_error-right_error)/(2*y_step))/((double)(observed_points.size()));
-          gradient(2) = ((front_error-back_error)/(2*x_step))/((double)(observed_points.size()));
-          gradient(3) = ((ccw_error-cw_error)/(2*yaw_step))/((double)(observed_points.size()));
-          gradient(4) = ((pd_error-pu_error)/(2*pitch_step))/((double)(observed_points.size()));
-          gradient(5) = ((rr_error-rl_error)/(2*roll_step))/((double)(observed_points.size()));
+          gradient(2) = ((front_error-back_error)/(2*z_step))/((double)(observed_points.size()));
 
+
+          /* double lin_gradient = (gradient.topRightCorner(3,1).norm()); */
+          double lin_gradient;
+          double dist = 0.0;
+          double scale = 0.1;
+          double lin_step_init = 1.0;
+          double lin_diff_step = lin_step_init;
+          double lin_step = lin_step_init;
+          /* double lin_step = gradient.topRightCorner(3,1).norm(); */
+          e::Vector3d step_dir = -(gradient.topRightCorner(3,1).normalized());
+          double error_shift_prev = error_total;
+          double error_shift_curr = error_total;
+          auto model_shifted_curr = model_curr;
+          do {
+            error_shift_prev = error_shift_curr;
+            lin_diff_step = lin_step_init;
+            while (true){ //approach minimum along gradient
+              double dist_a = dist+lin_diff_step;
+              double dist_b = dist-lin_diff_step;
+              auto model_shifted_a     = translateModel(model_curr, step_dir*dist_a);
+              auto model_shifted_b     = translateModel(model_curr, step_dir*dist_b);
+              double error_shift_a = totalError(model_shifted_a, observed_points, target, image_index);
+              double error_shift_b = totalError(model_shifted_b, observed_points, target, image_index);
+              if ( (lin_diff_step > 0.0001) && (sgn(error_shift_a - error_total) == sgn(error_shift_b - error_total))) {
+                lin_diff_step /= 2;
+                continue;
+              }
+              lin_gradient = ((error_shift_a-error_shift_b)/(2*lin_diff_step))/((double)(observed_points.size()));
+              break;
+            }
+            lin_step = lin_step_init;
+            while (true){
+              double dist_tent = dist-(sgn(lin_gradient)*lin_step);
+              /* lin_step = lin_step_init; */
+              model_shifted_curr = translateModel(model_curr, step_dir*dist_tent);
+              error_shift_curr = totalError(model_shifted_curr, observed_points, target, image_index);
+              if (error_shift_prev-error_shift_curr < 0.0){
+                lin_step /= 2;
+                continue;
+              }
+              /* ROS_INFO_STREAM("[UVDARPoseCalculator]: error_shifted: " << error_shift_curr); */
+              dist = dist_tent;
+              break;
+            }
+          } while (error_shift_prev-error_shift_curr > 0.001);
+          position_curr += step_dir*dist;
+          model_curr = model_shifted_curr;
+          error_total = error_shift_curr;
+          /* if (gradient.topRightCorner(3,1).norm() > 1){ */
+          /*   gradient.topRightCorner(3,1) = gradient.topRightCorner(3,1).normalized(); */
+          /* } */
+            /* gradient.topRightCorner(3,1) = gradient.topRightCorner(3,1).normalized()*pos_step; */
+
+          /* ROS_INFO_STREAM("[UVDARPoseCalculator]: position_shifted: " << position_curr); */
+          while (true){
+
+            shape_ccw     = rotateModel(model_curr, position_curr,  orientation_curr*e::Vector3d(0,0,1), angle_step);
+            shape_cw      = rotateModel(model_curr, position_curr,  orientation_curr*e::Vector3d(0,0,1), -angle_step);
+            ccw_error = totalError(shape_ccw, observed_points, target, image_index);
+            /* ROS_INFO_STREAM("[UVDARPoseCalculator]: ccw: " << ccw_error); */
+            cw_error = totalError(shape_cw, observed_points, target, image_index);
+            /* ROS_INFO_STREAM("[UVDARPoseCalculator]: cw: " << cw_error); */
+            if ( (angle_step > 0.0001) && (sgn(ccw_error - error_total) == sgn(cw_error - error_total))) {
+              angle_step /= 2;
+              continue;
+            }
+            shape_pd      = rotateModel(model_curr, position_curr,  orientation_curr*e::Vector3d(0,1,0), angle_step);
+            shape_pu      = rotateModel(model_curr, position_curr,  orientation_curr*e::Vector3d(0,1,0), -angle_step);
+            pd_error = totalError(shape_pd, observed_points, target, image_index);
+            /* ROS_INFO_STREAM("[UVDARPoseCalculator]: pd: " << pd_error); */
+            pu_error = totalError(shape_pu, observed_points, target, image_index);
+            /* ROS_INFO_STREAM("[UVDARPoseCalculator]: pu: " << pu_error); */
+            if ( (angle_step > 0.0001) && (sgn(pd_error - error_total) == sgn(pu_error - error_total))) {
+              angle_step /= 2;
+              continue;
+            }
+            shape_rr      = rotateModel(model_curr, position_curr,  orientation_curr*e::Vector3d(1,0,0), angle_step);
+            shape_rl      = rotateModel(model_curr, position_curr,  orientation_curr*e::Vector3d(1,0,0), -angle_step);
+            rr_error = totalError(shape_pd, observed_points, target, image_index);
+            /* ROS_INFO_STREAM("[UVDARPoseCalculator]: rr: " << rr_error); */
+            rl_error = totalError(shape_pu, observed_points, target, image_index);
+            /* ROS_INFO_STREAM("[UVDARPoseCalculator]: rl: " << rl_error); */
+            if ( (angle_step > 0.0001) && (sgn(rr_error - error_total) == sgn(rl_error - error_total))) {
+              angle_step /= 2;
+              continue;
+            }
+
+            break;
+          }
+
+          gradient(3) = ((ccw_error-cw_error)/(2*angle_step))/((double)(observed_points.size()));
+          gradient(4) = ((pd_error-pu_error)/(2*angle_step))/((double)(observed_points.size()));
+          gradient(5) = ((rr_error-rl_error)/(2*angle_step))/((double)(observed_points.size()));
+
+          gradient.bottomRightCorner(3,1) = gradient.bottomRightCorner(3,1).normalized()*angle_step;
           double x_diff, y_diff, z_diff, yaw_diff, pitch_diff, roll_diff;
-          if (abs(gradient(0)) > 1E-9)
-            x_diff = -gradient(0);
-          else
-            x_diff = 0;
-          if (abs(gradient(1)) > 1E-9)
-            y_diff = -gradient(1);
-          else
-            y_diff = 0;
-          if (abs(gradient(2)) > 1E-9)
-            z_diff = -gradient(2);
-          else
-            z_diff = 0;
+
           if (abs(gradient(3)) > 1E-9)
             yaw_diff = -gradient(3);
           else
@@ -1161,28 +1282,32 @@ namespace uvdar {
           else
             roll_diff = 0;
 
-          position_curr = position_curr + e::Vector3d(x_diff, y_diff, z_diff);
+          /* position_curr = position_curr + e::Vector3d(x_diff, y_diff, z_diff); */
           RPY_curr = RPY_curr + e::Vector3d(roll_diff, pitch_diff, yaw_diff);
           orientation_curr =
               e::AngleAxisd(RPY_curr.x(), e::Vector3d::UnitX())
             * e::AngleAxisd(RPY_curr.y(), e::Vector3d::UnitY())
             * e::AngleAxisd(RPY_curr.z(), e::Vector3d::UnitZ());
           model_curr = translateModel(rotateModel(model, e::Vector3d(0,0,0), orientation_curr), position_curr);
-
           error_total = totalError(model_curr, observed_points, target, image_index);
+
+          /* ROS_INFO_STREAM("[UVDARPoseCalculator]: rotation RPY: " << RPY_curr.transpose()); */
+          /* ROS_INFO_STREAM("[UVDARPoseCalculator]: total error: " << error_total << " : iters: " << iters); */
+          /* exit(3); */
           iters++;
         }
         //final gradient check
         double mean_error = error_total/((double)(observed_points.size()));
-        x_step = 0.10;
-        y_step = 0.10;
-        z_step = 0.10;
+        x_step = y_step = z_step = pos_step_init;
+        angle_step = angle_step_init;
+        /* y_step = 0.10; */
+        /* z_step = 0.10; */
         shape_top   = translateModel(model_curr, e::Vector3d(0,0,z_step));
         shape_bottom= translateModel(model_curr, e::Vector3d(0,0,-z_step));
         shape_left  = translateModel(model_curr, e::Vector3d(0,y_step,0));
         shape_right = translateModel(model_curr, e::Vector3d(0,-y_step,0));
-        shape_front = translateModel(model_curr, e::Vector3d(x_step,0,0));
-        shape_back  = translateModel(model_curr, e::Vector3d(-x_step,0,0));
+        shape_front = translateModel(model_curr, e::Vector3d(z_step,0,0));
+        shape_back  = translateModel(model_curr, e::Vector3d(-z_step,0,0));
         gradient.x() = ((((abs(front_error)+abs(back_error))/2)-mean_error)/(x_step))/((double)(observed_points.size()));
         gradient.y() = ((((abs(left_error)+abs(right_error))/2)-mean_error)/(y_step))/((double)(observed_points.size()));
         gradient.z() = ((((abs(top_error)+abs(bottom_error))/2)-mean_error)/(z_step))/((double)(observed_points.size()));
@@ -1207,9 +1332,11 @@ namespace uvdar {
       std::vector<LEDMarker> rotateModel(std::vector<LEDMarker> model, e::Vector3d center, e::Quaterniond orientation){
         std::vector<LEDMarker> output;
         for (auto marker : model){
+          /* ROS_INFO_STREAM("[UVDARPoseCalculator]: pos a: " << marker.position); */
           marker.position -= center;
           marker.position = orientation*marker.position;
           marker.position += center;
+          /* ROS_INFO_STREAM("[UVDARPoseCalculator]: pos b: " << marker.position); */
           marker.orientation *= orientation;
           output.push_back(marker);
         }
@@ -1276,7 +1403,7 @@ namespace uvdar {
               double tent_image_distance = cv::norm(proj_point.position - cv::Point2d(obs_point.x, obs_point.y));
               if (tent_image_distance > 100){
                 ROS_INFO_STREAM("[UVDARPoseCalculator]: obs_point: " << cv::Point2d(obs_point.x, obs_point.y) << " : proj_point: " << proj_point.position);
-                exit(3);
+                /* exit(3); */
               }
               if (tent_image_distance < closest_distance){
                 closest_distance = tent_image_distance;
@@ -1298,7 +1425,9 @@ namespace uvdar {
       }
 
       e::MatrixXd getCovarianceEstimate(std::vector<LEDMarker> model, std::vector<cv::Point3d> observed_points, std::pair<e::Vector3d, e::Quaterniond> pose, int target, int image_index){
-        return e::MatrixXd();
+        e::MatrixXd output;
+        output.setIdentity(6,6);
+        return output;
       }
 
       e::Vector3d directionFromCamPoint(cv::Point3d point, int image_index){
@@ -1321,6 +1450,16 @@ namespace uvdar {
         e::Quaterniond rotator(0.5,0.5,-0.5,0.5);
         /* ROS_INFO_STREAM("[UVDARPoseCalculator]: marker_pos: " << marker.position << "; rotated: " << rotator*marker.position); */
         return {rotator*marker.position, rotator*marker.orientation};
+      }
+
+      std::pair<std::pair<e::Vector3d,e::Quaterniond>,e::MatrixXd> opticalFromBase(std::pair<e::Vector3d,e::Quaterniond> pose, e::MatrixXd covariance){
+        auto output_pose = pose;
+        auto output_covariance = covariance;
+        e::Quaterniond rotator(0.5,0.5,-0.5,0.5);
+        output_pose.first = rotator*pose.first;
+        output_pose.second = rotator*pose.second;
+        output_covariance.topLeftCorner(3,3) = rotator.toRotationMatrix()*output_covariance.topLeftCorner(3,3)*rotator.toRotationMatrix().transpose();
+        return {output_pose, output_covariance};
       }
 
       e::Vector3d baseFromOptical(e::Vector3d input){
@@ -1466,6 +1605,10 @@ namespace uvdar {
       }
       //}
       //}
+      
+      template <typename T> int sgn(T val) {
+        return (T(0) < val) - (val < T(0));
+      }
 
       /* attributes //{ */
       bool _debug_;
