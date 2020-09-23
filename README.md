@@ -1,4 +1,7 @@
-# UVDAR drivers and processing [![Build Status](https://travis-ci.com/ctu-mrs/uvdar.svg?branch=master)](https://travis-ci.com/ctu-mrs/uvdar)
+# UVDAR drivers and processing
+
+| Build status | [![Build Status](http://badges.herokuapp.com/travis.com/ctu-mrs/uvdar_core?env=BADGE=bionic&label=Melodic)](https://travis-ci.com/ctu-mrs/uvdar_core) | [![Build Status](http://badges.herokuapp.com/travis.com/ctu-mrs/uvdar_core?env=BADGE=focal&label=Noetic)](https://travis-ci.com/ctu-mrs/uvdar_core) |
+|--------------|-------------------------------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------|
 
 ![](.fig/thumbnail.jpg)
 
