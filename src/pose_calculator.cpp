@@ -896,8 +896,8 @@ namespace uvdar {
         }
 
         if (_debug_){
-          ROS_INFO_STREAM("[UVDARPoseCalculator]: Y: \n" << fitted_pose.first.transpose() << " : [" << fitted_pose.second.x() << "," << fitted_pose.second.y() << "," <<fitted_pose.second.z() << "," <<fitted_pose.second.w() << "]" );
-          ROS_INFO_STREAM("[UVDARPoseCalculator]: Py: \n" << covariance );
+          ROS_INFO_STREAM("[UVDARPoseCalculator]: Y: \n" << fitted_pose_optical.first.first.transpose() << " : [" << fitted_pose_optical.first.second.x() << "," << fitted_pose_optical.first.second.y() << "," <<fitted_pose_optical.first.second.z() << "," <<fitted_pose_optical.first.second.w() << "]" );
+          ROS_INFO_STREAM("[UVDARPoseCalculator]: Py: \n" << fitted_pose_optical.second );
         }
 
 
@@ -1343,7 +1343,7 @@ namespace uvdar {
         return output;
       }
 
-      double totalError(std::vector<LEDMarker> model, std::vector<cv::Point3d> observed_points, int target, int image_index){
+      double totalError(std::vector<LEDMarker> model, std::vector<cv::Point3d> observed_points, int target, int image_index, bool discrete_pixels=false){
         struct ProjectedMarker {
           cv::Point2d position;
           int freq_id;
@@ -1400,9 +1400,15 @@ namespace uvdar {
             double tent_signal_distance = abs( (1.0/(_frequencies_[(target*_frequencies_per_target_)+proj_point.freq_id])) - (1.0/(obs_point.z)) );
             /* ROS_INFO_STREAM("[UVDARPoseCalculator]: signal distance:  " << tent_signal_distance); */
             if (tent_signal_distance < (2.0/estimated_framerate_[image_index])){
-              double tent_image_distance = cv::norm(proj_point.position - cv::Point2d(obs_point.x, obs_point.y));
+              double tent_image_distance;
+              if (!discrete_pixels){
+                tent_image_distance = cv::norm(proj_point.position - cv::Point2d(obs_point.x, obs_point.y));
+              }
+              else {
+                tent_image_distance = cv::norm(cv::Point2i(proj_point.position.x - obs_point.x, proj_point.position.y - obs_point.y));
+              }
               if (tent_image_distance > 100){
-                ROS_INFO_STREAM("[UVDARPoseCalculator]: obs_point: " << cv::Point2d(obs_point.x, obs_point.y) << " : proj_point: " << proj_point.position);
+                /* ROS_INFO_STREAM("[UVDARPoseCalculator]: obs_point: " << cv::Point2d(obs_point.x, obs_point.y) << " : proj_point: " << proj_point.position); */
                 /* exit(3); */
               }
               if (tent_image_distance < closest_distance){
@@ -1426,7 +1432,91 @@ namespace uvdar {
 
       e::MatrixXd getCovarianceEstimate(std::vector<LEDMarker> model, std::vector<cv::Point3d> observed_points, std::pair<e::Vector3d, e::Quaterniond> pose, int target, int image_index){
         e::MatrixXd output;
-        output.setIdentity(6,6);
+
+        double trans_scale = 0.1;
+        /* rot_scale = 0.05; */
+        double rot_scale = trans_scale;
+        auto Y0 = pose;
+        e::MatrixXd Y(6,(3*3*3*3*3*3));
+        std::vector<int> j = {-1,0,1};
+        int k = 0;
+        std::vector<double> Xe;
+        for (auto x_s : j){
+          for (auto y_s : j){
+            for (auto z_s : j){
+              for (auto r_s : j){
+                for (auto p_s : j){
+                  for (auto y_s : j){
+                    if (
+                        (x_s == 0) &&
+                        (y_s == 0) &&
+                        (z_s == 0) &&
+                        (r_s == 0) &&
+                        (p_s == 0) &&
+                        (y_s == 0)
+                        ){
+                      Xe.push_back(std::numeric_limits<double>::max()); //to avoid singularities
+                      Y(0,k) = Y0.first.x();
+                      Y(1,k) = Y0.first.y();
+                      Y(2,k) = Y0.first.z();
+                      Y(3,k) = rotmatToRoll(Y0.second.toRotationMatrix());
+                      Y(4,k) = rotmatToPitch(Y0.second.toRotationMatrix());
+                      Y(5,k) = rotmatToYaw(Y0.second.toRotationMatrix());
+                    }
+                    else {
+                      e::Quaterniond rotation(
+                          e::AngleAxisd(y_s, Y0.second*e::Vector3d(0,0,1)) *
+                          e::AngleAxisd(p_s, Y0.second*e::Vector3d(0,1,0)) *
+                          e::AngleAxisd(r_s, Y0.second*e::Vector3d(1,0,0))
+                          );
+                      auto model_curr = rotateModel(model, Y0.first,  rotation);
+                      model_curr = translateModel(model_curr, e::Vector3d(x_s, y_s, z_s));
+
+                      Xe.push_back(totalError(model_curr, observed_points, target, image_index, false)/);
+                      Y(0,k) = Y0.first.x()+x_s*trans_scale;
+                      Y(1,k) = Y0.first.y()+y_s*trans_scale;
+                      Y(2,k) = Y0.first.z()+z_s*trans_scale;
+                      Y(3,k) = rotmatToRoll(Y0.second.toRotationMatrix()) + r_s*rot_scale;
+                      Y(4,k) = rotmatToPitch(Y0.second.toRotationMatrix()) + p_s*rot_scale;
+                      Y(5,k) = rotmatToYaw(Y0.second.toRotationMatrix()) + y_s*rot_scale;
+                    }
+                    k++;
+                  }
+                }
+              }
+            }
+          }
+        }
+        e::VectorXd W(Xe.size());
+        int i = 0;
+        double Wsum = 0;
+        for (auto xe : Xe){
+          W(i) = (1.0/xe);
+          Wsum += W(i);
+          i++;
+        }
+        /* ROS_INFO_STREAM("[UVDARPoseCalculator]: Wsum: [\n" << Wsum << "\n]"); */
+        /* ROS_INFO_STREAM("[UVDARPoseCalculator]: W_orig: [\n" << W << "\n]"); */
+        W /= ((2*QPIX)*Wsum);
+        ROS_INFO_STREAM("[UVDARPoseCalculator]: W: [\n" << W << "\n]");
+        auto y = Y*W;
+        ROS_INFO_STREAM("[UVDARPoseCalculator]: y: [\n" << y << "\n]");
+        auto Ye = Y-y.replicate(1,W.size());
+        /* ROS_INFO_STREAM("[UVDARPoseCalculator]: Ye: [\n" << Ye << "\n]"); */
+
+        auto P = Ye*W.asDiagonal()*Ye.transpose();
+        e::JacobiSVD<e::MatrixXd> svd(P, e::ComputeThinU | e::ComputeThinV);
+        /* if (P.topLeftCorner(3,3).determinant() > 0.001){ */
+
+          ROS_INFO_STREAM("[UVDARPoseCalculator]: P: [\n" << P << "\n]");
+          ROS_INFO_STREAM("[UVDARPoseCalculator]: P determinant: [\n" << P.topLeftCorner(3,3).determinant() << "\n]");
+          ROS_INFO_STREAM("[UVDARPoseCalculator]: Singular values: [\n" << svd.singularValues() << "\n]");
+          ROS_INFO_STREAM("[UVDARPoseCalculator]: Matrix V: [\n" << svd.matrixV() << "\n]");
+        /* } */
+          
+
+        /* output.setIdentity(6,6); */
+        output = P;
         return output;
       }
 
