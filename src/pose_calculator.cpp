@@ -57,6 +57,79 @@ namespace uvdar {
       int type; // 0 - directional, 1 - omni ring, 2 - full omni
       int freq_id;
     };
+
+    class LEDModel {
+      private:
+      std::vector<LEDMarker> markers;
+      std::vector<std::vector<int>> groups;
+      public:
+      LEDMarker(std::string model_file){
+        parseModelFile(model_file);
+
+        prepareGroups();
+      }
+      LEDMarker(LEDMarker orig){
+        markers = orig.markers;
+        groups = orig.groups;
+      }
+
+      private:
+      void prepareGroups(){
+        std::vector<bool> flagged(markers.size(),false);
+        for (auto ){
+        }
+
+      }
+
+      bool parseModelFile(std::string model_file){
+            ROS_INFO_STREAM("[UVDARPoseCalculator]: Loading model from file: [ " + model_file + " ]");
+        std::ifstream ifs;
+        ifs.open(model_file);
+        std::string word;
+        std::string line;
+
+        LEDMarker curr_lm;
+
+        if (ifs.good()) {
+          while (getline( ifs, line )){
+            if (line[0] == '#'){
+              continue;
+            }
+            std::stringstream iss(line); 
+            double X, Y, Z;
+            iss >> X;
+            iss >> Y;
+            iss >> Z;
+            curr_lm.position = e::Vector3d(X,Y,Z);
+            int type;
+            iss >> type;
+            curr_lm.type = type;
+            double pitch, yaw;
+            iss >> pitch;
+            iss >> yaw;
+            tf::Quaternion qtemp;
+            qtemp.setRPY(0, pitch, yaw);
+            curr_lm.orientation.x() = qtemp.x();
+            curr_lm.orientation.y() = qtemp.y();
+            curr_lm.orientation.z() = qtemp.z();
+            curr_lm.orientation.w() = qtemp.w();
+            int freq_id;
+            iss >> freq_id;
+            curr_lm.freq_id = freq_id;
+
+            markers.push_back(curr_lm);
+            ROS_INFO_STREAM("[UVDARPoseCalculator]: Loaded Model: [ X: " << X <<" Y: "  << Y << " Z: "  << Z << " type: " << type << " pitch: " << pitch << " yaw: " << yaw << " freq_id: " << freq_id << " ]");
+          }
+        ifs.close();
+        }
+        else {
+          ROS_ERROR_STREAM("[UVDARPoseCalculator]: Failed to load model file " << model_file << "! Returning.");
+        ifs.close();
+          return false;
+        }
+        return true;
+      }
+    };
     public:
 
       /**
@@ -330,59 +403,10 @@ namespace uvdar {
         else {
             file_name = _model_file_;
         }
-        parseModelFile(file_name);
+        model_ = LEDModel(file_name);
         return true;
       }
       //}
-      
-      bool parseModelFile(std::string model_file){
-            ROS_INFO_STREAM("[UVDARPoseCalculator]: Loading model from file: [ " + model_file + " ]");
-        std::ifstream ifs;
-        ifs.open(model_file);
-        std::string word;
-        std::string line;
-
-        LEDMarker curr_lm;
-
-        if (ifs.good()) {
-          while (getline( ifs, line )){
-            if (line[0] == '#'){
-              continue;
-            }
-            std::stringstream iss(line); 
-            double X, Y, Z;
-            iss >> X;
-            iss >> Y;
-            iss >> Z;
-            curr_lm.position = e::Vector3d(X,Y,Z);
-            int type;
-            iss >> type;
-            curr_lm.type = type;
-            double pitch, yaw;
-            iss >> pitch;
-            iss >> yaw;
-            tf::Quaternion qtemp;
-            qtemp.setRPY(0, pitch, yaw);
-            curr_lm.orientation.x() = qtemp.x();
-            curr_lm.orientation.y() = qtemp.y();
-            curr_lm.orientation.z() = qtemp.z();
-            curr_lm.orientation.w() = qtemp.w();
-            int freq_id;
-            iss >> freq_id;
-            curr_lm.freq_id = freq_id;
-
-            model_.push_back(curr_lm);
-            ROS_INFO_STREAM("[UVDARPoseCalculator]: Loaded Model: [ X: " << X <<" Y: "  << Y << " Z: "  << Z << " type: " << type << " pitch: " << pitch << " yaw: " << yaw << " freq_id: " << freq_id << " ]");
-          }
-        ifs.close();
-        }
-        else {
-          ROS_ERROR_STREAM("[UVDARPoseCalculator]: Failed to load model file " << model_file << "! Returning.");
-        ifs.close();
-          return false;
-        }
-        return true;
-      }
 
 
 
@@ -904,7 +928,7 @@ namespace uvdar {
       }
       //}
 
-      e::Vector3d getRoughInit(std::vector<LEDMarker> model, std::vector<cv::Point3d> observed_points, int image_index){
+      std::vector<e::Vector3d> getRoughInit(LEDModel model, std::vector<cv::Point3d> observed_points, int image_index){
         std::vector<e::Vector3d> v_w;
         e::Vector3d v_avg = {0,0,0};
         for (auto& point: observed_points){
@@ -914,14 +938,16 @@ namespace uvdar {
         v_avg /= (double)(v_avg.size());
         v_avg = v_avg.normalized();
         /* ROS_ERROR_STREAM("[UVDARPoseCalculator]: model size: " << model.size()); */
-        double d_model = getRoughVisibleDiameter(model);
-        double alpha_max = getLargestAngle(v_w);
-        double l_rough = (d_model/2.0)/tan(alpha_max/2.0);
-        ROS_INFO_STREAM("[UVDARPoseCalculator]: d_model: " << d_model << "; alpha_max: " << alpha_max << "; l_rough: " << l_rough);
-        return baseFromOptical(v_avg*l_rough);
+        for (sub_model : getSubModels(model, (int)(observed_points.size()))) {
+          double d_model = getRoughVisibleDiameter(sub_model);
+          double alpha_max = getLargestAngle(v_w);
+          double l_rough = (d_model/2.0)/tan(alpha_max/2.0);
+          ROS_INFO_STREAM("[UVDARPoseCalculator]: d_model: " << d_model << "; alpha_max: " << alpha_max << "; l_rough: " << l_rough);
+          return baseFromOptical(v_avg*l_rough);
+        }
       }
 
-      double getRoughVisibleDiameter(std::vector<LEDMarker> model){
+      double getRoughVisibleDiameter(LEDModel model){
         double max_dist = 0;
         for (int i=0; i<((int)(model.size())-1); i++){
           for (int j=i+1; j<(int)(model.size()); j++){
@@ -954,6 +980,11 @@ namespace uvdar {
         return max_angle;
       }
 
+      std::vector<LEDModel> getSubModels(LEDModel full_model, int min_markers){
+        std::vector<LEDModel> output;
+
+      }
+
       bool areSimultaneouslyVisible(LEDMarker a, LEDMarker b){
         if ((a.type == 0) && (b.type == 0)){
           double angle_between = a.orientation.angularDistance(b.orientation);
@@ -970,7 +1001,7 @@ namespace uvdar {
         }
       }
 
-      e::Vector3d iterFitPosition(std::vector<LEDMarker> model, std::vector<cv::Point3d> observed_points, e::Vector3d rough_initialization, int target, int image_index){
+      e::Vector3d iterFitPosition(LEDModel model, std::vector<cv::Point3d> observed_points, e::Vector3d rough_initialization, int target, int image_index){
         e::Vector3d position_curr = rough_initialization;
         auto model_curr = translateModel(model, position_curr);
         double step_init = 0.1;
@@ -978,9 +1009,9 @@ namespace uvdar {
         /* double y_step = step_init; */
         /* double z_step = step_init; */
         double error_total = totalError(model_curr, observed_points, target, image_index);
-        std::vector<LEDMarker> shape_top, shape_bottom;
-        std::vector<LEDMarker> shape_left, shape_right;
-        std::vector<LEDMarker> shape_front, shape_back;
+        LEDModel shape_top, shape_bottom;
+        LEDModel shape_left, shape_right;
+        LEDModel shape_front, shape_back;
         double top_error, bottom_error;
         double left_error, right_error;
         double front_error, back_error;
@@ -1087,7 +1118,7 @@ namespace uvdar {
         return position_curr;
       }
 
-      std::pair<e::Vector3d, e::Quaterniond> iterFitFull(std::vector<LEDMarker> model, std::vector<cv::Point3d> observed_points, e::Vector3d init_position, int target, int image_index){
+      std::pair<e::Vector3d, e::Quaterniond> iterFitFull(LEDModel model, std::vector<cv::Point3d> observed_points, e::Vector3d init_position, int target, int image_index){
         e::Vector3d position_curr = init_position;
         e::Vector3d RPY_curr = e::Vector3d(0,0,0);
         e::Quaterniond orientation_curr  = e::Quaterniond(1,0,0,0);
@@ -1103,12 +1134,12 @@ namespace uvdar {
         /* double roll_step  = 0.1;//rad */
 
         double error_total = totalError(model_curr, observed_points, target, image_index);
-        std::vector<LEDMarker> shape_top, shape_bottom;
-        std::vector<LEDMarker> shape_left, shape_right;
-        std::vector<LEDMarker> shape_front, shape_back;
-        std::vector<LEDMarker> shape_ccw, shape_cw;
-        std::vector<LEDMarker> shape_pd, shape_pu;
-        std::vector<LEDMarker> shape_rr, shape_rl;
+        LEDModel shape_top, shape_bottom;
+        LEDModel shape_left, shape_right;
+        LEDModel shape_front, shape_back;
+        LEDModel shape_ccw, shape_cw;
+        LEDModel shape_pd, shape_pu;
+        LEDModel shape_rr, shape_rl;
         double top_error, bottom_error;
         double left_error, right_error;
         double front_error, back_error;
@@ -1315,8 +1346,8 @@ namespace uvdar {
         return {position_curr, orientation_curr};
       }
 
-      std::vector<LEDMarker> translateModel(std::vector<LEDMarker> model, e::Vector3d position){
-        std::vector<LEDMarker> output;
+      LEDModel translateModel(LEDModel model, e::Vector3d position){
+        LEDModel output;
         for (auto marker : model){
           marker.position += position;
           output.push_back(marker);
@@ -1324,13 +1355,13 @@ namespace uvdar {
         return output;
       }
 
-      std::vector<LEDMarker> rotateModel(std::vector<LEDMarker> model, e::Vector3d center, e::Vector3d axis, double angle){
+      LEDModel rotateModel(LEDModel model, e::Vector3d center, e::Vector3d axis, double angle){
         e::Quaterniond rotation(e::AngleAxisd(angle, axis));
         return rotateModel(model, center, rotation);
       }
 
-      std::vector<LEDMarker> rotateModel(std::vector<LEDMarker> model, e::Vector3d center, e::Quaterniond orientation){
-        std::vector<LEDMarker> output;
+      LEDModel rotateModel(LEDModel model, e::Vector3d center, e::Quaterniond orientation){
+        LEDModel output;
         for (auto marker : model){
           /* ROS_INFO_STREAM("[UVDARPoseCalculator]: pos a: " << marker.position); */
           marker.position -= center;
@@ -1343,7 +1374,7 @@ namespace uvdar {
         return output;
       }
 
-      double totalError(std::vector<LEDMarker> model, std::vector<cv::Point3d> observed_points, int target, int image_index, bool discrete_pixels=false){
+      double totalError(LEDModel model, std::vector<cv::Point3d> observed_points, int target, int image_index, bool discrete_pixels=false){
         struct ProjectedMarker {
           cv::Point2d position;
           int freq_id;
@@ -1430,12 +1461,12 @@ namespace uvdar {
         return total_error;
       }
 
-      e::MatrixXd getCovarianceEstimate(std::vector<LEDMarker> model, std::vector<cv::Point3d> observed_points, std::pair<e::Vector3d, e::Quaterniond> pose, int target, int image_index){
+      e::MatrixXd getCovarianceEstimate(LEDModel model, std::vector<cv::Point3d> observed_points, std::pair<e::Vector3d, e::Quaterniond> pose, int target, int image_index){
         e::MatrixXd output;
 
         double trans_scale = 0.1;
         /* rot_scale = 0.05; */
-        double rot_scale = trans_scale;
+        double rot_scale = 0.1;
         auto Y0 = pose;
         e::MatrixXd Y(6,(3*3*3*3*3*3));
         std::vector<int> j = {-1,0,1};
@@ -1472,7 +1503,7 @@ namespace uvdar {
                       auto model_curr = rotateModel(model, Y0.first,  rotation);
                       model_curr = translateModel(model_curr, e::Vector3d(x_s, y_s, z_s));
 
-                      Xe.push_back(totalError(model_curr, observed_points, target, image_index, false)/);
+                      Xe.push_back(totalError(model_curr, observed_points, target, image_index, false));
                       Y(0,k) = Y0.first.x()+x_s*trans_scale;
                       Y(1,k) = Y0.first.y()+y_s*trans_scale;
                       Y(2,k) = Y0.first.z()+z_s*trans_scale;
@@ -1497,7 +1528,8 @@ namespace uvdar {
         }
         /* ROS_INFO_STREAM("[UVDARPoseCalculator]: Wsum: [\n" << Wsum << "\n]"); */
         /* ROS_INFO_STREAM("[UVDARPoseCalculator]: W_orig: [\n" << W << "\n]"); */
-        W /= ((2*QPIX)*Wsum);
+        /* W /= (Wsum); */
+        W *= sqr(QPIX)*observed_points.size();
         ROS_INFO_STREAM("[UVDARPoseCalculator]: W: [\n" << W << "\n]");
         auto y = Y*W;
         ROS_INFO_STREAM("[UVDARPoseCalculator]: y: [\n" << y << "\n]");
@@ -1762,7 +1794,7 @@ namespace uvdar {
       bool _custom_model_;
 
 
-      std::vector<LEDMarker> model_;
+      LEDModel model_;
 
       bool initialized_ = false;
 

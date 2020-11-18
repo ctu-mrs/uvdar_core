@@ -308,17 +308,21 @@ namespace uvdar {
           poseVec(5) = fixAngle(quatToYaw(qtemp), 0);
 
           ROS_INFO_STREAM("[UVDARKalman]: Transformed measurement input is: [" << poseVec.transpose() << "]");
+
           if (poseVec.array().isNaN().any()){
-            ROS_INFO("[UVDARKalman]: Discarding input, it includes Nans.");
+            ROS_INFO("[UVDARKalman]: Discarding input, value includes Nans.");
             return;
           }
-
-          ROS_INFO_STREAM("[UVDARKalman]: eulerAngles give: " << qtemp.toRotationMatrix().eulerAngles(0, 1, 2).transpose() << " while my angles are: " << poseVec.bottomRows(3).transpose());
 
           for (int i=0; i<6; i++){
             for (int j=0; j<6; j++){
               poseCov(j,i) =  meas_t.value().pose.covariance[6*j+i];
             }
+          }
+
+          if (poseCov.array().isNaN().any()){
+            ROS_INFO("[UVDARKalman]: Discarding input, covariance includes Nans.");
+            return;
           }
 
           meas_converted.push_back({.x=poseVec,.P=poseCov});
@@ -369,7 +373,16 @@ namespace uvdar {
             ROS_INFO_STREAM("[UVDARKalman]: State: ");
             ROS_INFO_STREAM("[UVDARKalman]: \n" << fd[target].filter_state.x);
           }
+
+
+            if (
+                ((fd[target].filter_state.P.diagonal().array() < 0).any())
+               ){
+              ROS_INFO_STREAM("[UVDARKalman]: SPIN: NEGATIVE NUMBERS ON MAIN DIAGONAL!");
+              ROS_INFO_STREAM("[UVDARKalman]: State. cov: " << std::endl << fd[target].filter_state.P);
+            }
         }
+
         publishStates();
 
       }
@@ -404,10 +417,29 @@ namespace uvdar {
           //so that we don't initialize with the long covariances intersecting in the origin
         }
 
-        int index = (int)(fd.size());
-        ROS_INFO_STREAM("[UVDARKalman]: Initiating state " << index << "  with: " << x.transpose());
+          auto C_local = C; // the correlation between angle and position only exists in the measurement - the filter may have many measurements where this relation does not exist anymore
+        if (!_use_velocity_){
+          int index = (int)(fd.size());
+          ROS_INFO_STREAM("[UVDARKalman]: Initiating state " << index << "  with: " << x.transpose());
 
-        fd.push_back({.filter_state = {.x = x, .P = C}, .update_count = 0, .latest_update = stamp, .latest_measurement = stamp, .id = ((id<0)?(latest_id++):(id))});
+          C_local.topRightCorner(3,3).setZero();  // check the case of _use_velocity_ == true
+          C_local.bottomLeftCorner(3,3).setZero();  // check the case of _use_velocity_ == true
+
+          fd.push_back({.filter_state = {.x = x, .P = C_local}, .update_count = 0, .latest_update = stamp, .latest_measurement = stamp, .id = ((id<0)?(latest_id++):(id))});
+        }
+        else{
+          ROS_WARN("[UVDARKalman]: Initialization of states with velocity is not implemented. Returning.");
+          return;
+        }
+
+        if (
+            ((fd.back().filter_state.P.diagonal().array() < 0).any())
+           ){
+          ROS_INFO_STREAM("[UVDARKalman]: INIT: NEGATIVE NUMBERS ON MAIN DIAGONAL!");
+          ROS_INFO_STREAM("[UVDARKalman]: Generating measurement: " << std::endl << C);
+          ROS_INFO_STREAM("[UVDARKalman]: Generating fixed measurement: " << std::endl << C_local);
+          ROS_INFO_STREAM("[UVDARKalman]: State. cov: " << std::endl << fd.back().filter_state.P);
+        }
       }
       //}
 
@@ -452,9 +484,14 @@ namespace uvdar {
           predictTillTime(filter_local, meas_time, true);
         }
 
+        auto orig_state = filter_local.filter_state;
+        ROS_INFO_STREAM("[UVDARKalman]: Original state: " << fd_curr.id << " was " << filter_local.filter_state.x.transpose());
+
+        /* ROS_INFO_STREAM("[UVDARKalman]: Orig. angles: " << filter_local.filter_state.x.bottomRows(3)); */
         filter_local.filter_state.x[3] = fixAngle(filter_local.filter_state.x[3], measurement.x[3]);
         filter_local.filter_state.x[4] = fixAngle(filter_local.filter_state.x[4], measurement.x[4]);
         filter_local.filter_state.x[5] = fixAngle(filter_local.filter_state.x[5], measurement.x[5]);
+        /* ROS_INFO_STREAM("[UVDARKalman]: Fixed. angles: " << filter_local.filter_state.x.bottomRows(3)); */
 
         match_level = gaussJointMaxVal(
             measurement.P.topLeftCorner(3,3),
@@ -463,12 +500,40 @@ namespace uvdar {
             filter_local.filter_state.x.topRows(3)
             );
 
-        filter_local.filter_state = filter->correct(filter_local.filter_state, measurement.x, measurement.P);
+        auto P_local = measurement.P;
+        P_local.topRightCorner(3,3).setZero();  // check the case of _use_velocity_ == true
+        P_local.bottomLeftCorner(3,3).setZero();  // check the case of _use_velocity_ == true
+
+        filter_local.filter_state = filter->correct(filter_local.filter_state, measurement.x, P_local);
+
+        filter_local.filter_state.x[3] = fixAngle(filter_local.filter_state.x[3], 0);
+        filter_local.filter_state.x[4] = fixAngle(filter_local.filter_state.x[4], 0);
+        filter_local.filter_state.x[5] = fixAngle(filter_local.filter_state.x[5], 0);
+
         if (apply_update){
-          if (_debug_){
-            ROS_INFO_STREAM("[UVDARKalman]: Updating state: " << fd_curr.id << " with " << measurement.x.transpose());
-            ROS_INFO_STREAM("[UVDARKalman]: This yelds state: " << filter_local.filter_state.x.topRows(6).transpose());
-          }
+          /* if (_debug_){ */
+            if (
+                ((orig_state.x.topRows(3) - filter_local.filter_state.x.topRows(3)).norm() > 2.0) ||
+                ((orig_state.x.bottomRows(3) - filter_local.filter_state.x.bottomRows(3)).norm() > 0.2)
+               ){
+              ROS_INFO_STREAM("[UVDARKalman]: Updating state: " << fd_curr.id << " with " << measurement.x.transpose());
+              ROS_INFO_STREAM("[UVDARKalman]: Meas. cov: " << std::endl << measurement.P);
+              ROS_INFO_STREAM("[UVDARKalman]: Fixed to: " << std::endl << P_local);
+              ROS_INFO_STREAM("[UVDARKalman]: State. cov: " << std::endl << orig_state.P);
+              ROS_INFO_STREAM("[UVDARKalman]: This yelds state: " << filter_local.filter_state.x.topRows(6).transpose());
+            }
+            if (
+                ((orig_state.P.diagonal().array() < 0).any()) ||
+                ((measurement.P.diagonal().array() < 0).any()) || 
+                ((filter_local.filter_state.P.diagonal().array() < 0).any())
+               ){
+              ROS_INFO_STREAM("[UVDARKalman]: NEGATIVE NUMBERS ON MAIN DIAGONAL!");
+              ROS_INFO_STREAM("[UVDARKalman]: Meas. cov: " << std::endl << measurement.P);
+              ROS_INFO_STREAM("[UVDARKalman]: Fixed to: " << std::endl << P_local);
+              ROS_INFO_STREAM("[UVDARKalman]: Orig. state. cov: " << std::endl << orig_state.P);
+              ROS_INFO_STREAM("[UVDARKalman]: New state. cov: " << std::endl << filter_local.filter_state.P);
+            }
+          /* } */
           fd_curr.filter_state = filter_local.filter_state;
           fd_curr.latest_measurement = meas_time;
           fd_curr.update_count++;
@@ -936,15 +1001,15 @@ namespace uvdar {
         } else {
           if (_use_velocity_){
             filter_matrices.Q <<
-              sn*sn,0,0,0,0,0,0,0,0,
-              0,sn*sn,0,0,0,0,0,0,0,
-              0,0,sn*sn,0,0,0,0,0,0,
-              0,0,0,vl,0,0,0,0,0,
-              0,0,0,0,vl,0,0,0,0,
-              0,0,0,0,0,vv,0,0,0,
-              0,0,0,0,0,0,1,0,0,
-              0,0,0,0,0,0,0,1,0,
-              0,0,0,0,0,0,0,0,1;
+              sn*sn, 0,     0,     0,  0,  0,  0, 0, 0,
+              0,     sn*sn, 0,     0,  0,  0,  0, 0, 0,
+              0,     0,     sn*sn, 0,  0,  0,  0, 0, 0,
+              0,     0,     0,     vl, 0,  0,  0, 0, 0,
+              0,     0,     0,     0,  vl, 0,  0, 0, 0,
+              0,     0,     0,     0,  0,  vv, 0, 0, 0,
+              0,     0,     0,     0,  0,  0,  1, 0, 0,
+              0,     0,     0,     0,  0,  0,  0, 1, 0,
+              0,     0,     0,     0,  0,  0,  0, 0, 1;
           }
           else{
             // This is an unorthodox approach.
