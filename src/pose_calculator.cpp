@@ -46,6 +46,9 @@
 
 #define ERROR_THRESHOLD 60
 
+#define SIMILAR_ERRORS_THRESHOLD sqr(2)
+
+
 namespace e = Eigen;
 
 namespace uvdar {
@@ -1226,21 +1229,40 @@ namespace uvdar {
         std::vector<double> errors;
 
         e::Vector3d position_curr = first_position;
-        std::pair<double,double> best_orientation;
+        std::vector<std::pair<double,double>> orientation_errors;
+        std::vector<std::pair<double,double>> best_orientations;
         for (int i=0; i<=dist_step_count; i++){
-          best_orientation = {std::numeric_limits<double>::max(), -1};
+          best_orientations.clear();
+          orientation_errors.clear();
+          /* best_orientation.push_back({std::numeric_limits<double>::max(), -1}); */
           for (int j=0; j<orientation_step_count; j++){
             double error_total = totalError(model.rotate(e::Vector3d(0,0,0), e::Vector3d::UnitZ(), j*angle_step).translate(position_curr), observed_points, target, image_index);
-            if (best_orientation.first > error_total){
-              best_orientation.first = error_total;
-              best_orientation.second = j*angle_step;
+            orientation_errors.push_back({error_total,j*angle_step});
+          }
+
+          //find local orientation minima
+          auto orig_back = orientation_errors.back();
+          orientation_errors.push_back(orientation_errors.front());
+          orientation_errors.insert(orientation_errors.begin(), orig_back);
+          for (int j = 1; j < (int)(orientation_errors.size())-1; j++){
+            if (orientation_errors.at(j).first < (ERROR_THRESHOLD*(int)(observed_points.size()))){
+              if ((orientation_errors.at(j).first < orientation_errors.at(j-1).first) && (orientation_errors.at(j).first < orientation_errors.at(j+1).first)){
+                best_orientations.push_back(orientation_errors.at(j));
+              }
             }
           }
 
-          if (best_orientation.first < (ERROR_THRESHOLD*(int)(observed_points.size()))){
-          /* if (true){ */
-            acceptable_hypotheses.push_back(std::pair<e::Vector3d, e::Quaterniond>(position_curr, e::AngleAxisd(best_orientation.second, e::Vector3d::UnitZ())));
-            errors.push_back(best_orientation.first);
+            /* if ((best_orientation.back()).first > error_total){ */
+            /*   best_orientation.back().first = error_total; */
+            /*   best_orientation.back().second = j*angle_step; */
+            /* } */
+          /* } */
+
+          /* if (best_orientation.first < (ERROR_THRESHOLD*(int)(observed_points.size()))){ */
+          /* /1* if (true){ *1/ */
+          for (auto& bor : best_orientations){
+            acceptable_hypotheses.push_back(std::pair<e::Vector3d, e::Quaterniond>(position_curr, e::AngleAxisd(bor.second, e::Vector3d::UnitZ())));
+            errors.push_back(bor.first);
           }
 
           position_curr+=position_step;
@@ -1250,8 +1272,9 @@ namespace uvdar {
       }
 
       std::pair<e::Vector3d, e::Quaterniond> iterFitFull(LEDModel model, std::vector<cv::Point3d> observed_points, std::vector<std::pair<e::Vector3d, e::Quaterniond>> hypotheses, int target, int image_index){
-        std::pair<e::Vector3d, e::Quaterniond> best_result;
-        double best_error = std::numeric_limits<double>::max();
+        std::vector<std::pair<e::Vector3d, e::Quaterniond>> best_results;
+        std::vector<double> best_errors;
+        best_errors.push_back(std::numeric_limits<double>::max());
 
         ROS_INFO_STREAM("[UVDARPoseCalculator]: Refined hypotheses for target " << target << " in image " << image_index << ": ");
         int h = 0;
@@ -1557,16 +1580,32 @@ namespace uvdar {
 
 
           ROS_INFO_STREAM("x: [" << position_curr.transpose() << "] rot: [" << rad2deg(rotmatToYaw(orientation_curr.toRotationMatrix())) << "] with error of " << error_total);
-          if (best_error > error_total){
-            best_error = error_total;
-            best_result = {position_curr, orientation_curr};
+          if (best_errors.back() > (error_total+(SIMILAR_ERRORS_THRESHOLD*(int)(observed_points.size())))){
+            best_errors.clear();
+            best_errors.push_back(error_total);
+            best_results.clear();
+            best_results.push_back({position_curr, orientation_curr});
             ROS_INFO_STREAM("selected");
-
+          }
+          else if (best_errors.back() > (error_total-(SIMILAR_ERRORS_THRESHOLD*(int)(observed_points.size())))){
+            best_errors.push_back(error_total);
+            best_results.push_back({position_curr, orientation_curr});
+            ROS_INFO_STREAM("added");
           }
         }
 
-        /* return {position_curr, orientation_curr}; */
-        return best_result;
+        if ((int)(best_results.size()) == 0){
+          ROS_ERROR_STREAM("[UVDARPoseCalculator]: No suitable hypothesis found!");
+          return {e::Vector3d(0,0,0), e::Quaterniond(1,0,0,0)};
+        }
+
+        if ((int)(best_results.size()) == 1){
+          return best_results.at(0);
+        }
+        else {
+          ROS_ERROR_STREAM("[UVDARPoseCalculator]: " << best_results.size() << " equivalent hypotheses found! I will implement smearing across them later.");
+          return best_results.at(0);
+        }
         /* return {e::Vector3d::UnitX(), e::Quaterniond(1,0,0,0)}; */
       }
 
