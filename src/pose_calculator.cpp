@@ -1237,8 +1237,8 @@ namespace uvdar {
             }
           }
 
-          /* if (best_orientation.first < (ERROR_THRESHOLD*(int)(observed_points.size()))){ */
-          if (true){
+          if (best_orientation.first < (ERROR_THRESHOLD*(int)(observed_points.size()))){
+          /* if (true){ */
             acceptable_hypotheses.push_back(std::pair<e::Vector3d, e::Quaterniond>(position_curr, e::AngleAxisd(best_orientation.second, e::Vector3d::UnitZ())));
             errors.push_back(best_orientation.first);
           }
@@ -1257,7 +1257,7 @@ namespace uvdar {
         int h = 0;
         for (auto hypothesis : hypotheses){
           e::Vector3d position_curr = hypothesis.first;
-          e::Vector3d RPY_curr = e::Vector3d(0,0,0);
+          /* e::Vector3d RPY_curr = e::Vector3d(0,0,0); */
           e::Quaterniond orientation_start  = hypothesis.second;
           e::Quaterniond orientation_curr  = orientation_start;
           auto model_curr = model.translate(position_curr);
@@ -1436,21 +1436,21 @@ namespace uvdar {
             /* gradient(4) = 0; */
             /* gradient(5) = 0; */
 
-            if (gradient.bottomRightCorner(3,1).norm() > (angle_step*0.5)){
-              gradient.bottomRightCorner(3,1) = gradient.bottomRightCorner(3,1).normalized()*angle_step*0.5;
-            }
+            /* if (gradient.bottomRightCorner(3,1).norm() > (angle_step*0.5)){ */
+            gradient.bottomRightCorner(3,1) = gradient.bottomRightCorner(3,1).normalized()*0.01;
+            /* } */
 
 
             double rot_gradient;
             double angle = 0.0;
-            double rot_step_init = 1.0;
+            double rot_step_init = 0.1;
             double rot_diff_step = rot_step_init;
             double rot_step = rot_step_init;
             e::Vector3d step_axis =
               e::AngleAxisd(
-              e::AngleAxisd(RPY_curr.x(), e::Vector3d::UnitX()) *
-              e::AngleAxisd(RPY_curr.y(), e::Vector3d::UnitY()) *
-              e::AngleAxisd(RPY_curr.z(), e::Vector3d::UnitZ())
+              e::AngleAxisd(-gradient(5), e::Vector3d::UnitX()) *
+              e::AngleAxisd(-gradient(4), e::Vector3d::UnitY()) *
+              e::AngleAxisd(-gradient(3), e::Vector3d::UnitZ())
               ).axis();
 
               /* -(gradient.topRightCorner(3,1).normalized()); */
@@ -1477,8 +1477,7 @@ namespace uvdar {
               rot_step = rot_step_init;
               while (true){
                 double angle_tent = angle-(sgn(rot_gradient)*rot_step);
-                /* rot_step = rot_step_init; */
-                model_rotated_curr = model_curr.translate(step_dir*angle_tent);
+                model_rotated_curr = model_curr.rotate(position_curr, step_axis,angle_tent);
                 error_rot_curr = totalError(model_rotated_curr, observed_points, target, image_index);
                 if (error_rot_prev-error_rot_curr < 0.0){
                   rot_step /= 2;
@@ -1492,6 +1491,7 @@ namespace uvdar {
             orientation_curr = e::AngleAxisd(angle,step_axis)*orientation_curr;
             model_curr = model_rotated_curr;
             error_total = error_rot_curr;
+            /* ROS_INFO_STREAM("[UVDARPoseCalculator]: Step axis: " << step_axis.transpose() << "; angle: " << angle); */
 
             /* /1* gradient.bottomRightCorner(3,1) = gradient.bottomRightCorner(3,1).normalized(); *1/ */
             /* double yaw_diff, pitch_diff, roll_diff; */
@@ -1534,7 +1534,7 @@ namespace uvdar {
 
             /* ROS_INFO_STREAM("[UVDARPoseCalculator]: gradient: " << gradient.transpose()); */
             /* ROS_INFO_STREAM("[UVDARPoseCalculator]: position XYZ: " << position_curr.transpose()); */
-            /* ROS_INFO_STREAM("[UVDARPoseCalculator]: rotation RPY: " << RPY_curr.transpose()); */
+            /* ROS_INFO_STREAM("[UVDARPoseCalculator]: rotation RPY: [" << rad2deg(rotmatToRoll(orientation_curr.toRotationMatrix())) << ", " << rad2deg(rotmatToPitch(orientation_curr.toRotationMatrix())) << ", " << rad2deg(rotmatToYaw(orientation_curr.toRotationMatrix())) << "]"); */
             /* ROS_INFO_STREAM("[UVDARPoseCalculator]: total error: " << error_total << " : iters: " << iters); */
             /* exit(3); */
             iters++;
