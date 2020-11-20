@@ -375,12 +375,12 @@ namespace uvdar {
           }
 
 
-            if (
-                ((fd[target].filter_state.P.diagonal().array() < 0).any())
-               ){
-              ROS_INFO_STREAM("[UVDARKalman]: SPIN: NEGATIVE NUMBERS ON MAIN DIAGONAL!");
-              ROS_INFO_STREAM("[UVDARKalman]: State. cov: " << std::endl << fd[target].filter_state.P);
-            }
+            /* if ( */
+            /*     ((fd[target].filter_state.P.diagonal().array() < 0).any()) */
+            /*    ){ */
+            /*   ROS_INFO_STREAM("[UVDARKalman]: SPIN: NEGATIVE NUMBERS ON MAIN DIAGONAL!"); */
+            /*   ROS_INFO_STREAM("[UVDARKalman]: State. cov: " << std::endl << fd[target].filter_state.P); */
+            /* } */
         }
 
         publishStates();
@@ -432,14 +432,14 @@ namespace uvdar {
           return;
         }
 
-        if (
-            ((fd.back().filter_state.P.diagonal().array() < 0).any())
-           ){
-          ROS_INFO_STREAM("[UVDARKalman]: INIT: NEGATIVE NUMBERS ON MAIN DIAGONAL!");
-          ROS_INFO_STREAM("[UVDARKalman]: Generating measurement: " << std::endl << C);
-          ROS_INFO_STREAM("[UVDARKalman]: Generating fixed measurement: " << std::endl << C_local);
-          ROS_INFO_STREAM("[UVDARKalman]: State. cov: " << std::endl << fd.back().filter_state.P);
-        }
+        /* if ( */
+        /*     ((fd.back().filter_state.P.diagonal().array() < 0).any()) */
+        /*    ){ */
+        /*   ROS_INFO_STREAM("[UVDARKalman]: INIT: NEGATIVE NUMBERS ON MAIN DIAGONAL!"); */
+        /*   ROS_INFO_STREAM("[UVDARKalman]: Generating measurement: " << std::endl << C); */
+        /*   ROS_INFO_STREAM("[UVDARKalman]: Generating fixed measurement: " << std::endl << C_local); */
+        /*   ROS_INFO_STREAM("[UVDARKalman]: State. cov: " << std::endl << fd.back().filter_state.P); */
+        /* } */
       }
       //}
 
@@ -454,13 +454,25 @@ namespace uvdar {
        */
       /* predictTillTime //{ */
       statecov_t predictTillTime(struct FilterData &fd_curr, ros::Time target_time, bool apply_update = false){
-        double dt_from_last = std::fmin((target_time-fd_curr.latest_update).toSec(),(target_time-fd_curr.latest_measurement).toSec());
+        auto orig_state = fd_curr;
+        double dt_from_last = std::fmax(std::fmin((target_time-fd_curr.latest_update).toSec(),(target_time-fd_curr.latest_measurement).toSec()),0.0);
         filter->A = A_dt(dt_from_last);
         auto new_state =  filter->predict(fd_curr.filter_state, u_t(), Q_dt(dt_from_last), dt_from_last);
         if (apply_update){
           fd_curr.filter_state = new_state;
           fd_curr.latest_update = target_time;
         }
+
+            if (
+                ((orig_state.filter_state.P.diagonal().array() < 0).any()) ||
+                ((fd_curr.filter_state.P.diagonal().array() < 0).any())
+               ){
+              ROS_INFO_STREAM("[UVDARKalman]: NEGATIVE NUMBERS ON MAIN DIAGONAL!");
+              ROS_INFO_STREAM("[UVDARKalman]: Orig. state. cov: " << std::endl << orig_state.filter_state.P);
+              ROS_INFO_STREAM("[UVDARKalman]: dt: " << dt_from_last);
+              ROS_INFO_STREAM("[UVDARKalman]: Q_dt: " << Q_dt(dt_from_last));
+              ROS_INFO_STREAM("[UVDARKalman]: New state. cov: " << std::endl << fd_curr.filter_state.P);
+            }
         return new_state;
       }
       //}
@@ -480,12 +492,14 @@ namespace uvdar {
       /* correctWithMeasurement //{ */
       statecov_t correctWithMeasurement(struct FilterData &fd_curr, statecov_t measurement, double &match_level, ros::Time meas_time, bool prior_predict, bool apply_update = false){
         auto filter_local = fd_curr;
+
+        auto orig_state = filter_local.filter_state;
+        ROS_INFO_STREAM("[UVDARKalman]: Original state: " << fd_curr.id << " was " << filter_local.filter_state.x.transpose());
+
         if (prior_predict){
           predictTillTime(filter_local, meas_time, true);
         }
 
-        auto orig_state = filter_local.filter_state;
-        ROS_INFO_STREAM("[UVDARKalman]: Original state: " << fd_curr.id << " was " << filter_local.filter_state.x.transpose());
 
         /* ROS_INFO_STREAM("[UVDARKalman]: Orig. angles: " << filter_local.filter_state.x.bottomRows(3)); */
         filter_local.filter_state.x[3] = fixAngle(filter_local.filter_state.x[3], measurement.x[3]);
@@ -512,27 +526,27 @@ namespace uvdar {
 
         if (apply_update){
           /* if (_debug_){ */
-            if (
-                ((orig_state.x.topRows(3) - filter_local.filter_state.x.topRows(3)).norm() > 2.0) ||
-                ((orig_state.x.bottomRows(3) - filter_local.filter_state.x.bottomRows(3)).norm() > 0.2)
-               ){
-              ROS_INFO_STREAM("[UVDARKalman]: Updating state: " << fd_curr.id << " with " << measurement.x.transpose());
-              ROS_INFO_STREAM("[UVDARKalman]: Meas. cov: " << std::endl << measurement.P);
-              ROS_INFO_STREAM("[UVDARKalman]: Fixed to: " << std::endl << P_local);
-              ROS_INFO_STREAM("[UVDARKalman]: State. cov: " << std::endl << orig_state.P);
-              ROS_INFO_STREAM("[UVDARKalman]: This yelds state: " << filter_local.filter_state.x.topRows(6).transpose());
-            }
-            if (
-                ((orig_state.P.diagonal().array() < 0).any()) ||
-                ((measurement.P.diagonal().array() < 0).any()) || 
-                ((filter_local.filter_state.P.diagonal().array() < 0).any())
-               ){
-              ROS_INFO_STREAM("[UVDARKalman]: NEGATIVE NUMBERS ON MAIN DIAGONAL!");
-              ROS_INFO_STREAM("[UVDARKalman]: Meas. cov: " << std::endl << measurement.P);
-              ROS_INFO_STREAM("[UVDARKalman]: Fixed to: " << std::endl << P_local);
-              ROS_INFO_STREAM("[UVDARKalman]: Orig. state. cov: " << std::endl << orig_state.P);
-              ROS_INFO_STREAM("[UVDARKalman]: New state. cov: " << std::endl << filter_local.filter_state.P);
-            }
+            /* if ( */
+            /*     ((orig_state.x.topRows(3) - filter_local.filter_state.x.topRows(3)).norm() > 2.0) || */
+            /*     ((orig_state.x.bottomRows(3) - filter_local.filter_state.x.bottomRows(3)).norm() > 0.2) */
+            /*    ){ */
+            /*   ROS_INFO_STREAM("[UVDARKalman]: Updating state: " << fd_curr.id << " with " << measurement.x.transpose()); */
+            /*   ROS_INFO_STREAM("[UVDARKalman]: Meas. cov: " << std::endl << measurement.P); */
+            /*   ROS_INFO_STREAM("[UVDARKalman]: Fixed to: " << std::endl << P_local); */
+            /*   ROS_INFO_STREAM("[UVDARKalman]: State. cov: " << std::endl << orig_state.P); */
+            /*   ROS_INFO_STREAM("[UVDARKalman]: This yelds state: " << filter_local.filter_state.x.topRows(6).transpose()); */
+            /* } */
+            /* if ( */
+            /*     ((orig_state.P.diagonal().array() < 0).any()) || */
+            /*     ((measurement.P.diagonal().array() < 0).any()) || */ 
+            /*     ((filter_local.filter_state.P.diagonal().array() < 0).any()) */
+            /*    ){ */
+            /*   ROS_INFO_STREAM("[UVDARKalman]: NEGATIVE NUMBERS ON MAIN DIAGONAL!"); */
+            /*   ROS_INFO_STREAM("[UVDARKalman]: Meas. cov: " << std::endl << measurement.P); */
+            /*   ROS_INFO_STREAM("[UVDARKalman]: Fixed to: " << std::endl << P_local); */
+            /*   ROS_INFO_STREAM("[UVDARKalman]: Orig. state. cov: " << std::endl << orig_state.P); */
+            /*   ROS_INFO_STREAM("[UVDARKalman]: New state. cov: " << std::endl << filter_local.filter_state.P); */
+            /* } */
           /* } */
           fd_curr.filter_state = filter_local.filter_state;
           fd_curr.latest_measurement = meas_time;
