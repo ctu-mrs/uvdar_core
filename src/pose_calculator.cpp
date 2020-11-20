@@ -1004,34 +1004,77 @@ namespace uvdar {
           ROS_INFO_STREAM("x: [" << h.first.transpose() << "] rot: [" << rad2deg(rotmatToYaw(h.second.toRotationMatrix())) << "] with error of " << errors.at(i++));
         }
 
-        auto fitted_pose = iterFitFull(model_, points, hypotheses, target,  image_index);
-        if (_debug_){
-          ROS_INFO_STREAM("[UVDARPoseCalculator]: Fitted pose: " << fitted_pose.first.transpose());
+        std::vector<std::pair<e::Vector3d, e::Quaterniond>> selected_poses;
+        std::vector<double> projection_errors;
+        projection_errors.push_back(std::numeric_limits<double>::max());
+        for (auto h: hypotheses){
+          auto [fitted_pose, error] = iterFitFull(model_, points, h, target,  image_index);
+          if (_debug_){
+            ROS_INFO_STREAM("[UVDARPoseCalculator]: Fitted pose: [" << fitted_pose.first.transpose() << "] rot: [" << rad2deg(rotmatToYaw(fitted_pose.second.toRotationMatrix())) << "] with error of " << error);
+          }
+
+
+          if (fitted_pose.first.norm() < 1.5) { //We don't expect to be able to measure relative poses of UAVs this close - the markers would be too bright and too far apart
+            continue;
+          }
+
+          e::Vector3d unit_vec;
+          unit_vec << 0,0,1.0;
+          if (acos(fitted_pose.first.normalized().dot(unit_vec)) > rad2deg(190)) //our lenses only allow us to see UAVs ~92.5 degrees away from the optical axis of the camera
+            continue;
+
+          if (projection_errors.back() > (error+(SIMILAR_ERRORS_THRESHOLD*(int)(points.size())))){
+            projection_errors.clear();
+            projection_errors.push_back(error);
+            selected_poses.clear();
+            selected_poses.push_back(fitted_pose);
+            ROS_INFO_STREAM("selected");
+          }
+          else if (projection_errors.back() > (error-(SIMILAR_ERRORS_THRESHOLD*(int)(points.size())))){
+            projection_errors.push_back(error);
+            selected_poses.push_back(fitted_pose);
+            ROS_INFO_STREAM("added");
+          }
         }
-        e::MatrixXd covariance = getCovarianceEstimate(model_, points, fitted_pose, target,  image_index);
-        if (_debug_){
-          ROS_INFO_STREAM("[UVDARPoseCalculator]: Covariance: [\n" << covariance << "\n]");
+
+        if ((int)(selected_poses.size()) == 0){
+          ROS_ERROR_STREAM("[UVDARPoseCalculator]: No suitable hypothesis found!");
+          return;
         }
+
+
+        std::vector<e::MatrixXd> covariances;
+        for (auto p : selected_poses){
+          covariances.push_back(getCovarianceEstimate(model_, points, p, target,  image_index));
+          if (_debug_){
+            ROS_INFO_STREAM("[UVDARPoseCalculator]: Covariance: [\n" << covariances.back() << "\n]");
+          }
+        }
+        
+        std::pair<e::Vector3d, e::Quaterniond> final_mean;
+        e::MatrixXd final_covariance;
+        if ((int)(selected_poses.size()) == 1){
+          final_mean = selected_poses.at(0);
+          final_covariance = covariances.at(0);
+        }
+        else if ((int)(selected_poses.size()) > 1){
+          ROS_ERROR_STREAM("[UVDARPoseCalculator]: " << selected_poses.size() << " equivalent hypotheses found! I will attempt to smear them together into a unified measurement.");
+          std::tie(final_mean, final_covariance) = getMeasurementUnion(selected_poses, covariances);
+        }
+
       
       /*   ms.x.topLeftCorner(3,1) = fitted_pose.first; */
       /*   ms.x.bottomLeftCorner(4,1) = fitted_pose.second; */
       /*   ms.C = covariance; */
 
         /* covariance += e::MatrixXd::Identity(6,6)*0.0001; */
-        if (fitted_pose.first.norm() < 1.5) { //We don't expect to be able to measure relative poses of UAVs this close - the markers would be too bright and too far apart
-          return;
-        }
 
-        e::Vector3d unit_vec;
-        unit_vec << 0,0,1.0;
-        if (acos(fitted_pose.first.normalized().dot(unit_vec)) > rad2deg(190)) //our lenses only allow us to see UAVs ~92.5 degrees away from the optical axis of the camera
-          return;
 
         /* tf::Quaternion qtemp; */
         /* qtemp.setRPY((ms.x(3)), (ms.x(4)), (ms.x(5))); */
         /* qtemp=tf::Quaternion(-0.5,0.5,-0.5,-0.5)*qtemp; //bring relative orientations to the optical frame of the camera (Roll, Pitch and Yaw were estimated in the more intuitive sensor frame (X forward, Y to the left, Z up) */
         /* qtemp.normalize();//just in case */
-        auto fitted_pose_optical = opticalFromBase(fitted_pose,covariance);
+        auto fitted_pose_optical = opticalFromBase(final_mean,final_covariance);
 
         output_pose.id = target;
         output_pose.pose.position.x = fitted_pose_optical.first.first.x();
@@ -1271,14 +1314,9 @@ namespace uvdar {
         return {acceptable_hypotheses, errors};
       }
 
-      std::pair<e::Vector3d, e::Quaterniond> iterFitFull(LEDModel model, std::vector<cv::Point3d> observed_points, std::vector<std::pair<e::Vector3d, e::Quaterniond>> hypotheses, int target, int image_index){
-        std::vector<std::pair<e::Vector3d, e::Quaterniond>> best_results;
-        std::vector<double> best_errors;
-        best_errors.push_back(std::numeric_limits<double>::max());
+      std::pair<std::pair<e::Vector3d, e::Quaterniond>, double> iterFitFull(LEDModel model, std::vector<cv::Point3d> observed_points, std::pair<e::Vector3d, e::Quaterniond> hypothesis, int target, int image_index){
 
         ROS_INFO_STREAM("[UVDARPoseCalculator]: Refined hypotheses for target " << target << " in image " << image_index << ": ");
-        int h = 0;
-        for (auto hypothesis : hypotheses){
           e::Vector3d position_curr = hypothesis.first;
           /* e::Vector3d RPY_curr = e::Vector3d(0,0,0); */
           e::Quaterniond orientation_start  = hypothesis.second;
@@ -1386,7 +1424,7 @@ namespace uvdar {
                 auto model_shifted_b     = model_curr.translate(step_dir*dist_b);
                 double error_shift_a = totalError(model_shifted_a, observed_points, target, image_index);
                 double error_shift_b = totalError(model_shifted_b, observed_points, target, image_index);
-                if ( (lin_diff_step > 0.0001) && (sgn(error_shift_a - error_total) == sgn(error_shift_b - error_total))) {
+                if ( (lin_diff_step > 0.0001) && (sgn(error_shift_a - error_shift_curr) == sgn(error_shift_b - error_shift_curr))) {
                   lin_diff_step /= 2;
                   continue;
                 }
@@ -1490,7 +1528,7 @@ namespace uvdar {
                 auto model_rotated_b     = model_curr.rotate(position_curr, step_axis, angle_b);
                 double error_rot_a = totalError(model_rotated_a, observed_points, target, image_index);
                 double error_rot_b = totalError(model_rotated_b, observed_points, target, image_index);
-                if ( (rot_diff_step > 0.0001) && (sgn(error_rot_a - error_total) == sgn(error_rot_b - error_total))) {
+                if ( (rot_diff_step > 0.0001) && (sgn(error_rot_a - error_rot_curr) == sgn(error_rot_b - error_rot_curr))) {
                   rot_diff_step /= 2;
                   continue;
                 }
@@ -1579,33 +1617,7 @@ namespace uvdar {
           gradient.z() = ((((abs(top_error)+abs(bottom_error))/2)-mean_error)/(z_step))/((double)(observed_points.size()));
 
 
-          ROS_INFO_STREAM("x: [" << position_curr.transpose() << "] rot: [" << rad2deg(rotmatToYaw(orientation_curr.toRotationMatrix())) << "] with error of " << error_total);
-          if (best_errors.back() > (error_total+(SIMILAR_ERRORS_THRESHOLD*(int)(observed_points.size())))){
-            best_errors.clear();
-            best_errors.push_back(error_total);
-            best_results.clear();
-            best_results.push_back({position_curr, orientation_curr});
-            ROS_INFO_STREAM("selected");
-          }
-          else if (best_errors.back() > (error_total-(SIMILAR_ERRORS_THRESHOLD*(int)(observed_points.size())))){
-            best_errors.push_back(error_total);
-            best_results.push_back({position_curr, orientation_curr});
-            ROS_INFO_STREAM("added");
-          }
-        }
-
-        if ((int)(best_results.size()) == 0){
-          ROS_ERROR_STREAM("[UVDARPoseCalculator]: No suitable hypothesis found!");
-          return {e::Vector3d(0,0,0), e::Quaterniond(1,0,0,0)};
-        }
-
-        if ((int)(best_results.size()) == 1){
-          return best_results.at(0);
-        }
-        else {
-          ROS_ERROR_STREAM("[UVDARPoseCalculator]: " << best_results.size() << " equivalent hypotheses found! I will implement smearing across them later.");
-          return best_results.at(0);
-        }
+        return {{position_curr,orientation_curr}, error_total};
         /* return {e::Vector3d::UnitX(), e::Quaterniond(1,0,0,0)}; */
       }
 
@@ -1785,6 +1797,102 @@ namespace uvdar {
         /* output.setIdentity(6,6); */
         output = P;
         return output;
+      }
+
+      //Implemented based on "Generalised Covariance Union: A Unified Approach to Hypothesis Merging in Tracking" by STEVEN REECE and STEPHEN ROBERTS
+      //and
+      //"Generalized Information Representation and Compression Using Covariance Union"  by Ottmar Bochardt et. al.
+      std::pair<std::pair<e::Vector3d, e::Quaterniond>, e::MatrixXd> getMeasurementUnion(std::vector<std::pair<e::Vector3d, e::Quaterniond>> means, std::vector<e::MatrixXd> covariances){
+        if (means.size() != covariances.size()){
+          ROS_ERROR_STREAM("[UVDARPoseCalculator]: The count of means and covariances for union generation does not match. Returning!");
+          return std::pair<std::pair<e::Vector3d, e::Quaterniond>, e::MatrixXd>();
+        }
+
+        std::pair<std::pair<e::Vector3d, e::Quaterniond>, e::MatrixXd> measurement_union = {means.at(0), covariances.at(0)};
+
+        //pair-wise approach - if performance becomes a problem, we can consider batch solution for later
+        for (int i = 1; i< (int)(means.size()); i++){
+          measurement_union = twoMeasurementUnion(measurement_union, {means.at(i), covariances.at(i)});
+        }
+
+        return measurement_union;
+
+      }
+
+      std::pair<std::pair<e::Vector3d, e::Quaterniond>, e::MatrixXd> twoMeasurementUnion(std::pair<std::pair<e::Vector3d, e::Quaterniond>, e::MatrixXd> a, std::pair<std::pair<e::Vector3d, e::Quaterniond>, e::MatrixXd> b){
+        auto c = b.first.first - a.first.first;
+        auto c2 = c*c.transpose();
+        auto A = a.second.topLeftCorner(3,3);
+        auto B = b.second.topLeftCorner(3,3);
+
+        double lin_gradient;
+        double om = 0.5; //let's start from the middle
+        double lin_step_init = 0.1;
+        double lin_diff_step = lin_step_init;
+        double lin_step = lin_step_init;
+        /* double lin_step = gradient.topRightCorner(3,1).norm(); */
+        double value_shift_prev = std::max((A+om*c2).determinant(),(B+(1-om)*c2).determinant()); //om = 0
+        double value_shift_curr = value_shift_prev;
+        do {
+          value_shift_prev = value_shift_curr;
+          lin_diff_step = lin_step_init;
+          while (true){ //approach minimum along gradient
+            double om_a = om+lin_diff_step;
+            double om_b = om-lin_diff_step;
+            auto U1a     = A + sqr(om_a)*c2;
+            auto U1b     = A + sqr(om_b)*c2;
+            auto U2a     = B + sqr(1.0-om_a)*c2;
+            auto U2b     = B + sqr(1.0-om_b)*c2;
+            double value_shift_a = std::max(U1a.determinant(),U2a.determinant());
+            double value_shift_b = std::max(U1b.determinant(),U2b.determinant());
+            if ( (lin_diff_step > 0.0001) && (sgn(value_shift_a - value_shift_curr) == sgn(value_shift_b - value_shift_curr))) {
+              lin_diff_step /= 2;
+              continue;
+            }
+            lin_gradient = ((value_shift_a-value_shift_b)/(2*lin_diff_step));
+            break;
+          }
+          lin_step = lin_step_init;
+          while (true){
+            double om_tent = om-(sgn(lin_gradient)*lin_step);
+            auto U1t     = A + sqr(om_tent)*c2;
+            auto U2t     = B + sqr(1.0-om_tent)*c2;
+            /* lin_step = lin_step_init; */
+            value_shift_curr = std::max((U1t).determinant(),U2t.determinant());
+            if (value_shift_prev-value_shift_curr < 0.0){
+              lin_step /= 2;
+              continue;
+            }
+            /* ROS_INFO_STREAM("[UVDARPoseCalculator]: error_shifted: " << error_shift_curr); */
+            om = om_tent;
+            break;
+          }
+
+          if (om < 0.0){
+            om = 0.0;
+            break;
+          }
+          if (om > 1.0){
+            om = 1.0;
+            break;
+          }
+
+        } while (value_shift_prev-value_shift_curr > 0.001);
+
+
+        e::MatrixXd U = e::MatrixXd::Identity(6,6);
+
+        e::Vector3d up = a.first.first + om*c;
+
+        e::Matrix3d U1f     = A + sqr(om)*c2;
+        e::Matrix3d U2f     = B + sqr(1.0-om)*c2;
+        double d1 = U1f.determinant();
+        double d2 = U2f.determinant();
+        if (d1>d2) { U.topLeftCorner(3,3) = U1f; } else { U.topLeftCorner(3,3) = U2f; }
+        /* U.topLeftCorner(3,3) = ((d1>d2)?U1f:U2f); */
+
+
+        return { {up, e::Quaterniond(1,0,0,0)}, U};
       }
 
       e::Vector3d directionFromCamPoint(cv::Point3d point, int image_index){
