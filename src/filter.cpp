@@ -497,8 +497,8 @@ namespace uvdar {
         auto filter_local = fd_curr;
 
         auto orig_state = filter_local.filter_state;
-        ROS_INFO_STREAM("[UVDARKalman]: Original state: " << fd_curr.id << " was " << filter_local.filter_state.x.transpose());
-        ROS_INFO_STREAM("[UVDARKalman]: Original cov: " << std::endl << filter_local.filter_state.P);
+        /* ROS_INFO_STREAM("[UVDARKalman]: Original state: " << fd_curr.id << " was " << filter_local.filter_state.x.transpose()); */
+        /* ROS_INFO_STREAM("[UVDARKalman]: Original cov: " << std::endl << filter_local.filter_state.P); */
 
         if (prior_predict){
           predictTillTime(filter_local, meas_time, true);
@@ -522,9 +522,9 @@ namespace uvdar {
         P_local.topRightCorner(3,3).setZero();  // check the case of _use_velocity_ == true
         P_local.bottomLeftCorner(3,3).setZero();  // check the case of _use_velocity_ == true
 
-        ROS_INFO_STREAM("[UVDARKalman]: Meas. cov: " << std::endl << measurement.P);
+        /* ROS_INFO_STREAM("[UVDARKalman]: Meas. cov: " << std::endl << measurement.P); */
         filter_local.filter_state = filter->correct(filter_local.filter_state, measurement.x, P_local);
-        ROS_INFO_STREAM("[UVDARKalman]: Fixed to: " << std::endl << P_local);
+        /* ROS_INFO_STREAM("[UVDARKalman]: Fixed to: " << std::endl << P_local); */
 
         filter_local.filter_state.x[3] = fixAngle(filter_local.filter_state.x[3], 0);
         filter_local.filter_state.x[4] = fixAngle(filter_local.filter_state.x[4], 0);
@@ -1087,9 +1087,9 @@ namespace uvdar {
               0.5*sn*sn+0.16667*vl*vl*dt*dt,0,0, 0,0,0,
               0,0.5*sn*sn+0.16667*vl*vl*dt*dt,0, 0,0,0,
               0,0,0.5*sn*sn+0.16667*vv*vv*dt*dt, 0,0,0,
-              0,0,0, 1,0,0,
-              0,0,0, 0,1,0,
-              0,0,0, 0,0,1;
+              0,0,0, 0.5,0,0,
+              0,0,0, 0,0.5,0,
+              0,0,0, 0,0,0.5;
           }
         }
         return filter_matrices.Q;

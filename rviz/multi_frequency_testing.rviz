@@ -10,12 +10,12 @@ Panels:
         - /Odometry2/Covariance1
         - /Odometry2/Covariance1/Position1
         - /Odometry3/Covariance1
-        - /filtered1
         - /filtered1/Covariance1
         - /filtered1/Covariance1/Position1
         - /filtered1/Covariance1/Orientation1
         - /filtered - T1/Covariance1
         - /filtered - T1/Covariance1/Position1
+        - /measured - L1/Covariance1
         - /measured - L1/Covariance1/Position1
         - /measured - R1/Covariance1
         - /measured - R1/Covariance1/Position1
@@ -261,7 +261,7 @@ Visualization Manager:
           Frame: Local
           Offset: 1
           Scale: 1
-          Value: true
+          Value: false
         Position:
           Alpha: 0.30000001192092896
           Color: 0; 85; 255
@@ -336,25 +336,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 8.682002067565918
+      Distance: 13.234786033630371
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 0.8633081912994385
-        Y: 3.427912950515747
-        Z: 1.6647909879684448
+        X: -0.5830193758010864
+        Y: 3.370823621749878
+        Z: 1.1869869232177734
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.3947972059249878
+      Pitch: 1.0197967290878296
       Target Frame: fcu_uav3_origin
       Value: Orbit (rviz)
-      Yaw: 5.275000095367432
+      Yaw: 5.71999454498291
     Saved: ~
 Window Geometry:
   Displays:
