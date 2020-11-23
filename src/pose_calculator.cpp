@@ -1434,7 +1434,7 @@ namespace uvdar {
                 break;
               }
               lin_step = lin_step_init;
-              while (true){
+              while (lin_step > 0.0001){
                 double dist_tent = dist-(sgn(lin_gradient)*lin_step);
                 /* lin_step = lin_step_init; */
                 model_shifted_curr = model_curr.translate(step_dir*dist_tent);
@@ -1521,7 +1521,7 @@ namespace uvdar {
             double error_rot_prev = error_total;
             double error_rot_curr = error_total;
             auto model_rotated_curr = model_curr;
-              ROS_INFO_STREAM("[UVDARPoseCalculator]: it: "<<iters <<": here D");
+              /* ROS_INFO_STREAM("[UVDARPoseCalculator]: it: "<<iters <<": here D"); */
             do {
               error_rot_prev = error_rot_curr;
               rot_diff_step = rot_step_init;
@@ -1553,7 +1553,7 @@ namespace uvdar {
                 break;
               }
 
-              ROS_INFO_STREAM("[UVDARPoseCalculator]: it: "<<iters <<": here E");
+              /* ROS_INFO_STREAM("[UVDARPoseCalculator]: it: "<<iters <<": here E"); */
             } while (error_rot_prev-error_rot_curr > 0.001);
             orientation_curr = e::AngleAxisd(angle,step_axis)*orientation_curr;
             model_curr = model_rotated_curr;
@@ -2009,6 +2009,7 @@ namespace uvdar {
         output_pose.first = rotator*pose.first;
         output_pose.second = rotator*pose.second;
         output_covariance.topLeftCorner(3,3) = rotator.toRotationMatrix()*output_covariance.topLeftCorner(3,3)*rotator.toRotationMatrix().transpose();
+        output_covariance.bottomRightCorner(3,3) = rotator.toRotationMatrix()*output_covariance.bottomRightCorner(3,3)*rotator.toRotationMatrix().transpose();
         return {output_pose, output_covariance};
       }
 

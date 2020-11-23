@@ -283,6 +283,7 @@ namespace uvdar {
           geometry_msgs::PoseWithCovarianceStamped meas_s;
           meas_s.pose.pose = meas.pose;
           meas_s.pose.covariance = meas.covariance;
+          ROS_INFO_STREAM("[UVDARKalman]: Meas. cov. input: " << std::endl << rosCovarianceToEigen(meas.covariance));
           meas_s.header = msg_local.header;
           {
             std::scoped_lock lock(transformer_mutex);
@@ -314,11 +315,13 @@ namespace uvdar {
             return;
           }
 
-          for (int i=0; i<6; i++){
-            for (int j=0; j<6; j++){
-              poseCov(j,i) =  meas_t.value().pose.covariance[6*j+i];
-            }
-          }
+          /*           for (int i=0; i<6; i++){ */
+          /*             for (int j=0; j<6; j++){ */
+          /*               poseCov(j,i) =  [6*j+i]; */
+          /*             } */
+          /*           } */
+
+          poseCov = rosCovarianceToEigen(meas_t.value().pose.covariance);
 
           if (poseCov.array().isNaN().any()){
             ROS_INFO("[UVDARKalman]: Discarding input, covariance includes Nans.");
@@ -495,6 +498,7 @@ namespace uvdar {
 
         auto orig_state = filter_local.filter_state;
         ROS_INFO_STREAM("[UVDARKalman]: Original state: " << fd_curr.id << " was " << filter_local.filter_state.x.transpose());
+        ROS_INFO_STREAM("[UVDARKalman]: Original cov: " << std::endl << filter_local.filter_state.P);
 
         if (prior_predict){
           predictTillTime(filter_local, meas_time, true);
@@ -518,7 +522,9 @@ namespace uvdar {
         P_local.topRightCorner(3,3).setZero();  // check the case of _use_velocity_ == true
         P_local.bottomLeftCorner(3,3).setZero();  // check the case of _use_velocity_ == true
 
+        ROS_INFO_STREAM("[UVDARKalman]: Meas. cov: " << std::endl << measurement.P);
         filter_local.filter_state = filter->correct(filter_local.filter_state, measurement.x, P_local);
+        ROS_INFO_STREAM("[UVDARKalman]: Fixed to: " << std::endl << P_local);
 
         filter_local.filter_state.x[3] = fixAngle(filter_local.filter_state.x[3], 0);
         filter_local.filter_state.x[4] = fixAngle(filter_local.filter_state.x[4], 0);
@@ -776,11 +782,13 @@ namespace uvdar {
           temp.pose.orientation.z = qtemp.z();
           temp.pose.orientation.w = qtemp.w();
 
-          for (int m=0; m<6; m++){
-            for (int n=0; n<6; n++){
-              temp.covariance[6*n+m] =  fd_curr.value().filter_state.P(n,m);
-            }
-          }
+          /* for (int m=0; m<6; m++){ */
+          /*   for (int n=0; n<6; n++){ */
+          /*     temp.covariance[6*n+m] =  fd_curr.value().filter_state.P(n,m); */
+          /*   } */
+          /* } */
+          temp.covariance = eigenCovarianceToRos(fd_curr.value().filter_state.P);
+
           if (fd_curr.value().update_count < MIN_MEASUREMENTS_TO_VALIDATION){
             msg_tent.poses.push_back(temp);
           }
@@ -885,6 +893,43 @@ namespace uvdar {
         return atan2(m(2,1),m(2,2));
       }
       //}
+
+
+
+      e::MatrixXd rosCovarianceToEigen(const boost::array<double,36> input){
+        e::MatrixXd output(6,6);
+        /* if ((int)(input.size()) != 36 ){ */
+        /*   ROS_ERROR_STREAM("[UVDARKalman]: Covariance to be converted to Eigen matrix has " << input.size() << " elements instead of the expected 36! Returning"); */
+        /*   return e::MatrixXd(); */
+        /* } */
+
+        for (int i=0; i<6; i++){
+          for (int j=0; j<6; j++){
+            output(j,i) =  input[6*j+i];
+          }
+        }
+
+        return output;
+      }
+
+      boost::array<double,36> eigenCovarianceToRos(const e::MatrixXd input){
+        boost::array<double, 36> output;
+        if (((int)(input.rows()) != 6 ) || ((int)(input.cols()) != 6 )){
+          ROS_ERROR_STREAM("[UVDARKalman]: Covariance to be converted to Ros has size of  " << input.rows() << "x" << input.cols() << " as opposed to the expected size of 6x6! Returning");
+          /* return boost::array<double, 36>(std::nan("")); */
+          double n = std::nan("");
+          return {n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n};
+        }
+
+          for (int m=0; m<6; m++){
+            for (int n=0; n<6; n++){
+              output[6*n+m] = input(n,m);
+            }
+          }
+
+        return output;
+      }
+
 
       /**
        * @brief Retrieves aviation Pitch angle from a quaternion
