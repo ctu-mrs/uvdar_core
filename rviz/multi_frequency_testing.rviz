@@ -17,6 +17,7 @@ Panels:
         - /filtered - T1/Covariance1/Position1
         - /measured - L1/Covariance1
         - /measured - L1/Covariance1/Position1
+        - /measured - L1/Covariance1/Orientation1
         - /measured - R1/Covariance1
         - /measured - R1/Covariance1/Position1
       Splitter Ratio: 0.5
@@ -255,8 +256,8 @@ Visualization Manager:
       Color: 255; 25; 0
       Covariance:
         Orientation:
-          Alpha: 0.5
-          Color: 255; 255; 127
+          Alpha: 0.30000001192092896
+          Color: 255; 170; 127
           Color Style: Unique
           Frame: Local
           Offset: 1
@@ -285,7 +286,7 @@ Visualization Manager:
       Color: 255; 25; 0
       Covariance:
         Orientation:
-          Alpha: 0.5
+          Alpha: 0.30000001192092896
           Color: 255; 255; 127
           Color Style: Unique
           Frame: Local
@@ -336,25 +337,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 13.234786033630371
+      Distance: 25.79646110534668
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: -0.5830193758010864
-        Y: 3.370823621749878
-        Z: 1.1869869232177734
+        X: 1.5897854566574097
+        Y: 0.7806663513183594
+        Z: -2.373029947280884
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 1.0197967290878296
+      Pitch: 1.2147961854934692
       Target Frame: fcu_uav3_origin
       Value: Orbit (rviz)
-      Yaw: 5.71999454498291
+      Yaw: 4.8099684715271
     Saved: ~
 Window Geometry:
   Displays:

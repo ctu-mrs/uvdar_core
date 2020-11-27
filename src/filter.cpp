@@ -22,6 +22,8 @@
 
 #include <Eigen/Dense>
 
+#define sqr(X) ((X) * (X))
+
 #define DEFAULT_OUTPUT_FRAMERATE 20.0
 #define DECAY_AGE_NORMAL 5.0
 #define DECAY_AGE_UNVALIDATED 1.0
@@ -308,7 +310,6 @@ namespace uvdar {
           poseVec(4) = fixAngle(quatToPitch(qtemp), 0);
           poseVec(5) = fixAngle(quatToYaw(qtemp), 0);
 
-          ROS_INFO_STREAM("[UVDARKalman]: Transformed measurement input is: [" << poseVec.transpose() << "]");
 
           if (poseVec.array().isNaN().any()){
             ROS_INFO("[UVDARKalman]: Discarding input, value includes Nans.");
@@ -327,6 +328,27 @@ namespace uvdar {
             ROS_INFO("[UVDARKalman]: Discarding input, covariance includes Nans.");
             return;
           }
+
+          bool changed = false;
+
+          e::EigenSolver<e::Matrix3d> es(poseCov.bottomRightCorner(3,3));
+          auto eigvals = es.eigenvalues();
+          for (int i=0; i<(int)(eigvals.size()); i++){
+            /* ROS_INFO_STREAM("[UVDARKalman]: Eigenvalues: "<< eigvals(i).real() << " im: " <<  eigvals(i).imag()); */
+            if (eigvals(i).real() > sqr(M_PI/3.0)){ //angle std.dev representing no knowledge (3*sigma contains 99.7 percent)
+              eigvals(i) = sqr(666.0); //arbitrarily large number, s.t. the measurement will not affect the state
+              changed = true;
+            }
+          }
+
+          if (changed){
+            auto eigvecs = es.eigenvectors();
+            /* ROS_INFO_STREAM("[UVDARKalman]: Eigenvectors: "<< std::endl << eigvecs.real() << std::endl << "im: " << std::endl <<  eigvecs.imag()); */
+            poseCov.bottomRightCorner(3,3) = eigvecs.real()*eigvals.real().asDiagonal()*eigvecs.real().transpose(); //reform the covariance with new expanded eigenvalues
+          }
+
+          ROS_INFO_STREAM("[UVDARKalman]: Transformed measurement input is: [" << poseVec.transpose() << "]");
+          ROS_INFO_STREAM("[UVDARKalman]: Meas. cov. transformed: " << std::endl << poseCov);
 
           meas_converted.push_back({.x=poseVec,.P=poseCov});
           ids.push_back(meas.id);
@@ -472,8 +494,8 @@ namespace uvdar {
                ){
               ROS_INFO_STREAM("[UVDARKalman]: NEGATIVE NUMBERS ON MAIN DIAGONAL!");
               ROS_INFO_STREAM("[UVDARKalman]: Orig. state. cov: " << std::endl << orig_state.filter_state.P);
-              ROS_INFO_STREAM("[UVDARKalman]: dt: " << dt_from_last);
-              ROS_INFO_STREAM("[UVDARKalman]: Q_dt: " << Q_dt(dt_from_last));
+              /* ROS_INFO_STREAM("[UVDARKalman]: dt: " << dt_from_last); */
+              /* ROS_INFO_STREAM("[UVDARKalman]: Q_dt: " << Q_dt(dt_from_last)); */
               ROS_INFO_STREAM("[UVDARKalman]: New state. cov: " << std::endl << fd_curr.filter_state.P);
             }
         return new_state;
