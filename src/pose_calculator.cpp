@@ -1975,41 +1975,43 @@ namespace uvdar {
         for (auto x_s : j){
           for (auto y_s : j){
             for (auto z_s : j){
-              for (auto r_s : j){
-                for (auto p_s : j){
-                  for (auto y_s : j){
+              for (auto roll_s : j){
+                for (auto pitch_s : j){
+                  for (auto yaw_s : j){
                     if (
                         (x_s == 0) &&
                         (y_s == 0) &&
                         (z_s == 0) &&
-                        (r_s == 0) &&
-                        (p_s == 0) &&
-                        (y_s == 0)
+                        (roll_s == 0) &&
+                        (pitch_s == 0) &&
+                        (yaw_s == 0)
                         ){
                       Xe.push_back(std::numeric_limits<double>::max()); //to avoid singularities
                       Y(0,k) = Y0.first.x();
                       Y(1,k) = Y0.first.y();
                       Y(2,k) = Y0.first.z();
-                      Y(3,k) = rotmatToRoll(Y0.second.toRotationMatrix());
-                      Y(4,k) = rotmatToPitch(Y0.second.toRotationMatrix());
-                      Y(5,k) = rotmatToYaw(Y0.second.toRotationMatrix());
+                      auto Y_rpy = quaternionToRPY(Y0.second);
+                      Y(3,k) = Y_rpy(0);
+                      Y(4,k) = Y_rpy(1);
+                      Y(5,k) = Y_rpy(2);
                     }
                     else {
                       e::Quaterniond rotation(
-                          e::AngleAxisd(y_s, Y0.second*e::Vector3d(0,0,1)) *
-                          e::AngleAxisd(p_s, Y0.second*e::Vector3d(0,1,0)) *
-                          e::AngleAxisd(r_s, Y0.second*e::Vector3d(1,0,0))
+                          e::AngleAxisd(yaw_s*rot_scale, Y0.second*e::Vector3d(0,0,1)) *
+                          e::AngleAxisd(pitch_s*rot_scale, Y0.second*e::Vector3d(0,1,0)) *
+                          e::AngleAxisd(roll_s*rot_scale, Y0.second*e::Vector3d(1,0,0))
                           );
                       auto model_curr = model.rotate(Y0.first,  rotation);
-                      model_curr = model_curr.translate(e::Vector3d(x_s, y_s, z_s));
+                      model_curr = model_curr.translate(e::Vector3d(x_s, y_s, z_s)*trans_scale);
 
                       Xe.push_back(totalError(model_curr, observed_points, target, image_index));
                       Y(0,k) = Y0.first.x()+x_s*trans_scale;
                       Y(1,k) = Y0.first.y()+y_s*trans_scale;
                       Y(2,k) = Y0.first.z()+z_s*trans_scale;
-                      Y(3,k) = rotmatToRoll(Y0.second.toRotationMatrix()) + r_s*rot_scale;
-                      Y(4,k) = rotmatToPitch(Y0.second.toRotationMatrix()) + p_s*rot_scale;
-                      Y(5,k) = rotmatToYaw(Y0.second.toRotationMatrix()) + y_s*rot_scale;
+                      auto Y_rpy = quaternionToRPY(Y0.second);
+                      Y(3,k) = Y_rpy(0) + roll_s*rot_scale;
+                      Y(4,k) = Y_rpy(1) + pitch_s*rot_scale;
+                      Y(5,k) = Y_rpy(2) + yaw_s*rot_scale;
                     }
                     k++;
                   }
@@ -2024,20 +2026,32 @@ namespace uvdar {
         for (auto xe : Xe){
           W(i) = (1.0/xe);
           Wsum += W(i);
+          if (W(i) > 0.1){
+            ROS_ERROR_STREAM("[UVDARPoseCalculator]: W("<<i<<") = " << W(i));
+          }
           i++;
         }
         /* ROS_INFO_STREAM("[UVDARPoseCalculator]: Wsum: [\n" << Wsum << "\n]"); */
         /* ROS_INFO_STREAM("[UVDARPoseCalculator]: W_orig: [\n" << W << "\n]"); */
         /* W /= (Wsum); */
-        W *= sqr(QPIX)*observed_points.size();
+        /* W *= sqr(QPIX)*observed_points.size(); */
+        W *= sqr(QPIX);
         /* ROS_INFO_STREAM("[UVDARPoseCalculator]: W: [\n" << W << "\n]"); */
         auto y = Y*W;
         /* ROS_INFO_STREAM("[UVDARPoseCalculator]: y: [\n" << y << "\n]"); */
         auto Ye = Y-y.replicate(1,W.size());
         /* ROS_INFO_STREAM("[UVDARPoseCalculator]: Ye: [\n" << Ye << "\n]"); */
 
+        /* i=0; */
+        /* for (auto xe : Xe){ */
+        /*   if ((Ye*W(i)) > 0.1){ */
+        /*     ROS_ERROR_STREAM("[UVDARPoseCalculator]: W("<<i<<") = " << W(i)); */
+        /*   } */
+        /*   i++; */
+        /* } */
+
         auto P = Ye*W.asDiagonal()*Ye.transpose();
-        e::JacobiSVD<e::MatrixXd> svd(P, e::ComputeThinU | e::ComputeThinV);
+        /* e::JacobiSVD<e::MatrixXd> svd(P, e::ComputeThinU | e::ComputeThinV); */
         /* if (P.topLeftCorner(3,3).determinant() > 0.001){ */
 
           /* ROS_INFO_STREAM("[UVDARPoseCalculator]: P: [\n" << P << "\n]"); */
