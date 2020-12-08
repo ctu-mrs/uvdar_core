@@ -5,7 +5,8 @@
   <arg name="gui" default="false" />
   <arg name="rvizconfig" default="$(find uvdar_core)/rviz/multi_frequency_testing.rviz" />
 
-	<node name="rviz" pkg="rviz" type="rviz" args="-d $(arg rvizconfig)" required="true" />
+	<!-- <node name="rviz" pkg="rviz" type="rviz" args="-d $(arg rvizconfig)" required="true" launch-prefix="debug_roslaunch" /> -->
+	<node name="rviz" pkg="rviz" type="rviz" args="-d $(arg rvizconfig)" required="true" output="screen" />
 
 </launch>
 

@@ -22,6 +22,8 @@
 
 #include <Eigen/Dense>
 
+#define sqr(X) ((X) * (X))
+
 #define DEFAULT_OUTPUT_FRAMERATE 20.0
 #define DECAY_AGE_NORMAL 5.0
 #define DECAY_AGE_UNVALIDATED 1.0
@@ -283,6 +285,7 @@ namespace uvdar {
           geometry_msgs::PoseWithCovarianceStamped meas_s;
           meas_s.pose.pose = meas.pose;
           meas_s.pose.covariance = meas.covariance;
+          ROS_INFO_STREAM("[UVDARKalman]: Meas. cov. input: " << std::endl << rosCovarianceToEigen(meas.covariance));
           meas_s.header = msg_local.header;
           {
             std::scoped_lock lock(transformer_mutex);
@@ -307,19 +310,45 @@ namespace uvdar {
           poseVec(4) = fixAngle(quatToPitch(qtemp), 0);
           poseVec(5) = fixAngle(quatToYaw(qtemp), 0);
 
-          ROS_INFO_STREAM("[UVDARKalman]: Transformed measurement input is: [" << poseVec.transpose() << "]");
+
           if (poseVec.array().isNaN().any()){
-            ROS_INFO("[UVDARKalman]: Discarding input, it includes Nans.");
+            ROS_INFO("[UVDARKalman]: Discarding input, value includes Nans.");
             return;
           }
 
-          ROS_INFO_STREAM("[UVDARKalman]: eulerAngles give: " << qtemp.toRotationMatrix().eulerAngles(0, 1, 2).transpose() << " while my angles are: " << poseVec.bottomRows(3).transpose());
+          /*           for (int i=0; i<6; i++){ */
+          /*             for (int j=0; j<6; j++){ */
+          /*               poseCov(j,i) =  [6*j+i]; */
+          /*             } */
+          /*           } */
 
-          for (int i=0; i<6; i++){
-            for (int j=0; j<6; j++){
-              poseCov(j,i) =  meas_t.value().pose.covariance[6*j+i];
+          poseCov = rosCovarianceToEigen(meas_t.value().pose.covariance);
+
+          if (poseCov.array().isNaN().any()){
+            ROS_INFO("[UVDARKalman]: Discarding input, covariance includes Nans.");
+            return;
+          }
+
+          bool changed = false;
+
+          e::EigenSolver<e::Matrix3d> es(poseCov.bottomRightCorner(3,3));
+          auto eigvals = es.eigenvalues();
+          for (int i=0; i<(int)(eigvals.size()); i++){
+            /* ROS_INFO_STREAM("[UVDARKalman]: Eigenvalues: "<< eigvals(i).real() << " im: " <<  eigvals(i).imag()); */
+            if (eigvals(i).real() > sqr(M_PI/3.0)){ //angle std.dev representing no knowledge (3*sigma contains 99.7 percent)
+              eigvals(i) = sqr(666.0); //arbitrarily large number, s.t. the measurement will not affect the state
+              changed = true;
             }
           }
+
+          if (changed){
+            auto eigvecs = es.eigenvectors();
+            /* ROS_INFO_STREAM("[UVDARKalman]: Eigenvectors: "<< std::endl << eigvecs.real() << std::endl << "im: " << std::endl <<  eigvecs.imag()); */
+            poseCov.bottomRightCorner(3,3) = eigvecs.real()*eigvals.real().asDiagonal()*eigvecs.real().transpose(); //reform the covariance with new expanded eigenvalues
+          }
+
+          ROS_INFO_STREAM("[UVDARKalman]: Transformed measurement input is: [" << poseVec.transpose() << "]");
+          ROS_INFO_STREAM("[UVDARKalman]: Meas. cov. transformed: " << std::endl << poseCov);
 
           meas_converted.push_back({.x=poseVec,.P=poseCov});
           ids.push_back(meas.id);
@@ -369,7 +398,16 @@ namespace uvdar {
             ROS_INFO_STREAM("[UVDARKalman]: State: ");
             ROS_INFO_STREAM("[UVDARKalman]: \n" << fd[target].filter_state.x);
           }
+
+
+            /* if ( */
+            /*     ((fd[target].filter_state.P.diagonal().array() < 0).any()) */
+            /*    ){ */
+            /*   ROS_INFO_STREAM("[UVDARKalman]: SPIN: NEGATIVE NUMBERS ON MAIN DIAGONAL!"); */
+            /*   ROS_INFO_STREAM("[UVDARKalman]: State. cov: " << std::endl << fd[target].filter_state.P); */
+            /* } */
         }
+
         publishStates();
 
       }
@@ -404,10 +442,29 @@ namespace uvdar {
           //so that we don't initialize with the long covariances intersecting in the origin
         }
 
-        int index = (int)(fd.size());
-        ROS_INFO_STREAM("[UVDARKalman]: Initiating state " << index << "  with: " << x.transpose());
+          auto C_local = C; // the correlation between angle and position only exists in the measurement - the filter may have many measurements where this relation does not exist anymore
+        if (!_use_velocity_){
+          int index = (int)(fd.size());
+          ROS_INFO_STREAM("[UVDARKalman]: Initiating state " << index << "  with: " << x.transpose());
 
-        fd.push_back({.filter_state = {.x = x, .P = C}, .update_count = 0, .latest_update = stamp, .latest_measurement = stamp, .id = ((id<0)?(latest_id++):(id))});
+          C_local.topRightCorner(3,3).setZero();  // check the case of _use_velocity_ == true
+          C_local.bottomLeftCorner(3,3).setZero();  // check the case of _use_velocity_ == true
+
+          fd.push_back({.filter_state = {.x = x, .P = C_local}, .update_count = 0, .latest_update = stamp, .latest_measurement = stamp, .id = ((id<0)?(latest_id++):(id))});
+        }
+        else{
+          ROS_WARN("[UVDARKalman]: Initialization of states with velocity is not implemented. Returning.");
+          return;
+        }
+
+        /* if ( */
+        /*     ((fd.back().filter_state.P.diagonal().array() < 0).any()) */
+        /*    ){ */
+        /*   ROS_INFO_STREAM("[UVDARKalman]: INIT: NEGATIVE NUMBERS ON MAIN DIAGONAL!"); */
+        /*   ROS_INFO_STREAM("[UVDARKalman]: Generating measurement: " << std::endl << C); */
+        /*   ROS_INFO_STREAM("[UVDARKalman]: Generating fixed measurement: " << std::endl << C_local); */
+        /*   ROS_INFO_STREAM("[UVDARKalman]: State. cov: " << std::endl << fd.back().filter_state.P); */
+        /* } */
       }
       //}
 
@@ -422,13 +479,25 @@ namespace uvdar {
        */
       /* predictTillTime //{ */
       statecov_t predictTillTime(struct FilterData &fd_curr, ros::Time target_time, bool apply_update = false){
-        double dt_from_last = std::fmin((target_time-fd_curr.latest_update).toSec(),(target_time-fd_curr.latest_measurement).toSec());
+        auto orig_state = fd_curr;
+        double dt_from_last = std::fmax(std::fmin((target_time-fd_curr.latest_update).toSec(),(target_time-fd_curr.latest_measurement).toSec()),0.0);
         filter->A = A_dt(dt_from_last);
         auto new_state =  filter->predict(fd_curr.filter_state, u_t(), Q_dt(dt_from_last), dt_from_last);
         if (apply_update){
           fd_curr.filter_state = new_state;
           fd_curr.latest_update = target_time;
         }
+
+            if (
+                ((orig_state.filter_state.P.diagonal().array() < 0).any()) ||
+                ((fd_curr.filter_state.P.diagonal().array() < 0).any())
+               ){
+              ROS_INFO_STREAM("[UVDARKalman]: NEGATIVE NUMBERS ON MAIN DIAGONAL!");
+              ROS_INFO_STREAM("[UVDARKalman]: Orig. state. cov: " << std::endl << orig_state.filter_state.P);
+              /* ROS_INFO_STREAM("[UVDARKalman]: dt: " << dt_from_last); */
+              /* ROS_INFO_STREAM("[UVDARKalman]: Q_dt: " << Q_dt(dt_from_last)); */
+              ROS_INFO_STREAM("[UVDARKalman]: New state. cov: " << std::endl << fd_curr.filter_state.P);
+            }
         return new_state;
       }
       //}
@@ -448,13 +517,21 @@ namespace uvdar {
       /* correctWithMeasurement //{ */
       statecov_t correctWithMeasurement(struct FilterData &fd_curr, statecov_t measurement, double &match_level, ros::Time meas_time, bool prior_predict, bool apply_update = false){
         auto filter_local = fd_curr;
+
+        auto orig_state = filter_local.filter_state;
+        /* ROS_INFO_STREAM("[UVDARKalman]: Original state: " << fd_curr.id << " was " << filter_local.filter_state.x.transpose()); */
+        /* ROS_INFO_STREAM("[UVDARKalman]: Original cov: " << std::endl << filter_local.filter_state.P); */
+
         if (prior_predict){
           predictTillTime(filter_local, meas_time, true);
         }
 
+
+        /* ROS_INFO_STREAM("[UVDARKalman]: Orig. angles: " << filter_local.filter_state.x.bottomRows(3)); */
         filter_local.filter_state.x[3] = fixAngle(filter_local.filter_state.x[3], measurement.x[3]);
         filter_local.filter_state.x[4] = fixAngle(filter_local.filter_state.x[4], measurement.x[4]);
         filter_local.filter_state.x[5] = fixAngle(filter_local.filter_state.x[5], measurement.x[5]);
+        /* ROS_INFO_STREAM("[UVDARKalman]: Fixed. angles: " << filter_local.filter_state.x.bottomRows(3)); */
 
         match_level = gaussJointMaxVal(
             measurement.P.topLeftCorner(3,3),
@@ -463,12 +540,42 @@ namespace uvdar {
             filter_local.filter_state.x.topRows(3)
             );
 
-        filter_local.filter_state = filter->correct(filter_local.filter_state, measurement.x, measurement.P);
+        auto P_local = measurement.P;
+        P_local.topRightCorner(3,3).setZero();  // check the case of _use_velocity_ == true
+        P_local.bottomLeftCorner(3,3).setZero();  // check the case of _use_velocity_ == true
+
+        /* ROS_INFO_STREAM("[UVDARKalman]: Meas. cov: " << std::endl << measurement.P); */
+        filter_local.filter_state = filter->correct(filter_local.filter_state, measurement.x, P_local);
+        /* ROS_INFO_STREAM("[UVDARKalman]: Fixed to: " << std::endl << P_local); */
+
+        filter_local.filter_state.x[3] = fixAngle(filter_local.filter_state.x[3], 0);
+        filter_local.filter_state.x[4] = fixAngle(filter_local.filter_state.x[4], 0);
+        filter_local.filter_state.x[5] = fixAngle(filter_local.filter_state.x[5], 0);
+
         if (apply_update){
-          if (_debug_){
-            ROS_INFO_STREAM("[UVDARKalman]: Updating state: " << fd_curr.id << " with " << measurement.x.transpose());
-            ROS_INFO_STREAM("[UVDARKalman]: This yelds state: " << filter_local.filter_state.x.topRows(6).transpose());
-          }
+          /* if (_debug_){ */
+            /* if ( */
+            /*     ((orig_state.x.topRows(3) - filter_local.filter_state.x.topRows(3)).norm() > 2.0) || */
+            /*     ((orig_state.x.bottomRows(3) - filter_local.filter_state.x.bottomRows(3)).norm() > 0.2) */
+            /*    ){ */
+            /*   ROS_INFO_STREAM("[UVDARKalman]: Updating state: " << fd_curr.id << " with " << measurement.x.transpose()); */
+            /*   ROS_INFO_STREAM("[UVDARKalman]: Meas. cov: " << std::endl << measurement.P); */
+            /*   ROS_INFO_STREAM("[UVDARKalman]: Fixed to: " << std::endl << P_local); */
+            /*   ROS_INFO_STREAM("[UVDARKalman]: State. cov: " << std::endl << orig_state.P); */
+            /*   ROS_INFO_STREAM("[UVDARKalman]: This yelds state: " << filter_local.filter_state.x.topRows(6).transpose()); */
+            /* } */
+            /* if ( */
+            /*     ((orig_state.P.diagonal().array() < 0).any()) || */
+            /*     ((measurement.P.diagonal().array() < 0).any()) || */ 
+            /*     ((filter_local.filter_state.P.diagonal().array() < 0).any()) */
+            /*    ){ */
+            /*   ROS_INFO_STREAM("[UVDARKalman]: NEGATIVE NUMBERS ON MAIN DIAGONAL!"); */
+            /*   ROS_INFO_STREAM("[UVDARKalman]: Meas. cov: " << std::endl << measurement.P); */
+            /*   ROS_INFO_STREAM("[UVDARKalman]: Fixed to: " << std::endl << P_local); */
+            /*   ROS_INFO_STREAM("[UVDARKalman]: Orig. state. cov: " << std::endl << orig_state.P); */
+            /*   ROS_INFO_STREAM("[UVDARKalman]: New state. cov: " << std::endl << filter_local.filter_state.P); */
+            /* } */
+          /* } */
           fd_curr.filter_state = filter_local.filter_state;
           fd_curr.latest_measurement = meas_time;
           fd_curr.update_count++;
@@ -697,11 +804,13 @@ namespace uvdar {
           temp.pose.orientation.z = qtemp.z();
           temp.pose.orientation.w = qtemp.w();
 
-          for (int m=0; m<6; m++){
-            for (int n=0; n<6; n++){
-              temp.covariance[6*n+m] =  fd_curr.value().filter_state.P(n,m);
-            }
-          }
+          /* for (int m=0; m<6; m++){ */
+          /*   for (int n=0; n<6; n++){ */
+          /*     temp.covariance[6*n+m] =  fd_curr.value().filter_state.P(n,m); */
+          /*   } */
+          /* } */
+          temp.covariance = eigenCovarianceToRos(fd_curr.value().filter_state.P);
+
           if (fd_curr.value().update_count < MIN_MEASUREMENTS_TO_VALIDATION){
             msg_tent.poses.push_back(temp);
           }
@@ -806,6 +915,43 @@ namespace uvdar {
         return atan2(m(2,1),m(2,2));
       }
       //}
+
+
+
+      e::MatrixXd rosCovarianceToEigen(const boost::array<double,36> input){
+        e::MatrixXd output(6,6);
+        /* if ((int)(input.size()) != 36 ){ */
+        /*   ROS_ERROR_STREAM("[UVDARKalman]: Covariance to be converted to Eigen matrix has " << input.size() << " elements instead of the expected 36! Returning"); */
+        /*   return e::MatrixXd(); */
+        /* } */
+
+        for (int i=0; i<6; i++){
+          for (int j=0; j<6; j++){
+            output(j,i) =  input[6*j+i];
+          }
+        }
+
+        return output;
+      }
+
+      boost::array<double,36> eigenCovarianceToRos(const e::MatrixXd input){
+        boost::array<double, 36> output;
+        if (((int)(input.rows()) != 6 ) || ((int)(input.cols()) != 6 )){
+          ROS_ERROR_STREAM("[UVDARKalman]: Covariance to be converted to Ros has size of  " << input.rows() << "x" << input.cols() << " as opposed to the expected size of 6x6! Returning");
+          /* return boost::array<double, 36>(std::nan("")); */
+          double n = std::nan("");
+          return {n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n};
+        }
+
+          for (int m=0; m<6; m++){
+            for (int n=0; n<6; n++){
+              output[6*n+m] = input(n,m);
+            }
+          }
+
+        return output;
+      }
+
 
       /**
        * @brief Retrieves aviation Pitch angle from a quaternion
@@ -936,15 +1082,15 @@ namespace uvdar {
         } else {
           if (_use_velocity_){
             filter_matrices.Q <<
-              sn*sn,0,0,0,0,0,0,0,0,
-              0,sn*sn,0,0,0,0,0,0,0,
-              0,0,sn*sn,0,0,0,0,0,0,
-              0,0,0,vl,0,0,0,0,0,
-              0,0,0,0,vl,0,0,0,0,
-              0,0,0,0,0,vv,0,0,0,
-              0,0,0,0,0,0,1,0,0,
-              0,0,0,0,0,0,0,1,0,
-              0,0,0,0,0,0,0,0,1;
+              sn*sn, 0,     0,     0,  0,  0,  0, 0, 0,
+              0,     sn*sn, 0,     0,  0,  0,  0, 0, 0,
+              0,     0,     sn*sn, 0,  0,  0,  0, 0, 0,
+              0,     0,     0,     vl, 0,  0,  0, 0, 0,
+              0,     0,     0,     0,  vl, 0,  0, 0, 0,
+              0,     0,     0,     0,  0,  vv, 0, 0, 0,
+              0,     0,     0,     0,  0,  0,  1, 0, 0,
+              0,     0,     0,     0,  0,  0,  0, 1, 0,
+              0,     0,     0,     0,  0,  0,  0, 0, 1;
           }
           else{
             // This is an unorthodox approach.
@@ -963,9 +1109,9 @@ namespace uvdar {
               0.5*sn*sn+0.16667*vl*vl*dt*dt,0,0, 0,0,0,
               0,0.5*sn*sn+0.16667*vl*vl*dt*dt,0, 0,0,0,
               0,0,0.5*sn*sn+0.16667*vv*vv*dt*dt, 0,0,0,
-              0,0,0, 1,0,0,
-              0,0,0, 0,1,0,
-              0,0,0, 0,0,1;
+              0,0,0, 0.5,0,0,
+              0,0,0, 0,0.5,0,
+              0,0,0, 0,0,0.5;
           }
         }
         return filter_matrices.Q;
