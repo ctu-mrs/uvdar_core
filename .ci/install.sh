@@ -33,9 +33,6 @@ cd uav_core
 echo "running the main install.sh"
 ./installation/install.sh
 
-cd $MY_PATH
-gitman install
-
 mkdir -p ~/catkin_ws/src
 cd ~/catkin_ws/src
 ln -s ~/uav_core
