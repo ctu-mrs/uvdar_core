@@ -2,8 +2,8 @@
 
 ![](.fig/thumbnail.jpg)
 
-| Build status | [![Build Status](https://github.com/ctu-mrs/uvdar_core/workflows/Melodic/badge.svg)](https://github.com/ctu-mrs/uvdar_core/actions) | [![Build Status](https://github.com/ctu-mrs/uvdar_core/workflows/Noetic/badge.svg)](https://github.com/ctu-mrs/mrs_simulation/actions) |
-|--------------|-------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------|
+| Build status | [![Build Status](https://github.com/ctu-mrs/uvdar_core/workflows/Melodic/badge.svg)](https://github.com/ctu-mrs/uvdar_core/actions) | [![Build Status](https://github.com/ctu-mrs/uvdar_core/workflows/Noetic/badge.svg)](https://github.com/ctu-mrs/uvdar_core/actions) |
+|--------------|-------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------|
 
 ## Description
 This package contains the core signal processing and pose estimation software components of the UVDAR system necessary for running it on a MAV.
@@ -18,7 +18,7 @@ This package contains the core signal processing and pose estimation software co
 #### Hardware:
 * One or more calibrated (Using the OCamCalib model) grayscale camera sensors with ultraviolet bandpass filters. In our setup these are:
   * mvBlueFOX MLC200wG cameras
-  * Sunnex DSL215 lenses with ~180 degrees of horizontal FOV 
+  * Sunnex DSL215 lenses with ~180 degrees of horizontal FOV
   * Midopt BP365-R6 filters with our custom holder between the sensor and the lens
 
 * Blinking ultraviolet LEDs (395nm) attached to extreme points of the target UAVs. In our setup, these are:
