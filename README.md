@@ -2,8 +2,8 @@
 
 ![](.fig/thumbnail.jpg)
 
-| Build status | [![Build Status](http://badges.herokuapp.com/travis.com/ctu-mrs/uvdar_core?env=BADGE=bionic&label=Melodic)](https://travis-ci.com/ctu-mrs/uvdar_core) | [![Build Status](http://badges.herokuapp.com/travis.com/ctu-mrs/uvdar_core?env=BADGE=focal&label=Noetic)](https://travis-ci.com/ctu-mrs/uvdar_core) |
-|--------------|-------------------------------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------|
+| Build status | [![Build Status](https://github.com/ctu-mrs/uvdar_core/workflows/Melodic/badge.svg)](https://github.com/ctu-mrs/uvdar_core/actions) | [![Build Status](https://github.com/ctu-mrs/uvdar_core/workflows/Noetic/badge.svg)](https://github.com/ctu-mrs/mrs_simulation/actions) |
+|--------------|-------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------|
 
 ## Description
 This package contains the core signal processing and pose estimation software components of the UVDAR system necessary for running it on a MAV.
