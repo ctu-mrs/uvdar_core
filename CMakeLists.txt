@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.8.3)
+cmake_minimum_required(VERSION 3.1.2)
 project(uvdar_core)
 
 FILE(GLOB_RECURSE HEADER_FILES include *.h)
@@ -76,13 +76,13 @@ add_library(uv_led_detect_fast include/detect/uv_led_detect_fast.cpp)
 add_library(frequency_classifier include/frequency_classifier/frequency_classifier.cpp)
 add_library(color_selector include/color_selector/color_selector.cpp)
 
-target_link_libraries(uv_led_detect_fast 
+target_link_libraries(uv_led_detect_fast
   debug ${OpenCV_LIBRARIES} ${catkin_LIBRARIES})
 
-target_link_libraries(frequency_classifier 
+target_link_libraries(frequency_classifier
   debug ${OpenCV_LIBRARIES} ${catkin_LIBRARIES})
 
-target_link_libraries(color_selector 
+target_link_libraries(color_selector
   debug ${OpenCV_LIBRARIES} ${catkin_LIBRARIES})
 
 add_library(UVDARDetector src/detector.cpp)
