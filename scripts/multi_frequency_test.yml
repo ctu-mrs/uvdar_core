@@ -51,19 +51,20 @@ windows:
           rosservice call /$UAV_NAME/mavros/cmd/arming 1;
           rosservice call /$UAV_NAME/mavros/set_mode 0 offboard'
         # #}
-  # - rviz:
-  #     layout: even-vertical
-  #     panes:
-  #       - export UAV_NAME=uav1; waitForControl; roslaunch uvdar_core multi_frequency_test_rviz.launch
-  # - uv_observer:
-  #     layout: even-vertical
-  #     panes:
-  #       # - waitForCompile; gz world --pause=0; sleep 6;  export UAV_NAME=uav1; waitForControl; roslaunch uvdar_core multi_frequency_test_new.launch
-  #       - waitForCompile; gz world --pause=0; sleep 6;  export UAV_NAME=uav1; waitForControl; roslaunch uvdar_core multi_frequency_test.launch
-  # - kalman_filter:
-  #     layout: even-vertical
-  #     panes:
-  #       - export UAV_NAME=uav1; waitForControl; roslaunch uvdar_core uvdar_kalman_identified.launch output_frame:=$UAV_NAME/stable_origin
+  - rviz:
+      layout: even-vertical
+      panes:
+        - export UAV_NAME=uav1; waitForControl; roslaunch uvdar_core multimodal_hypothesis_rviz.launch
+        # - export UAV_NAME=uav1; waitForControl; roslaunch uvdar_core multi_frequency_test_rviz.launch
+  - uv_observer:
+      layout: even-vertical
+      panes:
+        - waitForCompile; gz world --pause=0; sleep 6;  export UAV_NAME=uav1; waitForControl; roslaunch uvdar_core multi_frequency_test_new.launch
+        # - waitForCompile; gz world --pause=0; sleep 6;  export UAV_NAME=uav1; waitForControl; roslaunch uvdar_core multi_frequency_test.launch
+  - kalman_filter:
+      layout: even-vertical
+      panes:
+        - export UAV_NAME=uav1; waitForControl; roslaunch uvdar_core uvdar_kalman_identified.launch output_frame:=$UAV_NAME/stable_origin
   # - slow_down:
   #     layout: even-vertical
   #     panes:
