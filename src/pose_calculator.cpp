@@ -1185,7 +1185,9 @@ namespace uvdar {
 
           std::vector<e::MatrixXd> covariances;
           for (auto p : selected_poses){
+            profiler.indent();
             covariances.push_back(getCovarianceEstimate(model_, points, p, target,  image_index));
+            profiler.unindent();
             /* if (_debug_){ */
             /*   ROS_INFO_STREAM("[UVDARPoseCalculator]: Covariance: [\n" << covariances.back() << "\n]"); */
             /* } */
@@ -1878,8 +1880,10 @@ namespace uvdar {
         /* rot_scale = 0.05; */
         double rot_scale = 0.1;
         auto Y0 = pose;
-        e::MatrixXd Y(6,(3*3*3*3*3*3));
-        std::vector<int> j = {-1,0,1};
+        /* e::MatrixXd Y(6,(3*3*3*3*3*3)); */
+        e::MatrixXd Y(6,(2*2*2*2*2*2));
+        /* std::vector<int> j = {-1,0,1}; */
+        std::vector<int> j = {-1,1}; // for 6D, we need 21 independent samples. Accounting for point symmetry, this is 42. 6D hypercube has 64 vertices, which is sufficient.
         int k = 0;
         std::vector<double> Xe;
         for (auto x_s : j){
@@ -1888,24 +1892,24 @@ namespace uvdar {
               for (auto roll_s : j){
                 for (auto pitch_s : j){
                   for (auto yaw_s : j){
-                    if (
-                        (x_s == 0) &&
-                        (y_s == 0) &&
-                        (z_s == 0) &&
-                        (roll_s == 0) &&
-                        (pitch_s == 0) &&
-                        (yaw_s == 0)
-                        ){
-                      Xe.push_back(std::numeric_limits<double>::max()); //to avoid singularities
-                      Y(0,k) = Y0.first.x();
-                      Y(1,k) = Y0.first.y();
-                      Y(2,k) = Y0.first.z();
-                      auto Y_rpy = quaternionToRPY(Y0.second);
-                      Y(3,k) = Y_rpy(0);
-                      Y(4,k) = Y_rpy(1);
-                      Y(5,k) = Y_rpy(2);
-                    }
-                    else {
+                    /* if ( */
+                    /*     (x_s == 0) && */
+                    /*     (y_s == 0) && */
+                    /*     (z_s == 0) && */
+                    /*     (roll_s == 0) && */
+                    /*     (pitch_s == 0) && */
+                    /*     (yaw_s == 0) */
+                    /*     ){ */
+                    /*   Xe.push_back(std::numeric_limits<double>::max()); //to avoid singularities */
+                    /*   Y(0,k) = Y0.first.x(); */
+                    /*   Y(1,k) = Y0.first.y(); */
+                    /*   Y(2,k) = Y0.first.z(); */
+                    /*   auto Y_rpy = quaternionToRPY(Y0.second); */
+                    /*   Y(3,k) = Y_rpy(0); */
+                    /*   Y(4,k) = Y_rpy(1); */
+                    /*   Y(5,k) = Y_rpy(2); */
+                    /* } */
+                    /* else { */
                       e::Quaterniond rotation(
                           e::AngleAxisd(yaw_s*rot_scale, Y0.second*e::Vector3d(0,0,1)) *
                           e::AngleAxisd(pitch_s*rot_scale, Y0.second*e::Vector3d(0,1,0)) *
@@ -1922,7 +1926,7 @@ namespace uvdar {
                       Y(3,k) = Y_rpy(0) + roll_s*rot_scale;
                       Y(4,k) = Y_rpy(1) + pitch_s*rot_scale;
                       Y(5,k) = Y_rpy(2) + yaw_s*rot_scale;
-                    }
+                    /* } */
                     k++;
                   }
                 }
