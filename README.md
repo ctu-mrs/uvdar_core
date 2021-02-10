@@ -27,7 +27,7 @@ This package contains the core signal processing and pose estimation software co
   * For quadrotors, the markers comprise two LEDs each, rotated 90&deg; from each other in the "yaw" axis of the UAV
   
 * Blinking generator
-  * Implemented as our open-hardware [board and firmware](https://github.com/ctu-mrs/uvdar_core.git)
+  * Implemented as our open-hardware [board and firmware](https://github.com/ctu-mrs/mrs_hw_uvdar)
 #### Software
   * [ROS (Robot Operating System)](https://www.ros.org/) Melodic Morenia
   * [mrs_lib](https://github.com/ctu-mrs/mrs_lib) - ROS package with utility libraries used by the MRS group
