@@ -1223,7 +1223,7 @@ namespace uvdar {
             final_covariance = covariances.at(0);
           }
           else if ((int)(selected_poses.size()) > 1){
-            /* ROS_ERROR_STREAM("[UVDARPoseCalculator]: " << selected_poses.size() << " equivalent hypotheses found! I will attempt to smear them together into a unified measurement."); */
+            ROS_INFO_STREAM("[UVDARPoseCalculator]: " << selected_poses.size() << " equivalent hypotheses found! I will attempt to smear them together into a unified measurement.");
             std::tie(final_mean, final_covariance) = getMeasurementUnion(selected_poses, covariances);
           }
 
@@ -1744,10 +1744,10 @@ namespace uvdar {
           std::shared_ptr<std::vector<cv::Point3d>> projected_points = std::make_shared<std::vector<cv::Point3d>>();
           totalError(model_curr, observed_points, target, image_index, projected_points, true);
           /* ROS_INFO_STREAM("[UVDARPoseCalculator]: A "<< projected_points.size()); */
-            ROS_INFO_STREAM("[UVDARPoseCalculator]: p_p count: " << projected_points->size());
-          for (auto pt : *projected_points){
-            ROS_INFO_STREAM("[UVDARPoseCalculator]: p_p: " << pt);
-          }
+            /* ROS_INFO_STREAM("[UVDARPoseCalculator]: p_p count: " << projected_points->size()); */
+          /* for (auto pt : *projected_points){ */
+          /*   ROS_INFO_STREAM("[UVDARPoseCalculator]: p_p: " << pt); */
+          /* } */
           
 
         return {{position_curr,orientation_curr}, error_total};
@@ -1982,7 +1982,7 @@ namespace uvdar {
 
       //Implemented based on "Generalised Covariance Union: A Unified Approach to Hypothesis Merging in Tracking" by STEVEN REECE and STEPHEN ROBERTS
       //and
-      //"Generalized Information Representation and Compression Using Covariance Union"  by Ottmar Bochardt et. al.
+      //"Generalized Information Representation and Compression Using Covariance Union"  by Ottmar Bochardt et. al. (error: Eq. (12) and (13) have - instead of +)
       std::pair<std::pair<e::Vector3d, e::Quaterniond>, e::MatrixXd> getMeasurementUnion(std::vector<std::pair<e::Vector3d, e::Quaterniond>> means, std::vector<e::MatrixXd> covariances){
         if (means.size() != covariances.size()){
           ROS_ERROR_STREAM("[UVDARPoseCalculator]: The count of means and covariances for union generation does not match. Returning!");
@@ -1992,7 +1992,9 @@ namespace uvdar {
         std::pair<std::pair<e::Vector3d, e::Quaterniond>, e::MatrixXd> measurement_union = {means.at(0), covariances.at(0)};
 
         //pair-wise approach - if performance becomes a problem, we can consider batch solution for later
+          ROS_INFO_STREAM("[UVDARPoseCalculator]: Meas count: "<< means.size());
         for (int i = 1; i< (int)(means.size()); i++){
+          ROS_INFO_STREAM("[UVDARPoseCalculator]: Meas_union mean: "<< measurement_union.first.first.transpose());
           measurement_union = twoMeasurementUnion(measurement_union, {means.at(i), covariances.at(i)});
         }
 
