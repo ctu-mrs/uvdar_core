@@ -1,0 +1,30 @@
+<launch>
+
+  <arg name="uav_name" default="$(optenv UAV_NAME uav1)"/>
+  <arg name="uav_id" default="$(optenv UAV_ID 0)"/>
+
+  <group ns="$(arg uav_name)">
+
+    <node name="uvdarTx" pkg="uvdar_core" type="uvdar_tx_node" output="screen" >
+
+      <param name="uav_name" value="$(arg uav_name)" />
+      <param name="uav_id" value="$(arg uav_id)" />
+      <rosparam param="leds_topics"> ["led_1", "led_2", "led_3", "led_4", "led_5", "led_6", "led_7", "led_8"] </rosparam>
+      <remap from="~led_1" to="/gazebo/ledProperties/$(arg uav_name)_uvled_1_lens_link"/>
+      <remap from="~led_2" to="/gazebo/ledProperties/$(arg uav_name)_uvled_2_lens_link"/>
+      <remap from="~led_3" to="/gazebo/ledProperties/$(arg uav_name)_uvled_3_lens_link"/>
+      <remap from="~led_4" to="/gazebo/ledProperties/$(arg uav_name)_uvled_4_lens_link"/>
+      <remap from="~led_5" to="/gazebo/ledProperties/$(arg uav_name)_uvled_5_lens_link"/>
+      <remap from="~led_6" to="/gazebo/ledProperties/$(arg uav_name)_uvled_6_lens_link"/>
+      <remap from="~led_7" to="/gazebo/ledProperties/$(arg uav_name)_uvled_7_lens_link"/>
+      <remap from="~led_8" to="/gazebo/ledProperties/$(arg uav_name)_uvled_8_lens_link"/>
+      
+      <param name="fr_setter_topic" value="/$(arg uav_name)/fr_setter/set_frequency" />
+      <param name="odom_topic" value="/$(arg uav_name)/odometry/odom_gps" />
+      <param name="msgs_topic" value="/$(arg uav_name)/uvdar_communication/send_msg" />
+
+    </node>
+
+  </group>
+  
+</launch>

@@ -1,0 +1,10 @@
+bool data
+bool multi_frequency
+bool start_of_message
+
+bool bit_value
+int32 frequency
+int32[8] frequencies
+int32[] data_frame
+---
+bool success
