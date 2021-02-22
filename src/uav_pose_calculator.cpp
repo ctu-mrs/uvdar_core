@@ -183,12 +183,12 @@ namespace uvdar {
         }
         //}
 
-        X2 = Eigen::VectorXd(9,9);
-        X2q = Eigen::VectorXd(8,8);
-        X2qb = Eigen::VectorXd(8,8);
-        X3 = Eigen::VectorXd(10,10);
-        X3qb = Eigen::VectorXd(9,9);
-        X4qb = Eigen::VectorXd(12,12);
+        X2 = Eigen::VectorXd(9);
+        X2q = Eigen::VectorXd(8);
+        X2qb = Eigen::VectorXd(8);
+        X3 = Eigen::VectorXd(10);
+        X3qb = Eigen::VectorXd(9);
+        X4qb = Eigen::VectorXd(12);
         Px2 = Eigen::MatrixXd(9,9);
         Px2q = Eigen::MatrixXd(8,8);
         Px2qb = Eigen::MatrixXd(8,8);
