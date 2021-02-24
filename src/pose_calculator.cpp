@@ -24,7 +24,7 @@
 #include <unscented/unscented.h>
 #include <p3p/P3p.h>
 #include <color_selector/color_selector.h>
-#include <frequency_classifier/frequency_classifier.h>
+/* #include <frequency_classifier/frequency_classifier.h> */
 
 #define MAX_DIST_INIT 100.0
 #define BRACKET_STEP 10
@@ -361,26 +361,27 @@ namespace uvdar {
         prepareModel();
 
 
-        /* load the frequencies //{ */
-        param_loader.loadParam("frequencies", _frequencies_);
-        if (_frequencies_.empty()){
-          std::vector<double> default_frequency_set;
-          if (_beacon_){
-            default_frequency_set = {30, 15};
-          }
-          else {
-            default_frequency_set = {5, 6, 8, 10, 15, 30};
-          }
-          ROS_WARN("[UVDARPoseCalculator]: No frequencies were supplied, using the default frequency set. This set is as follows: ");
-          for (auto f : default_frequency_set){
-            ROS_WARN_STREAM("[UVDARPoseCalculator]: " << f << " hz");
-          }
-          _frequencies_ = default_frequency_set;
+        /* load the signals //{ */
+        param_loader.loadParam("signal_ids", _signal_ids_);
+        if (_signal_ids_.empty()){
+          /* std::vector<double> default_frequency_set; */
+          /* if (_beacon_){ */
+          /*   default_frequency_set = {30, 15}; */
+          /* } */
+          /* else { */
+          /*   default_frequency_set = {5, 6, 8, 10, 15, 30}; */
+          /* } */
+          ROS_WARN("[UVDARPoseCalculator]: No signal IDs were supplied, using the default frequency set.");
+          /* for (auto f : default_frequency_set){ */
+          /*   ROS_WARN_STREAM("[UVDARPoseCalculator]: " << f << " hz"); */
+          /* } */
+          /* _signal_ids_ = default_frequency_set; */
+          _signal_ids_ = {0, 1, 2, 3, 4, 5, 6, 7, 8};
         }
-        ufc_ = std::make_unique<UVDARFrequencyClassifier>(_frequencies_);
+        /* ufc_ = std::make_unique<UVDARFrequencyClassifier>(_signal_ids_); */
 
-        param_loader.loadParam("frequencies_per_target", _frequencies_per_target_, int(1));
-        _target_count_ = (int)(_frequencies_.size())/_frequencies_per_target_;
+        param_loader.loadParam("signals_per_target", _signals_per_target_, int(1));
+        _target_count_ = (int)(_signal_ids_.size())/_signals_per_target_;
 
         //}
 
@@ -669,7 +670,8 @@ namespace uvdar {
             separated_points_[image_index] = separateByBeacon(points);
           }
           else {
-            separated_points_[image_index] = separateByFrequency(points);
+            /* separated_points_[image_index] = separateByFrequency(points); */
+            separated_points_[image_index] = separateBySignals(points);
           }
 
           for (int i = 0; i < ((int)(separated_points_[image_index].size())); i++) {
@@ -751,15 +753,17 @@ namespace uvdar {
        *
        * @return A set of separated points sets, each accompanied by a unique integer identifier. The idientifier is equal to TID + 1000*CL where TID is the id of the UAV associated with frequencies of the markers and CL is the order number of the current cluster starting with 0. Ordinarilly, there should be only one cluster per target.
        */
-      /* separateByFrequency //{ */
-      std::vector<std::pair<int,std::vector<cv::Point3d>>> separateByFrequency(std::vector< cv::Point3d > points){
+      /* separateBySignals //{ */
+      std::vector<std::pair<int,std::vector<cv::Point3d>>> separateBySignals(std::vector< cv::Point3d > points){
         std::vector<std::pair<int,std::vector<cv::Point3d>>> separated_points;
         /* separated_points.resize(_target_count_); */
 
 
         for (int i = 0; i < (int)(points.size()); i++) {
-          if (points[i].z > 1) {
-            int mid = ufc_->findMatch(points[i].z);
+          /* if (points[i].z > 1) { */
+          if (points[i].z >= 0) {
+            /* int mid = ufc_->findMatch(points[i].z); */
+            int mid = points[i].z;
             int tid = classifyMatch(mid);
             if (_debug_)
               ROS_INFO("[%s]: FR: %d, MID: %d, TID: %d", ros::this_node::getName().c_str(),(int)points[i].z, mid, tid);
@@ -910,7 +914,8 @@ namespace uvdar {
 
         for (int i = 0; i < (int)(points.size()); i++) {
           if (points[i].z > 1) {
-            int mid = ufc_->findMatch(points[i].z);
+            /* int mid = ufc_->findMatch(points[i].z); */
+            int mid = points[i].z;
             midPoints[i] = mid;
             if (mid == 0){
               separated_points.push_back({(int)(separated_points.size()),emptySet});
@@ -1838,7 +1843,7 @@ namespace uvdar {
           bool any_match_found = false;
           /* for (auto& proj_point : projected_markers){ */
           for (auto& proj_point : selected_markers){
-            double tent_signal_distance = abs( (1.0/(_frequencies_[(target*_frequencies_per_target_)+proj_point.freq_id])) - (1.0/(obs_point.z)) );
+            double tent_signal_distance = abs( (1.0/(_signal_ids_[(target*_signals_per_target_)+proj_point.freq_id])) - (1.0/(obs_point.z)) );
             /* ROS_INFO_STREAM("[UVDARPoseCalculator]: signal distance:  " << tent_signal_distance); */
             if (tent_signal_distance < (2.0/estimated_framerate_[image_index])){
               double tent_image_distance;
@@ -2214,7 +2219,7 @@ namespace uvdar {
        */
       /* classifyMatch //{ */
       int classifyMatch(int f_i) {
-        return f_i/_frequencies_per_target_;
+        return f_i/_signals_per_target_;
       }
       //}
 
@@ -2389,10 +2394,10 @@ namespace uvdar {
       std::vector<ros::Publisher> pub_measured_poses_;
       std::vector<ros::Publisher> pub_constituent_poses_;
 
-      std::vector<double> _frequencies_;
-      int _frequencies_per_target_;
+      std::vector<int> _signal_ids_;
+      int _signals_per_target_;
       int _target_count_;
-      std::unique_ptr<UVDARFrequencyClassifier> ufc_;
+      /* std::unique_ptr<UVDARFrequencyClassifier> ufc_; */
 
 
       std::vector<cv::Rect> bracket_set;

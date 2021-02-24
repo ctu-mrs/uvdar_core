@@ -5,7 +5,7 @@
 #include <cv_bridge/cv_bridge.h>
 #include <ht4dbt/ht4d.h>
 #include <color_selector/color_selector.h>
-#include <frequency_classifier/frequency_classifier.h>
+/* #include <frequency_classifier/frequency_classifier.h> */
 #include <std_msgs/Float32.h>
 #include <mrs_msgs/ImagePointsWithFloatStamped.h>
 #include <mrs_lib/param_loader.h>
@@ -129,16 +129,16 @@ namespace uvdar {
         
         if (_gui_ || _publish_visualization_){ //frequency classifier is used here only for visualization purposes
           // load the frequencies
-          param_loader.loadParam("frequencies", _frequencies_);
-          if (_frequencies_.empty()){
-            std::vector<double> default_frequency_set{5, 6, 8, 10, 15, 30};
-            ROS_WARN("[UVDARBlinkProcessor]: No frequencies were supplied, using the default frequency set. This set is as follows: ");
-            for (auto f : default_frequency_set){
-              ROS_WARN_STREAM("[UVDARBlinkProcessor]: " << f << " hz");
+          param_loader.loadParam("signal_ids", _signal_ids_);
+          if (_signal_ids_.empty()){
+            std::vector<int> default_signal_set = {0, 1, 2, 3, 4, 5, 6, 7, 8};
+            ROS_WARN("[UVDARBlinkProcessor]: No signal IDs were supplied, using the default set. This set is as follows: ");
+            for (auto s : default_signal_set){
+              ROS_WARN_STREAM("[UVDARBlinkProcessor]: " << s);
             }
-            _frequencies_ = default_frequency_set;
+            _signal_ids_ = default_signal_set;
           }
-          ufc_ = std::make_unique<UVDARFrequencyClassifier>(_frequencies_);
+          /* ufc_ = std::make_unique<UVDARFrequencyClassifier>(_signal_ids_); */
 
 
           current_visualization_done_ = false;
@@ -436,10 +436,10 @@ namespace uvdar {
     }
 
     // draw the legend
-    for (int i = 0; i < (int)(_frequencies_.size()); ++i) {
+    for (int i = 0; i < (int)(_signal_ids_.size()); ++i) {
       cv::Scalar color = ColorSelector::markerColor(i);
       cv::circle(output_image, cv::Point(10, 10 + 15 * i), 5, color);
-      cv::putText(output_image, cv::String(std::to_string((int)(_frequencies_[i]))), cv::Point(15, 15 + 15 * i), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 255, 255));
+      cv::putText(output_image, cv::String(std::to_string((int)(_signal_ids_[i]))), cv::Point(15, 15 + 15 * i), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 255, 255));
     }
 
     current_visualization_done_ = true;
@@ -583,8 +583,8 @@ namespace uvdar {
 
   std::vector<std::vector<bool>> _sequences_;
 
-  std::vector<double> _frequencies_;
-  std::unique_ptr<UVDARFrequencyClassifier> ufc_;
+  std::vector<int> _signal_ids_;
+  /* std::unique_ptr<UVDARFrequencyClassifier> ufc_; */
 
   int _accumulator_length_;
   int _pitch_steps_;
