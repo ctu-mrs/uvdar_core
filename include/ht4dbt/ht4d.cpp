@@ -150,6 +150,7 @@ void HT4DBlinkerTracker::resetToZero(T *__restrict__ input, int steps) {
 
 void HT4DBlinkerTracker::setSequences(std::vector<std::vector<bool>> i_sequences){
   sequences_ = i_sequences;
+  matcher_ = std::make_unique<SignalMatcher>(sequences_);
 }
 
 void HT4DBlinkerTracker::setDebug(bool i_debug, bool i_vis_debug) {
@@ -744,7 +745,7 @@ double HT4DBlinkerTracker::retrieveFreqency(cv::Point origin_point, double &avg_
 
   if ((avg_period * ((double)(cnt_period+1)/2.0) ) < ( mem_steps_ - (1.5*avg_period))){
     if (debug_){
-      std::cout << "Not enough periods retrieved: "<< cnt_period <<" for " << avg_period <<" on average; returning" <<std::endl;
+      std::cout << "Not enough periods retrieved: " << cnt_period << " for " << avg_period <<" on average; returning" <<std::endl;
     }
     return -4;
   }
@@ -765,7 +766,9 @@ double HT4DBlinkerTracker::retrieveFreqency(cv::Point origin_point, double &avg_
 int HT4DBlinkerTracker::retrieveSignalID(cv::Point origin_point, double &avg_yaw, double &avg_pitch, std::vector<bool> &blink_signal) {
   blink_signal = retrieveSignalSequence(origin_point, avg_yaw, avg_pitch);
 
-  return  -7;
+  int ret_id = matcher_->matchSignal(blink_signal);
+  std::cout << "Signal ID is: " << ret_id << std::endl;
+  return  ret_id;
 
   /* //retrieve frequency (or detect incorrect signal) using a state machine pass over the retrieved signal */
   /* bool   state                  = false; */
@@ -971,8 +974,9 @@ std::vector<bool> HT4DBlinkerTracker::retrieveSignalSequence(cv::Point origin_po
   }
 
   std::vector<bool> output;
-  for (auto& pos_count : positive_count_accum){
-    output.push_back(pos_count > 0);
+  /* for (auto& pos_count : positive_count_accum){ */
+  for (auto it=positive_count_accum.end(); it!=positive_count_accum.begin(); --it){
+    output.push_back(*it > 0);
   }
   return output;
 

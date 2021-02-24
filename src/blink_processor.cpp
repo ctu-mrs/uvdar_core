@@ -81,7 +81,8 @@ namespace uvdar {
         }
         //}
 
-        parseSequenceFile("/home/viktor/mrs_workspace/src/uav_modules/ros_packages/uvdar_meta/uvdar_core/config/BlinkingSequence-8-3-3-2-8.txt");
+        /* parseSequenceFile("/home/viktor/mrs_workspace/src/uav_modules/ros_packages/uvdar_meta/uvdar_core/config/BlinkingSequence-8-3-3-2-8.txt"); */
+        parseSequenceFile("/home/viktor/mrs_workspace/src/uav_modules/ros_packages/uvdar_meta/uvdar_core/config/selected.txt");
 
 
         // Prepare data structures //{

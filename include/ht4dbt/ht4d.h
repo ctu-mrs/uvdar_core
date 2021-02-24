@@ -2,8 +2,10 @@
 #define HT4D_H
 
 #include <mutex>
+#include <memory>
 #include <numeric>
 #include <opencv2/core/core.hpp>
+#include "signal_matcher/signal_matcher.h"
 
 namespace uvdar {
 
@@ -353,6 +355,8 @@ private:
   bool curr_batch_processed_;
 
   std::mutex mutex_accumulator_;
+
+  std::unique_ptr<SignalMatcher> matcher_;
 
   bool debug_, vis_debug_;
 
