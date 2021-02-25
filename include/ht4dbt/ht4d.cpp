@@ -290,7 +290,7 @@ std::vector< std::pair<cv::Point2d,int> > HT4DBlinkerTracker::getResults() {
 
     std::cout << "Retrieved signal: " << std::endl;
     for (int i = 0; i < (int)(blink_signal.size()); i++) {
-      std::cout << (int)(blink_signal[i]);
+      std::cout << (int)(blink_signal[i]) << ",";
     }
     std::cout << std::endl;
 

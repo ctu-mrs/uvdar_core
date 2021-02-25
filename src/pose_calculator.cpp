@@ -145,7 +145,8 @@ namespace uvdar {
       e::Vector3d position;
       e::Quaterniond orientation;
       int type; // 0 - directional, 1 - omni ring, 2 - full omni
-      int freq_id;
+      /* int freq_id; */
+      int signal_id;
     };
 
     class LEDModel {
@@ -313,12 +314,12 @@ namespace uvdar {
             curr_lm.orientation.y() = qtemp.y();
             curr_lm.orientation.z() = qtemp.z();
             curr_lm.orientation.w() = qtemp.w();
-            int freq_id;
-            iss >> freq_id;
-            curr_lm.freq_id = freq_id;
+            int signal_id;
+            iss >> signal_id;
+            curr_lm.signal_id = signal_id;
 
             markers.push_back(curr_lm);
-            ROS_INFO_STREAM("[UVDARPoseCalculator]: Loaded Model: [ X: " << X <<" Y: "  << Y << " Z: "  << Z << " type: " << type << " pitch: " << pitch << " yaw: " << yaw << " freq_id: " << freq_id << " ]");
+            ROS_INFO_STREAM("[UVDARPoseCalculator]: Loaded Model: [ X: " << X <<" Y: "  << Y << " Z: "  << Z << " type: " << type << " pitch: " << pitch << " yaw: " << yaw << " signal_id: " << signal_id << " ]");
           }
         ifs.close();
         }
@@ -1763,7 +1764,8 @@ namespace uvdar {
       double totalError(LEDModel model, std::vector<cv::Point3d> observed_points, int target, int image_index, std::shared_ptr<std::vector<cv::Point3d>> projected_points={}, bool return_projections=false, bool discrete_pixels=false){
         struct ProjectedMarker {
           cv::Point2d position;
-          int freq_id;
+          /* int freq_id; */
+          int signal_id;
           double cos_view_angle;
           double distance;
         };
@@ -1788,7 +1790,7 @@ namespace uvdar {
              ){
             projected_markers.push_back({
                 .position = curr_projected.first,
-              .freq_id = marker.freq_id,
+              .signal_id = marker.signal_id,
               .cos_view_angle = curr_projected.second,
               .distance = marker.position.norm()
               });
@@ -1798,8 +1800,8 @@ namespace uvdar {
           /*   ROS_INFO_STREAM("[UVDARPoseCalculator]: C"); */
           /* } */
 
-          /* ROS_INFO_STREAM("[UVDARPoseCalculator]: projected marker:  " << projected_markers.back().position << " : " << _frequencies_[(target*_frequencies_per_target_)+projected_markers.back().freq_id]); */
-          /* ROS_INFO_STREAM("[UVDARPoseCalculator]: fid:  " << (target*_frequencies_per_target_)+projected_markers.back().freq_id  << "; target: " << target << "; lfid: " << projected_markers.back().freq_id); */
+          /* ROS_INFO_STREAM("[UVDARPoseCalculator]: projected marker:  " << projected_markers.back().position << " : " << _frequencies_[(target*_frequencies_per_target_)+projected_markers.back().signal_id]); */
+          /* ROS_INFO_STREAM("[UVDARPoseCalculator]: fid:  " << (target*_frequencies_per_target_)+projected_markers.back().signal_id  << "; target: " << target << "; lfid: " << projected_markers.back().signal_id); */
         }
 
         std::vector<ProjectedMarker> selected_markers;
@@ -1820,7 +1822,7 @@ namespace uvdar {
           for (int j = i+1; j < (int)(selected_markers.size()); j++){
             double tent_dist = cv::norm(selected_markers[i].position-selected_markers[j].position);
             if (tent_dist < 3){
-              if (selected_markers[i].freq_id == selected_markers[j].freq_id){ // if the frequencies are the same, they tend to merge. Otherwise, the result varies
+              if (selected_markers[i].signal_id == selected_markers[j].signal_id){ // if the frequencies are the same, they tend to merge. Otherwise, the result varies
                 selected_markers[i].position = (selected_markers[i].position + selected_markers[j].position)/2; //average them
                 selected_markers.erase(selected_markers.begin()+j); //remove the other
                 j--; //we are not expecting many 2+ clusters, so we will not define special case for this
@@ -1831,7 +1833,7 @@ namespace uvdar {
           /* ROS_INFO_STREAM("[UVDARPoseCalculator]: projected_markers: " << projected_markers.size() << " vs. selected_markers (r): " << selected_markers.size()); */
           if (return_projections && projected_points){
             for (auto pt : selected_markers){
-              projected_points->push_back(cv::Point3d(pt.position.x,pt.position.y,pt.freq_id));
+              projected_points->push_back(cv::Point3d(pt.position.x,pt.position.y,pt.signal_id));
             }
           }
 
@@ -1843,9 +1845,10 @@ namespace uvdar {
           bool any_match_found = false;
           /* for (auto& proj_point : projected_markers){ */
           for (auto& proj_point : selected_markers){
-            double tent_signal_distance = abs( (1.0/(_signal_ids_[(target*_signals_per_target_)+proj_point.freq_id])) - (1.0/(obs_point.z)) );
+            /* double tent_signal_distance = abs( (1.0/(_signal_ids_[(target*_signals_per_target_)+proj_point.signal_id])) - (1.0/(obs_point.z)) ); */
             /* ROS_INFO_STREAM("[UVDARPoseCalculator]: signal distance:  " << tent_signal_distance); */
-            if (tent_signal_distance < (2.0/estimated_framerate_[image_index])){
+            /* if (tent_signal_distance < (2.0/estimated_framerate_[image_index])){ */
+            if (_signal_ids_[(target*_signals_per_target_)+proj_point.signal_id] == (int)(obs_point.z)){
               double tent_image_distance;
               if (!discrete_pixels){
                 tent_image_distance = cv::norm(proj_point.position - cv::Point2d(obs_point.x, obs_point.y));
