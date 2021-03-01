@@ -975,7 +975,7 @@ std::vector<bool> HT4DBlinkerTracker::retrieveSignalSequence(cv::Point origin_po
 
   std::vector<bool> output;
   /* for (auto& pos_count : positive_count_accum){ */
-  for (auto it=positive_count_accum.end(); it!=positive_count_accum.begin(); --it){
+  for (auto it=positive_count_accum.rbegin(); it!=positive_count_accum.rend(); ++it){
     output.push_back(*it > 0);
   }
   return output;

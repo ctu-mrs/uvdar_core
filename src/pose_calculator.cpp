@@ -1124,11 +1124,13 @@ namespace uvdar {
           /*   ROS_INFO_STREAM("[UVDARPoseCalculator]: Fitted position: " << fitted_position.transpose()); */
           /* } */
 
-          ROS_INFO_STREAM("[UVDARPoseCalculator]: Rough hypotheses for target " << target << " in image " << image_index << ": ");
+          if (_debug_)
+            ROS_INFO_STREAM("[UVDARPoseCalculator]: Rough hypotheses for target " << target << " in image " << image_index << ": ");
           int i = 0;
-          for (auto h: hypotheses){
-            ROS_INFO_STREAM("x: [" << h.first.transpose() << "] rot: [" << rad2deg(quaternionToRPY(h.second).transpose()) << "] with error of " << errors.at(i++));
-          }
+          if (_debug_)
+            for (auto h: hypotheses){
+              ROS_INFO_STREAM("x: [" << h.first.transpose() << "] rot: [" << rad2deg(quaternionToRPY(h.second).transpose()) << "] with error of " << errors.at(i++));
+            }
 
           /* auto viable_hypotheses = std::chrono::high_resolution_clock::now(); */
           /* elapsedTime.push_back({currDepthIndent() + "Viable initial hypotheses",std::chrono::duration_cast<std::chrono::microseconds>(viable_hypotheses - rough_init).count()}); */
@@ -1229,7 +1231,8 @@ namespace uvdar {
             final_covariance = covariances.at(0);
           }
           else if ((int)(selected_poses.size()) > 1){
-            ROS_INFO_STREAM("[UVDARPoseCalculator]: " << selected_poses.size() << " equivalent hypotheses found! I will attempt to smear them together into a unified measurement.");
+            if (_debug_)
+              ROS_INFO_STREAM("[UVDARPoseCalculator]: " << selected_poses.size() << " equivalent hypotheses found! I will attempt to smear them together into a unified measurement.");
             std::tie(final_mean, final_covariance) = getMeasurementUnion(selected_poses, covariances);
           }
 
@@ -1298,7 +1301,8 @@ namespace uvdar {
           double alpha_max = getLargestAngle(v_w);
 
           l_max = (d_max/2.0)/tan(alpha_max/2.0);
-          ROS_INFO_STREAM("[UVDARPoseCalculator]: d_max: " << d_max << "; alpha_max: " << alpha_max << "; l_rough: " << l_max);
+          if (_debug_)
+            ROS_INFO_STREAM("[UVDARPoseCalculator]: d_max: " << d_max << "; alpha_max: " << alpha_max << "; l_rough: " << l_max);
         }
           
           /* ROS_INFO_STREAM("[UVDARPoseCalculator]: d_min: " << d_min << "; alpha_min: " << alpha_min << "; l_rough: " << l_max); */
@@ -1313,7 +1317,8 @@ namespace uvdar {
         for (int i = 0; i < ((int)(directions.size()) - 1); i++){
           for (int j = i+1; j < (int)(directions.size()); j++){
             double tent_angle = acos(directions[i].normalized().dot(directions[j].normalized()));
-          ROS_INFO_STREAM("[UVDARPoseCalculator]: tent_angle: "<< tent_angle);
+            if (_debug_)
+              ROS_INFO_STREAM("[UVDARPoseCalculator]: tent_angle: "<< tent_angle);
             if (tent_angle > max_angle){
               max_angle = tent_angle;
               sel_indices = {i,j};
@@ -1322,10 +1327,12 @@ namespace uvdar {
         }
 
         if ((sel_indices.first != -1) && (sel_indices.second != -1)){
-          ROS_INFO_STREAM("[UVDARPoseCalculator]: selected points: " << sel_indices.first << ": " << directions[sel_indices.first].transpose() << " and " << sel_indices.second << ": " << directions[sel_indices.second].transpose());
+          if (_debug_)
+           ROS_INFO_STREAM("[UVDARPoseCalculator]: selected points: " << sel_indices.first << ": " << directions[sel_indices.first].transpose() << " and " << sel_indices.second << ": " << directions[sel_indices.second].transpose());
         }
         else{
-          ROS_INFO_STREAM("[UVDARPoseCalculator]: No points selected as closest");
+          if (_debug_)
+            ROS_INFO_STREAM("[UVDARPoseCalculator]: No points selected as closest");
         }
 
         return max_angle;
@@ -1358,7 +1365,8 @@ namespace uvdar {
             );
         double threshold = (int)(observed_points.size())*0.001;
         int iters = 0;
-        ROS_INFO_STREAM("[UVDARPoseCalculator]: total error init: " << error_total);
+        if (_debug_)
+          ROS_INFO_STREAM("[UVDARPoseCalculator]: total error init: " << error_total);
         while ((error_total > threshold) && ((gradient.norm()) > 0.0001) && (iters < 100)){
           step = step_init;
           while (true){
@@ -1513,7 +1521,8 @@ namespace uvdar {
         /* auto start = std::chrono::high_resolution_clock::now(); */
         auto start = profiler.getTime();
 
-        ROS_INFO_STREAM("[UVDARPoseCalculator]: Refined hypotheses for target " << target << " in image " << image_index << ": ");
+        if (_debug_)
+          ROS_INFO_STREAM("[UVDARPoseCalculator]: Refined hypotheses for target " << target << " in image " << image_index << ": ");
           e::Vector3d position_curr = hypothesis.first;
           /* e::Vector3d RPY_curr = e::Vector3d(0,0,0); */
           e::Quaterniond orientation_start  = hypothesis.second;
@@ -1556,7 +1565,8 @@ namespace uvdar {
             std::numeric_limits<double>::max();
           double threshold = (double)(observed_points.size())*sqr(QPIX);
           int iters = 0;
-          ROS_INFO_STREAM("[UVDARPoseCalculator]: total error init: " << error_total);
+          if (_debug_)
+            ROS_INFO_STREAM("[UVDARPoseCalculator]: total error init: " << error_total);
           /* auto variable_initialization = std::chrono::high_resolution_clock::now(); */
           /* elapsedTime.push_back({currDepthIndent() + "Variable initialization",std::chrono::duration_cast<std::chrono::microseconds>(variable_initialization - start).count()}); */
           profiler.addValueSince("Variable initialization",start);
@@ -2000,9 +2010,12 @@ namespace uvdar {
         std::pair<std::pair<e::Vector3d, e::Quaterniond>, e::MatrixXd> measurement_union = {means.at(0), covariances.at(0)};
 
         //pair-wise approach - if performance becomes a problem, we can consider batch solution for later
+        
+        if (_debug_)
           ROS_INFO_STREAM("[UVDARPoseCalculator]: Meas count: "<< means.size());
         for (int i = 1; i< (int)(means.size()); i++){
-          ROS_INFO_STREAM("[UVDARPoseCalculator]: Meas_union mean: "<< measurement_union.first.first.transpose());
+          if (_debug_)
+            ROS_INFO_STREAM("[UVDARPoseCalculator]: Meas_union mean: "<< measurement_union.first.first.transpose());
           measurement_union = twoMeasurementUnion(measurement_union, {means.at(i), covariances.at(i)});
         }
 
