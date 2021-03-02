@@ -1168,7 +1168,8 @@ namespace uvdar {
               selected_poses.push_back(fitted_pose);
 
               smallest_error_in_set = error;
-              ROS_INFO_STREAM("selected");
+              if (_debug_)
+                ROS_INFO_STREAM("selected");
             }
             /* else if (projection_errors.back() > (error-(SIMILAR_ERRORS_THRESHOLD*(int)(points.size())))){ */
             else if ((error) < (smallest_error_in_set*sqr(2.0))){
@@ -1177,7 +1178,8 @@ namespace uvdar {
               if (smallest_error_in_set > error){
                 smallest_error_in_set = error;
               }
-              ROS_INFO_STREAM("added");
+              if (_debug_)
+                ROS_INFO_STREAM("added");
             }
           }
 
@@ -1464,7 +1466,8 @@ namespace uvdar {
 
       std::pair<std::vector<std::pair<e::Vector3d, e::Quaterniond>>,std::vector<double>> getViableInitialHyptheses(LEDModel model, std::vector<cv::Point3d> observed_points, e::Vector3d furthest_position, int target, int image_index, double init_dist_step_meters=2.0, int orientation_step_count=24){
         e::Vector3d first_position = 1.0*furthest_position.normalized();
-        ROS_INFO_STREAM("[UVDARPoseCalculator]: Range: " << (furthest_position-first_position).norm());
+        if (_debug_)
+          ROS_INFO_STREAM("[UVDARPoseCalculator]: Range: " << (furthest_position-first_position).norm());
         int dist_step_count = round((furthest_position-first_position).norm()/init_dist_step_meters);
         auto position_step = (furthest_position-first_position)/dist_step_count;
 

@@ -297,7 +297,8 @@ std::vector< std::pair<cv::Point2d,int> > HT4DBlinkerTracker::getResults() {
     yaw_averages_.push_back(yawAvg);
     pitch_averages_.push_back(pitchAvg);
   }
-  if (debug_){
+  /* if (debug_){ */
+  if (false){
     std::cout << "Differences from the detected: [" << std::endl;
     for (int op = 0; op < (int)(origin_pts.size()); op++){
       std::cout << origin_pts[op] - origin_pts_out[op] << std::endl;
@@ -605,7 +606,8 @@ double HT4DBlinkerTracker::retrieveFreqency(cv::Point origin_point, double &avg_
             positive_count_accum[t]++;
           }
         } }
-      if (debug_){
+      /* if (debug_){ */
+      if (false){
         if ((curr_point_radius_round < rad_expected_min) || (curr_point_radius_round > rad_expectec_max))
           std::cout << "curr_point_radius: " << curr_point_radius_round << ", t " << t << ":" << k <<" failed vs. [" << rad_expected_min<< "," <<rad_expectec_max << "]"  << std::endl;
         else
@@ -906,7 +908,8 @@ std::vector<bool> HT4DBlinkerTracker::retrieveSignalSequence(cv::Point origin_po
             positive_count_accum[t]++;
           }
         } }
-      if (debug_){
+      /* if (debug_){ */
+      if (false){
         if ((curr_point_radius_round < rad_expected_min) || (curr_point_radius_round > rad_expectec_max))
           std::cout << "curr_point_radius: " << curr_point_radius_round << ", t " << t << ":" << k <<" failed vs. [" << rad_expected_min<< "," <<rad_expectec_max << "]"  << std::endl;
         else

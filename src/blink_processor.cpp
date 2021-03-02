@@ -202,17 +202,34 @@ namespace uvdar {
     blink_data_[image_index].sample_count++;
 
     if ((blink_data_[image_index].sample_count % 10) == 0) { //update the estimate of frequency every 10 samples
-      blink_data_[image_index].framerate_estimate = 10000000000.0 / (double)((msg->stamp - blink_data_[image_index].last_sample_time).toNSec());
+      blink_data_[image_index].framerate_estimate = 10000000000.0 / (double)((msg->stamp - blink_data_[image_index].last_sample_time_diagnostic).toNSec());
       if (_debug_){
-        ROS_INFO_STREAM("Updating frequency: " << blink_data_[image_index].framerate_estimate << " Hz");
+        ROS_INFO_STREAM("[UVDARBlinkProcessor]: Updating frequency: " << blink_data_[image_index].framerate_estimate << " Hz");
       }
-      blink_data_[image_index].last_sample_time = msg->stamp;
+
       ht4dbt_trackers_[image_index]->updateFramerate(blink_data_[image_index].framerate_estimate);
       blink_data_[image_index].sample_count = 0;
+
+      blink_data_[image_index].last_sample_time_diagnostic = msg->stamp;
     }
 
+        ROS_INFO_STREAM("[UVDARBlinkProcessor]: td: " << msg->stamp - blink_data_[image_index].last_sample_time);
+    if (blink_data_[image_index].last_sample_time >= msg->stamp){
+      ROS_ERROR_STREAM("[UVDARBlinkProcessor]: Points arrived out of order!: prev: "<< blink_data_[image_index].last_sample_time << "; curr: " << msg->stamp);
+    }
+    double dt = (msg->stamp - blink_data_[image_index].last_sample_time).toSec();
+    if (dt > (1.5/(blink_data_[image_index].framerate_estimate)) ){
+      int new_frame_count = (int)(dt*(blink_data_[image_index].framerate_estimate) + 0.5) - 1;
+      ROS_ERROR_STREAM("[UVDARBlinkProcessor]: Missing frames! Inserting " << new_frame_count << " empty frames!"); 
+      std::vector<cv::Point2i> null_points;
+      for (int i = 0; i < new_frame_count; i++){
+        ht4dbt_trackers_[image_index]->insertFrame(null_points);
+      }
+    }
+    blink_data_[image_index].last_sample_time = msg->stamp;
+
     if (_debug_) {
-      ROS_INFO_STREAM("Received contours: " << msg->points.size());
+      ROS_INFO_STREAM("[UVDARBlinkProcessor]: Received contours: " << msg->points.size());
     }
 
     std::vector<cv::Point2i> points;
@@ -567,6 +584,7 @@ namespace uvdar {
     std::vector<double>           yaw;
     std::shared_ptr<std::mutex>   mutex_retrieved_blinkers;
     ros::Time                     last_sample_time;
+    ros::Time                     last_sample_time_diagnostic;
     unsigned int                  sample_count = 0;
     double                        framerate_estimate = 72;
 
