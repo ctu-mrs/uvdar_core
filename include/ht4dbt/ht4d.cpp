@@ -237,6 +237,7 @@ std::vector< std::pair<cv::Point2d,int> > HT4DBlinkerTracker::getResults() {
 
   accumulator_local_copy_.clear();
   pts_per_layer_local_copy_.clear();
+  int points_total_count = 0;
   {
     std::scoped_lock lock(mutex_accumulator_);
     for (int i = 0; i < (int)(accumulator_.size()); i++) {
@@ -245,13 +246,15 @@ std::vector< std::pair<cv::Point2d,int> > HT4DBlinkerTracker::getResults() {
         accumulator_local_copy_[i].push_back(accumulator_[i][j]);
       }
       pts_per_layer_local_copy_.push_back(pts_per_layer_[i]);
+      points_total_count +=pts_per_layer_[i];
     }
   }
   if (pts_per_layer_local_copy_.empty()){
     return std::vector<std::pair<cv::Point2d,int>>();
   }
 
-  expected_matches_ = *std::max_element(pts_per_layer_local_copy_.begin(), pts_per_layer_local_copy_.end()) - pts_per_layer_local_copy_[0];
+  /* expected_matches_ = *std::max_element(pts_per_layer_local_copy_.begin(), pts_per_layer_local_copy_.end()) - pts_per_layer_local_copy_[0]; */
+  expected_matches_ = (2*points_total_count)/(int)(accumulator_local_copy_.size()) - pts_per_layer_local_copy_[0];
   if (debug_){
     std::cout << "Exp. Matches: " << expected_matches_ << std::endl;
     std::cout << "Visible Matches: " << pts_per_layer_local_copy_[0] << std::endl;
