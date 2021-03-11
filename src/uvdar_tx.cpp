@@ -12,6 +12,7 @@
 #include <std_msgs/Float64.h>
 #include <std_msgs/Float32.h>
 #include <uvdar_core/SetLedState.h>
+#include <uvdar_core/DefaultMsg.h>
 
 #define SEPARATOR_BITS 5
 
@@ -32,10 +33,18 @@ std::string fr_setter_topic;
 std::string odom_topic;
 std::string msgs_topic;
 
-double default_msg;
+/* double default_msg; */
 ros::Subscriber    sub_default_msg;
 
 float act_heading;
+
+struct DefMsg
+{
+  bool enable = false;;
+  double msg = 0.0;
+};
+
+DefMsg default_msg;
 
 struct Msg2send
 {
@@ -86,8 +95,9 @@ private:
     act_heading                 = toYaw(q.x, q.y, q.z, q.w);
   }
   
-  void defMsg(const std_msgs::Float32& msg) {
-    default_msg = msg.data;
+  void defMsg(const uvdar_core::DefaultMsg& msg) {
+    default_msg.enable = msg.enable;
+    default_msg.msg = msg.message;
   }
 
   // to calculate heading from quaternion
@@ -152,13 +162,19 @@ void fillMsgType(int type) {
 
 void fillHeading() {
   //int discr_heading = (int)(((act_heading + M_PI) * (180 / M_PI) + 11.25) / 22.5);  // discretized to range 0-15
-  int discr_heading = (int)(((default_msg + M_PI) * (180 / M_PI) +11.25 )/ 22.5);  // discretized to range 0-15
+  int discr_heading = (int)(((default_msg.msg + M_PI) * (180 / M_PI) +11.25 )/ 22.5);  // discretized to range 0-15
   for (int i = 0; i < 4; i++) {
     if (discr_heading != 0) {
       curr_msg.push_back(discr_heading % 2);  // fill heading
       discr_heading /= 2;
       continue;
     }
+    curr_msg.push_back(0);
+  }
+  if(default_msg.enable){
+    curr_msg.push_back(1);
+  }
+  else{
     curr_msg.push_back(0);
   }
   /* std::cout << "Sended heading:"; */

@@ -55,6 +55,7 @@ add_message_files(DIRECTORY msg FILES
   FrequencySet.msg
    USM.msg
    RecMsg.msg
+   DefaultMsg.msg
   )
 
 generate_messages(DEPENDENCIES
@@ -86,6 +87,7 @@ include_directories(
 add_executable(uvdar_rx_node src/uvdar_rx.cpp)
 add_executable(uvdar_tx_node src/uvdar_tx.cpp)
 add_executable(fr_setter_node src/fr_setter.cpp)
+add_executable(new_uvdar_rx_node src/new_uvdar_rx.cpp)
 
 add_library(OCamCalib include/OCamCalib/ocam_functions.cpp )
 add_library(ht4dbt include/ht4dbt/ht4d.cpp)
@@ -96,6 +98,9 @@ add_library(color_selector include/color_selector/color_selector.cpp)
 target_link_libraries(uvdar_rx_node ${catkin_LIBRARIES})
 target_link_libraries(uvdar_tx_node ${catkin_LIBRARIES})
 target_link_libraries(fr_setter_node ${catkin_LIBRARIES})
+target_link_libraries(new_uvdar_rx_node ${catkin_LIBRARIES} ${OpenCV_LIBRARIES}
+ ht4dbt)
+add_dependencies(new_uvdar_rx_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 target_link_libraries(uv_led_detect_fast
   debug ${OpenCV_LIBRARIES} ${catkin_LIBRARIES})

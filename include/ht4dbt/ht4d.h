@@ -72,6 +72,15 @@ public:
   double getFrequency(int index);
 
   /**
+   * @brief Retrieves the blinking frequency of a given marker obtained in the last retrieval cycle
+   *
+   * @param index - The index of the retrieved marker
+   *
+   * @return - The retrieved blinking frequency
+   */
+  std::vector<int> getSignal(int index);
+  
+  /**
    * @brief Retrieves the "image yaw" of a given marker obtained in the last retrieval cycle (corresponds to the direction in the image in which the point has been moving)
    *
    * @param index - The index of the retrieved marker
@@ -217,6 +226,17 @@ private:
    * @return - The frequency of blinking of the marker, or negative value in case of error
    */
   double retrieveFreqency(cv::Point origin_point, double &avg_yaw, double &avg_pitch);
+  
+  /**
+   * @brief Retrieve the signal
+   *
+   * @param origin_point - The image point presumed to correspond to a blinking marker
+   * @param avg_yaw - The output "image yaw" of the blinking marker (corresponds to the direction in the image in which the point has been moving)
+   * @param avg_pitch - The output "image pitch" of the blinking marker (corresponds to the speed in the image at which the point has been moving)
+   *
+   * @return - the vector of estimated signal
+   */
+  std::vector<int> retrieveSignal(cv::Point origin_point, double &avg_yaw, double &avg_pitch);
 
   /**
    * @brief Sets values in matrices at indices corresponding to the visible markers in the newest frame to zero 
@@ -313,6 +333,7 @@ private:
                                             cos_set_;
 
   std::vector< double > frequencies_, yaw_averages_, pitch_averages_;
+  std::vector<std::vector<int>> signals_;
 
   std::vector< cv::Point > fast_points_;
 

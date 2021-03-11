@@ -7,8 +7,12 @@
 #include <mrs_msgs/String.h>
 #include <std_msgs/Float32.h>
 #include <uvdar_core/RecMsg.h>
+#include <opencv2/core/core.hpp>
+#include <opencv2/highgui/highgui.hpp>
 #include <string>
 #include <cmath>
+
+#include <ht4dbt/ht4d.h>
 
 #define SCFFE 30
 #define MAX_CLUSTER 100
@@ -16,6 +20,8 @@
 #define SB 15
 #define MAX_FRAME_SIZE 60
 #define MIN_FRAME_SIZE 30
+#define SIG_STEP 7
+#define ACC_LEN 28
 
 std::string    uav_name;
 std::string    recieved_topic;
@@ -32,7 +38,22 @@ std::vector<ros::Publisher> pub_estimated_framerate;
 using points_seen_callback = boost::function<void(const mrs_msgs::ImagePointsWithFloatStampedConstPtr&)>;
 std::vector<points_seen_callback> callbacks_points_seen;
 std::vector<ros::Subscriber>      subscribers_points_seen;
+ 
+std::vector<int> points_loaded;
 
+std::vector<std::shared_ptr<uvdar::HT4DBlinkerTracker>> ht4dbt_trackers_;
+
+/* int _accumulator_length_ = 23; */
+int _accumulator_length_ = 28;
+int _pitch_steps_ = 16;
+int _yaw_steps_ = 16;
+int _max_pixel_shift_ = 3;
+int _nullify_radius_ = 8;
+int _reasonable_radius_ = 6;
+
+bool _debug_ = false;
+bool _visual_debug_ = false;
+  
 namespace RX
 {
 
@@ -63,9 +84,11 @@ public:
     pub_rec_msg = nh.advertise<uvdar_core::RecMsg>(recieved_topic, 1);  // to publish decoded msgs for uvdar node
 
     std::vector<std::vector<PointSeen>> tmp;
+    std::vector<RecSignals> init_signal; 
 
     for (int i = 0; i < (int)points_seen_topics.size(); ++i) {
       point_seen.push_back(tmp);  // initialize points_seen vector for number of camera used
+      recieved_signals.push_back(init_signal);
       ROS_INFO("[RX_Processor]: Added camera %d on topic %s", i, points_seen_topics[i].c_str());
       CamInfo ci_new;
       ci_new.cam_id = i;
@@ -74,6 +97,15 @@ public:
       points_seen_callback callback = [i, this](const mrs_msgs::ImagePointsWithFloatStampedConstPtr& pointsMessage) { VisiblePoints(pointsMessage, i); };
       callbacks_points_seen.push_back(callback);
       subscribers_points_seen.push_back(nh.subscribe(points_seen_topics[i], 1, callbacks_points_seen[i]));
+      
+      ht4dbt_trackers_.push_back(std::make_shared<uvdar::HT4DBlinkerTracker>(ACC_LEN, _pitch_steps_, _yaw_steps_, _max_pixel_shift_, cv::Size(0, 0), _nullify_radius_, _reasonable_radius_));
+      ht4dbt_trackers_.back()->setDebug(_debug_, _visual_debug_);
+    
+      SignalData sd_new;
+      sd_new.retrieved_blinkers.push_back(cv::Point3d(0,0,0));
+      signal_data_.push_back(sd_new);
+
+      points_loaded.push_back(0);
     }
 
     ROS_INFO("Node initialized");
@@ -83,8 +115,6 @@ private:
 
   int DataFrameCheck(std::vector<int>& received_msg_corrected) {
     int rmc_size = received_msg_corrected.size();
-    
-    /* ROS_WARN("Bit stuffing: "); */
 
     for (int bs = (rmc_size - 1); bs >= 3; bs--) {  // check of Bit Stuffing and BS bits separation
       if (received_msg_corrected[bs - 1] == received_msg_corrected[bs - 2] && received_msg_corrected[bs - 2] == received_msg_corrected[bs - 3]) {
@@ -102,10 +132,7 @@ private:
 
     received_msg_corrected.erase(received_msg_corrected.begin());  // separation of the rest of SOF needed for BS check
     rmc_size--;
-      
-    /* ROS_WARN("[%d]: ", rmc_size); */
-    
-    if ((rmc_size != 8) && (rmc_size != 9) && (rmc_size != 13)) {  // check of frame length
+    if ((rmc_size != 7) && (rmc_size != 9) && (rmc_size != 13)) {  // check of frame length
       // std::cout << " FL fail " << rmc_size << " |";
       return 1;
     }
@@ -156,6 +183,8 @@ private:
       cam_info[camera_index].framerate = (SCFFE - 1) / (points_seen_msg->stamp.toSec() - cam_info[camera_index].last_stamp.toSec());
       cam_info[camera_index].samples   = 0;
 
+      ht4dbt_trackers_[camera_index]->updateFramerate(cam_info[camera_index].framerate);
+
       std_msgs::Float32 msgFramerate;
       msgFramerate.data = cam_info[camera_index].framerate;
       pub_estimated_framerate[camera_index].publish(msgFramerate);
@@ -201,13 +230,15 @@ private:
     }
 
 
-
+    /* ROS_INFO("eeeej"); */
 
 
     /*
      *Process new points
      * */
+    std::vector<cv::Point2i> new_points;
     for (auto& point : points_seen_msg->points) {
+      new_points.push_back(cv::Point2d(point.x, point.y));
       // if there is no cluster in the current camera frame, add point into new cluster and add this cluster into camera container
       if (point_seen[camera_index].empty()) {
         std::vector<PointSeen> tmp_vec;
@@ -278,6 +309,119 @@ private:
       }
     }
 
+   /* update resolution */   
+    if(cam_info[camera_index].im_size.width <= 0 || cam_info[camera_index].im_size.height <= 0){
+      cam_info[camera_index].im_size.height = points_seen_msg->image_height;
+      cam_info[camera_index].im_size.width = points_seen_msg->image_width;
+      ht4dbt_trackers_[camera_index]->updateResolution(cam_info[camera_index].im_size);
+    }
+    
+    ht4dbt_trackers_[camera_index]->insertFrame(new_points);
+    points_loaded[camera_index]=points_loaded[camera_index]+1;
+
+    if(points_loaded[camera_index] >= SIG_STEP){
+      points_loaded[camera_index] = 0;
+      signal_data_[camera_index].retrieved_blinkers = ht4dbt_trackers_[camera_index]->getResults();
+       
+      //prepare to another round of signal adding
+      for(int j = 0; j < (int)recieved_signals[camera_index].size(); j++){
+        recieved_signals[camera_index][j].signal_added = false;
+      }
+
+      std::vector<int> rec_signal;
+   
+      int retr_size = (int)signal_data_[camera_index].retrieved_blinkers.size();
+
+      for (int i = 0; i<retr_size; i++) {
+        rec_signal = ht4dbt_trackers_[camera_index]->getSignal(i);
+       
+        if((int)rec_signal.size() < ACC_LEN) continue;
+        
+        /* if(recieved_signals[camera_index].empty()){ */
+        /*   RecSignals new_signal; */
+        /*   new_signal.position = cv::Point2i(signal_data_[camera_index].retrieved_blinkers[i].x, signal_data_[camera_index].retrieved_blinkers[i].y); */
+        /*   new_signal.signal_added = true; */
+        /*   new_signal.singal = rec_signal; */
+        /*   recieved_signals[camera_index].push_back(new_signal); */
+        /*   continue; */
+        /* } */
+
+        bool new_signal_added = false;
+        std::vector<SignalQueue> sig_queue;
+
+        //find and sort stored signals from the closest
+        for(int j = 0; j < (int)recieved_signals[camera_index].size(); j++){
+          if(recieved_signals[camera_index][j].signal_added == true) continue; //skip if signal was already added to the channel
+          SignalQueue new_record;
+          new_record.sig_index = j;
+          new_record.sig_distance = abs(recieved_signals[camera_index][j].position.x - signal_data_[camera_index].retrieved_blinkers[i].x)+abs(recieved_signals[camera_index][j].position.y - signal_data_[camera_index].retrieved_blinkers[i].y);
+          
+          if(sig_queue.empty()){
+            sig_queue.push_back(new_record);
+            continue;
+          }
+
+          for (int k = 0; k < (int)sig_queue.size(); k++) {
+            if(sig_queue[k].sig_distance >= new_record.sig_distance && new_record.sig_distance < 20){
+              sig_queue.insert(sig_queue.begin()+k, new_record);
+            }
+          }
+        }
+
+        int index_added = 0;
+
+        if(!sig_queue.empty()){
+          recieved_signals[camera_index][sig_queue.begin()->sig_index].signal_added = true;
+          recieved_signals[camera_index][sig_queue.begin()->sig_index].position = cv::Point2i(signal_data_[camera_index].retrieved_blinkers[i].x, signal_data_[camera_index].retrieved_blinkers[i].y);
+          recieved_signals[camera_index][sig_queue.begin()->sig_index].singal.insert(recieved_signals[camera_index][sig_queue.begin()->sig_index].singal.begin(), rec_signal.begin(), rec_signal.begin()+6);
+          new_signal_added = true;
+          index_added = sig_queue.begin()->sig_index;
+        }
+
+        if(!new_signal_added){
+          RecSignals new_signal;
+          new_signal.position = cv::Point2i(signal_data_[camera_index].retrieved_blinkers[i].x, signal_data_[camera_index].retrieved_blinkers[i].y);
+          new_signal.signal_added = true;
+          new_signal.singal = rec_signal;
+          recieved_signals[camera_index].push_back(new_signal);
+          new_signal_added = true;
+          index_added = (int)recieved_signals[camera_index].size()-1;
+          /* continue; */
+        }
+
+        if(new_signal_added){
+          int diff = (int)recieved_signals[camera_index][index_added].singal.size() - MAX_CLUSTER;
+          if(diff > 0){
+            recieved_signals[camera_index][index_added].singal.erase(recieved_signals[camera_index][index_added].singal.end()-1, recieved_signals[camera_index][index_added].singal.end()-diff-1);
+          }
+        }
+
+        /* std::cout << camera_index; */
+        /* std::cout << "   "; */
+
+        /* for (int j = 0; j < (int)rec_signal.size(); j++) { */
+        /*   std::cout << rec_signal[j]; */ 
+        /* } */
+      
+        /* std::cout << "   x:"; */
+        /* std::cout << signal_data_[camera_index].retrieved_blinkers[i].x; */
+        /* std::cout << " ,y:"; */
+        /* std::cout << signal_data_[camera_index].retrieved_blinkers[i].y; */
+
+        /* std::cout << std::endl; */
+      }
+      
+      /* std::cout << "---------------------------------------------------"; */ 
+      /* std::cout << std::endl; */
+    }
+
+    /* for(auto& cluster : point_seen[camera_index]){ */
+    /*   for(auto& point : cluster){ */
+    /*     std::cout << point.count; */
+    /*   } */
+    /*   std::cout << std::endl; */
+    /* } */
+
 
     /*
      * detection of SOF and EOF and decoding follow*
@@ -311,7 +455,6 @@ private:
       }
 
 
-      /* ROS_WARN("1"); */
 
 
 
@@ -329,8 +472,6 @@ private:
           }
         }
       }
-      
-      /* ROS_WARN("2"); */
 
       int j = 0;
       if (point_seen[camera_index][i].rbegin()[SB].count == 0 && point_seen[camera_index][i].rbegin()[SB + 1].count == 0) {  // possible end of frame detection
@@ -342,15 +483,11 @@ private:
 
       if (j != (SB - 1))
         continue;  // EOF validation
-      
-      /* ROS_WARN("3"); */
 
       int sof = point_seen[camera_index][i].back().start_frame_index;
 
       if (sof < SB || sof >= (int)point_seen[camera_index][i].size()-1)
         continue;
-      
-      /* ROS_WARN("4"); */
 
       // ROS_INFO("EOF");
 
@@ -366,7 +503,6 @@ private:
         continue;
 
 
-/*       ROS_WARN("Jsem tady"); */
 
       /*
        *Cleaning of received msg
@@ -492,18 +628,12 @@ private:
       int                rec_dtype;
       int                rmc_size = received_msg_raw.size();
       std::vector<float> payload;
-      /* ROS_ERROR("[%d]: ", rmc_size); */
-      if (rmc_size == 8) {
-        rec_heading        = 22.5 * (8 * received_msg_raw[3] + 4 * received_msg_raw[4] + 2 * received_msg_raw[5] + received_msg_raw[6]);
+      if (rmc_size == 7) {
+        rec_heading        = 22.5 * (8 * received_msg_raw[2] + 4 * received_msg_raw[3] + 2 * received_msg_raw[4] + received_msg_raw[5]);
         rm_pub.pl_carrying = false;
         rm_pub.heading     = rec_heading;
-        if(received_msg_raw[2]==1){
-          rm_pub.msg_type = 1;
-        }
-        else{
-          rm_pub.msg_type = 0;
-        }
-        ROS_INFO("Recieved id: %d, hd: %f, vis: %d", rec_id, rec_heading, rm_pub.msg_type);
+        //shit
+        /* ROS_INFO("Msg from UAV with id: %d, heading: %f", rec_id, rec_heading); */
       } else {
         int payload_size = (rmc_size - 5) / 4;
         rec_dtype        = 2 * received_msg_raw[2] + received_msg_raw[3];
@@ -542,6 +672,12 @@ private:
     }
   }
 
+  struct SignalData
+  {
+    std::vector<cv::Point3d>      retrieved_blinkers;
+
+  };
+
   struct CamInfo
   {
     bool      init      = false;
@@ -549,6 +685,9 @@ private:
     double    framerate = 80.0;
     ros::Time last_stamp;
     int       samples = 0;
+
+    cv::Size im_size = cv::Size(-1,-1);
+
   };
 
   struct PointSeen
@@ -564,10 +703,28 @@ private:
     ros::Time   sample_time;             // time of current frame
     int         start_frame_index = -1;  // marker of SOF
   };
+  struct SignalQueue
+  {
+    int sig_index;
+    int sig_distance;
+  };
+  struct RecSignals
+  {
+    cv::Point2i position;
+    bool signal_added;
+    std::vector<int> singal;
+  };
+  std::vector<std::vector<RecSignals>> recieved_signals;
   std::vector<std::vector<std::vector<PointSeen>>> point_seen;  // ith camera, jth cluster, kth time of visible point
   std::vector<CamInfo>                             cam_info;
+  std::vector<SignalData>                         signal_data_;
 };
 }  // namespace RX
+
+
+
+
+
 int main(int argc, char** argv) {
   ros::init(argc, argv, "UVDARrx");
   ros::NodeHandle  nh("~");
