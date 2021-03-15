@@ -27,7 +27,7 @@
 #define DEFAULT_OUTPUT_FRAMERATE 20.0
 #define DECAY_AGE_NORMAL 5.0
 #define DECAY_AGE_UNVALIDATED 1.0
-#define MIN_MEASUREMENTS_TO_VALIDATION 10
+#define MIN_MEASUREMENTS_TO_VALIDATION 5
 #define POS_THRESH 2.0
 #define MAH_THRESH 2.0
 #define YAW_THRESH 1.5
@@ -269,7 +269,7 @@ namespace uvdar {
         std::optional<mrs_lib::TransformStamped> tf;
         {
           std::scoped_lock lock(transformer_mutex);
-          tf = transformer_.getTransform(msg_local.header.frame_id, _output_frame_, msg.header.stamp);
+          tf = transformer_.getTransform(msg_local.header.frame_id, _output_frame_, msg_local.header.stamp);
         }
         if (!tf) { 
           ROS_ERROR("[UVDARKalman]: Could not obtain transform from %s to %s",msg_local.header.frame_id.c_str(), _output_frame_.c_str());
@@ -285,7 +285,8 @@ namespace uvdar {
           geometry_msgs::PoseWithCovarianceStamped meas_s;
           meas_s.pose.pose = meas.pose;
           meas_s.pose.covariance = meas.covariance;
-          ROS_INFO_STREAM("[UVDARKalman]: Meas. cov. input: " << std::endl << rosCovarianceToEigen(meas.covariance));
+          if (_debug_)
+            ROS_INFO_STREAM("[UVDARKalman]: Meas. cov. input: " << std::endl << rosCovarianceToEigen(meas.covariance));
           meas_s.header = msg_local.header;
           {
             std::scoped_lock lock(transformer_mutex);
@@ -347,8 +348,10 @@ namespace uvdar {
             poseCov.bottomRightCorner(3,3) = eigvecs.real()*eigvals.real().asDiagonal()*eigvecs.real().transpose(); //reform the covariance with new expanded eigenvalues
           }
 
-          ROS_INFO_STREAM("[UVDARKalman]: Transformed measurement input is: [" << poseVec.transpose() << "]");
-          ROS_INFO_STREAM("[UVDARKalman]: Meas. cov. transformed: " << std::endl << poseCov);
+          if (_debug_){
+            ROS_INFO_STREAM("[UVDARKalman]: Transformed measurement input is: [" << poseVec.transpose() << "]");
+            ROS_INFO_STREAM("[UVDARKalman]: Meas. cov. transformed: " << std::endl << poseCov);
+          }
 
           meas_converted.push_back({.x=poseVec,.P=poseCov});
           ids.push_back(meas.id);
@@ -378,7 +381,8 @@ namespace uvdar {
         for (int target=0; target<(int)(fd.size());target++){
           int targetsSeen = 0;
           double age = (ros::Time::now() - fd[target].latest_measurement).toSec();
-          ROS_INFO("[UVDARKalman]: Age of %d is %f", target, age);
+          if (_debug_)
+            ROS_INFO("[UVDARKalman]: Age of %d is %f", target, age);
           double decay_age;
           if (fd[target].update_count > MIN_MEASUREMENTS_TO_VALIDATION){
             decay_age = DECAY_AGE_NORMAL;
@@ -387,7 +391,7 @@ namespace uvdar {
             decay_age = DECAY_AGE_UNVALIDATED;
           }
           if (age>decay_age){
-            ROS_INFO_STREAM("[UVDARKalman]: Removing state " << target << ": " << fd[target].filter_state.x.transpose() << " due to old age of " << age << " s." );
+            ROS_INFO_STREAM("[UVDARKalman]: Removing state " << target << " (ID:" << fd[target].id << ") : " << fd[target].filter_state.x.transpose() << " due to old age of " << age << " s." );
             fd.erase(fd.begin()+target);
             target--;
             continue;
@@ -445,7 +449,8 @@ namespace uvdar {
           auto C_local = C; // the correlation between angle and position only exists in the measurement - the filter may have many measurements where this relation does not exist anymore
         if (!_use_velocity_){
           int index = (int)(fd.size());
-          ROS_INFO_STREAM("[UVDARKalman]: Initiating state " << index << "  with: " << x.transpose());
+          ROS_INFO_STREAM("[UVDARKalman]: Initiating state " << index << "(ID:" << ((id<0)?(latest_id++):(id)) << ")  with: " << x.transpose());
+          ROS_INFO_STREAM("[UVDARKalman]: The source input of the state is " << (ros::Time::now() - stamp).toSec() << "s old.");
 
           C_local.topRightCorner(3,3).setZero();  // check the case of _use_velocity_ == true
           C_local.bottomLeftCorner(3,3).setZero();  // check the case of _use_velocity_ == true
@@ -884,7 +889,7 @@ namespace uvdar {
 
               }
               fd.erase(fd.begin()+n);
-              ROS_INFO_STREAM("[UVDARKalman]: Removing state " << n << ": " << fd[n].filter_state.x.transpose() << " due to large overlap with state " << m << ": " << fd[m].filter_state.x.transpose());
+              ROS_INFO_STREAM("[UVDARKalman]: Removing state " << n << " (ID:" << fd[n].id << "): " << fd[n].filter_state.x.transpose() << " due to large overlap with state " << m << ": " << fd[m].filter_state.x.transpose());
               if (n<m){
                 remove_first=true;
                 break;

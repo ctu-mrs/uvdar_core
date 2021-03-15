@@ -253,8 +253,8 @@ std::vector< std::pair<cv::Point2d,int> > HT4DBlinkerTracker::getResults() {
     return std::vector<std::pair<cv::Point2d,int>>();
   }
 
-  /* expected_matches_ = *std::max_element(pts_per_layer_local_copy_.begin(), pts_per_layer_local_copy_.end()) - pts_per_layer_local_copy_[0]; */
-  expected_matches_ = (2*points_total_count)/(int)(accumulator_local_copy_.size()) - pts_per_layer_local_copy_[0];
+  expected_matches_ = *std::max_element(pts_per_layer_local_copy_.begin(), pts_per_layer_local_copy_.end()) - pts_per_layer_local_copy_[0];
+  /* expected_matches_ = floor(2*((float)(points_total_count))/(float)(accumulator_local_copy_.size())) - pts_per_layer_local_copy_[0]; */
   if (debug_){
     std::cout << "Exp. Matches: " << expected_matches_ << std::endl;
     std::cout << "Visible Matches: " << pts_per_layer_local_copy_[0] << std::endl;
@@ -496,11 +496,11 @@ std::vector< cv::Point > HT4DBlinkerTracker::findHoughPeaks(int peak_count) {
         std::cout << "Point " << curr_max_pos << " with value of " <<hough_space_maxima_[index2d(curr_max_pos.x,curr_max_pos.y)] <<" Failed threshold test. Threshold is " << hough_thresh_ << ". Breaking." << std::endl;
       break;
     }
-    if (!miniFast(curr_max_pos.x,curr_max_pos.y, hough_thresh_/4)) { //check if the position with the retrieved maximum is a concentrated peak
-      store_current = false;
-      if (debug_)
-        std::cout << "Point " << curr_max_pos << " Failed FAST test." << std::endl;
-    }
+    /* if (!miniFast(curr_max_pos.x,curr_max_pos.y, hough_thresh_/4)) { //check if the position with the retrieved maximum is a concentrated peak */
+    /*   store_current = false; */
+    /*   if (debug_) */
+    /*     std::cout << "Point " << curr_max_pos << " Failed FAST test." << std::endl; */
+    /* } */
 
     //nullify elements around the retrieved Hough peak - the next pass should find the next highest peak, corresponing to another origin point
     int b_top, b_left, b_bottom, b_right;

@@ -23,9 +23,9 @@
   <arg name="blink_process_rate" default="10"/>
 
   <arg name="accumulator_length"         default="12"/>
-  <arg name="pitch_steps"         default="16"/>
+  <arg name="pitch_steps"         default="12"/>
   <arg name="yaw_steps"         default="16"/>
-  <arg name="max_pixel_shift"         default="3"/>
+  <arg name="max_pixel_shift"         default="2"/>
 
   <arg name="filterDistLength"         default="10"/>
   <arg name="filterOrientationLength"         default="10"/>
@@ -157,7 +157,7 @@
       <param name="pitch_steps"         type="int" value="$(arg pitch_steps)"/>
       <param name="yaw_steps"         type="int" value="$(arg yaw_steps)"/>
       <param name="max_pixel_shift"         type="int" value="$(arg max_pixel_shift)"/>
-      <param name="nullify_radius"         type="int" value="8"/>
+      <param name="nullify_radius"         type="int" value="5"/>
 
       <rosparam param="camera_topics"> ["camera_left", "camera_right"] </rosparam>
       <rosparam param="points_seen_topics"> ["points_seen_left", "points_seen_right"] </rosparam>
@@ -180,7 +180,7 @@
     <!-- <node name="uvdar_uav_pose_calculator_node" pkg="uvdar_core" type="uvdar_uav_pose_calculator_node" output="screen" launch-prefix="valgrind -!-leak-check=full -v"> --> 
     <node name="uvdar_pose_calculator_node" pkg="uvdar_core" type="uvdar_pose_calculator_node" output="screen" > 
       <param name="uav_name" type = "string" value="$(arg uav_name)"/>
-      <param name="debug"		type="bool" value="false"/> 
+      <param name="debug"		type="bool" value="true"/> 
       <!-- <param name="gui"             type="bool" value="false"/> -->
       <param name="gui"             type="bool" value="false"/>
       <param name="publish_visualization"             type="bool" value="false"/>
