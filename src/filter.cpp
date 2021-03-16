@@ -26,7 +26,7 @@
 
 #define DEFAULT_OUTPUT_FRAMERATE 20.0
 #define DECAY_AGE_NORMAL 5.0
-#define DECAY_AGE_UNVALIDATED 1.0
+#define DECAY_AGE_UNVALIDATED 2.0
 #define MIN_MEASUREMENTS_TO_VALIDATION 5
 #define POS_THRESH 2.0
 #define MAH_THRESH 2.0
@@ -313,7 +313,7 @@ namespace uvdar {
 
 
           if (poseVec.array().isNaN().any()){
-            ROS_INFO("[UVDARKalman]: Discarding input, value includes Nans.");
+            ROS_INFO_STREAM("[UVDARKalman]: Discarding input with ID" << meas.id << ", value includes Nans.");
             return;
           }
 
@@ -440,10 +440,12 @@ namespace uvdar {
         }
 
         if (changed){
-          e::EigenSolver<e::Matrix3d> es(C.topLeftCorner(3,3));
-          C.topLeftCorner(3,3) = es.eigenvectors().real()*eigens.real().asDiagonal()*es.eigenvectors().real().transpose();
-          x.topLeftCorner(3,1) = x.topLeftCorner(3,1).normalized()*15;
-          //so that we don't initialize with the long covariances intersecting in the origin
+          if (id == -1){
+            e::EigenSolver<e::Matrix3d> es(C.topLeftCorner(3,3));
+            C.topLeftCorner(3,3) = es.eigenvectors().real()*eigens.real().asDiagonal()*es.eigenvectors().real().transpose();
+            x.topLeftCorner(3,1) = x.topLeftCorner(3,1).normalized()*15;
+            //so that we don't initialize with the long covariances intersecting in the origin
+          }
         }
 
           auto C_local = C; // the correlation between angle and position only exists in the measurement - the filter may have many measurements where this relation does not exist anymore
@@ -548,6 +550,8 @@ namespace uvdar {
         auto P_local = measurement.P;
         P_local.topRightCorner(3,3).setZero();  // check the case of _use_velocity_ == true
         P_local.bottomLeftCorner(3,3).setZero();  // check the case of _use_velocity_ == true
+
+        P_local *= (1.0/match_level);
 
         /* ROS_INFO_STREAM("[UVDARKalman]: Meas. cov: " << std::endl << measurement.P); */
         filter_local.filter_state = filter->correct(filter_local.filter_state, measurement.x, P_local);

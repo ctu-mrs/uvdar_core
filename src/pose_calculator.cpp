@@ -1667,7 +1667,7 @@ namespace uvdar {
 
               /* auto pos_fitting = std::chrono::high_resolution_clock::now(); */
               /* elapsedTime.push_back({currDepthIndent() + "Position fitting - iter. "+std::to_string(pos_shift_iters),std::chrono::duration_cast<std::chrono::microseconds>(pos_fitting - pos_gradient).count()}); */
-              profiler.addValueSince("Position fitting - iter. "+std::to_string(j),loop_start_gradient_descent);
+              profiler.addValueSince("Position fitting - iter. "+std::to_string(j)+" (e="+std::to_string(error_total)+")",loop_start_gradient_descent);
 
             }
 
@@ -1752,7 +1752,7 @@ namespace uvdar {
 
               /* auto rot_fitting = std::chrono::high_resolution_clock::now(); */
               /* elapsedTime.push_back({currDepthIndent() + "Orientation fitting - iter. "+std::to_string(rot_shift_iters),std::chrono::duration_cast<std::chrono::microseconds>(rot_fitting - rot_gradient_time).count()}); */
-              profiler.addValue("Orientation fitting - iter. "+std::to_string(j));
+              profiler.addValue("Orientation fitting - iter. "+std::to_string(j)+" (e="+std::to_string(error_total)+")");
             }
 
             profiler.addValueSince("Iteration loop "+std::to_string(iters),loop_start);
@@ -1760,7 +1760,7 @@ namespace uvdar {
           }
           profiler.unindent();
 
-          profiler.addValue("Main fittiong loop (e="+std::to_string(error_total)+")");
+          profiler.addValue("Main fitting loop (e="+std::to_string(error_total)+")");
           //final gradient check
           double mean_error = error_total/((double)(observed_points.size()));
           /* x_step = y_step = z_step = pos_step_init; */

@@ -291,11 +291,13 @@ std::vector< std::pair<cv::Point2d,int> > HT4DBlinkerTracker::getResults() {
     result.push_back(std::pair<cv::Point2d,int>(cv::Point2d(origin_pts_out[i].x, origin_pts_out[i].y), signal_id));
     signals_.push_back(blink_signal);
 
+  if (debug_){
     std::cout << "Retrieved signal: " << std::endl;
     for (int i = 0; i < (int)(blink_signal.size()); i++) {
       std::cout << (int)(blink_signal[i]) << ",";
     }
     std::cout << std::endl;
+  }
 
     yaw_averages_.push_back(yawAvg);
     pitch_averages_.push_back(pitchAvg);
@@ -772,7 +774,8 @@ int HT4DBlinkerTracker::retrieveSignalID(cv::Point origin_point, double &avg_yaw
   blink_signal = retrieveSignalSequence(origin_point, avg_yaw, avg_pitch);
 
   int ret_id = matcher_->matchSignal(blink_signal);
-  std::cout << "Signal ID is: " << ret_id << std::endl;
+  if (debug_)
+    std::cout << "Signal ID is: " << ret_id << std::endl;
   return  ret_id;
 
   /* //retrieve frequency (or detect incorrect signal) using a state machine pass over the retrieved signal */
