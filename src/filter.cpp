@@ -26,8 +26,8 @@
 
 #define DEFAULT_OUTPUT_FRAMERATE 20.0
 #define DECAY_AGE_NORMAL 5.0
-#define DECAY_AGE_UNVALIDATED 2.0
-#define MIN_MEASUREMENTS_TO_VALIDATION 5
+#define DECAY_AGE_UNVALIDATED 1.0
+#define MIN_MEASUREMENTS_TO_VALIDATION 10
 #define POS_THRESH 2.0
 #define MAH_THRESH 2.0
 #define YAW_THRESH 1.5
@@ -358,10 +358,10 @@ namespace uvdar {
         }
 
         if (_anonymous_measurements_){
-          applyMeasurementsAnonymous(meas_converted, msg_local.header.stamp);
+          applyMeasurementsAnonymous(meas_converted, msg_local.header.stamp, msg_local.header.frame_id);
         }
         else {
-          applyMeasurementsWithIdentity(meas_converted, ids, msg_local.header.stamp);
+          applyMeasurementsWithIdentity(meas_converted, ids, msg_local.header.stamp, msg_local.header.frame_id);
         }
       }
       //}
@@ -522,7 +522,7 @@ namespace uvdar {
        * @return The resulting state and its output covariance
        */
       /* correctWithMeasurement //{ */
-      statecov_t correctWithMeasurement(struct FilterData &fd_curr, statecov_t measurement, double &match_level, ros::Time meas_time, bool prior_predict, bool apply_update = false){
+      statecov_t correctWithMeasurement(struct FilterData &fd_curr, statecov_t measurement, double &match_level, ros::Time meas_time, bool prior_predict, bool apply_update = false, std::string camera_frame = ""){
         auto filter_local = fd_curr;
 
         auto orig_state = filter_local.filter_state;
@@ -561,8 +561,9 @@ namespace uvdar {
         filter_local.filter_state.x[4] = fixAngle(filter_local.filter_state.x[4], 0);
         filter_local.filter_state.x[5] = fixAngle(filter_local.filter_state.x[5], 0);
 
-        if (apply_update){
-          /* if (_debug_){ */
+        if (isInFrontOfCamera(filter_local.filter_state.x.topRows(3), camera_frame, meas_time)){
+          if (apply_update){
+            /* if (_debug_){ */
             /* if ( */
             /*     ((orig_state.x.topRows(3) - filter_local.filter_state.x.topRows(3)).norm() > 2.0) || */
             /*     ((orig_state.x.bottomRows(3) - filter_local.filter_state.x.bottomRows(3)).norm() > 0.2) */
@@ -584,10 +585,11 @@ namespace uvdar {
             /*   ROS_INFO_STREAM("[UVDARKalman]: Orig. state. cov: " << std::endl << orig_state.P); */
             /*   ROS_INFO_STREAM("[UVDARKalman]: New state. cov: " << std::endl << filter_local.filter_state.P); */
             /* } */
-          /* } */
-          fd_curr.filter_state = filter_local.filter_state;
-          fd_curr.latest_measurement = meas_time;
-          fd_curr.update_count++;
+            /* } */
+            fd_curr.filter_state = filter_local.filter_state;
+            fd_curr.latest_measurement = meas_time;
+            fd_curr.update_count++;
+          }
         }
         return filter_local.filter_state;
       }
@@ -639,6 +641,30 @@ namespace uvdar {
       }
       //}
 
+      bool isInFrontOfCamera(e::Vector3d mean, std::string camera_frame, ros::Time stamp){
+        geometry_msgs::PoseStamped target_cam_view, target_filter;
+        target_filter.header.frame_id = _output_frame_;
+        target_filter.header.stamp = stamp;
+        target_filter.pose.position.x = mean.x();
+        target_filter.pose.position.y = mean.y();
+        target_filter.pose.position.z = mean.z();
+
+        auto ret = transformer_.transformSingle(camera_frame, target_filter);
+        if (ret) {
+          target_cam_view = ret.value();
+        }
+        else{
+          ROS_ERROR_STREAM("[UVDARKalman]: Could not transform filter state from "<< _output_frame_ << " to camera frame " << camera_frame);
+          return false;
+        }
+
+        e::Vector3d target_cam_view_vector(target_cam_view.pose.position.x, target_cam_view.pose.position.y, target_cam_view.pose.position.z);
+        double norm = target_cam_view_vector.norm();
+        double cos_angle = target_cam_view_vector.dot(e::Vector3d(0,0,1));
+
+        return ((norm > 1.5) && (cos_angle > -0.173648));//cos(100 deg) 
+
+      }
 
       /**
        * @brief Applies relative position measurements to states that are the closest to their position component
@@ -647,7 +673,7 @@ namespace uvdar {
        * @param meas_time The time of the input measurements
        */
       /* applyMeasurementsAnonymous //{ */
-      void applyMeasurementsAnonymous(std::vector<statecov_t> measurements, ros::Time meas_time){
+      void applyMeasurementsAnonymous(std::vector<statecov_t> measurements, ros::Time meas_time, std::string camera_frame){
         std::scoped_lock lock(filter_mutex);
         if (fd.size() == 0){
           for (auto const& measurement_curr : measurements | indexed(0)){
@@ -670,7 +696,7 @@ namespace uvdar {
                 state_curr.value()
                 );
             double match_level;
-            correctWithMeasurement(tentative_states.back().back(),measurement_curr.value(), match_level, meas_time, true, true);
+            correctWithMeasurement(tentative_states.back().back(),measurement_curr.value(), match_level, meas_time, true, true, camera_frame);
             match_matrix(measurement_curr.index(),state_curr.index()) = match_level;
             double dt_s = 0.1;
             if ((ros::Time::now() - state_curr.value().latest_measurement).toSec() < dt_s){ // just in case - in simulation the camera outputs follow one another immediately, so no inflation happens in between
@@ -756,7 +782,7 @@ namespace uvdar {
        * @param meas_time
        */
       /* applyMeasurementsWithIdentity //{ */
-      void applyMeasurementsWithIdentity(std::vector<statecov_t> measurements, std::vector<int> ids, ros::Time meas_time){
+      void applyMeasurementsWithIdentity(std::vector<statecov_t> measurements, std::vector<int> ids, ros::Time meas_time, std::string camera_frame){
         std::scoped_lock lock(filter_mutex);
 
         if (measurements.size() != ids.size()){
@@ -777,7 +803,7 @@ namespace uvdar {
           }
           else {
             [[ maybe_unused ]] double match_level; //for future use with multiple measurements with the same ID
-            correctWithMeasurement(fd.at(target),measurement_curr.value(), match_level,meas_time,true, true);
+            correctWithMeasurement(fd.at(target),measurement_curr.value(), match_level,meas_time,true, true, camera_frame);
           }
 
         }

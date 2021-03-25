@@ -213,6 +213,7 @@ namespace uvdar {
       blink_data_[image_index].last_sample_time_diagnostic = msg->stamp;
     }
 
+    if (_debug_)
         ROS_INFO_STREAM("[UVDARBlinkProcessor]: td: " << msg->stamp - blink_data_[image_index].last_sample_time);
     if (blink_data_[image_index].last_sample_time >= msg->stamp){
       ROS_ERROR_STREAM("[UVDARBlinkProcessor]: Points arrived out of order!: prev: "<< blink_data_[image_index].last_sample_time << "; curr: " << msg->stamp);
