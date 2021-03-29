@@ -97,6 +97,7 @@ public:
         new_neighbor.id = j;
         new_neighbor.frequency = frequencies[j];
         new_neighbor.sample_time = ros::Time::now();
+        new_neighbor.last_ht = ros::Time::now();
         neighbors[i].push_back(new_neighbor);
       }
       ROS_INFO("[RX_Processor]: Added camera %d on topic %s", i, points_seen_topics[i].c_str());
@@ -131,6 +132,7 @@ private:
     for (int bs = (rmc_size - 1); bs >= 3; bs--) {  // check of Bit Stuffing and BS bits separation
       if (received_msg_corrected[bs - 1] == received_msg_corrected[bs - 2] && received_msg_corrected[bs - 2] == received_msg_corrected[bs - 3]) {
         if (received_msg_corrected[bs - 1] != received_msg_corrected[bs]) {
+          if(received_msg_corrected.empty()) return 1;
           received_msg_corrected.erase(received_msg_corrected.begin() + bs);
           // bs += 2;
           rmc_size--;
@@ -141,6 +143,8 @@ private:
         }
       }
     }
+    
+    if(received_msg_corrected.empty()) return 1;
 
     received_msg_corrected.erase(received_msg_corrected.begin());  // separation of the rest of SOF needed for BS check
     rmc_size--;
@@ -203,9 +207,6 @@ private:
       msgFramerate.data = cam_info[camera_index].framerate;
       pub_estimated_framerate[camera_index].publish(msgFramerate);
     }
-
-
-
 
 
     /*
@@ -576,6 +577,7 @@ private:
       /* std::cout << std::endl; */
       for(auto& raw_signal : signal_candidates){
         while (raw_signal.singal.front() == 0) {  // start synchronize, the second part of SOF (bit 1) remains for BS check
+          if(raw_signal.singal.empty()) continue;
           raw_signal.singal.erase(raw_signal.singal.begin());
         }
 
@@ -726,11 +728,17 @@ private:
         if(neighbors[camera_index][sig.id].positions.empty()){
           neighbors[camera_index][sig.id].positions.push_back(sig.position);
           neighbors[camera_index][sig.id].sample_time = ros::Time::now();
+          neighbors[camera_index][sig.id].last_ht = ros::Time::now();
+          neighbors[camera_index][sig.id].enable = sig.enable;
+          neighbors[camera_index][sig.id].angle = sig.angle;
           continue;
         }
-        if((ros::Time::now()-neighbors[camera_index][sig.id].sample_time).toSec() < 0.01){
+        if((ros::Time::now()-neighbors[camera_index][sig.id].last_ht).toSec() < 0.01){
           int dist_check = abs(neighbors[camera_index][sig.id].positions[0].x -sig.position.x)+abs(neighbors[camera_index][sig.id].positions[0].y-sig.position.y);
           if(dist_check<50){
+            int pos_size = (int)neighbors[camera_index][sig.id].positions.size();
+            neighbors[camera_index][sig.id].enable = (pos_size*neighbors[camera_index][sig.id].enable + (double)sig.enable)/(pos_size+1);
+            neighbors[camera_index][sig.id].angle = (pos_size*neighbors[camera_index][sig.id].angle + (double)sig.angle)/(pos_size+1);
             neighbors[camera_index][sig.id].positions.push_back(sig.position);
             continue;
           }
@@ -739,18 +747,47 @@ private:
           neighbors[camera_index][sig.id].positions.clear();
           neighbors[camera_index][sig.id].positions.push_back(sig.position);
           neighbors[camera_index][sig.id].sample_time = ros::Time::now();
+          neighbors[camera_index][sig.id].last_ht = ros::Time::now();
+          neighbors[camera_index][sig.id].enable = sig.enable;
+          neighbors[camera_index][sig.id].angle = sig.angle;
           continue;
         }
       }
       for(auto& nb : neighbors[camera_index]){
-        if((ros::Time::now()-nb.sample_time).toSec() > 3.5) continue;
-        ROS_INFO("caem: %d, id: %d, fr: %d, t: %f", (int)camera_index, nb.id, nb.frequency, (ros::Time::now()-nb.sample_time).toSec());
-        for(auto& pos : nb.positions){
-          std::cout << pos.x;
-          std::cout << " ";
-          std::cout << pos.y;
-          std::cout << std::endl;
+        if((ros::Time::now()-nb.sample_time).toSec() > 3.0) continue;
+        ROS_INFO("camera: %d, id: %d, fr: %d, t: %f, en: %d, dir: %d", (int)camera_index, nb.id, nb.frequency, (ros::Time::now()-nb.sample_time).toSec(), (int)(nb.enable+0.5), (int)(nb.angle+0.5));
+        /* for(auto& pos : nb.positions){ */
+        /*   std::cout << pos.x; */
+        /*   std::cout << " "; */
+        /*   std::cout << pos.y; */
+        /*   std::cout << std::endl; */
+        /* } */
+            
+        mrs_msgs::ImagePointsWithFloatStamped msg;
+        msg.stamp        = nb.sample_time;
+        msg.image_width  = points_seen_msg->image_width;
+        msg.image_height = points_seen_msg->image_height;
+
+        for (auto& blinker : nb.positions) {
+          mrs_msgs::Point2DWithFloat point;
+          point.x     = blinker.x;
+          point.y     = blinker.y;
+          point.value = nb.frequency;
+          msg.points.push_back(point);
         }
+        pub_blinkers_seen[camera_index].publish(msg);
+      
+        uvdar_core::RecMsg rm_pub;
+        rm_pub.uav_id = nb.id;
+        rm_pub.pl_carrying = false;
+        rm_pub.heading     = nb.angle;
+        if((int)(nb.enable+0.5)==1){
+          rm_pub.msg_type = 1;
+        }
+        else{
+          rm_pub.msg_type = 0;
+        }
+        pub_rec_msg.publish(rm_pub);
       }
       ROS_INFO("------------------");
 
@@ -786,28 +823,28 @@ private:
       if (point_seen[camera_index][i].size() < (MAX_CLUSTER / 2))
         continue;  // we have stable channel connection
       // publishing on blinkers seen topic
-      if (point_seen[camera_index][i].back().decoded) {
-        if (!point_seen[camera_index][i].back().positions.empty()) {
-          if (point_seen[camera_index][i].back().cnt_last_published >= 5) {
-            mrs_msgs::ImagePointsWithFloatStamped msg;
-            msg.stamp        = point_seen[camera_index][i].back().sample_time;
-            msg.image_width  = points_seen_msg->image_width;
-            msg.image_height = points_seen_msg->image_height;
+      /* if (point_seen[camera_index][i].back().decoded) { */
+      /*   if (!point_seen[camera_index][i].back().positions.empty()) { */
+      /*     if (point_seen[camera_index][i].back().cnt_last_published >= 5) { */
+      /*       mrs_msgs::ImagePointsWithFloatStamped msg; */
+      /*       msg.stamp        = point_seen[camera_index][i].back().sample_time; */
+      /*       msg.image_width  = points_seen_msg->image_width; */
+      /*       msg.image_height = points_seen_msg->image_height; */
 
-            for (auto& blinker : point_seen[camera_index][i].back().positions) {
-              mrs_msgs::Point2DWithFloat point;
-              point.x     = blinker.x;
-              point.y     = blinker.y;
-              point.value = point_seen[camera_index][i].back().frequency;
-              msg.points.push_back(point);
-            }
+      /*       for (auto& blinker : point_seen[camera_index][i].back().positions) { */
+      /*         mrs_msgs::Point2DWithFloat point; */
+      /*         point.x     = blinker.x; */
+      /*         point.y     = blinker.y; */
+      /*         point.value = point_seen[camera_index][i].back().frequency; */
+      /*         msg.points.push_back(point); */
+      /*       } */
 
-            pub_blinkers_seen[camera_index].publish(msg);
+      /*       pub_blinkers_seen[camera_index].publish(msg); */
 
-            point_seen[camera_index][i].back().cnt_last_published = 0;
-          }
-        }
-      }
+      /*       point_seen[camera_index][i].back().cnt_last_published = 0; */
+      /*     } */
+      /*   } */
+      /* } */
 
 
 
@@ -968,7 +1005,7 @@ private:
        * Predelat vse odsud dale
        *
        * */
-      uvdar_core::RecMsg rm_pub;
+      /* uvdar_core::RecMsg rm_pub; */
 
       int rec_id = 2 * received_msg_raw[0] + received_msg_raw[1];
       if (rec_id == uav_id) {
@@ -983,20 +1020,20 @@ private:
         // continue;
         rec_id = point_seen[camera_index][i].back().id;
       }
-      rm_pub.uav_id = rec_id;
+      /* rm_pub.uav_id = rec_id; */
       float              rec_heading;
       int                rec_dtype;
       int                rmc_size = received_msg_raw.size();
       std::vector<float> payload;
       if (rmc_size == 8) {
         rec_heading        = 22.5 * (8 * received_msg_raw[3] + 4 * received_msg_raw[4] + 2 * received_msg_raw[5] + received_msg_raw[6]);
-        rm_pub.pl_carrying = false;
-        rm_pub.heading     = rec_heading;
+        /* rm_pub.pl_carrying = false; */
+        /* rm_pub.heading     = rec_heading; */
         if(received_msg_raw[2]==1){
-          rm_pub.msg_type = 1;
+          /* rm_pub.msg_type = 1; */
         }
         else{
-          rm_pub.msg_type = 0;
+          /* rm_pub.msg_type = 0; */
         }
         /* ROS_INFO("Recieved id: %d, hd: %f, vis: %d", rec_id, rec_heading, rm_pub.msg_type); */
       } else {
@@ -1020,9 +1057,9 @@ private:
         }
         if (!valid_data)
           continue;
-        rm_pub.payload     = payload;
-        rm_pub.pl_carrying = true;
-        rm_pub.msg_type    = rec_dtype;
+        /* rm_pub.payload     = payload; */
+        /* rm_pub.pl_carrying = true; */
+        /* rm_pub.msg_type    = rec_dtype; */
         ROS_INFO("Msg from UAV id: %d, msg_type: %d, payload: %f", rec_id, rec_dtype, payload[0]);
       }
 
@@ -1030,7 +1067,7 @@ private:
       point_seen[camera_index][i].back().frequency = frequencies[rec_id];
 
       // publish decoded message
-      pub_rec_msg.publish(rm_pub);
+      /* pub_rec_msg.publish(rm_pub); */
 
       received_msg.clear();
       received_msg_raw.clear();
@@ -1089,8 +1126,11 @@ private:
   struct Neighbor
   {
     ros::Time   sample_time; 
+    ros::Time   last_ht; 
     int id;
     int frequency;
+    float enable;
+    float angle;
     std::vector<cv::Point2i> positions;
   };
   std::vector<std::vector<RecSignals>> recieved_signals;

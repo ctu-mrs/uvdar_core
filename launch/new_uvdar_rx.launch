@@ -10,8 +10,8 @@
 
   <group ns="$(arg uav_name)">
 
-    <node name="newUvdarRx" pkg="uvdar_core" type="new_uvdar_rx_node" output="screen" launch-prefix="$(arg launch_prefix_debug)" >
-    <!-- <node name="newUvdarRx" pkg="uvdar_core" type="new_uvdar_rx_node" output="screen" launch-prefix="debug_roslaunch" > -->
+    <!-- <node name="newUvdarRx" pkg="uvdar_core" type="new_uvdar_rx_node" output="screen" launch-prefix="$(arg launch_prefix_debug)" > -->
+    <node name="newUvdarRx" pkg="uvdar_core" type="new_uvdar_rx_node" output="screen" launch-prefix="debug_roslaunch" >
 
       <param name="uav_name" value="$(arg uav_name)" />
       <param name="uav_id" value="$(arg uav_id)" />
