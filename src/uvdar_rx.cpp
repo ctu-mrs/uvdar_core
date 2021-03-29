@@ -83,8 +83,6 @@ private:
 
   int DataFrameCheck(std::vector<int>& received_msg_corrected) {
     int rmc_size = received_msg_corrected.size();
-    
-    /* ROS_WARN("Bit stuffing: "); */
 
     for (int bs = (rmc_size - 1); bs >= 3; bs--) {  // check of Bit Stuffing and BS bits separation
       if (received_msg_corrected[bs - 1] == received_msg_corrected[bs - 2] && received_msg_corrected[bs - 2] == received_msg_corrected[bs - 3]) {
@@ -102,9 +100,6 @@ private:
 
     received_msg_corrected.erase(received_msg_corrected.begin());  // separation of the rest of SOF needed for BS check
     rmc_size--;
-      
-    /* ROS_WARN("[%d]: ", rmc_size); */
-    
     if ((rmc_size != 8) && (rmc_size != 9) && (rmc_size != 13)) {  // check of frame length
       // std::cout << " FL fail " << rmc_size << " |";
       return 1;
@@ -199,7 +194,6 @@ private:
         }
       }
     }
-
 
 
 
@@ -311,7 +305,6 @@ private:
       }
 
 
-      /* ROS_WARN("1"); */
 
 
 
@@ -329,8 +322,6 @@ private:
           }
         }
       }
-      
-      /* ROS_WARN("2"); */
 
       int j = 0;
       if (point_seen[camera_index][i].rbegin()[SB].count == 0 && point_seen[camera_index][i].rbegin()[SB + 1].count == 0) {  // possible end of frame detection
@@ -342,15 +333,11 @@ private:
 
       if (j != (SB - 1))
         continue;  // EOF validation
-      
-      /* ROS_WARN("3"); */
 
       int sof = point_seen[camera_index][i].back().start_frame_index;
 
       if (sof < SB || sof >= (int)point_seen[camera_index][i].size()-1)
         continue;
-      
-      /* ROS_WARN("4"); */
 
       // ROS_INFO("EOF");
 
@@ -366,7 +353,6 @@ private:
         continue;
 
 
-/*       ROS_WARN("Jsem tady"); */
 
       /*
        *Cleaning of received msg
@@ -492,7 +478,6 @@ private:
       int                rec_dtype;
       int                rmc_size = received_msg_raw.size();
       std::vector<float> payload;
-      /* ROS_ERROR("[%d]: ", rmc_size); */
       if (rmc_size == 8) {
         rec_heading        = 22.5 * (8 * received_msg_raw[3] + 4 * received_msg_raw[4] + 2 * received_msg_raw[5] + received_msg_raw[6]);
         rm_pub.pl_carrying = false;
