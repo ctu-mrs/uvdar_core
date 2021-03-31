@@ -1,0 +1,23 @@
+name: uvdar_image_snap
+root: ./
+startup_window: snap 
+pre_window:export UAV_TYPE=f450; export WORLD_NAME=simulation; export ODOMETRY_TYPE=gps; export SENSORS="garmin_down"
+windows:
+  - roscore:
+      layout: even-vertical
+      panes:
+        - roscore
+  - bluefox:
+      layout: even-vertical
+      panes:
+        - waitForRos; roslaunch uvdar_core test_rw_two_sided.launch aec:=true
+  - image_saver:
+      layout: even-vertical
+      panes:
+        - waitForRos; rosrun image_view image_saver __name:=image_saver_left  image:=/$UAV_NAME/uvdar_bluefox_left/image_raw  _save_all_image:=false _filename_format:=$(rospack find uvdar_core)/sample_$(UAV_NAME)_$(BLUEFOX_UV_LEFT)_left.png
+        - waitForRos; rosrun image_view image_saver __name:=image_saver_right image:=/$UAV_NAME/uvdar_bluefox_right/image_raw _save_all_image:=false _filename_format:=$(rospack find uvdar_core)/sample_$(UAV_NAME)_$(BLUEFOX_UV_RIGHT)_right.png
+  - snap:
+      layout: even-vertical
+      panes:
+        - waitForRos; sleep 3; rosservice_call /image_saver_left/save
+        - waitForRos; sleep 3; rosservice_call /image_saver_right/save
