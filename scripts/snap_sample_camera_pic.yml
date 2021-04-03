@@ -1,6 +1,6 @@
 name: uvdar_image_snap
 root: ./
-startup_window: snap 
+startup_window: scp
 pre_window: export UAV_TYPE=f450; export WORLD_NAME=simulation; export ODOMETRY_TYPE=gps; export SENSORS="garmin_down"
 windows:
   - roscore:
@@ -11,8 +11,8 @@ windows:
       layout: even-vertical
       panes:
         - waitForRos; roslaunch uvdar_core test_rw_two_sided.launch aec:=false agc:=true use_masks:=false
-        - waitForRos; sleep 7; rosrun dynamic_reconfigure dynparam set ${UAV_NAME}/uvdar_bluefox_left expose_upper_limit_us 100000;  rosrun dynamic_reconfigure dynparam set ${UAV_NAME}/uvdar_bluefox_left expose_us 100000 
-        - waitForRos; sleep 7; rosrun dynamic_reconfigure dynparam set ${UAV_NAME}/uvdar_bluefox_right expose_upper_limit_us 100000; rosrun dynamic_reconfigure dynparam set ${UAV_NAME}/uvdar_bluefox_right expose_us 100000
+        - waitForRos; sleep 12; rosrun dynamic_reconfigure dynparam set ${UAV_NAME}/uvdar_bluefox_left expose_upper_limit_us 100000;  rosrun dynamic_reconfigure dynparam set ${UAV_NAME}/uvdar_bluefox_left expose_us 100000
+        - waitForRos; sleep 12; rosrun dynamic_reconfigure dynparam set ${UAV_NAME}/uvdar_bluefox_right expose_upper_limit_us 100000; rosrun dynamic_reconfigure dynparam set ${UAV_NAME}/uvdar_bluefox_right expose_us 100000
   - image_saver:
       layout: even-vertical
       panes:
@@ -21,5 +21,9 @@ windows:
   - snap:
       layout: even-vertical
       panes:
-        - waitForRos; sleep 11; rosservice call /image_saver_left/save
-        - waitForRos; sleep 11; rosservice call /image_saver_right/save
+        - waitForRos; sleep 18; rosservice call /image_saver_left/save
+        - waitForRos; sleep 18; rosservice call /image_saver_right/save
+  - scp: 
+      layout: even-vertical
+      panes:
+        - waitForRos; sleep 20; scp $(rospack find uvdar_core)/sample_${UAV_NAME}_${BLUEFOX_UV_RIGHT}_right.png $(rospack find uvdar_core)/sample_${UAV_NAME}_${BLUEFOX_UV_LEFT}_left.png viktor@192.168.69.177:~/uvdar_masks/
