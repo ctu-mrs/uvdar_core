@@ -22,8 +22,8 @@ windows:
       layout: even-vertical
       panes:
         - waitForRos; sleep 20; rosservice call /image_saver_left/save
-        - waitForRos; sleep 20; rosservice call /image_saver_right/save
+        - waitForRos; sleep 26; rosservice call /image_saver_right/save
   - scp: 
       layout: even-vertical
       panes:
-        - waitForRos; sleep 22; scp $(rospack find uvdar_core)/sample_${UAV_NAME}_${BLUEFOX_UV_RIGHT}_right.png $(rospack find uvdar_core)/sample_${UAV_NAME}_${BLUEFOX_UV_LEFT}_left.png viktor@192.168.69.177:~/uvdar_masks/
+        - waitForRos; sleep 27; scp $(rospack find uvdar_core)/sample_${UAV_NAME}_${BLUEFOX_UV_RIGHT}_right.png $(rospack find uvdar_core)/sample_${UAV_NAME}_${BLUEFOX_UV_LEFT}_left.png viktor@192.168.69.177:~/uvdar_masks/
