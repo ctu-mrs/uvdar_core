@@ -20,7 +20,6 @@
   <arg name="calibrations_folder" default="$(find mrs_uav_general)/config/uvdar_calibrations"/>
 
   <arg name="camera_rate" default="60"/>
-  <arg name="frame_id" default="$(arg camera)"/>
   <arg name="fps" default="$(arg camera_rate)"/>
   <arg name="idpf" default="0"/>
   <arg name="aec" default="false"/>
