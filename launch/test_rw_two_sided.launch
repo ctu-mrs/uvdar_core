@@ -92,6 +92,7 @@
   <arg name="id11" value="10"/>
   <arg name="id12" value="11"/>
 
+  <arg name="sequence_file" default="$(find uvdar_core)/config/selected.txt"/>
 
   <arg name="use_masks" default="true"/>
 
@@ -216,7 +217,7 @@
       <param name="visualization_rate"         type="int" value="$(arg visualization_rate)"/>
       <!-- <rosparam param="frequencies" subst_value="true"> [$(arg frequency1), $(arg frequency2), $(arg frequency3), $(arg frequency4)] </rosparam> -->
       <rosparam param="signal_ids" subst_value="true"> [$(arg id1), $(arg id2), $(arg id3), $(arg id4), $(arg id5), $(arg id6), $(arg id7), $(arg id8), $(arg id9), $(arg id10) ] </rosparam>
-
+      <param name="sequence_file"         type="int" value="$(arg sequence_file)"/>
 
       <param name="blink_process_rate"         type="int" value="$(arg blink_process_rate)"/>
 
