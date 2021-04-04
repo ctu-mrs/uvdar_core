@@ -94,7 +94,7 @@
 
   <arg name="sequence_file" default="$(find uvdar_core)/config/selected.txt"/>
 
-  <arg name="use_masks" default="false"/>
+  <arg name="use_masks" default="true"/>
 
   <node
     name="uvcam_left_tf_$(arg uav_name)"
