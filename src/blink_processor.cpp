@@ -587,7 +587,7 @@ namespace uvdar {
     std::shared_ptr<std::mutex>   mutex_retrieved_blinkers;
     ros::Time                     last_sample_time;
     ros::Time                     last_sample_time_diagnostic;
-    unsigned int                  sample_count = 0;
+    unsigned int                  sample_count = -1;
     double                        framerate_estimate = 72;
 
     BlinkData(){mutex_retrieved_blinkers = std::make_shared<std::mutex>();}
