@@ -125,7 +125,7 @@
       <param name="camera_name" type="string" value="$(arg left_camera_name)"/>
       <param name="identifier" type="string" value="$(arg left)"/>
 
-      <param name="frame_id" type="string" value="$(arg frame_id)"/>
+      <param name="frame_id" type="string" value="uvcam_left_tf_$(arg uav_name)"/>
       <param name="fps" type="double" value="$(arg fps)"/>
       <param name="idpf" type="int" value="$(arg idpf)"/>
       <param name="aec" type="bool" value="$(arg aec)"/>
@@ -153,7 +153,7 @@
       <param name="camera_name" type="string" value="$(arg right_camera_name)"/>
       <param name="identifier" type="string" value="$(arg right)"/>
 
-      <param name="frame_id" type="string" value="$(arg frame_id)"/>
+      <param name="frame_id" type="string" value="uvcam_right_tf_$(arg uav_name)"/>
       <param name="fps" type="double" value="$(arg fps)"/>
       <param name="idpf" type="int" value="$(arg idpf)"/>
       <param name="aec" type="bool" value="$(arg aec)"/>
