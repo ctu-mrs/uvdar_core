@@ -20,13 +20,10 @@
   <arg name="calibrations_folder" default="$(find mrs_uav_general)/config/uvdar_calibrations"/>
 
   <arg name="camera_rate" default="60"/>
-  <arg name="camera_name" default="bluefox"/>
-  <arg name="camera" default="$(arg camera_name)"/>
   <arg name="frame_id" default="$(arg camera)"/>
   <arg name="fps" default="$(arg camera_rate)"/>
   <arg name="idpf" default="0"/>
   <arg name="aec" default="false"/>
-  <arg name="expose_us" default="1000"/>
   <arg name="agc" default="false"/>
   <arg name="gain_db" default="0.0"/>
   <arg name="cbm" default="0"/>
@@ -216,8 +213,8 @@
       <param name="visual_debug"		type="bool" value="$(arg visual_debug)"/> 
       <param name="gui"             type="bool" value="$(arg gui)"/>
       <param name="publish_visualization"         type="bool" value="$(arg publish_visualization)"/>
+      <param name="use_camera_for_visualization"         type="bool" value="true"/>
       <param name="visualization_rate"         type="int" value="$(arg visualization_rate)"/>
-      <param name="InvertedPoints"    type="bool" value="false"/>
       <!-- <rosparam param="frequencies" subst_value="true"> [$(arg frequency1), $(arg frequency2), $(arg frequency3), $(arg frequency4)] </rosparam> -->
       <rosparam param="signal_ids" subst_value="true"> [$(arg id1), $(arg id2), $(arg id3), $(arg id4), $(arg id5), $(arg id6), $(arg id7), $(arg id8), $(arg id9), $(arg id10) ] </rosparam>
 
@@ -229,7 +226,6 @@
       <param name="yaw_steps"         type="int" value="$(arg yaw_steps)"/>
       <param name="max_pixel_shift"         type="int" value="$(arg max_pixel_shift)"/>
       <param name="nullify_radius"         type="int" value="5"/>
-      <param name="use_camera_for_visualization"         type="bool" value="true"/>
 
       <rosparam param="camera_topics"> ["camera_left", "camera_right"] </rosparam>
       <rosparam param="points_seen_topics"> ["points_seen_left", "points_seen_right"] </rosparam>
