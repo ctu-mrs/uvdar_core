@@ -406,7 +406,7 @@ namespace uvdar {
       if (_use_camera_for_visualization_){
         if (current_images_received_[image_index]){
           cv::Mat image_rgb;
-          ROS_INFO_STREAM("[UVDARBlinkProcessor]: Channel count: " << images_current_[image_index].channels());
+          /* ROS_INFO_STREAM("[UVDARBlinkProcessor]: Channel count: " << images_current_[image_index].channels()); */
           cv::cvtColor(images_current_[image_index], image_rgb, cv::COLOR_GRAY2BGR);
           image_rgb.copyTo(output_image(cv::Rect(start_point.x,0,images_current_[image_index].cols,images_current_[image_index].rows)));
         }
@@ -587,7 +587,7 @@ namespace uvdar {
     std::shared_ptr<std::mutex>   mutex_retrieved_blinkers;
     ros::Time                     last_sample_time;
     ros::Time                     last_sample_time_diagnostic;
-    unsigned int                  sample_count = 0;
+    unsigned int                  sample_count = -1;
     double                        framerate_estimate = 72;
 
     BlinkData(){mutex_retrieved_blinkers = std::make_shared<std::mutex>();}
