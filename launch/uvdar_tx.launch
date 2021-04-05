@@ -22,6 +22,10 @@
       <param name="fr_setter_topic" value="/$(arg uav_name)/fr_setter/set_frequency" />
       <param name="odom_topic" value="/$(arg uav_name)/odometry/odom_gps" />
       <param name="msgs_topic" value="/$(arg uav_name)/uvdar_communication/send_msg" />
+      
+      <rosparam param="estimated_framerate_topics"> ["estimated_framerate_left", "estimated_framerate_right"] </rosparam>
+      <remap from="~estimated_framerate_left" to="/$(arg uav_name)/uvdar/estimated_framerate_left"/>
+      <remap from="~estimated_framerate_right" to="/$(arg uav_name)/uvdar/estimated_framerate_right"/>
 
     </node>
 

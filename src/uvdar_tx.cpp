@@ -29,10 +29,17 @@ ros::Subscriber                  USmsgSub;
 ros::Subscriber                  OdomSub;
 ros::ServiceClient               LedStateClient;
 
+std::vector<std::string>    estimated_framerate_topics;
+/* using framerate_callback = boost::function<void(const std_msgs::ImagePointsWithFloatStampedConstPtr&)>; */
+using framerate_callback = boost::function<void(const std_msgs::Float32ConstPtr&)>;
+std::vector<framerate_callback> callbacks_estimated_framerate;
+std::vector<ros::Subscriber>      subscribers_estimated_framerates;
+
 std::string fr_setter_topic;
 std::string odom_topic;
 std::string msgs_topic;
 
+std::vector<float> cam_framerates;
 /* double default_msg; */
 ros::Subscriber    sub_default_msg;
 
@@ -70,6 +77,7 @@ public:
     param_loader.loadParam("fr_setter_topic", fr_setter_topic);
     param_loader.loadParam("odom_topic", odom_topic);
     param_loader.loadParam("msgs_topic", msgs_topic);
+    param_loader.loadParam("estimated_framerate_topics", estimated_framerate_topics, estimated_framerate_topics);
 
     USmsgSub = nh.subscribe(msgs_topic, 1, &TX_processor::usm_cb, this);  // sub for get new custom command to send
     OdomSub  = nh.subscribe(odom_topic, 1, &TX_processor::odom_cb, this);    // sub for get info about heading
@@ -80,16 +88,32 @@ public:
 
     // creating publishers for leds
     for (size_t i = 0; i < leds_topics.size(); ++i) {
-
       ROS_INFO("Topic loaded %s", leds_topics[i].c_str());
       /* pub_led_states.push_back(nh.advertise<uvdar_gazebo_plugin::LedInfo>(leds_topics[i], 1)); */
+    }
+    
+    for (int i = 0; i < (int)estimated_framerate_topics.size(); ++i) {
+      // callback of individual framerates
+      framerate_callback callback = [i, this](const std_msgs::Float32ConstPtr& frMessage) { EstimatedFramerates(frMessage, i); };
+      callbacks_estimated_framerate.push_back(callback);
+      subscribers_estimated_framerates.push_back(nh.subscribe(estimated_framerate_topics[i], 1, callbacks_estimated_framerate[i]));
     }
 
     ROS_INFO("Node initialized %s", uav_name.c_str());
   }
 
 private:
-  // callback for heading calculation. Heading is coded and sent in the first data byte together with uav id and data type
+  void EstimatedFramerates(const std_msgs::Float32ConstPtr& framerate_msg, size_t camera_index) {
+    if((int)cam_framerates.size() <= (int)camera_index){
+      cam_framerates.push_back(framerate_msg->data);
+    }
+    else{
+      cam_framerates[camera_index] = framerate_msg->data;
+    }
+    /* ROS_INFO("[UVDAR TX]: cam_index: %d, framerate: %f", (int)camera_index, framerate_msg->data); */ 
+  }
+
+    // callback for heading calculation. Heading is coded and sent in the first data byte together with uav id and data type
   void odom_cb(const nav_msgs::Odometry& msg) {
     geometry_msgs::Quaternion q = msg.pose.pose.orientation;
     act_heading                 = toYaw(q.x, q.y, q.z, q.w);
