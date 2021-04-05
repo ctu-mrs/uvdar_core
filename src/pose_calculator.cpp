@@ -352,6 +352,8 @@ namespace uvdar {
         param_loader.loadParam("gui", _gui_, bool(false));
         param_loader.loadParam("publish_visualization", _publish_visualization_, bool(false));
 
+        param_loader.loadParam("publish_constituents", _publish_constituents_, bool(false));
+
         param_loader.loadParam("quadrotor",_quadrotor_,bool(false));
 
         param_loader.loadParam("beacon",_beacon_,bool(false));
@@ -688,8 +690,11 @@ namespace uvdar {
             std::vector<mrs_msgs::PoseWithCovarianceIdentified> constituents;
             extractSingleRelative(separated_points_[image_index][i].second, separated_points_[image_index][i].first, image_index, pose, constituents);
             msg_measurement_array.poses.push_back(pose);
-            for (auto &constituent : constituents){
-              msg_constuents_array.poses.push_back(constituent);
+
+            if (_publish_constituents_){
+              for (auto &constituent : constituents){
+                msg_constuents_array.poses.push_back(constituent);
+              }
             }
 
 
@@ -709,7 +714,9 @@ namespace uvdar {
           }
         }
         pub_measured_poses_[image_index].publish(msg_measurement_array);
-        pub_constituent_poses_[image_index].publish(msg_constuents_array);
+        
+        if (_publish_constituents_)
+          pub_constituent_poses_[image_index].publish(msg_constuents_array);
       }
       //}
 
@@ -1226,25 +1233,28 @@ namespace uvdar {
           /* elapsedTime.push_back({currDepthIndent() + "Covariance estimation",std::chrono::duration_cast<std::chrono::microseconds>(covariance_estimation - precise_fitting).count()}); */
           profiler.addValue("Covariance estimation");
 
-          for (int i = 0; i<(int)(selected_poses.size()); i++){
-            auto constituent_pose_optical = opticalFromBase(selected_poses[i],covariances[i]);
-            mrs_msgs::PoseWithCovarianceIdentified constituent;
+          if (_publish_constituents_){
+            for (int i = 0; i<(int)(selected_poses.size()); i++){
+              auto constituent_pose_optical = opticalFromBase(selected_poses[i],covariances[i]);
+              mrs_msgs::PoseWithCovarianceIdentified constituent;
 
-            constituent.id = target;
-            constituent.pose.position.x = constituent_pose_optical.first.first.x();
-            constituent.pose.position.y = constituent_pose_optical.first.first.y();
-            constituent.pose.position.z = constituent_pose_optical.first.first.z();
-            constituent.pose.orientation.x = constituent_pose_optical.first.second.x();
-            constituent.pose.orientation.y = constituent_pose_optical.first.second.y();
-            constituent.pose.orientation.z = constituent_pose_optical.first.second.z();
-            constituent.pose.orientation.w = constituent_pose_optical.first.second.w();
-            for (int i=0; i<constituent_pose_optical.second.cols(); i++){
-              for (int j=0; j<constituent_pose_optical.second.rows(); j++){
-                constituent.covariance[constituent_pose_optical.second.cols()*j+i] =  constituent_pose_optical.second(j,i);
+              constituent.id = target;
+              constituent.pose.position.x = constituent_pose_optical.first.first.x();
+              constituent.pose.position.y = constituent_pose_optical.first.first.y();
+              constituent.pose.position.z = constituent_pose_optical.first.first.z();
+              constituent.pose.orientation.x = constituent_pose_optical.first.second.x();
+              constituent.pose.orientation.y = constituent_pose_optical.first.second.y();
+              constituent.pose.orientation.z = constituent_pose_optical.first.second.z();
+              constituent.pose.orientation.w = constituent_pose_optical.first.second.w();
+              for (int i=0; i<constituent_pose_optical.second.cols(); i++){
+                for (int j=0; j<constituent_pose_optical.second.rows(); j++){
+                  constituent.covariance[constituent_pose_optical.second.cols()*j+i] =  constituent_pose_optical.second(j,i);
+                }
               }
+              constituents.push_back(constituent);
             }
-            constituents.push_back(constituent);
           }
+
 
 
           if ((int)(selected_poses.size()) == 1){
@@ -2470,6 +2480,7 @@ namespace uvdar {
 
       bool _gui_;
       bool _publish_visualization_;
+      bool _publish_constituents_;
       ros::Timer timer_visualization_;
       std::vector<cv::Size> camera_image_sizes_;
       cv::Mat image_visualization_;
