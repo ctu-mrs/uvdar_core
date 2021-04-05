@@ -660,7 +660,7 @@ namespace uvdar {
 
         e::Vector3d target_cam_view_vector(target_cam_view.pose.position.x, target_cam_view.pose.position.y, target_cam_view.pose.position.z);
         double norm = target_cam_view_vector.norm();
-        double cos_angle = target_cam_view_vector.dot(e::Vector3d(0,0,1));
+        double cos_angle = target_cam_view_vector.normalized().dot(e::Vector3d(0,0,1));
 
         return ((norm > 1.5) && (cos_angle > -0.173648));//cos(100 deg) 
 
