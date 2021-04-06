@@ -52,6 +52,11 @@ input=(
 '
   'uvdar_filter' 'waitForRos; roslaunch uvdar_core uvdar_kalman_identified.launch output_frame:='"$UAV_NAME"'/stable_origin
 '
+  'throttle_left_camera' 'waitForRos; rosrun topic_tools throttle messages /'"$UAV_NAME"'/uvdar_bluefox/left/image_raw 2.0
+'
+  'throttle_right_camera' 'waitForRos; rosrun topic_tools throttle messages /'"$UAV_NAME"'/uvdar_bluefox/right/image_raw 2.0
+'
+
 )
 
 init_window="Status"

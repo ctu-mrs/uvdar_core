@@ -18,13 +18,42 @@ exclude=(
 
 # Every topic containint "compressed"
 '(.*)compressed(.*)'
-# Every topic containint "image_raw"
-'(.*)image_raw(.*)'
 # Every topic containint "theora"
 '(.*)theora(.*)'
 # Every topic containint "h264"
 '(.*)h264(.*)'
 
+(.*)/blink_processor/uvdar_blink_visualization/compressed
+(.*)/blink_processor/uvdar_blink_visualization/compressed/parameter_descriptions
+(.*)/blink_processor/uvdar_blink_visualization/compressed/parameter_updates
+(.*)/blink_processor/uvdar_blink_visualization/compressedDepth
+(.*)/blink_processor/uvdar_blink_visualization/compressedDepth/parameter_descriptions
+(.*)/blink_processor/uvdar_blink_visualization/compressedDepth/parameter_updates
+(.*)/blink_processor/uvdar_blink_visualization/theora
+(.*)/blink_processor/uvdar_blink_visualization/theora/parameter_descriptions
+(.*)/blink_processor/uvdar_blink_visualization/theora/parameter_updates
+(.*)/uvdar_bluefox/left/camera_info
+(.*)/uvdar_bluefox/left/image_raw
+(.*)/uvdar_bluefox/left/image_raw/compressed
+(.*)/uvdar_bluefox/left/image_raw/compressed/parameter_descriptions
+(.*)/uvdar_bluefox/left/image_raw/compressed/parameter_updates
+(.*)/uvdar_bluefox/left/image_raw/compressedDepth
+(.*)/uvdar_bluefox/left/image_raw/compressedDepth/parameter_descriptions
+(.*)/uvdar_bluefox/left/image_raw/compressedDepth/parameter_updates
+(.*)/uvdar_bluefox/left/image_raw/theora
+(.*)/uvdar_bluefox/left/image_raw/theora/parameter_descriptions
+(.*)/uvdar_bluefox/left/image_raw/theora/parameter_updates
+(.*)/uvdar_bluefox/right/camera_info
+(.*)/uvdar_bluefox/right/image_raw
+(.*)/uvdar_bluefox/right/image_raw/compressed
+(.*)/uvdar_bluefox/right/image_raw/compressed/parameter_descriptions
+(.*)/uvdar_bluefox/right/image_raw/compressed/parameter_updates
+(.*)/uvdar_bluefox/right/image_raw/compressedDepth
+(.*)/uvdar_bluefox/right/image_raw/compressedDepth/parameter_descriptions
+(.*)/uvdar_bluefox/right/image_raw/compressedDepth/parameter_updates
+(.*)/uvdar_bluefox/right/image_raw/theora
+(.*)/uvdar_bluefox/right/image_raw/theora/parameter_descriptions
+(.*)/uvdar_bluefox/right/image_raw/theora/parameter_updates
 )
 
 # file's header
