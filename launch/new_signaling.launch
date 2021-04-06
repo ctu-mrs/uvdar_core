@@ -212,6 +212,9 @@
 
       <rosparam param="calib_files" subst_value="True"> ["default", "default"] </rosparam>
 
+      <remap from="~constituentPoses1" to="/$(arg uav_name)/uvdar/constituentPosesL"/>
+      <remap from="~constituentPoses2" to="/$(arg uav_name)/uvdar/constituentPosesR"/>
+
       <remap from="~measuredPoses1" to="/$(arg uav_name)/uvdar/measuredPosesL"/>
       <remap from="~measuredPoses2" to="/$(arg uav_name)/uvdar/measuredPosesR"/>
     </node>

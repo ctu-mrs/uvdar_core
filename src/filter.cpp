@@ -353,9 +353,12 @@ namespace uvdar {
             ROS_INFO_STREAM("[UVDARKalman]: Meas. cov. transformed: " << std::endl << poseCov);
           }
 
+          poseCov.topLeftCorner(3,3) += e::Matrix3d::Identity()*0.5; //fattening the measurements before applying them - they don't represent the distribution too well and the elliptic shape of the gaussians unduly shortents the filter covariances, as if we had more information on distance than we really do.
+
           meas_converted.push_back({.x=poseVec,.P=poseCov});
           ids.push_back(meas.id);
         }
+
 
         if (_anonymous_measurements_){
           applyMeasurementsAnonymous(meas_converted, msg_local.header.stamp, msg_local.header.frame_id);
@@ -552,6 +555,7 @@ namespace uvdar {
         P_local.bottomLeftCorner(3,3).setZero();  // check the case of _use_velocity_ == true
 
         P_local *= (1.0/match_level);
+
 
         /* ROS_INFO_STREAM("[UVDARKalman]: Meas. cov: " << std::endl << measurement.P); */
         filter_local.filter_state = filter->correct(filter_local.filter_state, measurement.x, P_local);
@@ -1129,9 +1133,9 @@ namespace uvdar {
           }
           else{
             // This is an unorthodox approach.
-            // I wanted for the process noise covariance Q (expressing a multivariate gaussian) to cover not only the noise in static position extimate, but to also take into account the mean of expected relative velocity, which is not a state variable in this case.
+            // I wanted for the process noise covariance Q (expressing a multivariate gaussian) to cover not only the noise in static position estimate, but to also take into account the mean of expected relative velocity, which is not a state variable in this case.
             // The noise should inflate the error covariance of the state approximately linearly. This can be demonstrated in the following example:
-            //  In this filter, we can receive measurement with time-stamp after a previous step of prediction. We therefore first need to predict the effects of process noise up to the measurement time, we then correct the state with the measruement and in the next prediction step we need to expand the error covariance from the measurement time to the next step in the regular process.
+            //  In this filter, we can receive measurement with time-stamp after a previous step of prediction. We therefore first need to predict the effects of process noise up to the measurement time, we then correct the state with the measurement and in the next prediction step we need to expand the error covariance from the measurement time to the next step in the regular process.
             //  If the expansion was not to be linear (or at least close to linear), the two prediction steps, splitting a normal time step into two parts, would not add up to the same result as a single prediction with time step equal to the sum of the two.
             // To approach linearity without drastically changing the Kalman filter process (it must be based on multivariate Gaussians) while including an unknown velocity of uniform distribution, we need a Q that represents the sum of the influences of position estimate noise and of the drift due to unknown velocity.
             // The function used here was obtained thusly:
