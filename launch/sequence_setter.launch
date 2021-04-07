@@ -1,7 +1,7 @@
 <launch>
   <arg name="UAV_NAME" default="$(optenv UAV_NAME uav)" />
   <arg name="name" default="_uvdar" />
-  <arg name="portname" default="/dev/uvdar" />
+  <arg name="portname" default="/dev/MRS_MODULE2" />
   <arg name="profiler" default="$(optenv PROFILER false)" />
 
   <arg name="sequence_file" default="$(find uvdar_core)/config/selected.txt"/>
