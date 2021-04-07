@@ -32,7 +32,7 @@
 
     <node name="uvdar_sequence_setter_node" pkg="uvdar_core" type="uvdar_sequence_setter_node" output="screen" respawn="true">
 
-      <param name="sequence_file" type="bool" value="$(arg sequence_file)" />
+      <param name="sequence_file" type="string" value="$(arg sequence_file)" />
         <!-- Publisher -->
       <remap from="~baca_protocol_out" to="/$(arg UAV_NAME)/serial_uvdar/send_message" />
 
