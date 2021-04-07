@@ -118,6 +118,9 @@ add_dependencies(uvdar_mask_generator_node ${${PROJECT_NAME}_EXPORTED_TARGETS} $
 add_executable(uvdar_frequency_setter_node src/frequency_setter.cpp)
 add_dependencies(uvdar_frequency_setter_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
+add_executable(uvdar_sequence_setter_node src/sequence_setter.cpp)
+add_dependencies(uvdar_sequence_setter_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+
 add_custom_target(headers SOURCES ${HEADER_FILES} ${LAUNCHER_FILES} ${YAML_FILES})
 
 target_link_libraries(UVDARDetector
@@ -176,6 +179,10 @@ target_link_libraries(uvdar_mask_generator_node
   )
 
 target_link_libraries(uvdar_frequency_setter_node
+  ${catkin_LIBRARIES}
+  )
+
+target_link_libraries(uvdar_sequence_setter_node
   ${catkin_LIBRARIES}
   )
 

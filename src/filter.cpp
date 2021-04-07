@@ -108,7 +108,6 @@ namespace uvdar {
       ros::Publisher pub_filter_;
       ros::Publisher pub_filter_tent_;
 
-      // | ------------------------ services ------------------------ |
       ros::Timer timer;
       ros::Duration filter_update_period;
       double dt;
