@@ -16,6 +16,8 @@ namespace uvdar {
       bool initialized = false;
       ros::Publisher baca_protocol_publisher;
 
+      ros::Duration sleeper = ros::Duration(0.01);
+
       ros::ServiceServer serv_frequency;
       ros::ServiceServer serv_load_file;
       ros::ServiceServer serv_select_sequence;
@@ -70,6 +72,7 @@ namespace uvdar {
         serial_msg.payload.push_back(0x97); //set sequence length
         serial_msg.payload.push_back(sequence_length); //# bits
         baca_protocol_publisher.publish(serial_msg);
+        sleeper.sleep();
 
 
         unsigned char i = 0;
@@ -83,6 +86,7 @@ namespace uvdar {
           }
 
           baca_protocol_publisher.publish(serial_msg);
+          sleeper.sleep();
           i++;
         }
 
@@ -118,7 +122,9 @@ namespace uvdar {
         mrs_msgs::Float64Srv::Request dummy_float_req;
         mrs_msgs::Float64Srv::Response dummy_float_res;
         dummy_float_req.value = (double)(60);
+        sleeper.sleep();
         callbackSetFrequency(dummy_float_req,dummy_float_res);
+        sleeper.sleep();
         callbackSelectSequence(req,res);
 
         return true;
