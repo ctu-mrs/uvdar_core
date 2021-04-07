@@ -18,8 +18,6 @@
       <param name="portname" value="$(arg portname)"/>
       <param name="use_timeout" value="true"/>
 
-      <param name="swap_garmins" value="$(arg swap_garmins)"/>
-
       <!-- Publishers -->
       <remap from="~range" to="/$(arg UAV_NAME)/garmin/range" />
       <remap from="~range_up" to="/$(arg UAV_NAME)/garmin/range_up" />
