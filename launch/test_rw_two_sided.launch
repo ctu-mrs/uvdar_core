@@ -226,7 +226,7 @@
       <param name="pitch_steps"         type="int" value="$(arg pitch_steps)"/>
       <param name="yaw_steps"         type="int" value="$(arg yaw_steps)"/>
       <param name="max_pixel_shift"         type="int" value="$(arg max_pixel_shift)"/>
-      <param name="nullify_radius"         type="int" value="5"/>
+      <param name="nullify_radius"         type="int" value="8"/>
 
       <rosparam param="camera_topics"> ["camera_left", "camera_right"] </rosparam>
       <rosparam param="points_seen_topics"> ["points_seen_left", "points_seen_right"] </rosparam>

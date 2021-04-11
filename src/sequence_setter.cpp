@@ -16,8 +16,11 @@ namespace uvdar {
       bool initialized = false;
       ros::Publisher baca_protocol_publisher;
 
+      ros::Duration sleeper = ros::Duration(0.05);
+
       ros::ServiceServer serv_frequency;
-      ros::ServiceServer serv_load_file;
+      ros::ServiceServer serv_load_sequences;
+      ros::ServiceServer serv_load_single_sequence;
       ros::ServiceServer serv_select_sequence;
       ros::ServiceServer serv_quick_start;
     public:
@@ -27,8 +30,15 @@ namespace uvdar {
         mrs_lib::ParamLoader param_loader(nh, "UVDARSequenceSetter");
         param_loader.loadParam("sequence_file", _sequence_file_, std::string());
 
+        ROS_INFO_STREAM("[UVDARSequenceSetter]: Loading sequences from file " << _sequence_file_);
+        if ((!parseSequenceFile(_sequence_file_)) || ((int)(sequences_.size()) < 1)){
+          ROS_INFO_STREAM("[UVDARSequenceSetter]: Failed to load file " << _sequence_file_);
+          return;
+        }
+
         serv_frequency = nh.advertiseService("set_frequency", &SequenceSetter::callbackSetFrequency, this);
-        serv_load_file = nh.advertiseService("load_sequence_file", &SequenceSetter::callbackLoadSequenceFile, this);
+        serv_load_sequences = nh.advertiseService("load_sequences", &SequenceSetter::callbackLoadSequences, this);
+        serv_load_single_sequence = nh.advertiseService("load_single_sequence", &SequenceSetter::callbackLoadSingleSequence, this);
         serv_select_sequence = nh.advertiseService("select_sequence", &SequenceSetter::callbackSelectSequence, this);
         serv_quick_start = nh.advertiseService("quick_start", &SequenceSetter::callbackQuickStart, this);
         initialized = true;
@@ -40,6 +50,13 @@ namespace uvdar {
 
     private:
       bool callbackSetFrequency(mrs_msgs::Float64Srv::Request &req, mrs_msgs::Float64Srv::Response &res){
+        if (!initialized){
+          ROS_ERROR("[UVDARSequenceSetter]: Sequence setter is NOT initialized!");
+          res.success = false;
+          res.message = "Sequence setter is NOT initialized!";
+          return true;
+        }
+
         unsigned char int_frequency = (unsigned char)(req.value);
 
         mrs_msgs::BacaProtocol serial_msg;
@@ -55,13 +72,15 @@ namespace uvdar {
         return true;
       }
 
-      bool callbackLoadSequenceFile(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res){
-        ROS_INFO_STREAM("[UVDARSequenceSetter]: Loading sequences from file " << _sequence_file_);
-        if ((!parseSequenceFile(_sequence_file_)) || ((int)(sequences_.size()) < 1)){
-          res.message = "Failed to load file "+_sequence_file_;
+      bool callbackLoadSequences(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res){
+        if (!initialized){
+          ROS_ERROR("[UVDARSequenceSetter]: Sequence setter is NOT initialized!");
           res.success = false;
+          res.message = "Sequence setter is NOT initialized!";
           return true;
         }
+
+        ROS_INFO_STREAM("[UVDARSequenceSetter]: Loading sequences into the LED driver");
 
         mrs_msgs::BacaProtocol serial_msg;
         serial_msg.stamp = ros::Time::now();
@@ -70,6 +89,7 @@ namespace uvdar {
         serial_msg.payload.push_back(0x97); //set sequence length
         serial_msg.payload.push_back(sequence_length); //# bits
         baca_protocol_publisher.publish(serial_msg);
+        sleeper.sleep();
 
 
         unsigned char i = 0;
@@ -78,21 +98,78 @@ namespace uvdar {
           serial_msg.payload.push_back(0x99); //write sequences
           serial_msg.payload.push_back(i); //sequence index is i
 
+            /* ROS_INFO_STREAM("[UVDARSequenceSetter]: s:" << (int)(i)); */
           for (auto b : sq){
             serial_msg.payload.push_back(b?0x01:0x00); //bit of the sequence
+            /* ROS_INFO_STREAM("[UVDARSequenceSetter]: b:" << (b?"1":"0")); */
           }
 
+          /* if (i == 3) */
           baca_protocol_publisher.publish(serial_msg);
+          sleeper.sleep();
           i++;
         }
 
-        res.message = "Loaded the sequences from file "+_sequence_file_;
+        res.message = "Loaded the sequences";
+        res.success = true;
+        return true;
+      }
+
+      bool callbackLoadSingleSequence(mrs_msgs::SetInt::Request &req, mrs_msgs::SetInt::Response &res){
+        if (!initialized){
+          ROS_ERROR("[UVDARSequenceSetter]: Sequence setter is NOT initialized!");
+          res.success = false;
+          res.message = "Sequence setter is NOT initialized!";
+          return true;
+        }
+
+        unsigned char index = (unsigned char)(req.value);
+        if (index >= (int)(sequences_.size())){
+          ROS_ERROR_STREAM("[UVDARSequenceSetter]: Failed to load sequence " << index << " into the LED driver - no such sequence!");
+          res.message = "Failed to load sequence " + std::to_string((int)(index)) +" into the LED driver - no such sequence!";
+          res.success = false;
+          return true;
+        }
+
+        ROS_INFO_STREAM("[UVDARSequenceSetter]: Loading sequence " << index << " into the LED driver");
+
+        mrs_msgs::BacaProtocol serial_msg;
+        serial_msg.stamp = ros::Time::now();
+
+        serial_msg.payload.clear();
+        serial_msg.payload.push_back(0x99); //write sequences
+        serial_msg.payload.push_back(index); //sequence index is i
+
+        /* ROS_INFO_STREAM("[UVDARSequenceSetter]: s:" << (int)(i)); */
+        for (auto b : sequences_[index]){
+          serial_msg.payload.push_back(b?0x01:0x00); //bit of the sequence
+          /* ROS_INFO_STREAM("[UVDARSequenceSetter]: b:" << (b?"1":"0")); */
+        }
+
+        /* if (i == 3) */
+        baca_protocol_publisher.publish(serial_msg);
+        sleeper.sleep();
+
+        res.message = ("Loaded sequence "+std::to_string((int)(index))).c_str();
         res.success = true;
         return true;
       }
 
       bool callbackSelectSequence(mrs_msgs::SetInt::Request &req, mrs_msgs::SetInt::Response &res){
+        if (!initialized){
+          ROS_ERROR("[UVDARSequenceSetter]: Sequence setter is NOT initialized!");
+          res.success = false;
+          res.message = "Sequence setter is NOT initialized!";
+          return true;
+        }
+
         unsigned char index = (unsigned char)(req.value);
+        if (index >= (int)(sequences_.size())){
+          ROS_ERROR_STREAM("[UVDARSequenceSetter]: Failed to set sequence " << index << " - no such sequence!");
+          res.message = "Failed to select sequence " + std::to_string((int)(index)) +" - no such sequence!";
+          res.success = false;
+          return true;
+        }
 
         mrs_msgs::BacaProtocol serial_msg;
         serial_msg.stamp = ros::Time::now();
@@ -107,9 +184,16 @@ namespace uvdar {
       }
 
       bool callbackQuickStart(mrs_msgs::SetInt::Request &req, mrs_msgs::SetInt::Response &res){
+        if (!initialized){
+          ROS_ERROR("[UVDARSequenceSetter]: Sequence setter is NOT initialized!");
+          res.success = false;
+          res.message = "Sequence setter is NOT initialized!";
+          return true;
+        }
+
         std_srvs::Trigger::Request dummy_trig_req;
         std_srvs::Trigger::Response dummy_trig_res;
-        callbackLoadSequenceFile(dummy_trig_req, dummy_trig_res);
+        callbackLoadSequences(dummy_trig_req, dummy_trig_res);
         if (dummy_trig_res.success == false){
           res.message = dummy_trig_res.message;
           res.success = false;
@@ -118,7 +202,9 @@ namespace uvdar {
         mrs_msgs::Float64Srv::Request dummy_float_req;
         mrs_msgs::Float64Srv::Response dummy_float_res;
         dummy_float_req.value = (double)(60);
+        sleeper.sleep();
         callbackSetFrequency(dummy_float_req,dummy_float_res);
+        sleeper.sleep();
         callbackSelectSequence(req,res);
 
         return true;
