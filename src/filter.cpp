@@ -352,7 +352,7 @@ namespace uvdar {
             ROS_INFO_STREAM("[UVDARKalman]: Meas. cov. transformed: " << std::endl << poseCov);
           }
 
-          poseCov.topLeftCorner(3,3) += e::Matrix3d::Identity()*0.5; //fattening the measurements before applying them - they don't represent the distribution too well and the elliptic shape of the gaussians unduly shortents the filter covariances, as if we had more information on distance than we really do.
+          /* poseCov.topLeftCorner(3,3) += e::Matrix3d::Identity()*0.5; //fattening the measurements before applying them - they don't represent the distribution too well and the elliptic shape of the gaussians unduly shortents the filter covariances, as if we had more information on distance than we really do. */
 
           meas_converted.push_back({.x=poseVec,.P=poseCov});
           ids.push_back(meas.id);
@@ -559,6 +559,8 @@ namespace uvdar {
         /* ROS_INFO_STREAM("[UVDARKalman]: Meas. cov: " << std::endl << measurement.P); */
         filter_local.filter_state = filter->correct(filter_local.filter_state, measurement.x, P_local);
         /* ROS_INFO_STREAM("[UVDARKalman]: Fixed to: " << std::endl << P_local); */
+
+        filter_local.filter_state.P *= 2;//this makes the filter not increase certainty in case of multiple identical measurements - the mean in the covariances is more probable than the rest of its x<1*sigma space
 
         filter_local.filter_state.x[3] = fixAngle(filter_local.filter_state.x[3], 0);
         filter_local.filter_state.x[4] = fixAngle(filter_local.filter_state.x[4], 0);
