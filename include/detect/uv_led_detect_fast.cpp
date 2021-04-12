@@ -75,11 +75,14 @@ bool uvdar::UVDARLedDetectFAST::processImage(const cv::Mat i_image, std::vector<
         if (image_curr_.data[index2d(i, j)] > (_threshold_ * 2)) { //if the point is "very bright" it might be a part of the image of directly observed sun
           sun_point_potential = true;
         }
-        marker_potential = true;
 
         int n = -1;
         for (auto fast_points : fast_points_set_) { //iterate over the pre-selected sets of points for different sizes of the FAST radius
+          marker_potential = true;
           n++;
+          /* if (n>0){ */
+          /*   std::cout << "HERE A" << std::endl; */
+          /* } */
           for (int m = 0; m < (int)(fast_points.size()); m++) { //iterate over the points in the current FAST radius
             x = i + fast_points[m].x;
             y = j + fast_points[m].y;
@@ -103,6 +106,9 @@ bool uvdar::UVDARLedDetectFAST::processImage(const cv::Mat i_image, std::vector<
             }
 
             if ((image_curr_.data[index2d(i, j)] - image_curr_.data[index2d(x, y)]) < (_threshold_ / 2)) { //if the difference between the current point and a surrounding point is smaller than desired
+              /* if (n>0){ */
+              /*     std::cout << "HERE B: broken at fast point " << m << " by: " << (int)(image_curr_.data[index2d(i, j)] - image_curr_.data[index2d(x, y)]) << std::endl; */
+              /* } */
 
               marker_potential = false; //this is not a marker (not concentrated enough)
               if (!sun_point_potential) //if we expected this to be a part of the sun, can still confirm this hypthesis
@@ -114,9 +120,21 @@ bool uvdar::UVDARLedDetectFAST::processImage(const cv::Mat i_image, std::vector<
               sun_point_potential = false;
             }
           }
+          /* if (n>0){ */
+          /*   std::cout << "HERE E: here? " << std::endl; */
+          /* } */
           if (marker_potential) { //if the smaller radius check determines that this point is a marker, the larger radius is unnecessary
+              /* std::cout << "HERE C: passed" << std::endl; */
+            /* if (n>0){ */
+              /* std::cout << "HERE D: passed on second ring" << std::endl; */
+            /* } */
             break;
           }
+        }
+        if (n>0){
+          /* if (marker_potential){ */
+          /*   std::cout << "HERE B" << std::endl; */
+          /* } */
         }
         unsigned char maximum_val;
         if (marker_potential) {
