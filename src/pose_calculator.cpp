@@ -45,7 +45,7 @@
 
 #define LED_GROUP_DISTANCE 0.03
 
-#define ERROR_THRESHOLD 40
+#define ERROR_THRESHOLD 50
 
 #define SIMILAR_ERRORS_THRESHOLD sqr(1)
 
@@ -1179,7 +1179,7 @@ namespace uvdar {
             }
 
 
-            if (fitted_pose.first.norm() < 1.5) { //We don't expect to be able to measure relative poses of UAVs this close - the markers would be too bright and too far apart
+            if (fitted_pose.first.norm() < 1.0) { //We don't expect to be able to measure relative poses of UAVs this close - the markers would be too bright and too far apart
               continue;
             }
 
@@ -1494,8 +1494,17 @@ namespace uvdar {
         e::Vector3d first_position = 1.0*furthest_position.normalized();
         if (_debug_)
           ROS_INFO_STREAM("[UVDARPoseCalculator]: Range: " << (furthest_position-first_position).norm());
-        int dist_step_count = std::max(1.0,round((furthest_position-first_position).norm()/init_dist_step_meters));
-        auto position_step = (furthest_position-first_position)/dist_step_count;
+        int dist_step_count = round((furthest_position-first_position).norm()/init_dist_step_meters);
+        e::Vector3d position_step;
+        bool is_close = false;
+        if (dist_step_count == 0){
+          position_step = (furthest_position-first_position).normalized();
+          first_position = furthest_position;
+          is_close = true;
+        }
+        else{ 
+          position_step = (furthest_position-first_position)/dist_step_count;
+        }
 
         double angle_step = 2.0*M_PI/(double)(orientation_step_count);
 
@@ -1510,8 +1519,11 @@ namespace uvdar {
           orientation_errors.clear();
           /* best_orientation.push_back({std::numeric_limits<double>::max(), -1}); */
           for (int j=0; j<orientation_step_count; j++){
+            /* use is close */
+
             double error_total = totalError(model.rotate(e::Vector3d(0,0,0), e::Vector3d::UnitZ(), j*angle_step).translate(position_curr), observed_points, target, image_index);
             orientation_errors.push_back({error_total,j*angle_step});
+              ROS_INFO_STREAM("[UVDARPoseCalculator]: best_orientation error: " << orientation_errors.back().first );
           }
 
           //find local orientation minima
@@ -1540,6 +1552,7 @@ namespace uvdar {
             }
           }
 
+          ROS_INFO_STREAM("[UVDARPoseCalculator]: best_orientation count: " << best_orientations.size() << ", acceptable: " << acceptable_hypotheses.size() );
           position_curr+=position_step;
         }
 
