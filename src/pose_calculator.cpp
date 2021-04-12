@@ -1494,7 +1494,7 @@ namespace uvdar {
         e::Vector3d first_position = 1.0*furthest_position.normalized();
         if (_debug_)
           ROS_INFO_STREAM("[UVDARPoseCalculator]: Range: " << (furthest_position-first_position).norm());
-        int dist_step_count = round((furthest_position-first_position).norm()/init_dist_step_meters);
+        int dist_step_count = std::max(1.0,round((furthest_position-first_position).norm()/init_dist_step_meters));
         auto position_step = (furthest_position-first_position)/dist_step_count;
 
         double angle_step = 2.0*M_PI/(double)(orientation_step_count);
