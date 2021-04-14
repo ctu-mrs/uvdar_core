@@ -491,7 +491,9 @@ namespace uvdar {
         auto orig_state = fd_curr;
         double dt_from_last = std::fmax(std::fmin((target_time-fd_curr.latest_update).toSec(),(target_time-fd_curr.latest_measurement).toSec()),0.0);
         filter->A = A_dt(dt_from_last);
+        /* ROS_INFO_STREAM("[UVDARKalman]: Filter pred. orig: " << std::endl << fd_curr.filter_state.P); */
         auto new_state =  filter->predict(fd_curr.filter_state, u_t(), Q_dt(dt_from_last), dt_from_last);
+        /* ROS_INFO_STREAM("[UVDARKalman]: Filter predicted: " << std::endl << fd_curr.filter_state.P); */
         if (apply_update){
           fd_curr.filter_state = new_state;
           fd_curr.latest_update = target_time;
@@ -550,17 +552,26 @@ namespace uvdar {
             );
 
         auto P_local = measurement.P;
+        /* ROS_INFO_STREAM("[UVDARKalman]: Meas. cov: " << std::endl << P_local); */
         P_local.topRightCorner(3,3).setZero();  // check the case of _use_velocity_ == true
         P_local.bottomLeftCorner(3,3).setZero();  // check the case of _use_velocity_ == true
 
+        /* double dt_from_last = std::fmax(std::fmin((filter_local.latest_update-meas_time).toSec(),(filter_local.latest_measurement-meas_time).toSec()),0.0); */
+        /* P_local += Q_dt(dt_from_last)*dt_from_last; */
+
+        /* ROS_INFO_STREAM("[UVDARKalman]: Scaling by: " << 1.0/match_level << " due to match level of " << match_level); */
         P_local *= (1.0/match_level);
+        /* ROS_INFO_STREAM("[UVDARKalman]: With ML: " << std::endl << P_local); */
+        /* P_local *= std::max(0.1,(1.0/match_level)); */
 
 
-        /* ROS_INFO_STREAM("[UVDARKalman]: Meas. cov: " << std::endl << measurement.P); */
+        /* ROS_INFO_STREAM("[UVDARKalman]: Filter orig: " << std::endl << filter_local.filter_state.P); */
         filter_local.filter_state = filter->correct(filter_local.filter_state, measurement.x, P_local);
+        /* ROS_INFO_STREAM("[UVDARKalman]: Filter corr: " << std::endl << filter_local.filter_state.P); */
         /* ROS_INFO_STREAM("[UVDARKalman]: Fixed to: " << std::endl << P_local); */
 
-        filter_local.filter_state.P *= 2;//this makes the filter not increase certainty in case of multiple identical measurements - the mean in the covariances is more probable than the rest of its x<1*sigma space
+        filter_local.filter_state.P *= (1+match_level);//this makes the filter not increase certainty in case of multiple identical measurements - the mean in the covariances is more probable than the rest of its x<1*sigma space
+        /* ROS_INFO_STREAM("[UVDARKalman]: Filter exp.: " << std::endl << filter_local.filter_state.P); */
 
         filter_local.filter_state.x[3] = fixAngle(filter_local.filter_state.x[3], 0);
         filter_local.filter_state.x[4] = fixAngle(filter_local.filter_state.x[4], 0);
