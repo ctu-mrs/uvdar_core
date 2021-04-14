@@ -1523,7 +1523,7 @@ namespace uvdar {
 
             double error_total = totalError(model.rotate(e::Vector3d(0,0,0), e::Vector3d::UnitZ(), j*angle_step).translate(position_curr), observed_points, target, image_index);
             orientation_errors.push_back({error_total,j*angle_step});
-              ROS_INFO_STREAM("[UVDARPoseCalculator]: best_orientation error: " << orientation_errors.back().first );
+              /* ROS_INFO_STREAM("[UVDARPoseCalculator]: best_orientation error: " << orientation_errors.back().first ); */
           }
 
           //find local orientation minima
@@ -1552,7 +1552,7 @@ namespace uvdar {
             }
           }
 
-          ROS_INFO_STREAM("[UVDARPoseCalculator]: best_orientation count: " << best_orientations.size() << ", acceptable: " << acceptable_hypotheses.size() );
+          /* ROS_INFO_STREAM("[UVDARPoseCalculator]: best_orientation count: " << best_orientations.size() << ", acceptable: " << acceptable_hypotheses.size() ); */
           position_curr+=position_step;
         }
 
