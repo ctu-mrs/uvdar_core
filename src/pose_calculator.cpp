@@ -581,6 +581,21 @@ namespace uvdar {
               return false;
             }
           }
+          auto center_dir = directionFromCamPoint(cv::Point3d(_oc_models_[i].yc,_oc_models_[i].xc,0),i);
+          auto zero_dir = e::Vector3d(0,0,1);
+
+          double x_ang = acos(e::Vector3d(center_dir.x(),0,center_dir.z()).normalized().dot(zero_dir));
+          if (center_dir.x()<0){
+            x_ang = -x_ang;
+          }
+
+          double y_ang = acos(e::Vector3d(0,center_dir.y(),center_dir.z()).normalized().dot(zero_dir));
+          if (center_dir.y()<0){
+            y_ang = -y_ang;
+          }
+
+          _center_fix_.push_back(e::Quaterniond(e::AngleAxisd(x_ang, e::Vector3d(0,1,0))*e::AngleAxisd(y_ang, e::Vector3d(1,0,0))));
+
           i++;
         }
         return true;
@@ -1237,7 +1252,7 @@ namespace uvdar {
 
           if (_publish_constituents_){
             for (int i = 0; i<(int)(selected_poses.size()); i++){
-              auto constituent_pose_optical = opticalFromBase(selected_poses[i],covariances[i]);
+              auto constituent_pose_optical = opticalFromBase(selected_poses[i],covariances[i], image_index);
               mrs_msgs::PoseWithCovarianceIdentified constituent;
 
               constituent.id = target;
@@ -1285,7 +1300,7 @@ namespace uvdar {
           }
 
 
-          auto fitted_pose_optical = opticalFromBase(final_mean,final_covariance);
+          auto fitted_pose_optical = opticalFromBase(final_mean,final_covariance, image_index);
 
           output_pose.id = target;
           output_pose.pose.position.x = fitted_pose_optical.first.first.x();
@@ -2282,10 +2297,11 @@ namespace uvdar {
         return {fastMatrixVectorProduct(m_rotator,marker.position), fastMatrixMatrixProduct(m_rotator,marker.orientation.toRotationMatrix())};
       }
 
-      std::pair<std::pair<e::Vector3d,e::Quaterniond>,e::MatrixXd> opticalFromBase(std::pair<e::Vector3d,e::Quaterniond> pose, e::MatrixXd covariance){
+      std::pair<std::pair<e::Vector3d,e::Quaterniond>,e::MatrixXd> opticalFromBase(std::pair<e::Vector3d,e::Quaterniond> pose, e::MatrixXd covariance,int image_index){
         auto output_pose = pose;
         auto output_covariance = covariance;
         e::Quaterniond rotator(0.5,0.5,-0.5,0.5);
+        rotator = _center_fix_[image_index]*rotator;
         output_pose.first = rotator*pose.first;
         output_pose.second = rotator*pose.second;
         output_covariance.topLeftCorner(3,3) = rotator.toRotationMatrix()*output_covariance.topLeftCorner(3,3)*rotator.toRotationMatrix().transpose();
@@ -2503,6 +2519,7 @@ namespace uvdar {
 
 
       std::vector<struct ocam_model> _oc_models_;
+      std::vector<e::Quaterniond> _center_fix_;
 
 
       /* Eigen::MatrixXd Px2,Px3,Px2q; */
