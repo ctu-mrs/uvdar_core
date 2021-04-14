@@ -106,7 +106,7 @@
     name="uvcam_right_tf_$(arg uav_name)"
     pkg="tf"
     type="static_transform_publisher"
-    args="0.03 -0.10 0.06 -2.792526803 0.087 -1.57079632679 $(arg uav_name)/fcu $(arg uav_name)/uvcam_right 100"/>
+    args="0.03 -0.10 0.06 -2.792526803 0.0 -1.57079632679 $(arg uav_name)/fcu $(arg uav_name)/uvcam_right 100"/>
 
   <!-- ideal angle: 1.221730476 - pi/2 -->
 
