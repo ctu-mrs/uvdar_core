@@ -581,7 +581,11 @@ namespace uvdar {
               return false;
             }
           }
-          auto center_dir = directionFromCamPoint(cv::Point3d(_oc_models_[i].yc,_oc_models_[i].xc,0),i);
+
+          ROS_INFO_STREAM("[UVDARPoseCalculator]: Camera resolution  is: " << _oc_models_.at(i).width << "x" << _oc_models_.at(i).height);
+
+          /* auto center_dir = directionFromCamPoint(cv::Point3d(_oc_models_[i].yc,_oc_models_[i].xc,0),i); */
+          auto center_dir = directionFromCamPoint(cv::Point3d(_oc_models_.at(i).width/2,_oc_models_.at(i).height/2,0),i);
           auto zero_dir = e::Vector3d(0,0,1);
 
           double x_ang = acos(e::Vector3d(center_dir.x(),0,center_dir.z()).normalized().dot(zero_dir));
@@ -594,7 +598,10 @@ namespace uvdar {
             y_ang = -y_ang;
           }
 
-          _center_fix_.push_back(e::Quaterniond(e::AngleAxisd(x_ang, e::Vector3d(0,1,0))*e::AngleAxisd(y_ang, e::Vector3d(1,0,0))));
+          ROS_INFO_STREAM("[UVDARPoseCalculator]: Central direction is: " << center_dir.transpose());
+          ROS_INFO_STREAM("[UVDARPoseCalculator]: Offset in angles from central direction: X=" << rad2deg(x_ang) << ": Y=" << rad2deg(y_ang) );
+
+          _center_fix_.push_back(e::Quaterniond(e::AngleAxisd(-x_ang*0.5, e::Vector3d(0,-1,0))*e::AngleAxisd(-y_ang*0.5, e::Vector3d(1,0,0))));
 
           i++;
         }
@@ -2301,7 +2308,7 @@ namespace uvdar {
         auto output_pose = pose;
         auto output_covariance = covariance;
         e::Quaterniond rotator(0.5,0.5,-0.5,0.5);
-        rotator = _center_fix_[image_index]*rotator;
+        /* rotator = _center_fix_[image_index]*rotator; */
         output_pose.first = rotator*pose.first;
         output_pose.second = rotator*pose.second;
         output_covariance.topLeftCorner(3,3) = rotator.toRotationMatrix()*output_covariance.topLeftCorner(3,3)*rotator.toRotationMatrix().transpose();
