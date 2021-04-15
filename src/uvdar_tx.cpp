@@ -17,6 +17,7 @@
 #define SEPARATOR_BITS 5
 
 int                         uav_id = 0;
+int                         set_rate = 0;
 std::string                 uav_name;
 /* std::vector<ros::Publisher> pub_led_states; */
 std::vector<std::string>    leds_topics;
@@ -77,11 +78,14 @@ public:
     param_loader.loadParam("fr_setter_topic", fr_setter_topic);
     param_loader.loadParam("odom_topic", odom_topic);
     param_loader.loadParam("msgs_topic", msgs_topic);
+    param_loader.loadParam("set_rate", set_rate);
     param_loader.loadParam("estimated_framerate_topics", estimated_framerate_topics, estimated_framerate_topics);
 
     USmsgSub = nh.subscribe(msgs_topic, 1, &TX_processor::usm_cb, this);  // sub for get new custom command to send
     OdomSub  = nh.subscribe(odom_topic, 1, &TX_processor::odom_cb, this);    // sub for get info about heading
-    
+   
+    rate = (int)(set_rate / 3);
+
     sub_default_msg  = nh.subscribe("/" + uav_name + "/uvdar_communication/default_angle_msg", 1, &TX_processor::defMsg, this);    // sub for get info about heading
 
     LedStateClient = nh.serviceClient<uvdar_core::SetLedState>(fr_setter_topic);
@@ -386,7 +390,7 @@ int main(int argc, char** argv) {
     }
 
     LedStateClient.call(ledMsg);
-
+    /* ROS_INFO("[%d]: ", rate); */
     my_rate.sleep();
     ros::spinOnce();
   }

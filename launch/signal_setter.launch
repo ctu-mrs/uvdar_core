@@ -1,0 +1,61 @@
+<launch>
+
+  <arg name="uav_name" default="$(optenv UAV_NAME uav1)"/>
+  <arg name="name" default="_uvdar" />
+  <arg name="portname" default="/dev/uvdar" />
+  <arg name="profiler" default="$(optenv PROFILER false)" />
+  
+  <arg name="simulation" default="false" />
+
+  <arg name="swap_garmins" default="$(optenv SWAP_GARMINS false)" />
+
+  <arg name="DEBUG" default="false" />
+  <arg unless="$(arg DEBUG)" name="launch_prefix_debug" value=""/>
+  <arg     if="$(arg DEBUG)" name="launch_prefix_debug" value="debug_roslaunch"/>
+  
+  <arg name="standalone" default="true" />
+  <arg name="manager" default="$(arg uav_name)_waypointflier_manager" />
+  <arg name="n_threads" default="8" />
+  <arg unless="$(arg standalone)" name="nodelet" value="load"/>
+  <arg     if="$(arg standalone)" name="nodelet" value="standalone"/>
+  <arg unless="$(arg standalone)" name="nodelet_manager" value="$(arg manager)"/>
+  <arg     if="$(arg standalone)" name="nodelet_manager" value=""/>
+  
+
+  <group ns="$(arg uav_name)">
+    <!-- launch the node -->
+    <node pkg="nodelet" type="nodelet" name="serial_uvdar" args="standalone baca_protocol/BacaProtocol" respawn="true" output="screen">
+      <param name="uav_name" type="string" value="$(arg uav_name)"/>
+
+      <rosparam file="$(find mrs_serial)/config/mrs_serial.yaml" />
+
+      <param name="enable_profiler" type="bool" value="$(arg profiler)" />
+      <param name="portname" value="$(arg portname)"/>
+      <param name="use_timeout" value="true"/>
+
+      <param name="swap_garmins" value="$(arg swap_garmins)"/>
+
+        <!-- Publishers -->
+      <remap from="~range" to="/$(arg uav_name)/garmin/range" />
+      <remap from="~range_up" to="/$(arg uav_name)/garmin/range_up" />
+      <remap from="~profiler" to="profiler" />
+      <remap from="~baca_protocol_out" to="~received_message" />
+
+        <!-- Subscribers -->
+      <remap from="~baca_protocol_in" to="~send_message" />
+      <remap from="~raw_in" to="~send_raw_message" />
+
+    </node>
+
+    <node pkg="nodelet" type="nodelet" name="signal_setter" args="$(arg nodelet) signal_setter/SignalSetter $(arg nodelet_manager)" launch-prefix="$(arg launch_prefix_debug)" output="screen">
+    <!-- <node pkg="nodelet" type="nodelet" name="signal_setter" args="$(arg nodelet) signal_setter/SignalSetter $(arg nodelet_manager)" launch-prefix="debug_roslaunch" output="screen"> -->
+  
+      <param name="uav_name" value="$(arg uav_name)" />
+      <param name="simulation" value="$(arg simulation)" />
+        <!-- Publisher -->
+      <remap from="~baca_protocol_out" to="/$(arg uav_name)/serial_uvdar/send_message" />
+    </node>
+    
+  </group>
+  
+</launch>

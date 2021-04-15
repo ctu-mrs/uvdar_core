@@ -94,12 +94,14 @@ add_library(ht4dbt include/ht4dbt/ht4d.cpp)
 add_library(uv_led_detect_fast include/detect/uv_led_detect_fast.cpp)
 add_library(frequency_classifier include/frequency_classifier/frequency_classifier.cpp)
 add_library(color_selector include/color_selector/color_selector.cpp)
+add_library(SignalSetter src/signal_setter.cpp)
 
 target_link_libraries(uvdar_rx_node ${catkin_LIBRARIES})
 target_link_libraries(uvdar_tx_node ${catkin_LIBRARIES})
 target_link_libraries(fr_setter_node ${catkin_LIBRARIES})
 target_link_libraries(new_uvdar_rx_node ${catkin_LIBRARIES} ${OpenCV_LIBRARIES}
  ht4dbt)
+target_link_libraries(SignalSetter ${catkin_LIBRARIES})
 add_dependencies(new_uvdar_rx_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 target_link_libraries(uv_led_detect_fast
