@@ -77,7 +77,7 @@ HT4DBlinkerTracker::HT4DBlinkerTracker(
   else
     scaling_factor_       = 1.0;
   hough_thresh_      =
-    (unsigned int)((mem_steps_ ) * (1+(weight_coeff*WEIGHT_FACTOR)) * 0.5 * 0.8 * scaling_factor_); // threshold over which we expect maxima to appear
+    (unsigned int)((mem_steps_ ) * (1+(weight_coeff*WEIGHT_FACTOR)) * 0.5 * 1.0 * scaling_factor_); // threshold over which we expect maxima to appear
   nullify_radius_    = i_nullify_radius;
   reasonable_radius_ = i_reasonable_radius;
   im_res_            = i_im_res;
