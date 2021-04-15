@@ -1,0 +1,58 @@
+<launch>
+  <arg name="uav_name" default="$(optenv UAV_NAME uav2)"/>
+
+  <node
+    name="tf_1_to_2"
+    pkg="tf"
+    type="static_transform_publisher"
+    args="0.0 0.0 0.0  0.0 0.0 0.0 uav1/gps_origin uav2/gps_origin 100"/>
+
+  <node
+    name="tf_1_to_3"
+    pkg="tf"
+    type="static_transform_publisher"
+    args="0.0 0.0 0.0  0.0 0.0 0.0 uav1/gps_origin uav3/gps_origin 100"/>
+
+  <node
+    name="tf_1_to_4"
+    pkg="tf"
+    type="static_transform_publisher"
+    args="0.0 0.0 0.0  0.0 0.0 0.0 uav1/gps_origin uav4/gps_origin 100"/>
+
+  <node
+    name="tf_1_to_5"
+    pkg="tf"
+    type="static_transform_publisher"
+    args="0.0 0.0 0.0  0.0 0.0 0.0 uav1/gps_origin uav5/gps_origin 100"/>
+    
+  <node
+    name="tf_1_to_6"
+    pkg="tf"
+    type="static_transform_publisher"
+    args="0.0 0.0 0.0  0.0 0.0 0.0 uav1/gps_origin uav6/gps_origin 100"/>
+
+  <node
+    name="tf_1_to_7"
+    pkg="tf"
+    type="static_transform_publisher"
+    args="0.0 0.0 0.0  0.0 0.0 0.0 uav1/gps_origin uav7/gps_origin 100"/>
+
+  <node
+    name="tf_1_to_8"
+    pkg="tf"
+    type="static_transform_publisher"
+    args="0.0 0.0 0.0  0.0 0.0 0.0 uav1/gps_origin uav8/gps_origin 100"/>
+
+  <node
+    name="tf_1_to_9"
+    pkg="tf"
+    type="static_transform_publisher"
+    args="0.0 0.0 0.0  0.0 0.0 0.0 uav1/gps_origin uav9/gps_origin 100"/>
+
+  <node
+    name="tf_1_to_10"
+    pkg="tf"
+    type="static_transform_publisher"
+    args="0.0 0.0 0.0  0.0 0.0 0.0 uav1/gps_origin uav10/gps_origin 100"/>
+
+</launch>
