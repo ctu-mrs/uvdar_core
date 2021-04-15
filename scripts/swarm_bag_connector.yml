@@ -7,16 +7,17 @@ windows:
       layout: even-vertical
       panes:
         - roscore
+        - waitForRos; rosparam set use_sim_time true
   - tf_connector:
       layout: even-vertical
       panes:
-        - waitForRos; roslaunch mrs_uav_odometry tf_connector.launch 
+        - waitForRos; roslaunch uvdar_core swarm_tf_connector.launch 
   - rosbag play:
       layout: even-vertical
       panes:
-        - waitForRos; cd ~/bag_files/uvdar_tests/preliminary_flight/uav1/*/ && rosbag play *.bag
-        - waitForRos; cd ~/bag_files/uvdar_tests/preliminary_flight/uav2/*/ && rosbag play *.bag
-        - waitForRos; cd ~/bag_files/uvdar_tests/preliminary_flight/uav3/*/ && rosbag play *.bag
+        - waitForRos; sleep 1;  cd ~/bag_files/uvdar_tests/preliminary_flight/uav1/*/ && rosbag play *.bag --clock
+        - waitForRos; sleep 1;  cd ~/bag_files/uvdar_tests/preliminary_flight/uav2/*/ && rosbag play *.bag
+        - waitForRos; sleep 1;  cd ~/bag_files/uvdar_tests/preliminary_flight/uav3/*/ && rosbag play *.bag
 
   - rviz:
       layout: even-vertical

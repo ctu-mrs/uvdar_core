@@ -1,58 +1,29 @@
 <launch>
-  <arg name="uav_name" default="$(optenv UAV_NAME uav2)"/>
+  <!-- other args -->
+  <arg name="standalone" default="true" />
+  <arg name="debug" default="false" />
 
-  <node
-    name="tf_1_to_2"
-    pkg="tf"
-    type="static_transform_publisher"
-    args="0.0 0.0 0.0  0.0 0.0 0.0 uav1/gps_origin uav2/gps_origin 100"/>
+  <arg name="custom_config" default="$(find uvdar_core)/config/swarm_tf_connector.yaml" />
 
-  <node
-    name="tf_1_to_3"
-    pkg="tf"
-    type="static_transform_publisher"
-    args="0.0 0.0 0.0  0.0 0.0 0.0 uav1/gps_origin uav3/gps_origin 100"/>
+  <arg     if="$(eval arg('standalone') or arg('debug'))" name="nodelet" value="standalone" />
+  <arg unless="$(eval arg('standalone') or arg('debug'))" name="nodelet" value="load" />
+  <arg     if="$(eval arg('standalone') or arg('debug'))" name="nodelet_manager" value="" />
+  <arg unless="$(eval arg('standalone') or arg('debug'))" name="nodelet_manager" value="tf_connector_nodelet_manager" />
 
-  <node
-    name="tf_1_to_4"
-    pkg="tf"
-    type="static_transform_publisher"
-    args="0.0 0.0 0.0  0.0 0.0 0.0 uav1/gps_origin uav4/gps_origin 100"/>
+  <arg     if="$(arg debug)" name="launch_prefix" value="debug_roslaunch" />
+  <arg unless="$(arg debug)" name="launch_prefix" value="" />
 
-  <node
-    name="tf_1_to_5"
-    pkg="tf"
-    type="static_transform_publisher"
-    args="0.0 0.0 0.0  0.0 0.0 0.0 uav1/gps_origin uav5/gps_origin 100"/>
-    
-  <node
-    name="tf_1_to_6"
-    pkg="tf"
-    type="static_transform_publisher"
-    args="0.0 0.0 0.0  0.0 0.0 0.0 uav1/gps_origin uav6/gps_origin 100"/>
+  <node pkg="nodelet" type="nodelet" name="tf_connector_dummy" args="$(arg nodelet) mrs_uav_odometry/TFConnectorDummy $(arg nodelet_manager)" output="screen" launch-prefix="$(arg launch_prefix)">
 
-  <node
-    name="tf_1_to_7"
-    pkg="tf"
-    type="static_transform_publisher"
-    args="0.0 0.0 0.0  0.0 0.0 0.0 uav1/gps_origin uav7/gps_origin 100"/>
+    <!-- Load a user param file -->
+    <rosparam if="$(eval not arg('custom_config') == '')" file="$(arg custom_config)" />
 
-  <node
-    name="tf_1_to_8"
-    pkg="tf"
-    type="static_transform_publisher"
-    args="0.0 0.0 0.0  0.0 0.0 0.0 uav1/gps_origin uav8/gps_origin 100"/>
+      <!-- Subscribers -->
+    <remap from="~tf_in" to="/tf" />
 
-  <node
-    name="tf_1_to_9"
-    pkg="tf"
-    type="static_transform_publisher"
-    args="0.0 0.0 0.0  0.0 0.0 0.0 uav1/gps_origin uav9/gps_origin 100"/>
+      <!-- Publishers -->
+    <remap from="~tf_out" to="/tf" />
 
-  <node
-    name="tf_1_to_10"
-    pkg="tf"
-    type="static_transform_publisher"
-    args="0.0 0.0 0.0  0.0 0.0 0.0 uav1/gps_origin uav10/gps_origin 100"/>
+  </node>
 
 </launch>

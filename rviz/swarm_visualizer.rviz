@@ -6,6 +6,13 @@ Panels:
       Expanded:
         - /Global Options1
         - /Status1
+        - /Grid1
+        - /uav1 uvdar filtered1/Covariance1
+        - /uav1 uvdar filtered1/Covariance1/Position1
+        - /uav2 uvdar filtered1/Covariance1
+        - /uav2 uvdar filtered1/Covariance1/Position1
+        - /uav3 uvdar filtered1/Covariance1
+        - /uav3 uvdar filtered1/Covariance1/Position1
       Splitter Ratio: 0.5
     Tree Height: 764
   - Class: rviz/Selection
@@ -49,8 +56,8 @@ Visualization Manager:
         Y: 0
         Z: 0
       Plane: XY
-      Plane Cell Count: 10
-      Reference Frame: <Fixed Frame>
+      Plane Cell Count: 100
+      Reference Frame: global_gps
       Value: true
     - Angle Tolerance: 0.10000000149011612
       Class: rviz/Odometry
@@ -71,7 +78,7 @@ Visualization Manager:
         Value: true
       Enabled: true
       Keep: 100
-      Name: Odometry
+      Name: uav1 odom
       Position Tolerance: 0.10000000149011612
       Queue Size: 10
       Shape:
@@ -106,7 +113,7 @@ Visualization Manager:
         Value: true
       Enabled: true
       Keep: 100
-      Name: Odometry
+      Name: uav2 odom
       Position Tolerance: 0.10000000149011612
       Queue Size: 10
       Shape:
@@ -141,7 +148,7 @@ Visualization Manager:
         Value: true
       Enabled: true
       Keep: 100
-      Name: Odometry
+      Name: uav3 odom
       Position Tolerance: 0.10000000149011612
       Queue Size: 10
       Shape:
@@ -157,11 +164,128 @@ Visualization Manager:
       Topic: /uav3/odometry/odom_main
       Unreliable: false
       Value: true
+    - Alpha: 1
+      Class: rviz/Axes
+      Enabled: true
+      Length: 1
+      Name: uav1 pos
+      Radius: 0.10000000149011612
+      Reference Frame: uav1/fcu
+      Value: true
+    - Alpha: 1
+      Class: rviz/Axes
+      Enabled: true
+      Length: 1
+      Name: uav2 pos
+      Radius: 0.10000000149011612
+      Reference Frame: uav2/fcu
+      Value: true
+    - Alpha: 1
+      Class: rviz/Axes
+      Enabled: true
+      Length: 1
+      Name: uav3 pos
+      Radius: 0.10000000149011612
+      Reference Frame: uav3/fcu
+      Value: true
+    - Alpha: 1
+      Axes Length: 1
+      Axes Radius: 0.10000000149011612
+      Class: mrs_rviz_plugins/PoseWithCovarianceArray
+      Color: 255; 25; 0
+      Covariance:
+        Orientation:
+          Alpha: 0.5
+          Color: 255; 255; 127
+          Color Style: Unique
+          Frame: Local
+          Offset: 1
+          Scale: 1
+          Value: false
+        Position:
+          Alpha: 0.30000001192092896
+          Color: 255; 0; 0
+          Scale: 1
+          Value: true
+        Value: true
+      Enabled: true
+      Head Length: 0.30000001192092896
+      Head Radius: 0.10000000149011612
+      Name: uav1 uvdar filtered
+      Queue Size: 10
+      Shaft Length: 1
+      Shaft Radius: 0.05000000074505806
+      Shape: Arrow
+      Topic: /uav1/uvdar/filteredPoses
+      Unreliable: false
+      Value: true
+    - Alpha: 1
+      Axes Length: 1
+      Axes Radius: 0.10000000149011612
+      Class: mrs_rviz_plugins/PoseWithCovarianceArray
+      Color: 255; 25; 0
+      Covariance:
+        Orientation:
+          Alpha: 0.5
+          Color: 255; 255; 127
+          Color Style: Unique
+          Frame: Local
+          Offset: 1
+          Scale: 1
+          Value: false
+        Position:
+          Alpha: 0.30000001192092896
+          Color: 0; 255; 0
+          Scale: 1
+          Value: true
+        Value: true
+      Enabled: true
+      Head Length: 0.30000001192092896
+      Head Radius: 0.10000000149011612
+      Name: uav2 uvdar filtered
+      Queue Size: 10
+      Shaft Length: 1
+      Shaft Radius: 0.05000000074505806
+      Shape: Arrow
+      Topic: /uav2/uvdar/filteredPoses
+      Unreliable: false
+      Value: true
+    - Alpha: 1
+      Axes Length: 1
+      Axes Radius: 0.10000000149011612
+      Class: mrs_rviz_plugins/PoseWithCovarianceArray
+      Color: 255; 25; 0
+      Covariance:
+        Orientation:
+          Alpha: 0.5
+          Color: 255; 255; 127
+          Color Style: Unique
+          Frame: Local
+          Offset: 1
+          Scale: 1
+          Value: false
+        Position:
+          Alpha: 0.30000001192092896
+          Color: 0; 0; 255
+          Scale: 1
+          Value: true
+        Value: true
+      Enabled: true
+      Head Length: 0.30000001192092896
+      Head Radius: 0.10000000149011612
+      Name: uav3 uvdar filtered
+      Queue Size: 10
+      Shaft Length: 1
+      Shaft Radius: 0.05000000074505806
+      Shape: Arrow
+      Topic: /uav3/uvdar/filteredPoses
+      Unreliable: false
+      Value: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
     Default Light: true
-    Fixed Frame: uav1/gps_origin
+    Fixed Frame: global_gps
     Frame Rate: 30
   Name: root
   Tools:
@@ -185,7 +309,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 31.860122680664062
+      Distance: 40.43791961669922
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -193,17 +317,17 @@ Visualization Manager:
         Value: false
       Field of View: 0.7853981852531433
       Focal Point:
-        X: 0
-        Y: 0
-        Z: 0
+        X: -19.61168098449707
+        Y: 2.747174024581909
+        Z: 2.033764123916626
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.48539796471595764
+      Pitch: 1.0753978490829468
       Target Frame: <Fixed Frame>
-      Yaw: 0.6903976798057556
+      Yaw: 1.2403974533081055
     Saved: ~
 Window Geometry:
   Displays:
