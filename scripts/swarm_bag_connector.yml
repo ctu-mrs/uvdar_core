@@ -15,9 +15,9 @@ windows:
   - rosbag play:
       layout: even-vertical
       panes:
-        - waitForRos; sleep 1;  cd ~/bag_files/uvdar_tests/preliminary_flight/uav1/*/ && rosbag play *.bag --clock
-        - waitForRos; sleep 1;  cd ~/bag_files/uvdar_tests/preliminary_flight/uav2/*/ && rosbag play *.bag
-        - waitForRos; sleep 1;  cd ~/bag_files/uvdar_tests/preliminary_flight/uav3/*/ && rosbag play *.bag
+        - waitForRos; sleep 1;  cd ~/bag_files/jirka_swarm/uav1/*posledny*/ && rosbag play *.bag --clock
+        - waitForRos; sleep 1;  cd ~/bag_files/jirka_swarm/uav2/*posledny*/ && rosbag play *.bag
+        - waitForRos; sleep 1;  cd ~/bag_files/jirka_swarm/uav3/*posledny*/ && rosbag play *.bag
 
   - rviz:
       layout: even-vertical

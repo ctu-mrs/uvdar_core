@@ -7,6 +7,7 @@ Panels:
         - /Global Options1
         - /Status1
         - /Grid1
+        - /uav2 odom1/Shape1
         - /uav1 uvdar filtered1/Covariance1
         - /uav1 uvdar filtered1/Covariance1/Position1
         - /uav1 uvdar measured L1/Covariance1
@@ -23,7 +24,7 @@ Panels:
         - /uav3 uvdar measured L1/Covariance1/Position1
         - /uav3 uvdar measured R1/Covariance1
         - /uav3 uvdar measured R1/Covariance1/Position1
-      Splitter Ratio: 0.5
+      Splitter Ratio: 0.6235294342041016
     Tree Height: 771
   - Class: rviz/Selection
     Name: Selection
@@ -37,6 +38,7 @@ Panels:
   - Class: rviz/Views
     Expanded:
       - /Current View1
+      - /Current View1/Focal Point1
     Name: Views
     Splitter Ratio: 0.5
   - Class: rviz/Time
@@ -130,7 +132,7 @@ Visualization Manager:
         Alpha: 1
         Axes Length: 1
         Axes Radius: 0.10000000149011612
-        Color: 255; 25; 0
+        Color: 0; 255; 0
         Head Length: 0.30000001192092896
         Head Radius: 0.10000000149011612
         Shaft Length: 1
@@ -165,7 +167,7 @@ Visualization Manager:
         Alpha: 1
         Axes Length: 1
         Axes Radius: 0.10000000149011612
-        Color: 255; 25; 0
+        Color: 0; 0; 255
         Head Length: 0.30000001192092896
         Head Radius: 0.10000000149011612
         Shaft Length: 1
@@ -249,7 +251,7 @@ Visualization Manager:
           Scale: 1
           Value: true
         Value: true
-      Enabled: true
+      Enabled: false
       Head Length: 0.30000001192092896
       Head Radius: 0.10000000149011612
       Name: uav1 uvdar measured L
@@ -259,7 +261,7 @@ Visualization Manager:
       Shape: Arrow
       Topic: /uav1/uvdar/measuredPosesL
       Unreliable: false
-      Value: true
+      Value: false
     - Alpha: 1
       Axes Length: 1
       Axes Radius: 0.10000000149011612
@@ -280,7 +282,7 @@ Visualization Manager:
           Scale: 1
           Value: true
         Value: true
-      Enabled: true
+      Enabled: false
       Head Length: 0.30000001192092896
       Head Radius: 0.10000000149011612
       Name: uav1 uvdar measured R
@@ -290,7 +292,7 @@ Visualization Manager:
       Shape: Arrow
       Topic: /uav1/uvdar/measuredPosesR
       Unreliable: false
-      Value: true
+      Value: false
     - Alpha: 1
       Axes Length: 1
       Axes Radius: 0.10000000149011612
@@ -342,7 +344,7 @@ Visualization Manager:
           Scale: 1
           Value: true
         Value: true
-      Enabled: true
+      Enabled: false
       Head Length: 0.30000001192092896
       Head Radius: 0.10000000149011612
       Name: uav2 uvdar measured L
@@ -352,7 +354,7 @@ Visualization Manager:
       Shape: Arrow
       Topic: /uav2/uvdar/measuredPosesL
       Unreliable: false
-      Value: true
+      Value: false
     - Alpha: 1
       Axes Length: 1
       Axes Radius: 0.10000000149011612
@@ -373,7 +375,7 @@ Visualization Manager:
           Scale: 1
           Value: true
         Value: true
-      Enabled: true
+      Enabled: false
       Head Length: 0.30000001192092896
       Head Radius: 0.10000000149011612
       Name: uav2 uvdar measured R
@@ -383,7 +385,7 @@ Visualization Manager:
       Shape: Arrow
       Topic: /uav2/uvdar/measuredPosesR
       Unreliable: false
-      Value: true
+      Value: false
     - Alpha: 1
       Axes Length: 1
       Axes Radius: 0.10000000149011612
@@ -435,7 +437,7 @@ Visualization Manager:
           Scale: 1
           Value: true
         Value: true
-      Enabled: true
+      Enabled: false
       Head Length: 0.30000001192092896
       Head Radius: 0.10000000149011612
       Name: uav3 uvdar measured L
@@ -445,7 +447,7 @@ Visualization Manager:
       Shape: Arrow
       Topic: /uav3/uvdar/measuredPosesL
       Unreliable: false
-      Value: true
+      Value: false
     - Alpha: 1
       Axes Length: 1
       Axes Radius: 0.10000000149011612
@@ -466,7 +468,7 @@ Visualization Manager:
           Scale: 1
           Value: true
         Value: true
-      Enabled: true
+      Enabled: false
       Head Length: 0.30000001192092896
       Head Radius: 0.10000000149011612
       Name: uav3 uvdar measured R
@@ -476,7 +478,7 @@ Visualization Manager:
       Shape: Arrow
       Topic: /uav3/uvdar/measuredPosesR
       Unreliable: false
-      Value: true
+      Value: false
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
@@ -505,7 +507,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 37.55656051635742
+      Distance: 30.573562622070312
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -513,16 +515,16 @@ Visualization Manager:
         Value: false
       Field of View: 0.7853981852531433
       Focal Point:
-        X: -19.61168098449707
-        Y: 2.747174024581909
-        Z: 2.033764123916626
+        X: -0.20298099517822266
+        Y: 0.024623870849609375
+        Z: 0.04726886749267578
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.8797968626022339
-      Target Frame: <Fixed Frame>
+      Pitch: 1.5
+      Target Frame: uav1/fcu
       Yaw: 2.0903966426849365
     Saved: ~
 Window Geometry:
