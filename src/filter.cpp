@@ -15,6 +15,7 @@
 #include <std_srvs/Trigger.h>
 #include <std_srvs/SetBool.h>
 #include <nav_msgs/Odometry.h>
+#include <std_msgs/String.h>
 
 #include <boost/range/adaptor/indexed.hpp> 
 
@@ -108,6 +109,8 @@ namespace uvdar {
       ros::Publisher pub_filter_;
       ros::Publisher pub_filter_tent_;
 
+      ros::Publisher pub_status_;
+
       ros::Timer timer;
       ros::Duration filter_update_period;
       double dt;
@@ -177,6 +180,8 @@ namespace uvdar {
 
         pub_filter_ = nh.advertise<mrs_msgs::PoseWithCovarianceArrayStamped>("filtered_poses", 1);
         pub_filter_tent_ = nh.advertise<mrs_msgs::PoseWithCovarianceArrayStamped>("filtered_poses/tentative", 1);
+
+        pub_status_ = nh.advertise<std_msgs::String>("/"+_uav_name_+"/mrs_uav_status/display_string", 1);
 
         if (_anonymous_measurements_ && _use_velocity_){
           ROS_WARN("[UVDARKalman]: Velocity estimation for anonymous measurements is not implemented. Returning.");
@@ -869,6 +874,10 @@ namespace uvdar {
             msg.poses.push_back(temp);
           }
         }
+
+        std_msgs::String msg_status;
+        msg_status.data = std::string("UVDAR sees "+std::to_string(msg.poses.size())+" targets").c_str();
+        pub_status_.publish(msg_status);
 
         pub_filter_.publish(msg);
         pub_filter_tent_.publish(msg_tent);
