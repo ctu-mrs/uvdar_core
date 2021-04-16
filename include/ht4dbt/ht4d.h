@@ -2,8 +2,10 @@
 #define HT4D_H
 
 #include <mutex>
+#include <memory>
 #include <numeric>
 #include <opencv2/core/core.hpp>
+#include "signal_matcher/signal_matcher.h"
 
 namespace uvdar {
 
@@ -53,7 +55,8 @@ public:
    *
    * @return - A set of image points - x and y correspond to the expected position of a marker in the newest frame and z corresponds to its blinking frequency (or an error code for points with wrong blinking signal)
    */
-  std::vector< cv::Point3d > getResults();
+
+  std::vector< std::pair<cv::Point2d,int> > getResults();
 
   /**
    * @brief Returns the number of tracked image points obtained in the last retrieval cycle. Not all of these will be blinking with an expected signal - some may be e.g. static reflections
@@ -63,13 +66,38 @@ public:
   int                        getTrackerCount();
 
   /**
-   * @brief Retrieves the blinking frequency of a given marker obtained in the last retrieval cycle
+   * @brief Retrieves the blinking signal of a given marker obtained in the last retrieval cycle
    *
    * @param index - The index of the retrieved marker
    *
-   * @return - The retrieved blinking frequency
+   * @return - The retrieved signal
    */
-  double getFrequency(int index);
+  std::vector<bool> getSignal(int index);
+
+
+  /**
+   * @brief Retrieves the ID associated with the blinkig signal of a selected marker
+   *
+   * @param origin_point - The image point presumed to correspond to a blinking marker
+   * @param avg_yaw - The output "image yaw" of the blinking marker (corresponds to the direction in the image in which the point has been moving)
+   * @param avg_pitch - The output "image pitch" of the blinking marker (corresponds to the speed in the image at which the point has been moving)
+   * @param blink_signal - The output binary blinking signal of the blinking marker
+   *
+   * @return - The retrieved signal ID
+   */
+  int retrieveSignalID(cv::Point origin_point, double &avg_yaw, double &avg_pitch, std::vector<bool> &blink_signal);
+
+
+  /**
+   * @brief Retrieves the ID associated with the blinkig signal of a selected marker
+   *
+   * @param origin_point - The image point presumed to correspond to a blinking marker
+   * @param avg_yaw - The output "image yaw" of the blinking marker (corresponds to the direction in the image in which the point has been moving)
+   * @param avg_pitch - The output "image pitch" of the blinking marker (corresponds to the speed in the image at which the point has been moving)
+   *
+   * @return - The output binary blinking signal of the blinking marker
+   */
+  std::vector<bool> retrieveSignalSequence(cv::Point origin_point, double &avg_yaw, double &avg_pitch);
 
   /**
    * @brief Retrieves the "image yaw" of a given marker obtained in the last retrieval cycle (corresponds to the direction in the image in which the point has been moving)
@@ -123,6 +151,13 @@ public:
    * @param i_size - the new image resolution
    */
   void updateResolution(cv::Size i_size);
+
+  /**
+   * @brief Change the blinking signal templates
+   *
+   * @param i_sequences - Defines the new set of template signals
+   */
+  void setSequences(std::vector<std::vector<bool>> i_sequences);
 
   /**
    * @brief Change the debugging level of the class
@@ -312,7 +347,8 @@ private:
                                             sin_set_,
                                             cos_set_;
 
-  std::vector< double > frequencies_, yaw_averages_, pitch_averages_;
+  std::vector< double > yaw_averages_, pitch_averages_;
+  std::vector<std::vector<bool>> signals_;
 
   std::vector< cv::Point > fast_points_;
 
@@ -320,7 +356,11 @@ private:
 
   std::mutex mutex_accumulator_;
 
+  std::unique_ptr<SignalMatcher> matcher_;
+
   bool debug_, vis_debug_;
+
+  std::vector<std::vector<bool>> sequences_;
 
   cv::Mat visualization_;
 };

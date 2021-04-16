@@ -75,11 +75,14 @@ bool uvdar::UVDARLedDetectFAST::processImage(const cv::Mat i_image, std::vector<
         if (image_curr_.data[index2d(i, j)] > (_threshold_ * 2)) { //if the point is "very bright" it might be a part of the image of directly observed sun
           sun_point_potential = true;
         }
-        marker_potential = true;
 
         int n = -1;
         for (auto fast_points : fast_points_set_) { //iterate over the pre-selected sets of points for different sizes of the FAST radius
+          marker_potential = true;
           n++;
+          /* if (n>0){ */
+          /*   std::cout << "HERE A" << std::endl; */
+          /* } */
           for (int m = 0; m < (int)(fast_points.size()); m++) { //iterate over the points in the current FAST radius
             x = i + fast_points[m].x;
             y = j + fast_points[m].y;
@@ -103,6 +106,9 @@ bool uvdar::UVDARLedDetectFAST::processImage(const cv::Mat i_image, std::vector<
             }
 
             if ((image_curr_.data[index2d(i, j)] - image_curr_.data[index2d(x, y)]) < (_threshold_ / 2)) { //if the difference between the current point and a surrounding point is smaller than desired
+              /* if (n>0){ */
+              /*     std::cout << "HERE B: broken at fast point " << m << " by: " << (int)(image_curr_.data[index2d(i, j)] - image_curr_.data[index2d(x, y)]) << std::endl; */
+              /* } */
 
               marker_potential = false; //this is not a marker (not concentrated enough)
               if (!sun_point_potential) //if we expected this to be a part of the sun, can still confirm this hypthesis
@@ -114,13 +120,26 @@ bool uvdar::UVDARLedDetectFAST::processImage(const cv::Mat i_image, std::vector<
               sun_point_potential = false;
             }
           }
+          /* if (n>0){ */
+          /*   std::cout << "HERE E: here? " << std::endl; */
+          /* } */
           if (marker_potential) { //if the smaller radius check determines that this point is a marker, the larger radius is unnecessary
+              /* std::cout << "HERE C: passed" << std::endl; */
+            /* if (n>0){ */
+              /* std::cout << "HERE D: passed on second ring" << std::endl; */
+            /* } */
             break;
           }
         }
+        /* if (n>0){ */
+        /*   /1* if (marker_potential){ *1/ */
+        /*   /1*   std::cout << "HERE B" << std::endl; *1/ */
+        /*   /1* } *1/ */
+        /* } */
         unsigned char maximum_val;
         if (marker_potential) {
           maximum_val = 0;
+          n = (int)(fast_interior_set_.size())-1;
           for (int m = 0; m < (int)(fast_interior_set_[n].size()); m++) { //iterate over a subset of points inside of the FAST neighborhood (lower right corner only, due to iterating over the image in this direction)
             x = i + fast_interior_set_[n][m].x;
             y = j + fast_interior_set_[n][m].y;
@@ -146,9 +165,11 @@ bool uvdar::UVDARLedDetectFAST::processImage(const cv::Mat i_image, std::vector<
                 peak_point.y = y;
               }
               image_check_.data[index2d(x, y)] = 255; //mark interior point to prevent additional detections in the same area
+            /* std::cout << "Setting point " << x << ":" << y << " as checked" << std::endl; */
             }
           }
           detected_points.push_back(peak_point); //store detected marker point
+            /* std::cout << "Outputting point " << peak_point.x << ":" << peak_point.y << " as checked" << std::endl; */
         } else {
           if (sun_point_potential) 
             if (sun_test_points == (int)(fast_points_set_[n].size())){ //declare this pixel a part of the image of the sun if even its FAST neighborhood was bright
@@ -249,9 +270,14 @@ void uvdar::UVDARLedDetectFAST::initFAST() {
   fast_interior.push_back(cv::Point(1, 0));
   fast_interior.push_back(cv::Point(2, 0));
 
+  fast_interior.push_back(cv::Point(-2, 1));
+  fast_interior.push_back(cv::Point(-1, 1));
+
   fast_interior.push_back(cv::Point(0, 1));
   fast_interior.push_back(cv::Point(1, 1));
   fast_interior.push_back(cv::Point(2, 1));
+
+  fast_interior.push_back(cv::Point(-1, 1));
 
   fast_interior.push_back(cv::Point(0, 2));
   fast_interior.push_back(cv::Point(1, 2));
@@ -265,16 +291,26 @@ void uvdar::UVDARLedDetectFAST::initFAST() {
   fast_interior.push_back(cv::Point(2, 0));
   fast_interior.push_back(cv::Point(3, 0));
 
+  fast_interior.push_back(cv::Point(-3, 1));
+  fast_interior.push_back(cv::Point(-2, 1));
+  fast_interior.push_back(cv::Point(-1, 1));
 
   fast_interior.push_back(cv::Point(0, 1));
   fast_interior.push_back(cv::Point(1, 1));
   fast_interior.push_back(cv::Point(2, 1));
   fast_interior.push_back(cv::Point(3, 1));
 
+  fast_interior.push_back(cv::Point(-3, 2));
+  fast_interior.push_back(cv::Point(-2, 2));
+  fast_interior.push_back(cv::Point(-1, 2));
+
   fast_interior.push_back(cv::Point(0, 2));
   fast_interior.push_back(cv::Point(1, 2));
   fast_interior.push_back(cv::Point(2, 2));
   fast_interior.push_back(cv::Point(3, 2));
+
+  fast_interior.push_back(cv::Point(-2, 3));
+  fast_interior.push_back(cv::Point(-1, 3));
 
   fast_interior.push_back(cv::Point(0, 3));
   fast_interior.push_back(cv::Point(1, 3));

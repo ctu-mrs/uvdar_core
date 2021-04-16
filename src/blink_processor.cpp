@@ -5,7 +5,7 @@
 #include <cv_bridge/cv_bridge.h>
 #include <ht4dbt/ht4d.h>
 #include <color_selector/color_selector.h>
-#include <frequency_classifier/frequency_classifier.h>
+/* #include <frequency_classifier/frequency_classifier.h> */
 #include <std_msgs/Float32.h>
 #include <mrs_msgs/ImagePointsWithFloatStamped.h>
 #include <mrs_lib/param_loader.h>
@@ -16,6 +16,7 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <thread>
 #include <atomic>
+#include <fstream>
 
 namespace uvdar {
 
@@ -80,6 +81,10 @@ namespace uvdar {
         }
         //}
 
+        std::string _sequence_file;
+        param_loader.loadParam("sequence_file", _sequence_file, std::string());
+        parseSequenceFile(_sequence_file);
+
 
         // Prepare data structures //{
         sun_points_.resize(_points_seen_topics.size());
@@ -90,6 +95,7 @@ namespace uvdar {
                 )
               );
           ht4dbt_trackers_.back()->setDebug(_debug_, _visual_debug_);
+          ht4dbt_trackers_.back()->setSequences(_sequences_);
 
           blink_data_.push_back(BlinkData());
 
@@ -121,19 +127,19 @@ namespace uvdar {
         }
 
         //}
-
+        
         if (_gui_ || _publish_visualization_){ //frequency classifier is used here only for visualization purposes
           // load the frequencies
-          param_loader.loadParam("frequencies", _frequencies_);
-          if (_frequencies_.empty()){
-            std::vector<double> default_frequency_set{5, 6, 8, 10, 15, 30};
-            ROS_WARN("[UVDARBlinkProcessor]: No frequencies were supplied, using the default frequency set. This set is as follows: ");
-            for (auto f : default_frequency_set){
-              ROS_WARN_STREAM("[UVDARBlinkProcessor]: " << f << " hz");
+          param_loader.loadParam("signal_ids", _signal_ids_);
+          if (_signal_ids_.empty()){
+            std::vector<int> default_signal_set = {0, 1, 2, 3, 4, 5, 6, 7, 8};
+            ROS_WARN("[UVDARBlinkProcessor]: No signal IDs were supplied, using the default set. This set is as follows: ");
+            for (auto s : default_signal_set){
+              ROS_WARN_STREAM("[UVDARBlinkProcessor]: " << s);
             }
-            _frequencies_ = default_frequency_set;
+            _signal_ids_ = default_signal_set;
           }
-          ufc_ = std::make_unique<UVDARFrequencyClassifier>(_frequencies_);
+          /* ufc_ = std::make_unique<UVDARFrequencyClassifier>(_signal_ids_); */
 
 
           current_visualization_done_ = false;
@@ -197,17 +203,35 @@ namespace uvdar {
     blink_data_[image_index].sample_count++;
 
     if ((blink_data_[image_index].sample_count % 10) == 0) { //update the estimate of frequency every 10 samples
-      blink_data_[image_index].framerate_estimate = 10000000000.0 / (double)((msg->stamp - blink_data_[image_index].last_sample_time).toNSec());
+      blink_data_[image_index].framerate_estimate = 10000000000.0 / (double)((msg->stamp - blink_data_[image_index].last_sample_time_diagnostic).toNSec());
       if (_debug_){
-        ROS_INFO_STREAM("Updating frequency: " << blink_data_[image_index].framerate_estimate << " Hz");
+        ROS_INFO_STREAM("[UVDARBlinkProcessor]: Updating frequency: " << blink_data_[image_index].framerate_estimate << " Hz");
       }
-      blink_data_[image_index].last_sample_time = msg->stamp;
+
       ht4dbt_trackers_[image_index]->updateFramerate(blink_data_[image_index].framerate_estimate);
       blink_data_[image_index].sample_count = 0;
+
+      blink_data_[image_index].last_sample_time_diagnostic = msg->stamp;
     }
 
+    if (_debug_)
+        ROS_INFO_STREAM("[UVDARBlinkProcessor]: td: " << msg->stamp - blink_data_[image_index].last_sample_time);
+    if (blink_data_[image_index].last_sample_time >= msg->stamp){
+      ROS_ERROR_STREAM("[UVDARBlinkProcessor]: Points arrived out of order!: prev: "<< blink_data_[image_index].last_sample_time << "; curr: " << msg->stamp);
+    }
+    double dt = (msg->stamp - blink_data_[image_index].last_sample_time).toSec();
+    if (dt > (1.5/(blink_data_[image_index].framerate_estimate)) ){
+      int new_frame_count = (int)(dt*(blink_data_[image_index].framerate_estimate) + 0.5) - 1;
+      ROS_ERROR_STREAM("[UVDARBlinkProcessor]: Missing frames! Inserting " << new_frame_count << " empty frames!"); 
+      std::vector<cv::Point2i> null_points;
+      for (int i = 0; i < new_frame_count; i++){
+        ht4dbt_trackers_[image_index]->insertFrame(null_points);
+      }
+    }
+    blink_data_[image_index].last_sample_time = msg->stamp;
+
     if (_debug_) {
-      ROS_INFO_STREAM("Received contours: " << msg->points.size());
+      ROS_INFO_STREAM("[UVDARBlinkProcessor]: Received contours: " << msg->points.size());
     }
 
     std::vector<cv::Point2i> points;
@@ -286,9 +310,9 @@ namespace uvdar {
 
       for (auto& blinker : blink_data_[image_index].retrieved_blinkers) {
         mrs_msgs::Point2DWithFloat point;
-        point.x     = blinker.x;
-        point.y     = blinker.y;
-        point.value = blinker.z;
+        point.x     = blinker.first.x;
+        point.y     = blinker.first.y;
+        point.value = blinker.second;
         msg.points.push_back(point);
       }
 
@@ -382,7 +406,7 @@ namespace uvdar {
       if (_use_camera_for_visualization_){
         if (current_images_received_[image_index]){
           cv::Mat image_rgb;
-          ROS_INFO_STREAM("[UVDARBlinkProcessor]: Channel count: " << images_current_[image_index].channels());
+          /* ROS_INFO_STREAM("[UVDARBlinkProcessor]: Channel count: " << images_current_[image_index].channels()); */
           cv::cvtColor(images_current_[image_index], image_rgb, cv::COLOR_GRAY2BGR);
           image_rgb.copyTo(output_image(cv::Rect(start_point.x,0,images_current_[image_index].cols,images_current_[image_index].rows)));
         }
@@ -396,15 +420,15 @@ namespace uvdar {
         for (int j = 0; j < (int)(blink_data_[image_index].retrieved_blinkers.size()); j++) {
           cv::Point center =
             cv::Point(
-                blink_data_[image_index].retrieved_blinkers[j].x, 
-                blink_data_[image_index].retrieved_blinkers[j].y 
+                blink_data_[image_index].retrieved_blinkers[j].first.x, 
+                blink_data_[image_index].retrieved_blinkers[j].first.y 
                 )
             + start_point;
-          int frequency_index = ufc_->findMatch(blink_data_[image_index].retrieved_blinkers[j].z);
-          if (frequency_index >= 0) {
-            std::string frequency_text = std::to_string(std::max((int)blink_data_[image_index].retrieved_blinkers[j].z, 0));
-            cv::putText(output_image, cv::String(frequency_text.c_str()), center + cv::Point(-5, -5), cv::FONT_HERSHEY_SIMPLEX, 0.3, cv::Scalar(255, 255, 255));
-            cv::Scalar color = ColorSelector::markerColor(frequency_index);
+          int signal_index = blink_data_[image_index].retrieved_blinkers[j].second;
+          if (signal_index >= 0) {
+            std::string signal_text = std::to_string(std::max((int)blink_data_[image_index].retrieved_blinkers[j].second, 0));
+            cv::putText(output_image, cv::String(signal_text.c_str()), center + cv::Point(-5, -5), cv::FONT_HERSHEY_SIMPLEX, 0.3, cv::Scalar(255, 255, 255));
+            cv::Scalar color = ColorSelector::markerColor(signal_index);
             cv::circle(output_image, center, 5, color);
             double yaw, pitch, len;
             yaw              = blink_data_[image_index].yaw[j];
@@ -431,10 +455,10 @@ namespace uvdar {
     }
 
     // draw the legend
-    for (int i = 0; i < (int)(_frequencies_.size()); ++i) {
+    for (int i = 0; i < (int)(_signal_ids_.size()); ++i) {
       cv::Scalar color = ColorSelector::markerColor(i);
       cv::circle(output_image, cv::Point(10, 10 + 15 * i), 5, color);
-      cv::putText(output_image, cv::String(std::to_string((int)(_frequencies_[i]))), cv::Point(15, 15 + 15 * i), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 255, 255));
+      cv::putText(output_image, cv::String(std::to_string((int)(_signal_ids_[i]))), cv::Point(15, 15 + 15 * i), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 255, 255));
     }
 
     current_visualization_done_ = true;
@@ -468,6 +492,58 @@ namespace uvdar {
   }
   //}
 
+  /**
+   * @brief Loads the file with lines describing useful blinking singals
+   *
+   * @param sequence_file The input file name
+   *
+   * @return Success status
+   */
+  /* parseSequenceFile //{ */
+  bool parseSequenceFile(std::string sequence_file){
+    ROS_WARN_STREAM("[UVDARBlinkProcessor]: Add sanitation - sequences must be of equal, non-zero length");
+    ROS_INFO_STREAM("[UVDARBlinkProcessor]: Loading sequence from file: [ " + sequence_file + " ]");
+    std::ifstream ifs;
+    ifs.open(sequence_file);
+    std::string word;
+    std::string line;
+
+    std::vector<std::vector<bool>> sequences;
+    if (ifs.good()) {
+      ROS_INFO("[UVDARBlinkProcessor]: Loaded Sequences: [: ");
+      while (getline( ifs, line )){
+        if (line[0] == '#'){
+          continue;
+        }
+        std::string show_string = "";
+        std::vector<bool> sequence;
+        std::stringstream iss(line); 
+        std::string token;
+        while(std::getline(iss, token, ',')) {
+          sequence.push_back(token=="1");
+          if (sequence.back()){
+            show_string += "1,";
+          }
+          else {
+            show_string += "0,";
+          }
+        }
+        sequences.push_back(sequence);
+        ROS_INFO_STREAM("[UVDARBlinkProcessor]:   [" << show_string << "]");
+      }
+      ROS_INFO("[UVDARBlinkProcessor]: ]");
+      ifs.close();
+
+      _sequences_ = sequences;
+    }
+    else {
+      ROS_ERROR_STREAM("[UVDARBlinkProcessor]: Failed to load sequence file " << sequence_file << "! Returning.");
+      ifs.close();
+      return false;
+    }
+    return true;
+  }
+  //}
 
   /* attributes //{ */
   std::atomic_bool initialized_ = false;
@@ -505,12 +581,13 @@ namespace uvdar {
   std::unique_ptr<mrs_lib::ImagePublisher> pub_visualization_;
 
   struct BlinkData {
-    std::vector<cv::Point3d>      retrieved_blinkers;
+    std::vector<std::pair<cv::Point2d,int>>      retrieved_blinkers;
     std::vector<double>           pitch;
     std::vector<double>           yaw;
     std::shared_ptr<std::mutex>   mutex_retrieved_blinkers;
     ros::Time                     last_sample_time;
-    unsigned int                  sample_count = 0;
+    ros::Time                     last_sample_time_diagnostic;
+    unsigned int                  sample_count = -1;
     double                        framerate_estimate = 72;
 
     BlinkData(){mutex_retrieved_blinkers = std::make_shared<std::mutex>();}
@@ -523,8 +600,11 @@ namespace uvdar {
   std::vector<std::vector<cv::Point>> sun_points_;
   std::mutex mutex_sun;
 
-  std::vector<double> _frequencies_;
-  std::unique_ptr<UVDARFrequencyClassifier> ufc_;
+
+  std::vector<std::vector<bool>> _sequences_;
+
+  std::vector<int> _signal_ids_;
+  /* std::unique_ptr<UVDARFrequencyClassifier> ufc_; */
 
   int _accumulator_length_;
   int _pitch_steps_;

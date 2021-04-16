@@ -2,78 +2,58 @@
 
 path="/home/\$(optenv USER mrs)/bag_files/latest/"
 
+# By default, we record everything.
+# Except for this list of EXCLUDED topics:
 exclude=(
-# # Every topic containint "compressed"
-# '(.*)compressed(.*)'
-# # Every topic containint "image_raw"
-# '(.*)image_raw(.*)'
-# # Every topic containint "theora"
-# '(.*)theora(.*)'
-# # Every topic containint "h264"
-# '(.*)h264(.*)'
 
-"(.*)mobius/image_raw/compressed/(.*)"
-"(.*)mobius/image_raw/compressedDepth(.*)"
-"(.*)mobius/image_raw/theora(.*)"
+# IN GENERAL, DON'T RECORD CAMERAS
+#
+# If you want to record cameras, create a copy of this script
+# and place it at your tmux session.
+#
+# Please, seek an advice of a senior researcher of MRS about
+# what can be recorded. Recording too much data can lead to
+# ROS communication hiccups, which can lead to eland, failsafe
+# or just a CRASH.
 
-"(.*)bluefox(.*)left/image_raw"
-"(.*)bluefox(.*)left/image_raw/h264/(.*)"
-"(.*)bluefox(.*)left/image_raw/h264"
-"(.*)bluefox(.*)left/image_raw/compressed/(.*)"
-"(.*)bluefox(.*)left/image_raw/compressedDepth(.*)"
-"(.*)bluefox(.*)left/image_raw/theora(.*)"
+# Every topic containint "compressed"
+'(.*)compressed(.*)'
+# Every topic containint "theora"
+'(.*)theora(.*)'
+# Every topic containint "h264"
+'(.*)h264(.*)'
 
-"(.*)bluefox(.*)right/image_raw"
-"(.*)bluefox(.*)right/image_raw/h264/(.*)"
-"(.*)bluefox(.*)right/image_raw/h264"
-"(.*)bluefox(.*)right/image_raw/compressed/(.*)"
-"(.*)bluefox(.*)right/image_raw/compressedDepth(.*)"
-"(.*)bluefox(.*)right/image_raw/theora(.*)"
-
-"(.*)bluefox_of/image_raw"
-"(.*)bluefox_of/image_raw/compressed/(.*)"
-"(.*)bluefox_of/image_raw/compressed"
-"(.*)bluefox_of/image_raw/compressedDepth(.*)"
-"(.*)bluefox_of/image_raw/theora(.*)"
-
-"(.*)uvdar_bluefox(.*)left/image_raw"
-"(.*)uvdar_bluefox(.*)left/image_raw/h264/(.*)"
-"(.*)uvdar_bluefox(.*)left/image_raw/h264"
-"(.*)uvdar_bluefox(.*)left/image_raw/compressed"
-"(.*)uvdar_bluefox(.*)left/image_raw/compressed/(.*)"
-"(.*)uvdar_bluefox(.*)left/image_raw/compressedDepth(.*)"
-"(.*)uvdar_bluefox(.*)left/image_raw/theora(.*)"
-
-"(.*)uvdar_bluefox(.*)right/image_raw"
-"(.*)uvdar_bluefox(.*)right/image_raw/h264/(.*)"
-"(.*)uvdar_bluefox(.*)right/image_raw/h264"
-"(.*)uvdar_bluefox(.*)right/image_raw/compressed"
-"(.*)uvdar_bluefox(.*)right/image_raw/compressed/(.*)"
-"(.*)uvdar_bluefox(.*)right/image_raw/compressedDepth(.*)"
-"(.*)uvdar_bluefox(.*)right/image_raw/theora(.*)"
-
-"(.*)uvdar/blink_visualization/image_raw"
-"(.*)uvdar/blink_visualization/image_raw/compressed/(.*)"
-"(.*)uvdar/blink_visualization/image_raw/compressedDepth(.*)"
-"(.*)uvdar/blink_visualization/image_raw/theora(.*)"
-"(.*)uvdar/blink_visualization/image_raw/h264/(.*)"
-"(.*)uvdar/blink_visualization/image_raw/h264"
-"(.*)uvdar/reprojection/image_raw"
-"(.*)uvdar/reprojection/image_raw/compressed/(.*)"
-"(.*)uvdar/reprojection/image_raw/compressedDepth(.*)"
-"(.*)uvdar/reprojection/image_raw/theora(.*)"
-
-"(.*)rs_t265/fisheye(.*)"
-"(.*)rs_d435(.*)depth_to_infra(.*)"
-"(.*)rs_d435(.*)depth_to_color/image_raw"
-"(.*)rs_d435(.*)depth_to_color(.*)compressed"
-"(.*)rs_d435(.*)depth_to_color(.*)compressed/(.*)"
-"(.*)rs_d435(.*)color/image_raw"
-"(.*)rs_d435(.*)/depth/(.*)"
-"(.*)rs_d435(.*)/infra(.*)"
-"(.*)rs_d435(.*)/color/image_rect_color"
-
-"(.*)/sun"
+'(.*)/blink_processor/uvdar_blink_visualization/compressed'
+'(.*)/blink_processor/uvdar_blink_visualization/compressed/parameter_descriptions'
+'(.*)/blink_processor/uvdar_blink_visualization/compressed/parameter_updates'
+'(.*)/blink_processor/uvdar_blink_visualization/compressedDepth'
+'(.*)/blink_processor/uvdar_blink_visualization/compressedDepth/parameter_descriptions'
+'(.*)/blink_processor/uvdar_blink_visualization/compressedDepth/parameter_updates'
+'(.*)/blink_processor/uvdar_blink_visualization/theora'
+'(.*)/blink_processor/uvdar_blink_visualization/theora/parameter_descriptions'
+'(.*)/blink_processor/uvdar_blink_visualization/theora/parameter_updates'
+'(.*)/uvdar_bluefox/left/camera_info'
+'(.*)/uvdar_bluefox/left/image_raw'
+'(.*)/uvdar_bluefox/left/image_raw/compressed'
+'(.*)/uvdar_bluefox/left/image_raw/compressed/parameter_descriptions'
+'(.*)/uvdar_bluefox/left/image_raw/compressed/parameter_updates'
+'(.*)/uvdar_bluefox/left/image_raw/compressedDepth'
+'(.*)/uvdar_bluefox/left/image_raw/compressedDepth/parameter_descriptions'
+'(.*)/uvdar_bluefox/left/image_raw/compressedDepth/parameter_updates'
+'(.*)/uvdar_bluefox/left/image_raw/theora'
+'(.*)/uvdar_bluefox/left/image_raw/theora/parameter_descriptions'
+'(.*)/uvdar_bluefox/left/image_raw/theora/parameter_updates'
+'(.*)/uvdar_bluefox/right/camera_info'
+'(.*)/uvdar_bluefox/right/image_raw'
+'(.*)/uvdar_bluefox/right/image_raw/compressed'
+'(.*)/uvdar_bluefox/right/image_raw/compressed/parameter_descriptions'
+'(.*)/uvdar_bluefox/right/image_raw/compressed/parameter_updates'
+'(.*)/uvdar_bluefox/right/image_raw/compressedDepth'
+'(.*)/uvdar_bluefox/right/image_raw/compressedDepth/parameter_descriptions'
+'(.*)/uvdar_bluefox/right/image_raw/compressedDepth/parameter_updates'
+'(.*)/uvdar_bluefox/right/image_raw/theora'
+'(.*)/uvdar_bluefox/right/image_raw/theora/parameter_descriptions'
+'(.*)/uvdar_bluefox/right/image_raw/theora/parameter_updates'
 )
 
 # file's header

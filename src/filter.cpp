@@ -15,6 +15,7 @@
 #include <std_srvs/Trigger.h>
 #include <std_srvs/SetBool.h>
 #include <nav_msgs/Odometry.h>
+#include <std_msgs/String.h>
 
 #include <boost/range/adaptor/indexed.hpp> 
 
@@ -108,7 +109,8 @@ namespace uvdar {
       ros::Publisher pub_filter_;
       ros::Publisher pub_filter_tent_;
 
-      // | ------------------------ services ------------------------ |
+      ros::Publisher pub_status_;
+
       ros::Timer timer;
       ros::Duration filter_update_period;
       double dt;
@@ -178,6 +180,8 @@ namespace uvdar {
 
         pub_filter_ = nh.advertise<mrs_msgs::PoseWithCovarianceArrayStamped>("filtered_poses", 1);
         pub_filter_tent_ = nh.advertise<mrs_msgs::PoseWithCovarianceArrayStamped>("filtered_poses/tentative", 1);
+
+        pub_status_ = nh.advertise<std_msgs::String>("/"+_uav_name_+"/mrs_uav_status/display_string", 1);
 
         if (_anonymous_measurements_ && _use_velocity_){
           ROS_WARN("[UVDARKalman]: Velocity estimation for anonymous measurements is not implemented. Returning.");
@@ -269,7 +273,7 @@ namespace uvdar {
         std::optional<mrs_lib::TransformStamped> tf;
         {
           std::scoped_lock lock(transformer_mutex);
-          tf = transformer_.getTransform(msg_local.header.frame_id, _output_frame_, msg.header.stamp);
+          tf = transformer_.getTransform(msg_local.header.frame_id, _output_frame_, msg_local.header.stamp);
         }
         if (!tf) { 
           ROS_ERROR("[UVDARKalman]: Could not obtain transform from %s to %s",msg_local.header.frame_id.c_str(), _output_frame_.c_str());
@@ -285,7 +289,8 @@ namespace uvdar {
           geometry_msgs::PoseWithCovarianceStamped meas_s;
           meas_s.pose.pose = meas.pose;
           meas_s.pose.covariance = meas.covariance;
-          ROS_INFO_STREAM("[UVDARKalman]: Meas. cov. input: " << std::endl << rosCovarianceToEigen(meas.covariance));
+          if (_debug_)
+            ROS_INFO_STREAM("[UVDARKalman]: Meas. cov. input: " << std::endl << rosCovarianceToEigen(meas.covariance));
           meas_s.header = msg_local.header;
           {
             std::scoped_lock lock(transformer_mutex);
@@ -312,7 +317,7 @@ namespace uvdar {
 
 
           if (poseVec.array().isNaN().any()){
-            ROS_INFO("[UVDARKalman]: Discarding input, value includes Nans.");
+            ROS_INFO_STREAM("[UVDARKalman]: Discarding input with ID" << meas.id << ", value includes Nans.");
             return;
           }
 
@@ -347,18 +352,23 @@ namespace uvdar {
             poseCov.bottomRightCorner(3,3) = eigvecs.real()*eigvals.real().asDiagonal()*eigvecs.real().transpose(); //reform the covariance with new expanded eigenvalues
           }
 
-          ROS_INFO_STREAM("[UVDARKalman]: Transformed measurement input is: [" << poseVec.transpose() << "]");
-          ROS_INFO_STREAM("[UVDARKalman]: Meas. cov. transformed: " << std::endl << poseCov);
+          if (_debug_){
+            ROS_INFO_STREAM("[UVDARKalman]: Transformed measurement input is: [" << poseVec.transpose() << "]");
+            ROS_INFO_STREAM("[UVDARKalman]: Meas. cov. transformed: " << std::endl << poseCov);
+          }
+
+          /* poseCov.topLeftCorner(3,3) += e::Matrix3d::Identity()*0.5; //fattening the measurements before applying them - they don't represent the distribution too well and the elliptic shape of the gaussians unduly shortents the filter covariances, as if we had more information on distance than we really do. */
 
           meas_converted.push_back({.x=poseVec,.P=poseCov});
           ids.push_back(meas.id);
         }
 
+
         if (_anonymous_measurements_){
-          applyMeasurementsAnonymous(meas_converted, msg_local.header.stamp);
+          applyMeasurementsAnonymous(meas_converted, msg_local.header.stamp, msg_local.header.frame_id);
         }
         else {
-          applyMeasurementsWithIdentity(meas_converted, ids, msg_local.header.stamp);
+          applyMeasurementsWithIdentity(meas_converted, ids, msg_local.header.stamp, msg_local.header.frame_id);
         }
       }
       //}
@@ -378,7 +388,8 @@ namespace uvdar {
         for (int target=0; target<(int)(fd.size());target++){
           int targetsSeen = 0;
           double age = (ros::Time::now() - fd[target].latest_measurement).toSec();
-          ROS_INFO("[UVDARKalman]: Age of %d is %f", target, age);
+          if (_debug_)
+            ROS_INFO("[UVDARKalman]: Age of %d is %f", target, age);
           double decay_age;
           if (fd[target].update_count > MIN_MEASUREMENTS_TO_VALIDATION){
             decay_age = DECAY_AGE_NORMAL;
@@ -387,7 +398,7 @@ namespace uvdar {
             decay_age = DECAY_AGE_UNVALIDATED;
           }
           if (age>decay_age){
-            ROS_INFO_STREAM("[UVDARKalman]: Removing state " << target << ": " << fd[target].filter_state.x.transpose() << " due to old age of " << age << " s." );
+            ROS_INFO_STREAM("[UVDARKalman]: Removing state " << target << " (ID:" << fd[target].id << ") : " << fd[target].filter_state.x.transpose() << " due to old age of " << age << " s." );
             fd.erase(fd.begin()+target);
             target--;
             continue;
@@ -436,16 +447,19 @@ namespace uvdar {
         }
 
         if (changed){
-          e::EigenSolver<e::Matrix3d> es(C.topLeftCorner(3,3));
-          C.topLeftCorner(3,3) = es.eigenvectors().real()*eigens.real().asDiagonal()*es.eigenvectors().real().transpose();
-          x.topLeftCorner(3,1) = x.topLeftCorner(3,1).normalized()*15;
-          //so that we don't initialize with the long covariances intersecting in the origin
+          if (id == -1){
+            e::EigenSolver<e::Matrix3d> es(C.topLeftCorner(3,3));
+            C.topLeftCorner(3,3) = es.eigenvectors().real()*eigens.real().asDiagonal()*es.eigenvectors().real().transpose();
+            x.topLeftCorner(3,1) = x.topLeftCorner(3,1).normalized()*15;
+            //so that we don't initialize with the long covariances intersecting in the origin
+          }
         }
 
           auto C_local = C; // the correlation between angle and position only exists in the measurement - the filter may have many measurements where this relation does not exist anymore
         if (!_use_velocity_){
           int index = (int)(fd.size());
-          ROS_INFO_STREAM("[UVDARKalman]: Initiating state " << index << "  with: " << x.transpose());
+          ROS_INFO_STREAM("[UVDARKalman]: Initiating state " << index << "(ID:" << ((id<0)?(latest_id++):(id)) << ")  with: " << x.transpose());
+          ROS_INFO_STREAM("[UVDARKalman]: The source input of the state is " << (ros::Time::now() - stamp).toSec() << "s old.");
 
           C_local.topRightCorner(3,3).setZero();  // check the case of _use_velocity_ == true
           C_local.bottomLeftCorner(3,3).setZero();  // check the case of _use_velocity_ == true
@@ -482,7 +496,9 @@ namespace uvdar {
         auto orig_state = fd_curr;
         double dt_from_last = std::fmax(std::fmin((target_time-fd_curr.latest_update).toSec(),(target_time-fd_curr.latest_measurement).toSec()),0.0);
         filter->A = A_dt(dt_from_last);
+        /* ROS_INFO_STREAM("[UVDARKalman]: Filter pred. orig: " << std::endl << fd_curr.filter_state.P); */
         auto new_state =  filter->predict(fd_curr.filter_state, u_t(), Q_dt(dt_from_last), dt_from_last);
+        /* ROS_INFO_STREAM("[UVDARKalman]: Filter predicted: " << std::endl << fd_curr.filter_state.P); */
         if (apply_update){
           fd_curr.filter_state = new_state;
           fd_curr.latest_update = target_time;
@@ -515,7 +531,7 @@ namespace uvdar {
        * @return The resulting state and its output covariance
        */
       /* correctWithMeasurement //{ */
-      statecov_t correctWithMeasurement(struct FilterData &fd_curr, statecov_t measurement, double &match_level, ros::Time meas_time, bool prior_predict, bool apply_update = false){
+      statecov_t correctWithMeasurement(struct FilterData &fd_curr, statecov_t measurement, double &match_level, ros::Time meas_time, bool prior_predict, bool apply_update = false, std::string camera_frame = ""){
         auto filter_local = fd_curr;
 
         auto orig_state = filter_local.filter_state;
@@ -541,19 +557,34 @@ namespace uvdar {
             );
 
         auto P_local = measurement.P;
+        /* ROS_INFO_STREAM("[UVDARKalman]: Meas. cov: " << std::endl << P_local); */
         P_local.topRightCorner(3,3).setZero();  // check the case of _use_velocity_ == true
         P_local.bottomLeftCorner(3,3).setZero();  // check the case of _use_velocity_ == true
 
-        /* ROS_INFO_STREAM("[UVDARKalman]: Meas. cov: " << std::endl << measurement.P); */
+        /* double dt_from_last = std::fmax(std::fmin((filter_local.latest_update-meas_time).toSec(),(filter_local.latest_measurement-meas_time).toSec()),0.0); */
+        /* P_local += Q_dt(dt_from_last)*dt_from_last; */
+
+        /* ROS_INFO_STREAM("[UVDARKalman]: Scaling by: " << 1.0/match_level << " due to match level of " << match_level); */
+        P_local *= (1.0/match_level);
+        /* ROS_INFO_STREAM("[UVDARKalman]: With ML: " << std::endl << P_local); */
+        /* P_local *= std::max(0.1,(1.0/match_level)); */
+
+
+        /* ROS_INFO_STREAM("[UVDARKalman]: Filter orig: " << std::endl << filter_local.filter_state.P); */
         filter_local.filter_state = filter->correct(filter_local.filter_state, measurement.x, P_local);
+        /* ROS_INFO_STREAM("[UVDARKalman]: Filter corr: " << std::endl << filter_local.filter_state.P); */
         /* ROS_INFO_STREAM("[UVDARKalman]: Fixed to: " << std::endl << P_local); */
+
+        filter_local.filter_state.P *= (1+match_level);//this makes the filter not increase certainty in case of multiple identical measurements - the mean in the covariances is more probable than the rest of its x<1*sigma space
+        /* ROS_INFO_STREAM("[UVDARKalman]: Filter exp.: " << std::endl << filter_local.filter_state.P); */
 
         filter_local.filter_state.x[3] = fixAngle(filter_local.filter_state.x[3], 0);
         filter_local.filter_state.x[4] = fixAngle(filter_local.filter_state.x[4], 0);
         filter_local.filter_state.x[5] = fixAngle(filter_local.filter_state.x[5], 0);
 
-        if (apply_update){
-          /* if (_debug_){ */
+        if (isInFrontOfCamera(filter_local.filter_state.x.topRows(3), camera_frame, meas_time)){
+          if (apply_update){
+            /* if (_debug_){ */
             /* if ( */
             /*     ((orig_state.x.topRows(3) - filter_local.filter_state.x.topRows(3)).norm() > 2.0) || */
             /*     ((orig_state.x.bottomRows(3) - filter_local.filter_state.x.bottomRows(3)).norm() > 0.2) */
@@ -575,10 +606,11 @@ namespace uvdar {
             /*   ROS_INFO_STREAM("[UVDARKalman]: Orig. state. cov: " << std::endl << orig_state.P); */
             /*   ROS_INFO_STREAM("[UVDARKalman]: New state. cov: " << std::endl << filter_local.filter_state.P); */
             /* } */
-          /* } */
-          fd_curr.filter_state = filter_local.filter_state;
-          fd_curr.latest_measurement = meas_time;
-          fd_curr.update_count++;
+            /* } */
+            fd_curr.filter_state = filter_local.filter_state;
+            fd_curr.latest_measurement = meas_time;
+            fd_curr.update_count++;
+          }
         }
         return filter_local.filter_state;
       }
@@ -630,6 +662,30 @@ namespace uvdar {
       }
       //}
 
+      bool isInFrontOfCamera(e::Vector3d mean, std::string camera_frame, ros::Time stamp){
+        geometry_msgs::PoseStamped target_cam_view, target_filter;
+        target_filter.header.frame_id = _output_frame_;
+        target_filter.header.stamp = stamp;
+        target_filter.pose.position.x = mean.x();
+        target_filter.pose.position.y = mean.y();
+        target_filter.pose.position.z = mean.z();
+
+        auto ret = transformer_.transformSingle(camera_frame, target_filter);
+        if (ret) {
+          target_cam_view = ret.value();
+        }
+        else{
+          ROS_ERROR_STREAM("[UVDARKalman]: Could not transform filter state from "<< _output_frame_ << " to camera frame " << camera_frame);
+          return false;
+        }
+
+        e::Vector3d target_cam_view_vector(target_cam_view.pose.position.x, target_cam_view.pose.position.y, target_cam_view.pose.position.z);
+        double norm = target_cam_view_vector.norm();
+        double cos_angle = target_cam_view_vector.normalized().dot(e::Vector3d(0,0,1));
+
+        return ((norm > 1.5) && (cos_angle > -0.173648));//cos(100 deg) 
+
+      }
 
       /**
        * @brief Applies relative position measurements to states that are the closest to their position component
@@ -638,7 +694,7 @@ namespace uvdar {
        * @param meas_time The time of the input measurements
        */
       /* applyMeasurementsAnonymous //{ */
-      void applyMeasurementsAnonymous(std::vector<statecov_t> measurements, ros::Time meas_time){
+      void applyMeasurementsAnonymous(std::vector<statecov_t> measurements, ros::Time meas_time, std::string camera_frame){
         std::scoped_lock lock(filter_mutex);
         if (fd.size() == 0){
           for (auto const& measurement_curr : measurements | indexed(0)){
@@ -661,7 +717,7 @@ namespace uvdar {
                 state_curr.value()
                 );
             double match_level;
-            correctWithMeasurement(tentative_states.back().back(),measurement_curr.value(), match_level, meas_time, true, true);
+            correctWithMeasurement(tentative_states.back().back(),measurement_curr.value(), match_level, meas_time, true, true, camera_frame);
             match_matrix(measurement_curr.index(),state_curr.index()) = match_level;
             double dt_s = 0.1;
             if ((ros::Time::now() - state_curr.value().latest_measurement).toSec() < dt_s){ // just in case - in simulation the camera outputs follow one another immediately, so no inflation happens in between
@@ -747,7 +803,7 @@ namespace uvdar {
        * @param meas_time
        */
       /* applyMeasurementsWithIdentity //{ */
-      void applyMeasurementsWithIdentity(std::vector<statecov_t> measurements, std::vector<int> ids, ros::Time meas_time){
+      void applyMeasurementsWithIdentity(std::vector<statecov_t> measurements, std::vector<int> ids, ros::Time meas_time, std::string camera_frame){
         std::scoped_lock lock(filter_mutex);
 
         if (measurements.size() != ids.size()){
@@ -768,7 +824,7 @@ namespace uvdar {
           }
           else {
             [[ maybe_unused ]] double match_level; //for future use with multiple measurements with the same ID
-            correctWithMeasurement(fd.at(target),measurement_curr.value(), match_level,meas_time,true, true);
+            correctWithMeasurement(fd.at(target),measurement_curr.value(), match_level,meas_time,true, true, camera_frame);
           }
 
         }
@@ -818,6 +874,10 @@ namespace uvdar {
             msg.poses.push_back(temp);
           }
         }
+
+        std_msgs::String msg_status;
+        msg_status.data = std::string("UVDAR sees "+std::to_string(msg.poses.size())+" targets").c_str();
+        pub_status_.publish(msg_status);
 
         pub_filter_.publish(msg);
         pub_filter_tent_.publish(msg_tent);
@@ -884,7 +944,7 @@ namespace uvdar {
 
               }
               fd.erase(fd.begin()+n);
-              ROS_INFO_STREAM("[UVDARKalman]: Removing state " << n << ": " << fd[n].filter_state.x.transpose() << " due to large overlap with state " << m << ": " << fd[m].filter_state.x.transpose());
+              ROS_INFO_STREAM("[UVDARKalman]: Removing state " << n << " (ID:" << fd[n].id << "): " << fd[n].filter_state.x.transpose() << " due to large overlap with state " << m << ": " << fd[m].filter_state.x.transpose());
               if (n<m){
                 remove_first=true;
                 break;
@@ -1094,9 +1154,9 @@ namespace uvdar {
           }
           else{
             // This is an unorthodox approach.
-            // I wanted for the process noise covariance Q (expressing a multivariate gaussian) to cover not only the noise in static position extimate, but to also take into account the mean of expected relative velocity, which is not a state variable in this case.
+            // I wanted for the process noise covariance Q (expressing a multivariate gaussian) to cover not only the noise in static position estimate, but to also take into account the mean of expected relative velocity, which is not a state variable in this case.
             // The noise should inflate the error covariance of the state approximately linearly. This can be demonstrated in the following example:
-            //  In this filter, we can receive measurement with time-stamp after a previous step of prediction. We therefore first need to predict the effects of process noise up to the measurement time, we then correct the state with the measruement and in the next prediction step we need to expand the error covariance from the measurement time to the next step in the regular process.
+            //  In this filter, we can receive measurement with time-stamp after a previous step of prediction. We therefore first need to predict the effects of process noise up to the measurement time, we then correct the state with the measurement and in the next prediction step we need to expand the error covariance from the measurement time to the next step in the regular process.
             //  If the expansion was not to be linear (or at least close to linear), the two prediction steps, splitting a normal time step into two parts, would not add up to the same result as a single prediction with time step equal to the sum of the two.
             // To approach linearity without drastically changing the Kalman filter process (it must be based on multivariate Gaussians) while including an unknown velocity of uniform distribution, we need a Q that represents the sum of the influences of position estimate noise and of the drift due to unknown velocity.
             // The function used here was obtained thusly:
