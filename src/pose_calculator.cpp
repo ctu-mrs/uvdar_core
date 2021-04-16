@@ -1419,7 +1419,9 @@ namespace uvdar {
           ROS_INFO_STREAM("[UVDARPoseCalculator]: total error init: " << error_total);
         while ((error_total > threshold) && ((gradient.norm()) > 0.0001) && (iters < 100)){
           step = step_init;
-          while (true){
+          int it=0;
+          while (it<1000){
+            it++;
             shape_top     = model_curr.translate(e::Vector3d(0,0,step));
             shape_bottom  = model_curr.translate(e::Vector3d(0,0,-step));
             shape_left    = model_curr.translate(e::Vector3d(0,step,0));
@@ -1650,7 +1652,9 @@ namespace uvdar {
             for (int dim = 0; dim < 3; dim++){
               pos_step = pos_step_init;
               bool extreme = false;
-              while (true){ //get local position gradient
+              int it=0;
+              while (it<1000){//get local position gradient
+                it++;
                 grad_iter++;
                 e::Vector3d grad_vec = e::Vector3d(0,0,0);
                 grad_vec(dim) = pos_step;
@@ -1746,7 +1750,9 @@ namespace uvdar {
             for (int dim = 0; dim < 3; dim++){
               angle_step = angle_step_init;
               bool extreme = false;
-              while (true){
+              int it=0;
+              while (it<1000){
+                it++;
                 grad_iter++;
 
                 e::Vector3d grad_axis_vec = e::Vector3d(0,0,0);
@@ -2142,7 +2148,9 @@ namespace uvdar {
         do {
           value_shift_prev = value_shift_curr;
           lin_diff_step = lin_step_init;
-          while (true){ //approach minimum along gradient
+          int it=0;
+          while (it<1000){//approach minimum along gradient
+            it++;
             double om_a = om+lin_diff_step;
             double om_b = om-lin_diff_step;
             auto U1a     = A + sqr(om_a)*c2;
@@ -2159,7 +2167,9 @@ namespace uvdar {
             break;
           }
           lin_step = lin_step_init;
-          while (true){
+          it=0;
+          while (it<1000){
+            it++;
             double om_tent = om-(sgn(lin_gradient)*lin_step);
             auto U1t     = A + sqr(om_tent)*c2;
             auto U2t     = B + sqr(1.0-om_tent)*c2;
@@ -2216,7 +2226,9 @@ namespace uvdar {
         do {
           value_rot_prev = value_rot_curr;
           rot_diff_step = rot_step_init;
-          while (true){ //approach minimum along gradient
+          int it=0;
+          while (it<1000){//approach minimum along gradient
+            it++;
             double om_a = om+rot_diff_step;
             double om_b = om-rot_diff_step;
             auto U1a     = A + sqr(om_a)*c2_o;
@@ -2233,7 +2245,9 @@ namespace uvdar {
             break;
           }
           rot_step = rot_step_init;
-          while (true){
+          it=0;
+          while (it<1000){
+            it++;
             double om_tent = om-(sgn(rot_gradient)*rot_step);
             auto U1t     = A + sqr(om_tent)*c2_o;
             auto U2t     = B + sqr(1.0-om_tent)*c2_o;
