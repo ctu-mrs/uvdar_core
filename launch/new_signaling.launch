@@ -23,9 +23,9 @@
   <arg name="blink_process_rate" default="10"/>
 
   <arg name="accumulator_length"         default="12"/>
-  <arg name="pitch_steps"         default="12"/>
+  <arg name="pitch_steps"         default="16"/>
   <arg name="yaw_steps"         default="16"/>
-  <arg name="max_pixel_shift"         default="2"/>
+  <arg name="max_pixel_shift"         default="4"/>
 
   <arg name="filterDistLength"         default="10"/>
   <arg name="filterOrientationLength"         default="10"/>
