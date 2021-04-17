@@ -21,8 +21,8 @@
       <remap from="~led_7" to="/gazebo/ledProperties/$(arg uav_name)_uvled_7_lens_link"/>
       <remap from="~led_8" to="/gazebo/ledProperties/$(arg uav_name)_uvled_8_lens_link"/>
       
-      <!-- <param name="fr_setter_topic" value="/$(arg uav_name)/fr_setter/set_frequency" /> -->
-      <param name="fr_setter_topic" value="/$(arg uav_name)/signal_setter/set_frequency" />
+      <param name="fr_setter_topic" value="/$(arg uav_name)/fr_setter/set_frequency" />
+      <!-- <param name="fr_setter_topic" value="/$(arg uav_name)/signal_setter/set_frequency" /> -->
       <param name="odom_topic" value="/$(arg uav_name)/odometry/odom_gps" />
       <param name="msgs_topic" value="/$(arg uav_name)/uvdar_communication/send_msg" />
       

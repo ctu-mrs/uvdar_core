@@ -32,13 +32,15 @@ public:
     }
 
     initialized = true;
+
+    ROS_WARN("co to kurva je");
   }
 
 private:
   bool FrequencySetterCallback(uvdar_core::SetLedState::Request& req, uvdar_core::SetLedState::Response& res) {
     mrs_msgs::BacaProtocol serial_msg;
     serial_msg.stamp = ros::Time::now();
-
+        
     mrs_msgs::SetInt led_state;
     if (req.data) {
       if (req.start_of_message) {

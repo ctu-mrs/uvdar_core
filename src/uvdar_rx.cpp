@@ -305,10 +305,10 @@ private:
       }
 
 
-      for(auto& bit : point_seen[camera_index][i]){
-        std::cout << bit.count;
-      }
-      std::cout << std::endl;
+      /* for(auto& bit : point_seen[camera_index][i]){ */
+      /*   std::cout << bit.count; */
+      /* } */
+      /* std::cout << std::endl; */
 
 
       /*
