@@ -113,7 +113,7 @@ public:
       ht4dbt_trackers_.back()->setDebug(_debug_, _visual_debug_);
     
       SignalData sd_new;
-      sd_new.retrieved_blinkers.push_back(cv::Point3d(0,0,0));
+      sd_new.retrieved_blinkers.push_back({cv::Point2d(0,0),1});
       signal_data_.push_back(sd_new);
 
       points_loaded.push_back(0);
@@ -126,7 +126,7 @@ private:
 
   static int abs_function (int x, int y) {return x+abs(y);}
 
-  int DataFrameCheck(std::vector<int>& received_msg_corrected) {
+  int DataFrameCheck(std::vector<bool>& received_msg_corrected) {
     int rmc_size = received_msg_corrected.size();
 
     for (int bs = (rmc_size - 1); bs >= 3; bs--) {  // check of Bit Stuffing and BS bits separation
@@ -155,8 +155,8 @@ private:
 
     int parity_check = 0;
 
-    for (auto& cnt : received_msg_corrected) {  // parity check
-      if (cnt > 0)
+    for (auto b : received_msg_corrected) {  // parity check
+      if (b > 0)
         parity_check++;
     }
 
@@ -345,12 +345,12 @@ private:
       for(int j = 0; j < (int)recieved_signals[camera_index].size(); j++){
         recieved_signals[camera_index][j].signal_added = false;
         std::vector<int> init_iter(SIG_STEP, 0);
-        recieved_signals[camera_index][j].singal.insert(recieved_signals[camera_index][j].singal.begin(), init_iter.begin(), init_iter.end());  
-        recieved_signals[camera_index][j].singal.resize(MAX_CLUSTER);            
-        /* recieved_signals[camera_index][sig_queue.begin()->sig_index].singal.insert(recieved_signals[camera_index][sig_queue.begin()->sig_index].singal.begin(), rec_signal.begin(), rec_signal.begin()+SIG_STEP); */
+        recieved_signals[camera_index][j].signal.insert(recieved_signals[camera_index][j].signal.begin(), init_iter.begin(), init_iter.end());  
+        recieved_signals[camera_index][j].signal.resize(MAX_CLUSTER);            
+        /* recieved_signals[camera_index][sig_queue.begin()->sig_index].signal.insert(recieved_signals[camera_index][sig_queue.begin()->sig_index].signal.begin(), rec_signal.begin(), rec_signal.begin()+SIG_STEP); */
       }
 
-      std::vector<int> rec_signal;
+      std::vector<bool> rec_signal;
    
       int retr_size = (int)signal_data_[camera_index].retrieved_blinkers.size();
 
@@ -366,9 +366,9 @@ private:
 
         if(recieved_signals[camera_index].empty()){
           RecSignals new_signal;
-          new_signal.position = cv::Point2i(signal_data_[camera_index].retrieved_blinkers[i].x, signal_data_[camera_index].retrieved_blinkers[i].y);
+          new_signal.position = cv::Point2i(signal_data_[camera_index].retrieved_blinkers[i].first.x, signal_data_[camera_index].retrieved_blinkers[i].first.y);
           new_signal.signal_added = true;
-          new_signal.singal = rec_signal;
+          new_signal.signal = rec_signal;
           recieved_signals[camera_index].push_back(new_signal);
           continue;
         }
@@ -382,7 +382,7 @@ private:
           
           SignalQueue new_record;
           new_record.sig_index = j;
-          new_record.sig_distance = abs(recieved_signals[camera_index][j].position.x - signal_data_[camera_index].retrieved_blinkers[i].x)+abs(recieved_signals[camera_index][j].position.y - signal_data_[camera_index].retrieved_blinkers[i].y);
+          new_record.sig_distance = abs(recieved_signals[camera_index][j].position.x - signal_data_[camera_index].retrieved_blinkers[i].first.x)+abs(recieved_signals[camera_index][j].position.y - signal_data_[camera_index].retrieved_blinkers[i].first.y);
           /* sig_queue.push_back(new_record); */
         
           /* ROS_INFO("sig [%d, %d]: ",new_record.sig_distance, new_record.sig_index); */
@@ -416,14 +416,14 @@ private:
 
             for(int a = SIG_STEP; a < (int)rec_signal.size(); a++){
               if(a >= 2*SIG_STEP){
-                h_dist_s += abs(rec_signal[a] - recieved_signals[camera_index][sig.sig_index].singal[a]);
+                h_dist_s += abs(rec_signal[a] - recieved_signals[camera_index][sig.sig_index].signal[a]);
               }
-              h_dist_p += abs(rec_signal[a] - recieved_signals[camera_index][sig.sig_index].singal[a]);
+              h_dist_p += abs(rec_signal[a] - recieved_signals[camera_index][sig.sig_index].signal[a]);
               /* std::cout << rec_signal[a]; */
             }
             /* std::cout << " --- "; */
             /* for(int b = SIG_STEP; b < (int)rec_signal.size(); b++){ */
-            /*   std::cout << recieved_signals[camera_index][sig.sig_index].singal[b]; */
+            /*   std::cout << recieved_signals[camera_index][sig.sig_index].signal[b]; */
             /* } */
             /* std::cout << " --- "; */
             /* for(int c = 2*SIG_STEP; c < (int)rec_signal.size(); c++){ */
@@ -431,7 +431,7 @@ private:
             /* } */
             /* std::cout << " --- "; */
             /* for(int d = 2*SIG_STEP; d < (int)rec_signal.size(); d++){ */
-            /*   std::cout << recieved_signals[camera_index][sig.sig_index].singal[d]; */
+            /*   std::cout << recieved_signals[camera_index][sig.sig_index].signal[d]; */
             /* } */
             /* std::cout << " --- "; */
             /* std::cout << sig.sig_distance; */
@@ -445,9 +445,9 @@ private:
             if(h_dist_p <= 6 || h_dist_s <= 3){
               int b_r = 4; //block replaced 
               recieved_signals[camera_index][sig.sig_index].signal_added = true;
-              recieved_signals[camera_index][sig.sig_index].position = cv::Point2i(signal_data_[camera_index].retrieved_blinkers[i].x, signal_data_[camera_index].retrieved_blinkers[i].y);
-              recieved_signals[camera_index][sig.sig_index].singal.erase(recieved_signals[camera_index][sig.sig_index].singal.begin(), recieved_signals[camera_index][sig.sig_index].singal.begin() + b_r*SIG_STEP);
-              recieved_signals[camera_index][sig.sig_index].singal.insert(recieved_signals[camera_index][sig.sig_index].singal.begin(), rec_signal.begin(), rec_signal.begin() + b_r*SIG_STEP);
+              recieved_signals[camera_index][sig.sig_index].position = cv::Point2i(signal_data_[camera_index].retrieved_blinkers[i].first.x, signal_data_[camera_index].retrieved_blinkers[i].first.y);
+              recieved_signals[camera_index][sig.sig_index].signal.erase(recieved_signals[camera_index][sig.sig_index].signal.begin(), recieved_signals[camera_index][sig.sig_index].signal.begin() + b_r*SIG_STEP);
+              recieved_signals[camera_index][sig.sig_index].signal.insert(recieved_signals[camera_index][sig.sig_index].signal.begin(), rec_signal.begin(), rec_signal.begin() + b_r*SIG_STEP);
               new_signal_added = true;
             }
             SignalQueue nextSignal;
@@ -462,32 +462,32 @@ private:
 
           /* recieved_signals[camera_index][sig_queue.begin()->sig_index].signal_added = true; */
           /* recieved_signals[camera_index][sig_queue.begin()->sig_index].position = cv::Point2i(signal_data_[camera_index].retrieved_blinkers[i].x, signal_data_[camera_index].retrieved_blinkers[i].y); */
-          /* recieved_signals[camera_index][sig_queue.begin()->sig_index].singal.erase(recieved_signals[camera_index][sig_queue.begin()->sig_index].singal.begin(), recieved_signals[camera_index][sig_queue.begin()->sig_index].singal.begin()+SIG_STEP); */
-          /* recieved_signals[camera_index][sig_queue.begin()->sig_index].singal.insert(recieved_signals[camera_index][sig_queue.begin()->sig_index].singal.begin(), rec_signal.begin(), rec_signal.begin()+SIG_STEP); */
+          /* recieved_signals[camera_index][sig_queue.begin()->sig_index].signal.erase(recieved_signals[camera_index][sig_queue.begin()->sig_index].signal.begin(), recieved_signals[camera_index][sig_queue.begin()->sig_index].signal.begin()+SIG_STEP); */
+          /* recieved_signals[camera_index][sig_queue.begin()->sig_index].signal.insert(recieved_signals[camera_index][sig_queue.begin()->sig_index].signal.begin(), rec_signal.begin(), rec_signal.begin()+SIG_STEP); */
           /* new_signal_added = true; */
         }
 
 
         if(!new_signal_added){
           RecSignals new_signal;
-          new_signal.position = cv::Point2i(signal_data_[camera_index].retrieved_blinkers[i].x, signal_data_[camera_index].retrieved_blinkers[i].y);
+          new_signal.position = cv::Point2i(signal_data_[camera_index].retrieved_blinkers[i].first.x, signal_data_[camera_index].retrieved_blinkers[i].first.y);
           new_signal.signal_added = true;
-          new_signal.singal = rec_signal;
+          new_signal.signal = rec_signal;
         
           std::vector<int> init_signal(MAX_CLUSTER-ACC_LEN, 0);
-          new_signal.singal.insert(new_signal.singal.end(), init_signal.begin(), init_signal.end());  
+          new_signal.signal.insert(new_signal.signal.end(), init_signal.begin(), init_signal.end());  
           
           recieved_signals[camera_index].push_back(new_signal);
           new_signal_added = true;
         }
 
         /* if(new_signal_added){ */
-        /*   if((int)recieved_signals[camera_index][index_added].singal.size() > MAX_CLUSTER){ */
-        /*     recieved_signals[camera_index][index_added].singal.resize(MAX_CLUSTER); */            
+        /*   if((int)recieved_signals[camera_index][index_added].signal.size() > MAX_CLUSTER){ */
+        /*     recieved_signals[camera_index][index_added].signal.resize(MAX_CLUSTER); */            
         /*   } */
         /* } */
 
-        /* ROS_ERROR("[%d]: ", (int)recieved_signals[camera_index][index_added].singal.size()); */
+        /* ROS_ERROR("[%d]: ", (int)recieved_signals[camera_index][index_added].signal.size()); */
 
 
 
@@ -519,7 +519,7 @@ private:
       sof_mask.insert(sof_mask.begin(), mask_init_se.begin(), mask_init_se.end());
   
       for(int j = 0; j < (int)recieved_signals[camera_index].size(); j++){
-        int sum_of_elems = std::accumulate(recieved_signals[camera_index][j].singal.begin(), recieved_signals[camera_index][j].singal.end(), 0);
+        int sum_of_elems = std::accumulate(recieved_signals[camera_index][j].signal.begin(), recieved_signals[camera_index][j].signal.end(), 0);
         if(sum_of_elems < 1){ 
           recieved_signals[camera_index].erase(recieved_signals[camera_index].begin()+j);
           continue;
@@ -530,7 +530,7 @@ private:
 
         for(int mask_shift = 0; mask_shift < SIG_STEP; mask_shift++){
           std::vector<int> h_dist_mask = eof_mask;
-          std::transform (h_dist_mask.begin(), h_dist_mask.end(), recieved_signals[camera_index][j].singal.begin() + mask_shift, h_dist_mask.begin(), std::plus<int>());
+          std::transform (h_dist_mask.begin(), h_dist_mask.end(), recieved_signals[camera_index][j].signal.begin() + mask_shift, h_dist_mask.begin(), std::plus<int>());
           int mask_correl = std::accumulate(h_dist_mask.begin(), h_dist_mask.end(), 0, abs_function);
           if(mask_correl == 0){
             eof_idx = mask_shift + (int)eof_mask.size() - 1;
@@ -543,9 +543,9 @@ private:
 
         int min_shift = 25; //30 should be enough
 
-        for(int mask_shift = eof_idx + min_shift; mask_shift < (int)recieved_signals[camera_index][j].singal.size() - (int)sof_mask.size(); mask_shift++){
+        for(int mask_shift = eof_idx + min_shift; mask_shift < (int)recieved_signals[camera_index][j].signal.size() - (int)sof_mask.size(); mask_shift++){
           std::vector<int> h_dist_mask = sof_mask;
-          std::transform (h_dist_mask.begin(), h_dist_mask.end(), recieved_signals[camera_index][j].singal.begin() + mask_shift, h_dist_mask.begin(), std::plus<int>());
+          std::transform (h_dist_mask.begin(), h_dist_mask.end(), recieved_signals[camera_index][j].signal.begin() + mask_shift, h_dist_mask.begin(), std::plus<int>());
           int mask_correl = std::accumulate(h_dist_mask.begin(), h_dist_mask.end(), 0, abs_function);
           if(mask_correl == 0){
             sof_idx = mask_shift;
@@ -556,10 +556,10 @@ private:
         
         RecSignals new_candidate;
         new_candidate.position = recieved_signals[camera_index][j].position;
-        std::copy(recieved_signals[camera_index][j].singal.begin() + eof_idx, recieved_signals[camera_index][j].singal.begin() + sof_idx + 1, back_inserter(new_candidate.singal));  // cut of the frame in range of SOF-EOF
-        std::reverse(new_candidate.singal.begin(), new_candidate.singal.end());
+        std::copy(recieved_signals[camera_index][j].signal.begin() + eof_idx, recieved_signals[camera_index][j].signal.begin() + sof_idx + 1, back_inserter(new_candidate.signal));  // cut of the frame in range of SOF-EOF
+        std::reverse(new_candidate.signal.begin(), new_candidate.signal.end());
         signal_candidates.push_back(new_candidate);
-        /* for(auto& bitss : recieved_signals[camera_index][j].singal){ */
+        /* for(auto& bitss : recieved_signals[camera_index][j].signal){ */
         /*   std::cout << bitss; */
         /* } */
         /* std::cout << std::endl; */
@@ -576,13 +576,13 @@ private:
       /* std::cout << "---------------------------------------------------"; */ 
       /* std::cout << std::endl; */
       for(auto& raw_signal : signal_candidates){
-        while (raw_signal.singal.front() == 0) {  // start synchronize, the second part of SOF (bit 1) remains for BS check
-          if(raw_signal.singal.empty()) continue;
-          raw_signal.singal.erase(raw_signal.singal.begin());
+        while (raw_signal.signal.front() == 0) {  // start synchronize, the second part of SOF (bit 1) remains for BS check
+          if(raw_signal.signal.empty()) continue;
+          raw_signal.signal.erase(raw_signal.signal.begin());
         }
 
-        while (raw_signal.singal.back() == 0) {  // end synchronization
-          raw_signal.singal.pop_back();
+        while (raw_signal.signal.back() == 0) {  // end synchronization
+          raw_signal.signal.pop_back();
         }
 
 
@@ -596,11 +596,11 @@ private:
 
         int curr_bit;
 
-        while (!raw_signal.singal.empty()) {
-          curr_bit = raw_signal.singal.back();
-          while (raw_signal.singal.back() == curr_bit && !raw_signal.singal.empty()) {
+        while (!raw_signal.signal.empty()) {
+          curr_bit = raw_signal.signal.back();
+          while (raw_signal.signal.back() == curr_bit && !raw_signal.signal.empty()) {
             sub_frame.push_back(curr_bit);
-            raw_signal.singal.pop_back();
+            raw_signal.signal.pop_back();
           }
           sub_frames.push_back(sub_frame);
           sub_frame.clear();
@@ -637,7 +637,7 @@ private:
           }
         }
 
-        raw_signal.singal.clear();
+        raw_signal.signal.clear();
 
         while (!sub_frames.empty()) {
           int bit_cnt = sub_frames.back().size() / 3;
@@ -646,38 +646,38 @@ private:
             // ROS_INFO("Correction from hodne to 3");
           }
           for (int p = 0; p < bit_cnt; p++) {
-            raw_signal.singal.push_back(sub_frames.back().back());
+            raw_signal.signal.push_back(sub_frames.back().back());
           }
           sub_frames.pop_back();
         }
-        raw_signal.singal.pop_back();
+        raw_signal.signal.pop_back();
 
 
 
 
 
-        /* for(auto& bit : raw_signal.singal){ */
+        /* for(auto& bit : raw_signal.signal){ */
         /*   std::cout << bit; */
         /* } */
 
 
         int faults;
-        faults = DataFrameCheck(raw_signal.singal);
+        faults = DataFrameCheck(raw_signal.signal);
 
         if (faults != 0){
           /* std::cout << " - not able to decode"; */ 
         }
         else{
-          int recieved_id = 2 * raw_signal.singal[0] + raw_signal.singal[1];
+          int recieved_id = 2 * raw_signal.signal[0] + raw_signal.signal[1];
           if(recieved_id == uav_id){
             ROS_ERROR("Detected ID nod valid");
             continue;
           }
           int recieved_angle;
           int recieved_special;
-          if ((int)raw_signal.singal.size() == 8) {
-            recieved_angle = 22.5 * (8 * raw_signal.singal[3] + 4 * raw_signal.singal[4] + 2 * raw_signal.singal[5] + raw_signal.singal[6]);
-            if(raw_signal.singal[2]==1){
+          if ((int)raw_signal.signal.size() == 8) {
+            recieved_angle = 22.5 * (8 * raw_signal.signal[3] + 4 * raw_signal.signal[4] + 2 * raw_signal.signal[5] + raw_signal.signal[6]);
+            if(raw_signal.signal[2]==1){
               recieved_special = 1;
             }
             else{
@@ -899,13 +899,13 @@ private:
       /*
        *Cleaning of received msg
        */
-      std::vector<int> received_msg_raw;
+      std::vector<bool> received_msg_raw;
       for (auto& bits : received_msg) {
         int bit_val = bits.count;
         if (bit_val < 2) {
-          received_msg_raw.push_back(0);
+          received_msg_raw.push_back(false);
         } else {
-          received_msg_raw.push_back(1);
+          received_msg_raw.push_back(true);
         }
       }
 
@@ -918,7 +918,7 @@ private:
         received_msg_raw.erase(received_msg_raw.begin());
       }
 
-      while (received_msg_raw.back() == 0) {  // end synchronization
+      while (received_msg_raw.back() == false) {  // end synchronization
         received_msg_raw.pop_back();
       }
 
@@ -932,7 +932,7 @@ private:
 
       std::vector<int> sub_frame;
 
-      int curr_bit;
+      bool curr_bit;
 
       while (!received_msg_raw.empty()) {
         curr_bit = received_msg_raw.back();
@@ -1076,7 +1076,7 @@ private:
 
   struct SignalData
   {
-    std::vector<cv::Point3d>      retrieved_blinkers;
+    std::vector<std::pair<cv::Point2d,int>>      retrieved_blinkers;
 
   };
 
@@ -1114,7 +1114,7 @@ private:
   {
     cv::Point2i position;
     bool signal_added;
-    std::vector<int> singal;
+    std::vector<bool> signal;
   };
   struct DecSignals
   {

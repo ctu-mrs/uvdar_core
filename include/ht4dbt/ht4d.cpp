@@ -214,9 +214,6 @@ int HT4DBlinkerTracker::getTrackerCount() {
 std::vector<bool> HT4DBlinkerTracker::getSignal(int index) {
   return signals_[index];
 }
-std::vector<int> HT4DBlinkerTracker::getSignal(int index) {
-  return signals_[index];
-}
 double HT4DBlinkerTracker::getYaw(int index) {
   return yaw_averages_[index];
 }
@@ -291,7 +288,6 @@ std::vector< std::pair<cv::Point2d,int> > HT4DBlinkerTracker::getResults() {
   for (int i = 0; i < (int)(origin_pts.size()); i++) {
     if (debug_)
       std::cout << "Curr. orig. pt: " << origin_pts[i] << std::endl;
-<<<<<<< HEAD
     std::vector<bool> blink_signal;
     int signal_id;
     double yawAvg, pitchAvg;
