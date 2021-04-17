@@ -11,7 +11,7 @@ windows:
   - gazebo:
       layout: even-vertical
       panes:
-        - waitForRos; roslaunch mrs_simulation simulation.launch world_name:=grass_plane gui:=true
+        - waitForRos; export __NV_PRIME_RENDER_OFFLOAD=1; export __GLX_VENDOR_LIBRARY_NAME=nvidia;  roslaunch mrs_simulation simulation.launch world_name:=grass_plane gui:=true
         
         # - waitForRos; roslaunch mrs_simulation mrs_drone_spawner.launch
         # - export WORLD_FILE=./world.yaml; export GAZEBO_MODEL_PATH=~/horynjir/src/scs_swarm/models:${GAZEBO_MODEL_PATH}; export GAZEBO_RESOURCE_PATH=~/horynjir/src/scs_swarm/models:${GAZEBO_RESOURCE_PATH}; waitForRos; roslaunch scs_swarm swarm_gz_grass.launch gui:=true
@@ -77,17 +77,17 @@ windows:
   - uv_observer:
       layout: even-vertical
       panes:
-        - waitForCompile; gz world --pause=0; sleep 6;  export UAV_NAME=uav1; waitForControl; roslaunch uvdar_core uvdar_observer.launch
-        - waitForCompile; gz world --pause=0; sleep 6;  export UAV_NAME=uav2; waitForControl; roslaunch uvdar_core uvdar_observer.launch
-        - waitForCompile; gz world --pause=0; sleep 6;  export UAV_NAME=uav3; waitForControl; roslaunch uvdar_core uvdar_observer.launch
-        - waitForCompile; gz world --pause=0; sleep 6;  export UAV_NAME=uav4; waitForControl; roslaunch uvdar_core uvdar_observer.launch
+        - waitForCompile; gz world --pause=0; sleep 30;  export UAV_NAME=uav1; waitForControl; roslaunch uvdar_core uvdar_observer.launch
+        - waitForCompile; gz world --pause=0; sleep 35;  export UAV_NAME=uav2; waitForControl; roslaunch uvdar_core uvdar_observer.launch
+        - waitForCompile; gz world --pause=0; sleep 40;  export UAV_NAME=uav3; waitForControl; roslaunch uvdar_core uvdar_observer.launch
+        - waitForCompile; gz world --pause=0; sleep 45;  export UAV_NAME=uav4; waitForControl; roslaunch uvdar_core uvdar_observer.launch
   - kalman_filter:
       layout: even-vertical
       panes:
-        - export UAV_NAME=uav1; waitForControl; sleep 1; roslaunch uvdar_core uvdar_kalman.launch output_frame:=$UAV_NAME/local_origin
-        - export UAV_NAME=uav2; waitForControl; sleep 1; roslaunch uvdar_core uvdar_kalman.launch output_frame:=$UAV_NAME/local_origin
-        - export UAV_NAME=uav3; waitForControl; sleep 1; roslaunch uvdar_core uvdar_kalman.launch output_frame:=$UAV_NAME/local_origin 
-        - export UAV_NAME=uav4; waitForControl; sleep 1; roslaunch uvdar_core uvdar_kalman.launch output_frame:=$UAV_NAME/local_origin 
+        - export UAV_NAME=uav1; waitForControl; sleep 50; roslaunch uvdar_core uvdar_kalman.launch output_frame:=$UAV_NAME/local_origin
+        - export UAV_NAME=uav2; waitForControl; sleep 55; roslaunch uvdar_core uvdar_kalman.launch output_frame:=$UAV_NAME/local_origin
+        - export UAV_NAME=uav3; waitForControl; sleep 60; roslaunch uvdar_core uvdar_kalman.launch output_frame:=$UAV_NAME/local_origin 
+        - export UAV_NAME=uav4; waitForControl; sleep 65; roslaunch uvdar_core uvdar_kalman.launch output_frame:=$UAV_NAME/local_origin 
   - fr_setter:
       layout: even-vertical
       panes:
@@ -128,10 +128,6 @@ windows:
         # - waitForSimulation; waitForRos; sleep 35; gz physics -u 100
         # - waitForSimulation; waitForRos; sleep 45; gz physics -u 100
         # - waitForSimulation; waitForRos; sleep 55; gz physics -u 100
-
-        - waitForSimulation; waitForRos; sleep 25; gz physics -u 25
-        - waitForSimulation; waitForRos; sleep 35; gz physics -u 25
-        - waitForSimulation; waitForRos; sleep 45; gz physics -u 25
         - waitForSimulation; waitForRos; sleep 55; gz physics -u 25
   - goto:
       layout: even-vertical
