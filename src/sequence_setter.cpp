@@ -14,6 +14,9 @@ namespace uvdar {
       std::vector<std::vector<bool>> sequences_;
 
       bool initialized = false;
+
+      std::string _uav_name_;
+
       ros::Publisher baca_protocol_publisher;
 
       ros::Duration sleeper = ros::Duration(0.05);
@@ -23,11 +26,19 @@ namespace uvdar {
       ros::ServiceServer serv_load_single_sequence;
       ros::ServiceServer serv_select_sequence;
       ros::ServiceServer serv_quick_start;
+
+      std::vector<ros::ServiceClient> clients_set_sq_gz;
+      std::vector<ros::ServiceClient> clients_set_fr_gz;
     public:
       SequenceSetter(ros::NodeHandle nh){
+
+
         baca_protocol_publisher = nh.advertise<mrs_msgs::BacaProtocol>("baca_protocol_out", 1);
 
         mrs_lib::ParamLoader param_loader(nh, "UVDARSequenceSetter");
+
+        param_loader.loadParam("uav_name", _uav_name_, std::string());
+
         param_loader.loadParam("sequence_file", _sequence_file_, std::string());
 
         ROS_INFO_STREAM("[UVDARSequenceSetter]: Loading sequences from file " << _sequence_file_);
@@ -41,6 +52,13 @@ namespace uvdar {
         serv_load_single_sequence = nh.advertiseService("load_single_sequence", &SequenceSetter::callbackLoadSingleSequence, this);
         serv_select_sequence = nh.advertiseService("select_sequence", &SequenceSetter::callbackSelectSequence, this);
         serv_quick_start = nh.advertiseService("quick_start", &SequenceSetter::callbackQuickStart, this);
+
+        //for simulation
+        for (int i = 0; i < 8; i++) {
+          clients_set_sq_gz.push_back(nh.serviceClient<mrs_msgs::SetInt>("/gazebo/ledSignalSetter/" + _uav_name_ + "_uvled_" + std::to_string(i + 1) + "_lens_link"));
+          clients_set_fr_gz.push_back(nh.serviceClient<mrs_msgs::Float64Srv>("/gazebo/ledFrequencySetter/" + _uav_name_ + "_uvled_" + std::to_string(i + 1) + "_lens_link"));
+        }
+
         initialized = true;
       }
 
@@ -56,6 +74,7 @@ namespace uvdar {
           res.message = "Sequence setter is NOT initialized!";
           return true;
         }
+          
 
         unsigned char int_frequency = (unsigned char)(req.value);
 
@@ -68,6 +87,12 @@ namespace uvdar {
 
         res.message = std::string("Setting the frequency to "+std::to_string((int)(int_frequency))+" Hz").c_str();
         res.success = true;
+
+
+        mrs_msgs::Float64Srv led_state;
+        led_state.request.value = (float)int_frequency;
+        for (auto& client : clients_set_fr_gz)
+          client.call(led_state);
 
         return true;
       }
@@ -180,6 +205,12 @@ namespace uvdar {
 
         res.success = true;
         res.message="Selecting sequence "+std::to_string((int)(index));
+
+        mrs_msgs::SetInt led_state;
+        led_state.request.value = index;
+        for (auto& client : clients_set_sq_gz)
+          client.call(led_state);
+
         return true;
       }
 

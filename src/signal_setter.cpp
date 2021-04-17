@@ -34,7 +34,7 @@ public:
     baca_protocol_publisher = nh.advertise<mrs_msgs::BacaProtocol>("baca_protocol_out", 1);
 
     for (int i = 0; i < 8; i++) {
-      clients_set_fr.push_back(nh.serviceClient<mrs_msgs::SetInt>("/gazebo/ledFrequencySetter/" + uav_name + "_uvled_" + std::to_string(i + 1) + "_lens_link"));
+      clients_set_fr.push_back(nh.serviceClient<mrs_msgs::SetInt>("/gazebo/ledSignalSetter/" + uav_name + "_uvled_" + std::to_string(i + 1) + "_lens_link"));
     }
 
     initialized = true;

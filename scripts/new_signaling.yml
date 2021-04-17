@@ -24,15 +24,21 @@ windows:
         # - waitForSimulation; sleep 12; rosservice call /mrs_drone_spawner/spawn  "2 $UAV_TYPE --pos-file $(rospack find uvdar_core)/scripts/position2.csv --enable-rangefinder --enable-ground-truth --enable-uv-leds --uvled_s_l 0 --uvled_s_r 0"
         # - waitForSimulation; sleep 24; rosservice call /mrs_drone_spawner/spawn  "3 $UAV_TYPE --pos-file $(rospack find uvdar_core)/scripts/position3.csv --enable-rangefinder --enable-ground-truth --enable-uv-leds --uvled_s_l 1 --uvled_s_r 1"
         - waitForSimulation; sleep 6; rosservice call /mrs_drone_spawner/spawn  "2 $UAV_TYPE --pos-file $(rospack find uvdar_core)/scripts/position2.csv --enable-rangefinder --enable-ground-truth --enable-uv-leds --uvled_s_l 0 --uvled_s_r 0"
-        - waitForSimulation; sleep 12; rosservice call /mrs_drone_spawner/spawn  "3 $UAV_TYPE --pos-file $(rospack find uvdar_core)/scripts/position3.csv --enable-rangefinder --enable-ground-truth --enable-uv-leds --uvled_s_l 1 --uvled_s_r 1"
-        - waitForSimulation; sleep 18; rosservice call /mrs_drone_spawner/spawn  "4 $UAV_TYPE --pos-file $(rospack find uvdar_core)/scripts/position4.csv --enable-rangefinder --enable-ground-truth --enable-uv-leds --uvled_s_l 2 --uvled_s_r 2"
-        - waitForSimulation; sleep 24; rosservice call /mrs_drone_spawner/spawn  "5 $UAV_TYPE --pos-file $(rospack find uvdar_core)/scripts/position5.csv --enable-rangefinder --enable-ground-truth --enable-uv-leds --uvled_s_l 3 --uvled_s_r 3"
-        - waitForSimulation; sleep 30; rosservice call /mrs_drone_spawner/spawn  "6 $UAV_TYPE --pos-file $(rospack find uvdar_core)/scripts/position6.csv --enable-rangefinder --enable-ground-truth --enable-uv-leds --uvled_s_l 4 --uvled_s_r 4"
-        - waitForSimulation; sleep 36; rosservice call /mrs_drone_spawner/spawn  "7 $UAV_TYPE --pos-file $(rospack find uvdar_core)/scripts/position7.csv --enable-rangefinder --enable-ground-truth --enable-uv-leds --uvled_s_l 5 --uvled_s_r 5"
-        - waitForSimulation; sleep 42; rosservice call /mrs_drone_spawner/spawn  "8 $UAV_TYPE --pos-file $(rospack find uvdar_core)/scripts/position8.csv --enable-rangefinder --enable-ground-truth --enable-uv-leds --uvled_s_l 6 --uvled_s_r 6"
-        - waitForSimulation; sleep 48; rosservice call /mrs_drone_spawner/spawn  "9 $UAV_TYPE --pos-file $(rospack find uvdar_core)/scripts/position9.csv --enable-rangefinder --enable-ground-truth --enable-uv-leds --uvled_s_l 7 --uvled_s_r 7"
-        - waitForSimulation; sleep 54; rosservice call /mrs_drone_spawner/spawn  "10 $UAV_TYPE --pos-file $(rospack find uvdar_core)/scripts/position10.csv --enable-rangefinder --enable-ground-truth --enable-uv-leds --uvled_s_l 8 --uvled_s_r 8"
-        - waitForSimulation; sleep 60; rosservice call /mrs_drone_spawner/spawn  "11 $UAV_TYPE --pos-file $(rospack find uvdar_core)/scripts/position11.csv --enable-rangefinder --enable-ground-truth --enable-uv-leds --uvled_s_l 9 --uvled_s_r 9"
+        # - waitForSimulation; sleep 12; rosservice call /mrs_drone_spawner/spawn  "3 $UAV_TYPE --pos-file $(rospack find uvdar_core)/scripts/position3.csv --enable-rangefinder --enable-ground-truth --enable-uv-leds --uvled_s_l 1 --uvled_s_r 1"
+        # - waitForSimulation; sleep 18; rosservice call /mrs_drone_spawner/spawn  "4 $UAV_TYPE --pos-file $(rospack find uvdar_core)/scripts/position4.csv --enable-rangefinder --enable-ground-truth --enable-uv-leds --uvled_s_l 2 --uvled_s_r 2"
+        # - waitForSimulation; sleep 24; rosservice call /mrs_drone_spawner/spawn  "5 $UAV_TYPE --pos-file $(rospack find uvdar_core)/scripts/position5.csv --enable-rangefinder --enable-ground-truth --enable-uv-leds --uvled_s_l 3 --uvled_s_r 3"
+        # - waitForSimulation; sleep 30; rosservice call /mrs_drone_spawner/spawn  "6 $UAV_TYPE --pos-file $(rospack find uvdar_core)/scripts/position6.csv --enable-rangefinder --enable-ground-truth --enable-uv-leds --uvled_s_l 4 --uvled_s_r 4"
+        # - waitForSimulation; sleep 36; rosservice call /mrs_drone_spawner/spawn  "7 $UAV_TYPE --pos-file $(rospack find uvdar_core)/scripts/position7.csv --enable-rangefinder --enable-ground-truth --enable-uv-leds --uvled_s_l 5 --uvled_s_r 5"
+        # - waitForSimulation; sleep 42; rosservice call /mrs_drone_spawner/spawn  "8 $UAV_TYPE --pos-file $(rospack find uvdar_core)/scripts/position8.csv --enable-rangefinder --enable-ground-truth --enable-uv-leds --uvled_s_l 6 --uvled_s_r 6"
+        # - waitForSimulation; sleep 48; rosservice call /mrs_drone_spawner/spawn  "9 $UAV_TYPE --pos-file $(rospack find uvdar_core)/scripts/position9.csv --enable-rangefinder --enable-ground-truth --enable-uv-leds --uvled_s_l 7 --uvled_s_r 7"
+        # - waitForSimulation; sleep 54; rosservice call /mrs_drone_spawner/spawn  "10 $UAV_TYPE --pos-file $(rospack find uvdar_core)/scripts/position10.csv --enable-rangefinder --enable-ground-truth --enable-uv-leds --uvled_s_l 8 --uvled_s_r 8"
+        # - waitForSimulation; sleep 60; rosservice call /mrs_drone_spawner/spawn  "11 $UAV_TYPE --pos-file $(rospack find uvdar_core)/scripts/position11.csv --enable-rangefinder --enable-ground-truth --enable-uv-leds --uvled_s_l 9 --uvled_s_r 9"
+  - sq_setter:
+      layout: even-vertical
+      panes:
+        - export UAV_NAME=uav2; waitForOdometry; roslaunch uvdar_core sequence_setter.launch
+        - 'history -s rosservice call /uav2/uvdar_sequence_setter_node/quick_start 5'
+        - 'history -s rosservice call /uav2/uvdar_sequence_setter_node/set_frequency 59'
   - control:
       layout: even-vertical
       panes:

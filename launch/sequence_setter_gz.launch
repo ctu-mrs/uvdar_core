@@ -1,16 +1,16 @@
 <launch>
-  <arg name="UAV_NAME" default="$(optenv UAV_NAME uav)" />
+
+  <arg name="uav_name" default="$(optenv UAV_NAME uav1)"/>
   <arg name="name" default="_uvdar" />
   <arg name="portname" default="/dev/uvdar" />
   <arg name="profiler" default="$(optenv PROFILER false)" />
 
   <arg name="swap_garmins" default="$(optenv SWAP_GARMINS false)" />
 
-  <group ns="$(arg UAV_NAME)">
-
+  <group ns="$(arg uav_name)">
     <!-- launch the node -->
     <node pkg="nodelet" type="nodelet" name="serial_uvdar" args="standalone baca_protocol/BacaProtocol" respawn="true" output="screen">
-      <param name="uav_name" type="string" value="$(arg UAV_NAME)"/>
+      <param name="uav_name" type="string" value="$(arg uav_name)"/>
 
       <rosparam file="$(find mrs_serial)/config/mrs_serial.yaml" />
 
@@ -20,9 +20,9 @@
 
       <param name="swap_garmins" value="$(arg swap_garmins)"/>
 
-      <!-- Publishers -->
-      <remap from="~range" to="/$(arg UAV_NAME)/garmin/range" />
-      <remap from="~range_up" to="/$(arg UAV_NAME)/garmin/range_up" />
+        <!-- Publishers -->
+      <remap from="~range" to="/$(arg uav_name)/garmin/range" />
+      <remap from="~range_up" to="/$(arg uav_name)/garmin/range_up" />
       <remap from="~profiler" to="profiler" />
       <remap from="~baca_protocol_out" to="~received_message" />
 
@@ -32,13 +32,10 @@
 
     </node>
 
-    <node name="uvdar_frequency_setter_node" pkg="uvdar_core" type="uvdar_frequency_setter_node" output="screen" respawn="true">
-
-        <!-- Subscriber -->
-      <remap from="~frequencies_in" to="~set_frequencies" />
+    <node name="sequence_setter_gz" pkg="uvdar_core" type="uvdar_sequence_setter_gz_node" output="screen" >
+      <param name="uav_name" value="$(arg uav_name)" />
         <!-- Publisher -->
-      <remap from="~baca_protocol_out" to="/$(arg UAV_NAME)/serial_uvdar/send_message" />
-
+      <remap from="~baca_protocol_out" to="/$(arg uav_name)/serial_uvdar/send_message" />
     </node>
 
   </group>
