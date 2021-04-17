@@ -214,6 +214,9 @@ int HT4DBlinkerTracker::getTrackerCount() {
 std::vector<bool> HT4DBlinkerTracker::getSignal(int index) {
   return signals_[index];
 }
+std::vector<int> HT4DBlinkerTracker::getSignal(int index) {
+  return signals_[index];
+}
 double HT4DBlinkerTracker::getYaw(int index) {
   return yaw_averages_[index];
 }
@@ -232,6 +235,8 @@ std::vector< std::pair<cv::Point2d,int> > HT4DBlinkerTracker::getResults() {
     if (debug_){
       std::cout << "Resolution was not yet set..." << std::endl;
     }
+    std::cout << "CHYBA 111";
+    std::cout << std::endl;
     return std::vector<std::pair<cv::Point2d,int>>();
   }
 
@@ -250,6 +255,8 @@ std::vector< std::pair<cv::Point2d,int> > HT4DBlinkerTracker::getResults() {
     }
   }
   if (pts_per_layer_local_copy_.empty()){
+    std::cout << "CHYBA 222";
+    std::cout << std::endl;
     return std::vector<std::pair<cv::Point2d,int>>();
   }
 
@@ -284,6 +291,7 @@ std::vector< std::pair<cv::Point2d,int> > HT4DBlinkerTracker::getResults() {
   for (int i = 0; i < (int)(origin_pts.size()); i++) {
     if (debug_)
       std::cout << "Curr. orig. pt: " << origin_pts[i] << std::endl;
+<<<<<<< HEAD
     std::vector<bool> blink_signal;
     int signal_id;
     double yawAvg, pitchAvg;
@@ -778,97 +786,6 @@ int HT4DBlinkerTracker::retrieveSignalID(cv::Point origin_point, double &avg_yaw
     std::cout << "Signal ID is: " << ret_id << std::endl;
   return  ret_id;
 
-  /* //retrieve frequency (or detect incorrect signal) using a state machine pass over the retrieved signal */
-  /* bool   state                  = false; */
-  /* bool   prev_state             = state; */
-  /* bool   down_step              = false; */
-  /* int    last_down_step_index   = 0; */
-  /* bool   up_step                = false; */
-  /* int    last_up_step_index     = 0; */
-  /* double period; */
-  /* double up_dur, down_dur; */
-  /* double max_period = 0; */
-  /* double min_period = mem_steps_; */
-  /* int    cnt_period = 0; */
-  /* int    sum_period = 0; */
-  /* for (int t = 0; t < (int)(accumulator_local_copy_.size()); t++) { //iterate over the accumulator frames */
-  /*   if (positive_count_accum[t] > 0) //set current value of the signal based on presence of selected points in the current accumulator frame */
-  /*     state = true; */
-  /*   else */
-  /*     state = false; */
-
-  /*   if (!state && prev_state) { //falling step */
-  /*     up_dur = (t-last_up_step_index); */
-  /*     if (down_step) { */
-  /*       period            = (t - last_down_step_index); */
-  /*       if (period < min_period) */
-  /*         min_period = period; */
-  /*       if (period > max_period) */
-  /*         max_period = period; */
-  /*       last_down_step_index = t; */
-  /*       sum_period         = sum_period + period; */
-  /*       cnt_period = cnt_period + 1; */
-  /*     } */
-  /*     if (!down_step) { //never encountered falling step */
-  /*       last_down_step_index = t; */
-  /*       down_step          = true; */
-  /*     } */ 
-  /*   } */
-  /*   if (state && !prev_state && (t > 0)) { //rising step (accounting for the initial state) */
-  /*     down_dur = (t-last_down_step_index); */
-  /*     if (up_step) { */
-  /*       period          = (t - last_up_step_index); */
-  /*       if (period < min_period) */
-  /*         min_period = period; */
-  /*       if (period > max_period) */
-  /*         max_period = period; */
-  /*       last_up_step_index = t; */
-  /*       sum_period       = sum_period + period; */
-  /*       cnt_period = cnt_period + 1; */
-  /*     } */
-  /*     if (!up_step) { //never encountered rising step */
-  /*       last_up_step_index = t; */
-  /*       up_step          = true; */
-  /*     } */
-  /*   } */
-  /*   prev_state = state; */
-  /* } */
-
-  /* double avg_period; */
-
-  /* if (cnt_period == 0){ */
-  /*   if (debug_){ */
-  /*     std::cout << "Not one whole period retrieved, returning;" <<std::endl; */
-  /*   } */
-  /*   return -1; */
-  /* } else { */
-  /*   avg_period = (double)(sum_period) / (double)cnt_period; */
-  /* } */
-
-  /* if ((max_period - min_period) > ceil(avg_period/2)){ */
-  /*   if (debug_) */
-  /*     std::cout << "Spread too wide: "<<max_period-min_period<<" compared to average of " << avg_period <<", returning" <<std::endl; */
-  /*   return -3; */
-  /* } */
-
-  /* if ((avg_period * ((double)(cnt_period+1)/2.0) ) < ( mem_steps_ - (1.5*avg_period))){ */
-  /*   if (debug_){ */
-  /*     std::cout << "Not enough periods retrieved: "<< cnt_period <<" for " << avg_period <<" on average; returning" <<std::endl; */
-  /*   } */
-  /*   return -4; */
-  /* } */
-  /* if ((cnt_period == 1) && (fabs(up_dur-down_dur)>(avg_period/2))){ */
-  /*   if (debug_){ */
-  /*     std::cout << "Long period with uneven phases: "<< up_dur-down_dur <<" for " << avg_period <<" on average; returning" <<std::endl; */
-  /*   } */
-  /*   return -5; */
-  /* } */
-
-
-  /* if (debug_){ */
-  /*   std::cout << "Frequency: " << (double)framerate_ / avg_period << std::endl; */
-  /* } */
-  /* return (double)framerate_ / avg_period; */
 }
 
 std::vector<bool> HT4DBlinkerTracker::retrieveSignalSequence(cv::Point origin_point, double &avg_yaw, double &avg_pitch) {

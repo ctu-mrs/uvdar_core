@@ -13,3 +13,8 @@
     <description>the UV filtered Bluefox camera emulator nodelet</description>
   </class>
 </library>
+<library path="lib/libSignalSetter">
+  <class name="signal_setter/SignalSetter" type="signal_setter::SignalSetter" base_class_type="nodelet::Nodelet">
+    <description>Signal setter nodelet</description>
+  </class>
+</library>
