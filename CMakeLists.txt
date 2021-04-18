@@ -87,7 +87,6 @@ include_directories(
 
 add_executable(uvdar_rx_node src/uvdar_rx.cpp)
 add_executable(uvdar_tx_node src/uvdar_tx.cpp)
-# add_executable(uvdar_sequence_setter_gz_node src/sequence_setter_gz.cpp)
 add_executable(new_uvdar_rx_node src/new_uvdar_rx.cpp)
 
 add_library(OCamCalib include/OCamCalib/ocam_functions.cpp )
@@ -99,7 +98,6 @@ add_library(SignalSetter src/signal_setter.cpp)
 
 target_link_libraries(uvdar_rx_node ${catkin_LIBRARIES})
 target_link_libraries(uvdar_tx_node ${catkin_LIBRARIES})
-# target_link_libraries(uvdar_sequence_setter_gz_node ${catkin_LIBRARIES})
 target_link_libraries(new_uvdar_rx_node ${catkin_LIBRARIES} ${OpenCV_LIBRARIES}
  ht4dbt)
 target_link_libraries(SignalSetter ${catkin_LIBRARIES})
@@ -144,8 +142,8 @@ add_dependencies(uvdar_mask_generator_node ${${PROJECT_NAME}_EXPORTED_TARGETS} $
 # add_executable(uvdar_frequency_setter_node src/frequency_setter.cpp)
 # add_dependencies(uvdar_frequency_setter_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
-add_executable(uvdar_sequence_setter_node src/sequence_setter.cpp)
-add_dependencies(uvdar_sequence_setter_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+add_executable(uvdar_led_manager_node src/led_manager.cpp)
+add_dependencies(uvdar_led_manager_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 add_custom_target(headers SOURCES ${HEADER_FILES} ${LAUNCHER_FILES} ${YAML_FILES})
 
@@ -207,7 +205,7 @@ target_link_libraries(uvdar_mask_generator_node
 # target_link_libraries(uvdar_frequency_setter_node
 #   ${catkin_LIBRARIES}
 #   )
-target_link_libraries(uvdar_sequence_setter_node
+target_link_libraries(uvdar_led_manager_node
   ${catkin_LIBRARIES}
   )
 

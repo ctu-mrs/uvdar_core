@@ -384,7 +384,7 @@ namespace uvdar {
 
 
 int main(int argc, char** argv) {
-  ros::init(argc, argv, "uvdar_sequence_setter");
+  ros::init(argc, argv, "uvdar_led_manager");
   ros::NodeHandle nodeA("~");
   uvdar::SequenceSetter        kl(nodeA);
 

@@ -88,13 +88,13 @@ windows:
         - export UAV_NAME=uav2; waitForControl; sleep 55; roslaunch uvdar_core uvdar_kalman.launch output_frame:=$UAV_NAME/local_origin
         - export UAV_NAME=uav3; waitForControl; sleep 60; roslaunch uvdar_core uvdar_kalman.launch output_frame:=$UAV_NAME/local_origin 
         - export UAV_NAME=uav4; waitForControl; sleep 65; roslaunch uvdar_core uvdar_kalman.launch output_frame:=$UAV_NAME/local_origin 
-  - sequence_setter:
+  - led_manager:
       layout: even-vertical
       panes:
-        - export UAV_NAME=uav1; waitForControl; sleep 1; roslaunch uvdar_core sequence_setter.launch
-        - export UAV_NAME=uav2; waitForControl; sleep 1; roslaunch uvdar_core sequence_setter.launch
-        - export UAV_NAME=uav3; waitForControl; sleep 1; roslaunch uvdar_core sequence_setter.launch
-        - export UAV_NAME=uav4; waitForControl; sleep 1; roslaunch uvdar_core sequence_setter.launch
+        - export UAV_NAME=uav1; waitForControl; sleep 1; roslaunch uvdar_core led_manager.launch
+        - export UAV_NAME=uav2; waitForControl; sleep 1; roslaunch uvdar_core led_manager.launch
+        - export UAV_NAME=uav3; waitForControl; sleep 1; roslaunch uvdar_core led_manager.launch
+        - export UAV_NAME=uav4; waitForControl; sleep 1; roslaunch uvdar_core led_manager.launch
   # - signal_setter:
   #     layout: even-vertical
   #     panes:

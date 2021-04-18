@@ -36,9 +36,9 @@ windows:
   - sq_setter:
       layout: even-vertical
       panes:
-        - export UAV_NAME=uav2; waitForOdometry; roslaunch uvdar_core sequence_setter.launch
-        - 'history -s rosservice call /uav2/uvdar_sequence_setter_node/quick_start 5'
-        - 'history -s rosservice call /uav2/uvdar_sequence_setter_node/set_frequency 59'
+        - export UAV_NAME=uav2; waitForOdometry; roslaunch uvdar_core led_manager.launch
+        - 'history -s rosservice call /uav2/uvdar_led_manager_node/quick_start 5'
+        - 'history -s rosservice call /uav2/uvdar_led_manager_node/set_frequency 59'
   - control:
       layout: even-vertical
       panes:

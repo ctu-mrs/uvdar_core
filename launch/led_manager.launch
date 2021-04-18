@@ -30,7 +30,7 @@
 
     </node>
 
-    <node name="uvdar_sequence_setter_node" pkg="uvdar_core" type="uvdar_sequence_setter_node" output="screen" respawn="true">
+    <node name="uvdar_led_manager_node" pkg="uvdar_core" type="uvdar_led_manager_node" output="screen" respawn="true">
       <param name="uav_name" type="string" value="$(arg UAV_NAME)"/>
       <param name="sequence_file" type="string" value="$(arg sequence_file)" />
         <!-- Publisher -->
