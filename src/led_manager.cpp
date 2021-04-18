@@ -48,15 +48,15 @@ namespace uvdar {
 
         baca_protocol_publisher = nh.advertise<mrs_msgs::BacaProtocol>("baca_protocol_out", 1);
 
-        mrs_lib::ParamLoader param_loader(nh, "UVDARSequenceSetter");
+        mrs_lib::ParamLoader param_loader(nh, "UVDARLedManager");
 
         param_loader.loadParam("uav_name", _uav_name_, std::string());
 
         param_loader.loadParam("sequence_file", _sequence_file_, std::string());
 
-        ROS_INFO_STREAM("[UVDARSequenceSetter]: Loading sequences from file " << _sequence_file_);
+        ROS_INFO_STREAM("[UVDARLedManager]: Loading sequences from file " << _sequence_file_);
         if ((!parseSequenceFile(_sequence_file_)) || ((int)(sequences_.size()) < 1)){
-          ROS_INFO_STREAM("[UVDARSequenceSetter]: Failed to load file " << _sequence_file_);
+          ROS_INFO_STREAM("[UVDARLedManager]: Failed to load file " << _sequence_file_);
           return;
         }
 
@@ -90,9 +90,9 @@ namespace uvdar {
     private:
       bool callbackSetActive(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res){
         if (!initialized){
-          ROS_ERROR("[UVDARSequenceSetter]: Sequence setter is NOT initialized!");
+          ROS_ERROR("[UVDARLedManager]: LED manager is NOT initialized!");
           res.success = false;
-          res.message = "Sequence setter is NOT initialized!";
+          res.message = "LED manager is NOT initialized!";
           return true;
         }
 
@@ -125,9 +125,9 @@ namespace uvdar {
 
       bool callbackSetFrequency(mrs_msgs::Float64Srv::Request &req, mrs_msgs::Float64Srv::Response &res){
         if (!initialized){
-          ROS_ERROR("[UVDARSequenceSetter]: Sequence setter is NOT initialized!");
+          ROS_ERROR("[UVDARLedManager]: LED manager is NOT initialized!");
           res.success = false;
-          res.message = "Sequence setter is NOT initialized!";
+          res.message = "LED manager is NOT initialized!";
           return true;
         }
           
@@ -144,9 +144,11 @@ namespace uvdar {
         res.message = std::string("Setting the frequency to "+std::to_string((int)(int_frequency))+" Hz").c_str();
         res.success = true;
 
+        ROS_INFO_STREAM("[UVDARLedManager]: " << res.message);
+
 
         mrs_msgs::Float64Srv led_state;
-        led_state.request.value = (float)int_frequency;
+        led_state.request.value = (double)int_frequency;
         for (auto& client : clients_set_fr_gz)
           client.call(led_state);
 
@@ -155,13 +157,13 @@ namespace uvdar {
 
       bool callbackLoadSequences(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res){
         if (!initialized){
-          ROS_ERROR("[UVDARSequenceSetter]: Sequence setter is NOT initialized!");
+          ROS_ERROR("[UVDARLedManager]: LED manager is NOT initialized!");
           res.success = false;
-          res.message = "Sequence setter is NOT initialized!";
+          res.message = "LED manager is NOT initialized!";
           return true;
         }
 
-        ROS_INFO_STREAM("[UVDARSequenceSetter]: Loading sequences into the LED driver");
+        ROS_INFO_STREAM("[UVDARLedManager]: Loading sequences into the LED driver");
 
         mrs_msgs::BacaProtocol serial_msg;
         serial_msg.stamp = ros::Time::now();
@@ -179,10 +181,10 @@ namespace uvdar {
           serial_msg.payload.push_back(0x99); //write sequences
           serial_msg.payload.push_back(i); //sequence index is i
 
-            /* ROS_INFO_STREAM("[UVDARSequenceSetter]: s:" << (int)(i)); */
+            /* ROS_INFO_STREAM("[UVDARLedManager]: s:" << (int)(i)); */
           for (auto b : sq){
             serial_msg.payload.push_back(b?0x01:0x00); //bit of the sequence
-            /* ROS_INFO_STREAM("[UVDARSequenceSetter]: b:" << (b?"1":"0")); */
+            /* ROS_INFO_STREAM("[UVDARLedManager]: b:" << (b?"1":"0")); */
           }
 
           /* if (i == 3) */
@@ -198,21 +200,21 @@ namespace uvdar {
 
       bool callbackLoadSingleSequence(mrs_msgs::SetInt::Request &req, mrs_msgs::SetInt::Response &res){
         if (!initialized){
-          ROS_ERROR("[UVDARSequenceSetter]: Sequence setter is NOT initialized!");
+          ROS_ERROR("[UVDARLedManager]: LED manager is NOT initialized!");
           res.success = false;
-          res.message = "Sequence setter is NOT initialized!";
+          res.message = "LED manager is NOT initialized!";
           return true;
         }
 
         unsigned char index = (unsigned char)(req.value);
         if (index >= (int)(sequences_.size())){
-          ROS_ERROR_STREAM("[UVDARSequenceSetter]: Failed to load sequence " << index << " into the LED driver - no such sequence!");
+          ROS_ERROR_STREAM("[UVDARLedManager]: Failed to load sequence " << index << " into the LED driver - no such sequence!");
           res.message = "Failed to load sequence " + std::to_string((int)(index)) +" into the LED driver - no such sequence!";
           res.success = false;
           return true;
         }
 
-        ROS_INFO_STREAM("[UVDARSequenceSetter]: Loading sequence " << index << " into the LED driver");
+        ROS_INFO_STREAM("[UVDARLedManager]: Loading sequence " << index << " into the LED driver");
 
         mrs_msgs::BacaProtocol serial_msg;
         serial_msg.stamp = ros::Time::now();
@@ -221,10 +223,10 @@ namespace uvdar {
         serial_msg.payload.push_back(0x99); //write sequences
         serial_msg.payload.push_back(index); //sequence index is i
 
-        /* ROS_INFO_STREAM("[UVDARSequenceSetter]: s:" << (int)(i)); */
+        /* ROS_INFO_STREAM("[UVDARLedManager]: s:" << (int)(i)); */
         for (auto b : sequences_[index]){
           serial_msg.payload.push_back(b?0x01:0x00); //bit of the sequence
-          /* ROS_INFO_STREAM("[UVDARSequenceSetter]: b:" << (b?"1":"0")); */
+          /* ROS_INFO_STREAM("[UVDARLedManager]: b:" << (b?"1":"0")); */
         }
 
         /* if (i == 3) */
@@ -238,14 +240,14 @@ namespace uvdar {
 
       bool callbackSelectSequence(mrs_msgs::SetInt::Request &req, mrs_msgs::SetInt::Response &res){
         if (!initialized){
-          ROS_ERROR("[UVDARSequenceSetter]: Sequence setter is NOT initialized!");
+          ROS_ERROR("[UVDARLedManager]: LED manager is NOT initialized!");
           res.success = false;
-          res.message = "Sequence setter is NOT initialized!";
+          res.message = "LED manager is NOT initialized!";
           return true;
         }
 
         if (mode != 0){
-          ROS_ERROR("[UVDARSequenceSetter]: Requesting sequence selection, but the appropriate mode is not set!");
+          ROS_ERROR("[UVDARLedManager]: Requesting sequence selection, but the appropriate mode is not set!");
           res.success = false;
           res.message = "Requesting sequence selection, but the appropriate mode is not set!";
           return true;
@@ -253,7 +255,7 @@ namespace uvdar {
 
         unsigned char index = (unsigned char)(req.value);
         if (index >= (int)(sequences_.size())){
-          ROS_ERROR_STREAM("[UVDARSequenceSetter]: Failed to set sequence " << index << " - no such sequence!");
+          ROS_ERROR_STREAM("[UVDARLedManager]: Failed to set sequence " << index << " - no such sequence!");
           res.message = "Failed to select sequence " + std::to_string((int)(index)) +" - no such sequence!";
           res.success = false;
           return true;
@@ -279,9 +281,9 @@ namespace uvdar {
 
       bool callbackQuickStart(mrs_msgs::SetInt::Request &req, mrs_msgs::SetInt::Response &res){
         if (!initialized){
-          ROS_ERROR("[UVDARSequenceSetter]: Sequence setter is NOT initialized!");
+          ROS_ERROR("[UVDARLedManager]: LED manager is NOT initialized!");
           res.success = false;
-          res.message = "Sequence setter is NOT initialized!";
+          res.message = "LED manager is NOT initialized!";
           return true;
         }
 
@@ -305,8 +307,8 @@ namespace uvdar {
       }
 
         bool parseSequenceFile(std::string sequence_file){
-          ROS_WARN_STREAM("[UVDARSequenceSetter]: Add sanitation - sequences must be of equal, non-zero length");
-          ROS_INFO_STREAM("[UVDARSequenceSetter]: Loading sequence from file: [ " + sequence_file + " ]");
+          ROS_WARN_STREAM("[UVDARLedManager]: Add sanitation - sequences must be of equal, non-zero length");
+          ROS_INFO_STREAM("[UVDARLedManager]: Loading sequence from file: [ " + sequence_file + " ]");
           std::ifstream ifs;
           ifs.open(sequence_file);
           std::string word;
@@ -314,7 +316,7 @@ namespace uvdar {
 
           std::vector<std::vector<bool>> sequences;
           if (ifs.good()) {
-            ROS_INFO("[UVDARSequenceSetter]: Loaded Sequences: [: ");
+            ROS_INFO("[UVDARLedManager]: Loaded Sequences: [: ");
             while (getline( ifs, line )){
               if (line[0] == '#'){
                 continue;
@@ -333,15 +335,15 @@ namespace uvdar {
                 }
               }
               sequences.push_back(sequence);
-              ROS_INFO_STREAM("[UVDARSequenceSetter]:   [" << show_string << "]");
+              ROS_INFO_STREAM("[UVDARLedManager]:   [" << show_string << "]");
             }
-            ROS_INFO("[UVDARSequenceSetter]: ]");
+            ROS_INFO("[UVDARLedManager]: ]");
             ifs.close();
 
             sequences_ = sequences;
           }
           else {
-            ROS_ERROR_STREAM("[UVDARSequenceSetter]: Failed to load sequence file " << sequence_file << "! Returning.");
+            ROS_ERROR_STREAM("[UVDARLedManager]: Failed to load sequence file " << sequence_file << "! Returning.");
             ifs.close();
             return false;
           }
@@ -350,10 +352,10 @@ namespace uvdar {
 
         bool callbackSetMode(mrs_msgs::SetInt::Request &req, mrs_msgs::SetInt::Response &res){
           if (!initialized){
-            ROS_ERROR("[UVDARSequenceSetter]: Sequence setter is NOT initialized!");
-            res.success = false;
-            res.message = "Sequence setter is NOT initialized!";
-            return true;
+          ROS_ERROR("[UVDARLedManager]: LED manager is NOT initialized!");
+          res.success = false;
+          res.message = "LED manager is NOT initialized!";
+          return true;
           }
 
           unsigned char index = (unsigned char)(req.value); //0 - tracking mode; 1 - communication mode
@@ -370,9 +372,10 @@ namespace uvdar {
               res.message="Selecting tracking mode";
               break;
             case 1:
-              res.message="Selecting tracking mode";
-              break;
+              res.message="Selecting communication mode";
           }
+
+          ROS_INFO_STREAM("[UVDARLedManager]: " << res.message);
 
           mrs_msgs::SetInt led_state;
           led_state.request.value = index;
@@ -387,14 +390,14 @@ namespace uvdar {
 
         bool callbackSetMessage(uvdar_core::SetLedMessage::Request &req, uvdar_core::SetLedMessage::Response &res){
           if (!initialized){
-            ROS_ERROR("[UVDARSequenceSetter]: Sequence setter is NOT initialized!");
-            res.success = false;
-            res.message = "Sequence setter is NOT initialized!";
-            return true;
+          ROS_ERROR("[UVDARLedManager]: LED manager is NOT initialized!");
+          res.success = false;
+          res.message = "LED manager is NOT initialized!";
+          return true;
           }
 
           if (mode != 1){
-            ROS_ERROR("[UVDARSequenceSetter]: Requesting message transmission, but the appropriate mode is not set!");
+            ROS_ERROR("[UVDARLedManager]: Requesting message transmission, but the appropriate mode is not set!");
             res.success = false;
             res.message = "Requesting message transmission, but the appropriate mode is not set!";
             return true;
@@ -405,6 +408,8 @@ namespace uvdar {
           mrs_msgs::BacaProtocol serial_msg;
 
           res.message = "Sending message";
+
+          ROS_INFO_STREAM("[UVDARLedManager]: Sending message");
 
           serial_msg.payload.push_back(0x93);
           for (auto& bit : data_frame) {
@@ -430,7 +435,7 @@ int main(int argc, char** argv) {
   ros::NodeHandle nodeA("~");
   uvdar::SequenceSetter        kl(nodeA);
 
-  ROS_INFO("[UVDARSequenceSetter]: blinking sequence setter node initiated");
+  ROS_INFO("[UVDARLedManager]: blinking sequence setter node initiated");
 
   ros::spin();
 

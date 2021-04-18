@@ -12,6 +12,7 @@
 #include <std_msgs/Float64.h>
 #include <std_msgs/Float32.h>
 #include <mrs_msgs/SetInt.h>
+#include <mrs_msgs/Float64Srv.h>
 #include <uvdar_core/SetLedMessage.h>
 #include <uvdar_core/DefaultMsg.h>
 
@@ -19,6 +20,7 @@
 
 int                         uav_id = 0;
 int                         set_rate = 0;
+int                         bit_duplication_amount = 1;
 std::string                 uav_name;
 /* std::vector<ros::Publisher> pub_led_states; */
 std::vector<std::string>    leds_topics;
@@ -31,6 +33,7 @@ ros::Subscriber                  USmsgSub;
 ros::Subscriber                  OdomSub;
 ros::ServiceClient               led_message_client;
 ros::ServiceClient               led_mode_client;
+ros::ServiceClient               led_frequency_client;
 
 std::vector<std::string>    estimated_framerate_topics;
 /* using framerate_callback = boost::function<void(const std_msgs::ImagePointsWithFloatStampedConstPtr&)>; */
@@ -40,6 +43,7 @@ std::vector<ros::Subscriber>      subscribers_estimated_framerates;
 
 std::string sig_setter_service;
 std::string mode_setter_service;
+std::string frequency_setter_service;
 std::string odom_topic;
 std::string msgs_topic;
 
@@ -80,20 +84,23 @@ public:
     param_loader.loadParam("leds_topics", leds_topics, leds_topics);  // gazebo topics for led frequency setting
     param_loader.loadParam("sig_setter_service", sig_setter_service);
     param_loader.loadParam("mode_setter_service", mode_setter_service);
+    param_loader.loadParam("frequency_setter_service", frequency_setter_service);
     param_loader.loadParam("odom_topic", odom_topic);
     param_loader.loadParam("msgs_topic", msgs_topic);
     param_loader.loadParam("set_rate", set_rate);
+    param_loader.loadParam("bit_duplication_amount", bit_duplication_amount);
     param_loader.loadParam("estimated_framerate_topics", estimated_framerate_topics, estimated_framerate_topics);
 
     USmsgSub = nh.subscribe(msgs_topic, 1, &TX_processor::usm_cb, this);  // sub for get new custom command to send
     OdomSub  = nh.subscribe(odom_topic, 1, &TX_processor::odom_cb, this);    // sub for get info about heading
    
-    rate = (int)(set_rate / 3);
+    /* rate = (int)(set_rate / bit_duplication_amount); */
 
     sub_default_msg  = nh.subscribe("/" + uav_name + "/uvdar_communication/default_angle_msg", 1, &TX_processor::defMsg, this);    // sub for get info about heading
 
     led_message_client = nh.serviceClient<uvdar_core::SetLedMessage>(sig_setter_service);
     led_mode_client = nh.serviceClient<mrs_msgs::SetInt>(mode_setter_service);
+    led_frequency_client = nh.serviceClient<mrs_msgs::Float64Srv>(frequency_setter_service);
 
     // creating publishers for leds
     for (size_t i = 0; i < leds_topics.size(); ++i) {
@@ -210,7 +217,7 @@ void fillHeading() {
   else{
     curr_msg.push_back(0);
   }
-  /* std::cout << "Sended heading:"; */
+  /* std::cout << "Sent heading:"; */
   /* for (int i = 0; i < (int)curr_msg.size(); i++) { */
   /*   std::cout << curr_msg[i]; */
   /* } */
@@ -259,6 +266,16 @@ void bitStuffing() {
     }
   }
 }
+
+/* void multiplyBits(int k){ */
+/*   auto backup = curr_frame; */
+/*   curr_frame.clear(); */
+/*   for (auto b : backup){ */
+/*     for (int i=0; i<k; i++){ */
+/*       curr_frame.push_back(b); */
+/*     } */
+/*   } */
+/* } */
 
 // function for create physical data frame of message.
 // frame has following structure: 11111 (spacing bits) 01 (start bits) byte_1 (label byte) byte_2 (data byte) 0/1 (parity) 10 (stop bits)
@@ -351,11 +368,13 @@ void create_curr_msg() {
 
   bitStuffing();
 
-  std::cout << "Sended data frame:";
+
+  std::cout << "Sent data frame:";
   for (int i = 0; i < (int)curr_frame.size(); i++) {
     std::cout << curr_frame[i];
   }
   std::cout << std::endl;
+
 }
 
 int main(int argc, char** argv) {
@@ -363,7 +382,7 @@ int main(int argc, char** argv) {
   ros::NodeHandle  nh("~");
   TX::TX_processor txko(nh);
   ROS_INFO("[TX_processor] Node initialized");
-  ros::Rate my_rate(rate);
+  /* ros::Rate my_rate(rate); */
 
   int curr_bit_index = 0;  // order of currently sending bit
 
@@ -371,6 +390,13 @@ int main(int argc, char** argv) {
   mrs_msgs::SetInt ledMode;
   ledMode.request.value = 1;
   led_mode_client.call(ledMode);
+
+  mrs_msgs::Float64Srv ledFrequency;
+  ledFrequency.request.value = set_rate;
+  ledFrequency.request.value /= bit_duplication_amount; // to triplicate each bit
+  led_frequency_client.call(ledFrequency);
+
+  double bit_rate = ((double)set_rate / (double)bit_duplication_amount);
 
   while (ros::ok()) {
     if (curr_frame.empty()) {    // if current data frame is empty - avoiding self channel collision
@@ -400,7 +426,11 @@ int main(int argc, char** argv) {
 
     led_message_client.call(led_msg);
     /* ROS_INFO("[%d]: ", rate); */
-    my_rate.sleep();
+
+    ros::Duration sleeper = ros::Duration((double)(curr_frame.size()) / bit_rate);
+
+    /* ROS_INFO_STREAM("[TX_processor]: Will sleep for " << sleeper.toSec() << " seconds. ( bit_rate =" << bit_rate << "; curr_frame.size=" << (double)(curr_frame.size()) << ")" ); */
+    sleeper.sleep();
     ros::spinOnce();
   }
 }
