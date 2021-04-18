@@ -11,7 +11,7 @@ windows:
   - gazebo:
       layout: even-vertical
       panes:
-        - waitForRos; export __NV_PRIME_RENDER_OFFLOAD=1; export __GLX_VENDOR_LIBRARY_NAME=nvidia;  roslaunch mrs_simulation simulation.launch world_name:=grass_plane gui:=true
+        - waitForRos; export __NV_PRIME_RENDER_OFFLOAD=1; export __GLX_VENDOR_LIBRARY_NAME=nvidia;  roslaunch mrs_simulation simulation.launch world_name:=grass_plane gui:=true #debug:=true
         
         # - waitForRos; roslaunch mrs_simulation mrs_drone_spawner.launch
         # - export WORLD_FILE=./world.yaml; export GAZEBO_MODEL_PATH=~/horynjir/src/scs_swarm/models:${GAZEBO_MODEL_PATH}; export GAZEBO_RESOURCE_PATH=~/horynjir/src/scs_swarm/models:${GAZEBO_RESOURCE_PATH}; waitForRos; roslaunch scs_swarm swarm_gz_grass.launch gui:=true
