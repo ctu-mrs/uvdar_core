@@ -4,6 +4,7 @@
 #include <mrs_msgs/SetInt.h>
 #include <mrs_msgs/Float64Srv.h>
 #include <std_srvs/Trigger.h>
+#include <std_srvs/SetBool.h>
 #include <mrs_lib/param_loader.h>
 #include <uvdar_core/SetLedMessage.h>
 #include <fstream>
@@ -24,6 +25,8 @@ namespace uvdar {
 
       ros::Duration sleeper = ros::Duration(0.05);
 
+      ros::ServiceServer serv_set_active;
+
       ros::ServiceServer serv_frequency;
       ros::ServiceServer serv_load_sequences;
       ros::ServiceServer serv_load_single_sequence;
@@ -37,6 +40,7 @@ namespace uvdar {
       std::vector<ros::ServiceClient> clients_set_fr_gz;
       std::vector<ros::ServiceClient> clients_set_md_gz;
       std::vector<ros::ServiceClient> clients_set_ms_gz;
+      std::vector<ros::ServiceClient> clients_set_ac_gz;
 
     public:
       SequenceSetter(ros::NodeHandle nh){
@@ -56,6 +60,8 @@ namespace uvdar {
           return;
         }
 
+        serv_set_active = nh.advertiseService("set_active", &SequenceSetter::callbackSetActive, this);
+
         serv_frequency = nh.advertiseService("set_frequency", &SequenceSetter::callbackSetFrequency, this);
         serv_load_sequences = nh.advertiseService("load_sequences", &SequenceSetter::callbackLoadSequences, this);
         serv_load_single_sequence = nh.advertiseService("load_single_sequence", &SequenceSetter::callbackLoadSingleSequence, this);
@@ -71,6 +77,7 @@ namespace uvdar {
           clients_set_fr_gz.push_back(nh.serviceClient<mrs_msgs::Float64Srv>("/gazebo/ledFrequencySetter/" + _uav_name_ + "_uvled_" + std::to_string(i + 1) + "_lens_link"));
           clients_set_md_gz.push_back(nh.serviceClient<mrs_msgs::SetInt>("/gazebo/ledModeSetter/" + _uav_name_ + "_uvled_" + std::to_string(i + 1) + "_lens_link"));
           clients_set_ms_gz.push_back(nh.serviceClient<uvdar_core::SetLedMessage>("/gazebo/ledMessageSender/" + _uav_name_ + "_uvled_" + std::to_string(i + 1) + "_lens_link"));
+          clients_set_ac_gz.push_back(nh.serviceClient<uvdar_core::SetLedMessage>("/gazebo/ledActiveSetter/" + _uav_name_ + "_uvled_" + std::to_string(i + 1) + "_lens_link"));
         }
 
         initialized = true;
@@ -81,6 +88,41 @@ namespace uvdar {
 
 
     private:
+      bool callbackSetActive(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res){
+        if (!initialized){
+          ROS_ERROR("[UVDARSequenceSetter]: Sequence setter is NOT initialized!");
+          res.success = false;
+          res.message = "Sequence setter is NOT initialized!";
+          return true;
+        }
+
+
+        unsigned char state = (req.data?0x01:0x00);
+
+        mrs_msgs::BacaProtocol serial_msg;
+        serial_msg.stamp = ros::Time::now();
+
+        serial_msg.payload.push_back(0x90); //set frequency
+        serial_msg.payload.push_back(state); //# Hz
+        baca_protocol_publisher.publish(serial_msg);
+
+        if (state){
+          res.message = std::string("Activating the LEDs").c_str();
+        }
+        else {
+          res.message = std::string("Deactivating the LEDs").c_str();
+        }
+        res.success = true;
+
+
+        std_srvs::SetBool led_state;
+        led_state.request.data = req.data;
+        for (auto& client : clients_set_ac_gz)
+          client.call(led_state);
+
+        return true;
+      }
+
       bool callbackSetFrequency(mrs_msgs::Float64Srv::Request &req, mrs_msgs::Float64Srv::Response &res){
         if (!initialized){
           ROS_ERROR("[UVDARSequenceSetter]: Sequence setter is NOT initialized!");
