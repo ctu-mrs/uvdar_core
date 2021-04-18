@@ -23,7 +23,7 @@ int            uav_id = 0;
 ros::Publisher pub_rec_msg;
 // int            scffe = 30;  // samples count for framerate estimate
 
-float                       frequencies[] = {10, 15, 30, 5};
+/* float                       frequencies[] = {10, 15, 30, 5}; */
 std::vector<std::string>    points_seen_topics;
 std::vector<std::string>    blinkers_seen_topics;
 std::vector<std::string>    estimated_framerate_topics;
@@ -169,7 +169,7 @@ private:
       PointSeen tmp_ps;
       tmp_ps.decoded            = point_seen[camera_index][i].back().decoded;
       tmp_ps.id                 = point_seen[camera_index][i].back().id;
-      tmp_ps.frequency          = point_seen[camera_index][i].back().frequency;
+      /* tmp_ps.frequency          = point_seen[camera_index][i].back().frequency; */
       tmp_ps.cnt_last_published = point_seen[camera_index][i].back().cnt_last_published + 1;
       tmp_ps.position           = cv::Point2i(point_seen[camera_index][i].back().position.x, point_seen[camera_index][i].back().position.y);
       int last_val_SOF          = point_seen[camera_index][i].back().start_frame_index;
@@ -293,7 +293,7 @@ private:
               mrs_msgs::Point2DWithFloat point;
               point.x     = blinker.x;
               point.y     = blinker.y;
-              point.value = point_seen[camera_index][i].back().frequency;
+              point.value = point_seen[camera_index][i].back().id;
               msg.points.push_back(point);
             }
 
@@ -520,7 +520,7 @@ private:
       }
 
       point_seen[camera_index][i].back().decoded   = true;
-      point_seen[camera_index][i].back().frequency = frequencies[rec_id];
+      /* point_seen[camera_index][i].back().frequency = frequencies[rec_id]; */
 
       // publish decoded message
       pub_rec_msg.publish(rm_pub);
@@ -543,7 +543,7 @@ private:
   {
     bool                     decoded            = false;
     int                      id                 = -1;
-    double                   frequency          = 0;
+    /* double                   frequency          = 0; */
     int                      cnt_last_published = 0;
     std::vector<cv::Point2i> positions;
 

@@ -48,7 +48,8 @@ find_package(OpenCV REQUIRED HINTS /usr/local/lib)
 
 add_service_files(
   FILES
-  SetLedState.srv
+  # SetLedState.srv
+  SetLedMessage.srv
 )
 
 add_message_files(DIRECTORY msg FILES

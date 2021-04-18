@@ -1,6 +1,7 @@
 name: simulation
 root: ./
-startup_window: uv_observer 
+startup_window: swarm_line 
+# pre_window: export RUN_TYPE=simulation; export UAV_TYPE=f450; export WORLD_NAME=simulation; export ODOMETRY_TYPE=gps
 pre_window: export RUN_TYPE=simulation; export UAV_TYPE=f450; export WORLD_NAME=simulation; export ODOMETRY_TYPE=gps; export SENSORS="garmin_down"
 windows:
   - roscore:
@@ -10,81 +11,124 @@ windows:
   - gazebo:
       layout: even-vertical
       panes:
-        - waitForRos; roslaunch uvdar_core uvdar_gazebo.launch gui:=true
+        - waitForRos; export __NV_PRIME_RENDER_OFFLOAD=1; export __GLX_VENDOR_LIBRARY_NAME=nvidia;  roslaunch mrs_simulation simulation.launch world_name:=grass_plane gui:=true
+        
+        # - waitForRos; roslaunch mrs_simulation mrs_drone_spawner.launch
+        # - export WORLD_FILE=./world.yaml; export GAZEBO_MODEL_PATH=~/horynjir/src/scs_swarm/models:${GAZEBO_MODEL_PATH}; export GAZEBO_RESOURCE_PATH=~/horynjir/src/scs_swarm/models:${GAZEBO_RESOURCE_PATH}; waitForRos; roslaunch scs_swarm swarm_gz_grass.launch gui:=true
+        
   - status:
       layout: even-vertical
       panes:
         - export UAV_NAME=uav1; waitForRos; roslaunch mrs_uav_status status.launch
         - export UAV_NAME=uav2; waitForRos; roslaunch mrs_uav_status status.launch
         - export UAV_NAME=uav3; waitForRos; roslaunch mrs_uav_status status.launch
+        - export UAV_NAME=uav4; waitForRos; roslaunch mrs_uav_status status.launch
   - spawn:
       layout: even-vertical
       panes:
-        - waitForSimulation; rosservice call /mrs_drone_spawner/spawn  "1 $UAV_TYPE --pos-file $(rospack find uvdar_core)/scripts/position1.csv --enable-rangefinder --enable-ground-truth --enable-uv-camera --uvcam_calib_file \"$(rospack find uvdar_core)/include/OCamCalib/config/calib_results_bf_uv_fe.txt\""
-        # - waitForSimulation; sleep 12; rosservice call /mrs_drone_spawner/spawn  "2 $UAV_TYPE --pos-file $(rospack find uvdar_core)/scripts/position2.csv --enable-rangefinder --enable-ground-truth --enable-uv-leds --uvled_s_l 0 --uvled_s_r 0"
-        # - waitForSimulation; sleep 24; rosservice call /mrs_drone_spawner/spawn  "3 $UAV_TYPE --pos-file $(rospack find uvdar_core)/scripts/position3.csv --enable-rangefinder --enable-ground-truth --enable-uv-leds --uvled_s_l 1 --uvled_s_r 1"
-        - waitForSimulation; sleep 6; rosservice call /mrs_drone_spawner/spawn  "2 $UAV_TYPE --pos-file $(rospack find uvdar_core)/scripts/position2.csv --enable-rangefinder --enable-ground-truth --enable-uv-leds --uvled_s_l 0 --uvled_s_r 0"
-        # - waitForSimulation; sleep 12; rosservice call /mrs_drone_spawner/spawn  "3 $UAV_TYPE --pos-file $(rospack find uvdar_core)/scripts/position3.csv --enable-rangefinder --enable-ground-truth --enable-uv-leds --uvled_s_l 1 --uvled_s_r 1"
-        # - waitForSimulation; sleep 18; rosservice call /mrs_drone_spawner/spawn  "4 $UAV_TYPE --pos-file $(rospack find uvdar_core)/scripts/position4.csv --enable-rangefinder --enable-ground-truth --enable-uv-leds --uvled_s_l 2 --uvled_s_r 2"
-        # - waitForSimulation; sleep 24; rosservice call /mrs_drone_spawner/spawn  "5 $UAV_TYPE --pos-file $(rospack find uvdar_core)/scripts/position5.csv --enable-rangefinder --enable-ground-truth --enable-uv-leds --uvled_s_l 3 --uvled_s_r 3"
-        # - waitForSimulation; sleep 30; rosservice call /mrs_drone_spawner/spawn  "6 $UAV_TYPE --pos-file $(rospack find uvdar_core)/scripts/position6.csv --enable-rangefinder --enable-ground-truth --enable-uv-leds --uvled_s_l 4 --uvled_s_r 4"
-        # - waitForSimulation; sleep 36; rosservice call /mrs_drone_spawner/spawn  "7 $UAV_TYPE --pos-file $(rospack find uvdar_core)/scripts/position7.csv --enable-rangefinder --enable-ground-truth --enable-uv-leds --uvled_s_l 5 --uvled_s_r 5"
-        # - waitForSimulation; sleep 42; rosservice call /mrs_drone_spawner/spawn  "8 $UAV_TYPE --pos-file $(rospack find uvdar_core)/scripts/position8.csv --enable-rangefinder --enable-ground-truth --enable-uv-leds --uvled_s_l 6 --uvled_s_r 6"
-        # - waitForSimulation; sleep 48; rosservice call /mrs_drone_spawner/spawn  "9 $UAV_TYPE --pos-file $(rospack find uvdar_core)/scripts/position9.csv --enable-rangefinder --enable-ground-truth --enable-uv-leds --uvled_s_l 7 --uvled_s_r 7"
-        # - waitForSimulation; sleep 54; rosservice call /mrs_drone_spawner/spawn  "10 $UAV_TYPE --pos-file $(rospack find uvdar_core)/scripts/position10.csv --enable-rangefinder --enable-ground-truth --enable-uv-leds --uvled_s_l 8 --uvled_s_r 8"
-        # - waitForSimulation; sleep 60; rosservice call /mrs_drone_spawner/spawn  "11 $UAV_TYPE --pos-file $(rospack find uvdar_core)/scripts/position11.csv --enable-rangefinder --enable-ground-truth --enable-uv-leds --uvled_s_l 9 --uvled_s_r 9"
-  - sq_setter:
-      layout: even-vertical
-      panes:
-        - export UAV_NAME=uav2; waitForOdometry; roslaunch uvdar_core sequence_setter.launch
-        - 'history -s rosservice call /uav2/uvdar_sequence_setter_node/quick_start 5'
-        - 'history -s rosservice call /uav2/uvdar_sequence_setter_node/set_frequency 59'
+        # - waitForSimulation; rosservice call /mrs_drone_spawner/spawn "1 2 3 4 $UAV_TYPE --enable-rangefinder" -30,16 -38,16 -34,23 -34,10
+        - waitForSimulation; sleep 1; rosservice call /mrs_drone_spawner/spawn "1 $UAV_TYPE --pos -29 15 0.5 0.785 --enable-rangefinder --enable-ground-truth --enable-uv-leds --uvled_s_l 0 --uvled_s_r 0 --enable-uv-camera --uvcam_calib_file \"$(rospack find uvdar_core)/include/OCamCalib/config/calib_results_bf_uv_fe.txt\""
+        - waitForSimulation; sleep 1; rosservice call /mrs_drone_spawner/spawn "2 $UAV_TYPE --pos -37 15 0.5 -0.785 --enable-bluefox-camera --enable-rangefinder --enable-ground-truth --enable-uv-leds --uvled_s_l 1 --uvled_s_r 1 --enable-uv-camera --uvcam_calib_file \"$(rospack find uvdar_core)/include/OCamCalib/config/calib_results_bf_uv_fe.txt\""
+        - waitForSimulation; sleep 1; rosservice call /mrs_drone_spawner/spawn "3 $UAV_TYPE --pos -33 22.0 0.5 0.785 --enable-bluefox-camera --enable-rangefinder --enable-ground-truth --enable-uv-leds --uvled_s_l 2 --uvled_s_r 2 --enable-uv-camera --uvcam_calib_file \"$(rospack find uvdar_core)/include/OCamCalib/config/calib_results_bf_uv_fe.txt\""
+        - waitForSimulation; sleep 1; rosservice call /mrs_drone_spawner/spawn "4 $UAV_TYPE --pos -33 9.0 0.5 0.0 --enable-bluefox-camera --enable-rangefinder --enable-ground-truth --enable-uv-leds --uvled_s_l 3 --uvled_s_r 3 --enable-uv-camera --uvcam_calib_file \"$(rospack find uvdar_core)/include/OCamCalib/config/calib_results_bf_uv_fe.txt\""
+
   - control:
       layout: even-vertical
       panes:
-        - export UAV_NAME=uav1; waitForOdometry; roslaunch mrs_uav_general core.launch config_mpc_tracker:=./custom_configs/mpc_tracker.yaml
-        - export UAV_NAME=uav2; waitForOdometry; roslaunch mrs_uav_general core.launch config_mpc_tracker:=./custom_configs/mpc_tracker.yaml
-        - export UAV_NAME=uav3; waitForOdometry; roslaunch mrs_uav_general core.launch config_mpc_tracker:=./custom_configs/mpc_tracker.yaml
+        - export UAV_NAME=uav1; waitForOdometry; sleep 1; roslaunch mrs_uav_general core.launch 
+        - export UAV_NAME=uav2; waitForOdometry; sleep 1; roslaunch mrs_uav_general core.launch
+        - export UAV_NAME=uav3; waitForOdometry; sleep 1; roslaunch mrs_uav_general core.launch
+        - export UAV_NAME=uav4; waitForOdometry; sleep 1; roslaunch mrs_uav_general core.launch
   - autostart:
       layout: even-vertical
       panes:
-        - export UAV_NAME=uav1; waitForSimulation; roslaunch mrs_uav_general automatic_start.launch
-        - export UAV_NAME=uav2; waitForSimulation; roslaunch mrs_uav_general automatic_start.launch
-        - export UAV_NAME=uav3; waitForSimulation; roslaunch mrs_uav_general automatic_start.launch
+        - export UAV_NAME=uav1; waitForSimulation; sleep 1; roslaunch mrs_uav_general automatic_start.launch
+        - export UAV_NAME=uav2; waitForSimulation; sleep 1; roslaunch mrs_uav_general automatic_start.launch
+        - export UAV_NAME=uav3; waitForSimulation; sleep 1; roslaunch mrs_uav_general automatic_start.launch
+        - export UAV_NAME=uav4; waitForSimulation; sleep 1; roslaunch mrs_uav_general automatic_start.launch
   - takeoff:
       layout: even-vertical
       panes:
         - 'export UAV_NAME=uav1;
           waitForControl;
           rosservice call /$UAV_NAME/mavros/cmd/arming 1;
+          sleep 0.1;
           rosservice call /$UAV_NAME/mavros/set_mode 0 offboard'
         - 'export UAV_NAME=uav2;
           waitForControl;
           rosservice call /$UAV_NAME/mavros/cmd/arming 1;
+          sleep 0.1;
           rosservice call /$UAV_NAME/mavros/set_mode 0 offboard'
         - 'export UAV_NAME=uav3;
           waitForControl;
           rosservice call /$UAV_NAME/mavros/cmd/arming 1;
+          sleep 0.1;
+          rosservice call /$UAV_NAME/mavros/set_mode 0 offboard'
+        - 'export UAV_NAME=uav4;
+          waitForControl;
+          rosservice call /$UAV_NAME/mavros/cmd/arming 1;
+          sleep 0.1;
           rosservice call /$UAV_NAME/mavros/set_mode 0 offboard'
         # #}
-  - rviz:
-      layout: even-vertical
-      panes:
-        - export UAV_NAME=uav1; waitForControl; roslaunch uvdar_core multimodal_hypothesis_rviz.launch
-        # - export UAV_NAME=uav1; waitForControl; roslaunch uvdar_core multi_frequency_test_rviz.launch
+#  - rviz:
+#      layout: even-vertical
+#      panes:
+#        - export UAV_NAME=uav1; waitForControl; roslaunch uvdar_core multi_frequency_test_rviz.launch
   - uv_observer:
       layout: even-vertical
       panes:
-        - waitForCompile; gz world --pause=0; sleep 6;  export UAV_NAME=uav1; waitForControl; roslaunch uvdar_core new_signaling.launch
-        # - waitForCompile; gz world --pause=0; sleep 6;  export UAV_NAME=uav1; waitForControl; roslaunch uvdar_core multi_frequency_test.launch
+        - waitForCompile; gz world --pause=0; sleep 30;  export UAV_NAME=uav1; waitForControl; roslaunch uvdar_core uvdar_observer.launch
+        - waitForCompile; gz world --pause=0; sleep 35;  export UAV_NAME=uav2; waitForControl; roslaunch uvdar_core uvdar_observer.launch
+        - waitForCompile; gz world --pause=0; sleep 40;  export UAV_NAME=uav3; waitForControl; roslaunch uvdar_core uvdar_observer.launch
+        - waitForCompile; gz world --pause=0; sleep 45;  export UAV_NAME=uav4; waitForControl; roslaunch uvdar_core uvdar_observer.launch
   - kalman_filter:
       layout: even-vertical
       panes:
-        - export UAV_NAME=uav1; waitForControl; roslaunch uvdar_core uvdar_kalman_identified.launch output_frame:=$UAV_NAME/stable_origin
+        - export UAV_NAME=uav1; waitForControl; sleep 50; roslaunch uvdar_core uvdar_kalman.launch output_frame:=$UAV_NAME/local_origin
+        - export UAV_NAME=uav2; waitForControl; sleep 55; roslaunch uvdar_core uvdar_kalman.launch output_frame:=$UAV_NAME/local_origin
+        - export UAV_NAME=uav3; waitForControl; sleep 60; roslaunch uvdar_core uvdar_kalman.launch output_frame:=$UAV_NAME/local_origin 
+        - export UAV_NAME=uav4; waitForControl; sleep 65; roslaunch uvdar_core uvdar_kalman.launch output_frame:=$UAV_NAME/local_origin 
+  - sequence_setter:
+      layout: even-vertical
+      panes:
+        - export UAV_NAME=uav1; waitForControl; sleep 1; roslaunch uvdar_core sequence_setter.launch
+        - export UAV_NAME=uav2; waitForControl; sleep 1; roslaunch uvdar_core sequence_setter.launch
+        - export UAV_NAME=uav3; waitForControl; sleep 1; roslaunch uvdar_core sequence_setter.launch
+        - export UAV_NAME=uav4; waitForControl; sleep 1; roslaunch uvdar_core sequence_setter.launch
+  # - signal_setter:
+  #     layout: even-vertical
+  #     panes:
+  #       - export UAV_NAME=uav1; waitForControl; sleep 1; roslaunch uvdar_core signal_setter.launch
+  #       - export UAV_NAME=uav2; waitForControl; sleep 1; roslaunch uvdar_core signal_setter.launch
+  #       - export UAV_NAME=uav3; waitForControl; sleep 1; roslaunch uvdar_core signal_setter.launch
+  #       - export UAV_NAME=uav4; waitForControl; sleep 1; roslaunch uvdar_core signal_setter.launch
+  - swarm_rx:
+      layout: even-vertical
+      panes:
+        # - export UAV_NAME=uav1; export UAV_ID=0; waitForControl; sleep 5; roslaunch uvdar_core new_uvdar_rx.launch
+        # - export UAV_NAME=uav2; export UAV_ID=1; waitForControl; sleep 5; roslaunch uvdar_core new_uvdar_rx.launch
+        # - export UAV_NAME=uav3; export UAV_ID=2; waitForControl; sleep 5; roslaunch uvdar_core new_uvdar_rx.launch
+        # - export UAV_NAME=uav4; export UAV_ID=3; waitForControl; sleep 5; roslaunch uvdar_core new_uvdar_rx.launch
+        
+        - export UAV_NAME=uav1; export UAV_ID=0; waitForControl; sleep 5; roslaunch uvdar_core uvdar_rx.launch
+        - export UAV_NAME=uav2; export UAV_ID=1; waitForControl; sleep 5; roslaunch uvdar_core uvdar_rx.launch
+        - export UAV_NAME=uav3; export UAV_ID=2; waitForControl; sleep 5; roslaunch uvdar_core uvdar_rx.launch
+        - export UAV_NAME=uav4; export UAV_ID=3; waitForControl; sleep 5; roslaunch uvdar_core uvdar_rx.launch
+  - swarm_tx:
+      layout: even-vertical
+      panes:
+        - export UAV_NAME=uav1; export UAV_ID=0; waitForControl; sleep 5; roslaunch uvdar_core uvdar_tx.launch
+        - export UAV_NAME=uav2; export UAV_ID=1; waitForControl; sleep 5; roslaunch uvdar_core uvdar_tx.launch
+        - export UAV_NAME=uav3; export UAV_ID=2; waitForControl; sleep 5; roslaunch uvdar_core uvdar_tx.launch
+        - export UAV_NAME=uav4; export UAV_ID=3; waitForControl; sleep 5; roslaunch uvdar_core uvdar_tx.launch
   - slow_down:
       layout: even-vertical
       panes:
-        - waitForSimulation; waitForRos; sleep 80; gz physics -u 80
+        # - waitForSimulation; waitForRos; sleep 25; gz physics -u 100
+        # - waitForSimulation; waitForRos; sleep 35; gz physics -u 100
+        # - waitForSimulation; waitForRos; sleep 45; gz physics -u 100
+        # - waitForSimulation; waitForRos; sleep 55; gz physics -u 100
+        - waitForSimulation; waitForRos; sleep 55; gz physics -u 25
   - goto:
       layout: even-vertical
       panes:

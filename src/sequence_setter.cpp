@@ -5,6 +5,7 @@
 #include <mrs_msgs/Float64Srv.h>
 #include <std_srvs/Trigger.h>
 #include <mrs_lib/param_loader.h>
+#include <uvdar_core/SetLedMessage.h>
 #include <fstream>
 
 namespace uvdar {
@@ -14,6 +15,8 @@ namespace uvdar {
       std::vector<std::vector<bool>> sequences_;
 
       bool initialized = false;
+
+      int mode = 0;
 
       std::string _uav_name_;
 
@@ -27,8 +30,14 @@ namespace uvdar {
       ros::ServiceServer serv_select_sequence;
       ros::ServiceServer serv_quick_start;
 
+      ros::ServiceServer serv_set_mode;
+      ros::ServiceServer serv_set_message;
+
       std::vector<ros::ServiceClient> clients_set_sq_gz;
       std::vector<ros::ServiceClient> clients_set_fr_gz;
+      std::vector<ros::ServiceClient> clients_set_md_gz;
+      std::vector<ros::ServiceClient> clients_set_ms_gz;
+
     public:
       SequenceSetter(ros::NodeHandle nh){
 
@@ -53,10 +62,15 @@ namespace uvdar {
         serv_select_sequence = nh.advertiseService("select_sequence", &SequenceSetter::callbackSelectSequence, this);
         serv_quick_start = nh.advertiseService("quick_start", &SequenceSetter::callbackQuickStart, this);
 
+        serv_set_mode = nh.advertiseService("set_mode", &SequenceSetter::callbackSetMode, this);
+        serv_set_message = nh.advertiseService("set_message", &SequenceSetter::callbackSetMessage, this);
+
         //for simulation
         for (int i = 0; i < 8; i++) {
           clients_set_sq_gz.push_back(nh.serviceClient<mrs_msgs::SetInt>("/gazebo/ledSignalSetter/" + _uav_name_ + "_uvled_" + std::to_string(i + 1) + "_lens_link"));
           clients_set_fr_gz.push_back(nh.serviceClient<mrs_msgs::Float64Srv>("/gazebo/ledFrequencySetter/" + _uav_name_ + "_uvled_" + std::to_string(i + 1) + "_lens_link"));
+          clients_set_md_gz.push_back(nh.serviceClient<mrs_msgs::SetInt>("/gazebo/ledModeSetter/" + _uav_name_ + "_uvled_" + std::to_string(i + 1) + "_lens_link"));
+          clients_set_ms_gz.push_back(nh.serviceClient<uvdar_core::SetLedMessage>("/gazebo/ledMessageSender/" + _uav_name_ + "_uvled_" + std::to_string(i + 1) + "_lens_link"));
         }
 
         initialized = true;
@@ -188,6 +202,13 @@ namespace uvdar {
           return true;
         }
 
+        if (mode != 0){
+          ROS_ERROR("[UVDARSequenceSetter]: Requesting sequence selection, but the appropriate mode is not set!");
+          res.success = false;
+          res.message = "Requesting sequence selection, but the appropriate mode is not set!";
+          return true;
+        }
+
         unsigned char index = (unsigned char)(req.value);
         if (index >= (int)(sequences_.size())){
           ROS_ERROR_STREAM("[UVDARSequenceSetter]: Failed to set sequence " << index << " - no such sequence!");
@@ -284,6 +305,80 @@ namespace uvdar {
           }
           return true;
         }
+
+        bool callbackSetMode(mrs_msgs::SetInt::Request &req, mrs_msgs::SetInt::Response &res){
+          if (!initialized){
+            ROS_ERROR("[UVDARSequenceSetter]: Sequence setter is NOT initialized!");
+            res.success = false;
+            res.message = "Sequence setter is NOT initialized!";
+            return true;
+          }
+
+          unsigned char index = (unsigned char)(req.value); //0 - tracking mode; 1 - communication mode
+
+          mrs_msgs::BacaProtocol serial_msg;
+          serial_msg.stamp = ros::Time::now();
+
+          serial_msg.payload.push_back(0xF0); //select sequence index
+          serial_msg.payload.push_back(index); //sequence #
+          baca_protocol_publisher.publish(serial_msg);
+
+          switch (index){
+            case 0:
+              res.message="Selecting tracking mode";
+              break;
+            case 1:
+              res.message="Selecting tracking mode";
+              break;
+          }
+
+          mrs_msgs::SetInt led_state;
+          led_state.request.value = index;
+          for (auto& client : clients_set_md_gz)
+            client.call(led_state);
+
+          mode = index;
+
+          res.success = true;
+          return true;
+        }
+
+        bool callbackSetMessage(uvdar_core::SetLedMessage::Request &req, uvdar_core::SetLedMessage::Response &res){
+          if (!initialized){
+            ROS_ERROR("[UVDARSequenceSetter]: Sequence setter is NOT initialized!");
+            res.success = false;
+            res.message = "Sequence setter is NOT initialized!";
+            return true;
+          }
+
+          if (mode != 1){
+            ROS_ERROR("[UVDARSequenceSetter]: Requesting message transmission, but the appropriate mode is not set!");
+            res.success = false;
+            res.message = "Requesting message transmission, but the appropriate mode is not set!";
+            return true;
+          }
+
+          auto data_frame = req.data_frame;
+
+          mrs_msgs::BacaProtocol serial_msg;
+
+          res.message = "Sending message";
+
+          serial_msg.payload.push_back(0x93);
+          for (auto& bit : data_frame) {
+            serial_msg.payload.push_back(bit);
+          }
+          baca_protocol_publisher.publish(serial_msg);
+
+          uvdar_core::SetLedMessage led_message;
+          led_message.request.data_frame = data_frame;
+          for (auto& client : clients_set_ms_gz)
+            client.call(led_message);
+          
+          res.success = true;
+          return true;
+        }
+
   };
 }
 

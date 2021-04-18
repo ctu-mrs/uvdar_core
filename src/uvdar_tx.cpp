@@ -11,7 +11,8 @@
 #include <cmath>
 #include <std_msgs/Float64.h>
 #include <std_msgs/Float32.h>
-#include <uvdar_core/SetLedState.h>
+#include <mrs_msgs/SetInt.h>
+#include <uvdar_core/SetLedMessage.h>
 #include <uvdar_core/DefaultMsg.h>
 
 #define SEPARATOR_BITS 5
@@ -24,11 +25,12 @@ std::vector<std::string>    leds_topics;
 std::vector<int>            curr_msg;
 std::vector<int>            curr_frame;
 // std::vector<int> curr_frame_raw;
-uvdar_core::SetLedState ledMsg;
+uvdar_core::SetLedMessage led_msg;
 int                              rate = (int)(80 / 3);  // three frames per bit. TODO variable rate based on estimated camera frequency
 ros::Subscriber                  USmsgSub;
 ros::Subscriber                  OdomSub;
-ros::ServiceClient               LedStateClient;
+ros::ServiceClient               led_message_client;
+ros::ServiceClient               led_mode_client;
 
 std::vector<std::string>    estimated_framerate_topics;
 /* using framerate_callback = boost::function<void(const std_msgs::ImagePointsWithFloatStampedConstPtr&)>; */
@@ -36,7 +38,8 @@ using framerate_callback = boost::function<void(const std_msgs::Float32ConstPtr&
 std::vector<framerate_callback> callbacks_estimated_framerate;
 std::vector<ros::Subscriber>      subscribers_estimated_framerates;
 
-std::string fr_setter_topic;
+std::string sig_setter_service;
+std::string mode_setter_service;
 std::string odom_topic;
 std::string msgs_topic;
 
@@ -75,7 +78,8 @@ public:
     param_loader.loadParam("uav_name", uav_name);
     param_loader.loadParam("uav_id", uav_id);
     param_loader.loadParam("leds_topics", leds_topics, leds_topics);  // gazebo topics for led frequency setting
-    param_loader.loadParam("fr_setter_topic", fr_setter_topic);
+    param_loader.loadParam("sig_setter_service", sig_setter_service);
+    param_loader.loadParam("mode_setter_service", mode_setter_service);
     param_loader.loadParam("odom_topic", odom_topic);
     param_loader.loadParam("msgs_topic", msgs_topic);
     param_loader.loadParam("set_rate", set_rate);
@@ -88,7 +92,8 @@ public:
 
     sub_default_msg  = nh.subscribe("/" + uav_name + "/uvdar_communication/default_angle_msg", 1, &TX_processor::defMsg, this);    // sub for get info about heading
 
-    LedStateClient = nh.serviceClient<uvdar_core::SetLedState>(fr_setter_topic);
+    led_message_client = nh.serviceClient<uvdar_core::SetLedMessage>(sig_setter_service);
+    led_mode_client = nh.serviceClient<mrs_msgs::SetInt>(mode_setter_service);
 
     // creating publishers for leds
     for (size_t i = 0; i < leds_topics.size(); ++i) {
@@ -362,34 +367,38 @@ int main(int argc, char** argv) {
 
   int curr_bit_index = 0;  // order of currently sending bit
 
-  while (ros::ok()) {
-    ledMsg.request.start_of_message = false;
-    ledMsg.request.data             = true;
-    ledMsg.request.bit_value        = true;
 
+  mrs_msgs::SetInt ledMode;
+  ledMode.request.value = 1;
+  led_mode_client.call(ledMode);
+
+  while (ros::ok()) {
     if (curr_frame.empty()) {    // if current data frame is empty - avoiding self channel collision
       if (!msg_queue.empty()) {  // checking content of msgs queue. If it is not empty, it creates new data frame from the oldest stored message
         create_curr_msg();
-        ledMsg.request.start_of_message = true;
-        ledMsg.request.data_frame       = curr_frame;
-        curr_bit_index                  = 0;
       } else {  // if msg queue is empty, create blank msg just with uav id, its heading, msg_type = 0. The message is added to the msgs queue
         Msg2send sim_msg;
         sim_msg.blank_msg = true;
         msg_queue.push_back(sim_msg);
       }
-    } else {
-      if (curr_frame[curr_bit_index] == 0) {  // check vlaue of bit in current data frame and set frequency
-        ledMsg.request.bit_value = false;
-      }
-      curr_bit_index++;                                // go to next bit in the next tranmiting round
-      if (curr_bit_index >= (int)curr_frame.size()) {  // if the data frame was transmited, init values
-        curr_bit_index = 0;
-        curr_frame.clear();
-      }
+    }
+    /* } else { */
+    /*   if (curr_frame[curr_bit_index] == 0) {  // check vlaue of bit in current data frame and set frequency */
+    /*     led_msg.request.bit_value = false; */
+    /*   } */
+    /*   curr_bit_index++;                                // go to next bit in the next tranmiting round */
+    /*   if (curr_bit_index >= (int)curr_frame.size()) {  // if the data frame was transmited, init values */
+    /*     curr_bit_index = 0; */
+    /*     curr_frame.clear(); */
+    /*   } */
+    /* } */
+    
+  led_msg.request.data_frame.clear();
+    for (auto b : curr_frame){
+      led_msg.request.data_frame.push_back((b==0)?0:255);
     }
 
-    LedStateClient.call(ledMsg);
+    led_message_client.call(led_msg);
     /* ROS_INFO("[%d]: ", rate); */
     my_rate.sleep();
     ros::spinOnce();
