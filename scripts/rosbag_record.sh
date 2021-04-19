@@ -23,6 +23,11 @@ exclude=(
 # Every topic containint "h264"
 '(.*)h264(.*)'
 
+'(.*)/bluefox_front/camera_info'
+'(.*)/bluefox_front/image_raw'
+'(.*)/bluefox_front/parameter_descriptions'
+'(.*)/bluefox_front/parameter_updates'
+
 '(.*)/blink_processor/uvdar_blink_visualization/compressed'
 '(.*)/blink_processor/uvdar_blink_visualization/compressed/parameter_descriptions'
 '(.*)/blink_processor/uvdar_blink_visualization/compressed/parameter_updates'
