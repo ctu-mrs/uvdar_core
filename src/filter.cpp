@@ -154,10 +154,10 @@ namespace uvdar {
         }
 
         if (_odometry_available_){ //process noise is greater, since without odometry we can't correct for the ego-motion of the observer
-          sn = 1;
+          sn = 2;
         }
         else {
-          sn = 2;
+          sn = 4;
         }
 
         filter_update_period = ros::Duration(1.0 / fmax(_output_framerate_,1.0));
@@ -575,7 +575,14 @@ namespace uvdar {
         /* ROS_INFO_STREAM("[UVDARKalman]: Filter corr: " << std::endl << filter_local.filter_state.P); */
         /* ROS_INFO_STREAM("[UVDARKalman]: Fixed to: " << std::endl << P_local); */
 
-        filter_local.filter_state.P *= (1+match_level);//this makes the filter not increase certainty in case of multiple identical measurements - the mean in the covariances is more probable than the rest of its x<1*sigma space
+        /* filter_local.filter_state.P *= (1+match_level);//this makes the filter not increase certainty in case of multiple identical measurements - the mean in the covariances is more probable than the rest of its x<1*sigma space */
+
+        auto eigens_pos = filter_local.filter_state.P.topLeftCorner(3,3).eigenvalues();
+        double min_eig_pos = eigens_pos.real().minCoeff();
+        auto eigens_rot = filter_local.filter_state.P.bottomRightCorner(3,3).eigenvalues();
+        double min_eig_rot = eigens_rot.real().minCoeff();
+        filter_local.filter_state.P.topLeftCorner(3,3) += e::MatrixXd::Identity(3,3)*(min_eig_pos*(match_level));//this makes the filter not increase certainty in case of multiple identical measurements - the mean in the covariances is more probable than the rest of its x<1*sigma space
+        filter_local.filter_state.P.bottomRightCorner(3,3) += e::MatrixXd::Identity(3,3)*(min_eig_rot*(match_level));//this makes the filter not increase certainty in case of multiple identical measurements - the mean in the covariances is more probable than the rest of its x<1*sigma space
         /* ROS_INFO_STREAM("[UVDARKalman]: Filter exp.: " << std::endl << filter_local.filter_state.P); */
 
         filter_local.filter_state.x[3] = fixAngle(filter_local.filter_state.x[3], 0);
