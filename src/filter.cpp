@@ -531,7 +531,7 @@ namespace uvdar {
        * @return The resulting state and its output covariance
        */
       /* correctWithMeasurement //{ */
-      statecov_t correctWithMeasurement(struct FilterData &fd_curr, statecov_t measurement, double &match_level, ros::Time meas_time, bool prior_predict, bool apply_update = false, std::string camera_frame = ""){
+      statecov_t correctWithMeasurement(struct FilterData &fd_curr, statecov_t measurement, double &match_level_pos, ros::Time meas_time, bool prior_predict, bool apply_update = false, std::string camera_frame = ""){
         auto filter_local = fd_curr;
 
         auto orig_state = filter_local.filter_state;
@@ -549,11 +549,17 @@ namespace uvdar {
         filter_local.filter_state.x[5] = fixAngle(filter_local.filter_state.x[5], measurement.x[5]);
         /* ROS_INFO_STREAM("[UVDARKalman]: Fixed. angles: " << filter_local.filter_state.x.bottomRows(3)); */
 
-        match_level = gaussJointMaxVal(
+        match_level_pos = gaussJointMaxVal(
             measurement.P.topLeftCorner(3,3),
             filter_local.filter_state.P.topLeftCorner(3,3),
             measurement.x.topRows(3),
             filter_local.filter_state.x.topRows(3)
+            );
+        double match_level_rot = gaussJointMaxVal(
+            measurement.P.bottomRightCorner(3,3),
+            filter_local.filter_state.P.bottomRightCorner(3,3),
+            measurement.x.bottomRows(3),
+            filter_local.filter_state.x.bottomRows(3)
             );
 
         auto P_local = measurement.P;
@@ -565,7 +571,8 @@ namespace uvdar {
         /* P_local += Q_dt(dt_from_last)*dt_from_last; */
 
         /* ROS_INFO_STREAM("[UVDARKalman]: Scaling by: " << 1.0/match_level << " due to match level of " << match_level); */
-        P_local *= (1.0/match_level);
+        P_local.topLeftCorner(3,3) *= (1.0/match_level_pos);
+        /* P_local.bottomRightCorner(3,3) *= (1.0/match_level_rot); */
         /* ROS_INFO_STREAM("[UVDARKalman]: With ML: " << std::endl << P_local); */
         /* P_local *= std::max(0.1,(1.0/match_level)); */
 
@@ -581,8 +588,8 @@ namespace uvdar {
         double min_eig_pos = eigens_pos.real().minCoeff();
         auto eigens_rot = filter_local.filter_state.P.bottomRightCorner(3,3).eigenvalues();
         double min_eig_rot = eigens_rot.real().minCoeff();
-        filter_local.filter_state.P.topLeftCorner(3,3) += e::MatrixXd::Identity(3,3)*(min_eig_pos*(match_level));//this makes the filter not increase certainty in case of multiple identical measurements - the mean in the covariances is more probable than the rest of its x<1*sigma space
-        filter_local.filter_state.P.bottomRightCorner(3,3) += e::MatrixXd::Identity(3,3)*(min_eig_rot*(match_level));//this makes the filter not increase certainty in case of multiple identical measurements - the mean in the covariances is more probable than the rest of its x<1*sigma space
+        filter_local.filter_state.P.topLeftCorner(3,3) += e::MatrixXd::Identity(3,3)*(min_eig_pos*(match_level_pos));//this makes the filter not increase certainty in case of multiple identical measurements - the mean in the covariances is more probable than the rest of its x<1*sigma space
+        /* filter_local.filter_state.P.bottomRightCorner(3,3) += e::MatrixXd::Identity(3,3)*(min_eig_rot*(match_level_rot));//this makes the filter not increase certainty in case of multiple identical measurements - the mean in the covariances is more probable than the rest of its x<1*sigma space */
         /* ROS_INFO_STREAM("[UVDARKalman]: Filter exp.: " << std::endl << filter_local.filter_state.P); */
 
         filter_local.filter_state.x[3] = fixAngle(filter_local.filter_state.x[3], 0);
