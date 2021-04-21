@@ -578,7 +578,16 @@ namespace uvdar {
 
 
         /* ROS_INFO_STREAM("[UVDARKalman]: Filter orig: " << std::endl << filter_local.filter_state.P); */
-        filter_local.filter_state = filter->correct(filter_local.filter_state, measurement.x, P_local);
+        try {
+          filter_local.filter_state = filter->correct(filter_local.filter_state, measurement.x, P_local);
+        }
+        catch (std::exception e) {
+          ROS_ERROR_STREAM("[UVDARKalman]: Attempted to correct with bad covariance (match_level_pos = " << match_level_pos << "). Will replace with big, but manabeable one.");
+          /* P_local = e::MatrixXd(6,6); */
+          P_local.setIdentity();
+          P_local *= 10000;
+          filter_local.filter_state = filter->correct(filter_local.filter_state, measurement.x, P_local);
+        }
         /* ROS_INFO_STREAM("[UVDARKalman]: Filter corr: " << std::endl << filter_local.filter_state.P); */
         /* ROS_INFO_STREAM("[UVDARKalman]: Fixed to: " << std::endl << P_local); */
 
