@@ -103,6 +103,8 @@ target_link_libraries(new_uvdar_rx_node ${catkin_LIBRARIES} ${OpenCV_LIBRARIES}
  ht4dbt)
 # target_link_libraries(SignalSetter ${catkin_LIBRARIES})
 add_dependencies(new_uvdar_rx_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+add_dependencies(uvdar_rx_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+add_dependencies(uvdar_tx_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 target_link_libraries(uv_led_detect_fast
   debug ${OpenCV_LIBRARIES} ${catkin_LIBRARIES})
