@@ -8,6 +8,7 @@
 #include <boost/filesystem/operations.hpp>
 
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
+#include <geometry_msgs/Vector3Stamped.h>
 #include <mrs_msgs/PoseWithCovarianceArrayStamped.h>
 #include <mrs_lib/param_loader.h>
 #include <mrs_lib/transformer.h>
@@ -508,6 +509,13 @@ namespace uvdar {
           timer_visualization_ = nh.createTimer(ros::Rate(1), &UVDARPoseCalculator::VisualizationThread, this, false);
         }
 
+        transformer_ = mrs_lib::Transformer("UVDARPoseCalculator", _uav_name_);
+
+        for (auto &b : _blinkers_seen_topics){
+          tf.push_back(std::optional<mrs_lib::TransformStamped>());
+          tf_gained.push_back(false);
+          img_rotator.push_back(666);
+        }
 
         initialized_ = true;
       }
@@ -662,6 +670,38 @@ namespace uvdar {
         if (estimated_framerate_.size() <= image_index || estimated_framerate_[image_index] < 0) {
           ROS_INFO_THROTTLE(1.0,"[UVDARPoseCalculator]: Framerate is not yet estimated. Waiting...");
           return;
+        }
+
+        if (!tf_gained[image_index]){
+          ROS_INFO_THROTTLE(1.0,"[UVDARPoseCalculator]: Camera TF not yet obatined. Waiting...");
+          {
+            std::scoped_lock lock(transformer_mutex);
+            tf[image_index] = transformer_.getTransform(_camera_frames_[image_index], _uav_name_+"/fcu", msg->stamp);
+          }
+          if (!tf[image_index]) { 
+            ROS_ERROR_STREAM_THROTTLE(1.0,"[UVDARPoseCalculator]: Could not obtain transform from " << _camera_frames_[image_index] << " to " << _uav_name_+"/fcu" << "!");
+            return;
+          }
+          else {
+            geometry_msgs::Vector3Stamped vec_x;
+            vec_x.header.stamp = msg->stamp;
+            vec_x.header.frame_id = _camera_frames_[image_index];
+            vec_x.vector.x = 1.0;
+            vec_x.vector.y = 0.0;
+            vec_x.vector.z = 0.0;
+            auto vec_x_fcu = transformer_.transform(tf[image_index].value(), vec_x);
+            if (!vec_x_fcu){
+              ROS_INFO_STREAM("[UVDARPoseCalculator]: Failed to get transformation for measurement, returning.");
+              return;
+            }
+
+            double a = vec_x_fcu.value().vector.x;
+            double b = sqrt((vec_x_fcu.value().vector.x*vec_x_fcu.value().vector.x)+(vec_x_fcu.value().vector.y*vec_x_fcu.value().vector.y));
+            img_rotator[image_index] = atan2(-a,b);
+
+
+            tf_gained[image_index] = true;
+          }
         }
 
         camera_image_sizes_[image_index].width = msg->image_width;
@@ -1545,7 +1585,7 @@ namespace uvdar {
           for (int j=0; j<orientation_step_count; j++){
             /* use is close */
 
-            double error_total = totalError(model.rotate(e::Vector3d(0,0,0), e::Vector3d::UnitZ(), j*angle_step).translate(position_curr), observed_points, target, image_index);
+            double error_total = totalError(model.rotate(e::Vector3d(0,0,0), e::Vector3d::UnitZ(), j*angle_step).rotate(e::Vector3d(0,0,0), position_curr, img_rotator[image_index]).translate(position_curr), observed_points, target, image_index);
             orientation_errors.push_back({error_total,j*angle_step});
               /* ROS_INFO_STREAM("[UVDARPoseCalculator]: best_orientation error: " << orientation_errors.back().first ); */
           }
@@ -1571,7 +1611,7 @@ namespace uvdar {
           /* /1* if (true){ *1/ */
           for (auto& bor : best_orientations){
             if (bor.first < (ERROR_THRESHOLD*(int)(observed_points.size()))){
-              acceptable_hypotheses.push_back(std::pair<e::Vector3d, e::Quaterniond>(position_curr, e::AngleAxisd(bor.second, e::Vector3d::UnitZ())));
+              acceptable_hypotheses.push_back(std::pair<e::Vector3d, e::Quaterniond>(position_curr, e::AngleAxisd(img_rotator[image_index],position_curr)*e::AngleAxisd(bor.second, e::Vector3d::UnitZ())));
               errors.push_back(bor.first);
             }
           }
@@ -2666,6 +2706,13 @@ namespace uvdar {
       std::vector<std::vector<std::pair<int,std::vector<cv::Point3d>>>> separated_points_;
 
       double led_projection_coefs_[3] = {1.3398, 31.4704, 0.0154}; //empirically measured coefficients of the decay of blob radius wrt. distance of a LED in our UVDAR cameras.
+
+
+      std::mutex transformer_mutex;
+      mrs_lib::Transformer transformer_;
+      std::vector<std::optional<mrs_lib::TransformStamped>> tf;
+      std::vector<double> img_rotator;
+      std::vector<bool> tf_gained;
 
       //}
   };
