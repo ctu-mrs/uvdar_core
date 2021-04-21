@@ -232,8 +232,8 @@ std::vector< std::pair<cv::Point2d,int> > HT4DBlinkerTracker::getResults() {
     if (debug_){
       std::cout << "Resolution was not yet set..." << std::endl;
     }
-    std::cout << "CHYBA 111";
-    std::cout << std::endl;
+    /* std::cout << "CHYBA 111"; */
+    /* std::cout << std::endl; */
     return std::vector<std::pair<cv::Point2d,int>>();
   }
 
@@ -252,8 +252,8 @@ std::vector< std::pair<cv::Point2d,int> > HT4DBlinkerTracker::getResults() {
     }
   }
   if (pts_per_layer_local_copy_.empty()){
-    std::cout << "CHYBA 222";
-    std::cout << std::endl;
+    /* std::cout << "CHYBA 222"; */
+    /* std::cout << std::endl; */
     return std::vector<std::pair<cv::Point2d,int>>();
   }
 

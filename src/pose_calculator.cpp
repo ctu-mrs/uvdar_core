@@ -1586,9 +1586,11 @@ namespace uvdar {
           for (int j=0; j<orientation_step_count; j++){
             /* use is close */
 
-            double error_total = totalError(model.rotate(e::Vector3d(0,0,0), e::Vector3d::UnitZ(), j*angle_step).rotate(e::Vector3d(0,0,0), position_curr, img_rotator[image_index]).translate(position_curr), observed_points, target, image_index);
+              /* ROS_INFO_STREAM("[UVDARPoseCalculator]: pos cur: " << position_curr ); */
+
+            double error_total = totalError(model.rotate(e::Vector3d(0,0,0), e::Vector3d::UnitZ(), j*angle_step).rotate(e::Vector3d(0,0,0), position_curr.normalized(), -img_rotator[image_index]).translate(position_curr), observed_points, target, image_index);
             orientation_errors.push_back({error_total,j*angle_step});
-              /* ROS_INFO_STREAM("[UVDARPoseCalculator]: best_orientation error: " << orientation_errors.back().first ); */
+              /* ROS_INFO_STREAM("[UVDARPoseCalculator]: orientation error: " << orientation_errors.back().first ); */
           }
 
           //find local orientation minima
@@ -1612,7 +1614,7 @@ namespace uvdar {
           /* /1* if (true){ *1/ */
           for (auto& bor : best_orientations){
             if (bor.first < (ERROR_THRESHOLD*(int)(observed_points.size()))){
-              acceptable_hypotheses.push_back(std::pair<e::Vector3d, e::Quaterniond>(position_curr, e::AngleAxisd(img_rotator[image_index],position_curr)*e::AngleAxisd(bor.second, e::Vector3d::UnitZ())));
+              acceptable_hypotheses.push_back(std::pair<e::Vector3d, e::Quaterniond>(position_curr, e::AngleAxisd(-img_rotator[image_index],position_curr.normalized())*e::AngleAxisd(bor.second, e::Vector3d::UnitZ())));
               errors.push_back(bor.first);
             }
           }
@@ -1983,7 +1985,14 @@ namespace uvdar {
             }
           }
         }
-          /* ROS_INFO_STREAM("[UVDARPoseCalculator]: projected_markers: " << projected_markers.size() << " vs. selected_markers (r): " << selected_markers.size()); */
+
+        /* for (auto pt : observed_points){ */
+        /*   ROS_INFO_STREAM("[UVDARPoseCalculator]: observed_marker: " << pt.x << " : " << pt.y << " : " << pt.z); */
+        /* } */
+        /* for (auto pt : selected_markers){ */
+        /*   ROS_INFO_STREAM("[UVDARPoseCalculator]: projected_marker: " << pt.position.x << " : " << pt.position.y << " : " << pt.signal_id); */
+        /* } */
+
           if (return_projections && projected_points){
             for (auto pt : selected_markers){
               projected_points->push_back(cv::Point3d(pt.position.x,pt.position.y,pt.signal_id));
