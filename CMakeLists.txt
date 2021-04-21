@@ -27,6 +27,8 @@ find_package(catkin REQUIRED COMPONENTS
   tf_conversions
   tf2_eigen
   tf2_geometry_msgs
+  message_generation
+  message_runtime
   # uvdar_gazebo_plugin
   )
 
@@ -68,7 +70,7 @@ generate_messages(DEPENDENCIES
 
 catkin_package(
  INCLUDE_DIRS include
-  CATKIN_DEPENDS cv_bridge image_transport roscpp sensor_msgs std_msgs message_runtime mrs_msgs
+  CATKIN_DEPENDS cv_bridge image_transport roscpp sensor_msgs std_msgs message_runtime mrs_msgs message_generation
   DEPENDS Eigen
   LIBRARIES OCamCalib unscented
 )
