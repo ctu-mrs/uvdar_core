@@ -695,9 +695,10 @@ namespace uvdar {
               return;
             }
 
-            double a = vec_x_fcu.value().vector.x;
+            double a = vec_x_fcu.value().vector.z;
             double b = sqrt((vec_x_fcu.value().vector.x*vec_x_fcu.value().vector.x)+(vec_x_fcu.value().vector.y*vec_x_fcu.value().vector.y));
             img_rotator[image_index] = atan2(-a,b);
+            ROS_INFO_STREAM("[UVDARPoseCalculator]: Obtained image rotation angle w.f.t. fcu: " << rad2deg(img_rotator[image_index]) << " deg");
 
 
             tf_gained[image_index] = true;
