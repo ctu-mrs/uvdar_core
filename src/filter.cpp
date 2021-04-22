@@ -433,14 +433,32 @@ namespace uvdar {
        * @param id Identity of the target (-1 means that it is unknown or irrelevant)
        */
       /* initiateNew //{ */
-      void initiateNew(e::VectorXd x, e::MatrixXd C, ros::Time stamp, int id = -1){
+      void initiateNew(e::VectorXd x, e::MatrixXd C, ros::Time stamp, std::string camera_frame, int id = -1){
         if (fd.size() > 20)
           return;
 
         bool changed = false;
+
         auto eigens = C.topLeftCorner(3,3).eigenvalues();
+
+        geometry_msgs::PoseStamped target_cam_view, target_filter;
+        target_filter.header.frame_id = _output_frame_;
+        target_filter.header.stamp = stamp;
+        target_filter.pose.position.x = x.x();
+        target_filter.pose.position.y = x.y();
+        target_filter.pose.position.z = x.z();
+        auto ret = transformer_.transformSingle(camera_frame, target_filter);
+        if (ret) {
+          target_cam_view = ret.value();
+        }
+        else{
+          ROS_ERROR_STREAM("[UVDARKalman]: Could not transform filter state from "<< _output_frame_ << " to camera frame " << camera_frame);
+          return;
+        }
+        e::Vector3d target_cam_view_vector(target_cam_view.pose.position.x, target_cam_view.pose.position.y, target_cam_view.pose.position.z);
+
         for (int i=0; i<3; i++){
-          if (eigens(i).real() > (x.topLeftCorner(3,1).norm())){
+          if (eigens(i).real() > (target_cam_view_vector.norm())){
             eigens(i) = 5.0;
             changed = true;
           }
@@ -724,7 +742,7 @@ namespace uvdar {
         std::scoped_lock lock(filter_mutex);
         if (fd.size() == 0){
           for (auto const& measurement_curr : measurements | indexed(0)){
-            initiateNew(measurement_curr.value().x, measurement_curr.value().P, meas_time);
+            initiateNew(measurement_curr.value().x, measurement_curr.value().P, meas_time, camera_frame);
           }
           return;
         }
@@ -807,7 +825,7 @@ namespace uvdar {
               ROS_INFO_STREAM("[UVDARKalman]: match_matrix at: [" << m_i << ":" << f_i << "] is: " << match_matrix(m_i,f_i));
             }
             if (!isnan(match_matrix(m_i,f_i))){
-              initiateNew(measurements[m_i].x, measurements[m_i].P, meas_time);
+              initiateNew(measurements[m_i].x, measurements[m_i].P, meas_time, camera_frame);
               for (int f_j = 0; f_j < fd_size_orig; f_j++) {
                 match_matrix(m_i,f_j) = std::nan("");
               }
@@ -846,7 +864,7 @@ namespace uvdar {
             }
           }
           if (target < 0){
-            initiateNew(measurement_curr.value().x, measurement_curr.value().P, meas_time, id_local);
+            initiateNew(measurement_curr.value().x, measurement_curr.value().P, meas_time, camera_frame, id_local);
           }
           else {
             [[ maybe_unused ]] double match_level; //for future use with multiple measurements with the same ID
