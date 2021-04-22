@@ -26,7 +26,7 @@
 #define sqr(X) ((X) * (X))
 
 #define DEFAULT_OUTPUT_FRAMERATE 20.0
-#define DECAY_AGE_NORMAL 5.0
+#define DECAY_AGE_NORMAL 3.0
 #define DECAY_AGE_UNVALIDATED 1.0
 #define MIN_MEASUREMENTS_TO_VALIDATION 10
 #define POS_THRESH 2.0
@@ -571,7 +571,10 @@ namespace uvdar {
         /* P_local += Q_dt(dt_from_last)*dt_from_last; */
 
         /* ROS_INFO_STREAM("[UVDARKalman]: Scaling by: " << 1.0/match_level << " due to match level of " << match_level); */
-        P_local.topLeftCorner(3,3) *= (1.0/match_level_pos);
+
+        /* double volume_ratio_pos = std::min(1.0,filter_local.filter_state.P.topLeftCorner(3,3).determinant()/P_local.topLeftCorner(3,3).determinant()); */
+
+        P_local.topLeftCorner(3,3) *= (1.0/(match_level_pos));
         /* P_local.bottomRightCorner(3,3) *= (1.0/match_level_rot); */
         /* ROS_INFO_STREAM("[UVDARKalman]: With ML: " << std::endl << P_local); */
         /* P_local *= std::max(0.1,(1.0/match_level)); */
@@ -581,7 +584,7 @@ namespace uvdar {
         try {
           filter_local.filter_state = filter->correct(filter_local.filter_state, measurement.x, P_local);
         }
-        catch (std::exception e) {
+        catch ([[maybe_unused]] std::exception e) {
           ROS_ERROR_STREAM("[UVDARKalman]: Attempted to correct with bad covariance (match_level_pos = " << match_level_pos << "). Will replace with big, but manabeable one.");
           /* P_local = e::MatrixXd(6,6); */
           P_local.setIdentity();

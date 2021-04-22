@@ -1104,72 +1104,6 @@ namespace uvdar {
       /* extractSingleRelative //{ */
       void extractSingleRelative(std::vector< cv::Point3d > points, int target, size_t image_index, mrs_msgs::PoseWithCovarianceIdentified& output_pose, std::vector<mrs_msgs::PoseWithCovarianceIdentified> &constituents) {
 
-        /* double leftF; */
-        /* double rightF; */
-        /* if (_beacon_){ */
-        /*   leftF = _frequencies_[1]; */
-        /*   if (_frequencies_.size() == 3) */
-        /*     rightF = _frequencies_[2]; */
-        /*   else */
-        /*     rightF = _frequencies_[1]; */
-        /* } */
-        /* else { */
-        /*   leftF = _frequencies_[target*2]; */
-        /*   rightF = _frequencies_[target*2+1]; */
-        /* } */
-        /* double          max_dist = MAX_DIST_INIT; */
-
-        /* int countSeen = (int)(points.size()); */
-
-        /* bool missing_beacon = (_beacon_)&&(points[0].x == -1); */
-
-        /* if (missing_beacon){ */
-        /*   points.erase(points.begin()); */
-        /* } */
-
-        /* if ((!_beacon_) || (missing_beacon)){ */
-
-        /*   //Remove furthest markers until there are at most 3 in the current set */
-        /*   if ((int)(points.size()) > 1) { */
-
-        /*     for (int i = 0; i < (int)(points.size()); i++) { */
-        /*       if (points[i].z < 1) { */
-        /*         points.erase(points.begin() + i); */
-        /*         i--; */
-        /*         continue; */
-        /*       } */
-        /*     } */
-        /*     /1* bool separated = false; *1/ */
-        /*     /1* while ((points.size() > 3) || (!separated)) { *1/ */
-        /*     /1*   separated = true; *1/ */
-        /*     /1*   for (int i = 0; i < (int)(points.size()); i++) { *1/ */
-        /*     /1*     bool viable = false; *1/ */
-        /*     /1*     for (int j = 0; j < (int)(points.size()); j++) { *1/ */
-        /*     /1*       if (i == j) *1/ */
-        /*     /1*         continue; *1/ */
-
-        /*     /1*       /2* if (_debug_) *2/ *1/ */
-        /*     /1*       /2*   ROS_INFO_STREAM("[UVDARPoseCalculator]: Distance: " <<cv::norm(cv::Point2i(points[i].x,points[i].y) - cv::Point2i(points[j].x,points[j].y)) << " max_dist: " << max_dist); *2/ *1/ */
-
-        /*     /1*       if ((cv::norm(cv::Point2i(points[i].x,points[i].y) - cv::Point2i(points[j].x,points[j].y)) < max_dist)) { *1/ */
-        /*     /1*         viable = true; *1/ */
-        /*     /1*       } *1/ */
-        /*     /1*       else{ *1/ */
-        /*     /1*         separated = false; *1/ */
-        /*     /1*       } *1/ */
-        /*     /1*     } *1/ */
-        /*     /1*     if (!viable) { *1/ */
-        /*     /1*       points.erase(points.begin() + i); *1/ */
-        /*     /1*       i--; *1/ */
-        /*     /1*     } *1/ */
-        /*     /1*   } *1/ */
-        /*     /1*   max_dist = 0.5 * max_dist; *1/ */
-        /*     /1* } *1/ */
-        /*   } */
-        /* } */
-
-
-
         std::pair<e::Vector3d, e::Quaterniond> final_mean;
         e::MatrixXd final_covariance;
 
@@ -1193,11 +1127,12 @@ namespace uvdar {
           
         if ((points.size() == 1) || (alpha_max < 0.01)){
           auto v_w_s = baseFromOptical(directionFromCamPoint(points.at(0), image_index));
+          v_w_s *= 15.0; //max range
           final_mean.first << v_w_s.x(),v_w_s.y(),v_w_s.z();
           final_mean.second = e::Quaterniond(1,0,0,0);
           final_covariance.setIdentity(6,6);
           final_covariance *= M_PI;//large covariance for angles in radians
-          final_covariance.topLeftCorner(3, 3) = getLongCovariance(v_w_s,(model_.getMaxMinVisibleDiameter().first*0.333),1000.0);
+          final_covariance.topLeftCorner(3, 3) = getLongCovariance(v_w_s,(model_.getMaxMinVisibleDiameter().first*1.0),1000.0);
         }
         else {
           auto furthest_position = getRoughInit(model_, v_w, image_index);
