@@ -2,7 +2,7 @@
   <arg name="uav_name" default="$(optenv UAV_NAME uav1)"/>
   <!-- Node Settings -->
   <arg name="debug"             default="false"/>
-  <arg name="output_frame"      default="local_origin"/>
+  <arg name="output_frame"      default="$(uav_name)/stable_origin"/>
   <arg name="use_velocity"      default="false"/>
   <arg name="output_framerate"  default="10"/>
 
