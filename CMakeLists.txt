@@ -27,6 +27,8 @@ find_package(catkin REQUIRED COMPONENTS
   tf_conversions
   tf2_eigen
   tf2_geometry_msgs
+  message_generation
+  message_runtime
   # uvdar_gazebo_plugin
   )
 
@@ -68,7 +70,7 @@ generate_messages(DEPENDENCIES
 
 catkin_package(
  INCLUDE_DIRS include
-  CATKIN_DEPENDS cv_bridge image_transport roscpp sensor_msgs std_msgs message_runtime mrs_msgs
+  CATKIN_DEPENDS cv_bridge image_transport roscpp sensor_msgs std_msgs message_runtime mrs_msgs message_generation
   DEPENDS Eigen
   LIBRARIES OCamCalib unscented
 )
@@ -83,7 +85,6 @@ include_directories(
   ${OpenCV_INCLUDE_DIRS}
   ${EIGEN3_INCLUDE_DIRS}
   )
-
 
 add_executable(uvdar_rx_node src/uvdar_rx.cpp)
 add_executable(uvdar_tx_node src/uvdar_tx.cpp)
@@ -102,6 +103,8 @@ target_link_libraries(new_uvdar_rx_node ${catkin_LIBRARIES} ${OpenCV_LIBRARIES}
  ht4dbt)
 # target_link_libraries(SignalSetter ${catkin_LIBRARIES})
 add_dependencies(new_uvdar_rx_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+add_dependencies(uvdar_rx_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+add_dependencies(uvdar_tx_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 target_link_libraries(uv_led_detect_fast
   debug ${OpenCV_LIBRARIES} ${catkin_LIBRARIES})
