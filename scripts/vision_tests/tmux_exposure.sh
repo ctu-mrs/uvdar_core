@@ -26,7 +26,7 @@ pre_input="mkdir -p $MAIN_DIR/$PROJECT_NAME; export WORLD_FILE=./world.yaml"
 # 'name' 'command'
 # DO NOT PUT SPACES IN THE NAMES
 input=(
-  'Rosbag' 'waitForOffboard; ./rosbag_record_raw_cam_vert.sh
+  'Rosbag' 'waitForOffboard; ./rosbag_record_raw_cam.sh
 '
   'Nimbro' 'waitForRos; roslaunch mrs_uav_general nimbro.launch custom_config:=./custom_configs/nimbro.yaml custom_config_uav_names:=./custom_configs/uav_names.yaml
 '
@@ -34,7 +34,7 @@ input=(
 '
   'Status' 'waitForRos; roslaunch mrs_uav_status status.launch
 '
-  'uvdar_camera' 'waitForRos; roslaunch uvdar_core camera_only.launch device:='"$BLEUFOX_UV_BACK" expose_us:=100 #100 200 500 1000 2000 3000 5000
+  'uvdar_camera' 'waitForRos; roslaunch uvdar_core camera_only.launch device:='"$BLEUFOX_UV_LEFT" expose_us:=100 #100 200 500 1000 2000 3000 5000
 '
   'Control' 'waitForRos; roslaunch mrs_uav_general core.launch config_constraint_manager:=./custom_configs/constraint_manager.yaml config_control_manager:=./custom_configs/control_manager.yaml config_mpc_tracker:=./custom_configs/mpc_tracker.yaml config_odometry:=./custom_configs/odometry.yaml config_uav_manager:=./custom_configs/uav_manager.yaml config_uav_names:=./custom_configs/uav_names.yaml
 '
