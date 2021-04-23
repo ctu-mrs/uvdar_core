@@ -14,7 +14,7 @@ fi
 source $HOME/.bashrc
 
 # change this to your liking
-PROJECT_NAME=uvdar_tests
+PROJECT_NAME=uvdar_tests_blink
 
 # do not change this
 MAIN_DIR=~/"bag_files"

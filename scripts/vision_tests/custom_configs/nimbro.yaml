@@ -21,6 +21,8 @@ topics: # topics published out of this machine to receivers specified above
 services:
   - name: "/*/control_manager/goto_trajectory_start"
     type: std_srvs/Trigger
+  - name: "/*/trajectory_generation/path"
+    type: mrs_msgs/PathSrv
   - name: "/*/control_manager/start_trajectory_tracking"
     type: std_srvs/Trigger
   - name: "/*/control_manager/trajectory_reference"
