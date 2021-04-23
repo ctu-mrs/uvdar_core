@@ -32,6 +32,8 @@ input=(
 '
   'Sensors' 'waitForRos; roslaunch mrs_uav_general sensors.launch
 '
+  'RTK' 'waitForRos; roslaunch mrs_uav_serial rtk.launch
+'
   'Status' 'waitForRos; roslaunch mrs_uav_status status.launch
 '
   'uvdar_camera' 'waitForRos; roslaunch uvdar_core camera_only.launch device:='"$BLEUFOX_UV_LEFT" expose_us:=100 #100 200 500 1000 2000 3000 5000

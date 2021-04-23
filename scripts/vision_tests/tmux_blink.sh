@@ -32,6 +32,8 @@ input=(
 '
   'Sensors' 'waitForRos; roslaunch mrs_uav_general sensors.launch
 '
+  'RTK' 'waitForRos; roslaunch mrs_uav_serial rtk.launch
+'
   'Status' 'waitForRos; roslaunch mrs_uav_status status.launch
 '
   'L4' 'waitForRos; roslaunch uvdar_core led_manager.launch sequence_file:=$(rospack find uvdar_core)/config/L4.txt'
