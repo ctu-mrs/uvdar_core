@@ -1,7 +1,7 @@
 # Estimators used during takeoff
 # Lateral state estimator:
 # OPTFLOW, GPS, OPTFLOWGPS, RTK, ICP, VIO, HECTOR
-lateral_estimator: "GPS"
+lateral_estimator: "RTK"
 
 # Altitude state estimator:
 # HEIGHT - rangefinder
