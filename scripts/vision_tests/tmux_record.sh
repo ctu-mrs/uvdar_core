@@ -14,7 +14,7 @@ fi
 source $HOME/.bashrc
 
 # change this to your liking
-PROJECT_NAME=uvdar_tests_record
+PROJECT_NAME=uvdar_tests_blink
 
 # do not change this
 MAIN_DIR=~/"bag_files"
@@ -32,11 +32,12 @@ input=(
 '
   'Sensors' 'waitForRos; roslaunch mrs_uav_general sensors.launch
 '
-  'RTK' 'waitForRos; roslaunch mrs_uav_serial rtk.launch
+  'RTK' 'waitForRos; roslaunch mrs_serial rtk.launch
 '
   'Status' 'waitForRos; roslaunch mrs_uav_status status.launch
 '
-  'uvdar_camera' 'waitForRos; roslaunch uvdar_core camera_only.launch device:='"$BLEUFOX_UV_LEFT"
+  'goto' "rosservice call /$UAV_NAME/control_manager/goto \"goal: [-28.0, 0.0, 10.0, -1.22]\""
+  'uvdar_camera' 'waitForRos; roslaunch uvdar_core camera_only.launch device:='"$BLUEFOX_UV_LEFT"'
   '
   'Control' 'waitForRos; roslaunch mrs_uav_general core.launch config_constraint_manager:=./custom_configs/constraint_manager.yaml config_control_manager:=./custom_configs/control_manager.yaml config_mpc_tracker:=./custom_configs/mpc_tracker.yaml config_odometry:=./custom_configs/odometry.yaml config_uav_manager:=./custom_configs/uav_manager.yaml config_uav_names:=./custom_configs/uav_names.yaml
 '
