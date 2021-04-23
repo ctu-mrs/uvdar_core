@@ -33,6 +33,6 @@ altitude:
     vel_baro: [100.0]
 
     pos_rtk: [0.001]
-    vel_rtk: [0.001]
+    vel_rtk: [1.0]
 
   max_rtk_pos_correction: 3.5
