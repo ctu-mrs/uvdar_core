@@ -32,15 +32,16 @@ input=(
 '
   'Sensors' 'waitForRos; roslaunch mrs_uav_general sensors.launch
 '
-  'RTK' 'waitForRos; roslaunch mrs_uav_serial rtk.launch
+  'RTK' 'waitForRos; roslaunch mrs_serial rtk.launch
 '
   'Status' 'waitForRos; roslaunch mrs_uav_status status.launch
 '
+  'goto' "rosservice call /$UAV_NAME/control_manager/goto \"goal: [-11.768, -1.768, 10.0, 0.785375]\"" 
   'L4' 'waitForRos; roslaunch uvdar_core led_manager.launch sequence_file:=$(rospack find uvdar_core)/config/L4.txt'
   'L8' 'waitForRos; roslaunch uvdar_core led_manager.launch sequence_file:=$(rospack find uvdar_core)/config/L8.txt'
   'default_sequence_L12' 'waitForRos; roslaunch uvdar_core led_manager.launch sequence_file:=$(rospack find uvdar_core)/config/selected.txt
 '
-  'set_sequence' 'waitForRos; rosservice call /'"$UAV_NAME"'/uvdar_led_manager_node/quick_start 0
+  'set_sequence' 'waitForRos; rosservice call /'"$UAV_NAME"'/uvdar_led_manager_node/quick_start 0'
   'Control' 'waitForRos; roslaunch mrs_uav_general core.launch config_constraint_manager:=./custom_configs/constraint_manager.yaml config_control_manager:=./custom_configs/control_manager.yaml config_mpc_tracker:=./custom_configs/mpc_tracker.yaml config_odometry:=./custom_configs/odometry.yaml config_uav_manager:=./custom_configs/uav_manager.yaml config_uav_names:=./custom_configs/uav_names.yaml
 '
   'AutoStart' 'waitForRos; roslaunch mrs_uav_general automatic_start.launch custom_config:=./custom_configs/automatic_start.yaml
