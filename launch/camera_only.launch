@@ -122,6 +122,8 @@
       <param name="image_raw/theora/target_bitrate" value="50000" />
       <param name="image_raw/theora/quality" value="8" />
       <param name="image_raw/theora/optimize_for" value="0" />
+
+      <remap from="/$(arg uav_name)/uvdar_bluefox/image_raw" to="/$(arg uav_name)/uvdar_bluefox/left/image_raw"/>
     </node>
 
 
