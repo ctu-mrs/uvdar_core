@@ -1,0 +1,113 @@
+
+Locations:  shithole = [24.132261401426987, 55.332955591278576]
+            small dunes = [24.12276756021063, 55.339227012496416]
+
+            In the experiment description, we use local metric coordinate system with [0,0] roughly in the center of the given area
+
+Sequence set L12 used (most experiments):
+      0,0,1,0,0,1,0,1,0,1,1,1
+      0,0,1,1,1,0,1,0,1,1,0,1
+      0,0,0,1,1,1,0,0,0,1,1,1
+      0,0,0,1,0,0,1,1,0,1,1,1
+      0,1,1,1,0,1,1,1,0,1,1,1
+      0,0,1,1,0,1,1,0,1,0,1,1
+      0,0,1,0,1,1,0,0,1,0,1,1
+      0,0,1,1,0,1,0,0,1,1,0,1
+      0,0,0,1,0,1,0,1,1,0,1,1
+      0,1,0,1,0,1,0,1,0,1,0,1
+      0,0,1,0,1,1,1,0,0,1,1,1
+      0,0,0,1,1,0,0,1,1,1,0,1
+    - numbered from 0 to 11, UAV number is one higher (e.g. UAV6 carried sequence 5)
+
+Default exposure was 1000
+
+In experiments with observation from UAVs, the left UV camera was always used
+
+Exposure tests:
+  Location: shithole
+  Time: ~17:00 local time
+  Platforms: UAV7 (closer to sun) and UAV5
+
+  the original plan of varying the output power of the target LEDs was not achieved due to technical issues - we have replaced this by varyin the exposure time of the observer's UV camera
+
+  flights were cca. 4 min each
+  Framerate in recordings may be flaky sometimes - I suggest eliminating portions of the recordings that are detected to have less than the desired 60Hz on the camera topics.
+  Use topic [rtk_raw] for precise odometry based on differential GPS
+  Sun was setting over the course of the experiments - this led to decreased solar UV over time unfortunately
+  Video
+    sideways
+    order of vids : 100 200 500 1000 2000 3000 5000
+    shorter than actual flights (just to illustrate conditions)
+    marked with hand signs
+
+Spatial separability (same power)
+  Location: shithole
+  Time: later evening - sun has set, minarets have started to sing
+  Platforms: UAV5 and UAV9 -targets (heading = 45 deg), UAV7 -observer (heading = left cam dir)
+  distances are different from the original document, due to the mutual distance of 3m not being safe under the conditions:
+    targets placed away from sun
+    targets 5 m from each other, 45 degs rotated w.r.t. original spec (-11.768, -1.768 UAV5; -8.232, +1.768, UAV9 ), (center at -10, 0) - this was to make them appear closer in the image to the original desired perpendicular layout with 3m distance
+    distances (3m was ommitted): 5 7 10 15 18 meters (negative in coords: -17, -20, -25, -28) from the center point between the two target UAVs
+
+Spatial separability (different power)
+  Location: shithole
+
+  Flights were cca. 4 min each
+
+  Split into two attempts
+
+  distances are modified in the same way as in the (same power) experiment, the closer target was changing distance together with the observer
+
+  The closest distance (5m) was recorded only briefly, due to it being already represented in the (same power) experiments
+
+  1st attempt:
+    Platforms: UAV5 and UAV9 -targets (heading = 45 deg), UAV7 -observer (heading = left cam dir)
+
+    targets were away from sun w.r.t. the observer 
+    targets 5 m from each other, 45 degs rotated wrt original spec (-11.768, -1.768 UAV5; -8.232, +1768, UAV9 ), (center at -10, 0)
+    target UAV5 at [-11.768, -1.768] was shifting x together with UAV7
+    [UAV 9 and 5] - died in action (likely due to temperature-induced altimeter malfunction), ending the 1st attempt
+
+  2nd attempt:
+    Platforms: UAV 6 7 8 (uav7 is observer, -11.768 init is UAV6), same layout as in the 1st attempt
+    Time: 9:00 onwards, extreme heat (~46 Celsius), sun is ~above and slightly in the direction of the targets
+
+    distances (omitting 3): 5 7 10 15 18 meters (negative in coords: -17, -20, -25, -28) from the initial centerpoint [-10,0] of the targets 
+    we are shifting the closer one (UAV6) together with the observer (UAV7), keeping distance of 3,232 in X same as in 1st attempt
+    
+    positions recorded with RTK (found in the corresponding ROS topic), but not maintained with it - real position shifts from the setpoints due to raw GPS drift, but we know how much
+    due to  oscillations in Z (laser rangefinder fails in these conditions), at distances of 15 and 18 m (two last runs) - height is maintained based on barometer as opposed to laser rangefinder as before - this may lead to different absolute height than before
+    for 15 meters distance we only have 3 minutes due to hardware failure 
+
+
+Maximum detection capability:
+  Location: small dunes
+  Recorded from an independent swarm experiment,
+  Recording device was laptop with UV camera (not UAV), placed on the ground
+  ~8-9 UAVs, sequences 0-9 from the L12 set
+
+
+Tracking
+  Location: shithole
+  Time: ~9:15 onwards
+  Platforms: UAV7 - observer, UAV6 - target (and L12 is sequence 5)
+
+  since we don't fly on RTK here, we are unwilling to have 3m proximity - I have scaled the trajectory up w.r.t. the original document:
+  closest distance (in Y) was 5m
+  the motion of the target was from -13.8333 to +13.8333 in X from the closest position to the observer - the coordinates set to the target UAV were shifted to X = -0.333333 to -28; Y = 0  due to the area size limitations
+  the observer was static, at X=-14.166666, Y=+5
+  heading of the observer was -2.79253 rad ((-70)-90 = -160deg) , heading of the target is -45 deg to see 3 markers at the nearest position.
+  speed of the target was at maximum 4.4 m/s.
+  unfortunately, in this experiment we have no RTK due to worsening technical difficulties near the end of our stay in UAE - raw GPS can be used as a relatively reliable source of information on the speed of the target, but precise position is not available
+
+  each of the three flights was 4 minutes long
+  Order of signals as they were recorded is L12, L8, L4
+  Signals:  L12 = [0,0,1,1,0,1,1,0,1,0,1,1]
+            L8  = [0,1,0,1,1,0,1,1]
+            L4  = [0,1,1,1]
+
+
+
+
+
+  
