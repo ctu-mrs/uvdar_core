@@ -7,8 +7,8 @@
   <arg name="output_framerate"  default="10"/>
 
   <arg name="indoor"            default="false"/>
-  <arg name="use_two_cameras"   default="false"/>
-  <arg name="use_three_cameras"   default="true"/>
+  <arg name="use_two_cameras"   default="true"/>
+  <arg name="use_three_cameras"   default="false"/>
   <arg name="anonymous_measurements"   default="false"/>
 
   <group ns="$(arg uav_name)">

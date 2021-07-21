@@ -39,7 +39,7 @@
 
   <arg name="blink_process_rate" default="10"/>
 
-  <arg name="accumulator_length"         default="12"/>
+  <arg name="accumulator_length"         default="14"/>
   <arg name="pitch_steps"         default="16"/>
   <arg name="yaw_steps"         default="16"/>
   <arg name="max_pixel_shift"         default="4"/>
@@ -94,6 +94,15 @@
   <arg name="id10" value="9"/>
   <arg name="id11" value="10"/>
   <arg name="id12" value="11"/>
+  <arg name="id13" value="12"/>
+  <arg name="id14" value="13"/>
+  <arg name="id15" value="14"/>
+  <arg name="id16" value="15"/>
+  <arg name="id17" value="16"/>
+  <arg name="id18" value="17"/>
+  <arg name="id19" value="18"/>
+  <arg name="id20" value="19"/>
+  <arg name="id21" value="20"/>
 
   <arg name="sequence_file" default="$(find uvdar_core)/config/selected.txt"/>
 
@@ -254,7 +263,7 @@
       <param name="use_camera_for_visualization"         type="bool" value="true"/>
       <param name="visualization_rate"         type="int" value="$(arg visualization_rate)"/>
       <!-- <rosparam param="frequencies" subst_value="true"> [$(arg frequency1), $(arg frequency2), $(arg frequency3), $(arg frequency4)] </rosparam> -->
-      <rosparam param="signal_ids" subst_value="true"> [$(arg id1), $(arg id2), $(arg id3), $(arg id4), $(arg id5), $(arg id6), $(arg id7), $(arg id8), $(arg id9), $(arg id10), $(arg id11), $(arg id12)] </rosparam>
+      <rosparam param="signal_ids" subst_value="true"> [$(arg id1), $(arg id2), $(arg id3), $(arg id4), $(arg id5), $(arg id6), $(arg id7), $(arg id8), $(arg id9), $(arg id10), $(arg id11), $(arg id12), $(arg id13), $(arg id14), $(arg id15), $(arg id16), $(arg id17), $(arg id18), $(arg id19), $(arg id20), $(arg id21)] </rosparam>
       <param name="sequence_file"         type="string" value="$(arg sequence_file)"/>
 
       <param name="blink_process_rate"         type="int" value="$(arg blink_process_rate)"/>
@@ -300,7 +309,7 @@
       <!-- <param name="frequencies_per_target" type="int" value="1"/> -->
       <param name="signals_per_target" type="int" value="1"/>
       <!-- <rosparam param="frequencies" subst_value="true"> [$(arg frequency1), $(arg frequency2), $(arg frequency3)] </rosparam> -->
-      <rosparam param="signal_ids" subst_value="true"> [$(arg id1), $(arg id2), $(arg id3), $(arg id4), $(arg id5), $(arg id6), $(arg id7), $(arg id8), $(arg id9), $(arg id10), $(arg id11), $(arg id12)] </rosparam>
+      <rosparam param="signal_ids" subst_value="true"> [$(arg id1), $(arg id2), $(arg id3), $(arg id4), $(arg id5), $(arg id6), $(arg id7), $(arg id8), $(arg id9), $(arg id10), $(arg id11), $(arg id12), $(arg id13), $(arg id14), $(arg id15), $(arg id16), $(arg id17), $(arg id18), $(arg id19), $(arg id20), $(arg id21)] </rosparam>
 
       <param name="quadrotor" type="bool" value="true"/>
       <param name="beacon" type="bool" value="$(arg beacon)"/>
