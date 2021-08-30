@@ -52,7 +52,7 @@ In order to test the system in simulation, install all software dependencies inc
   %% * For testing separation of units based on different blinking frequencies [multi_frequency_test.sh](scripts/multi_frequency_test.sh)
   * For testing separation of units based on different blinking signal sequences [new_signaling.sh](scripts/new_signaling.sh)
 
-Note, that both the scripts slow down the simulation below real-time. This is necessary, since if Gazebo slows down automatically due to insufficient processing power, the blinking signals get corrupted. Test the maximum admissible real-time factor for your computer by checking how far you can increase / have to decrease it such that the real-time factor consistently stays at the value it was set to.
+Note, that the script slows down the simulation below real-time. This is necessary, since if Gazebo slows down automatically due to insufficient processing power, the blinking signals get corrupted. Test the maximum admissible real-time factor for your computer by checking how far you can increase / have to decrease it such that the real-time factor consistently stays at the value it was set to.
 
 ## Node description
 The package comprises multiple ROS nodes (N) and nodelets (n):
