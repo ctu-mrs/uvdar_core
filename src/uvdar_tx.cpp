@@ -399,6 +399,7 @@ int main(int argc, char** argv) {
   double bit_rate = ((double)set_rate / (double)bit_duplication_amount);
 
   while (ros::ok()) {
+    /* ROS_INFO("ej %d", (int)curr_frame.size()); */
     if (curr_frame.empty()) {    // if current data frame is empty - avoiding self channel collision
       if (!msg_queue.empty()) {  // checking content of msgs queue. If it is not empty, it creates new data frame from the oldest stored message
         create_curr_msg();
@@ -419,7 +420,7 @@ int main(int argc, char** argv) {
     /*   } */
     /* } */
     
-  led_msg.request.data_frame.clear();
+    led_msg.request.data_frame.clear();
     for (auto b : curr_frame){
       led_msg.request.data_frame.push_back((b==0)?0:255);
     }
@@ -429,6 +430,7 @@ int main(int argc, char** argv) {
 
     ros::Duration sleeper = ros::Duration((double)(curr_frame.size()) / bit_rate);
 
+    curr_frame.clear();
     /* ROS_INFO_STREAM("[TX_processor]: Will sleep for " << sleeper.toSec() << " seconds. ( bit_rate =" << bit_rate << "; curr_frame.size=" << (double)(curr_frame.size()) << ")" ); */
     sleeper.sleep();
     ros::spinOnce();
