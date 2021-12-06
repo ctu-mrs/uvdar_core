@@ -514,10 +514,10 @@ namespace uvdar {
         for (auto &b : _blinkers_seen_topics){
           tf.push_back(std::optional<mrs_lib::TransformStamped>());
           tf_gained.push_back(false);
-          img_rotator.push_back(666);
+          /* img_rotator.push_back(666); */
         }
 
-        prepAxisVectors();
+        initAxisVectors();
 
         initialized_ = true;
       }
@@ -697,13 +697,15 @@ namespace uvdar {
               return;
             }
 
-            double a = vec_x_fcu.value().vector.z;
-            double b = sqrt((vec_x_fcu.value().vector.x*vec_x_fcu.value().vector.x)+(vec_x_fcu.value().vector.y*vec_x_fcu.value().vector.y));
-            img_rotator[image_index] = atan2(-a,b);
-            ROS_INFO_STREAM("[UVDARPoseCalculator]: Obtained image rotation angle w.f.t. fcu: " << rad2deg(img_rotator[image_index]) << " deg");
+            bool prepared_rotation_axes = prepareAxisVectors(image_index);
+
+            /* double a = vec_x_fcu.value().vector.z; */
+            /* double b = sqrt((vec_x_fcu.value().vector.x*vec_x_fcu.value().vector.x)+(vec_x_fcu.value().vector.y*vec_x_fcu.value().vector.y)); */
+            /* img_rotator[image_index] = atan2(-a,b); */
+            /* ROS_INFO_STREAM("[UVDARPoseCalculator]: Obtained image rotation angle w.f.t. fcu: " << rad2deg(img_rotator[image_index]) << " deg"); */
 
 
-            tf_gained[image_index] = true;
+            tf_gained[image_index] = true && prepared_rotation_axes;
           }
         }
 
@@ -1371,23 +1373,49 @@ namespace uvdar {
 
       /* } */
 
-      void prepAxisVectors(){ // spread out the axis of initial hypotheses - presume that Z is roughly upwards
-        axis_vectors_.push_back(e::Vector3d::UnitZ());
+      void initAxisVectors(){ // spread out the axis of initial hypotheses - presume that Z is roughly upwards
+        for (unsigned int i=0; i<_camera_count_; i++){
+          axis_vectors_.push_back(std::vector<e::Vector3d>());
+        }
+      }
 
-        axis_vectors_.push_back(e::Vector3d::UnitX());
-        axis_vectors_.push_back(-e::Vector3d::UnitX());
-        axis_vectors_.push_back(e::Vector3d::UnitY());
-        axis_vectors_.push_back(-e::Vector3d::UnitY());
+      bool prepareAxisVectors(unsigned int image_index){ // spread out the axis of initial hypotheses - presume that Z is roughly upwards
+        if (!tf[image_index]){
+          ROS_INFO_STREAM("[UVDARPoseCalculator]: Transformation for camera " << image_index << " is missing, returning.");
+          return false;
+        }
 
-        axis_vectors_.push_back(e::Vector3d(sqrt(0.5), sqrt(0.5), 0.0));
-        axis_vectors_.push_back(e::Vector3d(-sqrt(0.5), sqrt(0.5), 0.0));
-        axis_vectors_.push_back(e::Vector3d(-sqrt(0.5), -sqrt(0.5), 0.0));
-        axis_vectors_.push_back(e::Vector3d(sqrt(0.5), -sqrt(0.5), 0.0));
+        axis_vectors_[image_index].clear();
 
-        axis_vectors_.push_back(e::Vector3d(0.0, sqrt(0.5), sqrt(0.5)));
-        axis_vectors_.push_back(e::Vector3d(0.0, -sqrt(0.5), sqrt(0.5)));
-        axis_vectors_.push_back(e::Vector3d(-sqrt(0.5), 0.0, sqrt(0.5)));
-        axis_vectors_.push_back(e::Vector3d(-sqrt(0.5), 0.0, sqrt(0.5)));
+        axis_vectors_[image_index].push_back(e::Vector3d::UnitZ());
+
+        axis_vectors_[image_index].push_back(e::Vector3d::UnitX());
+        axis_vectors_[image_index].push_back(-e::Vector3d::UnitX());
+        axis_vectors_[image_index].push_back(e::Vector3d::UnitY());
+        axis_vectors_[image_index].push_back(-e::Vector3d::UnitY());
+
+        axis_vectors_[image_index].push_back(e::Vector3d(sqrt(0.5), sqrt(0.5), 0.0));
+        axis_vectors_[image_index].push_back(e::Vector3d(-sqrt(0.5), sqrt(0.5), 0.0));
+        axis_vectors_[image_index].push_back(e::Vector3d(-sqrt(0.5), -sqrt(0.5), 0.0));
+        axis_vectors_[image_index].push_back(e::Vector3d(sqrt(0.5), -sqrt(0.5), 0.0));
+
+        axis_vectors_[image_index].push_back(e::Vector3d(0.0, sqrt(0.5), sqrt(0.5)));
+        axis_vectors_[image_index].push_back(e::Vector3d(0.0, -sqrt(0.5), sqrt(0.5)));
+        axis_vectors_[image_index].push_back(e::Vector3d(sqrt(0.5), 0.0, sqrt(0.5)));
+        axis_vectors_[image_index].push_back(e::Vector3d(-sqrt(0.5), 0.0, sqrt(0.5)));
+
+        for (auto& av : axis_vectors_[image_index]){
+          auto ret = transformer_.transformHeaderless(tf[image_index].value(),av);
+          if (!ret){
+            ROS_INFO_STREAM("[UVDARPoseCalculator]: Failed to transform a sampling axis vector, returning.");
+            return false;
+          }
+          else {
+            av = ret.value();
+          }
+
+        }
+        return true;
       }
 
 
@@ -1540,7 +1568,7 @@ namespace uvdar {
           best_orientations.clear();
           orientation_errors.clear();
           /* best_orientation.push_back({std::numeric_limits<double>::max(), -1}); */
-          for (auto v : axis_vectors_){
+          for (auto v : axis_vectors_[image_index]){
             orientation_errors.push_back(std::vector<std::tuple<double,e::Vector3d,double>>());
             for (int j=0; j<orientation_step_count; j++){
               /* use is close */
@@ -1548,7 +1576,8 @@ namespace uvdar {
               /* ROS_INFO_STREAM("[UVDARPoseCalculator]: pos curr: " << position_curr.transpose() ); */
 
               /* double error_total = totalError(model.rotate(e::Vector3d(0,0,0), e::Vector3d::UnitZ(), j*angle_step).rotate(e::Vector3d(0,0,0), position_curr.normalized(), -img_rotator[image_index]).translate(position_curr), observed_points, target, image_index); */
-              double error_total = totalError(model.rotate(e::Vector3d(0,0,0), v, j*angle_step).rotate(e::Vector3d(0,0,0), position_curr.normalized(), -img_rotator[image_index]).translate(position_curr), observed_points, target, image_index);
+              /* double error_total = totalError(model.rotate(e::Vector3d(0,0,0), v, j*angle_step).rotate(e::Vector3d(0,0,0), position_curr.normalized(), -img_rotator[image_index]).translate(position_curr), observed_points, target, image_index); */
+              double error_total = totalError(model.rotate(e::Vector3d(0,0,0), v, j*angle_step).translate(position_curr), observed_points, target, image_index);
               orientation_errors.back().push_back({error_total,v,j*angle_step});
             }
           }
@@ -1590,7 +1619,8 @@ namespace uvdar {
             /* if (std::get<0>(bor) < threshold){ */
             /* } */
             /* acceptable_hypotheses.push_back(std::pair<e::Vector3d, e::Quaterniond>(position_curr, e::AngleAxisd(-img_rotator[image_index],position_curr.normalized())*e::AngleAxisd(bor.second, e::Vector3d::UnitZ()))); */
-            acceptable_hypotheses.push_back(std::pair<e::Vector3d, e::Quaterniond>(position_curr, e::AngleAxisd(-img_rotator[image_index],position_curr.normalized())*e::AngleAxisd(std::get<2>(bor), std::get<1>(bor))));
+            /* acceptable_hypotheses.push_back(std::pair<e::Vector3d, e::Quaterniond>(position_curr, e::AngleAxisd(-img_rotator[image_index],position_curr.normalized())*e::AngleAxisd(std::get<2>(bor), std::get<1>(bor)))); */
+            acceptable_hypotheses.push_back(std::pair<e::Vector3d, e::Quaterniond>(position_curr, e::AngleAxisd(std::get<2>(bor), std::get<1>(bor))));
             errors.push_back(std::get<0>(bor));
           }
 
@@ -2687,7 +2717,9 @@ namespace uvdar {
 
       bool initialized_ = false;
 
-      std::vector<e::Vector3d> axis_vectors_;
+      std::vector<std::vector<e::Vector3d>> axis_vectors_default;
+
+      std::vector<std::vector<e::Vector3d>> axis_vectors_;
 
       std::vector<std::shared_ptr<std::mutex>>  mutex_separated_points_;
       std::vector<std::vector<std::pair<int,std::vector<cv::Point3d>>>> separated_points_;
@@ -2698,7 +2730,7 @@ namespace uvdar {
       std::mutex transformer_mutex;
       mrs_lib::Transformer transformer_;
       std::vector<std::optional<mrs_lib::TransformStamped>> tf;
-      std::vector<double> img_rotator;
+      /* std::vector<double> img_rotator; */
       std::vector<bool> tf_gained;
 
       //}
