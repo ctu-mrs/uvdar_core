@@ -46,7 +46,7 @@
 
 #define LED_GROUP_DISTANCE 0.03
 
-#define ERROR_THRESHOLD 15
+#define ERROR_THRESHOLD 50
 
 #define SIMILAR_ERRORS_THRESHOLD sqr(1)
 
@@ -1545,12 +1545,11 @@ namespace uvdar {
             for (int j=0; j<orientation_step_count; j++){
               /* use is close */
 
-              ROS_INFO_STREAM("[UVDARPoseCalculator]: pos cur: " << position_curr );
+              /* ROS_INFO_STREAM("[UVDARPoseCalculator]: pos curr: " << position_curr.transpose() ); */
 
               /* double error_total = totalError(model.rotate(e::Vector3d(0,0,0), e::Vector3d::UnitZ(), j*angle_step).rotate(e::Vector3d(0,0,0), position_curr.normalized(), -img_rotator[image_index]).translate(position_curr), observed_points, target, image_index); */
               double error_total = totalError(model.rotate(e::Vector3d(0,0,0), v, j*angle_step).rotate(e::Vector3d(0,0,0), position_curr.normalized(), -img_rotator[image_index]).translate(position_curr), observed_points, target, image_index);
               orientation_errors.back().push_back({error_total,v,j*angle_step});
-              /* ROS_INFO_STREAM("[UVDARPoseCalculator]: orientation error: " << std::get<0>(orientation_errors.back()) ); */
             }
           }
 
@@ -1560,11 +1559,22 @@ namespace uvdar {
             orr_err.push_back(orr_err.front());
             orr_err.insert(orr_err.begin(), orig_back);
             for (int j = 1; j < (int)(orr_err.size())-1; j++){
-              if (std::get<0>(orr_err.at(j)) < ((ERROR_THRESHOLD/position_curr.norm())*(int)(observed_points.size()))){
+              /* double threshold = ((ERROR_THRESHOLD/position_curr.norm())*(int)(observed_points.size())); */
+              double threshold = ((ERROR_THRESHOLD)*(int)(observed_points.size()));
+              ROS_INFO_STREAM("[UVDARPoseCalculator]: orientation error: " << std::get<0>(orr_err.at(j)) << " vs. threshold of: " << threshold << "...");
+              if (std::get<0>(orr_err.at(j)) < threshold){
+                ROS_INFO_STREAM("[UVDARPoseCalculator]: Pass" );
+
+                ROS_INFO_STREAM("[UVDARPoseCalculator]: Checking if local minimum...");
                 if ((std::get<0>(orr_err.at(j)) < std::get<0>(orr_err.at(j-1))) && (std::get<0>(orr_err.at(j)) < std::get<0>(orr_err.at(j+1)))){
+                  ROS_INFO_STREAM("[UVDARPoseCalculator]: Pass" );
                   best_orientations.push_back(orr_err.at(j));
                 }
+                else
+                  ROS_INFO_STREAM("[UVDARPoseCalculator]: Fail" );
               }
+              else
+                ROS_INFO_STREAM("[UVDARPoseCalculator]: Fail" );
             }
           }
 
@@ -1576,14 +1586,15 @@ namespace uvdar {
 
           /* /1* if (true){ *1/ */
           for (auto& bor : best_orientations){
-            if (std::get<0>(bor) < ((ERROR_THRESHOLD/position_curr.norm())*(int)(observed_points.size()))){
-              /* acceptable_hypotheses.push_back(std::pair<e::Vector3d, e::Quaterniond>(position_curr, e::AngleAxisd(-img_rotator[image_index],position_curr.normalized())*e::AngleAxisd(bor.second, e::Vector3d::UnitZ()))); */
-              acceptable_hypotheses.push_back(std::pair<e::Vector3d, e::Quaterniond>(position_curr, e::AngleAxisd(-img_rotator[image_index],position_curr.normalized())*e::AngleAxisd(std::get<2>(bor), std::get<1>(bor))));
-              errors.push_back(std::get<0>(bor));
-            }
+            /* double threshold = ((ERROR_THRESHOLD)*(int)(observed_points.size())); */
+            /* if (std::get<0>(bor) < threshold){ */
+            /* } */
+            /* acceptable_hypotheses.push_back(std::pair<e::Vector3d, e::Quaterniond>(position_curr, e::AngleAxisd(-img_rotator[image_index],position_curr.normalized())*e::AngleAxisd(bor.second, e::Vector3d::UnitZ()))); */
+            acceptable_hypotheses.push_back(std::pair<e::Vector3d, e::Quaterniond>(position_curr, e::AngleAxisd(-img_rotator[image_index],position_curr.normalized())*e::AngleAxisd(std::get<2>(bor), std::get<1>(bor))));
+            errors.push_back(std::get<0>(bor));
           }
 
-          ROS_INFO_STREAM("[UVDARPoseCalculator]: best_orientation count: " << best_orientations.size() << ", acceptable: " << acceptable_hypotheses.size() );
+          ROS_INFO_STREAM("[UVDARPoseCalculator]: acceptable hypothesis count: " << acceptable_hypotheses.size() );
           position_curr+=position_step;
         }
 
