@@ -46,7 +46,7 @@
 
 #define LED_GROUP_DISTANCE 0.03
 
-#define ERROR_THRESHOLD 50
+#define ERROR_THRESHOLD 15
 
 #define SIMILAR_ERRORS_THRESHOLD sqr(1)
 
@@ -516,6 +516,8 @@ namespace uvdar {
           tf_gained.push_back(false);
           img_rotator.push_back(666);
         }
+
+        prepAxisVectors();
 
         initialized_ = true;
       }
@@ -1369,6 +1371,25 @@ namespace uvdar {
 
       /* } */
 
+      void prepAxisVectors(){ // spread out the axis of initial hypotheses - presume that Z is roughly upwards
+        axis_vectors_.push_back(e::Vector3d::UnitZ());
+
+        axis_vectors_.push_back(e::Vector3d::UnitX());
+        axis_vectors_.push_back(-e::Vector3d::UnitX());
+        axis_vectors_.push_back(e::Vector3d::UnitY());
+        axis_vectors_.push_back(-e::Vector3d::UnitY());
+
+        axis_vectors_.push_back(e::Vector3d(sqrt(0.5), sqrt(0.5), 0.0));
+        axis_vectors_.push_back(e::Vector3d(-sqrt(0.5), sqrt(0.5), 0.0));
+        axis_vectors_.push_back(e::Vector3d(-sqrt(0.5), -sqrt(0.5), 0.0));
+        axis_vectors_.push_back(e::Vector3d(sqrt(0.5), -sqrt(0.5), 0.0));
+
+        axis_vectors_.push_back(e::Vector3d(0.0, sqrt(0.5), sqrt(0.5)));
+        axis_vectors_.push_back(e::Vector3d(0.0, -sqrt(0.5), sqrt(0.5)));
+        axis_vectors_.push_back(e::Vector3d(-sqrt(0.5), 0.0, sqrt(0.5)));
+        axis_vectors_.push_back(e::Vector3d(-sqrt(0.5), 0.0, sqrt(0.5)));
+      }
+
 
       e::Vector3d iterFitPosition(LEDModel model, std::vector<cv::Point3d> observed_points, e::Vector3d rough_initialization, int target, int image_index){
         e::Vector3d position_curr = rough_initialization;
@@ -1512,30 +1533,37 @@ namespace uvdar {
         std::vector<double> errors;
 
         e::Vector3d position_curr = first_position;
-        std::vector<std::pair<double,double>> orientation_errors;
-        std::vector<std::pair<double,double>> best_orientations;
+        std::vector<std::vector<std::tuple<double,e::Vector3d,double>>> orientation_errors;
+        std::vector<std::tuple<double,e::Vector3d,double>> best_orientations;
+
         for (int i=0; i<=dist_step_count; i++){
           best_orientations.clear();
           orientation_errors.clear();
           /* best_orientation.push_back({std::numeric_limits<double>::max(), -1}); */
-          for (int j=0; j<orientation_step_count; j++){
-            /* use is close */
+          for (auto v : axis_vectors_){
+            orientation_errors.push_back(std::vector<std::tuple<double,e::Vector3d,double>>());
+            for (int j=0; j<orientation_step_count; j++){
+              /* use is close */
 
               ROS_INFO_STREAM("[UVDARPoseCalculator]: pos cur: " << position_curr );
 
-            double error_total = totalError(model.rotate(e::Vector3d(0,0,0), e::Vector3d::UnitZ(), j*angle_step).rotate(e::Vector3d(0,0,0), position_curr.normalized(), -img_rotator[image_index]).translate(position_curr), observed_points, target, image_index);
-            orientation_errors.push_back({error_total,j*angle_step});
-              ROS_INFO_STREAM("[UVDARPoseCalculator]: orientation error: " << orientation_errors.back().first );
+              /* double error_total = totalError(model.rotate(e::Vector3d(0,0,0), e::Vector3d::UnitZ(), j*angle_step).rotate(e::Vector3d(0,0,0), position_curr.normalized(), -img_rotator[image_index]).translate(position_curr), observed_points, target, image_index); */
+              double error_total = totalError(model.rotate(e::Vector3d(0,0,0), v, j*angle_step).rotate(e::Vector3d(0,0,0), position_curr.normalized(), -img_rotator[image_index]).translate(position_curr), observed_points, target, image_index);
+              orientation_errors.back().push_back({error_total,v,j*angle_step});
+              /* ROS_INFO_STREAM("[UVDARPoseCalculator]: orientation error: " << std::get<0>(orientation_errors.back()) ); */
+            }
           }
 
           //find local orientation minima
-          auto orig_back = orientation_errors.back();
-          orientation_errors.push_back(orientation_errors.front());
-          orientation_errors.insert(orientation_errors.begin(), orig_back);
-          for (int j = 1; j < (int)(orientation_errors.size())-1; j++){
-            if (orientation_errors.at(j).first < (ERROR_THRESHOLD*(int)(observed_points.size()))){
-              if ((orientation_errors.at(j).first < orientation_errors.at(j-1).first) && (orientation_errors.at(j).first < orientation_errors.at(j+1).first)){
-                best_orientations.push_back(orientation_errors.at(j));
+          for (auto &orr_err : orientation_errors){
+            auto orig_back = orr_err.back();
+            orr_err.push_back(orr_err.front());
+            orr_err.insert(orr_err.begin(), orig_back);
+            for (int j = 1; j < (int)(orr_err.size())-1; j++){
+              if (std::get<0>(orr_err.at(j)) < ((ERROR_THRESHOLD/position_curr.norm())*(int)(observed_points.size()))){
+                if ((std::get<0>(orr_err.at(j)) < std::get<0>(orr_err.at(j-1))) && (std::get<0>(orr_err.at(j)) < std::get<0>(orr_err.at(j+1)))){
+                  best_orientations.push_back(orr_err.at(j));
+                }
               }
             }
           }
@@ -1548,9 +1576,10 @@ namespace uvdar {
 
           /* /1* if (true){ *1/ */
           for (auto& bor : best_orientations){
-            if (bor.first < (ERROR_THRESHOLD*(int)(observed_points.size()))){
-              acceptable_hypotheses.push_back(std::pair<e::Vector3d, e::Quaterniond>(position_curr, e::AngleAxisd(-img_rotator[image_index],position_curr.normalized())*e::AngleAxisd(bor.second, e::Vector3d::UnitZ())));
-              errors.push_back(bor.first);
+            if (std::get<0>(bor) < ((ERROR_THRESHOLD/position_curr.norm())*(int)(observed_points.size()))){
+              /* acceptable_hypotheses.push_back(std::pair<e::Vector3d, e::Quaterniond>(position_curr, e::AngleAxisd(-img_rotator[image_index],position_curr.normalized())*e::AngleAxisd(bor.second, e::Vector3d::UnitZ()))); */
+              acceptable_hypotheses.push_back(std::pair<e::Vector3d, e::Quaterniond>(position_curr, e::AngleAxisd(-img_rotator[image_index],position_curr.normalized())*e::AngleAxisd(std::get<2>(bor), std::get<1>(bor))));
+              errors.push_back(std::get<0>(bor));
             }
           }
 
@@ -2646,6 +2675,8 @@ namespace uvdar {
       LEDModel model_;
 
       bool initialized_ = false;
+
+      std::vector<e::Vector3d> axis_vectors_;
 
       std::vector<std::shared_ptr<std::mutex>>  mutex_separated_points_;
       std::vector<std::vector<std::pair<int,std::vector<cv::Point3d>>>> separated_points_;
