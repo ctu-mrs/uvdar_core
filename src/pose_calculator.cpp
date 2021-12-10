@@ -1626,7 +1626,7 @@ namespace uvdar {
 
                     /* ROS_INFO_STREAM("[UVDARPoseCalculator]: Checking if local minimum..."); */
                     if ((std::get<0>(orr_err.at(j)) < std::get<0>(orr_err.at(j-1))) && (std::get<0>(orr_err.at(j)) < std::get<0>(orr_err.at(j+1)))){
-                      ROS_INFO_STREAM("[UVDARPoseCalculator]: Pass" );
+                      /* ROS_INFO_STREAM("[UVDARPoseCalculator]: Pass" ); */
                       best_orientations.push_back(orr_err.at(j));
                     }
                     /* else */
