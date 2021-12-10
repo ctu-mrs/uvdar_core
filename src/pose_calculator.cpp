@@ -52,6 +52,8 @@
 
 #define UVDAR_RANGE 15.0
 
+#define REJECT_UPSIDE_DOWN true
+
 
 namespace e = Eigen;
 
@@ -1199,8 +1201,19 @@ namespace uvdar {
           for (auto h: hypotheses){
             /* profiler.stop(); */
             profiler.indent();
+
+            
             auto [fitted_pose, error] = iterFitFull(model_, points, h, target,  image_index);
+
+            /* double error = 1.0; */
+            /* auto fitted_pose = h; */
+
+
             profiler.unindent();
+
+            if (error < 0){ //discarded fitting;
+              continue;
+            }
             /* profiler.start(); */
             if (_debug_){
               ROS_INFO_STREAM("[UVDARPoseCalculator]: Fitted pose: [" << fitted_pose.first.transpose() << "] rot: [" << rad2deg(quaternionToRPY(fitted_pose.second)).transpose() << "] with error of " << error);
@@ -1415,14 +1428,14 @@ namespace uvdar {
             axis_vectors_[image_index].push_back(e::Vector3d::UnitZ());
 
             axis_vectors_[image_index].push_back(e::Vector3d::UnitX());
-            axis_vectors_[image_index].push_back(-e::Vector3d::UnitX());
+            /* axis_vectors_[image_index].push_back(-e::Vector3d::UnitX()); */
             axis_vectors_[image_index].push_back(e::Vector3d::UnitY());
-            axis_vectors_[image_index].push_back(-e::Vector3d::UnitY());
+            /* axis_vectors_[image_index].push_back(-e::Vector3d::UnitY()); */
 
             axis_vectors_[image_index].push_back(e::Vector3d(sqrt(0.5), sqrt(0.5), 0.0));
             axis_vectors_[image_index].push_back(e::Vector3d(-sqrt(0.5), sqrt(0.5), 0.0));
-            axis_vectors_[image_index].push_back(e::Vector3d(-sqrt(0.5), -sqrt(0.5), 0.0));
-            axis_vectors_[image_index].push_back(e::Vector3d(sqrt(0.5), -sqrt(0.5), 0.0));
+            /* axis_vectors_[image_index].push_back(e::Vector3d(-sqrt(0.5), -sqrt(0.5), 0.0)); */
+            /* axis_vectors_[image_index].push_back(e::Vector3d(sqrt(0.5), -sqrt(0.5), 0.0)); */
 
             axis_vectors_[image_index].push_back(e::Vector3d(0.0, sqrt(0.5), sqrt(0.5)));
             axis_vectors_[image_index].push_back(e::Vector3d(0.0, -sqrt(0.5), sqrt(0.5)));
@@ -1650,9 +1663,26 @@ namespace uvdar {
                 /* } */
                 /* acceptable_hypotheses.push_back(std::pair<e::Vector3d, e::Quaterniond>(position_curr, e::AngleAxisd(-img_rotator[image_index],position_curr.normalized())*e::AngleAxisd(bor.second, e::Vector3d::UnitZ()))); */
                 /* acceptable_hypotheses.push_back(std::pair<e::Vector3d, e::Quaterniond>(position_curr, e::AngleAxisd(-img_rotator[image_index],position_curr.normalized())*e::AngleAxisd(std::get<2>(bor), std::get<1>(bor)))); */
-                acceptable_hypotheses.push_back(std::pair<e::Vector3d, e::Quaterniond>(position_curr, e::AngleAxisd(std::get<2>(bor), std::get<1>(bor)) * camera_view_[image_index] ));
-                /* acceptable_hypotheses.back().second =  acceptable_hypotheses.back().second; */
-                errors.push_back(std::get<0>(bor));
+
+
+                auto orientation_world = e::AngleAxisd(std::get<2>(bor), std::get<1>(bor));
+                e::Quaterniond orientation_total = orientation_world * camera_view_[image_index];
+
+                bool upside_down_check = true;
+                if (REJECT_UPSIDE_DOWN){
+                  if ((((camera_view_[image_index].inverse())*(orientation_world * (camera_view_[image_index] * e::Vector3d::UnitZ())) ).z()) < 0){
+                    upside_down_check = false;
+                    if (_debug_){
+                      ROS_INFO_STREAM("[UVDARPoseCalculator]: Small Z: " << (camera_view_[image_index].inverse())*(orientation_world * (camera_view_[image_index] * e::Vector3d::UnitZ())) );
+                    }
+                  }
+                }
+
+                if ( upside_down_check ){
+                  acceptable_hypotheses.push_back(std::pair<e::Vector3d, e::Quaterniond>(position_curr, orientation_total));
+                  errors.push_back(std::get<0>(bor));
+
+                }
               }
 
               ROS_INFO_STREAM("[UVDARPoseCalculator]: acceptable hypothesis count: " << acceptable_hypotheses.size() );
@@ -1669,7 +1699,8 @@ namespace uvdar {
             /* if (_debug_) */
             /*   ROS_INFO_STREAM("[UVDARPoseCalculator]: Refined hypotheses for target " << target << " in image " << image_index << ": "); */
             e::Vector3d position_curr = hypothesis.first;
-            e::Quaterniond orientation_curr  = hypothesis.second;
+          e::Quaterniond orientation_start  = hypothesis.second;
+          e::Quaterniond orientation_curr  = orientation_start;
             auto model_curr = model.rotate(e::Vector3d(0,0,0), orientation_curr).translate(position_curr);
 
               /* ROS_INFO_STREAM("[UVDARPoseCalculator]: Model with init. pose:"); */
@@ -1917,9 +1948,17 @@ namespace uvdar {
               model_curr = model_rotated_curr;
               error_total = error_rot_curr;
 
+
+
               /* auto rot_fitting = std::chrono::high_resolution_clock::now(); */
               /* elapsedTime.push_back({currDepthIndent() + "Orientation fitting - iter. "+std::to_string(rot_shift_iters),std::chrono::duration_cast<std::chrono::microseconds>(rot_fitting - rot_gradient_time).count()}); */
               profiler.addValue("Orientation fitting - iter. "+std::to_string(j)+" (e="+std::to_string(error_total)+")");
+            }
+
+            if ((orientation_curr.angularDistance(orientation_start)) > (deg2rad(45))){
+              error_total = -1;
+              ROS_INFO_STREAM("[UVDARPoseCalculator]: Skipping hypothesis - fitting went too far.");
+              break;
             }
 
             profiler.addValueSince("Iteration loop "+std::to_string(iters),loop_start);
@@ -1949,7 +1988,7 @@ namespace uvdar {
           profiler.addValue("Final operations");
 
           /* std::shared_ptr<std::vector<cv::Point3d>> projected_points = std::make_shared<std::vector<cv::Point3d>>(); */
-          totalError(model_curr, observed_points, target, image_index, projected_points, true);
+          /* totalError(model_curr, observed_points, target, image_index, projected_points, true); */
           /* ROS_INFO_STREAM("[UVDARPoseCalculator]: A "<< projected_points.size()); */
           /* ROS_INFO_STREAM("[UVDARPoseCalculator]: p_p count: " << projected_points->size()); */
           /* for (auto pt : *projected_points){ */
