@@ -1972,9 +1972,9 @@ namespace uvdar {
         };
         double total_error = 0;
 
-        if (return_projections){
-          ROS_INFO_STREAM("[UVDARPoseCalculator]: A");
-        }
+        /* if (return_projections){ */
+        /*   ROS_INFO_STREAM("[UVDARPoseCalculator]: A"); */
+        /* } */
         if (return_projections && projected_points){
           /* ROS_INFO_STREAM("[UVDARPoseCalculator]: B"); */
           projected_points->clear();
