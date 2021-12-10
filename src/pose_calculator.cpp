@@ -1426,6 +1426,9 @@ namespace uvdar {
 
         camera_view_[image_index] = rot_optical_to_base*tf_fcu_to_cam[image_index].value().getRotationEigen();
 
+        ROS_INFO_STREAM("[UVDARPoseCalculator]: Composed rotation matrix");
+        ROS_INFO_STREAM("[UVDARPoseCalculator]: \n" << camera_view_[image_index].toRotationMatrix());
+
         ROS_INFO_STREAM("[UVDARPoseCalculator]: Initializing sample rotation axes for camera " << image_index);
         for (auto& av : axis_vectors_[image_index]){
           av = camera_view_[image_index]*av;
@@ -1640,7 +1643,7 @@ namespace uvdar {
             /* } */
             /* acceptable_hypotheses.push_back(std::pair<e::Vector3d, e::Quaterniond>(position_curr, e::AngleAxisd(-img_rotator[image_index],position_curr.normalized())*e::AngleAxisd(bor.second, e::Vector3d::UnitZ()))); */
             /* acceptable_hypotheses.push_back(std::pair<e::Vector3d, e::Quaterniond>(position_curr, e::AngleAxisd(-img_rotator[image_index],position_curr.normalized())*e::AngleAxisd(std::get<2>(bor), std::get<1>(bor)))); */
-            acceptable_hypotheses.push_back(std::pair<e::Vector3d, e::Quaterniond>(position_curr, camera_view_[image_index] * e::AngleAxisd(std::get<2>(bor), std::get<1>(bor))));
+            acceptable_hypotheses.push_back(std::pair<e::Vector3d, e::Quaterniond>(position_curr, e::AngleAxisd(std::get<2>(bor), std::get<1>(bor)) * camera_view_[image_index] ));
             /* acceptable_hypotheses.back().second =  acceptable_hypotheses.back().second; */
             errors.push_back(std::get<0>(bor));
           }
