@@ -1672,9 +1672,9 @@ namespace uvdar {
                 if (REJECT_UPSIDE_DOWN){
                   if ((((camera_view_[image_index].inverse())*(orientation_world * (camera_view_[image_index] * e::Vector3d::UnitZ())) ).z()) < 0){
                     upside_down_check = false;
-                    if (_debug_){
-                      ROS_INFO_STREAM("[UVDARPoseCalculator]: Small Z: " << (camera_view_[image_index].inverse())*(orientation_world * (camera_view_[image_index] * e::Vector3d::UnitZ())) );
-                    }
+                    /* if (_debug_){ */
+                    /*   ROS_INFO_STREAM("[UVDARPoseCalculator]: Small Z: " << (camera_view_[image_index].inverse())*(orientation_world * (camera_view_[image_index] * e::Vector3d::UnitZ())) ); */
+                    /* } */
                   }
                 }
 

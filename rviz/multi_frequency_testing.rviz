@@ -387,8 +387,8 @@ Visualization Manager:
       Unreliable: false
       Value: false
     - Alpha: 1
-      Axes Length: 1
-      Axes Radius: 0.10000000149011612
+      Axes Length: 2
+      Axes Radius: 0.05000000074505806
       Class: mrs_rviz_plugins/PoseWithCovarianceArray
       Color: 255; 25; 0
       Covariance:
@@ -413,8 +413,8 @@ Visualization Manager:
       Queue Size: 10
       Shaft Length: 1
       Shaft Radius: 0.05000000074505806
-      Shape: Arrow
-      Topic: /uav1/uvdar_pose_calculator_node/constituentPoses1
+      Shape: Axes
+      Topic: /uav1/uvdar//constituentPosesL
       Unreliable: false
       Value: false
     - Angle Tolerance: 0.10000000149011612
