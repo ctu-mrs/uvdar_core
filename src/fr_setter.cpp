@@ -32,8 +32,6 @@ public:
     }
 
     initialized = true;
-
-    ROS_WARN("co to kurva je");
   }
 
 private:
