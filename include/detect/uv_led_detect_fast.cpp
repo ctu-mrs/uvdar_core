@@ -277,7 +277,7 @@ void uvdar::UVDARLedDetectFAST::initFAST() {
   fast_interior.push_back(cv::Point(1, 1));
   fast_interior.push_back(cv::Point(2, 1));
 
-  fast_interior.push_back(cv::Point(-1, 1));
+  fast_interior.push_back(cv::Point(-1, 2));
 
   fast_interior.push_back(cv::Point(0, 2));
   fast_interior.push_back(cv::Point(1, 2));
