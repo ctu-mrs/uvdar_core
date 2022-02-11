@@ -71,13 +71,14 @@ bool uvdar::UVDARLedDetectFAST::processImage(const cv::Mat i_image, std::vector<
     }
     if (image_check_.data[index2d(i, j)] == 0) { // skip over marked points (suppresses clustered bright pixels)
       if (image_curr_.data[index2d(i, j)] > _threshold_) { //if the point is bright
-        int sun_test_points = 0;
+        int sun_test_points = -1;
         if (image_curr_.data[index2d(i, j)] > (_threshold_ * 2)) { //if the point is "very bright" it might be a part of the image of directly observed sun
           sun_point_potential = true;
         }
 
         int n = -1;
         for (auto fast_points : fast_points_set_) { //iterate over the pre-selected sets of points for different sizes of the FAST radius
+          sun_test_points = 0;
           marker_potential = true;
           n++;
           /* if (n>0){ */
