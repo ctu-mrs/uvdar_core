@@ -69,6 +69,7 @@ bool uvdar::UVDARLedDetectFAST::processImage(const cv::Mat i_image, std::vector<
         continue;
       }
     }
+    sun_point_potential = false;
     if (image_check_.data[index2d(i, j)] == 0) { // skip over marked points (suppresses clustered bright pixels)
       if (image_curr_.data[index2d(i, j)] > _threshold_) { //if the point is bright
         int sun_test_points = -1;

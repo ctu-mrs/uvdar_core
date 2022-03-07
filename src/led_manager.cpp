@@ -7,6 +7,7 @@
 #include <std_srvs/SetBool.h>
 #include <mrs_lib/param_loader.h>
 #include <uvdar_core/SetLedMessage.h>
+#include <uvdar_core/SetIntIndex.h>
 #include <fstream>
 
 namespace uvdar {
@@ -66,6 +67,7 @@ namespace uvdar {
         serv_load_sequences = nh.advertiseService("load_sequences", &SequenceSetter::callbackLoadSequences, this);
         serv_load_single_sequence = nh.advertiseService("load_single_sequence", &SequenceSetter::callbackLoadSingleSequence, this);
         serv_select_sequence = nh.advertiseService("select_sequence", &SequenceSetter::callbackSelectSequence, this);
+        serv_select_sequence = nh.advertiseService("select_sequence_single_led", &SequenceSetter::callbackSelectSequenceSingleLed, this);
         serv_quick_start = nh.advertiseService("quick_start", &SequenceSetter::callbackQuickStart, this);
 
         serv_set_mode = nh.advertiseService("set_mode", &SequenceSetter::callbackSetMode, this);
@@ -238,7 +240,48 @@ namespace uvdar {
         return true;
       }
 
-      bool callbackSelectSequence(mrs_msgs::SetInt::Request &req, mrs_msgs::SetInt::Response &res){
+      bool callbackSelectSequence(uvdar_core::SetIntIndex::Request &req, uvdar_core::SetIntIndex::Response &res){
+        if (!initialized){
+          ROS_ERROR("[UVDARLedManager]: LED manager is NOT initialized!");
+          res.success = false;
+          res.message = "LED manager is NOT initialized!";
+          return true;
+        }
+
+        if (mode != 0){
+          ROS_ERROR("[UVDARLedManager]: Requesting sequence selection, but the appropriate mode is not set!");
+          res.success = false;
+          res.message = "Requesting sequence selection, but the appropriate mode is not set!";
+          return true;
+        }
+
+        unsigned char index = (unsigned char)(req.value);
+        if (index >= (int)(sequences_.size())){
+          ROS_ERROR_STREAM("[UVDARLedManager]: Failed to set sequence " << index << " - no such sequence!");
+          res.message = "Failed to select sequence " + std::to_string((int)(index)) +" - no such sequence!";
+          res.success = false;
+          return true;
+        }
+
+        mrs_msgs::BacaProtocol serial_msg;
+        serial_msg.stamp = ros::Time::now();
+
+        serial_msg.payload.push_back(0x98); //select sequence index
+        serial_msg.payload.push_back(index); //sequence #
+        baca_protocol_publisher.publish(serial_msg);
+
+        res.success = true;
+        res.message="Selecting sequence "+std::to_string((int)(index));
+
+        mrs_msgs::SetInt led_state;
+        led_state.request.value = index;
+        for (auto& client : clients_set_sq_gz)
+          client.call(led_state);
+
+        return true;
+      }
+
+      bool callbackSelectSequenceSingleLed(mrs_msgs::SetInt::Request &req, mrs_msgs::SetInt::Response &res){
         if (!initialized){
           ROS_ERROR("[UVDARLedManager]: LED manager is NOT initialized!");
           res.success = false;
@@ -301,7 +344,11 @@ namespace uvdar {
         sleeper.sleep();
         callbackSetFrequency(dummy_float_req,dummy_float_res);
         sleeper.sleep();
-        callbackSelectSequence(req,res);
+
+        uvdar_core::SetIntIndex::Request ind_req;
+        uvdar_core::SetIntIndex::Response ind_res;
+        ind_req.value = req.value;
+        callbackSelectSequence(ind_req,ind_res);
 
         return true;
       }
@@ -352,6 +399,7 @@ namespace uvdar {
 
         bool callbackSetMode(mrs_msgs::SetInt::Request &req, mrs_msgs::SetInt::Response &res){
           if (!initialized){
+
           ROS_ERROR("[UVDARLedManager]: LED manager is NOT initialized!");
           res.success = false;
           res.message = "LED manager is NOT initialized!";
