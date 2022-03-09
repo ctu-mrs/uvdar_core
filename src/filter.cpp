@@ -116,7 +116,7 @@ namespace uvdar {
       double dt;
       unsigned long long int latest_id = 0;
 
-      mrs_lib::Transformer transformer_;
+      std::unique_ptr<mrs_lib::Transformer> transformer_;
 
       //}
 
@@ -164,7 +164,8 @@ namespace uvdar {
         dt = filter_update_period.toSec();
         timer = nh.createTimer(filter_update_period, &UVDARKalman::spin, this);
 
-        transformer_ = mrs_lib::Transformer("UVDARKalman", _uav_name_);
+        transformer_ = std::make_unique<mrs_lib::Transformer>("UVDARKalman");
+        transformer_->setDefaultPrefix(_uav_name_);
 
         std::vector<std::string> _measured_poses_topics;
         param_loader.loadParam("measured_poses_topics", _measured_poses_topics, _measured_poses_topics);
@@ -270,10 +271,10 @@ namespace uvdar {
           msg_local = msg;
         }
 
-        std::optional<mrs_lib::TransformStamped> tf;
+        std::optional<geometry_msgs::TransformStamped> tf;
         {
           std::scoped_lock lock(transformer_mutex);
-          tf = transformer_.getTransform(msg_local.header.frame_id, _output_frame_, msg_local.header.stamp);
+          tf = transformer_->getTransform(msg_local.header.frame_id, _output_frame_, msg_local.header.stamp);
         }
         if (!tf) { 
           ROS_ERROR("[UVDARKalman]: Could not obtain transform from %s to %s",msg_local.header.frame_id.c_str(), _output_frame_.c_str());
@@ -294,7 +295,7 @@ namespace uvdar {
           meas_s.header = msg_local.header;
           {
             std::scoped_lock lock(transformer_mutex);
-            meas_t = transformer_.transform(tf.value(), meas_s);
+            meas_t = transformer_->transform(meas_s, tf.value());
           }
           if (!meas_t){
             ROS_INFO_STREAM("[UVDARKalman]: Failed to get transformation for measurement, returning.");
@@ -696,7 +697,7 @@ namespace uvdar {
         target_filter.pose.position.y = mean.y();
         target_filter.pose.position.z = mean.z();
 
-        auto ret = transformer_.transformSingle(camera_frame, target_filter);
+        auto ret = transformer_->transformSingle(target_filter, camera_frame);
         if (ret) {
           target_cam_view = ret.value();
         }
