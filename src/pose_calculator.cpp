@@ -527,10 +527,11 @@ namespace uvdar {
           timer_visualization_ = nh.createTimer(ros::Rate(1), &UVDARPoseCalculator::VisualizationThread, this, false);
         }
 
-        transformer_ = mrs_lib::Transformer("UVDARPoseCalculator", _uav_name_);
+        transformer_ = std::make_shared<mrs_lib::Transformer>("UVDARPoseCalculator");
+        transformer_->setDefaultPrefix(_uav_name_);
 
         for (auto &b : _blinkers_seen_topics){
-          tf_fcu_to_cam.push_back(std::optional<mrs_lib::TransformStamped>());
+          tf_fcu_to_cam.push_back(std::optional<geometry_msgs::TransformStamped>());
           tf_gained.push_back(false);
           camera_view_.push_back(e::Quaterniond());;
           /* img_rotator.push_back(666); */
@@ -704,7 +705,7 @@ namespace uvdar {
           ROS_INFO_THROTTLE(1.0,"[UVDARPoseCalculator]: Camera TF not yet obatined. Attempting to retrieve it...");
           {
             std::scoped_lock lock(transformer_mutex);
-            tf_fcu_to_cam[image_index] = transformer_.getTransform(_uav_name_+"/fcu", _camera_frames_[image_index], msg->stamp);
+            tf_fcu_to_cam[image_index] = transformer_->getTransform(_camera_frames_[image_index], _uav_name_+"/fcu", msg->stamp);
           }
           if (!tf_fcu_to_cam[image_index]) { 
             ROS_ERROR_STREAM_THROTTLE(1.0,"[UVDARPoseCalculator]: Could not obtain transform from " << _uav_name_+"/fcu" << " to " << _camera_frames_[image_index] << "!");
@@ -1442,7 +1443,7 @@ namespace uvdar {
             axis_vectors_[image_index].push_back(e::Vector3d(sqrt(0.5), 0.0, sqrt(0.5)));
             axis_vectors_[image_index].push_back(e::Vector3d(-sqrt(0.5), 0.0, sqrt(0.5)));
 
-            camera_view_[image_index] = rot_optical_to_base*tf_fcu_to_cam[image_index].value().getRotationEigen();
+            camera_view_[image_index] = rot_optical_to_base*tf2::transformToEigen(tf_fcu_to_cam[image_index].value().transform).rotation();
 
             ROS_INFO_STREAM("[UVDARPoseCalculator]: Composed rotation matrix");
             ROS_INFO_STREAM("[UVDARPoseCalculator]: \n" << camera_view_[image_index].toRotationMatrix());
@@ -2818,8 +2819,8 @@ namespace uvdar {
 
 
       std::mutex transformer_mutex;
-      mrs_lib::Transformer transformer_;
-      std::vector<std::optional<mrs_lib::TransformStamped>> tf_fcu_to_cam;
+      std::shared_ptr<mrs_lib::Transformer> transformer_;
+      std::vector<std::optional<geometry_msgs::TransformStamped>> tf_fcu_to_cam;
       std::vector<e::Quaterniond> camera_view_;
       /* std::vector<double> img_rotator; */
       std::vector<bool> tf_gained;
