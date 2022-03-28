@@ -73,7 +73,7 @@ bool uvdar::UVDARLedDetectFAST::processImage(const cv::Mat i_image, std::vector<
     if (image_check_.data[index2d(i, j)] == 0) { // skip over marked points (suppresses clustered bright pixels)
       if (image_curr_.data[index2d(i, j)] > _threshold_) { //if the point is bright
         int sun_test_points = -1;
-        if (image_curr_.data[index2d(i, j)] > (_threshold_ * 2)) { //if the point is "very bright" it might be a part of the image of directly observed sun
+        if (image_curr_.data[index2d(i, j)] > (210)) { //if the point is "very bright" it might be a part of the image of directly observed sun
           sun_point_potential = true;
         }
 
@@ -184,7 +184,7 @@ bool uvdar::UVDARLedDetectFAST::processImage(const cv::Mat i_image, std::vector<
 
   for (int i = 0; i < (int)(detected_points.size()); i++) { //iterate over the detected marker points
     for (int j = 0; j < (int)(sun_points.size()); j++) { //iterate over the detected sun points
-      if (cv::norm(detected_points[i] - sun_points[j]) < 50) { //if the current detected marker point is close to the sun, it might be merely glare, so we discard it rather than to have numerous false detections here
+      if (cv::norm(detected_points[i] - sun_points[j]) < 20) { //if the current detected marker point is close to the sun, it might be merely glare, so we discard it rather than to have numerous false detections here
         detected_points.erase(detected_points.begin() + i);
         i--;
         break;
