@@ -25,7 +25,7 @@ Panels:
         - /measured - B1/Covariance1/Position1
         - /constituents - R1/Covariance1
         - /constituents - R1/Covariance1/Position1
-        - /formation1
+        - /p_c1/21/Namespaces1
       Splitter Ratio: 0.5
     Tree Height: 706
   - Class: rviz/Selection
@@ -179,22 +179,22 @@ Visualization Manager:
       Value: false
     - Alpha: 1
       Class: rviz/Axes
-      Enabled: true
+      Enabled: false
       Length: 0.5
       Name: Left cam
       Radius: 0.05000000074505806
       Reference Frame: uav1/uvcam_left
       Show Trail: false
-      Value: true
+      Value: false
     - Alpha: 1
       Class: rviz/Axes
-      Enabled: true
+      Enabled: false
       Length: 0.5
       Name: Right cam
       Radius: 0.05000000074505806
       Reference Frame: uav1/uvcam_right
       Show Trail: false
-      Value: true
+      Value: false
     - Alpha: 1
       Class: rviz/Axes
       Enabled: true
@@ -211,13 +211,13 @@ Visualization Manager:
       Color: 0; 255; 0
       Covariance:
         Orientation:
-          Alpha: 0.10000000149011612
+          Alpha: 0.20000000298023224
           Color: 239; 7; 255
           Color Style: Unique
           Frame: Local
           Offset: 1
           Scale: 1
-          Value: false
+          Value: true
         Position:
           Alpha: 0.30000001192092896
           Color: 0; 255; 0
@@ -438,8 +438,8 @@ Visualization Manager:
           Scale: 1
           Value: true
         Value: true
-      Enabled: false
-      Keep: 100
+      Enabled: true
+      Keep: 10
       Name: Odometry
       Position Tolerance: 0.10000000149011612
       Queue Size: 10
@@ -455,10 +455,10 @@ Visualization Manager:
         Value: Arrow
       Topic: /uav2/odometry/odom_main
       Unreliable: false
-      Value: false
+      Value: true
     - Class: rviz/MarkerArray
       Enabled: true
-      Marker Topic: /uav2/swarm_control/visualization_formation
+      Marker Topic: /uav1/swarm_control/visualization_formation
       Name: formation
       Namespaces:
         uav1: true
@@ -481,11 +481,33 @@ Visualization Manager:
         "": true
       Queue Size: 100
       Value: true
+    - Class: rviz/MarkerArray
+      Enabled: true
+      Marker Topic: /uav1/swarm_control/visualization_p_c12
+      Name: p_c1/2
+      Namespaces:
+        p^c1 - p^d: true
+        p^c2 - p^dR: true
+        p^m - p^d: true
+        p^m - p^dR: true
+      Queue Size: 100
+      Value: true
+    - Class: rviz/MarkerArray
+      Enabled: true
+      Marker Topic: /uav1/swarm_control/visualization_psi_comp
+      Name: psi_c1/2
+      Namespaces:
+        2*(psi^c - psi^d): true
+        2*(psi^m - psi^d): true
+        p^d'*S'*p^c3: true
+        p^d'*S'*p^m: true
+      Queue Size: 100
+      Value: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
     Default Light: true
-    Fixed Frame: uav1/fcu
+    Fixed Frame: uav1/stable_origin
     Frame Rate: 30
   Name: root
   Tools:
@@ -508,8 +530,8 @@ Visualization Manager:
   Value: true
   Views:
     Current:
-      Class: rviz/ThirdPersonFollower
-      Distance: 6.180112838745117
+      Class: rviz/Orbit
+      Distance: 18.190534591674805
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -517,17 +539,17 @@ Visualization Manager:
         Value: false
       Field of View: 0.7853981852531433
       Focal Point:
-        X: -2.4816322326660156
-        Y: 2.4790525436401367
-        Z: 0
-      Focal Shape Fixed Size: false
+        X: 1.1523804664611816
+        Y: -2.293588161468506
+        Z: 0.40812548995018005
+      Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.2997957170009613
+      Pitch: 1.029797077178955
       Target Frame: uav1/fcu
-      Yaw: 2.645390033721924
+      Yaw: 2.910006523132324
     Saved: ~
 Window Geometry:
   Displays:
