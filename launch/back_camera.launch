@@ -99,18 +99,6 @@
 
   <arg name="use_masks" default="true"/>
 
-  <node
-    name="uvcam_left_tf_$(arg uav_name)"
-    pkg="tf2_ros"
-    type="static_transform_publisher"
-    args="0.03  0.10 0.06 -0.3490658504 0.0 -1.57079632679 $(arg uav_name)/fcu $(arg uav_name)/uvcam_left"/>
-
-  <node
-    name="uvcam_right_tf_$(arg uav_name)"
-    pkg="tf2_ros"
-    type="static_transform_publisher"
-    args="0.03 -0.10 0.06 -2.792526803 0.0 -1.57079632679 $(arg uav_name)/fcu $(arg uav_name)/uvcam_right"/>
-
   <!-- ideal angle: 1.221730476 - pi/2 -->
 
       <!-- <origin xyz="0.108 0 0.085" rpy="1.57079632679 4.71238898038 1.57079632679" /> -->
