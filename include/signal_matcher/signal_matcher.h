@@ -23,7 +23,7 @@ namespace uvdar {
           for (int i=0; i<sequence_size_; i++){ //slide along the duplicated sequence
             int match_errors = 0;
             for (int j=0; j<(int)(i_signal.size()); j++){ //iterate over signal
-              if (sequences_.at(s).at(i+j) != i_signal.at(j)){
+              if (sequences_.at(s).at((i+j) % sequence_size_) != i_signal.at(j)){
                 match_errors++;
               }
               if (match_errors > MATCH_ERROR_THRESHOLD) {//TODO make settable
