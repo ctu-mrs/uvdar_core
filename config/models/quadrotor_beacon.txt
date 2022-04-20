@@ -1,4 +1,4 @@
-# X Y Z Type Pitch Yaw freq_id
+# X Y Z Type Pitch Yaw signal_id
 0         0         0.2 1 0.0 0.0 0
 0         0         0.2 1 0.0 1.57079632679 1
 0         0         0.2 1 0.0 3.14159265359 1

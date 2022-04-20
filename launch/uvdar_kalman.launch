@@ -24,14 +24,12 @@
         <param name="use_velocity"      value="$(arg use_velocity)" />
         <param name="anonymous_measurements"      value="$(arg anonymous_measurements)" />
 
-        <rosparam     if="$(arg use_two_cameras)" param="measured_poses_topics"> ["measured_poses_L", "measured_poses_R"] </rosparam>
-        <remap        if="$(arg use_two_cameras)" from="~measured_poses_L" to="/$(arg uav_name)/uvdar/measuredPosesL"/>
-        <remap        if="$(arg use_two_cameras)" from="~measured_poses_R" to="/$(arg uav_name)/uvdar/measuredPosesR"/>
-
         <rosparam     unless="$(arg use_two_cameras)" param="measured_poses_topics"> ["measured_poses"] </rosparam>
         <remap        unless="$(arg use_two_cameras)" from="~measured_poses" to="/$(arg uav_name)/uvdar/measuredPoses"/>
 
-
+        <rosparam     if="$(arg use_two_cameras)" param="measured_poses_topics"> ["measured_poses_L", "measured_poses_R"] </rosparam>
+        <remap        if="$(arg use_two_cameras)" from="~measured_poses_L" to="/$(arg uav_name)/uvdar/measuredPosesL"/>
+        <remap        if="$(arg use_two_cameras)" from="~measured_poses_R" to="/$(arg uav_name)/uvdar/measuredPosesR"/>
 
         <rosparam     if="$(arg use_three_cameras)" param="measured_poses_topics"> ["measured_poses_L", "measured_poses_R", "measured_poses_B"] </rosparam>
         <remap        if="$(arg use_three_cameras)" from="~measured_poses_L" to="/$(arg uav_name)/uvdar/measuredPosesL"/>
@@ -42,9 +40,7 @@
         <remap        unless="$(arg use_three_cameras)" from="~measured_poses" to="/$(arg uav_name)/uvdar/measuredPoses"/>
 
 
-
         <remap from="~filtered_poses" to="/$(arg uav_name)/uvdar/filteredPoses"/>
-
         <remap from="~filtered_poses/tentative" to="/$(arg uav_name)/uvdar/filteredPoses/tentative"/>
 
     </node>

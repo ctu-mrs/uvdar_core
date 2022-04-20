@@ -51,40 +51,11 @@
   <arg name="visualization_rate" default="2"/>
   <!-- <arg name="gui" default="false"/> -->
 
-  <arg name="id1" value="0"/>
-  <arg name="id2" value="1"/>
-  <arg name="id3" value="2"/>
-  <arg name="id4" value="3"/>
-  <arg name="id5" value="4"/>
-  <arg name="id6" value="5"/>
-  <arg name="id7" value="6"/>
-  <arg name="id8" value="7"/>
-  <arg name="id9" value="8"/>
-  <arg name="id10" value="9"/>
-  <arg name="id11" value="10"/>
-  <arg name="id12" value="11"/>
-
-  <arg name="sequence_file" default="$(find uvdar_core)/config/selected.txt"/>
-
-  <arg name="use_masks" default="false"/>
-
   <node
     name="uvcam_left_tf_$(arg uav_name)"
     pkg="tf"
     type="static_transform_publisher"
     args="0.04  0.11 0.06 -0.3490658504 0.0 -1.57079632679 $(arg uav_name)/fcu $(arg uav_name)/uvcam_left 100"/>
-
-  <node
-    name="uvcam_right_tf_$(arg uav_name)"
-    pkg="tf"
-    type="static_transform_publisher"
-    args="0.04 -0.11 0.06 -2.792526803 0.087 -1.57079632679 $(arg uav_name)/fcu $(arg uav_name)/uvcam_right 100"/>
-
-  <node
-    name="uvcam_back_tf_$(arg uav_name)"
-    pkg="tf2_ros"
-    type="static_transform_publisher"
-    args="-0.10 0.0 -0.02 0.0 1.57079632679 3.14159265 $(arg uav_name)/fcu $(arg uav_name)/uvcam_back"/>
 
   <!-- ideal angle: 1.221730476 - pi/2 -->
 

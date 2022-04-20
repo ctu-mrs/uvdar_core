@@ -14,7 +14,7 @@ cd $MY_PATH
 rm .tmuxinator.yml
 
 # link the session file to .tmuxinator.yml
-ln new_signaling.yml .tmuxinator.yml
+ln simulation_baseline_test.yml .tmuxinator.yml
 
 # start tmuxinator
 tmuxinator

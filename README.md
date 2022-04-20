@@ -50,7 +50,7 @@ Build the package using catkin tools (e.g. `catkin build uvdar_core`)
 In order to test the system in simulation, install all software dependencies including those designated for testing in simulation (Above) and run this script in the [scripts](scripts/) folder:
   %% * For testing separation of units based on position and beacons use [beacon_test.sh](scripts/beacon_test.sh)
   %% * For testing separation of units based on different blinking frequencies [multi_frequency_test.sh](scripts/multi_frequency_test.sh)
-  * For testing separation of units based on different blinking signal sequences [new_signaling.sh](scripts/new_signaling.sh)
+  * For testing separation of units based on different blinking signal sequences [simulation_baseline_test.sh](scripts/simulation_baseline_test.sh)
 
 Note, that the script slows down the simulation below real-time. This is necessary, since if Gazebo slows down automatically due to insufficient processing power, the blinking signals get corrupted. Test the maximum admissible real-time factor for your computer by checking how far you can increase / have to decrease it such that the real-time factor consistently stays at the value it was set to.
 

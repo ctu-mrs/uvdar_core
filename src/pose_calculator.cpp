@@ -162,7 +162,10 @@ namespace uvdar {
       }
 
       LEDModel(std::string model_file){
-        parseModelFile(model_file);
+        if (!parseModelFile(model_file)){
+          ros::shutdown();
+          return;
+        }
 
         prepareGroups();
       }
@@ -705,7 +708,8 @@ namespace uvdar {
           ROS_INFO_THROTTLE(1.0,"[UVDARPoseCalculator]: Camera TF not yet obatined. Attempting to retrieve it...");
           {
             std::scoped_lock lock(transformer_mutex);
-            tf_fcu_to_cam[image_index] = transformer_->getTransform(_camera_frames_[image_index], _uav_name_+"/fcu", msg->stamp);
+            /* tf_fcu_to_cam[image_index] = transformer_->getTransform(_camera_frames_[image_index], _uav_name_+"/fcu", msg->stamp); */
+            tf_fcu_to_cam[image_index] = transformer_->getTransform(_uav_name_+"/fcu", _camera_frames_[image_index], msg->stamp);
           }
           if (!tf_fcu_to_cam[image_index]) { 
             ROS_ERROR_STREAM_THROTTLE(1.0,"[UVDARPoseCalculator]: Could not obtain transform from " << _uav_name_+"/fcu" << " to " << _camera_frames_[image_index] << "!");
@@ -889,7 +893,7 @@ namespace uvdar {
             int mid = points[i].z;
             int tid = classifyMatch(mid);
             if (_debug_)
-              ROS_INFO("[%s]: FR: %d, MID: %d, TID: %d", ros::this_node::getName().c_str(),(int)points[i].z, mid, tid);
+              ROS_INFO("[%s]: SIG: %d, MID: %d, TID: %d", ros::this_node::getName().c_str(),(int)points[i].z, mid, tid);
             if (tid>=0){
               int index = -1;
               int j=0;
@@ -1188,7 +1192,7 @@ namespace uvdar {
           int i = 0;
           if (_debug_)
             for (auto h: hypotheses){
-              ROS_INFO_STREAM("x: [" << h.first.transpose() << "] rot: [" << rad2deg(quaternionToRPY(h.second).transpose()) << "] with error of " << errors.at(i++));
+              ROS_INFO_STREAM("x: [" << h.first.transpose() << "] rot: [" << rad2deg(camera_view_[image_index].inverse()*quaternionToRPY(h.second)).transpose() << "] with error of " << errors.at(i++));
             }
 
           /* auto viable_hypotheses = std::chrono::high_resolution_clock::now(); */
@@ -1217,7 +1221,7 @@ namespace uvdar {
             }
             /* profiler.start(); */
             if (_debug_){
-              ROS_INFO_STREAM("[UVDARPoseCalculator]: Fitted pose: [" << fitted_pose.first.transpose() << "] rot: [" << rad2deg(quaternionToRPY(fitted_pose.second)).transpose() << "] with error of " << error);
+              ROS_INFO_STREAM("[UVDARPoseCalculator]: Fitted pose: [" << fitted_pose.first.transpose() << "] rot: [" << rad2deg(quaternionToRPY(camera_view_[image_index].inverse()*fitted_pose.second)).transpose() << "] with error of " << error);
             }
 
 
@@ -1443,6 +1447,7 @@ namespace uvdar {
             axis_vectors_[image_index].push_back(e::Vector3d(sqrt(0.5), 0.0, sqrt(0.5)));
             axis_vectors_[image_index].push_back(e::Vector3d(-sqrt(0.5), 0.0, sqrt(0.5)));
 
+            ROS_INFO_STREAM("[UVDARPoseCalculator]: camera " << image_index << " optical rotation: " << std::endl <<  tf2::transformToEigen(tf_fcu_to_cam[image_index].value().transform).rotation());
             camera_view_[image_index] = rot_optical_to_base*tf2::transformToEigen(tf_fcu_to_cam[image_index].value().transform).rotation();
 
             ROS_INFO_STREAM("[UVDARPoseCalculator]: Composed rotation matrix");
@@ -1666,16 +1671,24 @@ namespace uvdar {
                 /* acceptable_hypotheses.push_back(std::pair<e::Vector3d, e::Quaterniond>(position_curr, e::AngleAxisd(-img_rotator[image_index],position_curr.normalized())*e::AngleAxisd(std::get<2>(bor), std::get<1>(bor)))); */
 
 
+
                 auto orientation_world = e::AngleAxisd(std::get<2>(bor), std::get<1>(bor));
                 e::Quaterniond orientation_total = orientation_world * camera_view_[image_index];
 
                 bool upside_down_check = true;
                 if (REJECT_UPSIDE_DOWN){
+                  if (_debug_){
+                    ROS_INFO_STREAM("[UVDARPoseCalculator]: camera " << image_index << " rotation: " << std::endl <<  camera_view_[image_index].toRotationMatrix());
+
+                    ROS_INFO_STREAM("[UVDARPoseCalculator]: transformed Z in camera link: " << (((camera_view_[image_index] * e::Vector3d::UnitZ())) ).transpose());
+                    ROS_INFO_STREAM("[UVDARPoseCalculator]: transformed Z in the current orientation: " << ((orientation_world * (camera_view_[image_index] * e::Vector3d::UnitZ())) ).transpose());
+                    ROS_INFO_STREAM("[UVDARPoseCalculator]: transformed Z in FCU: " << (((camera_view_[image_index].inverse())*(orientation_world * (camera_view_[image_index] * e::Vector3d::UnitZ())) ).transpose()));
+                  }
                   if ((((camera_view_[image_index].inverse())*(orientation_world * (camera_view_[image_index] * e::Vector3d::UnitZ())) ).z()) < 0){
                     upside_down_check = false;
-                    /* if (_debug_){ */
-                    /*   ROS_INFO_STREAM("[UVDARPoseCalculator]: Small Z: " << (camera_view_[image_index].inverse())*(orientation_world * (camera_view_[image_index] * e::Vector3d::UnitZ())) ); */
-                    /* } */
+                    if (_debug_){
+                      ROS_INFO_STREAM("[UVDARPoseCalculator]: Small Z: " << (camera_view_[image_index].inverse())*(orientation_world * (camera_view_[image_index] * e::Vector3d::UnitZ())) );
+                    }
                   }
                 }
 

@@ -12,13 +12,10 @@
 
   <arg name="left" default="$(optenv BLUEFOX_UV_LEFT)"/>
   <arg name="right" default="$(optenv BLUEFOX_UV_RIGHT)"/>
-  <!-- <arg name="back" default="$(optenv BLUEFOX_UV_BACK)"/> -->
   <arg name="left_camera_name" default="mv_$(arg left)"/>
   <arg name="right_camera_name" default="mv_$(arg right)"/>
-  <!-- <arg name="back_camera_name" default="mv_$(arg back)"/> -->
   <arg name="expose_us_left" default="$(optenv BLUEFOX_UV_LEFT_EXPOSE_US)"/>
   <arg name="expose_us_right" default="$(optenv BLUEFOX_UV_RIGHT_EXPOSE_US)"/>
-  <!-- <arg name="expose_us_back" default="$(optenv BLUEFOX_UV_BACK_EXPOSE_US)"/> -->
 
   <arg name="calibrations_folder" default="$(find mrs_uav_general)/config/uvdar_calibrations"/>
 
@@ -120,12 +117,6 @@
     type="static_transform_publisher"
     args="0.03 -0.10 0.06 -2.792526803 0.0 -1.57079632679 $(arg uav_name)/fcu $(arg uav_name)/uvcam_right"/>
 
-  <!-- <node -->
-  <!--   name="uvcam_back_tf_$(arg uav_name)" -->
-  <!--   pkg="tf2_ros" -->
-  <!--   type="static_transform_publisher" -->
-  <!--   args="-0.10 0.0 -0.02 0.0 1.57079632679 3.14159265 $(arg uav_name)/fcu $(arg uav_name)/uvcam_back"/> -->
-  <!-- ideal angle: 1.221730476 - pi/2 -->
 
       <!-- <origin xyz="0.108 0 0.085" rpy="1.57079632679 4.71238898038 1.57079632679" /> -->
   <!--Usage: static_transform_publisher x y z yaw pitch roll frame_id child_frame_id  period(milliseconds)-->
@@ -194,33 +185,6 @@
       <remap from="/$(arg uav_name)/uvdar_bluefox_right/image_raw" to="/$(arg uav_name)/uvdar_bluefox/right/image_raw"/>
     </node>
 
-    <!-- <node pkg="nodelet" type="nodelet" name="uvdar_bluefox_back" args="$(arg nodelet) bluefox2/SingleNodelet $(arg nodelet_manager)" respawn="true" output="screen" launch-prefix="bash -c 'sleep 7; $0 $@'"> -->
-    <!--   <param name="camera_name" type="string" value="$(arg back_camera_name)"/> -->
-    <!--   <param name="identifier" type="string" value="$(arg back)"/> -->
-
-    <!--   <param name="frame_id" type="string" value="uvcam_back_tf_$(arg uav_name)"/> -->
-    <!--   <param name="fps" type="double" value="$(arg fps)"/> -->
-    <!--   <param name="idpf" type="int" value="$(arg idpf)"/> -->
-    <!--   <param name="aec" type="bool" value="$(arg aec)"/> -->
-    <!--   <param name="expose_us" type="int" value="$(arg expose_us_back)"/> -->
-    <!--   <param name="agc" type="bool" value="$(arg agc)"/> -->
-    <!--   <param name="gain_db" type="double" value="$(arg gain_db)"/> -->
-    <!--   <param name="cbm" type="int" value="$(arg cbm)"/> -->
-    <!--   <param name="ctm" type="int" value="$(arg ctm)"/> -->
-    <!--   <param name="dcfm" type="int" value="$(arg dcfm)"/> -->
-    <!--   <param name="hdr" type="bool" value="$(arg hdr)"/> -->
-    <!--   <param name="wbp" type="int" value="$(arg wbp)"/> -->
-    <!--   <param name="request" type="int" value="$(arg request)"/> -->
-    <!--   <param name="mm" type="int" value="$(arg mm)"/> -->
-
-    <!--   <param name="image_raw/compressed/jpeg_quality" type="int" value="$(arg jpeg_quality)"/> -->
-    <!--   <param name="image_raw/theora/keyframe_frequency" value="60" /> -->
-    <!--   <param name="image_raw/theora/target_bitrate" value="50000" /> -->
-    <!--   <param name="image_raw/theora/quality" value="8" /> -->
-    <!--   <param name="image_raw/theora/optimize_for" value="0" /> -->
-
-    <!--   <remap from="/$(arg uav_name)/uvdar_bluefox_back/image_raw" to="/$(arg uav_name)/uvdar_bluefox/back/image_raw"/> -->
-    <!-- </node> -->
 
 
     <node name="uv_detect" pkg="nodelet" type="nodelet" args="$(arg nodelet) uvdar/UVDARDetector $(arg nodelet_manager)" output="screen" respawn="true"> 
@@ -236,20 +200,15 @@
 
       <param name="use_masks"         type="bool" value="$(arg use_masks)"/>
       <param name="body_name"         type = "string" value="$(arg nato_name)"/>
-      <!-- <rosparam param="mask_file_names" subst_value="True"> ["$(arg calibrations_folder)/masks/$(arg nato_name)_$(arg left).png", "$(arg calibrations_folder)/masks/$(arg nato_name)_$(arg right).png", "$(arg calibrations_folder)/masks/$(arg nato_name)_$(arg back).png"] </rosparam> -->
       <rosparam param="mask_file_names" subst_value="True"> ["$(arg calibrations_folder)/masks/$(arg nato_name)_$(arg left).png", "$(arg calibrations_folder)/masks/$(arg nato_name)_$(arg right).png"] </rosparam>
 
-      <!-- <rosparam param="camera_topics"> ["camera_left", "camera_right", "camera_back"] </rosparam> -->
-      <!-- <rosparam param="points_seen_topics"> ["points_seen_left", "points_seen_right", "points_seen_back"] </rosparam> -->
       <rosparam param="camera_topics"> ["camera_left", "camera_right"] </rosparam>
       <rosparam param="points_seen_topics"> ["points_seen_left", "points_seen_right"] </rosparam>
 
       <remap from="~camera_left" to="/$(arg uav_name)/uvdar_bluefox/left/image_raw"/>
       <remap from="~camera_right" to="/$(arg uav_name)/uvdar_bluefox/right/image_raw"/>
-      <!-- <remap from="~camera_back" to="/$(arg uav_name)/uvdar_bluefox/back/image_raw"/> -->
       <remap from="~points_seen_left" to="/$(arg uav_name)/uvdar/points_seen_left"/>
       <remap from="~points_seen_right" to="/$(arg uav_name)/uvdar/points_seen_right"/>
-      <!-- <remap from="~points_seen_back" to="/$(arg uav_name)/uvdar/points_seen_back"/> -->
 
       <remap from="~odometry" to="/$(arg uav_name)/mrs_odometry/new_odom"/>
       <remap from="~imu" to="mavros/imu/data"/>
@@ -277,27 +236,19 @@
       <param name="max_pixel_shift"         type="int" value="$(arg max_pixel_shift)"/>
       <param name="nullify_radius"         type="int" value="5"/>
 
-      <!-- <rosparam param="camera_topics"> ["camera_left", "camera_right", "camera_back"] </rosparam> -->
       <rosparam param="camera_topics"> ["camera_left", "camera_right"] </rosparam>
-      <!-- <rosparam param="points_seen_topics"> ["points_seen_left", "points_seen_right", "points_seen_back"] </rosparam> -->
       <rosparam param="points_seen_topics"> ["points_seen_left", "points_seen_right"] </rosparam>
-      <!-- <rosparam param="blinkers_seen_topics"> ["blinkers_seen_left", "blinkers_seen_right", "blinkers_seen_back"] </rosparam> -->
       <rosparam param="blinkers_seen_topics"> ["blinkers_seen_left", "blinkers_seen_right"] </rosparam>
-      <!-- <rosparam param="estimated_framerate_topics"> ["estimated_framerate_left", "estimated_framerate_right", "estimated_framerate_back"] </rosparam> -->
       <rosparam param="estimated_framerate_topics"> ["estimated_framerate_left", "estimated_framerate_right"] </rosparam>
 
       <remap from="~camera_left" to="/$(arg uav_name)/uvdar_bluefox/left/image_raw"/>
       <remap from="~camera_right" to="/$(arg uav_name)/uvdar_bluefox/right/image_raw"/>
-      <!-- <remap from="~camera_back" to="/$(arg uav_name)/uvdar_bluefox/back/image_raw"/> -->
       <remap from="~points_seen_left" to="/$(arg uav_name)/uvdar/points_seen_left"/>
       <remap from="~points_seen_right" to="/$(arg uav_name)/uvdar/points_seen_right"/>
-      <!-- <remap from="~points_seen_back" to="/$(arg uav_name)/uvdar/points_seen_back"/> -->
       <remap from="~blinkers_seen_left" to="/$(arg uav_name)/uvdar/blinkers_seen_left"/>
       <remap from="~blinkers_seen_right" to="/$(arg uav_name)/uvdar/blinkers_seen_right"/>
-      <!-- <remap from="~blinkers_seen_back" to="/$(arg uav_name)/uvdar/blinkers_seen_back"/> -->
       <remap from="~estimated_framerate_left" to="/$(arg uav_name)/uvdar/estimated_framerate_left"/>
       <remap from="~estimated_framerate_right" to="/$(arg uav_name)/uvdar/estimated_framerate_right"/>
-      <!-- <remap from="~estimated_framerate_back" to="/$(arg uav_name)/uvdar/estimated_framerate_back"/> -->
       <!-- <remap from="~visualization" to="/$(arg uav_name)/uvdar/blink_visualization/image_raw"/> -->
 
     </node>
@@ -322,30 +273,22 @@
       <param name="beacon" type="bool" value="$(arg beacon)"/>
       <param name="arm_length" type="double" value="0.245"/>
 
-      <!-- <rosparam param="blinkers_seen_topics"> ["blinkers_seen_left", "blinkers_seen_right", "blinkers_seen_back"] </rosparam> -->
-      <!-- <rosparam param="estimated_framerate_topics"> ["estimated_framerate_left", "estimated_framerate_right", "estimated_framerate_back"] </rosparam> -->
-      <!-- <rosparam param="camera_frames" subst_value="true"> ["$(arg uav_name)/uvcam_left", "$(arg uav_name)/uvcam_right", "$(arg uav_name)/uvcam_back"] </rosparam> -->
       <rosparam param="blinkers_seen_topics"> ["blinkers_seen_left", "blinkers_seen_right"] </rosparam>
       <rosparam param="estimated_framerate_topics"> ["estimated_framerate_left", "estimated_framerate_right"] </rosparam>
       <rosparam param="camera_frames" subst_value="true"> ["$(arg uav_name)/uvcam_left", "$(arg uav_name)/uvcam_right"] </rosparam>
 
       <remap from="~blinkers_seen_left" to="/$(arg uav_name)/uvdar/blinkers_seen_left"/>
       <remap from="~blinkers_seen_right" to="/$(arg uav_name)/uvdar/blinkers_seen_right"/>
-      <!-- <remap from="~blinkers_seen_back" to="/$(arg uav_name)/uvdar/blinkers_seen_back"/> -->
       <remap from="~estimated_framerate_left" to="/$(arg uav_name)/uvdar/estimated_framerate_left"/>
       <remap from="~estimated_framerate_right" to="/$(arg uav_name)/uvdar/estimated_framerate_right"/>
-      <!-- <remap from="~estimated_framerate_back" to="/$(arg uav_name)/uvdar/estimated_framerate_back"/> -->
 
-      <!-- <rosparam param="calib_files" subst_value="true"> ["$(arg calibrations_folder)/camera_calibrations/calib_results_bf_uv_$(arg left).txt", "$(arg calibrations_folder)/camera_calibrations/calib_results_bf_uv_$(arg right).txt", "$(arg calibrations_folder)/camera_calibrations/calib_results_bf_uv_$(arg back).txt"] </rosparam> -->
       <rosparam param="calib_files" subst_value="true"> ["$(arg calibrations_folder)/camera_calibrations/calib_results_bf_uv_$(arg left).txt", "$(arg calibrations_folder)/camera_calibrations/calib_results_bf_uv_$(arg right).txt"] </rosparam>
 
       <remap from="~constituentPoses1" to="/$(arg uav_name)/uvdar/constituentPosesL"/>
       <remap from="~constituentPoses2" to="/$(arg uav_name)/uvdar/constituentPosesR"/>
-      <remap from="~constituentPoses3" to="/$(arg uav_name)/uvdar/constituentPosesB"/>
 
       <remap from="~measuredPoses1" to="/$(arg uav_name)/uvdar/measuredPosesL"/>
       <remap from="~measuredPoses2" to="/$(arg uav_name)/uvdar/measuredPosesR"/>
-      <remap from="~measuredPoses3" to="/$(arg uav_name)/uvdar/measuredPosesB"/>
     </node>
   </group>
 

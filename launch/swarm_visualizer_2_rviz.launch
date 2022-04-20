@@ -1,9 +1,0 @@
-
-<launch>
-  <arg name="rvizconfig" default="$(find uvdar_core)/rviz/swarm_visualizer_2.rviz" />
-
-	<!-- <node name="rviz" pkg="rviz" type="rviz" args="-d $(arg rvizconfig)" required="true" launch-prefix="debug_roslaunch" /> -->
-	<node name="rviz" pkg="rviz" type="rviz" args="-d $(arg rvizconfig) --opengl 210" required="true" output="screen" />
-
-</launch>
-
