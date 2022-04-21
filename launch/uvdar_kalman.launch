@@ -36,9 +36,6 @@
         <remap        if="$(arg use_three_cameras)" from="~measured_poses_R" to="/$(arg uav_name)/uvdar/measuredPosesR"/>
         <remap        if="$(arg use_three_cameras)" from="~measured_poses_B" to="/$(arg uav_name)/uvdar/measuredPosesB"/>
 
-        <rosparam     unless="$(arg use_three_cameras)" param="measured_poses_topics"> ["measured_poses"] </rosparam>
-        <remap        unless="$(arg use_three_cameras)" from="~measured_poses" to="/$(arg uav_name)/uvdar/measuredPoses"/>
-
 
         <remap from="~filtered_poses" to="/$(arg uav_name)/uvdar/filteredPoses"/>
         <remap from="~filtered_poses/tentative" to="/$(arg uav_name)/uvdar/filteredPoses/tentative"/>

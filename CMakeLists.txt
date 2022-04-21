@@ -5,10 +5,11 @@ FILE(GLOB_RECURSE HEADER_FILES include *.h)
 FILE(GLOB_RECURSE LAUNCHER_FILES include *.launch)
 FILE(GLOB_RECURSE YAML_FILES include *.yaml)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-diagnostics-color -fmessage-length=0 -std=c++17 -Wno-return-type -Wno-unused-result -Wno-unused-variable -Wall -Wno-maybe-uninitialized -DEIGEN_INITIALIZE_MATRICES_BY_NAN -g -Ofast")
-# set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O0")
-set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} -fno-diagnostics-color -fmessage-length=0 -std=c++17 -Wno-return-type -Wno-unused-result -Wno-unused-variable -Wall -Wno-maybe-uninitialized -DEIGEN_INITIALIZE_MATRICES_BY_NAN -g -Ofast")
-# set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} -O1")
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -g -Wall -Wextra")
+set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} -std=c++17 -g -Wall -Wextra")
+# set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O0 -g -DNDEBUG -std=c++17 -g -Wall -Wextra")
 
 find_package(catkin REQUIRED COMPONENTS
   roscpp

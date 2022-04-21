@@ -127,14 +127,29 @@ private:
   void drawPoints(const sensor_msgs::PointCloudConstPtr& msg_i, size_t image_index){
     if (initialized_) {
       sensor_msgs::ImagePtr msg_o;
-      for (int j = 0; j < image_data.at(image_index).outputImage.image.rows; j++) {
-        for (int i = 0; i < image_data.at(image_index).outputImage.image.cols; i++) {
-          if (image_data.at(image_index).outputImage.image.data[index2d(i, j)] != image_data.at(image_index).backgroundColour)
-            (image_data.at(image_index).outputImage.image.data[index2d(i, j)] = image_data.at(image_index).backgroundColour);
+      /* for (int j = 0; j < image_data[image_index].outputImage.image.rows; j++) { */
+      /*   for (int i = 0; i < image_data[image_index].outputImage.image.cols; i++) { */
+      /*     if (image_data[image_index].outputImage.image.data[index2d(i, j)] != image_data[image_index].backgroundColour) */
+      /*       (image_data[image_index].outputImage.image.data[index2d(i, j)] = image_data[image_index].backgroundColour); */
+      /*   } */
+      /* } */
+      for (auto position : image_data[image_index].touched_pixels){
+        for (int j = -position.z; j <= position.z; j++) {
+          for (int i = -position.z; i <= position.z; i++) {
+            if ( (((position.x+i)>=0) && ((position.x+i)<image_data[image_index].outputImage.image.cols))  && (((position.y+j)>=0) && ((position.y+j)<image_data[image_index].outputImage.image.rows)) )
+            (image_data[image_index].outputImage.image.data[index2d(position.x+i, position.y+j)] = image_data[image_index].backgroundColour);
+          }
         }
       }
+
+      image_data[image_index].touched_pixels.resize(msg_i->points.size());
+      int i = 0;
       for (auto point : msg_i->points){
-        cv::circle(image_data.at(image_index).outputImage.image, cv::Point2i(point.x, point.y), point.z, cv::Scalar(255), -1);
+        cv::circle(image_data[image_index].outputImage.image, cv::Point2i(point.x, point.y), point.z, cv::Scalar(255), -1);
+        image_data[image_index].touched_pixels[i].x = point.x;
+        image_data[image_index].touched_pixels[i].y = point.y;
+        image_data[image_index].touched_pixels[i].z = point.z;
+        i++;
       }
       msg_o = image_data.at(image_index).outputImage.toImageMsg();
       msg_o->header.stamp = msg_i->header.stamp;
@@ -159,6 +174,7 @@ private:
   struct ImageData {
     cv_bridge::CvImage          outputImage;
     uchar                       backgroundColour;
+    std::vector<cv::Point3i> touched_pixels;
 
     /**
      * @brief - constructor
