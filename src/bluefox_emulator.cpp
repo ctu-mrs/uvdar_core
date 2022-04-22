@@ -129,15 +129,15 @@ private:
       sensor_msgs::ImagePtr msg_o;
       /* for (int j = 0; j < image_data[image_index].outputImage.image.rows; j++) { */
       /*   for (int i = 0; i < image_data[image_index].outputImage.image.cols; i++) { */
-      /*     if (image_data[image_index].outputImage.image.data[index2d(i, j)] != image_data[image_index].backgroundColour) */
-      /*       (image_data[image_index].outputImage.image.data[index2d(i, j)] = image_data[image_index].backgroundColour); */
+      /*     if (image_data[image_index].outputImage.image.data[index2d(i, j)] != image_data[image_index].backgroundColor) */
+      /*       (image_data[image_index].outputImage.image.data[index2d(i, j)] = image_data[image_index].backgroundColor); */
       /*   } */
       /* } */
       for (auto position : image_data[image_index].touched_pixels){
         for (int j = -position.z; j <= position.z; j++) {
           for (int i = -position.z; i <= position.z; i++) {
             if ( (((position.x+i)>=0) && ((position.x+i)<image_data[image_index].outputImage.image.cols))  && (((position.y+j)>=0) && ((position.y+j)<image_data[image_index].outputImage.image.rows)) )
-            (image_data[image_index].outputImage.image.data[index2d(position.x+i, position.y+j)] = image_data[image_index].backgroundColour);
+            (image_data[image_index].outputImage.image.data[index2d(position.x+i, position.y+j)] = image_data[image_index].backgroundColor);
           }
         }
       }
@@ -173,7 +173,7 @@ private:
   /* ImageData structure //{ */
   struct ImageData {
     cv_bridge::CvImage          outputImage;
-    uchar                       backgroundColour;
+    uchar                       backgroundColor;
     std::vector<cv::Point3i> touched_pixels;
 
     /**
@@ -182,8 +182,8 @@ private:
      * @param oc_model_i - calibration parameters of the virtual camera
      */
     ImageData(struct ocam_model &oc_model_i){
-      outputImage = cv_bridge::CvImage(std_msgs::Header(), "mono8", cv::Mat(oc_model_i.height, oc_model_i.width, CV_8UC1, cv::Scalar(0)));
-      backgroundColour = std::rand() % 100;
+      backgroundColor = std::rand() % 100;
+      outputImage = cv_bridge::CvImage(std_msgs::Header(), "mono8", cv::Mat(oc_model_i.height, oc_model_i.width, CV_8UC1, cv::Scalar(backgroundColor)));
       if ( (outputImage.image.cols < oc_model_i.width) || (outputImage.image.rows < oc_model_i.height) ){
         ROS_ERROR("[UVDARBluefoxEmulator]: Calibration polynomial contains NaNs, exiting.");
       }
