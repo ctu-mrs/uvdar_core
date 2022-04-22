@@ -41,12 +41,12 @@
 #define DIRECTIONAL_LED_VIEW_ANGLE (deg2rad(120))
 #define RING_LED_VERT_ANGLE (deg2rad(120))
 
-#define UNMATCHED_OBSERVED_POINT_PENALTY sqr(10)
+#define UNMATCHED_OBSERVED_POINT_PENALTY sqr(15)
 #define UNMATCHED_PROJECTED_POINT_PENALTY sqr(5)
 
 #define LED_GROUP_DISTANCE 0.03
 
-#define ERROR_THRESHOLD 50
+#define ERROR_THRESHOLD sqr(12)
 
 #define SIMILAR_ERRORS_THRESHOLD sqr(1)
 
@@ -1215,6 +1215,22 @@ namespace uvdar {
 
 
             profiler.unindent();
+
+            for (auto &prev_fitted : selected_poses){ 
+              if ((fitted_pose.first - prev_fitted.first).norm() < 0.01){
+
+                auto q_diff = fitted_pose.second*prev_fitted.second.inverse();
+                double ang_diff = e::AngleAxisd(q_diff).angle();
+                if (ang_diff < 0.01){
+                  if (_debug_){
+                    ROS_INFO_STREAM("[UVDARPoseCalculator]: Discarding duplicate hypothesis");
+                  }
+                  continue;// we don't need duplicate initial hypoteheses
+
+                }
+              }
+            }
+
 
             if (error < 0){ //discarded fitting;
               continue;
