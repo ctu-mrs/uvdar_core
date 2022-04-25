@@ -54,6 +54,8 @@
 
 #define REJECT_UPSIDE_DOWN true
 
+#define EDGE_DETECTION_MARGIN 10
+
 
 namespace e = Eigen;
 
@@ -1162,7 +1164,7 @@ namespace uvdar {
           alpha_max = getLargestAngle(v_w);
         }
           
-        if ((points.size() == 1) || (alpha_max < 0.01)){
+        if ((points.size() == 1) || (alpha_max < 0.01) || (avgIsNearEdge(points,EDGE_DETECTION_MARGIN, image_index))){
           auto v_w_s = baseFromOptical(directionFromCamPoint(points.at(0), image_index));
           v_w_s *= 15.0; //max range
           final_mean.first << v_w_s.x(),v_w_s.y(),v_w_s.z();
@@ -1715,7 +1717,7 @@ namespace uvdar {
                 }
               }
 
-              ROS_INFO_STREAM("[UVDARPoseCalculator]: acceptable hypothesis count: " << acceptable_hypotheses.size() );
+              /* ROS_INFO_STREAM("[UVDARPoseCalculator]: acceptable hypothesis count: " << acceptable_hypotheses.size() ); */
               position_curr+=position_step;
           }
 
@@ -2610,6 +2612,39 @@ namespace uvdar {
       }
       //}
 
+
+      /**
+       * @brief Returns true if the centroid of the image points is within <margin> pixels from the image edge
+       *
+       * @param points Vector of image points
+       * @param margin The distance from the image edge to consider
+       * @param image_index The index of the current camera used to generate the input points
+       *
+       * @return True if centroid is in the image margin, False otherwise
+       */
+      /* classifyMatch //{ */
+      bool avgIsNearEdge(std::vector< cv::Point3d > points, int margin, int image_index){
+
+
+        cv::Point2d mean(0,0);
+        for (auto &point : points){
+          mean += cv::Point2d(point.x, point.y);
+        }
+
+        mean /= (int)(points.size());
+        if (
+            (mean.x < margin) ||
+            (mean.y < margin) ||
+            (mean.x > (camera_image_sizes_[image_index].width-margin)) ||
+            (mean.y > (camera_image_sizes_[image_index].height-margin))
+            ){
+            return true;
+            }
+
+
+        return false;
+      }
+      //}
 
       /**
        * @brief Prepares structures needed for collecting markers associated with a specific beacon marker
