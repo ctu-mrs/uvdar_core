@@ -53,7 +53,8 @@ add_service_files(
   FILES
   # SetLedState.srv
   SetLedMessage.srv
-  SetIntIndex.srv
+  # SetIntIndex.srv
+  SetInts.srv
 )
 
 add_message_files(DIRECTORY msg FILES

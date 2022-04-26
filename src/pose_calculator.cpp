@@ -54,7 +54,7 @@
 
 #define REJECT_UPSIDE_DOWN true
 
-#define EDGE_DETECTION_MARGIN 10
+#define EDGE_DETECTION_MARGIN 20
 
 
 namespace e = Eigen;
