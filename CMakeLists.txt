@@ -94,6 +94,8 @@ add_executable(uvdar_tx_node src/uvdar_tx.cpp)
 add_executable(new_uvdar_rx_node src/new_uvdar_rx.cpp)
 
 add_library(OCamCalib include/OCamCalib/ocam_functions.cpp )
+target_compile_options(OCamCalib PRIVATE -Wno-unused-variable -Wno-unused-result)
+
 add_library(ht4dbt include/ht4dbt/ht4d.cpp)
 add_library(uv_led_detect_fast include/detect/uv_led_detect_fast.cpp)
 add_library(frequency_classifier include/frequency_classifier/frequency_classifier.cpp)
@@ -130,8 +132,8 @@ add_dependencies(p3p ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGE
 add_library(UVDARBlinkProcessor src/blink_processor.cpp)
 add_dependencies(UVDARBlinkProcessor ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
-add_executable(uvdar_uav_pose_calculator_node src/uav_pose_calculator.cpp)
-add_dependencies(uvdar_uav_pose_calculator_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+# add_executable(uvdar_uav_pose_calculator_node src/uav_pose_calculator.cpp)
+# add_dependencies(uvdar_uav_pose_calculator_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 add_executable(uvdar_pose_calculator_node src/pose_calculator.cpp)
 add_dependencies(uvdar_pose_calculator_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
@@ -167,16 +169,16 @@ target_link_libraries(UVDARBlinkProcessor
   color_selector
   )
 
-target_link_libraries(uvdar_uav_pose_calculator_node
-  ${catkin_LIBRARIES}
-  ${OpenCV_LIBRARIES}
-  ${EIGEN3_LIBRARIES}
-  OCamCalib
-  unscented
-  p3p
-  color_selector
-  frequency_classifier
-  )
+# target_link_libraries(uvdar_uav_pose_calculator_node
+#   ${catkin_LIBRARIES}
+#   ${OpenCV_LIBRARIES}
+#   ${EIGEN3_LIBRARIES}
+#   OCamCalib
+#   unscented
+#   p3p
+#   color_selector
+#   frequency_classifier
+#   )
 
 target_link_libraries(uvdar_pose_calculator_node
   ${catkin_LIBRARIES}

@@ -1021,7 +1021,7 @@ private:
         rec_id = point_seen[camera_index][i].back().id;
       }
       /* rm_pub.uav_id = rec_id; */
-      float              rec_heading;
+      [[ maybe_unused ]] float              rec_heading;
       int                rec_dtype;
       int                rmc_size = received_msg_raw.size();
       std::vector<float> payload;

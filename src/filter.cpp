@@ -387,7 +387,7 @@ namespace uvdar {
           removeOverlaps();
         }
         for (int target=0; target<(int)(fd.size());target++){
-          int targetsSeen = 0;
+          /* int targetsSeen = 0; */
           double age = (ros::Time::now() - fd[target].latest_measurement).toSec();
           if (_debug_)
             ROS_INFO("[UVDARKalman]: Age of %d is %f", target, age);
@@ -556,12 +556,12 @@ namespace uvdar {
             measurement.x.topRows(3),
             filter_local.filter_state.x.topRows(3)
             );
-        double match_level_rot = gaussJointMaxVal(
-            measurement.P.bottomRightCorner(3,3),
-            filter_local.filter_state.P.bottomRightCorner(3,3),
-            measurement.x.bottomRows(3),
-            filter_local.filter_state.x.bottomRows(3)
-            );
+        /* double match_level_rot = gaussJointMaxVal( */
+        /*     measurement.P.bottomRightCorner(3,3), */
+        /*     filter_local.filter_state.P.bottomRightCorner(3,3), */
+        /*     measurement.x.bottomRows(3), */
+        /*     filter_local.filter_state.x.bottomRows(3) */
+        /*     ); */
 
         auto P_local = measurement.P;
         /* ROS_INFO_STREAM("[UVDARKalman]: Meas. cov: " << std::endl << P_local); */
@@ -600,7 +600,7 @@ namespace uvdar {
         auto eigens_pos = filter_local.filter_state.P.topLeftCorner(3,3).eigenvalues();
         double min_eig_pos = eigens_pos.real().minCoeff();
         auto eigens_rot = filter_local.filter_state.P.bottomRightCorner(3,3).eigenvalues();
-        double min_eig_rot = eigens_rot.real().minCoeff();
+        /* double min_eig_rot = eigens_rot.real().minCoeff(); */
         filter_local.filter_state.P.topLeftCorner(3,3) += e::MatrixXd::Identity(3,3)*(min_eig_pos*(match_level_pos));//this makes the filter not increase certainty in case of multiple identical measurements - the mean in the covariances is more probable than the rest of its x<1*sigma space
         /* filter_local.filter_state.P.bottomRightCorner(3,3) += e::MatrixXd::Identity(3,3)*(min_eig_rot*(match_level_rot));//this makes the filter not increase certainty in case of multiple identical measurements - the mean in the covariances is more probable than the rest of its x<1*sigma space */
         /* ROS_INFO_STREAM("[UVDARKalman]: Filter exp.: " << std::endl << filter_local.filter_state.P); */
@@ -737,7 +737,7 @@ namespace uvdar {
           tentative_states.push_back(std::vector<FilterData>());
           for (auto const& state_curr : fd | indexed(0)){
 
-            double dt_from_last = std::fmin((meas_time-state_curr.value().latest_update).toSec(),(meas_time-state_curr.value().latest_measurement).toSec());
+            [[ maybe_unused ]] double dt_from_last = std::fmin((meas_time-state_curr.value().latest_update).toSec(),(meas_time-state_curr.value().latest_measurement).toSec());
             
 
             tentative_states.back().push_back(

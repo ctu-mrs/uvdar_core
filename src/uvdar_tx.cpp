@@ -384,7 +384,7 @@ int main(int argc, char** argv) {
   ROS_INFO("[TX_processor] Node initialized");
   /* ros::Rate my_rate(rate); */
 
-  int curr_bit_index = 0;  // order of currently sending bit
+  /* int curr_bit_index = 0;  // order of currently sending bit */
 
 
   mrs_msgs::SetInt ledMode;

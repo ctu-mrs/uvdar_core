@@ -15,6 +15,7 @@
 #include <mrs_lib/image_publisher.h>
 #include <std_msgs/Float32.h>
 #include <mrs_msgs/ImagePointsWithFloatStamped.h>
+
 #include <Eigen/Dense>
 #include <Eigen/Geometry>
 #include <opencv2/core/core.hpp>
@@ -535,7 +536,7 @@ namespace uvdar {
         transformer_ = std::make_shared<mrs_lib::Transformer>("UVDARPoseCalculator");
         transformer_->setDefaultPrefix(_uav_name_);
 
-        for (auto &b : _blinkers_seen_topics){
+        for ([[ maybe_unused ]] auto &b : _blinkers_seen_topics){
           tf_fcu_to_cam.push_back(std::optional<geometry_msgs::TransformStamped>());
           tf_gained.push_back(false);
           camera_view_.push_back(e::Quaterniond());;
@@ -1143,15 +1144,16 @@ namespace uvdar {
       /* extractSingleRelative //{ */
       void extractSingleRelative(std::vector< cv::Point3d > points, int target, size_t image_index, mrs_msgs::PoseWithCovarianceIdentified& output_pose, std::vector<mrs_msgs::PoseWithCovarianceIdentified> &constituents) {
 
-        std::pair<e::Vector3d, e::Quaterniond> final_mean;
+        std::pair<e::Vector3d, e::Quaterniond> final_mean =
+        {
+          e::Vector3d( std::numeric_limits<double>::max(), std::numeric_limits<double>::max(), std::numeric_limits<double>::max()),
+          e::Quaterniond(1,0,0,0)
+        };
         e::MatrixXd final_covariance;
 
         if (_debug_){
           ROS_INFO_STREAM("[UVDARPoseCalculator]: framerateEstim: " << estimated_framerate_[image_index]);
         }
-
-        double perr=0.2/estimated_framerate_[image_index]; // The expected error of the frequency estimate (depends on the sampling frequency / camera framerate)
-
 
         auto start = profiler.getTime();
 
@@ -1301,7 +1303,7 @@ namespace uvdar {
 
           if (_publish_constituents_){
             for (int i = 0; i<(int)(selected_poses.size()); i++){
-              auto constituent_pose_optical = opticalFromBase(selected_poses[i],covariances[i], image_index);
+              auto constituent_pose_optical = opticalFromBase(selected_poses[i],covariances[i]);
               mrs_msgs::PoseWithCovarianceIdentified constituent;
 
               constituent.id = target;
@@ -1349,7 +1351,7 @@ namespace uvdar {
           }
 
 
-          auto fitted_pose_optical = opticalFromBase(final_mean,final_covariance, image_index);
+          auto fitted_pose_optical = opticalFromBase(final_mean,final_covariance);
 
           output_pose.id = target;
           output_pose.pose.position.x = fitted_pose_optical.first.first.x();
@@ -1373,7 +1375,7 @@ namespace uvdar {
       }
       //}
 
-          e::Vector3d getRoughInit(LEDModel model, std::vector<e::Vector3d> v_w, int image_index){
+          e::Vector3d getRoughInit(LEDModel model, std::vector<e::Vector3d> v_w, [[ maybe_unused ]] int image_index){
 
             /* std::vector<e::Vector3d> v_w; */
             e::Vector3d v_avg = {0,0,0};
@@ -1731,8 +1733,8 @@ namespace uvdar {
             /* if (_debug_) */
             /*   ROS_INFO_STREAM("[UVDARPoseCalculator]: Refined hypotheses for target " << target << " in image " << image_index << ": "); */
             e::Vector3d position_curr = hypothesis.first;
-          e::Quaterniond orientation_start  = hypothesis.second;
-          e::Quaterniond orientation_curr  = orientation_start;
+            e::Quaterniond orientation_start  = hypothesis.second;
+            e::Quaterniond orientation_curr  = orientation_start;
             auto model_curr = model.rotate(e::Vector3d(0,0,0), orientation_curr).translate(position_curr);
 
               /* ROS_INFO_STREAM("[UVDARPoseCalculator]: Model with init. pose:"); */
@@ -1773,7 +1775,7 @@ namespace uvdar {
             /* double ccw_error, cw_error; //yaw */
             /* double pd_error, pu_error; //pitch */
             /* double rr_error, rl_error; //roll */
-            e::VectorXd gradient = Eigen::VectorXd(6);
+            e::VectorXd gradient = e::VectorXd(6);
             gradient <<
               std::numeric_limits<double>::max(),
               std::numeric_limits<double>::max(),
@@ -2000,7 +2002,7 @@ namespace uvdar {
 
           profiler.addValue("Main fitting loop (e="+std::to_string(error_total)+")");
           //final gradient check
-          double mean_error = error_total/((double)(observed_points.size()));
+          /* double mean_error = error_total/((double)(observed_points.size())); */
           /* x_step = y_step = z_step = pos_step_init; */
           angle_step = angle_step_init;
           /* y_step = 0.10; */
@@ -2309,7 +2311,7 @@ namespace uvdar {
         if (c.norm() > 0.001){ //unless a and b are very close
           auto c2 = c*c.transpose();
 
-          double lin_gradient;
+          double lin_gradient = 0;
           double om = 0.5; //let's start from the middle
           double lin_step_init = 0.1;
           double lin_diff_step = lin_step_init;
@@ -2429,7 +2431,7 @@ namespace uvdar {
           e::Vector3d c_v = e::Vector3d( rotmatToRoll(c_M), rotmatToPitch(c_M), rotmatToYaw(c_M));
           auto c2_o = c_v*c_v.transpose();
 
-          double rot_gradient;
+          double rot_gradient = 0;
           double om = 0.5; //let's start from the middle
           double rot_step_init = 0.1;
           double rot_diff_step = rot_step_init;
@@ -2575,7 +2577,7 @@ namespace uvdar {
         return {fastMatrixVectorProduct(m_rotator,marker.position), fastMatrixMatrixProduct(m_rotator,marker.orientation.toRotationMatrix())};
       }
 
-      std::pair<std::pair<e::Vector3d,e::Quaterniond>,e::MatrixXd> opticalFromBase(std::pair<e::Vector3d,e::Quaterniond> pose, e::MatrixXd covariance,int image_index){
+      std::pair<std::pair<e::Vector3d,e::Quaterniond>,e::MatrixXd> opticalFromBase(std::pair<e::Vector3d,e::Quaterniond> pose, e::MatrixXd covariance){
         auto output_pose = pose;
         auto output_covariance = covariance;
         /* e::Quaterniond rotator(0.5,0.5,-0.5,0.5); */

@@ -277,6 +277,7 @@ namespace uvdar {
 
           res.success = true;
           res.message="Selecting sequence "+std::to_string((int)(index));
+          ROS_ERROR_STREAM("[UVDARLedManager]: " << res.message);
 
           mrs_msgs::SetInt led_state;
           led_state.request.value = index;
@@ -298,6 +299,7 @@ namespace uvdar {
 
           res.success = true;
           res.message="Selecting sequence "+std::to_string((int)(index));
+          ROS_ERROR_STREAM("[UVDARLedManager]: " << res.message);
 
           mrs_msgs::SetInt led_state;
           led_state.request.value = index;
@@ -332,7 +334,7 @@ namespace uvdar {
           return true;
         }
 
-        std::vector<int> selected_sequences;
+        std::vector<unsigned char> selected_sequences;
 
         for (auto sq : req.value){
           unsigned char index = (unsigned char)(sq);
@@ -359,6 +361,8 @@ namespace uvdar {
           res.message += std::to_string((int)(sq))+" ";
         }
         res.message += "]";
+
+        ROS_ERROR_STREAM("[UVDARLedManager]: " << res.message);
 
         baca_protocol_publisher.publish(serial_msg);
 

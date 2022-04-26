@@ -243,17 +243,6 @@ private:
   cv::Point findHoughPeakLocal(cv::Point expected_pos);
 
   /**
-   * @brief Retrieve the blinkig frequency of the given origin point
-   *
-   * @param origin_point - The image point presumed to correspond to a blinking marker
-   * @param avg_yaw - The output "image yaw" of the blinking marker (corresponds to the direction in the image in which the point has been moving)
-   * @param avg_pitch - The output "image pitch" of the blinking marker (corresponds to the speed in the image at which the point has been moving)
-   *
-   * @return - The frequency of blinking of the marker, or negative value in case of error
-   */
-  double retrieveFreqency(cv::Point origin_point, double &avg_yaw, double &avg_pitch);
-
-  /**
    * @brief Sets values in matrices at indices corresponding to the visible markers in the newest frame to zero 
    *
    * @return - The image points the surroundings of which have been nullified
