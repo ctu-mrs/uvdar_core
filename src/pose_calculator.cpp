@@ -391,21 +391,9 @@ namespace uvdar {
         /* load the signals //{ */
         param_loader.loadParam("signal_ids", _signal_ids_);
         if (_signal_ids_.empty()){
-          /* std::vector<double> default_frequency_set; */
-          /* if (_beacon_){ */
-          /*   default_frequency_set = {30, 15}; */
-          /* } */
-          /* else { */
-          /*   default_frequency_set = {5, 6, 8, 10, 15, 30}; */
-          /* } */
           ROS_WARN("[UVDARPoseCalculator]: No signal IDs were supplied, using the default frequency set.");
-          /* for (auto f : default_frequency_set){ */
-          /*   ROS_WARN_STREAM("[UVDARPoseCalculator]: " << f << " hz"); */
-          /* } */
-          /* _signal_ids_ = default_frequency_set; */
           _signal_ids_ = {0, 1, 2, 3, 4, 5, 6, 7, 8};
         }
-        /* ufc_ = std::make_unique<UVDARFrequencyClassifier>(_signal_ids_); */
 
         //}
 
@@ -421,23 +409,20 @@ namespace uvdar {
         }
         _camera_count_ = (unsigned int)(_blinkers_seen_topics.size());
 
-        cals_blinkers_seen_.resize(_blinkers_seen_topics.size());
         separated_points_.resize(_blinkers_seen_topics.size());
         for (size_t i = 0; i < _blinkers_seen_topics.size(); ++i) {
           blinkers_seen_callback_t callback = [image_index=i,this] (const mrs_msgs::ImagePointsWithFloatStampedConstPtr& pointsMessage) { 
             ProcessPoints(pointsMessage, image_index);
           };
-          cals_blinkers_seen_[i] = callback;
           ROS_INFO_STREAM("[UVDARPoseCalculator]: Subscribing to " << _blinkers_seen_topics[i]);
           sub_blinkers_seen_.push_back(
-              nh.subscribe(_blinkers_seen_topics[i], 1, cals_blinkers_seen_[i]));
+              nh.subscribe(_blinkers_seen_topics[i], 1, callback));
 
           ROS_INFO_STREAM("[UVDARPoseCalculator]: Advertising measured poses " << i+1);
           pub_measured_poses_.push_back(nh.advertise<mrs_msgs::PoseWithCovarianceArrayStamped>("measuredPoses"+std::to_string(i+1), 1)); 
 
           if (_publish_constituents_)
             pub_constituent_poses_.push_back(nh.advertise<mrs_msgs::PoseWithCovarianceArrayStamped>("constituentPoses"+std::to_string(i+1), 1)); 
-
 
           camera_image_sizes_.push_back(cv::Size(-1,-1));
 
@@ -449,10 +434,12 @@ namespace uvdar {
         param_loader.loadParam("calib_files", _calib_files_, _calib_files_);
         if (_calib_files_.empty()) {
           ROS_ERROR("[UVDARPoseCalculator]: No camera calibration files were supplied. You can even use \"default\" for the cameras, but no calibration is not permissible. Returning.");
+          ros::shutdown();
           return;
         }
         if (!loadCalibrations()){
           ROS_ERROR("[UVDARPoseCalculator The camera calibration files could not be loaded!");
+          ros::shutdown();
           return;
         }
 
@@ -463,11 +450,13 @@ namespace uvdar {
 
           if (_mask_file_names_.size() != _camera_count_){
             ROS_ERROR_STREAM("[UVDARPoseCalculator Masks are enabled, but the number of mask filenames provided does not match the number of camera topics (" << _camera_count_ << ")!");
+            ros::shutdown();
             return;
           }
 
           if (!loadMasks()){
             ROS_ERROR("[UVDARPoseCalculator Masks are enabled, but the mask files could not be loaded!");
+            ros::shutdown();
             return;
           }
         }
@@ -487,38 +476,27 @@ namespace uvdar {
         if (_blinkers_seen_topics.size() != _estimated_framerate_topics.size()) {
           ROS_ERROR_STREAM("[UVDARPoseCalculator]: The size of blinkers_seen_topics (" << _blinkers_seen_topics.size() <<
               ") is different from estimated_framerate_topics (" << _estimated_framerate_topics.size() << ")");
+          ros::shutdown();
+          return;
         }
         for (size_t i = 0; i < _estimated_framerate_topics.size(); ++i) {
           estimated_framerate_callback_t callback = [image_index=i,this] (const std_msgs::Float32ConstPtr& framerateMessage) { 
             estimated_framerate_[image_index] = framerateMessage->data;
           };
-          cals_estimated_framerate_.push_back(callback);
 
           ROS_INFO_STREAM("[UVDARPoseCalculator]: Subscribing to " << _estimated_framerate_topics[i]);
           sub_estimated_framerate_.push_back(
-              nh.subscribe(_estimated_framerate_topics[i], 1, cals_estimated_framerate_[i]));
+              nh.subscribe(_estimated_framerate_topics[i], 1, callback));
         }
         //}
-
-        /* X2 = Eigen::VectorXd(9,9); */
-        /* X2q = Eigen::VectorXd(8,8); */
-        /* X2qb = Eigen::VectorXd(8,8); */
-        /* X3 = Eigen::VectorXd(10,10); */
-        /* X3qb = Eigen::VectorXd(9,9); */
-        /* X4qb = Eigen::VectorXd(12,12); */
-        /* Px2 = Eigen::MatrixXd(9,9); */
-        /* Px2q = Eigen::MatrixXd(8,8); */
-        /* Px2qb = Eigen::MatrixXd(8,8); */
-        /* Px3 = Eigen::MatrixXd(10,10); */
-        /* Px3qb = Eigen::MatrixXd(9,9); */
-        /* Px4qb = Eigen::MatrixXd(12,12); */
-
 
         /* Set transformation frames for cameras //{ */
         param_loader.loadParam("camera_frames", _camera_frames_, _camera_frames_);
         if (_camera_frames_.size() != _blinkers_seen_topics.size()) {
           ROS_ERROR_STREAM("The size of camera_frames (" << _camera_frames_.size() << 
               ") is different from blinkers_seen_topics size (" << _blinkers_seen_topics.size() << ")");
+          ros::shutdown();
+          return;
         }
         //}
 
@@ -529,24 +507,15 @@ namespace uvdar {
           timer_visualization_ = nh.createTimer(ros::Rate(1), &UVDARPoseCalculator::VisualizationThread, this, false);
         }
 
-        transformer_ = std::make_shared<mrs_lib::Transformer>("UVDARPoseCalculator");
-        transformer_->setDefaultPrefix(_uav_name_);
+        transformer_ = mrs_lib::Transformer("UVDARPoseCalculator");
+        transformer_.setDefaultPrefix(_uav_name_);
 
-        for ([[ maybe_unused ]] auto &b : _blinkers_seen_topics){
-          tf_fcu_to_cam.push_back(std::optional<geometry_msgs::TransformStamped>());
-          tf_gained.push_back(false);
-          camera_view_.push_back(e::Quaterniond());;
-          /* img_rotator.push_back(666); */
-        }
+        tf_fcu_to_cam.resize(_blinkers_seen_topics.size(), std::nullopt);
+        camera_view_.resize(_blinkers_seen_topics.size(), e::Quaterniond());
 
         initModelsAndAxisVectors();
 
         initialized_ = true;
-      }
-      //}
-
-      /* Destructor //{ */
-      ~UVDARPoseCalculator() {
       }
       //}
 
@@ -703,46 +672,27 @@ namespace uvdar {
           return;
         }
 
-        if (!tf_gained[image_index]){
+        if (!tf_fcu_to_cam[image_index]){
           ROS_INFO_THROTTLE(1.0,"[UVDARPoseCalculator]: Camera TF not yet obatined. Attempting to retrieve it...");
           {
             std::scoped_lock lock(transformer_mutex);
-            /* tf_fcu_to_cam[image_index] = transformer_->getTransform(_camera_frames_[image_index], _uav_name_+"/fcu", msg->stamp); */
-            tf_fcu_to_cam[image_index] = transformer_->getTransform(_uav_name_+"/fcu", _camera_frames_[image_index], msg->stamp);
+            tf_fcu_to_cam[image_index] = transformer_.getTransform(_uav_name_+"/fcu", _camera_frames_[image_index], msg->stamp);
           }
-          if (!tf_fcu_to_cam[image_index]) { 
+          if (!tf_fcu_to_cam[image_index]) {
             ROS_ERROR_STREAM_THROTTLE(1.0,"[UVDARPoseCalculator]: Could not obtain transform from " << _uav_name_+"/fcu" << " to " << _camera_frames_[image_index] << "!");
             return;
           }
           else {
-            /* geometry_msgs::Vector3Stamped vec_x; */
-            /* vec_x.header.stamp = msg->stamp; */
-            /* vec_x.header.frame_id = _camera_frames_[image_index]; */
-            /* vec_x.vector.x = 1.0; */
-            /* vec_x.vector.y = 0.0; */
-            /* vec_x.vector.z = 0.0; */
-            /* auto vec_x_fcu = transformer_.transform(tf_fcu_to_cam[image_index].value(), vec_x); */
-            /* if (!vec_x_fcu){ */
-            /*   ROS_INFO_STREAM("[UVDARPoseCalculator]: Failed to get transformation for measurement, returning."); */
-            /*   return; */
-            /* } */
-
-            bool prepared_rotation_axes = prepareModelsAndAxisVectors(image_index);
-
-            /* double a = vec_x_fcu.value().vector.z; */
-            /* double b = sqrt((vec_x_fcu.value().vector.x*vec_x_fcu.value().vector.x)+(vec_x_fcu.value().vector.y*vec_x_fcu.value().vector.y)); */
-            /* img_rotator[image_index] = atan2(-a,b); */
-            /* ROS_INFO_STREAM("[UVDARPoseCalculator]: Obtained image rotation angle w.f.t. fcu: " << rad2deg(img_rotator[image_index]) << " deg"); */
-
-
-            tf_gained[image_index] = true && prepared_rotation_axes;
+            const bool prepared_rotation_axes = prepareModelsAndAxisVectors(image_index);
+            if (!prepared_rotation_axes)
+              tf_fcu_to_cam[image_index] = std::nullopt;
           }
         }
 
         camera_image_sizes_[image_index].width = msg->image_width;
         camera_image_sizes_[image_index].height = msg->image_height;
 
-        for (auto& point : msg->points) {
+        for (const auto& point : msg->points) {
           if (_use_masks_){
             if (_masks_[image_index].at<unsigned char>(cv::Point2i(point.x, point.y)) < 100){
               if (_debug_){
@@ -1443,6 +1393,7 @@ namespace uvdar {
               ROS_INFO_STREAM("[UVDARPoseCalculator]: Transformation for camera " << image_index << " is missing, returning.");
               return false;
             }
+            const auto tf = tf_fcu_to_cam[image_index].value();
 
             axis_vectors_[image_index].clear();
 
@@ -1463,8 +1414,8 @@ namespace uvdar {
             axis_vectors_[image_index].push_back(e::Vector3d(sqrt(0.5), 0.0, sqrt(0.5)));
             axis_vectors_[image_index].push_back(e::Vector3d(-sqrt(0.5), 0.0, sqrt(0.5)));
 
-            ROS_INFO_STREAM("[UVDARPoseCalculator]: camera " << image_index << " optical rotation: " << std::endl <<  tf2::transformToEigen(tf_fcu_to_cam[image_index].value().transform).rotation());
-            camera_view_[image_index] = rot_optical_to_base*tf2::transformToEigen(tf_fcu_to_cam[image_index].value().transform).rotation();
+            ROS_INFO_STREAM("[UVDARPoseCalculator]: camera " << image_index << " optical rotation: " << std::endl <<  tf2::transformToEigen(tf.transform).rotation());
+            camera_view_[image_index] = rot_optical_to_base*tf2::transformToEigen(tf.transform).rotation();
 
             ROS_INFO_STREAM("[UVDARPoseCalculator]: Composed rotation matrix");
             ROS_INFO_STREAM("[UVDARPoseCalculator]: \n" << camera_view_[image_index].toRotationMatrix());
@@ -2697,7 +2648,6 @@ namespace uvdar {
 
 
       using blinkers_seen_callback_t = boost::function<void (const mrs_msgs::ImagePointsWithFloatStampedConstPtr& msg)>;
-      std::vector<blinkers_seen_callback_t> cals_blinkers_seen_;
       std::vector<ros::Subscriber> sub_blinkers_seen_;
       ros::Time last_blink_time_;
 
@@ -2771,11 +2721,9 @@ namespace uvdar {
 
 
       std::mutex transformer_mutex;
-      std::shared_ptr<mrs_lib::Transformer> transformer_;
+      mrs_lib::Transformer transformer_;
       std::vector<std::optional<geometry_msgs::TransformStamped>> tf_fcu_to_cam;
       std::vector<e::Quaterniond> camera_view_;
-      /* std::vector<double> img_rotator; */
-      std::vector<bool> tf_gained;
 
       e::Quaterniond rot_base_to_optical = e::Quaterniond(0.5,0.5,-0.5,0.5);
       e::Quaterniond rot_optical_to_base = e::Quaterniond(0.5,-0.5,0.5,-0.5);
@@ -2788,7 +2736,7 @@ int main(int argc, char** argv) {
   ros::init(argc, argv, "uvdar_pose_calculator");
 
   ros::NodeHandle nh("~");
-  uvdar::UVDARPoseCalculator        upc(nh);
+  uvdar::UVDARPoseCalculator upc(nh);
   ROS_INFO("[UVDARPoseCalculator]: UVDAR Pose calculator node initiated");
   ros::spin();
   return 0;
