@@ -55,7 +55,7 @@
 
 #define REJECT_UPSIDE_DOWN true
 
-#define EDGE_DETECTION_MARGIN 20
+#define EDGE_DETECTION_MARGIN 10
 
 
 namespace e = Eigen;
@@ -1606,6 +1606,7 @@ namespace uvdar {
                 for (int j = 1; j < (int)(orr_err.size())-1; j++){
                   /* double threshold = ((ERROR_THRESHOLD/position_curr.norm())*(int)(observed_points.size())); */
                   double threshold = ((ERROR_THRESHOLD)*(int)(observed_points.size()));
+                  /* double threshold = ((ERROR_THRESHOLD)*(double)(observed_points.size()))/sqr(position_curr.norm()); */
                   /* ROS_INFO_STREAM("[UVDARPoseCalculator]: orientation error: " << std::get<0>(orr_err.at(j)) << " vs. threshold of: " << threshold << "..."); */
                   if (std::get<0>(orr_err.at(j)) < threshold){
                     /* ROS_INFO_STREAM("[UVDARPoseCalculator]: Pass" ); */
@@ -1996,65 +1997,62 @@ namespace uvdar {
           }
         }
 
-        total_error += UNMATCHED_PROJECTED_POINT_PENALTY * std::max(0,(int)(selected_markers.size() - observed_points.size()));
-        total_error += UNMATCHED_OBSERVED_POINT_PENALTY * std::max(0,(int)(observed_points.size() - selected_markers.size()));
+        total_error += (UNMATCHED_PROJECTED_POINT_PENALTY) * std::max(0,(int)(selected_markers.size() - observed_points.size()));
+        total_error += (UNMATCHED_OBSERVED_POINT_PENALTY) * std::max(0,(int)(observed_points.size() - selected_markers.size()));
 
         return total_error;
       }
 
       e::MatrixXd getCovarianceEstimate(LEDModel model, std::vector<cv::Point3d> observed_points, std::pair<e::Vector3d, e::Quaterniond> pose, int target, int image_index){
+
+        LEDModel model_local = model.rotate(e::Vector3d::Zero(),pose.second).translate(pose.first);
+
         e::MatrixXd output;
 
         double trans_scale = 0.1;
         /* rot_scale = 0.05; */
         double rot_scale = 0.1;
-        auto Y0 = pose;
+        /* auto Y0 = pose; */
         /* e::MatrixXd Y(6,(3*3*3*3*3*3)); */
-        e::MatrixXd Y(6,(2*2*2*2*2*2));
-        /* std::vector<int> j = {-1,0,1}; */
-        std::vector<int> j = {-1,1}; // for 6D, we need 21 independent samples. Accounting for point symmetry, this is 42. 6D hypercube has 64 vertices, which is sufficient.
-        int k = 0;
+        e::MatrixXd Y(6,(2*2*2*2*2*2+1+2*6));
         std::vector<double> Xe;
+
+        Y(0,0) = 0;
+        Y(1,0) = 0;
+        Y(2,0) = 0;
+        Y(3,0) = 0;
+        Y(4,0) = 0;
+        Y(5,0) = 0;
+
+        Xe.push_back(totalError(model, observed_points, target, image_index));
+
+        std::vector<int> j = {-1,1}; // for 6D, we need 21 independent samples. Accounting for point symmetry, this is 42. 6D hypercube has 64 vertices, which is sufficient.
+        int k = 1;
+
+        auto Y_rpy = quaternionToRPY(pose.second);
+
         for (auto x_s : j){
           for (auto y_s : j){
             for (auto z_s : j){
               for (auto roll_s : j){
                 for (auto pitch_s : j){
                   for (auto yaw_s : j){
-                    /* if ( */
-                    /*     (x_s == 0) && */
-                    /*     (y_s == 0) && */
-                    /*     (z_s == 0) && */
-                    /*     (roll_s == 0) && */
-                    /*     (pitch_s == 0) && */
-                    /*     (yaw_s == 0) */
-                    /*     ){ */
-                    /*   Xe.push_back(std::numeric_limits<double>::max()); //to avoid singularities */
-                    /*   Y(0,k) = Y0.first.x(); */
-                    /*   Y(1,k) = Y0.first.y(); */
-                    /*   Y(2,k) = Y0.first.z(); */
-                    /*   auto Y_rpy = quaternionToRPY(Y0.second); */
-                    /*   Y(3,k) = Y_rpy(0); */
-                    /*   Y(4,k) = Y_rpy(1); */
-                    /*   Y(5,k) = Y_rpy(2); */
-                    /* } */
-                    /* else { */
-                      e::Quaterniond rotation(
-                          e::AngleAxisd(yaw_s*rot_scale, Y0.second*e::Vector3d(0,0,1)) *
-                          e::AngleAxisd(pitch_s*rot_scale, Y0.second*e::Vector3d(0,1,0)) *
-                          e::AngleAxisd(roll_s*rot_scale, Y0.second*e::Vector3d(1,0,0))
-                          );
-                      auto model_curr = model.rotate(Y0.first,  rotation);
-                      model_curr = model_curr.translate(e::Vector3d(x_s, y_s, z_s)*trans_scale);
+                    e::Quaterniond rotation(
+                        e::AngleAxisd(yaw_s*rot_scale,    e::Vector3d(0,0,1)) *
+                        e::AngleAxisd(pitch_s*rot_scale,  e::Vector3d(0,1,0)) *
+                        e::AngleAxisd(roll_s*rot_scale,   e::Vector3d(1,0,0))
+                        );
+                    auto model_curr = model_local.rotate(pose.first,  rotation);
+                    model_curr = model_curr.translate(e::Vector3d(x_s, y_s, z_s)*trans_scale);
 
-                      Xe.push_back(totalError(model_curr, observed_points, target, image_index));
-                      Y(0,k) = Y0.first.x()+x_s*trans_scale;
-                      Y(1,k) = Y0.first.y()+y_s*trans_scale;
-                      Y(2,k) = Y0.first.z()+z_s*trans_scale;
-                      auto Y_rpy = quaternionToRPY(Y0.second);
-                      Y(3,k) = Y_rpy(0) + roll_s*rot_scale;
-                      Y(4,k) = Y_rpy(1) + pitch_s*rot_scale;
-                      Y(5,k) = Y_rpy(2) + yaw_s*rot_scale;
+                    Xe.push_back(totalError(model_curr, observed_points, target, image_index));
+                    ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: terror: " << Xe.back() << " at: [ " << x_s<< ", " << y_s<< ", " << z_s << ", "<< roll_s<< ", " << pitch_s << ", " << yaw_s << " ]");
+                    Y(0,k) = pose.first.x()+x_s*trans_scale;
+                    Y(1,k) = pose.first.y()+y_s*trans_scale;
+                    Y(2,k) = pose.first.z()+z_s*trans_scale;
+                    Y(3,k) = Y_rpy(0)+roll_s*rot_scale;
+                    Y(4,k) = Y_rpy(1)+pitch_s*rot_scale;
+                    Y(5,k) = Y_rpy(2)+yaw_s*rot_scale;
                     /* } */
                     k++;
                   }
@@ -2063,6 +2061,35 @@ namespace uvdar {
             }
           }
         }
+
+        for (int i=0; i<6; i++){
+          std::vector<double> shifts(6,0.0);// X Y Z ROLL PITCH YAW
+          for (auto s : j){
+            shifts.at(i) = s;
+
+            e::Quaterniond rotation(
+                e::AngleAxisd(shifts.at(5)*rot_scale,    e::Vector3d(0,0,1)) *
+                e::AngleAxisd(shifts.at(4)*rot_scale,  e::Vector3d(0,1,0)) *
+                e::AngleAxisd(shifts.at(3)*rot_scale,   e::Vector3d(1,0,0))
+                );
+            auto model_curr = model_local.rotate(pose.first,  rotation);
+            model_curr = model_curr.translate(e::Vector3d(shifts.at(0), shifts.at(1), shifts.at(2))*trans_scale);
+
+            Xe.push_back(totalError(model_curr, observed_points, target, image_index));
+            ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: terror: " << Xe.back() << " at: [ " << shifts.at(0)<< ", " << shifts.at(1)<< ", " << shifts.at(2) << ", "<< shifts.at(3)<< ", " << shifts.at(4) << ", " << shifts.at(5) << " ]");
+            Y(0,k) = pose.first.x()+shifts.at(0)*trans_scale;
+            Y(1,k) = pose.first.y()+shifts.at(1)*trans_scale;
+            Y(2,k) = pose.first.z()+shifts.at(2)*trans_scale;
+            Y(3,k) = Y_rpy(0)+shifts.at(3)*rot_scale;
+            Y(4,k) = Y_rpy(1)+shifts.at(4)*rot_scale;
+            Y(5,k) = Y_rpy(2)+shifts.at(5)*rot_scale;
+
+            k++;
+
+          }
+        }
+
+
         e::VectorXd W(Xe.size());
         int i = 0;
         double Wsum = 0;
@@ -2078,11 +2105,11 @@ namespace uvdar {
         /* ROS_INFO_STREAM("[UVDARPoseCalculator]: W_orig: [\n" << W << "\n]"); */
         /* W /= (Wsum); */
         /* W *= sqr(QPIX)*observed_points.size(); */
-        W *= sqr(QPIX);
+        /* W *= sqr(0.8); */
         /* ROS_INFO_STREAM("[UVDARPoseCalculator]: W: [\n" << W << "\n]"); */
-        auto y = Y*W;
+        auto y = Y*(W/Wsum);
         /* ROS_INFO_STREAM("[UVDARPoseCalculator]: y: [\n" << y << "\n]"); */
-        auto Ye = Y-y.replicate(1,W.size());
+        auto Ye = (Y-y.replicate(1,W.size()));
         /* ROS_INFO_STREAM("[UVDARPoseCalculator]: Ye: [\n" << Ye << "\n]"); */
 
         /* i=0; */
@@ -2097,12 +2124,12 @@ namespace uvdar {
         /* e::JacobiSVD<e::MatrixXd> svd(P, e::ComputeThinU | e::ComputeThinV); */
         /* if (P.topLeftCorner(3,3).determinant() > 0.001){ */
 
-          /* ROS_INFO_STREAM("[UVDARPoseCalculator]: P: [\n" << P << "\n]"); */
-          /* ROS_INFO_STREAM("[UVDARPoseCalculator]: P determinant: [\n" << P.topLeftCorner(3,3).determinant() << "\n]"); */
-          /* ROS_INFO_STREAM("[UVDARPoseCalculator]: Singular values: [\n" << svd.singularValues() << "\n]"); */
-          /* ROS_INFO_STREAM("[UVDARPoseCalculator]: Matrix V: [\n" << svd.matrixV() << "\n]"); */
+        /* ROS_INFO_STREAM("[UVDARPoseCalculator]: P: [\n" << P << "\n]"); */
+        /* ROS_INFO_STREAM("[UVDARPoseCalculator]: P determinant: [\n" << P.topLeftCorner(3,3).determinant() << "\n]"); */
+        /* ROS_INFO_STREAM("[UVDARPoseCalculator]: Singular values: [\n" << svd.singularValues() << "\n]"); */
+        /* ROS_INFO_STREAM("[UVDARPoseCalculator]: Matrix V: [\n" << svd.matrixV() << "\n]"); */
         /* } */
-          
+
 
         /* output.setIdentity(6,6); */
         output = P;
