@@ -30,7 +30,7 @@
 
 #define MAX_DIST_INIT 100.0
 #define BRACKET_STEP 10
-#define QPIX 1 //pixel std. dev
+#define QPIX 2 //pixel std. dev
 #define TUBE_LENGTH (_beacon_?10:1000)
 
 
@@ -1166,19 +1166,24 @@ namespace uvdar {
 
             profiler.unindent();
 
+            bool found_equivalent = false;
             for (auto &prev_fitted : selected_poses){ 
-              if ((fitted_pose.first - prev_fitted.first).norm() < 0.01){
+              if ((fitted_pose.first - prev_fitted.first).norm() < 0.1){
 
                 auto q_diff = fitted_pose.second*prev_fitted.second.inverse();
                 double ang_diff = e::AngleAxisd(q_diff).angle();
-                if (ang_diff < 0.01){
+                if (ang_diff < 0.1){
                   if (_debug_){
                     ROS_INFO_STREAM("[UVDARPoseCalculator]: Discarding duplicate hypothesis");
                   }
-                  continue;// we don't need duplicate initial hypoteheses
+                  found_equivalent = true;// we don't need duplicate initial hypoteheses
+                  break;
 
                 }
               }
+            }
+            if (found_equivalent){
+              continue;
             }
 
 
@@ -1222,6 +1227,13 @@ namespace uvdar {
                 ROS_INFO_STREAM("added");
             }
           }
+          for (int i = 0; i<(int)(selected_poses.size()); i++){
+              if (projection_errors[i] > (smallest_error_in_set)*sqr(2.0)){ // if the frequencies are the same, they tend to merge. Otherwise, the result varies
+                selected_poses.erase(selected_poses.begin()+i); //remove the other
+                projection_errors.erase(projection_errors.begin()+i);
+                i--; 
+              }
+          }
 
           /* auto precise_fitting = std::chrono::high_resolution_clock::now(); */
           /* elapsedTime.push_back({currDepthIndent() + "Precise fitting",std::chrono::duration_cast<std::chrono::microseconds>(precise_fitting - viable_hypotheses).count()}); */
@@ -1239,7 +1251,7 @@ namespace uvdar {
             covariances.push_back(getCovarianceEstimate(model_, points, p, target,  image_index));
             profiler.unindent();
             /* if (_debug_){ */
-            /*   ROS_INFO_STREAM("[UVDARPoseCalculator]: Covariance: [\n" << covariances.back() << "\n]"); */
+              /* ROS_INFO_STREAM("[UVDARPoseCalculator]: Covariance: [\n" << covariances.back() << "\n]"); */
             /* } */
           }
 
@@ -1249,7 +1261,13 @@ namespace uvdar {
 
           if (_publish_constituents_){
             for (int i = 0; i<(int)(selected_poses.size()); i++){
+              if (_debug_){
+                ROS_INFO_STREAM("[UVDARPoseCalculator]: Covariance base: [\n" << covariances[i] << "\n]");
+              }
               auto constituent_pose_optical = opticalFromBase(selected_poses[i],covariances[i]);
+              if (_debug_){
+                ROS_INFO_STREAM("[UVDARPoseCalculator]: Covariance opt:: [\n" << constituent_pose_optical.second << "\n]");
+              }
               mrs_msgs::PoseWithCovarianceIdentified constituent;
 
               constituent.id = target;
@@ -1605,8 +1623,8 @@ namespace uvdar {
                 orr_err.insert(orr_err.begin(), orig_back);
                 for (int j = 1; j < (int)(orr_err.size())-1; j++){
                   /* double threshold = ((ERROR_THRESHOLD/position_curr.norm())*(int)(observed_points.size())); */
-                  double threshold = ((ERROR_THRESHOLD)*(int)(observed_points.size()));
-                  /* double threshold = ((ERROR_THRESHOLD)*(double)(observed_points.size()))/sqr(position_curr.norm()); */
+                  /* double threshold = ((ERROR_THRESHOLD)*(int)(observed_points.size())); */
+                  double threshold = ((ERROR_THRESHOLD)*(double)(observed_points.size()))/sqr(position_curr.norm());
                   /* ROS_INFO_STREAM("[UVDARPoseCalculator]: orientation error: " << std::get<0>(orr_err.at(j)) << " vs. threshold of: " << threshold << "..."); */
                   if (std::get<0>(orr_err.at(j)) < threshold){
                     /* ROS_INFO_STREAM("[UVDARPoseCalculator]: Pass" ); */
@@ -1684,8 +1702,8 @@ namespace uvdar {
             e::Quaterniond orientation_curr  = orientation_start;
             auto model_curr = model.rotate(e::Vector3d(0,0,0), orientation_curr).translate(position_curr);
 
-            const double pos_step_init = 0.01;
-            const double angle_step_init = 0.01;
+            const double pos_step_init = 0.5;
+            const double angle_step_init = 0.1;
 
             std::shared_ptr<std::vector<cv::Point3d>> projected_points = std::make_shared<std::vector<cv::Point3d>>();
             double error_total = totalError(model_curr, observed_points, target, image_index, projected_points, _debug_);
@@ -1706,12 +1724,12 @@ namespace uvdar {
 
             profiler.indent();
             double prev_error_total = error_total+(threshold);
-            while ((error_total > threshold) && ((prev_error_total - error_total) > (threshold*0.1)) && (iters < 50)){
+            while ((error_total > (threshold*0.1)) && ((prev_error_total - error_total) > (threshold*0.01)) && (iters < 50)){
               const auto loop_start = profiler.getTime();
               prev_error_total = error_total;
               int grad_iter = 0;
               for (int dim = 0; dim < 3; dim++){
-                double pos_step = pos_step_init;
+                double pos_step = 0.1;
                 bool extreme = false;
                 int it=0;
                 double a_error = 0.0, b_error = 0.0;
@@ -1747,7 +1765,7 @@ namespace uvdar {
 
               profiler.addValueSince("Position gradient (it:"+std::to_string(grad_iter)+",g="+std::to_string(gradient.head<3>().norm())+")",loop_start);
 
-              if ((gradient.tail<3>().norm()) > (0.1*angle_step_init)){//to check for extremes
+              if ((gradient.head<3>().norm()) > (0.1)){//to check for extremes
                 const double m_lin_gradient = (gradient.head<3>().norm());
                 const double t_parameter = -0.5*m_lin_gradient;
                 double dist = 0.0;
@@ -1764,7 +1782,7 @@ namespace uvdar {
                   j++;
                   model_shifted_curr = model_curr.translate(p_step_dir*alpha_lin_step);
                   error_shift_curr = totalError(model_shifted_curr, observed_points, target, image_index);
-                  if (error_shift_prev-error_shift_curr > alpha_lin_step*t_parameter){
+                  if ((error_shift_prev-error_shift_curr) > (alpha_lin_step*t_parameter)){
                     dist = dist + alpha_lin_step;
                     break;
                   }
@@ -1780,7 +1798,7 @@ namespace uvdar {
             const auto rot_steps = profiler.getTime();
             grad_iter = 0;
             for (int dim = 0; dim < 3; dim++){
-              double angle_step = angle_step_init;
+              double angle_step = 0.1;
               bool extreme = false;
               int it=0;
               double a_error = 0.0, b_error = 0.0;
@@ -1816,7 +1834,7 @@ namespace uvdar {
 
             profiler.addValueSince("Orientation gradient (it:"+std::to_string(grad_iter)+",g="+std::to_string(gradient.head<3>().norm())+")", rot_steps);
 
-            if ((gradient.head<3>().norm()) > (0.1*angle_step_init)){//to check for extremes
+            if ((gradient.tail<3>().norm()) > (0.1)){//to check for extremes
               const double rot_step_init = angle_step_init/2;
               double alpha_rot_step = rot_step_init;
               const e::Vector3d norm_gradient = gradient.tail<3>().normalized()*0.01;//small, to avoid cross-axis influence
@@ -2014,22 +2032,24 @@ namespace uvdar {
         double rot_scale = 0.1;
         /* auto Y0 = pose; */
         /* e::MatrixXd Y(6,(3*3*3*3*3*3)); */
-        e::MatrixXd Y(6,(2*2*2*2*2*2+1+2*6));
+        e::MatrixXd Y(6,(2*2*2*2*2*2+2*6));
         std::vector<double> Xe;
 
-        Y(0,0) = 0;
-        Y(1,0) = 0;
-        Y(2,0) = 0;
-        Y(3,0) = 0;
-        Y(4,0) = 0;
-        Y(5,0) = 0;
+        /* Y(0,0) = 0; */
+        /* Y(1,0) = 0; */
+        /* Y(2,0) = 0; */
+        /* Y(3,0) = 0; */
+        /* Y(4,0) = 0; */
+        /* Y(5,0) = 0; */
 
-        Xe.push_back(totalError(model, observed_points, target, image_index));
+        double error_init = totalError(model_local, observed_points, target, image_index, {}, false, false);
+        /* ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: terror: " << Xe.back() << " at: [  0, 0, 0, 0, 0, 0  ]"); */
 
         std::vector<int> j = {-1,1}; // for 6D, we need 21 independent samples. Accounting for point symmetry, this is 42. 6D hypercube has 64 vertices, which is sufficient.
-        int k = 1;
+        int k = 0;
 
         auto Y_rpy = quaternionToRPY(pose.second);
+        ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: RPY: [ R=" << Y_rpy(0)<< ", P=" << Y_rpy(1) << ", Y=" << Y_rpy(2) << " ]");
 
         for (auto x_s : j){
           for (auto y_s : j){
@@ -2038,6 +2058,9 @@ namespace uvdar {
                 for (auto pitch_s : j){
                   for (auto yaw_s : j){
                     e::Quaterniond rotation(
+                        /* e::AngleAxisd(yaw_s*rot_scale,    camera_view_[image_index]*e::Vector3d(0,0,1)) * */
+                        /* e::AngleAxisd(pitch_s*rot_scale,  camera_view_[image_index]*e::Vector3d(0,1,0)) * */
+                        /* e::AngleAxisd(roll_s*rot_scale,   camera_view_[image_index]*e::Vector3d(1,0,0)) */
                         e::AngleAxisd(yaw_s*rot_scale,    e::Vector3d(0,0,1)) *
                         e::AngleAxisd(pitch_s*rot_scale,  e::Vector3d(0,1,0)) *
                         e::AngleAxisd(roll_s*rot_scale,   e::Vector3d(1,0,0))
@@ -2045,14 +2068,16 @@ namespace uvdar {
                     auto model_curr = model_local.rotate(pose.first,  rotation);
                     model_curr = model_curr.translate(e::Vector3d(x_s, y_s, z_s)*trans_scale);
 
-                    Xe.push_back(totalError(model_curr, observed_points, target, image_index));
-                    ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: terror: " << Xe.back() << " at: [ " << x_s<< ", " << y_s<< ", " << z_s << ", "<< roll_s<< ", " << pitch_s << ", " << yaw_s << " ]");
-                    Y(0,k) = pose.first.x()+x_s*trans_scale;
-                    Y(1,k) = pose.first.y()+y_s*trans_scale;
-                    Y(2,k) = pose.first.z()+z_s*trans_scale;
-                    Y(3,k) = Y_rpy(0)+roll_s*rot_scale;
-                    Y(4,k) = Y_rpy(1)+pitch_s*rot_scale;
-                    Y(5,k) = Y_rpy(2)+yaw_s*rot_scale;
+                    Xe.push_back(abs(totalError(model_curr, observed_points, target, image_index, {}, false, false)-error_init));
+                    if (_debug_){
+                      ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: terror: " << Xe.back() << " at: [ " << x_s<< ", " << y_s<< ", " << z_s << ", "<< roll_s<< ", " << pitch_s << ", " << yaw_s << " ]");
+                    }
+                    Y(0,k) = x_s*trans_scale;
+                    Y(1,k) = y_s*trans_scale;
+                    Y(2,k) = z_s*trans_scale;
+                    Y(3,k) = roll_s*rot_scale;
+                    Y(4,k) = pitch_s*rot_scale;
+                    Y(5,k) = yaw_s*rot_scale;
                     /* } */
                     k++;
                   }
@@ -2068,6 +2093,9 @@ namespace uvdar {
             shifts.at(i) = s;
 
             e::Quaterniond rotation(
+                /* e::AngleAxisd(shifts.at(5)*rot_scale,    camera_view_[image_index]*e::Vector3d(0,0,1)) * */
+                /* e::AngleAxisd(shifts.at(4)*rot_scale,  camera_view_[image_index]*e::Vector3d(0,1,0)) * */
+                /* e::AngleAxisd(shifts.at(3)*rot_scale,   camera_view_[image_index]*e::Vector3d(1,0,0)) */
                 e::AngleAxisd(shifts.at(5)*rot_scale,    e::Vector3d(0,0,1)) *
                 e::AngleAxisd(shifts.at(4)*rot_scale,  e::Vector3d(0,1,0)) *
                 e::AngleAxisd(shifts.at(3)*rot_scale,   e::Vector3d(1,0,0))
@@ -2075,14 +2103,16 @@ namespace uvdar {
             auto model_curr = model_local.rotate(pose.first,  rotation);
             model_curr = model_curr.translate(e::Vector3d(shifts.at(0), shifts.at(1), shifts.at(2))*trans_scale);
 
-            Xe.push_back(totalError(model_curr, observed_points, target, image_index));
-            ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: terror: " << Xe.back() << " at: [ " << shifts.at(0)<< ", " << shifts.at(1)<< ", " << shifts.at(2) << ", "<< shifts.at(3)<< ", " << shifts.at(4) << ", " << shifts.at(5) << " ]");
-            Y(0,k) = pose.first.x()+shifts.at(0)*trans_scale;
-            Y(1,k) = pose.first.y()+shifts.at(1)*trans_scale;
-            Y(2,k) = pose.first.z()+shifts.at(2)*trans_scale;
-            Y(3,k) = Y_rpy(0)+shifts.at(3)*rot_scale;
-            Y(4,k) = Y_rpy(1)+shifts.at(4)*rot_scale;
-            Y(5,k) = Y_rpy(2)+shifts.at(5)*rot_scale;
+            Xe.push_back(abs(totalError(model_curr, observed_points, target, image_index, {}, false, false)-error_init));
+            if (_debug_){
+              ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: terror: " << Xe.back() << " at: [ " << shifts.at(0)<< ", " << shifts.at(1)<< ", " << shifts.at(2) << ", "<< shifts.at(3)<< ", " << shifts.at(4) << ", " << shifts.at(5) << " ]");
+            }
+            Y(0,k) = shifts.at(0)*trans_scale;
+            Y(1,k) = shifts.at(1)*trans_scale;
+            Y(2,k) = shifts.at(2)*trans_scale;
+            Y(3,k) = shifts.at(3)*rot_scale;
+            Y(4,k) = shifts.at(4)*rot_scale;
+            Y(5,k) = shifts.at(5)*rot_scale;
 
             k++;
 
@@ -2094,11 +2124,11 @@ namespace uvdar {
         int i = 0;
         double Wsum = 0;
         for (auto xe : Xe){
-          W(i) = (1.0/xe);
+          W(i) = (sqr(QPIX)/xe);
           Wsum += W(i);
-          if (W(i) > 0.1){
-            ROS_ERROR_STREAM("[UVDARPoseCalculator]: W("<<i<<") = " << W(i));
-          }
+          /* if (W(i) > 0.1){ */
+          /*   ROS_ERROR_STREAM("[UVDARPoseCalculator]: W("<<i<<") = " << W(i)); */
+          /* } */
           i++;
         }
         /* ROS_INFO_STREAM("[UVDARPoseCalculator]: Wsum: [\n" << Wsum << "\n]"); */
@@ -2108,6 +2138,7 @@ namespace uvdar {
         /* W *= sqr(0.8); */
         /* ROS_INFO_STREAM("[UVDARPoseCalculator]: W: [\n" << W << "\n]"); */
         auto y = Y*(W/Wsum);
+        /* auto y = Y*W; */
         /* ROS_INFO_STREAM("[UVDARPoseCalculator]: y: [\n" << y << "\n]"); */
         auto Ye = (Y-y.replicate(1,W.size()));
         /* ROS_INFO_STREAM("[UVDARPoseCalculator]: Ye: [\n" << Ye << "\n]"); */
@@ -2148,6 +2179,22 @@ namespace uvdar {
         std::pair<std::pair<e::Vector3d, e::Quaterniond>, e::MatrixXd> measurement_union = {means.at(0), covariances.at(0)};
 
         //pair-wise approach - if performance becomes a problem, we can consider batch solution for later
+        //
+        if (means.size() > 2){ // let's start with the two most mutually distant ones to avoid the drawbacks of serial pair-wise unionization
+          std::tuple<int, int, double> dist_pair =  {-1,-1, 0};
+          for (int i=0; i<(int)(means.size()); i++){
+            for (int j=0; j<i; j++){
+              double mutual_distance = (means[i].first - means[j].first).norm();
+              if (mutual_distance > std::get<2>(dist_pair) ){
+                std::get<0>(dist_pair) = i;
+                std::get<1>(dist_pair) = j;
+                std::get<2>(dist_pair) = mutual_distance;
+              }
+            }
+          }
+
+          measurement_union = twoMeasurementUnion({means[std::get<0>(dist_pair)],covariances[std::get<0>(dist_pair)]}, {means[std::get<1>(dist_pair)], covariances[std::get<1>(dist_pair)]});
+        }
         
         if (_debug_)
           ROS_INFO_STREAM("[UVDARPoseCalculator]: Meas count: "<< means.size());
