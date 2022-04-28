@@ -2049,7 +2049,9 @@ namespace uvdar {
         int k = 0;
 
         auto Y_rpy = quaternionToRPY(pose.second);
-        ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: RPY: [ R=" << Y_rpy(0)<< ", P=" << Y_rpy(1) << ", Y=" << Y_rpy(2) << " ]");
+        if (_debug_){
+          ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: RPY: [ R=" << Y_rpy(0)<< ", P=" << Y_rpy(1) << ", Y=" << Y_rpy(2) << " ]");
+        }
 
         for (auto x_s : j){
           for (auto y_s : j){
@@ -2193,6 +2195,7 @@ namespace uvdar {
             }
           }
 
+          if ((std::get<0>(dist_pair) >= 0) && (std::get<1>(dist_pair) >= 0))
           measurement_union = twoMeasurementUnion({means[std::get<0>(dist_pair)],covariances[std::get<0>(dist_pair)]}, {means[std::get<1>(dist_pair)], covariances[std::get<1>(dist_pair)]});
         }
         
