@@ -422,9 +422,10 @@ namespace uvdar {
           ROS_INFO_STREAM("[UVDARPoseCalculator]: Advertising measured poses " << i+1);
           pub_measured_poses_.push_back(nh.advertise<mrs_msgs::PoseWithCovarianceArrayStamped>("measuredPoses"+std::to_string(i+1), 1)); 
 
-          if (_publish_constituents_)
+          if (_publish_constituents_){
             pub_constituent_poses_.push_back(nh.advertise<mrs_msgs::PoseWithCovarianceArrayStamped>("constituentPoses"+std::to_string(i+1), 1)); 
             pub_constituent_hypo_poses_.push_back(nh.advertise<mrs_msgs::PoseWithCovarianceArrayStamped>("constituentHypoPoses"+std::to_string(i+1), 1)); 
+          }
 
           camera_image_sizes_.push_back(cv::Size(-1,-1));
 
@@ -773,9 +774,10 @@ namespace uvdar {
         }
         pub_measured_poses_[image_index].publish(msg_measurement_array);
         
-        if (_publish_constituents_)
+        if (_publish_constituents_){
           pub_constituent_poses_[image_index].publish(msg_constuents_array);
           pub_constituent_hypo_poses_[image_index].publish(msg_constuents_hypo_array);
+        }
       }
       //}
 
@@ -1248,7 +1250,7 @@ namespace uvdar {
           }
 
           
-          double threshold = 8*(int)(points.size());
+          double threshold = 10*(int)(points.size());
 
           for (int i = 0; i<(int)(selected_poses.size()); i++){
 
@@ -1815,7 +1817,7 @@ namespace uvdar {
                 const auto loop_start_gradient_descent = profiler.getTime();
 
                 int j=0;
-                double condition = std::numeric_limits<double>::max();
+                /* double condition = std::numeric_limits<double>::max(); */
 
                 bool shrinking;
                 model_shifted_curr = model_curr.translate(p_step_dir*alpha_lin_step);
@@ -1952,7 +1954,7 @@ namespace uvdar {
                 const double t_parameter = 0.5*m_rot_gradient;
                 double angle = 0.0;
                 int j=0;
-                double condition = std::numeric_limits<double>::max();
+                /* double condition = std::numeric_limits<double>::max(); */
 
                 bool shrinking;
                 model_rotated_curr = model_curr.rotate(position_curr, p_step_axis,alpha_rot_step);
@@ -1965,20 +1967,12 @@ namespace uvdar {
                 }
 
                 bool backtracking_failed = false;
-                /* ROS_INFO_STREAM("[UVDARPoseCalculator]:  Starting Armijo"); */
-                /* ROS_INFO_STREAM("[UVDARPoseCalculator]:  Initial error: " << error_total); */
-                /* ROS_INFO_STREAM("[UVDARPoseCalculator]:  Initial direction: " << p_step_dir.transpose()); */
-                /* ROS_INFO_STREAM("[UVDARPoseCalculator]:  Gradient: " << gradient.head<3>().transpose()); */
                 while (j < 10){
                   j++;
                   model_rotated_curr = model_curr.rotate(position_curr, p_step_axis,alpha_rot_step);
                   error_rot_curr = totalError(model_rotated_curr, observed_points, target, image_index);
                   
                   if (!shrinking){
-                    /* ROS_INFO_STREAM("[UVDARPoseCalculator]:  grow?"); */
-                    /* ROS_INFO_STREAM("[UVDARPoseCalculator]:  current erorr: " << error_rot_curr); */
-                    /* ROS_INFO_STREAM("[UVDARPoseCalculator]:  compare: " << (error_shift_prev-error_rot_curr) << " vs " << (alpha_rot_step*t_parameter)); */
-                    /* ROS_INFO_STREAM("[UVDARPoseCalculator]:  condition: " << ((error_shift_prev-error_rot_curr) - (alpha_rot_step*t_parameter))); */
                     if ((error_rot_prev-error_rot_curr) >= (alpha_rot_step*t_parameter)){
                       /* ROS_INFO_STREAM("[UVDARPoseCalculator]:  growing"); */
                       alpha_rot_step *= 2.0;
@@ -1990,10 +1984,6 @@ namespace uvdar {
                     }
                   }
                   else {
-                    /* ROS_INFO_STREAM("[UVDARPoseCalculator]:  shrink?"); */
-                    /* ROS_INFO_STREAM("[UVDARPoseCalculator]:  current erorr: " << error_rot_curr); */
-                    /* ROS_INFO_STREAM("[UVDARPoseCalculator]:  compare: " << (error_shift_prev-error_rot_curr) << " vs " << (alpha_rot_step*t_parameter)); */
-                    /* ROS_INFO_STREAM("[UVDARPoseCalculator]:  condition: " << ((error_shift_prev-error_rot_curr) - (alpha_rot_step*t_parameter))); */
                     if ((error_rot_prev-error_rot_curr) < (alpha_rot_step*t_parameter)){
                       /* ROS_INFO_STREAM("[UVDARPoseCalculator]:  shrinking"); */
                       alpha_rot_step *= 0.5;
@@ -2332,7 +2322,8 @@ namespace uvdar {
 
         std::vector<std::pair<std::pair<e::Vector3d, e::Quaterniond>, e::MatrixXd>> measurement_unions_prev;
         std::vector<std::pair<std::pair<e::Vector3d, e::Quaterniond>, e::MatrixXd>> measurement_unions_next;
-        for (int i = 0; i< (int)(means.size()/2); i++){
+
+        for (int i = 0; i< (int)(means.size()); i++){
           measurement_unions_prev.push_back({means[i], covariances[i]});
         }
 
@@ -2360,7 +2351,9 @@ namespace uvdar {
 
         while((int)(measurement_unions_prev.size()) > 1){
           for (int i = 0; i< (int)(measurement_unions_prev.size()/2); i++){
+          ROS_INFO_STREAM("[UVDARPoseCalculator]: a: "<< measurement_unions_prev.at(2*i).first.first.transpose() << ", b: " <<measurement_unions_prev.at((2*i)+1).first.first.transpose());
             measurement_unions_next.push_back(twoMeasurementUnion(measurement_unions_prev.at(2*i), measurement_unions_prev.at((2*i)+1)));
+          ROS_INFO_STREAM("[UVDARPoseCalculator]: u: "<< measurement_unions_next.back().first.first.transpose());
           }
           if ((measurement_unions_prev.size() % 2) != 0){
             measurement_unions_next.push_back(measurement_unions_prev.back());
@@ -2380,243 +2373,94 @@ namespace uvdar {
 
         //position
 
-        auto A = a.second.topLeftCorner(3,3);
-        auto B = b.second.topLeftCorner(3,3);
+        e::Matrix3d A = a.second.topLeftCorner(3,3);
+        e::Matrix3d B = b.second.topLeftCorner(3,3);
 
         e::Vector3d c = b.first.first - a.first.first;
-        if (c.norm() > 0.001){ //unless a and b are very close
-          auto c2 = c*c.transpose();
+          e::Matrix3d c2 = c*c.transpose();
 
-          double lin_gradient = 0;
-          double om = 0.5; //let's start from the middle
-          double lin_step_init = 0.1;
-          double lin_diff_step = lin_step_init;
-          double lin_step = lin_step_init;
+          /* double lin_gradient = 0; */
+          /* double lin_step_init = 0.1; */
+          /* double lin_diff_step = lin_step_init; */
+          /* double lin_step = lin_step_init; */
           /* double lin_step = gradient.topRightCorner(3,1).norm(); */
-          double value_shift_prev = std::max((A+om*c2).determinant(),(B+(1-om)*c2).determinant()); //om = 0
-          double value_shift_curr = value_shift_prev;
-          int it_m = 0;
-          do {
-            it_m++;
-            value_shift_prev = value_shift_curr;
-            lin_diff_step = lin_step_init;
-            int it=0;
-            while (it<1000){//approach minimum along gradient
-              it++;
-              double om_a = om+lin_diff_step;
-              double om_b = om-lin_diff_step;
-              auto U1a     = A + sqr(om_a)*c2;
-              auto U1b     = A + sqr(om_b)*c2;
-              auto U2a     = B + sqr(1.0-om_a)*c2;
-              auto U2b     = B + sqr(1.0-om_b)*c2;
-              double value_shift_a = std::max(U1a.determinant(),U2a.determinant());
-              double value_shift_b = std::max(U1b.determinant(),U2b.determinant());
-              if ( (lin_diff_step > 0.0001) && (sgn(value_shift_a - value_shift_curr) == sgn(value_shift_b - value_shift_curr))) {
-                lin_diff_step /= 2;
-                continue;
-              }
-              lin_gradient = ((value_shift_a-value_shift_b)/(2*lin_diff_step));
-              break;
-            }
-            lin_step = lin_step_init;
-            it=0;
-            while (it<1000){
-              it++;
-              double om_tent = om-(sgn(lin_gradient)*lin_step);
-              auto U1t     = A + sqr(om_tent)*c2;
-              auto U2t     = B + sqr(1.0-om_tent)*c2;
-              /* lin_step = lin_step_init; */
-              if (it == 1000){
-                ROS_ERROR_STREAM("[UVDARPoseCalculator]: Extreme iteration detected in position covariance union calculation (inner loop). Terminating loop.");
-                ROS_ERROR_STREAM("[UVDARPoseCalculator]: om: " << om);
-                ROS_ERROR_STREAM("[UVDARPoseCalculator]: lin_gradient: " << lin_gradient);
-                ROS_ERROR_STREAM("[UVDARPoseCalculator]: lin_step: " << lin_step);
-                ROS_ERROR_STREAM("[UVDARPoseCalculator]: om_tent: " << om_tent);
+          /* double value_shift_prev = std::max((A+om*c2).determinant(),(B+(1-om)*c2).determinant()); //om = 0 */
+          /* double value_shift_curr = value_shift_prev; */
+          /* int it_m = 0; */
 
-                ROS_ERROR_STREAM("[UVDARPoseCalculator]: U1t: " << std::endl << U1t);
-                ROS_ERROR_STREAM("[UVDARPoseCalculator]: U2t: " << std::endl << U2t);
 
-                ROS_ERROR_STREAM("[UVDARPoseCalculator]: A: " << std::endl << A);
-                ROS_ERROR_STREAM("[UVDARPoseCalculator]: a: " << std::endl << a.first.first.transpose());
-                ROS_ERROR_STREAM("[UVDARPoseCalculator]: B: " << std::endl << B);
-                ROS_ERROR_STREAM("[UVDARPoseCalculator]: b: " << std::endl << b.first.first.transpose());
-                ROS_ERROR_STREAM("[UVDARPoseCalculator]: c: " << std::endl << c.transpose());
 
-              }
-              value_shift_curr = std::max((U1t).determinant(),U2t.determinant());
-              if (value_shift_prev-value_shift_curr < 0.0){
-                lin_step /= 2;
-                continue;
-              }
-              /* ROS_INFO_STREAM("[UVDARPoseCalculator]: error_shifted: " << error_rot_prev); */
+
+          double om = 0;
+          double  value_prev = std::numeric_limits<double>::max();
+
+          int pos_steps = 10;
+          for (int p = 0; p<=pos_steps; p++){
+                double om_tent = (double)(p)/(double)(pos_steps);
+
+                auto Ut = getCandidateUnion(A,B,c2,om_tent);
+                
+
+                double value_curr =Ut.determinant();
+            if (value_curr < value_prev){
+              value_prev = value_curr;
               om = om_tent;
-              break;
             }
-
-            if (om < 0.0){
-              om = 0.0;
-              break;
-            }
-            if (om > 1.0){
-              om = 1.0;
-              break;
-            }
-
-          } while ((value_shift_prev-value_shift_curr > 0.001) && (it_m < 1000));
-
-          if (it_m == 1000){
-            ROS_ERROR_STREAM("[UVDARPoseCalculator]: Extreme iteration detected in position covariance union calculation (outer loop). Terminating loop.");
-            ROS_ERROR_STREAM("[UVDARPoseCalculator]: value_shift_prev: " << value_shift_prev);
-            ROS_ERROR_STREAM("[UVDARPoseCalculator]: value_shift_curr: " << value_shift_curr);
-
-            ROS_ERROR_STREAM("[UVDARPoseCalculator]: A: " << std::endl << A);
-            ROS_ERROR_STREAM("[UVDARPoseCalculator]: a: " << std::endl << a.first.first.transpose());
-            ROS_ERROR_STREAM("[UVDARPoseCalculator]: B: " << std::endl << B);
-            ROS_ERROR_STREAM("[UVDARPoseCalculator]: b: " << std::endl << b.first.first.transpose());
-            ROS_ERROR_STREAM("[UVDARPoseCalculator]: c: " << std::endl << c.transpose());
-
           }
 
-
-
-          e::Matrix3d U1f     = A + sqr(om)*c2;
-          e::Matrix3d U2f     = B + sqr(1.0-om)*c2;
-          double d1 = U1f.determinant();
-          double d2 = U2f.determinant();
-          /* if (d1>d2) { U.topLeftCorner(3,3) = U1f; } else { U.topLeftCorner(3,3) = U2f; } */
-          U.topLeftCorner(3,3) = ((d1>d2)?U1f:U2f);
+          U.topLeftCorner(3,3) = getCandidateUnion(A,B,c2,om);
           up = a.first.first + om*c;
-        }
-        else { //if a and b are close
-          double d1 = A.determinant();
-          double d2 = B.determinant();
-          U.topLeftCorner(3,3) = ((d1>d2)?A:B);
-          up = a.first.first;
-        }
 
         //orientation
         
         A = a.second.bottomRightCorner(3,3);
         B = b.second.bottomRightCorner(3,3);
 
-        auto c_q = b.first.second*a.first.second.inverse();
-        double c_ang = e::AngleAxisd(c_q).angle();
+        e::Quaterniond c_q = b.first.second*a.first.second.inverse();
+        /* double c_ang = e::AngleAxisd(c_q).angle(); */
+        e::Matrix3d c_M = c_q.toRotationMatrix();
+        e::Vector3d c_v = e::Vector3d( rotmatToRoll(c_M), rotmatToPitch(c_M), rotmatToYaw(c_M));
+        e::Matrix3d c2_o = c_v*c_v.transpose();
 
-        if (c_ang > 0.001){ //unless a and b are very close
-          auto c_M = c_q.toRotationMatrix();
-          e::Vector3d c_v = e::Vector3d( rotmatToRoll(c_M), rotmatToPitch(c_M), rotmatToYaw(c_M));
-          auto c2_o = c_v*c_v.transpose();
+        double om_o = 0;
+        value_prev = std::numeric_limits<double>::max();
 
-          double rot_gradient = 0;
-          double om = 0.5; //let's start from the middle
-          double rot_step_init = 0.1;
-          double rot_diff_step = rot_step_init;
-          double rot_step = rot_step_init;
-          /* double rot_step = gradient.topRightCorner(3,1).norm(); */
-          double value_rot_prev = std::max((A+om*c2_o).determinant(),(B+(1-om)*c2_o).determinant()); //om = 0
-          double value_rot_curr = value_rot_prev;
+        int rot_steps = 10;
+        for (int p = 0; p<=rot_steps; p++){
+          double om_tent = (double)(p)/(double)(rot_steps);
 
-          int it_m = 0;
-          do {
-            it_m++;
-            value_rot_prev = value_rot_curr;
-            rot_diff_step = rot_step_init;
-            int it=0;
-            while (it<1000){//approach minimum along gradient
-              it++;
-              double om_a = om+rot_diff_step;
-              double om_b = om-rot_diff_step;
-              auto U1a     = A + sqr(om_a)*c2_o;
-              auto U1b     = A + sqr(om_b)*c2_o;
-              auto U2a     = B + sqr(1.0-om_a)*c2_o;
-              auto U2b     = B + sqr(1.0-om_b)*c2_o;
-              double value_rot_a = std::max(U1a.determinant(),U2a.determinant());
-              double value_rot_b = std::max(U1b.determinant(),U2b.determinant());
-              if ( (rot_diff_step > 0.0001) && (sgn(value_rot_a - value_rot_curr) == sgn(value_rot_b - value_rot_curr))) {
-                rot_diff_step /= 2;
-                continue;
-              }
-              rot_gradient = ((value_rot_a-value_rot_b)/(2*rot_diff_step));
-              break;
-            }
-            rot_step = rot_step_init;
-            it=0;
-            while (it<1000){
-              it++;
-              double om_tent = om-(sgn(rot_gradient)*rot_step);
-              auto U1t     = A + sqr(om_tent)*c2_o;
-              auto U2t     = B + sqr(1.0-om_tent)*c2_o;
-              /* rot_step = rot_step_init; */
-              if (it == 1000){
-                ROS_ERROR_STREAM("[UVDARPoseCalculator]: Extreme iteration detected in orientation covariance union calculation (inner loop). Terminating loop.");
-                ROS_ERROR_STREAM("[UVDARPoseCalculator]: om: " << om);
-                ROS_ERROR_STREAM("[UVDARPoseCalculator]: lin_gradient: " << rot_gradient);
-                ROS_ERROR_STREAM("[UVDARPoseCalculator]: lin_step: " << rot_step);
-                ROS_ERROR_STREAM("[UVDARPoseCalculator]: om_tent: " << om_tent);
+          auto Ut = getCandidateUnion(A,B,c2_o,om_tent);
 
-                ROS_ERROR_STREAM("[UVDARPoseCalculator]: U1t: " << std::endl << U1t);
-                ROS_ERROR_STREAM("[UVDARPoseCalculator]: U2t: " << std::endl << U2t);
 
-                ROS_ERROR_STREAM("[UVDARPoseCalculator]: A: " << std::endl << A);
-                ROS_ERROR_STREAM("[UVDARPoseCalculator]: a: " << std::endl << a.first.second.x() << ":" << a.first.second.y() << ":" << a.first.second.z() << ":" << a.first.second.w());
-                ROS_ERROR_STREAM("[UVDARPoseCalculator]: B: " << std::endl << B);
-                ROS_ERROR_STREAM("[UVDARPoseCalculator]: b: " << std::endl << b.first.second.x() << ":" << b.first.second.y() << ":" << b.first.second.z() << ":" << b.first.second.w());
-                ROS_ERROR_STREAM("[UVDARPoseCalculator]: c_q: " << std::endl << c_q.x() << ":" << c_q.y() << ":" << c_q.z() << ":" << c_q.w());
-
-              }
-              value_rot_curr = std::max((U1t).determinant(),U2t.determinant());
-              if (value_rot_prev-value_rot_curr < 0.0){
-                rot_step /= 2;
-                continue;
-              }
-              /* ROS_INFO_STREAM("[UVDARPoseCalculator]: error_shifted: " << error_shift_curr); */
-              om = om_tent;
-              break;
-            }
-
-            if (om < 0.0){
-              om = 0.0;
-              break;
-            }
-            if (om > 1.0){
-              om = 1.0;
-              break;
-            }
-
-          } while ((value_rot_prev-value_rot_curr > 0.001) && (it_m < 1000));
-
-          if (it_m == 1000){
-            ROS_ERROR_STREAM("[UVDARPoseCalculator]: Extreme iteration detected in orientation covariance union calculation (outer loop). Terminating loop.");
-            ROS_ERROR_STREAM("[UVDARPoseCalculator]: value_rot_prev: " << value_rot_prev);
-            ROS_ERROR_STREAM("[UVDARPoseCalculator]: value_rot_curr: " << value_rot_curr);
-
-            ROS_ERROR_STREAM("[UVDARPoseCalculator]: A: " << std::endl << A);
-            ROS_ERROR_STREAM("[UVDARPoseCalculator]: a: " << std::endl << a.first.second.x() << ":" << a.first.second.y() << ":" << a.first.second.z() << ":" << a.first.second.w());
-            ROS_ERROR_STREAM("[UVDARPoseCalculator]: B: " << std::endl << B);
-            ROS_ERROR_STREAM("[UVDARPoseCalculator]: b: " << std::endl << b.first.second.x() << ":" << b.first.second.y() << ":" << b.first.second.z() << ":" << b.first.second.w());
-            ROS_ERROR_STREAM("[UVDARPoseCalculator]: c_q: " << std::endl << c_q.x() << ":" << c_q.y() << ":" << c_q.z() << ":" << c_q.w());
-
+          double value_curr =Ut.determinant();
+          if (value_curr < value_prev){
+            value_prev = value_curr;
+            om_o = om_tent;
           }
-
-
-
-          e::Matrix3d U1f = A + sqr(om)*c2_o;
-          e::Matrix3d U2f = B + sqr(1.0-om)*c2_o;
-          double d1 = U1f.determinant();
-          double d2 = U2f.determinant();
-          /* if (d1>d2) { U.topLeftCorner(3,3) = U1f; } else { U.topLeftCorner(3,3) = U2f; } */
-          U.bottomRightCorner(3,3) = ((d1>d2)?U1f:U2f);
-          e::AngleAxisd c_aa = e::AngleAxisd(c_q);
-          uo = (e::AngleAxisd(c_aa.angle()*om,c_aa.axis()))*(a.first.second);
         }
-        else { //if a and b are close
-          double d1 = A.determinant();
-          double d2 = B.determinant();
-          U.bottomRightCorner(3,3) = ((d1>d2)?A:B);
-          uo = a.first.second;
-        }
+
+        U.bottomRightCorner(3,3) = getCandidateUnion(A,B,c2_o,om_o);
+
+        e::AngleAxisd c_aa = e::AngleAxisd(c_q);
+        uo = (e::AngleAxisd(c_aa.angle()*om_o,c_aa.axis()))*(a.first.second);
 
         return {{up, uo}, U};
+      }
+
+      e::Matrix3d getCandidateUnion(const e::Matrix3d &A, const e::Matrix3d &B,const e::Matrix3d &c2, double om){
+        e::Matrix3d U1     = A + (sqr(om)*c2);
+        e::Matrix3d U2     = B + (sqr(1.0-om)*c2);
+
+        e::LLT<e::Matrix3d,e::Upper> Sl(U2);
+        e::Matrix3d S = Sl.matrixU();
+        e::Matrix3d US = S.inverse().transpose()*U1*S.inverse();
+
+        e::EigenSolver<e::Matrix3d> es(US);
+        e::Matrix3d D = es.eigenvalues().real().asDiagonal();
+        e::Matrix3d V = es.eigenvectors().real();
+        e::Matrix3d U = S.transpose()*V*(D.cwiseMax(e::Matrix3d::Identity()))*V.transpose()*S;
+
+        return U;
       }
 
       e::Vector3d directionFromCamPoint(cv::Point3d point, int image_index){

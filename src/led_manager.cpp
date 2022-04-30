@@ -27,7 +27,7 @@ namespace uvdar {
 
       ros::Publisher baca_protocol_publisher;
 
-      ros::Duration sleeper = ros::Duration(0.05);
+      ros::Duration sleeper = ros::Duration(0.25);
 
       ros::ServiceServer serv_set_active;
 
