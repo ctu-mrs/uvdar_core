@@ -1,0 +1,22 @@
+name: simulation
+root: ./
+startup_window: uv_observer
+pre_window: 
+windows:
+  - roscore:
+      layout: even-vertical
+      panes:
+        - roscore
+  - uv_observer:
+      layout: even-vertical
+      panes:
+        - waitForRos; roslaunch uvdar_core rw_two_sided.launch sequence_file:=$(rospack find uvdar_core)/config/blinking_sequences/TBS-L13-P0.400000-HD3-NO7-NZ7-Na22.txt use_masks:=false
+        # - 'history -s waitForRos; roslaunch uvdar_core rw_two_sided.launch sequence_file:=$(rospack find uvdar_core)/config/blinking_sequences/TBS-L8-P0.400000-HD1-NO7-NZ7-Na22.txt use_masks:=falsng uav12
+        # exit
+        # euse_masks:=false
+        # TBS-L13-P0.400000-HD3-NO7-NZ7-Na22.txt
+        # TBS-L8-P0.400000-HD1-NO7-NZ7-Na22.txt
+  # - rosbag:
+  #     layout: even-vertical
+  #     panes:
+  #       - waitForRos; rosrun uvdar_core rosbag_rescord.sh
