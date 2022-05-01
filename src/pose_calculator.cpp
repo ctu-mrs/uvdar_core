@@ -2351,9 +2351,9 @@ namespace uvdar {
 
         while((int)(measurement_unions_prev.size()) > 1){
           for (int i = 0; i< (int)(measurement_unions_prev.size()/2); i++){
-          ROS_INFO_STREAM("[UVDARPoseCalculator]: a: "<< measurement_unions_prev.at(2*i).first.first.transpose() << ", b: " <<measurement_unions_prev.at((2*i)+1).first.first.transpose());
+          /* ROS_INFO_STREAM("[UVDARPoseCalculator]: a: "<< measurement_unions_prev.at(2*i).first.first.transpose() << ", b: " <<measurement_unions_prev.at((2*i)+1).first.first.transpose()); */
             measurement_unions_next.push_back(twoMeasurementUnion(measurement_unions_prev.at(2*i), measurement_unions_prev.at((2*i)+1)));
-          ROS_INFO_STREAM("[UVDARPoseCalculator]: u: "<< measurement_unions_next.back().first.first.transpose());
+          /* ROS_INFO_STREAM("[UVDARPoseCalculator]: u: "<< measurement_unions_next.back().first.first.transpose()); */
           }
           if ((measurement_unions_prev.size() % 2) != 0){
             measurement_unions_next.push_back(measurement_unions_prev.back());
@@ -2377,7 +2377,7 @@ namespace uvdar {
         e::Matrix3d B = b.second.topLeftCorner(3,3);
 
         e::Vector3d c = b.first.first - a.first.first;
-          e::Matrix3d c2 = c*c.transpose();
+          /* e::Matrix3d c2 = c*c.transpose(); */
 
           /* double lin_gradient = 0; */
           /* double lin_step_init = 0.1; */
@@ -2398,17 +2398,19 @@ namespace uvdar {
           for (int p = 0; p<=pos_steps; p++){
                 double om_tent = (double)(p)/(double)(pos_steps);
 
-                auto Ut = getCandidateUnion(A,B,c2,om_tent);
+                auto Ut = getCandidateUnion(A,B,c,om_tent);
                 
 
                 double value_curr =Ut.determinant();
+                /* ROS_INFO_STREAM("[UVDARPoseCalculator]: om: "<< om_tent << ", val: " << value_curr); */
             if (value_curr < value_prev){
+                /* ROS_INFO_STREAM("[UVDARPoseCalculator]: acc"); */
               value_prev = value_curr;
               om = om_tent;
             }
           }
 
-          U.topLeftCorner(3,3) = getCandidateUnion(A,B,c2,om);
+          U.topLeftCorner(3,3) = getCandidateUnion(A,B,c,om);
           up = a.first.first + om*c;
 
         //orientation
@@ -2420,7 +2422,7 @@ namespace uvdar {
         /* double c_ang = e::AngleAxisd(c_q).angle(); */
         e::Matrix3d c_M = c_q.toRotationMatrix();
         e::Vector3d c_v = e::Vector3d( rotmatToRoll(c_M), rotmatToPitch(c_M), rotmatToYaw(c_M));
-        e::Matrix3d c2_o = c_v*c_v.transpose();
+        /* e::Matrix3d c2_o = c_v*c_v.transpose(); */
 
         double om_o = 0;
         value_prev = std::numeric_limits<double>::max();
@@ -2429,7 +2431,7 @@ namespace uvdar {
         for (int p = 0; p<=rot_steps; p++){
           double om_tent = (double)(p)/(double)(rot_steps);
 
-          auto Ut = getCandidateUnion(A,B,c2_o,om_tent);
+          auto Ut = getCandidateUnion(A,B,c_v,om_tent);
 
 
           double value_curr =Ut.determinant();
@@ -2439,17 +2441,35 @@ namespace uvdar {
           }
         }
 
-        U.bottomRightCorner(3,3) = getCandidateUnion(A,B,c2_o,om_o);
-
+        U.bottomRightCorner(3,3) = getCandidateUnion(A,B,c_v,om_o);
         e::AngleAxisd c_aa = e::AngleAxisd(c_q);
         uo = (e::AngleAxisd(c_aa.angle()*om_o,c_aa.axis()))*(a.first.second);
 
         return {{up, uo}, U};
       }
 
-      e::Matrix3d getCandidateUnion(const e::Matrix3d &A, const e::Matrix3d &B,const e::Matrix3d &c2, double om){
-        e::Matrix3d U1     = A + (sqr(om)*c2);
-        e::Matrix3d U2     = B + (sqr(1.0-om)*c2);
+      e::Matrix3d getCandidateUnion(const e::Matrix3d &A, const e::Matrix3d &B,const e::Vector3d &c, double om){
+
+        e::Matrix3d c2 = c*c.transpose();
+
+        //The beta term comes from S. Reece and S. Roberts: Generalized Covariance Union: A Unified Approach to Hypothesis Merging in Tracking
+        e::LLT<e::Matrix3d,e::Upper> Sla(A);
+        e::Matrix3d Sa = Sla.matrixU();
+        e::Vector3d m1 = om*c;
+        double d1 = (Sa.transpose().inverse()*m1).norm();
+        double dc1 = ((1+d1)*(1+d1))/(1+(d1*d1));
+        double beta1 = (d1>1?2:dc1);
+
+        e::LLT<e::Matrix3d,e::Upper> Slb(B);
+        e::Matrix3d Sb = Slb.matrixU();
+        e::Vector3d m2 = (1-om)*c;
+        double d2 = (Sb.transpose().inverse()*m2).norm();
+        double dc2 = ((1+d2)*(1+d2))/(1+(d2*d2));
+        double beta2 = (d2>1?2:dc2);
+
+        //The rest of the algorithm comes from O. Bochardt, R. Calhoun, J.K.Uhlmann and S.J.Julier: Generalized information representation and compression using covariance union
+        e::Matrix3d U1     = beta1 * (A + (sqr(om)*c2));
+        e::Matrix3d U2     = beta2 * (B + (sqr(1.0-om)*c2));
 
         e::LLT<e::Matrix3d,e::Upper> Sl(U2);
         e::Matrix3d S = Sl.matrixU();
@@ -2459,6 +2479,7 @@ namespace uvdar {
         e::Matrix3d D = es.eigenvalues().real().asDiagonal();
         e::Matrix3d V = es.eigenvectors().real();
         e::Matrix3d U = S.transpose()*V*(D.cwiseMax(e::Matrix3d::Identity()))*V.transpose()*S;
+
 
         return U;
       }
