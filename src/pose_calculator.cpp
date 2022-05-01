@@ -1250,7 +1250,7 @@ namespace uvdar {
           }
 
           
-          double threshold = 10*(int)(points.size());
+          double threshold = 2*(int)(points.size());
 
           for (int i = 0; i<(int)(selected_poses.size()); i++){
 
@@ -2320,6 +2320,7 @@ namespace uvdar {
           return std::pair<std::pair<e::Vector3d, e::Quaterniond>, e::MatrixXd>();
         }
 
+
         std::vector<std::pair<std::pair<e::Vector3d, e::Quaterniond>, e::MatrixXd>> measurement_unions_prev;
         std::vector<std::pair<std::pair<e::Vector3d, e::Quaterniond>, e::MatrixXd>> measurement_unions_next;
 
@@ -2365,6 +2366,13 @@ namespace uvdar {
         return measurement_unions_prev.at(0);
 
       }
+        /* std::pair<std::pair<e::Vector3d, e::Quaterniond>, e::MatrixXd> U = {{means.front().first, means.front().second},covariances.front()}; */
+        /* for (int i=1; i<(int)(means.size()); i++){ */
+          /* U = twoMeasurementUnion(U, {{means.at(i).first, means.at(i).second},covariances.at(i)}); */
+        /* } */
+
+        /* return U; */
+      /* } */
 
       std::pair<std::pair<e::Vector3d, e::Quaterniond>, e::MatrixXd> twoMeasurementUnion(std::pair<std::pair<e::Vector3d, e::Quaterniond>, e::MatrixXd> a, std::pair<std::pair<e::Vector3d, e::Quaterniond>, e::MatrixXd> b){
         e::MatrixXd U = e::MatrixXd::Identity(6,6);
@@ -2378,17 +2386,6 @@ namespace uvdar {
 
         e::Vector3d c = b.first.first - a.first.first;
           /* e::Matrix3d c2 = c*c.transpose(); */
-
-          /* double lin_gradient = 0; */
-          /* double lin_step_init = 0.1; */
-          /* double lin_diff_step = lin_step_init; */
-          /* double lin_step = lin_step_init; */
-          /* double lin_step = gradient.topRightCorner(3,1).norm(); */
-          /* double value_shift_prev = std::max((A+om*c2).determinant(),(B+(1-om)*c2).determinant()); //om = 0 */
-          /* double value_shift_curr = value_shift_prev; */
-          /* int it_m = 0; */
-
-
 
 
           double om = 0;
@@ -2431,7 +2428,7 @@ namespace uvdar {
         for (int p = 0; p<=rot_steps; p++){
           double om_tent = (double)(p)/(double)(rot_steps);
 
-          auto Ut = getCandidateUnion(A,B,c_v,om_tent);
+          auto Ut = getCandidateUnion(A,B,c_v,om_tent,false);
 
 
           double value_curr =Ut.determinant();
@@ -2441,31 +2438,34 @@ namespace uvdar {
           }
         }
 
-        U.bottomRightCorner(3,3) = getCandidateUnion(A,B,c_v,om_o);
+        U.bottomRightCorner(3,3) = getCandidateUnion(A,B,c_v,om_o,false);
         e::AngleAxisd c_aa = e::AngleAxisd(c_q);
         uo = (e::AngleAxisd(c_aa.angle()*om_o,c_aa.axis()))*(a.first.second);
 
         return {{up, uo}, U};
       }
 
-      e::Matrix3d getCandidateUnion(const e::Matrix3d &A, const e::Matrix3d &B,const e::Vector3d &c, double om){
+      e::Matrix3d getCandidateUnion(const e::Matrix3d &A, const e::Matrix3d &B,const e::Vector3d &c, double om, bool force_consistency=true){
 
         e::Matrix3d c2 = c*c.transpose();
 
-        //The beta term comes from S. Reece and S. Roberts: Generalized Covariance Union: A Unified Approach to Hypothesis Merging in Tracking
-        e::LLT<e::Matrix3d,e::Upper> Sla(A);
-        e::Matrix3d Sa = Sla.matrixU();
-        e::Vector3d m1 = om*c;
-        double d1 = (Sa.transpose().inverse()*m1).norm();
-        double dc1 = ((1+d1)*(1+d1))/(1+(d1*d1));
-        double beta1 = (d1>1?2:dc1);
+        double beta1 = 1.0, beta2 = 1.0;
+        if (force_consistency){
+          //The beta term comes from S. Reece and S. Roberts: Generalized Covariance Union: A Unified Approach to Hypothesis Merging in Tracking
+          e::LLT<e::Matrix3d,e::Upper> Sla(A);
+          e::Matrix3d Sa = Sla.matrixU();
+          e::Vector3d m1 = om*c;
+          double d1 = (Sa.transpose().inverse()*m1).norm();
+          double dc1 = ((1+d1)*(1+d1))/(1+(d1*d1));
+          beta1 = (d1>1?2:dc1);
 
-        e::LLT<e::Matrix3d,e::Upper> Slb(B);
-        e::Matrix3d Sb = Slb.matrixU();
-        e::Vector3d m2 = (1-om)*c;
-        double d2 = (Sb.transpose().inverse()*m2).norm();
-        double dc2 = ((1+d2)*(1+d2))/(1+(d2*d2));
-        double beta2 = (d2>1?2:dc2);
+          e::LLT<e::Matrix3d,e::Upper> Slb(B);
+          e::Matrix3d Sb = Slb.matrixU();
+          e::Vector3d m2 = (1-om)*c;
+          double d2 = (Sb.transpose().inverse()*m2).norm();
+          double dc2 = ((1+d2)*(1+d2))/(1+(d2*d2));
+          beta2 = (d2>1?2:dc2);
+        }
 
         //The rest of the algorithm comes from O. Bochardt, R. Calhoun, J.K.Uhlmann and S.J.Julier: Generalized information representation and compression using covariance union
         e::Matrix3d U1     = beta1 * (A + (sqr(om)*c2));
