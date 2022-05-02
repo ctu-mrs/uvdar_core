@@ -7,8 +7,11 @@
 #include <std_srvs/SetBool.h>
 #include <mrs_lib/param_loader.h>
 #include <uvdar_core/SetLedMessage.h>
-#include <uvdar_core/SetIntIndex.h>
+/* #include <uvdar_core/SetIntIndex.h> */
+#include <uvdar_core/SetInts.h>
 #include <fstream>
+
+#define UVDAR_CLASSIC false
 
 namespace uvdar {
   class SequenceSetter {
@@ -31,7 +34,8 @@ namespace uvdar {
       ros::ServiceServer serv_frequency;
       ros::ServiceServer serv_load_sequences;
       ros::ServiceServer serv_load_single_sequence;
-      ros::ServiceServer serv_select_sequence;
+      ros::ServiceServer serv_select_single_sequence;
+      ros::ServiceServer serv_select_sequences;
       ros::ServiceServer serv_quick_start;
 
       ros::ServiceServer serv_set_mode;
@@ -66,8 +70,8 @@ namespace uvdar {
         serv_frequency = nh.advertiseService("set_frequency", &SequenceSetter::callbackSetFrequency, this);
         serv_load_sequences = nh.advertiseService("load_sequences", &SequenceSetter::callbackLoadSequences, this);
         serv_load_single_sequence = nh.advertiseService("load_single_sequence", &SequenceSetter::callbackLoadSingleSequence, this);
-        serv_select_sequence = nh.advertiseService("select_sequence", &SequenceSetter::callbackSelectSequence, this);
-        serv_select_sequence = nh.advertiseService("select_sequence_single_led", &SequenceSetter::callbackSelectSequenceSingleLed, this);
+        serv_select_single_sequence = nh.advertiseService("select_single_sequence", &SequenceSetter::callbackSelectSingleSequence, this);
+        serv_select_sequences = nh.advertiseService("select_sequences", &SequenceSetter::callbackSelectSequences, this);
         serv_quick_start = nh.advertiseService("quick_start", &SequenceSetter::callbackQuickStart, this);
 
         serv_set_mode = nh.advertiseService("set_mode", &SequenceSetter::callbackSetMode, this);
@@ -157,7 +161,7 @@ namespace uvdar {
         return true;
       }
 
-      bool callbackLoadSequences(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res){
+      bool callbackLoadSequences([[ maybe_unused ]] std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res){
         if (!initialized){
           ROS_ERROR("[UVDARLedManager]: LED manager is NOT initialized!");
           res.success = false;
@@ -240,7 +244,7 @@ namespace uvdar {
         return true;
       }
 
-      bool callbackSelectSequence(uvdar_core::SetIntIndex::Request &req, uvdar_core::SetIntIndex::Response &res){
+      bool callbackSelectSingleSequence(mrs_msgs::SetInt::Request &req, mrs_msgs::SetInt::Response &res){
         if (!initialized){
           ROS_ERROR("[UVDARLedManager]: LED manager is NOT initialized!");
           res.success = false;
@@ -263,25 +267,52 @@ namespace uvdar {
           return true;
         }
 
-        mrs_msgs::BacaProtocol serial_msg;
-        serial_msg.stamp = ros::Time::now();
+        if (UVDAR_CLASSIC) {
+          mrs_msgs::BacaProtocol serial_msg;
+          serial_msg.stamp = ros::Time::now();
 
-        serial_msg.payload.push_back(0x98); //select sequence index
-        serial_msg.payload.push_back(index); //sequence #
-        baca_protocol_publisher.publish(serial_msg);
+          serial_msg.payload.push_back(0x98); //select sequence index
+          serial_msg.payload.push_back(index); //sequence #
+          baca_protocol_publisher.publish(serial_msg);
 
-        res.success = true;
-        res.message="Selecting sequence "+std::to_string((int)(index));
+          res.success = true;
+          res.message="Selecting sequence "+std::to_string((int)(index));
+          ROS_ERROR_STREAM("[UVDARLedManager]: " << res.message);
 
-        mrs_msgs::SetInt led_state;
-        led_state.request.value = index;
-        for (auto& client : clients_set_sq_gz)
-          client.call(led_state);
+          mrs_msgs::SetInt led_state;
+          led_state.request.value = index;
+          for (auto& client : clients_set_sq_gz)
+            client.call(led_state);
 
-        return true;
+          return true;
+        }
+        else {
+          mrs_msgs::BacaProtocol serial_msg;
+          serial_msg.stamp = ros::Time::now();
+
+          serial_msg.payload.push_back(0x98); //select sequence index
+          serial_msg.payload.push_back(index); //sequence #
+          serial_msg.payload.push_back(index); //sequence #
+          serial_msg.payload.push_back(index); //sequence #
+          serial_msg.payload.push_back(index); //sequence #
+          baca_protocol_publisher.publish(serial_msg);
+
+          res.success = true;
+          res.message="Selecting sequence "+std::to_string((int)(index));
+          ROS_ERROR_STREAM("[UVDARLedManager]: " << res.message);
+
+          mrs_msgs::SetInt led_state;
+          led_state.request.value = index;
+          for (auto& client : clients_set_sq_gz)
+            client.call(led_state);
+
+          return true;
+        }
+
+        return false;
       }
 
-      bool callbackSelectSequenceSingleLed(mrs_msgs::SetInt::Request &req, mrs_msgs::SetInt::Response &res){
+      bool callbackSelectSequences(uvdar_core::SetInts::Request &req, uvdar_core::SetInts::Response &res){
         if (!initialized){
           ROS_ERROR("[UVDARLedManager]: LED manager is NOT initialized!");
           res.success = false;
@@ -296,28 +327,54 @@ namespace uvdar {
           return true;
         }
 
-        unsigned char index = (unsigned char)(req.value);
-        if (index >= (int)(sequences_.size())){
-          ROS_ERROR_STREAM("[UVDARLedManager]: Failed to set sequence " << index << " - no such sequence!");
-          res.message = "Failed to select sequence " + std::to_string((int)(index)) +" - no such sequence!";
+        if (UVDAR_CLASSIC) {
+          ROS_ERROR_STREAM("[UVDARLedManager]: Failed to set sequencess because the attached UVDAR board does not support multiple sequence setting!");
+          res.message = "Failed to set sequencess because the attached UVDAR board does not support multiple sequence setting!";
           res.success = false;
           return true;
         }
 
+        std::vector<unsigned char> selected_sequences;
+
+        for (auto sq : req.value){
+          unsigned char index = (unsigned char)(sq);
+          if (index >= (int)(sequences_.size())){
+            ROS_ERROR_STREAM("[UVDARLedManager]: Failed to set sequencess due to " << std::to_string((int)(index)) << " - no such sequence!");
+            res.message = "Failed to select sequences due to " + std::to_string((int)(index)) +" - no such sequence!";
+            res.success = false;
+            return true;
+          }
+          else {
+            selected_sequences.push_back(sq);
+          }
+        }
+
+
         mrs_msgs::BacaProtocol serial_msg;
         serial_msg.stamp = ros::Time::now();
 
+        res.message="Selecting sequences to [ ";
+
         serial_msg.payload.push_back(0x98); //select sequence index
-        serial_msg.payload.push_back(index); //sequence #
+        for (auto sq : selected_sequences){
+          serial_msg.payload.push_back(sq); //sequence #
+          res.message += std::to_string((int)(sq))+" ";
+        }
+        res.message += "]";
+
+        ROS_ERROR_STREAM("[UVDARLedManager]: " << res.message);
+
         baca_protocol_publisher.publish(serial_msg);
 
         res.success = true;
-        res.message="Selecting sequence "+std::to_string((int)(index));
 
         mrs_msgs::SetInt led_state;
-        led_state.request.value = index;
-        for (auto& client : clients_set_sq_gz)
+        int i = 0;
+        for (auto& client : clients_set_sq_gz){
+          led_state.request.value = selected_sequences[i/2];
           client.call(led_state);
+          i++;
+        }
 
         return true;
       }
@@ -345,10 +402,10 @@ namespace uvdar {
         callbackSetFrequency(dummy_float_req,dummy_float_res);
         sleeper.sleep();
 
-        uvdar_core::SetIntIndex::Request ind_req;
-        uvdar_core::SetIntIndex::Response ind_res;
-        ind_req.value = req.value;
-        callbackSelectSequence(ind_req,ind_res);
+        /* uvdar_core::SetIntIndex::Request ind_req; */
+        /* uvdar_core::SetIntIndex::Response ind_res; */
+        /* ind_req.value = req.value; */
+        callbackSelectSingleSequence(req,res);
 
         return true;
       }

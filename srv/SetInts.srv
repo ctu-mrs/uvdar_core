@@ -1,5 +1,4 @@
-int64 index
-int64 value
+int64[] value
 ---
 bool success
 string message

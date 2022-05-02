@@ -1,2 +1,4 @@
 *.bmp
 scripts/.tmuxinator.yml
+
+*.swp

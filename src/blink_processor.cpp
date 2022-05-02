@@ -262,7 +262,7 @@ namespace uvdar {
   void InsertSunPoints(const mrs_msgs::ImagePointsWithFloatStampedConstPtr& msg, size_t image_index) {
     if (!initialized_) return;
 
-    int                      countSeen;
+    /* int                      countSeen; */
     std::vector<cv::Point2i> points;
 
     for (auto& point : msg->points) {

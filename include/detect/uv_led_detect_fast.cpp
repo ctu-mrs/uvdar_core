@@ -59,7 +59,7 @@ bool uvdar::UVDARLedDetectFAST::processImage(const cv::Mat i_image, std::vector<
 
   int x, y;
   /* begin = std::clock(); */
-  bool marker_potential;
+  bool marker_potential = false;
   /* bool          gotOne     = false; */
   bool sun_point_potential = false;
   /* std::vector<cv::Point> sun_points; */
