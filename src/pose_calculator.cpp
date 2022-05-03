@@ -48,7 +48,8 @@
 
 #define LED_GROUP_DISTANCE 0.03
 
-#define ERROR_THRESHOLD sqr(12)
+#define ERROR_THRESHOLD_INITIAL sqr(15)
+#define ERROR_THRESHOLD_FITTED sqr(5)
 
 #define SIMILAR_ERRORS_THRESHOLD sqr(1)
 
@@ -744,39 +745,42 @@ namespace uvdar {
             mrs_msgs::PoseWithCovarianceIdentified pose;
             std::vector<mrs_msgs::PoseWithCovarianceIdentified> constituents;
             std::vector<mrs_msgs::PoseWithCovarianceIdentified> constituents_hypo;
-            extractSingleRelative(separated_points_[image_index][i].second, separated_points_[image_index][i].first, image_index, pose, constituents, constituents_hypo);
-            msg_measurement_array.poses.push_back(pose);
+            bool res = extractSingleRelative(separated_points_[image_index][i].second, separated_points_[image_index][i].first, image_index, pose, constituents, constituents_hypo);
 
-            if (_publish_constituents_){
-              for (auto &constituent : constituents){
-                msg_constuents_array.poses.push_back(constituent);
+            if (res){
+              msg_measurement_array.poses.push_back(pose);
+
+              if (_publish_constituents_){
+                for (auto &constituent : constituents){
+                  msg_constuents_array.poses.push_back(constituent);
+                }
+                for (auto &constituent : constituents_hypo){
+                  msg_constuents_hypo_array.poses.push_back(constituent);
+                }
               }
-              for (auto &constituent : constituents_hypo){
-                msg_constuents_hypo_array.poses.push_back(constituent);
+
+
+              profiler.addValueSince("Target "+std::to_string(separated_points_[image_index][i].first),start_target_iteration);
+              if (_profiling_){
+                profiler.printAll("[UVDARPoseCalculator]: [cam:"+std::to_string(image_index)+"]-[tg:"+std::to_string(separated_points_[image_index][i].first)+"]:");
+                profiler.clear();
               }
             }
 
+            profiler.unindent();
+            profiler.addValueSince("All targets",start_target_cycle);
 
-            profiler.addValueSince("Target "+std::to_string(separated_points_[image_index][i].first),start_target_iteration);
             if (_profiling_){
-              profiler.printAll("[UVDARPoseCalculator]: [cam:"+std::to_string(image_index)+"]-[tg:"+std::to_string(separated_points_[image_index][i].first)+"]:");
+              profiler.printAll("[UVDARPoseCalculator]: [cam:"+std::to_string(image_index)+"]:");
               profiler.clear();
             }
           }
+          pub_measured_poses_[image_index].publish(msg_measurement_array);
 
-          profiler.unindent();
-            profiler.addValueSince("All targets",start_target_cycle);
-
-          if (_profiling_){
-            profiler.printAll("[UVDARPoseCalculator]: [cam:"+std::to_string(image_index)+"]:");
-            profiler.clear();
+          if (_publish_constituents_){
+            pub_constituent_poses_[image_index].publish(msg_constuents_array);
+            pub_constituent_hypo_poses_[image_index].publish(msg_constuents_hypo_array);
           }
-        }
-        pub_measured_poses_[image_index].publish(msg_measurement_array);
-        
-        if (_publish_constituents_){
-          pub_constituent_poses_[image_index].publish(msg_constuents_array);
-          pub_constituent_hypo_poses_[image_index].publish(msg_constuents_hypo_array);
         }
       }
       //}
@@ -1100,7 +1104,7 @@ namespace uvdar {
        * @param output_pose The output estimated pose with covariance, encapsulated in a ros message. Also includes the target index
        */
       /* extractSingleRelative //{ */
-      void extractSingleRelative(std::vector< cv::Point3d > points, int target, size_t image_index, mrs_msgs::PoseWithCovarianceIdentified& output_pose, std::vector<mrs_msgs::PoseWithCovarianceIdentified> &constituents, std::vector<mrs_msgs::PoseWithCovarianceIdentified> &constituents_hypo) {
+      bool extractSingleRelative(std::vector< cv::Point3d > points, int target, size_t image_index, mrs_msgs::PoseWithCovarianceIdentified& output_pose, std::vector<mrs_msgs::PoseWithCovarianceIdentified> &constituents, std::vector<mrs_msgs::PoseWithCovarianceIdentified> &constituents_hypo) {
 
         std::pair<e::Vector3d, e::Quaterniond> final_mean =
         {
@@ -1143,6 +1147,8 @@ namespace uvdar {
           profiler.addValueSince("Rough initialization", start);
 
           auto [hypotheses, errors] = getViableInitialHyptheses(model_, points, furthest_position, target, image_index);
+
+          int initial_hypothesis_count = (int)(hypotheses.size());
 
           /* auto fitted_position = iterFitPosition(model_, points, rough_initialization, target,  image_index); */
           /* if (_debug_){ */
@@ -1248,9 +1254,12 @@ namespace uvdar {
             }
             /* else if (projection_errors.back() > (error-(SIMILAR_ERRORS_THRESHOLD*(int)(points.size())))){ */
           }
+          int fitted_hypothesis_count = (int)(selected_poses.size());
 
+
+          auto projection_errors_backup = projection_errors;
           
-          double threshold = 2*(int)(points.size());
+          double threshold = ERROR_THRESHOLD_FITTED*(int)(points.size());
 
           for (int i = 0; i<(int)(selected_poses.size()); i++){
 
@@ -1269,7 +1278,16 @@ namespace uvdar {
 
           if ((int)(selected_poses.size()) == 0){
             ROS_ERROR_STREAM("[UVDARPoseCalculator]: No suitable hypothesis found!");
-            return;
+            ROS_ERROR_STREAM("[UVDARPoseCalculator]: Initial hypothesis count: "<< initial_hypothesis_count << ", fitted hypothesis count: " << fitted_hypothesis_count);
+            ROS_ERROR_STREAM("[UVDARPoseCalculator]: Points:");
+            for (auto pt : points){
+            ROS_ERROR_STREAM("[UVDARPoseCalculator]: " << pt);
+            }
+            ROS_ERROR_STREAM("[UVDARPoseCalculator]: Projection errors were: " );
+            for (auto pre : projection_errors_backup){
+            ROS_ERROR_STREAM("[UVDARPoseCalculator]: " << pre);
+            }
+            return false;
           }
 
 
@@ -1366,6 +1384,7 @@ namespace uvdar {
             ROS_INFO_STREAM("[UVDARPoseCalculator]: Py: \n" << fitted_pose_optical.second );
           }
 
+          return true;
       }
       //}
 
@@ -1393,7 +1412,7 @@ namespace uvdar {
             }
 
             /* ROS_INFO_STREAM("[UVDARPoseCalculator]: d_min: " << d_min << "; alpha_min: " << alpha_min << "; l_rough: " << l_max); */
-            return baseFromOptical(v_avg*l_max);
+            return baseFromOptical(v_avg*l_max)*1.25;
             /* } */
           }
 
@@ -1600,7 +1619,7 @@ namespace uvdar {
           /* } */
           //}
 
-          std::pair<std::vector<std::pair<e::Vector3d, e::Quaterniond>>,std::vector<double>> getViableInitialHyptheses(LEDModel model, std::vector<cv::Point3d> observed_points, e::Vector3d furthest_position, int target, int image_index, double init_dist_step_meters=1.0, int orientation_step_count=24){
+          std::pair<std::vector<std::pair<e::Vector3d, e::Quaterniond>>,std::vector<double>> getViableInitialHyptheses(LEDModel model, std::vector<cv::Point3d> observed_points, e::Vector3d furthest_position, int target, int image_index, double init_dist_step_meters=0.5, int orientation_step_count=24){
             e::Vector3d first_position = 1.0*furthest_position.normalized();
             if (_debug_)
               ROS_INFO_STREAM("[UVDARPoseCalculator]: Range: " << (furthest_position-first_position).norm());
@@ -1652,8 +1671,8 @@ namespace uvdar {
                 orr_err.push_back(orr_err.front());
                 orr_err.insert(orr_err.begin(), orig_back);
                 for (int j = 1; j < (int)(orr_err.size())-1; j++){
-                  double threshold = ((ERROR_THRESHOLD/position_curr.norm())*(int)(observed_points.size()));
-                  /* double threshold = ((ERROR_THRESHOLD)*(int)(observed_points.size())); */
+                  /* double threshold = ((ERROR_THRESHOLD/position_curr.norm())*(int)(observed_points.size())); */
+                  double threshold = ((ERROR_THRESHOLD_INITIAL)*(int)(observed_points.size()));
                   /* double threshold = ((ERROR_THRESHOLD)*(double)(observed_points.size()))/sqr(position_curr.norm()); */
                   /* ROS_INFO_STREAM("[UVDARPoseCalculator]: orientation error: " << std::get<0>(orr_err.at(j)) << " vs. threshold of: " << threshold << "..."); */
                   if (std::get<0>(orr_err.at(j)) < threshold){

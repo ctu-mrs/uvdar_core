@@ -306,9 +306,6 @@
       <param name="publish_visualization"             type="bool" value="false"/>
       <param name="publish_constituents"             type="bool" value="true"/>
       <!-- <param name="publish_visualization"             type="bool" value="false"/> -->
-      <!-- <param name="frequencies_per_target" type="int" value="1"/> -->
-      <param name="signals_per_target" type="int" value="1"/>
-      <!-- <rosparam param="frequencies" subst_value="true"> [$(arg frequency1), $(arg frequency2), $(arg frequency3)] </rosparam> -->
       <rosparam param="signal_ids" subst_value="true"> [$(arg id1), $(arg id2), $(arg id3), $(arg id4), $(arg id5), $(arg id6), $(arg id7), $(arg id8), $(arg id9), $(arg id10), $(arg id11), $(arg id12), $(arg id13), $(arg id14), $(arg id15), $(arg id16), $(arg id17), $(arg id18), $(arg id19), $(arg id20), $(arg id21)] </rosparam>
 
       <param name="quadrotor" type="bool" value="true"/>
