@@ -49,7 +49,7 @@
 #define LED_GROUP_DISTANCE 0.03
 
 #define ERROR_THRESHOLD_INITIAL sqr(10)
-#define ERROR_THRESHOLD_FITTED sqr(5)
+#define ERROR_THRESHOLD_FITTED sqr(QPIX)
 
 #define SIMILAR_ERRORS_THRESHOLD sqr(1)
 
@@ -1305,7 +1305,7 @@ namespace uvdar {
 
             e::MatrixXd covariance(6,6);
             covariance.setIdentity();
-            double pos_cov = 0.05;
+            double pos_cov = 0.002;
             double rot_cov = 0.05;
             covariance(0,0) = pos_cov;
             covariance(1,1) = pos_cov;
@@ -1651,7 +1651,7 @@ namespace uvdar {
           /* } */
           //}
 
-          std::pair<std::vector<std::pair<e::Vector3d, e::Quaterniond>>,std::vector<double>> getViableInitialHyptheses(LEDModel model, std::vector<cv::Point3d> observed_points, e::Vector3d furthest_position, int target, int image_index, double dist_step_ratio=0.2, int orientation_step_count=12){
+          std::pair<std::vector<std::pair<e::Vector3d, e::Quaterniond>>,std::vector<double>> getViableInitialHyptheses(LEDModel model, std::vector<cv::Point3d> observed_points, e::Vector3d furthest_position, int target, int image_index, double dist_step_ratio=0.1, int orientation_step_count=12){
             e::Vector3d first_position = 1.0*furthest_position.normalized();
             if (_debug_)
               ROS_INFO_STREAM("[UVDARPoseCalculator]: Range: " << (furthest_position-first_position).norm());
@@ -1810,7 +1810,7 @@ namespace uvdar {
 
             profiler.indent();
             double prev_error_total = error_total+(threshold);
-            while ((error_total > (threshold*0.1)) && ((prev_error_total - error_total) > (threshold*0.01)) && (iters < 50)){
+            while ((error_total > (threshold*0.1)) && ((prev_error_total - error_total) > (prev_error_total*0.1)) && (iters < 50)){
               const auto loop_start = profiler.getTime();
               prev_error_total = error_total;
               int grad_iter = 0;
@@ -1948,9 +1948,10 @@ namespace uvdar {
 
             iters = 0;
 
-            while ((error_total > (threshold*0.1)) && ((prev_error_total - error_total) > (threshold*0.01)) && (iters < 50)){
+            while ((error_total > (threshold*0.1)) && ((prev_error_total - error_total) > (prev_error_total*0.1)) && (iters < 50)){
               const auto loop_start = profiler.getTime();
               const auto rot_steps = profiler.getTime();
+              prev_error_total = error_total;
               int grad_iter = 0;
               for (int dim = 0; dim < 3; dim++){
                 double angle_step = 0.1;
