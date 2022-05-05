@@ -179,7 +179,8 @@ bool uvdar::UVDARLedDetectFAST::processImage(const cv::Mat i_image, std::vector<
               bool found = false;
               for (auto &pt : sun_points_tent){
                 if (cv::norm(cv::Point(i, j) - (pt.first/pt.second)) < 20){
-                  pt = {pt.first+cv::Point(i, j),pt.second+1};
+                  pt.first = pt.first+cv::Point(i, j);
+                  pt.second = pt.second+1;
                   sun_points[it] = ((pt.first/pt.second));
                   found = true;
                   break;

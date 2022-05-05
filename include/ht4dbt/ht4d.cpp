@@ -141,6 +141,7 @@ HT4DBlinkerTracker::HT4DBlinkerTracker(
   return;
 }
 
+
 template < typename T >
 void HT4DBlinkerTracker::resetToZero(T *__restrict__ input, int steps) {
   for (int i = 0; i < steps; i++) {
@@ -172,13 +173,13 @@ void HT4DBlinkerTracker::updateResolution(cv::Size i_size){
   im_area_           = im_res_.width * im_res_.height;
   im_rect_           = cv::Rect(cv::Point(0, 0), im_res_);
 
-  delete hough_space_;
+  delete[] hough_space_;
   hough_space_ = new unsigned int[im_area_ * pitch_steps_ * yaw_steps_];
   resetToZero(hough_space_, im_area_ * pitch_steps_ * yaw_steps_);
-  delete hough_space_maxima_;
+  delete[] hough_space_maxima_;
   hough_space_maxima_ = new unsigned int[im_area_];
   index_matrix_           = cv::Mat(im_res_, CV_8UC1, cv::Scalar(0));
-  delete touched_matrix_;
+  delete[] touched_matrix_;
   touched_matrix_ = new unsigned char[im_area_];
   resetToZero(touched_matrix_, im_area_);
   accumulator_.clear();
@@ -186,6 +187,9 @@ void HT4DBlinkerTracker::updateResolution(cv::Size i_size){
 }
 
 HT4DBlinkerTracker::~HT4DBlinkerTracker() {
+  delete[] hough_space_;
+  delete[] hough_space_maxima_;
+  delete[] touched_matrix_;
   return;
 }
 
