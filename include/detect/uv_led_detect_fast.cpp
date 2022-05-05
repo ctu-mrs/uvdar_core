@@ -180,7 +180,7 @@ bool uvdar::UVDARLedDetectFAST::processImage(const cv::Mat i_image, std::vector<
               for (auto &pt : sun_points_tent){
                 if (cv::norm(cv::Point(i, j) - (pt.first/pt.second)) < 20){
                   pt = {pt.first+cv::Point(i, j),pt.second+1};
-                  sun_points[i] = ((pt.first/pt.second));
+                  sun_points[it] = ((pt.first/pt.second));
                   found = true;
                   break;
                 }
@@ -202,8 +202,8 @@ bool uvdar::UVDARLedDetectFAST::processImage(const cv::Mat i_image, std::vector<
   } }
 
   for (int i = 0; i < (int)(detected_points.size()); i++) { //iterate over the detected marker points
-    for (int j = 0; j < (int)(sun_points_tent.size()); j++) { //iterate over the detected sun points
-      if (cv::norm(detected_points[i] - (sun_points_tent[j].first/sun_points_tent[j].second)) < 25) { //if the current detected marker point is close to the sun, it might be merely glare, so we discard it rather than to have numerous false detections here
+    for (int j = 0; j < (int)(sun_points.size()); j++) { //iterate over the detected sun points
+      if (cv::norm(detected_points[i] - (sun_points[j])) < 25) { //if the current detected marker point is close to the sun, it might be merely glare, so we discard it rather than to have numerous false detections here
         detected_points.erase(detected_points.begin() + i);
         i--;
         break;

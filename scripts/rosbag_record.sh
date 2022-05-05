@@ -1,6 +1,6 @@
 #!/bin/bash
 
-path="/home/\$(optenv USER mrs)/bag_files/"
+path="/home/\$(optenv USER mrs)/bag_files/difec/"
 
 # By default, we record everything.
 # Except for this list of EXCLUDED topics:
