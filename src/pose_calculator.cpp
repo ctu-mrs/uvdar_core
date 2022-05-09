@@ -60,6 +60,7 @@
 
 #define EDGE_DETECTION_MARGIN 10
 
+#define SINGLE_HYPOTHESIS_COVARIANCE sqr(0.1)
 
 namespace e = Eigen;
 
@@ -1329,13 +1330,13 @@ namespace uvdar {
 
           if (_publish_constituents_){
             for (int i = 0; i<(int)(selected_poses.size()); i++){
-              if (_debug_){
-                ROS_INFO_STREAM("[UVDARPoseCalculator]: Covariance base: [\n" << covariances[i] << "\n]");
-              }
+              /* if (_debug_){ */
+              /*   ROS_INFO_STREAM("[UVDARPoseCalculator]: Covariance base: [\n" << covariances[i] << "\n]"); */
+              /* } */
               auto constituent_pose_optical = opticalFromBase(selected_poses[i],covariances[i]);
-              if (_debug_){
-                ROS_INFO_STREAM("[UVDARPoseCalculator]: Covariance opt:: [\n" << constituent_pose_optical.second << "\n]");
-              }
+              /* if (_debug_){ */
+              /*   ROS_INFO_STREAM("[UVDARPoseCalculator]: Covariance opt:: [\n" << constituent_pose_optical.second << "\n]"); */
+              /* } */
               mrs_msgs::PoseWithCovarianceIdentified constituent;
 
               constituent.id = target;
@@ -1365,7 +1366,9 @@ namespace uvdar {
             /* if (((selected_poses.front().first - selected_poses.back().first).norm() < MAX_HYPOTHESIS_SPREAD) || (selected_poses.size() < 100)) */
             { if (_debug_)
               ROS_INFO_STREAM("[UVDARPoseCalculator]: " << selected_poses.size() << " equivalent hypotheses found! I will attempt to smear them together into a unified measurement.");
-              std::tie(final_mean, final_covariance) = getMeasurementUnion(selected_poses, covariances);
+              /* std::tie(final_mean, final_covariance) = getMeasurementUnion(selected_poses, covariances); */
+              std::tie(final_mean, final_covariance) = getMeasurementUnionSimple(selected_poses);
+              final_covariance += e::Matrix6d::Identity()*SINGLE_HYPOTHESIS_COVARIANCE;
             }
             /* else{ */
             /*   auto v_w_s = baseFromOptical(directionFromCamPoint(points.at(0), image_index)); */
@@ -2418,14 +2421,20 @@ namespace uvdar {
 
         /* return measurement_union; */
 
-        if (_debug_)
-          ROS_INFO_STREAM("[UVDARPoseCalculator]: Meas count: "<< means.size());
+        /* if (_debug_) */
+        ROS_INFO_STREAM("[UVDARPoseCalculator]: Meas count: "<< means.size());
 
         while((int)(measurement_unions_prev.size()) > 1){
           for (int i = 0; i< (int)(measurement_unions_prev.size()/2); i++){
+
           /* ROS_INFO_STREAM("[UVDARPoseCalculator]: a: "<< measurement_unions_prev.at(2*i).first.first.transpose() << ", b: " <<measurement_unions_prev.at((2*i)+1).first.first.transpose()); */
+          ROS_INFO_STREAM("[UVDARPoseCalculator]: a: "<< quaternionToRPY(measurement_unions_prev.at(2*i).first.second).transpose() << ", b: " << quaternionToRPY(measurement_unions_prev.at((2*i)+1).first.second).transpose());
+          ROS_INFO_STREAM("[UVDARPoseCalculator]: Ca: "<< measurement_unions_prev.at(2*i).second.bottomRightCorner(3,3).eigenvalues().transpose() << ", Cb: " << measurement_unions_prev.at((2*i)+1).second.bottomRightCorner(3,3).eigenvalues().transpose());
             measurement_unions_next.push_back(twoMeasurementUnion(measurement_unions_prev.at(2*i), measurement_unions_prev.at((2*i)+1)));
           /* ROS_INFO_STREAM("[UVDARPoseCalculator]: u: "<< measurement_unions_next.back().first.first.transpose()); */
+          ROS_INFO_STREAM("[UVDARPoseCalculator]: u: "<< quaternionToRPY(measurement_unions_next.back().first.second).transpose());
+          ROS_INFO_STREAM("[UVDARPoseCalculator]: Cu: "<< measurement_unions_next.back().second.bottomRightCorner(3,3).eigenvalues().transpose());
+
           }
           if ((measurement_unions_prev.size() % 2) != 0){
             measurement_unions_next.push_back(measurement_unions_prev.back());
@@ -2437,13 +2446,73 @@ namespace uvdar {
         return measurement_unions_prev.at(0);
 
       }
-        /* std::pair<std::pair<e::Vector3d, e::Quaterniond>, e::MatrixXd> U = {{means.front().first, means.front().second},covariances.front()}; */
-        /* for (int i=1; i<(int)(means.size()); i++){ */
-          /* U = twoMeasurementUnion(U, {{means.at(i).first, means.at(i).second},covariances.at(i)}); */
+
+      //contains code from https://gist.github.com/PeteBlackerThe3rd/f73e9d569e29f23e8bd828d7886636a0
+      std::pair<std::pair<e::Vector3d, e::Quaterniond>, e::MatrixXd> getMeasurementUnionSimple(std::vector<std::pair<e::Vector3d, e::Quaterniond>> meas){
+        if (meas.size() < 1){
+          ROS_ERROR_STREAM("[UVDARPoseCalculator]: No hypotheses provided. Returning!");
+          return std::pair<std::pair<e::Vector3d, e::Quaterniond>, e::MatrixXd>();
+        }
+        e::Vector3d mean_pos(0,0,0);
+
+          // first build a 4x4 matrix which is the elementwise sum of the product of each quaternion with itself
+        Eigen::Matrix4d A = Eigen::Matrix4d::Zero();
+
+        for (auto &m : meas){
+          mean_pos += m.first;
+          A += m.second.coeffs()*m.second.coeffs().transpose();
+        }
+        mean_pos /= (double)(meas.size());
+        A /= (double)(meas.size());
+
+        // Compute the SVD of this 4x4 matrix
+        Eigen::JacobiSVD<Eigen::MatrixXd> svd(A, Eigen::ComputeThinU | Eigen::ComputeThinV);
+
+        Eigen::VectorXd singularValues = svd.singularValues();
+        Eigen::MatrixXd U = svd.matrixU();
+
+        // find the eigen vector corresponding to the largest eigen value
+        int largestEigenValueIndex = 0;
+        double largestEigenValue = singularValues(0);
+
+        for (int i=1; i<singularValues.rows(); ++i) {
+          if (singularValues(i) > largestEigenValue) {
+            largestEigenValue = singularValues(i);
+            largestEigenValueIndex = i;
+          }
+        }
+
+        /* if (largestEigenValueIndex == -1){ */
+        /*   ROS_ERROR("[UVDARPoseCalculator]: Failed to obtain orientation mean. Returning!"); */
+        /*   return std::pair<std::pair<e::Vector3d, e::Quaterniond>, e::MatrixXd>(); */
         /* } */
 
-        /* return U; */
-      /* } */
+        Eigen::Quaterniond mean_rot;
+        mean_rot.x() = U(0, largestEigenValueIndex);
+        mean_rot.y() = U(1, largestEigenValueIndex);
+        mean_rot.z() = U(2, largestEigenValueIndex);
+        mean_rot.w() = U(3, largestEigenValueIndex);
+
+        e::MatrixXd Mp(3,(unsigned int)(meas.size()));
+        e::MatrixXd Mo(3,(unsigned int)(meas.size()));
+
+        int i = 0;
+        for (auto &m : meas){
+          Mp.block(0,i, 3,1) = m.first-mean_pos;
+          Mo.block(0,i, 3,1) = quaternionToRPY(m.second*mean_rot.inverse());
+          i++;
+        }
+
+        e::Matrix3d Cp = (Mp*Mp.transpose())/(meas.size()-1);
+        e::Matrix3d Co = (Mo*Mo.transpose())/(meas.size()-1);
+
+        e::Matrix6d C = e::Matrix6d::Zero();
+        C.topLeftCorner(3,3) = Cp;
+        C.bottomRightCorner(3,3) = Co;
+
+        return {{mean_pos,mean_rot},C};
+
+      }
 
       std::pair<std::pair<e::Vector3d, e::Quaterniond>, e::MatrixXd> twoMeasurementUnion(std::pair<std::pair<e::Vector3d, e::Quaterniond>, e::MatrixXd> a, std::pair<std::pair<e::Vector3d, e::Quaterniond>, e::MatrixXd> b){
         e::MatrixXd U = e::MatrixXd::Identity(6,6);
@@ -2487,10 +2556,13 @@ namespace uvdar {
         B = b.second.bottomRightCorner(3,3);
 
         e::Quaterniond c_q = b.first.second*a.first.second.inverse();
+
+
         /* double c_ang = e::AngleAxisd(c_q).angle(); */
         e::Matrix3d c_M = c_q.toRotationMatrix();
         e::Vector3d c_v = e::Vector3d( rotmatToRoll(c_M), rotmatToPitch(c_M), rotmatToYaw(c_M));
         /* e::Matrix3d c2_o = c_v*c_v.transpose(); */
+
 
         double om_o = 0;
         value_prev = std::numeric_limits<double>::max();
@@ -2500,6 +2572,10 @@ namespace uvdar {
           double om_tent = (double)(p)/(double)(rot_steps);
 
           auto Ut = getCandidateUnion(A,B,c_v,om_tent,false);
+          if (quaternionToRPY(c_q).norm() < 0.01){
+            ROS_INFO_STREAM("[UVDARPoseCalculator]: c_v: " << c_v.transpose() << "\n c2: \n" << c_v*c_v.transpose());
+            ROS_INFO_STREAM("[UVDARPoseCalculator]: U_t: " << Ut.eigenvalues().transpose());
+          }
 
 
           double value_curr =Ut.determinant();
@@ -2546,11 +2622,26 @@ namespace uvdar {
         e::Matrix3d S = Sl.matrixU();
         e::Matrix3d US = S.inverse().transpose()*U1*S.inverse();
 
+
+        e::JacobiSVD<e::MatrixXd> svd(US, e::ComputeThinU | e::ComputeThinV);
+
         e::EigenSolver<e::Matrix3d> es(US);
         e::Matrix3d D = es.eigenvalues().real().asDiagonal();
         e::Matrix3d V = es.eigenvectors().real();
         e::Matrix3d U = S.transpose()*V*(D.cwiseMax(e::Matrix3d::Identity()))*V.transpose()*S;
 
+        if (c.norm() < 0.01){
+          ROS_INFO_STREAM("[UVDARPoseCalculator]: Singular values: [\n" << svd.singularValues() << "\n]");
+          ROS_INFO_STREAM("[UVDARPoseCalculator]: Matrix V: [\n" << svd.matrixV() << "\n]");
+
+          ROS_INFO_STREAM("[UVDARPoseCalculator]: U1:\n " << U1);
+          ROS_INFO_STREAM("[UVDARPoseCalculator]: U2:\n " << U2);
+          ROS_INFO_STREAM("[UVDARPoseCalculator]: S: " << S);
+          ROS_INFO_STREAM("[UVDARPoseCalculator]: US: " << US);
+          ROS_INFO_STREAM("[UVDARPoseCalculator]: V: " << V);
+          ROS_INFO_STREAM("[UVDARPoseCalculator]: D: " << D);
+          ROS_INFO_STREAM("[UVDARPoseCalculator]: U: " << U);
+        }
 
         return U;
       }
