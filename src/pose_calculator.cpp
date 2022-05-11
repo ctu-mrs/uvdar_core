@@ -1266,18 +1266,18 @@ namespace uvdar {
 
 
           auto projection_errors_backup = projection_errors;
-          
+
           double threshold = ERROR_THRESHOLD_FITTED*(int)(points.size());
 
           for (int i = 0; i<(int)(selected_poses.size()); i++){
 
             /* ROS_ERROR_STREAM("[UVDARPoseCalculator]: error: " << projection_errors[i]); */
-            
-              if (projection_errors[i] > threshold){ // if the frequencies are the same, they tend to merge. Otherwise, the result varies
-                selected_poses.erase(selected_poses.begin()+i); //remove the other
-                projection_errors.erase(projection_errors.begin()+i);
-                i--; 
-              }
+
+            if (projection_errors[i] > threshold){ // if the frequencies are the same, they tend to merge. Otherwise, the result varies
+              selected_poses.erase(selected_poses.begin()+i); //remove the other
+              projection_errors.erase(projection_errors.begin()+i);
+              i--; 
+            }
           }
 
           /* auto precise_fitting = std::chrono::high_resolution_clock::now(); */
@@ -1299,36 +1299,36 @@ namespace uvdar {
           }
 
 
-          std::vector<e::MatrixXd> covariances;
-          for ([[ maybe_unused ]] auto &p : selected_poses){
-            profiler.indent();
-            /* auto [new_pose, covariance] = getCovarianceEstimate(model_, points, p, target,  image_index); */
-
-            e::MatrixXd covariance(6,6);
-            covariance.setIdentity();
-            double pos_cov = 0.002;
-            double rot_cov = 0.05;
-            covariance(0,0) = pos_cov;
-            covariance(1,1) = pos_cov;
-            covariance(2,2) = pos_cov;
-
-            covariance(3,3) = rot_cov;
-            covariance(4,4) = rot_cov;
-            covariance(5,5) = rot_cov;
-
-            covariances.push_back(covariance);
-            /* p=new_pose; */
-            profiler.unindent();
-            /* if (_debug_){ */
-              /* ROS_INFO_STREAM("[UVDARPoseCalculator]: Covariance: [\n" << covariances.back() << "\n]"); */
-            /* } */
-          }
-
-          /* auto covariance_estimation = std::chrono::high_resolution_clock::now(); */
-          /* elapsedTime.push_back({currDepthIndent() + "Covariance estimation",std::chrono::duration_cast<std::chrono::microseconds>(covariance_estimation - precise_fitting).count()}); */
-          profiler.addValue("Covariance estimation");
-
           if (_publish_constituents_){
+            std::vector<e::MatrixXd> covariances;
+            for ([[ maybe_unused ]] auto &p : selected_poses){
+              profiler.indent();
+              /* auto [new_pose, covariance] = getCovarianceEstimate(model_, points, p, target,  image_index); */
+
+              e::MatrixXd covariance(6,6);
+              covariance.setIdentity();
+              double pos_cov = 0.002;
+              double rot_cov = 0.05;
+              covariance(0,0) = pos_cov;
+              covariance(1,1) = pos_cov;
+              covariance(2,2) = pos_cov;
+
+              covariance(3,3) = rot_cov;
+              covariance(4,4) = rot_cov;
+              covariance(5,5) = rot_cov;
+
+              covariances.push_back(covariance);
+              /* p=new_pose; */
+              profiler.unindent();
+              /* if (_debug_){ */
+              /* ROS_INFO_STREAM("[UVDARPoseCalculator]: Covariance: [\n" << covariances.back() << "\n]"); */
+              /* } */
+            }
+
+            /* auto covariance_estimation = std::chrono::high_resolution_clock::now(); */
+            /* elapsedTime.push_back({currDepthIndent() + "Covariance estimation",std::chrono::duration_cast<std::chrono::microseconds>(covariance_estimation - precise_fitting).count()}); */
+            /* profiler.addValue("Covariance estimation"); */
+
             for (int i = 0; i<(int)(selected_poses.size()); i++){
               /* if (_debug_){ */
               /*   ROS_INFO_STREAM("[UVDARPoseCalculator]: Covariance base: [\n" << covariances[i] << "\n]"); */
@@ -1360,7 +1360,8 @@ namespace uvdar {
 
           if ((int)(selected_poses.size()) == 1){
             final_mean = selected_poses.at(0);
-            final_covariance = covariances.at(0);
+            /* final_covariance = covariances.at(0); */
+            //TODO
           }
           else if ((int)(selected_poses.size()) > 1){
             /* if (((selected_poses.front().first - selected_poses.back().first).norm() < MAX_HYPOTHESIS_SPREAD) || (selected_poses.size() < 100)) */
@@ -1378,7 +1379,7 @@ namespace uvdar {
             /*   final_covariance.setIdentity(6,6); */
             /*   final_covariance *= M_PI;//large covariance for angles in radians */
             /*   final_covariance.topLeftCorner(3, 3) = getLongCovariance(v_w_s,(model_.getMaxMinVisibleDiameter().first*1.0),1000.0); */
-              
+
             /* } */
           }
 
@@ -2113,17 +2114,17 @@ namespace uvdar {
 
           /* ROS_INFO_STREAM("[UVDARPoseCalculator]: marker: pos: " << marker.position.transpose() << " rot: " << quaternionToRPY(marker.orientation).transpose()  << " : " << (target*signals_per_target_)+marker.signal_id); */
           if (
-               (curr_projected.first.x>-0.5) && // edge of the leftmost pixel
-               (curr_projected.first.y>-0.5) && // edge of the topmost pixel
-               (curr_projected.first.x<(_oc_models_[image_index].width + 0.5)) && // edge of the rightmost pixel
-               (curr_projected.first.y<(_oc_models_[image_index].height+ 0.5)) // edge of the bottommost pixel
+              (curr_projected.first.x>-0.5) && // edge of the leftmost pixel
+              (curr_projected.first.y>-0.5) && // edge of the topmost pixel
+              (curr_projected.first.x<(_oc_models_[image_index].width + 0.5)) && // edge of the rightmost pixel
+              (curr_projected.first.y<(_oc_models_[image_index].height+ 0.5)) // edge of the bottommost pixel
              ){
             projected_markers.push_back({
                 .position = curr_projected.first,
-              .signal_id = marker.signal_id,
-              .cos_view_angle = curr_projected.second,
-              .distance = marker.position.norm()
-              });
+                .signal_id = marker.signal_id,
+                .cos_view_angle = curr_projected.second,
+                .distance = marker.position.norm()
+                });
           }
 
 
@@ -2169,11 +2170,11 @@ namespace uvdar {
         /*   ROS_INFO_STREAM("[UVDARPoseCalculator]: projected_marker: " << pt.position.x << " : " << pt.position.y << " : " << pt.signal_id); */
         /* } */
 
-          if (return_projections && projected_points){
-            for (auto pt : selected_markers){
-              projected_points->push_back(cv::Point3d(pt.position.x,pt.position.y,pt.signal_id));
-            }
+        if (return_projections && projected_points){
+          for (auto pt : selected_markers){
+            projected_points->push_back(cv::Point3d(pt.position.x,pt.position.y,pt.signal_id));
           }
+        }
 
         for (auto& obs_point : observed_points){
 
@@ -2211,75 +2212,75 @@ namespace uvdar {
           else {
             total_error += UNMATCHED_OBSERVED_POINT_PENALTY;
           }
+          }
+
+          total_error += (UNMATCHED_PROJECTED_POINT_PENALTY) * std::max(0,(int)(selected_markers.size() - observed_points.size()));
+          total_error += (UNMATCHED_OBSERVED_POINT_PENALTY) * std::max(0,(int)(observed_points.size() - selected_markers.size()));
+
+          return total_error;
         }
 
-        total_error += (UNMATCHED_PROJECTED_POINT_PENALTY) * std::max(0,(int)(selected_markers.size() - observed_points.size()));
-        total_error += (UNMATCHED_OBSERVED_POINT_PENALTY) * std::max(0,(int)(observed_points.size() - selected_markers.size()));
+        std::pair<std::pair<e::Vector3d, e::Quaterniond>,e::MatrixXd> getCovarianceEstimate(LEDModel model, std::vector<cv::Point3d> observed_points, std::pair<e::Vector3d, e::Quaterniond> pose, int target, int image_index){
 
-        return total_error;
-      }
+          LEDModel model_local = model.rotate(e::Vector3d::Zero(),pose.second).translate(pose.first);
 
-      std::pair<std::pair<e::Vector3d, e::Quaterniond>,e::MatrixXd> getCovarianceEstimate(LEDModel model, std::vector<cv::Point3d> observed_points, std::pair<e::Vector3d, e::Quaterniond> pose, int target, int image_index){
+          e::MatrixXd output;
 
-        LEDModel model_local = model.rotate(e::Vector3d::Zero(),pose.second).translate(pose.first);
+          double trans_scale = 0.1;
+          /* rot_scale = 0.05; */
+          double rot_scale = 0.1;
+          /* auto Y0 = pose; */
+          /* e::MatrixXd Y(6,(3*3*3*3*3*3)); */
+          e::MatrixXd Y(6,(2*2*2*2*2*2+2*6));
+          std::vector<double> Xe;
 
-        e::MatrixXd output;
+          /* Y(0,0) = 0; */
+          /* Y(1,0) = 0; */
+          /* Y(2,0) = 0; */
+          /* Y(3,0) = 0; */
+          /* Y(4,0) = 0; */
+          /* Y(5,0) = 0; */
 
-        double trans_scale = 0.1;
-        /* rot_scale = 0.05; */
-        double rot_scale = 0.1;
-        /* auto Y0 = pose; */
-        /* e::MatrixXd Y(6,(3*3*3*3*3*3)); */
-        e::MatrixXd Y(6,(2*2*2*2*2*2+2*6));
-        std::vector<double> Xe;
+          double error_init = totalError(model_local, observed_points, target, image_index, {}, false, true);
+          /* ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: terror: " << Xe.back() << " at: [  0, 0, 0, 0, 0, 0  ]"); */
 
-        /* Y(0,0) = 0; */
-        /* Y(1,0) = 0; */
-        /* Y(2,0) = 0; */
-        /* Y(3,0) = 0; */
-        /* Y(4,0) = 0; */
-        /* Y(5,0) = 0; */
+          std::vector<int> j = {-1,1}; // for 6D, we need 21 independent samples. Accounting for point symmetry, this is 42. 6D hypercube has 64 vertices, which is sufficient.
+          int k = 0;
 
-        double error_init = totalError(model_local, observed_points, target, image_index, {}, false, true);
-        /* ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: terror: " << Xe.back() << " at: [  0, 0, 0, 0, 0, 0  ]"); */
+          auto Y_rpy = quaternionToRPY(pose.second);
+          if (_debug_){
+            ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: RPY: [ R=" << Y_rpy(0)<< ", P=" << Y_rpy(1) << ", Y=" << Y_rpy(2) << " ]");
+          }
 
-        std::vector<int> j = {-1,1}; // for 6D, we need 21 independent samples. Accounting for point symmetry, this is 42. 6D hypercube has 64 vertices, which is sufficient.
-        int k = 0;
+          for (auto x_s : j){
+            for (auto y_s : j){
+              for (auto z_s : j){
+                for (auto roll_s : j){
+                  for (auto pitch_s : j){
+                    for (auto yaw_s : j){
+                      e::Quaterniond rotation(
+                          /* e::AngleAxisd(yaw_s*rot_scale,    camera_view_[image_index]*e::Vector3d(0,0,1)) * */
+                          /* e::AngleAxisd(pitch_s*rot_scale,  camera_view_[image_index]*e::Vector3d(0,1,0)) * */
+                          /* e::AngleAxisd(roll_s*rot_scale,   camera_view_[image_index]*e::Vector3d(1,0,0)) */
+                          e::AngleAxisd(yaw_s*rot_scale,    e::Vector3d(0,0,1)) *
+                          e::AngleAxisd(pitch_s*rot_scale,  e::Vector3d(0,1,0)) *
+                          e::AngleAxisd(roll_s*rot_scale,   e::Vector3d(1,0,0))
+                          );
+                      auto model_curr = model_local.rotate(pose.first,  rotation);
+                      model_curr = model_curr.translate(e::Vector3d(x_s, y_s, z_s)*trans_scale);
 
-        auto Y_rpy = quaternionToRPY(pose.second);
-        if (_debug_){
-          ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: RPY: [ R=" << Y_rpy(0)<< ", P=" << Y_rpy(1) << ", Y=" << Y_rpy(2) << " ]");
-        }
-
-        for (auto x_s : j){
-          for (auto y_s : j){
-            for (auto z_s : j){
-              for (auto roll_s : j){
-                for (auto pitch_s : j){
-                  for (auto yaw_s : j){
-                    e::Quaterniond rotation(
-                        /* e::AngleAxisd(yaw_s*rot_scale,    camera_view_[image_index]*e::Vector3d(0,0,1)) * */
-                        /* e::AngleAxisd(pitch_s*rot_scale,  camera_view_[image_index]*e::Vector3d(0,1,0)) * */
-                        /* e::AngleAxisd(roll_s*rot_scale,   camera_view_[image_index]*e::Vector3d(1,0,0)) */
-                        e::AngleAxisd(yaw_s*rot_scale,    e::Vector3d(0,0,1)) *
-                        e::AngleAxisd(pitch_s*rot_scale,  e::Vector3d(0,1,0)) *
-                        e::AngleAxisd(roll_s*rot_scale,   e::Vector3d(1,0,0))
-                        );
-                    auto model_curr = model_local.rotate(pose.first,  rotation);
-                    model_curr = model_curr.translate(e::Vector3d(x_s, y_s, z_s)*trans_scale);
-
-                    Xe.push_back(abs(totalError(model_curr, observed_points, target, image_index, {}, false, true)-error_init));
-                    if (_debug_){
-                      ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: terror: " << Xe.back() << " at: [ " << x_s<< ", " << y_s<< ", " << z_s << ", "<< roll_s<< ", " << pitch_s << ", " << yaw_s << " ]");
-                    }
-                    Y(0,k) = x_s*trans_scale;
-                    Y(1,k) = y_s*trans_scale;
-                    Y(2,k) = z_s*trans_scale;
-                    Y(3,k) = roll_s*rot_scale;
-                    Y(4,k) = pitch_s*rot_scale;
-                    Y(5,k) = yaw_s*rot_scale;
-                    /* } */
-                    k++;
+                      Xe.push_back(abs(totalError(model_curr, observed_points, target, image_index, {}, false, true)-error_init));
+                      if (_debug_){
+                        ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: terror: " << Xe.back() << " at: [ " << x_s<< ", " << y_s<< ", " << z_s << ", "<< roll_s<< ", " << pitch_s << ", " << yaw_s << " ]");
+                      }
+                      Y(0,k) = x_s*trans_scale;
+                      Y(1,k) = y_s*trans_scale;
+                      Y(2,k) = z_s*trans_scale;
+                      Y(3,k) = roll_s*rot_scale;
+                      Y(4,k) = pitch_s*rot_scale;
+                      Y(5,k) = yaw_s*rot_scale;
+                      /* } */
+                      k++;
                   }
                 }
               }
@@ -2324,14 +2325,14 @@ namespace uvdar {
         int i = 0;
         double Wsum = 0;
         for (auto xe : Xe){
-            /* ROS_INFO_STREAM("[UVDARPoseCalculator]: xe("<<i<<") = " << xe); */
+          /* ROS_INFO_STREAM("[UVDARPoseCalculator]: xe("<<i<<") = " << xe); */
           if (xe < 0.00001)
             W(i) = sqr(QPIX);
           else
             W(i) = (sqr(QPIX)/sqrt(xe));
           Wsum += W(i);
           /* if (W(i) > 0.1){ */
-            /* ROS_INFO_STREAM("[UVDARPoseCalculator]: W("<<i<<") = " << W(i)); */
+          /* ROS_INFO_STREAM("[UVDARPoseCalculator]: W("<<i<<") = " << W(i)); */
           /* } */
           i++;
         }
@@ -2368,163 +2369,276 @@ namespace uvdar {
 
         /* output.setIdentity(6,6); */
         return {{pose.first+e::Vector3d(y(0,0), y(1,0), y(2,0)),pose.second},P};
-      }
-
-      //Implemented based on "Generalised Covariance Union: A Unified Approach to Hypothesis Merging in Tracking" by STEVEN REECE and STEPHEN ROBERTS
-      //and
-      //"Generalized Information Representation and Compression Using Covariance Union"  by Ottmar Bochardt et. al. (error: Eq. (12) and (13) have - instead of +)
-      std::pair<std::pair<e::Vector3d, e::Quaterniond>, e::MatrixXd> getMeasurementUnion(std::vector<std::pair<e::Vector3d, e::Quaterniond>> means, std::vector<e::MatrixXd> covariances){
-        if (means.size() != covariances.size()){
-          ROS_ERROR_STREAM("[UVDARPoseCalculator]: The count of means and covariances for union generation does not match. Returning!");
-          return std::pair<std::pair<e::Vector3d, e::Quaterniond>, e::MatrixXd>();
         }
 
-
-        /* std::pair<std::pair<e::Vector3d, e::Quaterniond>, e::MatrixXd> measurement_union; */
-        std::vector<std::pair<std::pair<e::Vector3d, e::Quaterniond>, e::MatrixXd>> measurement_unions_prev;
-        std::vector<std::pair<std::pair<e::Vector3d, e::Quaterniond>, e::MatrixXd>> measurement_unions_next;
-
-        for (int i = 0; i< (int)(means.size()); i++){
-          measurement_unions_prev.push_back({means[i], covariances[i]});
-        }
-
-        //pair-wise approach - if performance becomes a problem, we can consider batch solution for later
-        //
-        /* if (means.size() > 2){ // let's start with the two most mutually distant ones to avoid the drawbacks of serial pair-wise unionization */
-        /*   std::tuple<int, int, double> dist_pair =  {-1,-1, 0}; */
-        /*   for (int i=0; i<(int)(means.size()); i++){ */
-        /*     for (int j=0; j<i; j++){ */
-        /*       double mutual_distance = (means[i].first - means[j].first).norm(); */
-        /*       if (mutual_distance > std::get<2>(dist_pair) ){ */
-        /*         std::get<0>(dist_pair) = i; */
-        /*         std::get<1>(dist_pair) = j; */
-        /*         std::get<2>(dist_pair) = mutual_distance; */
-        /*       } */
-        /*     } */
-        /*   } */
-
-        /*   if ((std::get<0>(dist_pair) >= 0) && (std::get<1>(dist_pair) >= 0)) */
-        /*     measurement_union = twoMeasurementUnion({means[std::get<0>(dist_pair)],covariances[std::get<0>(dist_pair)]}, {means[std::get<1>(dist_pair)], covariances[std::get<1>(dist_pair)]}); */
-        /* } */
-        /* return measurement_union; */
-
-        /* if (means.size() < 1){ */
-        /*   ROS_ERROR_STREAM("[UVDARPoseCalculator]: No measurements!"); */
-        /*   measurement_union = {{e::Vector3d(),e::Quaterniond()},{e::MatrixXd::Identity(6,6)}}; */
-        /*   return measurement_union; */
-        /* } */
-
-        /* measurement_union = {means[0],covariances[0]}; */
-        /* for (int i=1; i<(int)(means.size()); i++){ */
-        /*   measurement_union = twoMeasurementUnion(measurement_union, {means[i], covariances[i]}); */
-        /* } */
-
-        /* return measurement_union; */
-
-        /* if (_debug_) */
-        ROS_INFO_STREAM("[UVDARPoseCalculator]: Meas count: "<< means.size());
-
-        while((int)(measurement_unions_prev.size()) > 1){
-          for (int i = 0; i< (int)(measurement_unions_prev.size()/2); i++){
-
-          /* ROS_INFO_STREAM("[UVDARPoseCalculator]: a: "<< measurement_unions_prev.at(2*i).first.first.transpose() << ", b: " <<measurement_unions_prev.at((2*i)+1).first.first.transpose()); */
-          ROS_INFO_STREAM("[UVDARPoseCalculator]: a: "<< quaternionToRPY(measurement_unions_prev.at(2*i).first.second).transpose() << ", b: " << quaternionToRPY(measurement_unions_prev.at((2*i)+1).first.second).transpose());
-          ROS_INFO_STREAM("[UVDARPoseCalculator]: Ca: "<< measurement_unions_prev.at(2*i).second.bottomRightCorner(3,3).eigenvalues().transpose() << ", Cb: " << measurement_unions_prev.at((2*i)+1).second.bottomRightCorner(3,3).eigenvalues().transpose());
-            measurement_unions_next.push_back(twoMeasurementUnion(measurement_unions_prev.at(2*i), measurement_unions_prev.at((2*i)+1)));
-          /* ROS_INFO_STREAM("[UVDARPoseCalculator]: u: "<< measurement_unions_next.back().first.first.transpose()); */
-          ROS_INFO_STREAM("[UVDARPoseCalculator]: u: "<< quaternionToRPY(measurement_unions_next.back().first.second).transpose());
-          ROS_INFO_STREAM("[UVDARPoseCalculator]: Cu: "<< measurement_unions_next.back().second.bottomRightCorner(3,3).eigenvalues().transpose());
-
+        //Implemented based on "Generalised Covariance Union: A Unified Approach to Hypothesis Merging in Tracking" by STEVEN REECE and STEPHEN ROBERTS
+        //and
+        //"Generalized Information Representation and Compression Using Covariance Union"  by Ottmar Bochardt et. al. (error: Eq. (12) and (13) have - instead of +)
+        std::pair<std::pair<e::Vector3d, e::Quaterniond>, e::MatrixXd> getMeasurementUnion(std::vector<std::pair<e::Vector3d, e::Quaterniond>> means, std::vector<e::MatrixXd> covariances){
+          if (means.size() != covariances.size()){
+            ROS_ERROR_STREAM("[UVDARPoseCalculator]: The count of means and covariances for union generation does not match. Returning!");
+            return std::pair<std::pair<e::Vector3d, e::Quaterniond>, e::MatrixXd>();
           }
-          if ((measurement_unions_prev.size() % 2) != 0){
-            measurement_unions_next.push_back(measurement_unions_prev.back());
+
+
+          /* std::pair<std::pair<e::Vector3d, e::Quaterniond>, e::MatrixXd> measurement_union; */
+          std::vector<std::pair<std::pair<e::Vector3d, e::Quaterniond>, e::MatrixXd>> measurement_unions_prev;
+          std::vector<std::pair<std::pair<e::Vector3d, e::Quaterniond>, e::MatrixXd>> measurement_unions_next;
+
+          for (int i = 0; i< (int)(means.size()); i++){
+            measurement_unions_prev.push_back({means[i], covariances[i]});
           }
-          measurement_unions_prev = measurement_unions_next;
-          measurement_unions_next.clear();
+
+          //pair-wise approach - if performance becomes a problem, we can consider batch solution for later
+          //
+          /* if (means.size() > 2){ // let's start with the two most mutually distant ones to avoid the drawbacks of serial pair-wise unionization */
+          /*   std::tuple<int, int, double> dist_pair =  {-1,-1, 0}; */
+          /*   for (int i=0; i<(int)(means.size()); i++){ */
+          /*     for (int j=0; j<i; j++){ */
+          /*       double mutual_distance = (means[i].first - means[j].first).norm(); */
+          /*       if (mutual_distance > std::get<2>(dist_pair) ){ */
+          /*         std::get<0>(dist_pair) = i; */
+          /*         std::get<1>(dist_pair) = j; */
+          /*         std::get<2>(dist_pair) = mutual_distance; */
+          /*       } */
+          /*     } */
+          /*   } */
+
+          /*   if ((std::get<0>(dist_pair) >= 0) && (std::get<1>(dist_pair) >= 0)) */
+          /*     measurement_union = twoMeasurementUnion({means[std::get<0>(dist_pair)],covariances[std::get<0>(dist_pair)]}, {means[std::get<1>(dist_pair)], covariances[std::get<1>(dist_pair)]}); */
+          /* } */
+          /* return measurement_union; */
+
+          /* if (means.size() < 1){ */
+          /*   ROS_ERROR_STREAM("[UVDARPoseCalculator]: No measurements!"); */
+          /*   measurement_union = {{e::Vector3d(),e::Quaterniond()},{e::MatrixXd::Identity(6,6)}}; */
+          /*   return measurement_union; */
+          /* } */
+
+          /* measurement_union = {means[0],covariances[0]}; */
+          /* for (int i=1; i<(int)(means.size()); i++){ */
+          /*   measurement_union = twoMeasurementUnion(measurement_union, {means[i], covariances[i]}); */
+          /* } */
+
+          /* return measurement_union; */
+
+          /* if (_debug_) */
+          ROS_INFO_STREAM("[UVDARPoseCalculator]: Meas count: "<< means.size());
+
+          while((int)(measurement_unions_prev.size()) > 1){
+            for (int i = 0; i< (int)(measurement_unions_prev.size()/2); i++){
+
+              /* ROS_INFO_STREAM("[UVDARPoseCalculator]: a: "<< measurement_unions_prev.at(2*i).first.first.transpose() << ", b: " <<measurement_unions_prev.at((2*i)+1).first.first.transpose()); */
+              ROS_INFO_STREAM("[UVDARPoseCalculator]: a: "<< quaternionToRPY(measurement_unions_prev.at(2*i).first.second).transpose() << ", b: " << quaternionToRPY(measurement_unions_prev.at((2*i)+1).first.second).transpose());
+              ROS_INFO_STREAM("[UVDARPoseCalculator]: Ca: "<< measurement_unions_prev.at(2*i).second.bottomRightCorner(3,3).eigenvalues().transpose() << ", Cb: " << measurement_unions_prev.at((2*i)+1).second.bottomRightCorner(3,3).eigenvalues().transpose());
+              measurement_unions_next.push_back(twoMeasurementUnion(measurement_unions_prev.at(2*i), measurement_unions_prev.at((2*i)+1)));
+              /* ROS_INFO_STREAM("[UVDARPoseCalculator]: u: "<< measurement_unions_next.back().first.first.transpose()); */
+              ROS_INFO_STREAM("[UVDARPoseCalculator]: u: "<< quaternionToRPY(measurement_unions_next.back().first.second).transpose());
+              ROS_INFO_STREAM("[UVDARPoseCalculator]: Cu: "<< measurement_unions_next.back().second.bottomRightCorner(3,3).eigenvalues().transpose());
+
+            }
+            if ((measurement_unions_prev.size() % 2) != 0){
+              measurement_unions_next.push_back(measurement_unions_prev.back());
+            }
+            measurement_unions_prev = measurement_unions_next;
+            measurement_unions_next.clear();
+          }
+
+          return measurement_unions_prev.at(0);
+
         }
 
-        return measurement_unions_prev.at(0);
-
-      }
-
-      //contains code from https://gist.github.com/PeteBlackerThe3rd/f73e9d569e29f23e8bd828d7886636a0
-      std::pair<std::pair<e::Vector3d, e::Quaterniond>, e::MatrixXd> getMeasurementUnionSimple(std::vector<std::pair<e::Vector3d, e::Quaterniond>> meas){
-        if (meas.size() < 1){
-          ROS_ERROR_STREAM("[UVDARPoseCalculator]: No hypotheses provided. Returning!");
-          return std::pair<std::pair<e::Vector3d, e::Quaterniond>, e::MatrixXd>();
-        }
-        e::Vector3d mean_pos(0,0,0);
+        //contains code from https://gist.github.com/PeteBlackerThe3rd/f73e9d569e29f23e8bd828d7886636a0
+        std::pair<std::pair<e::Vector3d, e::Quaterniond>, e::MatrixXd> getMeasurementUnionSimple(std::vector<std::pair<e::Vector3d, e::Quaterniond>> meas){
+          if (meas.size() < 1){
+            ROS_ERROR_STREAM("[UVDARPoseCalculator]: No hypotheses provided. Returning!");
+            return std::pair<std::pair<e::Vector3d, e::Quaterniond>, e::MatrixXd>();
+          }
+          e::Vector3d mean_pos(0,0,0);
 
           // first build a 4x4 matrix which is the elementwise sum of the product of each quaternion with itself
-        Eigen::Matrix4d A = Eigen::Matrix4d::Zero();
+          Eigen::Matrix4d A = Eigen::Matrix4d::Zero();
 
-        for (auto &m : meas){
-          mean_pos += m.first;
-          A += m.second.coeffs()*m.second.coeffs().transpose();
-        }
-        mean_pos /= (double)(meas.size());
-        A /= (double)(meas.size());
-
-        // Compute the SVD of this 4x4 matrix
-        Eigen::JacobiSVD<Eigen::MatrixXd> svd(A, Eigen::ComputeThinU | Eigen::ComputeThinV);
-
-        Eigen::VectorXd singularValues = svd.singularValues();
-        Eigen::MatrixXd U = svd.matrixU();
-
-        // find the eigen vector corresponding to the largest eigen value
-        int largestEigenValueIndex = 0;
-        double largestEigenValue = singularValues(0);
-
-        for (int i=1; i<singularValues.rows(); ++i) {
-          if (singularValues(i) > largestEigenValue) {
-            largestEigenValue = singularValues(i);
-            largestEigenValueIndex = i;
+          for (auto &m : meas){
+            mean_pos += m.first;
+            A += m.second.coeffs()*m.second.coeffs().transpose();
           }
+          mean_pos /= (double)(meas.size());
+          A /= (double)(meas.size());
+
+          // Compute the SVD of this 4x4 matrix
+          Eigen::JacobiSVD<Eigen::MatrixXd> svd(A, Eigen::ComputeThinU | Eigen::ComputeThinV);
+
+          Eigen::VectorXd singularValues = svd.singularValues();
+          Eigen::MatrixXd U = svd.matrixU();
+
+          // find the eigen vector corresponding to the largest eigen value
+          int largestEigenValueIndex = 0;
+          double largestEigenValue = singularValues(0);
+
+          for (int i=1; i<singularValues.rows(); ++i) {
+            if (singularValues(i) > largestEigenValue) {
+              largestEigenValue = singularValues(i);
+              largestEigenValueIndex = i;
+            }
+          }
+
+          /* if (largestEigenValueIndex == -1){ */
+          /*   ROS_ERROR("[UVDARPoseCalculator]: Failed to obtain orientation mean. Returning!"); */
+          /*   return std::pair<std::pair<e::Vector3d, e::Quaterniond>, e::MatrixXd>(); */
+          /* } */
+
+          Eigen::Quaterniond mean_rot;
+          mean_rot.x() = U(0, largestEigenValueIndex);
+          mean_rot.y() = U(1, largestEigenValueIndex);
+          mean_rot.z() = U(2, largestEigenValueIndex);
+          mean_rot.w() = U(3, largestEigenValueIndex);
+
+          e::MatrixXd Mp(3,(unsigned int)(meas.size()));
+          e::MatrixXd Mo(3,(unsigned int)(meas.size()));
+
+          int i = 0;
+          for (auto &m : meas){
+            Mp.block(0,i, 3,1) = m.first-mean_pos;
+            Mo.block(0,i, 3,1) = quaternionToRPY(m.second*mean_rot.inverse());
+            i++;
+          }
+
+          e::Matrix3d Cp = (Mp*Mp.transpose())/(meas.size()-1);
+          e::Matrix3d Co = (Mo*Mo.transpose())/(meas.size()-1);
+
+          e::Matrix6d C = e::Matrix6d::Zero();
+          C.topLeftCorner(3,3) = Cp;
+          C.bottomRightCorner(3,3) = Co;
+
+          return {{mean_pos,mean_rot},C};
+
         }
 
-        /* if (largestEigenValueIndex == -1){ */
-        /*   ROS_ERROR("[UVDARPoseCalculator]: Failed to obtain orientation mean. Returning!"); */
-        /*   return std::pair<std::pair<e::Vector3d, e::Quaterniond>, e::MatrixXd>(); */
-        /* } */
+        //based on [Nima Moshtagh (2022). Minimum Volume Enclosing Ellipsoid (https://www.mathworks.com/matlabcentral/fileexchange/9542-minimum-volume-enclosing-ellipsoid), MATLAB Central File Exchange. Retrieved May 11, 2022.]
+        std::pair<std::pair<e::Vector3d, e::Quaterniond>, e::MatrixXd> getMeasurementElipsoidHull(std::vector<std::pair<e::Vector3d, e::Quaterniond>> meas){
+          if (meas.size() < 1){
+            ROS_ERROR_STREAM("[UVDARPoseCalculator]: No hypotheses provided. Returning!");
+            return std::pair<std::pair<e::Vector3d, e::Quaterniond>, e::MatrixXd>();
+          }
 
-        Eigen::Quaterniond mean_rot;
-        mean_rot.x() = U(0, largestEigenValueIndex);
-        mean_rot.y() = U(1, largestEigenValueIndex);
-        mean_rot.z() = U(2, largestEigenValueIndex);
-        mean_rot.w() = U(3, largestEigenValueIndex);
+          // position
 
-        e::MatrixXd Mp(3,(unsigned int)(meas.size()));
-        e::MatrixXd Mo(3,(unsigned int)(meas.size()));
 
-        int i = 0;
-        for (auto &m : meas){
-          Mp.block(0,i, 3,1) = m.first-mean_pos;
-          Mo.block(0,i, 3,1) = quaternionToRPY(m.second*mean_rot.inverse());
-          i++;
+          // orientation
+          // ...TODO - get average quaternion, convert differences to 3D vectors, do the magic
         }
 
-        e::Matrix3d Cp = (Mp*Mp.transpose())/(meas.size()-1);
-        e::Matrix3d Co = (Mo*Mo.transpose())/(meas.size()-1);
+        std::pair<e::Vector3d, e::Matrix3d> get3DEnclosingEllipsoid(std::vector<e::Vector3d> Pv, double tolerance){
+          //function [A , c] = MinVolEllipse(P, tolerance)
 
-        e::Matrix6d C = e::Matrix6d::Zero();
-        C.topLeftCorner(3,3) = Cp;
-        C.bottomRightCorner(3,3) = Co;
+          // [A , c] = MinVolEllipse(P, tolerance)
+          // Finds the minimum volume enclsing ellipsoid (MVEE) of a set of data
+          // points stored in matrix P. The following optimization problem is solved: 
+          //
+          // minimize       log(det(A))
+          // subject to     (P_i - c)' * A * (P_i - c) <= 1
+          //                
+          // in variables A and c, where P_i is the i-th column of the matrix P. 
+          // The solver is based on Khachiyan Algorithm, and the final solution 
+          // is different from the optimal value by the pre-spesified amount of 'tolerance'.
+          //
+          // inputs:
+          //---------
+          // P : (d x N) dimnesional matrix containing N points in R^d.
+          // tolerance : error in the solution with respect to the optimal value.
+          //
+          // outputs:
+          //---------
+          // A : (d x d) matrix of the ellipse equation in the 'center form': 
+          // (x-c)' * A * (x-c) = 1 
+          // c : 'd' dimensional vector as the center of the ellipse. 
+          // 
+          // example:
+          // --------
+          //      P = rand(5,100);
+          //      [A, c] = MinVolEllipse(P, .01)
+          //
+          //      To reduce the computation time, work with the boundary points only:
+          //      
+          //      K = convhulln(P');  
+          //      K = unique(K(:));  
+          //      Q = P(:,K);
+          //      [A, c] = MinVolEllipse(Q, .01)
+          //
+          //
+          // Nima Moshtagh (nima@seas.upenn.edu)
+          // University of Pennsylvania
+          //
+          // December 2005
+          // UPDATE: Jan 2009
+          //%%%%%%%%%%%%%%%%%%%% Solving the Dual problem%%%%%%%%%%%%%%%%%%%%%%%%%%%5
+          // ---------------------------------
+          // data points 
+          // -----------------------------------
+          int d = 3;
+          int N = (int)(Pv.size());
+          e::MatrixXd P = stdVecOfVectorsToMatrix(Pv);
 
-        return {{mean_pos,mean_rot},C};
+          e::MatrixXd Q = e::MatrixXd::Constant(4,N,1.0);
+          Q.block(0,0, 3,N) = P;
+          // initializations
+          // -----------------------------------
+          int count = 1;
+          double err = 1.0;
+          e::VectorXd u = (1.0/((double)(N))) * e::VectorXd::Constant(N,1.0);          // 1st iteration
+            // Khachiyan Algorithm
+            // -----------------------------------
+          while (err > tolerance){
+            e::Matrix3d X = Q * u.asDiagonal() * Q.transpose();       // X = \sum_i ( u_i * q_i * q_i')  is a (d+1)x(d+1) matrix
+            e::VectorXd M = (Q.transpose() * X.inverse() * Q).diagonal();  // M the diagonal vector of an NxN matrix
+            int j;
+            double maximum = M.maxCoeff(&j);
+            double step_size = (maximum - (double)(d) -1.0)/(double)((d+1)*(maximum-1));
+            e::VectorXd new_u = (1.0 - step_size)*u ;
+            new_u(j) = new_u(j) + step_size;
+            count = count + 1;
+            err = (new_u - u).norm();
+            u = new_u;
+          }
+          //%%%%%%%%%%%%%%%%%% Computing the Ellipse parameters%%%%%%%%%%%%%%%%%%%%%%
+          // Finds the ellipse equation in the 'center form': 
+          // (x-c)' * A * (x-c) = 1
+          // It computes a dxd matrix 'A' and a d dimensional vector 'c' as the center
+          // of the ellipse. 
+          e::MatrixXd U = u.asDiagonal();
+          // the A matrix for the ellipse
+          // --------------------------------------------
+          e::Matrix3d A = (1.0/(double)(d)) * (P * U * P.transpose() - (P * u)*(P*u).transpose() ).inverse();
+          // center of the ellipse 
+          // --------------------------------------------
+          e::Vector3d c = P * u;
 
-      }
+          return {c,A};
+        }
 
-      std::pair<std::pair<e::Vector3d, e::Quaterniond>, e::MatrixXd> twoMeasurementUnion(std::pair<std::pair<e::Vector3d, e::Quaterniond>, e::MatrixXd> a, std::pair<std::pair<e::Vector3d, e::Quaterniond>, e::MatrixXd> b){
-        e::MatrixXd U = e::MatrixXd::Identity(6,6);
-        e::Vector3d up;
-        e::Quaterniond uo;
+        e::MatrixXd stdVecOfVectorsToMatrix(std::vector<e::Vector3d> V){
+          e::MatrixXd M(3,V.size());
+          int i = 0;
+          for (e::Vector3d &v : V){
+            M.block(0,i, 3,1) = v;
+            i++;
+          }
+          return M;
+        }
 
-        //position
 
-        e::Matrix3d A = a.second.topLeftCorner(3,3);
-        e::Matrix3d B = b.second.topLeftCorner(3,3);
+        std::pair<std::pair<e::Vector3d, e::Quaterniond>, e::MatrixXd> twoMeasurementUnion(std::pair<std::pair<e::Vector3d, e::Quaterniond>, e::MatrixXd> a, std::pair<std::pair<e::Vector3d, e::Quaterniond>, e::MatrixXd> b){
+          e::MatrixXd U = e::MatrixXd::Identity(6,6);
+          e::Vector3d up;
+          e::Quaterniond uo;
 
-        e::Vector3d c = b.first.first - a.first.first;
+          //position
+
+          e::Matrix3d A = a.second.topLeftCorner(3,3);
+          e::Matrix3d B = b.second.topLeftCorner(3,3);
+
+          e::Vector3d c = b.first.first - a.first.first;
           /* e::Matrix3d c2 = c*c.transpose(); */
 
 
@@ -2533,15 +2647,15 @@ namespace uvdar {
 
           int pos_steps = 5;
           for (int p = 0; p<=pos_steps; p++){
-                double om_tent = (double)(p)/(double)(pos_steps);
+            double om_tent = (double)(p)/(double)(pos_steps);
 
-                auto Ut = getCandidateUnion(A,B,c,om_tent);
-                
+            auto Ut = getCandidateUnion(A,B,c,om_tent);
 
-                double value_curr =Ut.determinant();
-                /* ROS_INFO_STREAM("[UVDARPoseCalculator]: om: "<< om_tent << ", val: " << value_curr); */
+
+            double value_curr =Ut.determinant();
+            /* ROS_INFO_STREAM("[UVDARPoseCalculator]: om: "<< om_tent << ", val: " << value_curr); */
             if (value_curr < value_prev){
-                /* ROS_INFO_STREAM("[UVDARPoseCalculator]: acc"); */
+              /* ROS_INFO_STREAM("[UVDARPoseCalculator]: acc"); */
               value_prev = value_curr;
               om = om_tent;
             }
@@ -2550,451 +2664,451 @@ namespace uvdar {
           U.topLeftCorner(3,3) = getCandidateUnion(A,B,c,om);
           up = a.first.first + om*c;
 
-        //orientation
-        
-        A = a.second.bottomRightCorner(3,3);
-        B = b.second.bottomRightCorner(3,3);
+          //orientation
 
-        e::Quaterniond c_q = b.first.second*a.first.second.inverse();
+          A = a.second.bottomRightCorner(3,3);
+          B = b.second.bottomRightCorner(3,3);
 
-
-        /* double c_ang = e::AngleAxisd(c_q).angle(); */
-        e::Matrix3d c_M = c_q.toRotationMatrix();
-        e::Vector3d c_v = e::Vector3d( rotmatToRoll(c_M), rotmatToPitch(c_M), rotmatToYaw(c_M));
-        /* e::Matrix3d c2_o = c_v*c_v.transpose(); */
+          e::Quaterniond c_q = b.first.second*a.first.second.inverse();
 
 
-        double om_o = 0;
-        value_prev = std::numeric_limits<double>::max();
+          /* double c_ang = e::AngleAxisd(c_q).angle(); */
+          e::Matrix3d c_M = c_q.toRotationMatrix();
+          e::Vector3d c_v = e::Vector3d( rotmatToRoll(c_M), rotmatToPitch(c_M), rotmatToYaw(c_M));
+          /* e::Matrix3d c2_o = c_v*c_v.transpose(); */
 
-        int rot_steps = 5;
-        for (int p = 0; p<=rot_steps; p++){
-          double om_tent = (double)(p)/(double)(rot_steps);
 
-          auto Ut = getCandidateUnion(A,B,c_v,om_tent,false);
-          if (quaternionToRPY(c_q).norm() < 0.01){
-            ROS_INFO_STREAM("[UVDARPoseCalculator]: c_v: " << c_v.transpose() << "\n c2: \n" << c_v*c_v.transpose());
-            ROS_INFO_STREAM("[UVDARPoseCalculator]: U_t: " << Ut.eigenvalues().transpose());
+          double om_o = 0;
+          value_prev = std::numeric_limits<double>::max();
+
+          int rot_steps = 5;
+          for (int p = 0; p<=rot_steps; p++){
+            double om_tent = (double)(p)/(double)(rot_steps);
+
+            auto Ut = getCandidateUnion(A,B,c_v,om_tent,false);
+            if (quaternionToRPY(c_q).norm() < 0.01){
+              ROS_INFO_STREAM("[UVDARPoseCalculator]: c_v: " << c_v.transpose() << "\n c2: \n" << c_v*c_v.transpose());
+              ROS_INFO_STREAM("[UVDARPoseCalculator]: U_t: " << Ut.eigenvalues().transpose());
+            }
+
+
+            double value_curr =Ut.determinant();
+            if (value_curr < value_prev){
+              value_prev = value_curr;
+              om_o = om_tent;
+            }
           }
 
+          U.bottomRightCorner(3,3) = getCandidateUnion(A,B,c_v,om_o,false);
+          e::AngleAxisd c_aa = e::AngleAxisd(c_q);
+          uo = (e::AngleAxisd(c_aa.angle()*om_o,c_aa.axis()))*(a.first.second);
 
-          double value_curr =Ut.determinant();
-          if (value_curr < value_prev){
-            value_prev = value_curr;
-            om_o = om_tent;
+          return {{up, uo}, U};
+        }
+
+        e::Matrix3d getCandidateUnion(const e::Matrix3d &A, const e::Matrix3d &B,const e::Vector3d &c, double om, bool force_consistency=true){
+
+          e::Matrix3d c2 = c*c.transpose();
+
+          double beta1 = 1.0, beta2 = 1.0;
+          if (force_consistency){
+            //The beta term comes from S. Reece and S. Roberts: Generalized Covariance Union: A Unified Approach to Hypothesis Merging in Tracking
+            e::LLT<e::Matrix3d,e::Upper> Sla(A);
+            e::Matrix3d Sa = Sla.matrixU();
+            e::Vector3d m1 = om*c;
+            double d1 = (Sa.transpose().inverse()*m1).norm();
+            double dc1 = ((1+d1)*(1+d1))/(1+(d1*d1));
+            beta1 = (d1>1?2:dc1);
+
+            e::LLT<e::Matrix3d,e::Upper> Slb(B);
+            e::Matrix3d Sb = Slb.matrixU();
+            e::Vector3d m2 = (1-om)*c;
+            double d2 = (Sb.transpose().inverse()*m2).norm();
+            double dc2 = ((1+d2)*(1+d2))/(1+(d2*d2));
+            beta2 = (d2>1?2:dc2);
           }
+
+          //The rest of the algorithm comes from O. Bochardt, R. Calhoun, J.K.Uhlmann and S.J.Julier: Generalized information representation and compression using covariance union
+          e::Matrix3d U1     = beta1 * (A + (sqr(om)*c2));
+          e::Matrix3d U2     = beta2 * (B + (sqr(1.0-om)*c2));
+
+          e::LLT<e::Matrix3d,e::Upper> Sl(U2);
+          e::Matrix3d S = Sl.matrixU();
+          e::Matrix3d US = S.inverse().transpose()*U1*S.inverse();
+
+
+          e::JacobiSVD<e::MatrixXd> svd(US, e::ComputeThinU | e::ComputeThinV);
+
+          e::EigenSolver<e::Matrix3d> es(US);
+          e::Matrix3d D = es.eigenvalues().real().asDiagonal();
+          e::Matrix3d V = es.eigenvectors().real();
+          e::Matrix3d U = S.transpose()*V*(D.cwiseMax(e::Matrix3d::Identity()))*V.transpose()*S;
+
+          if (c.norm() < 0.01){
+            ROS_INFO_STREAM("[UVDARPoseCalculator]: Singular values: [\n" << svd.singularValues() << "\n]");
+            ROS_INFO_STREAM("[UVDARPoseCalculator]: Matrix V: [\n" << svd.matrixV() << "\n]");
+
+            ROS_INFO_STREAM("[UVDARPoseCalculator]: U1:\n " << U1);
+            ROS_INFO_STREAM("[UVDARPoseCalculator]: U2:\n " << U2);
+            ROS_INFO_STREAM("[UVDARPoseCalculator]: S: " << S);
+            ROS_INFO_STREAM("[UVDARPoseCalculator]: US: " << US);
+            ROS_INFO_STREAM("[UVDARPoseCalculator]: V: " << V);
+            ROS_INFO_STREAM("[UVDARPoseCalculator]: D: " << D);
+            ROS_INFO_STREAM("[UVDARPoseCalculator]: U: " << U);
+          }
+
+          return U;
         }
 
-        U.bottomRightCorner(3,3) = getCandidateUnion(A,B,c_v,om_o,false);
-        e::AngleAxisd c_aa = e::AngleAxisd(c_q);
-        uo = (e::AngleAxisd(c_aa.angle()*om_o,c_aa.axis()))*(a.first.second);
-
-        return {{up, uo}, U};
-      }
-
-      e::Matrix3d getCandidateUnion(const e::Matrix3d &A, const e::Matrix3d &B,const e::Vector3d &c, double om, bool force_consistency=true){
-
-        e::Matrix3d c2 = c*c.transpose();
-
-        double beta1 = 1.0, beta2 = 1.0;
-        if (force_consistency){
-          //The beta term comes from S. Reece and S. Roberts: Generalized Covariance Union: A Unified Approach to Hypothesis Merging in Tracking
-          e::LLT<e::Matrix3d,e::Upper> Sla(A);
-          e::Matrix3d Sa = Sla.matrixU();
-          e::Vector3d m1 = om*c;
-          double d1 = (Sa.transpose().inverse()*m1).norm();
-          double dc1 = ((1+d1)*(1+d1))/(1+(d1*d1));
-          beta1 = (d1>1?2:dc1);
-
-          e::LLT<e::Matrix3d,e::Upper> Slb(B);
-          e::Matrix3d Sb = Slb.matrixU();
-          e::Vector3d m2 = (1-om)*c;
-          double d2 = (Sb.transpose().inverse()*m2).norm();
-          double dc2 = ((1+d2)*(1+d2))/(1+(d2*d2));
-          beta2 = (d2>1?2:dc2);
-        }
-
-        //The rest of the algorithm comes from O. Bochardt, R. Calhoun, J.K.Uhlmann and S.J.Julier: Generalized information representation and compression using covariance union
-        e::Matrix3d U1     = beta1 * (A + (sqr(om)*c2));
-        e::Matrix3d U2     = beta2 * (B + (sqr(1.0-om)*c2));
-
-        e::LLT<e::Matrix3d,e::Upper> Sl(U2);
-        e::Matrix3d S = Sl.matrixU();
-        e::Matrix3d US = S.inverse().transpose()*U1*S.inverse();
-
-
-        e::JacobiSVD<e::MatrixXd> svd(US, e::ComputeThinU | e::ComputeThinV);
-
-        e::EigenSolver<e::Matrix3d> es(US);
-        e::Matrix3d D = es.eigenvalues().real().asDiagonal();
-        e::Matrix3d V = es.eigenvectors().real();
-        e::Matrix3d U = S.transpose()*V*(D.cwiseMax(e::Matrix3d::Identity()))*V.transpose()*S;
-
-        if (c.norm() < 0.01){
-          ROS_INFO_STREAM("[UVDARPoseCalculator]: Singular values: [\n" << svd.singularValues() << "\n]");
-          ROS_INFO_STREAM("[UVDARPoseCalculator]: Matrix V: [\n" << svd.matrixV() << "\n]");
-
-          ROS_INFO_STREAM("[UVDARPoseCalculator]: U1:\n " << U1);
-          ROS_INFO_STREAM("[UVDARPoseCalculator]: U2:\n " << U2);
-          ROS_INFO_STREAM("[UVDARPoseCalculator]: S: " << S);
-          ROS_INFO_STREAM("[UVDARPoseCalculator]: US: " << US);
-          ROS_INFO_STREAM("[UVDARPoseCalculator]: V: " << V);
-          ROS_INFO_STREAM("[UVDARPoseCalculator]: D: " << D);
-          ROS_INFO_STREAM("[UVDARPoseCalculator]: U: " << U);
-        }
-
-        return U;
-      }
-
-      e::Vector3d directionFromCamPoint(cv::Point3d point, int image_index){
+        e::Vector3d directionFromCamPoint(cv::Point3d point, int image_index){
           double v_i[2] = {(double)(point.y), (double)(point.x)};
           double v_w_raw[3];
           cam2world(v_w_raw, v_i, &(_oc_models_[image_index]));
           return e::Vector3d(v_w_raw[1], v_w_raw[0], -v_w_raw[2]);
-      }
+        }
 
-      std::pair<cv::Point2d, double> camPointFromModelPoint(LEDMarker marker, int image_index){
-        auto marker_cam_pos = opticalFromMarker(marker);
-        auto output_position = camPointFromObjectPoint(marker_cam_pos.first, image_index);
-        e::Vector3d view_vector = -(marker_cam_pos.first.normalized());
-        /* e::Vector3d led_vector = marker_cam_pos.second*e::Vector3d(1,0,0); */
-        e::Vector3d led_vector = fastMatrixVectorProduct(marker_cam_pos.second,e::Vector3d(1,0,0)); // can accelerate by just selecting the first row...
-        double cos_view_angle = view_vector.dot(led_vector);
-        /* ROS_INFO_STREAM("[UVDARPoseCalculator]: view_vector: " << view_vector.transpose() << " led_vector: " << led_vector.transpose() << " cos_view_angle: " << cos_view_angle); */
-        return {output_position, cos_view_angle};
-      }
+        std::pair<cv::Point2d, double> camPointFromModelPoint(LEDMarker marker, int image_index){
+          auto marker_cam_pos = opticalFromMarker(marker);
+          auto output_position = camPointFromObjectPoint(marker_cam_pos.first, image_index);
+          e::Vector3d view_vector = -(marker_cam_pos.first.normalized());
+          /* e::Vector3d led_vector = marker_cam_pos.second*e::Vector3d(1,0,0); */
+          e::Vector3d led_vector = fastMatrixVectorProduct(marker_cam_pos.second,e::Vector3d(1,0,0)); // can accelerate by just selecting the first row...
+          double cos_view_angle = view_vector.dot(led_vector);
+          /* ROS_INFO_STREAM("[UVDARPoseCalculator]: view_vector: " << view_vector.transpose() << " led_vector: " << led_vector.transpose() << " cos_view_angle: " << cos_view_angle); */
+          return {output_position, cos_view_angle};
+        }
 
-      std::pair<e::Vector3d, e::Matrix3d> opticalFromMarker(LEDMarker marker){
-        /* e::Quaterniond q_rotator(0.5,0.5,-0.5,0.5); */
-        e::Matrix3d m_rotator;
-        m_rotator << \
-          0, -1, 0, \
-          0, 0, -1, \
-          1, 0, 0;
-        //two expression of the same for speed optimization
-        /* ROS_INFO_STREAM("[UVDARPoseCalculator]: marker_pos: " << marker.position << "; rotated: " << rotator*marker.position); */
-        /* ROS_INFO_STREAM("[UVDARPoseCalculator]: marker_rot: " << marker.orientation.x() << ":"<<marker.orientation.y() << ":"<<marker.orientation.z() << ":"<<marker.orientation.w() << "; rotated: " << (rotator*marker.orientation).x() << ":"<<(rotator*marker.orientation).y() << ":"<<(rotator*marker.orientation).z() << ":"<<(rotator*marker.orientation).w()); */
-        /* ROS_INFO_STREAM("[UVDARPoseCalculator]: marker_rot: " << quaternionToRPY(marker.orientation).transpose() << "; rotated: " << quaternionToRPY(rotator*marker.orientation).transpose()); */
-        /* adfasdfadf */
-        /* ROS_INFO_STREAM("[UVDARPoseCalculator]: Matrix *: " << m_rotator*marker.orientation.toRotationMatrix() << "; Matrix f: "<<fastMatrixMatrixProduct(m_rotator,marker.orientation.toRotationMatrix())); */
-        return {fastMatrixVectorProduct(m_rotator,marker.position), fastMatrixMatrixProduct(m_rotator,marker.orientation.toRotationMatrix())};
-      }
+        std::pair<e::Vector3d, e::Matrix3d> opticalFromMarker(LEDMarker marker){
+          /* e::Quaterniond q_rotator(0.5,0.5,-0.5,0.5); */
+          e::Matrix3d m_rotator;
+          m_rotator << \
+            0, -1, 0, \
+            0, 0, -1, \
+            1, 0, 0;
+          //two expression of the same for speed optimization
+          /* ROS_INFO_STREAM("[UVDARPoseCalculator]: marker_pos: " << marker.position << "; rotated: " << rotator*marker.position); */
+          /* ROS_INFO_STREAM("[UVDARPoseCalculator]: marker_rot: " << marker.orientation.x() << ":"<<marker.orientation.y() << ":"<<marker.orientation.z() << ":"<<marker.orientation.w() << "; rotated: " << (rotator*marker.orientation).x() << ":"<<(rotator*marker.orientation).y() << ":"<<(rotator*marker.orientation).z() << ":"<<(rotator*marker.orientation).w()); */
+          /* ROS_INFO_STREAM("[UVDARPoseCalculator]: marker_rot: " << quaternionToRPY(marker.orientation).transpose() << "; rotated: " << quaternionToRPY(rotator*marker.orientation).transpose()); */
+          /* adfasdfadf */
+          /* ROS_INFO_STREAM("[UVDARPoseCalculator]: Matrix *: " << m_rotator*marker.orientation.toRotationMatrix() << "; Matrix f: "<<fastMatrixMatrixProduct(m_rotator,marker.orientation.toRotationMatrix())); */
+          return {fastMatrixVectorProduct(m_rotator,marker.position), fastMatrixMatrixProduct(m_rotator,marker.orientation.toRotationMatrix())};
+        }
 
-      std::pair<std::pair<e::Vector3d,e::Quaterniond>,e::MatrixXd> opticalFromBase(std::pair<e::Vector3d,e::Quaterniond> pose, e::MatrixXd covariance){
-        auto output_pose = pose;
-        auto output_covariance = covariance;
-        /* e::Quaterniond rotator(0.5,0.5,-0.5,0.5); */
-        /* rotator = _center_fix_[image_index]*rotator; */
-        output_pose.first = rot_base_to_optical*pose.first;
-        output_pose.second = rot_base_to_optical*pose.second;
-        output_covariance.topLeftCorner(3,3) = rot_base_to_optical.toRotationMatrix()*output_covariance.topLeftCorner(3,3)*rot_base_to_optical.toRotationMatrix().transpose();
-        output_covariance.bottomRightCorner(3,3) = rot_base_to_optical.toRotationMatrix()*output_covariance.bottomRightCorner(3,3)*rot_base_to_optical.toRotationMatrix().transpose();
-        return {output_pose, output_covariance};
-      }
+        std::pair<std::pair<e::Vector3d,e::Quaterniond>,e::MatrixXd> opticalFromBase(std::pair<e::Vector3d,e::Quaterniond> pose, e::MatrixXd covariance){
+          auto output_pose = pose;
+          auto output_covariance = covariance;
+          /* e::Quaterniond rotator(0.5,0.5,-0.5,0.5); */
+          /* rotator = _center_fix_[image_index]*rotator; */
+          output_pose.first = rot_base_to_optical*pose.first;
+          output_pose.second = rot_base_to_optical*pose.second;
+          output_covariance.topLeftCorner(3,3) = rot_base_to_optical.toRotationMatrix()*output_covariance.topLeftCorner(3,3)*rot_base_to_optical.toRotationMatrix().transpose();
+          output_covariance.bottomRightCorner(3,3) = rot_base_to_optical.toRotationMatrix()*output_covariance.bottomRightCorner(3,3)*rot_base_to_optical.toRotationMatrix().transpose();
+          return {output_pose, output_covariance};
+        }
 
-      e::Vector3d baseFromOptical(e::Vector3d input){
-        return e::Vector3d(input.z(), -input.x(), -input.y());
-      }
+        e::Vector3d baseFromOptical(e::Vector3d input){
+          return e::Vector3d(input.z(), -input.x(), -input.y());
+        }
 
-      cv::Point2d camPointFromObjectPoint(e::Vector3d point, int image_index){
+        cv::Point2d camPointFromObjectPoint(e::Vector3d point, int image_index){
           double v_w[3] = {point.y(), point.x(),-point.z()};
           double v_i_raw[2];
           world2cam(v_i_raw, v_w, &(_oc_models_[image_index]));
           return cv::Point2d(v_i_raw[1], v_i_raw[0]);
-      }
-
-
-      /**
-       * @brief Returns the index of target UAV with a marker based on the frequency-based ID of that marker
-       *
-       * @param f_i Index of the frequency of the given marker
-       *
-       * @return Index of the target carrying the marker
-       */
-      /* classifyMatch //{ */
-      int classifyMatch(int f_i) {
-        return f_i/signals_per_target_;
-      }
-      //}
-
-
-      /**
-       * @brief Returns true if the centroid of the image points is within <margin> pixels from the image edge
-       *
-       * @param points Vector of image points
-       * @param margin The distance from the image edge to consider
-       * @param image_index The index of the current camera used to generate the input points
-       *
-       * @return True if centroid is in the image margin, False otherwise
-       */
-      /* avgIsNearEdge //{ */
-      bool avgIsNearEdge(std::vector< cv::Point3d > points, int margin, int image_index){
-
-
-        cv::Point2d mean(0,0);
-        for (auto &point : points){
-          mean += cv::Point2d(point.x, point.y);
         }
 
-        mean /= (int)(points.size());
-        if (
-            (mean.x < margin) ||
-            (mean.y < margin) ||
-            (mean.x > (camera_image_sizes_[image_index].width-margin)) ||
-            (mean.y > (camera_image_sizes_[image_index].height-margin))
-            ){
+
+        /**
+         * @brief Returns the index of target UAV with a marker based on the frequency-based ID of that marker
+         *
+         * @param f_i Index of the frequency of the given marker
+         *
+         * @return Index of the target carrying the marker
+         */
+        /* classifyMatch //{ */
+        int classifyMatch(int f_i) {
+          return f_i/signals_per_target_;
+        }
+        //}
+
+
+        /**
+         * @brief Returns true if the centroid of the image points is within <margin> pixels from the image edge
+         *
+         * @param points Vector of image points
+         * @param margin The distance from the image edge to consider
+         * @param image_index The index of the current camera used to generate the input points
+         *
+         * @return True if centroid is in the image margin, False otherwise
+         */
+        /* avgIsNearEdge //{ */
+        bool avgIsNearEdge(std::vector< cv::Point3d > points, int margin, int image_index){
+
+
+          cv::Point2d mean(0,0);
+          for (auto &point : points){
+            mean += cv::Point2d(point.x, point.y);
+          }
+
+          mean /= (int)(points.size());
+          if (
+              (mean.x < margin) ||
+              (mean.y < margin) ||
+              (mean.x > (camera_image_sizes_[image_index].width-margin)) ||
+              (mean.y > (camera_image_sizes_[image_index].height-margin))
+             ){
             return true;
-            }
+          }
 
 
-        return false;
-      }
-      //}
-
-      /**
-       * @brief Prepares structures needed for collecting markers associated with a specific beacon marker
-       */
-      /* prepareBlinkerBrackets //{ */
-      void prepareBlinkerBrackets() {
-        double frame_ratio = _arm_length_/(_beacon_height_*0.75);
-        double max_dist = 100;
-
-        cv::Rect curr_rect;
-        for (int i = 0; i < max_dist/BRACKET_STEP; i++) {
-          curr_rect = cv::Rect(cv::Point2i(-frame_ratio*i*BRACKET_STEP-5, 0), cv::Point(frame_ratio*i*BRACKET_STEP+5,i*BRACKET_STEP+5));
-          bracket_set.push_back(curr_rect);
+          return false;
         }
-      }
-      //}
+        //}
 
-      /**
-       * @brief Thread function for optional visualization of separated markers
-       *
-       * @param te TimerEvent for the timer spinning this thread
-       */
-      /* VisualizationThread() //{ */
-      void VisualizationThread([[maybe_unused]] const ros::TimerEvent& te) {
-        if (initialized_){
-          /* std::scoped_lock lock(mutex_visualization_); */
-          if(generateVisualization(image_visualization_) >= 0){
-            if ((image_visualization_.cols != 0) && (image_visualization_.rows != 0)){
-              if (_publish_visualization_){
-                pub_visualization_->publish("ocv_point_separation", 0.01, image_visualization_, true);
+        /**
+         * @brief Prepares structures needed for collecting markers associated with a specific beacon marker
+         */
+        /* prepareBlinkerBrackets //{ */
+        void prepareBlinkerBrackets() {
+          double frame_ratio = _arm_length_/(_beacon_height_*0.75);
+          double max_dist = 100;
+
+          cv::Rect curr_rect;
+          for (int i = 0; i < max_dist/BRACKET_STEP; i++) {
+            curr_rect = cv::Rect(cv::Point2i(-frame_ratio*i*BRACKET_STEP-5, 0), cv::Point(frame_ratio*i*BRACKET_STEP+5,i*BRACKET_STEP+5));
+            bracket_set.push_back(curr_rect);
+          }
+        }
+        //}
+
+        /**
+         * @brief Thread function for optional visualization of separated markers
+         *
+         * @param te TimerEvent for the timer spinning this thread
+         */
+        /* VisualizationThread() //{ */
+        void VisualizationThread([[maybe_unused]] const ros::TimerEvent& te) {
+          if (initialized_){
+            /* std::scoped_lock lock(mutex_visualization_); */
+            if(generateVisualization(image_visualization_) >= 0){
+              if ((image_visualization_.cols != 0) && (image_visualization_.rows != 0)){
+                if (_publish_visualization_){
+                  pub_visualization_->publish("ocv_point_separation", 0.01, image_visualization_, true);
+                }
+                if (_gui_){
+                  cv::imshow("ocv_point_separation_" + _uav_name_, image_visualization_);
+                  cv::waitKey(25);
+                }
               }
-              if (_gui_){
-                cv::imshow("ocv_point_separation_" + _uav_name_, image_visualization_);
-                cv::waitKey(25);
+            }
+          }
+        }
+        //}
+
+        /**
+         * @brief Method for generating annotated image for optional visualization
+         *
+         * @param output_image The generated visualization image
+         *
+         * @return Success status ( 0 - success, 1 - visualization does not need to be generated as the state has not changed, negative - failed, usually due to missing requirements
+         */
+        /* generateVisualization() //{ */
+        int generateVisualization(cv::Mat& output_image) {
+
+          if (camera_image_sizes_.size() == 0){
+            return -3;
+          }
+
+          int max_image_height = 0;
+          int sum_image_width = 0;
+          std::vector<int> start_widths;
+          for (auto curr_size : camera_image_sizes_){
+            if (max_image_height < curr_size.height){
+              max_image_height = curr_size.height;
+            }
+            start_widths.push_back(sum_image_width);
+            sum_image_width += curr_size.width;
+          }
+
+          if ( (sum_image_width <= 0) || (max_image_height <= 0) ){
+            return -2;
+          }
+
+          output_image = cv::Mat(cv::Size(sum_image_width+((int)(camera_image_sizes_.size())-1), max_image_height),CV_8UC3);
+          output_image = cv::Scalar(0,0,0);
+
+          if ( (output_image.cols <= 0) || (output_image.rows <= 0) ){
+            return -1;
+          }
+
+          int image_index = 0;
+          for (auto &sep_points_image : separated_points_){
+            std::scoped_lock lock(*(mutex_separated_points_[image_index]));
+            cv::Point start_point = cv::Point(start_widths[image_index]+image_index, 0);
+            if (image_index > 0){
+              cv::line(output_image, start_point+cv::Point2i(-1,0), start_point+cv::Point2i(-1,max_image_height-1),cv::Scalar(255,255,255));
+            }
+
+            for (auto &point_group : sep_points_image){
+              for (auto &point : point_group.second){
+                cv::Point center = start_point + cv::Point2i(point.x,point.y);
+
+                cv::Scalar color = ColorSelector::markerColor(point_group.first);
+                cv::circle(output_image, center, 5, color);
+              }
+            }
+            image_index++;
+          }
+
+          return 0;
+        }
+
+        //}
+
+
+        /* Conversions of rotation matrices to aviation angles //{ */
+        /* rotmatToYaw //{ */
+        double rotmatToYaw(e::Matrix3d m){
+          return atan2(m(1,0),m(0,0));
+        }
+        //}
+        /* rotmatToPitch //{ */
+        double rotmatToPitch(e::Matrix3d m){
+          return atan2( -m(2,0), sqrt( m(2,1)*m(2,1) +m(2,2)*m(2,2) )  );
+        }
+        //}
+        /* rotmatToRoll //{ */
+        double rotmatToRoll(e::Matrix3d m){
+          return atan2(m(2,1),m(2,2));
+        }
+        //}
+
+        e::Vector3d quaternionToRPY(e::Quaterniond q){
+          auto rotmat = q.toRotationMatrix();
+          return e::Vector3d(rotmatToRoll(rotmat), rotmatToPitch(rotmat), rotmatToYaw(rotmat));
+        }
+
+        //}
+
+        e::Vector3d fastMatrixVectorProduct(e::Matrix3d M, e::Vector3d v){//matrix - vector multiplication in this order
+          e::Vector3d output;
+          output.setZero();
+          for (int i=0; i<3; i++){
+            for (int j=0; j<3; j++){
+              output.coeffRef(i) += M.coeff(i,j)*v.coeff(j); //coeff should disable range checking
+            }
+          }
+          return output;
+        }
+
+        e::Matrix3d fastMatrixMatrixProduct(e::Matrix3d M1, e::Matrix3d M2){//matrix multiplication in this order
+          e::Matrix3d output;
+          output.setZero();
+          for (int i=0; i<3; i++){//row 
+            for (int j=0; j<3; j++){// column - for the first matrix
+              for (int k=0; k<3; k++){//for iterating among element multiplication
+                output.coeffRef(i,j) += M1.coeff(i,k)*M2.coeff(k,j); //coeff should disable range checking
               }
             }
           }
-        }
-      }
-      //}
-
-      /**
-       * @brief Method for generating annotated image for optional visualization
-       *
-       * @param output_image The generated visualization image
-       *
-       * @return Success status ( 0 - success, 1 - visualization does not need to be generated as the state has not changed, negative - failed, usually due to missing requirements
-       */
-      /* generateVisualization() //{ */
-      int generateVisualization(cv::Mat& output_image) {
-
-        if (camera_image_sizes_.size() == 0){
-          return -3;
+          return output;
         }
 
-        int max_image_height = 0;
-        int sum_image_width = 0;
-        std::vector<int> start_widths;
-        for (auto curr_size : camera_image_sizes_){
-          if (max_image_height < curr_size.height){
-            max_image_height = curr_size.height;
-          }
-          start_widths.push_back(sum_image_width);
-          sum_image_width += curr_size.width;
+        template <typename T> int sgn(T val) {
+          return (T(0) < val) - (val < T(0));
         }
 
-        if ( (sum_image_width <= 0) || (max_image_height <= 0) ){
-          return -2;
-        }
+        /* attributes //{ */
+        bool _debug_;
+        bool _profiling_;
 
-        output_image = cv::Mat(cv::Size(sum_image_width+((int)(camera_image_sizes_.size())-1), max_image_height),CV_8UC3);
-        output_image = cv::Scalar(0,0,0);
+        std::string _uav_name_;
 
-        if ( (output_image.cols <= 0) || (output_image.rows <= 0) ){
-          return -1;
-        }
-
-        int image_index = 0;
-        for (auto &sep_points_image : separated_points_){
-          std::scoped_lock lock(*(mutex_separated_points_[image_index]));
-          cv::Point start_point = cv::Point(start_widths[image_index]+image_index, 0);
-          if (image_index > 0){
-            cv::line(output_image, start_point+cv::Point2i(-1,0), start_point+cv::Point2i(-1,max_image_height-1),cv::Scalar(255,255,255));
-          }
-
-          for (auto &point_group : sep_points_image){
-            for (auto &point : point_group.second){
-              cv::Point center = start_point + cv::Point2i(point.x,point.y);
-
-              cv::Scalar color = ColorSelector::markerColor(point_group.first);
-              cv::circle(output_image, center, 5, color);
-            }
-          }
-          image_index++;
-        }
-
-        return 0;
-      }
-
-      //}
+        Profiler profiler;
 
 
-      /* Conversions of rotation matrices to aviation angles //{ */
-      /* rotmatToYaw //{ */
-      double rotmatToYaw(e::Matrix3d m){
-        return atan2(m(1,0),m(0,0));
-      }
-      //}
-      /* rotmatToPitch //{ */
-      double rotmatToPitch(e::Matrix3d m){
-        return atan2( -m(2,0), sqrt( m(2,1)*m(2,1) +m(2,2)*m(2,2) )  );
-      }
-      //}
-      /* rotmatToRoll //{ */
-      double rotmatToRoll(e::Matrix3d m){
-        return atan2(m(2,1),m(2,2));
-      }
-      //}
-      
-      e::Vector3d quaternionToRPY(e::Quaterniond q){
-        auto rotmat = q.toRotationMatrix();
-        return e::Vector3d(rotmatToRoll(rotmat), rotmatToPitch(rotmat), rotmatToYaw(rotmat));
-      }
-     
-      //}
-      
-      e::Vector3d fastMatrixVectorProduct(e::Matrix3d M, e::Vector3d v){//matrix - vector multiplication in this order
-        e::Vector3d output;
-        output.setZero();
-        for (int i=0; i<3; i++){
-          for (int j=0; j<3; j++){
-            output.coeffRef(i) += M.coeff(i,j)*v.coeff(j); //coeff should disable range checking
-          }
-        }
-        return output;
-      }
+        using blinkers_seen_callback_t = boost::function<void (const mrs_msgs::ImagePointsWithFloatStampedConstPtr& msg)>;
+        std::vector<ros::Subscriber> sub_blinkers_seen_;
+        ros::Time last_blink_time_;
 
-      e::Matrix3d fastMatrixMatrixProduct(e::Matrix3d M1, e::Matrix3d M2){//matrix multiplication in this order
-        e::Matrix3d output;
-        output.setZero();
-        for (int i=0; i<3; i++){//row 
-          for (int j=0; j<3; j++){// column - for the first matrix
-            for (int k=0; k<3; k++){//for iterating among element multiplication
-              output.coeffRef(i,j) += M1.coeff(i,k)*M2.coeff(k,j); //coeff should disable range checking
-            }
-          }
-        }
-        return output;
-      }
-      
-      template <typename T> int sgn(T val) {
-        return (T(0) < val) - (val < T(0));
-      }
+        using estimated_framerate_callback_t = boost::function<void (const std_msgs::Float32ConstPtr& msg)>;
+        std::vector<estimated_framerate_callback_t> cals_estimated_framerate_;
+        std::vector<ros::Subscriber> sub_estimated_framerate_;
+        std::vector<double> estimated_framerate_;
 
-      /* attributes //{ */
-      bool _debug_;
-      bool _profiling_;
-
-      std::string _uav_name_;
-
-      Profiler profiler;
+        std::vector<std::string> _camera_frames_;
+        unsigned int _camera_count_;
 
 
-      using blinkers_seen_callback_t = boost::function<void (const mrs_msgs::ImagePointsWithFloatStampedConstPtr& msg)>;
-      std::vector<ros::Subscriber> sub_blinkers_seen_;
-      ros::Time last_blink_time_;
-
-      using estimated_framerate_callback_t = boost::function<void (const std_msgs::Float32ConstPtr& msg)>;
-      std::vector<estimated_framerate_callback_t> cals_estimated_framerate_;
-      std::vector<ros::Subscriber> sub_estimated_framerate_;
-      std::vector<double> estimated_framerate_;
-
-      std::vector<std::string> _camera_frames_;
-      unsigned int _camera_count_;
+        bool _gui_;
+        bool _publish_visualization_;
+        bool _publish_constituents_;
+        ros::Timer timer_visualization_;
+        std::vector<cv::Size> camera_image_sizes_;
+        cv::Mat image_visualization_;
+        std::unique_ptr<mrs_lib::ImagePublisher> pub_visualization_;
 
 
-      bool _gui_;
-      bool _publish_visualization_;
-      bool _publish_constituents_;
-      ros::Timer timer_visualization_;
-      std::vector<cv::Size> camera_image_sizes_;
-      cv::Mat image_visualization_;
-      std::unique_ptr<mrs_lib::ImagePublisher> pub_visualization_;
+        std::vector<struct ocam_model> _oc_models_;
+        std::vector<e::Quaterniond> _center_fix_;
 
 
-      std::vector<struct ocam_model> _oc_models_;
-      std::vector<e::Quaterniond> _center_fix_;
+        /* Eigen::MatrixXd Px2,Px3,Px2q; */
+        /* Eigen::MatrixXd Px2qb,Px3qb,Px4qb; */
+        /* Eigen::VectorXd X2,X3,X2q; */
+        /* Eigen::VectorXd X2qb,X3qb,X4qb; */
+
+        std::vector<ros::Publisher> pub_measured_poses_;
+        std::vector<ros::Publisher> pub_constituent_poses_;
+        std::vector<ros::Publisher> pub_constituent_hypo_poses_;
+
+        std::vector<int> _signal_ids_;
+        int signals_per_target_;
+        int _target_count_;
+        /* std::unique_ptr<UVDARFrequencyClassifier> ufc_; */
 
 
-      /* Eigen::MatrixXd Px2,Px3,Px2q; */
-      /* Eigen::MatrixXd Px2qb,Px3qb,Px4qb; */
-      /* Eigen::VectorXd X2,X3,X2q; */
-      /* Eigen::VectorXd X2qb,X3qb,X4qb; */
+        std::vector<cv::Rect> bracket_set;
 
-      std::vector<ros::Publisher> pub_measured_poses_;
-      std::vector<ros::Publisher> pub_constituent_poses_;
-      std::vector<ros::Publisher> pub_constituent_hypo_poses_;
+        std::vector<std::string> _calib_files_;
 
-      std::vector<int> _signal_ids_;
-      int signals_per_target_;
-      int _target_count_;
-      /* std::unique_ptr<UVDARFrequencyClassifier> ufc_; */
+        std::string _model_file_;
 
+        bool _use_masks_;
+        std::vector<std::string> _mask_file_names_;
+        std::vector<cv::Mat> _masks_;
 
-      std::vector<cv::Rect> bracket_set;
+        double _arm_length_;
+        double _beacon_height_;
 
-      std::vector<std::string> _calib_files_;
+        bool _quadrotor_;
+        bool _beacon_;
+        bool _custom_model_;
 
-      std::string _model_file_;
+        bool _separate_by_distance_;
 
-      bool _use_masks_;
-      std::vector<std::string> _mask_file_names_;
-      std::vector<cv::Mat> _masks_;
+        LEDModel model_;
 
-      double _arm_length_;
-      double _beacon_height_;
+        bool initialized_ = false;
 
-      bool _quadrotor_;
-      bool _beacon_;
-      bool _custom_model_;
+        std::vector<std::vector<e::Vector3d>> axis_vectors_default;
 
-      bool _separate_by_distance_;
+        std::vector<std::vector<e::Vector3d>> axis_vectors_;
 
-      LEDModel model_;
+        std::vector<std::shared_ptr<std::mutex>>  mutex_separated_points_;
+        std::vector<std::vector<std::pair<int,std::vector<cv::Point3d>>>> separated_points_;
 
-      bool initialized_ = false;
-
-      std::vector<std::vector<e::Vector3d>> axis_vectors_default;
-
-      std::vector<std::vector<e::Vector3d>> axis_vectors_;
-
-      std::vector<std::shared_ptr<std::mutex>>  mutex_separated_points_;
-      std::vector<std::vector<std::pair<int,std::vector<cv::Point3d>>>> separated_points_;
-
-      double led_projection_coefs_[3] = {1.3398, 31.4704, 0.0154}; //empirically measured coefficients of the decay of blob radius wrt. distance of a LED in our UVDAR cameras.
+        double led_projection_coefs_[3] = {1.3398, 31.4704, 0.0154}; //empirically measured coefficients of the decay of blob radius wrt. distance of a LED in our UVDAR cameras.
 
 
-      std::mutex transformer_mutex;
-      mrs_lib::Transformer transformer_;
-      std::vector<std::optional<geometry_msgs::TransformStamped>> tf_fcu_to_cam;
-      std::vector<e::Quaterniond> camera_view_;
+        std::mutex transformer_mutex;
+        mrs_lib::Transformer transformer_;
+        std::vector<std::optional<geometry_msgs::TransformStamped>> tf_fcu_to_cam;
+        std::vector<e::Quaterniond> camera_view_;
 
-      e::Quaterniond rot_base_to_optical = e::Quaterniond(0.5,0.5,-0.5,0.5);
-      e::Quaterniond rot_optical_to_base = e::Quaterniond(0.5,-0.5,0.5,-0.5);
-      //}
+        e::Quaterniond rot_base_to_optical = e::Quaterniond(0.5,0.5,-0.5,0.5);
+        e::Quaterniond rot_optical_to_base = e::Quaterniond(0.5,-0.5,0.5,-0.5);
+        //}
   };
 
 } //uvdar
