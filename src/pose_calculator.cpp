@@ -1253,6 +1253,7 @@ namespace uvdar {
             if (acos(fitted_pose.first.normalized().dot(unit_vec)) > rad2deg(95)) //our lenses only allow us to see UAVs ~92.5 degrees away from the optical axis of the camera
               continue;
 
+
             /* if (projection_errors.back() > (error+(SIMILAR_ERRORS_THRESHOLD*(int)(points.size())))){ */
             projection_errors.push_back(error);
             selected_poses.push_back(fitted_pose);
@@ -1287,7 +1288,7 @@ namespace uvdar {
           if ((int)(selected_poses.size()) == 0){
             ROS_ERROR_STREAM("[UVDARPoseCalculator]: No suitable hypothesis found!");
             ROS_ERROR_STREAM("[UVDARPoseCalculator]: Initial hypothesis count: "<< initial_hypothesis_count << ", fitted hypothesis count: " << fitted_hypothesis_count);
-            ROS_ERROR_STREAM("[UVDARPoseCalculator]: Points:");
+            /* ROS_ERROR_STREAM("[UVDARPoseCalculator]: Points:"); */
             /* for (auto pt : points){ */
             /* ROS_ERROR_STREAM("[UVDARPoseCalculator]: " << pt); */
             /* } */
@@ -1360,15 +1361,15 @@ namespace uvdar {
 
           if ((int)(selected_poses.size()) == 1){
             final_mean = selected_poses.at(0);
-            /* final_covariance = covariances.at(0); */
-            //TODO
+            final_covariance = e::Matrix6d::Identity()*SINGLE_HYPOTHESIS_COVARIANCE;
           }
           else if ((int)(selected_poses.size()) > 1){
             /* if (((selected_poses.front().first - selected_poses.back().first).norm() < MAX_HYPOTHESIS_SPREAD) || (selected_poses.size() < 100)) */
             { if (_debug_)
               ROS_INFO_STREAM("[UVDARPoseCalculator]: " << selected_poses.size() << " equivalent hypotheses found! I will attempt to smear them together into a unified measurement.");
               /* std::tie(final_mean, final_covariance) = getMeasurementUnion(selected_poses, covariances); */
-              std::tie(final_mean, final_covariance) = getMeasurementUnionSimple(selected_poses);
+              /* std::tie(final_mean, final_covariance) = getMeasurementUnionSimple(selected_poses); */
+              std::tie(final_mean, final_covariance) = getMeasurementElipsoidHull(selected_poses);
               final_covariance += e::Matrix6d::Identity()*SINGLE_HYPOTHESIS_COVARIANCE;
             }
             /* else{ */
@@ -1397,7 +1398,6 @@ namespace uvdar {
           /* qtemp=tf::Quaternion(-0.5,0.5,-0.5,-0.5)*qtemp; //bring relative orientations to the optical frame of the camera (Roll, Pitch and Yaw were estimated in the more intuitive sensor frame (X forward, Y to the left, Z up) */
           /* qtemp.normalize();//just in case */
           }
-
 
           auto fitted_pose_optical = opticalFromBase(final_mean,final_covariance);
 
@@ -2448,7 +2448,6 @@ namespace uvdar {
 
         }
 
-        //contains code from https://gist.github.com/PeteBlackerThe3rd/f73e9d569e29f23e8bd828d7886636a0
         std::pair<std::pair<e::Vector3d, e::Quaterniond>, e::MatrixXd> getMeasurementUnionSimple(std::vector<std::pair<e::Vector3d, e::Quaterniond>> meas){
           if (meas.size() < 1){
             ROS_ERROR_STREAM("[UVDARPoseCalculator]: No hypotheses provided. Returning!");
@@ -2456,14 +2455,47 @@ namespace uvdar {
           }
           e::Vector3d mean_pos(0,0,0);
 
+          for (auto &m : meas){
+            mean_pos += m.first;
+          }
+          mean_pos /= (double)(meas.size());
+
+          e::Quaterniond mean_rot = getAverageOrientation(meas);
+
+          e::MatrixXd Mp(3,(unsigned int)(meas.size()));
+          e::MatrixXd Mo(3,(unsigned int)(meas.size()));
+
+          int i = 0;
+          for (auto &m : meas){
+            Mp.block(0,i, 3,1) = m.first-mean_pos;
+            Mo.block(0,i, 3,1) = quaternionToRPY(m.second*mean_rot.inverse());
+            i++;
+          }
+
+          e::Matrix3d Cp = (Mp*Mp.transpose())/(meas.size()-1);
+          e::Matrix3d Co = (Mo*Mo.transpose())/(meas.size()-1);
+
+          e::Matrix6d C = e::Matrix6d::Zero();
+          C.topLeftCorner(3,3) = Cp;
+          C.bottomRightCorner(3,3) = Co;
+
+          return {{mean_pos,mean_rot},C};
+
+        }
+
+        //contains code from https://gist.github.com/PeteBlackerThe3rd/f73e9d569e29f23e8bd828d7886636a0
+        e::Quaterniond getAverageOrientation(std::vector<std::pair<e::Vector3d,e::Quaterniond>> meas){
+          if (meas.size() < 1){
+            return e::Quaterniond::Identity();
+            ROS_ERROR_STREAM("[UVDARPoseCalculator]: No measurements provided. Returning!");
+          }
+
           // first build a 4x4 matrix which is the elementwise sum of the product of each quaternion with itself
           Eigen::Matrix4d A = Eigen::Matrix4d::Zero();
 
           for (auto &m : meas){
-            mean_pos += m.first;
             A += m.second.coeffs()*m.second.coeffs().transpose();
           }
-          mean_pos /= (double)(meas.size());
           A /= (double)(meas.size());
 
           // Compute the SVD of this 4x4 matrix
@@ -2494,28 +2526,10 @@ namespace uvdar {
           mean_rot.z() = U(2, largestEigenValueIndex);
           mean_rot.w() = U(3, largestEigenValueIndex);
 
-          e::MatrixXd Mp(3,(unsigned int)(meas.size()));
-          e::MatrixXd Mo(3,(unsigned int)(meas.size()));
-
-          int i = 0;
-          for (auto &m : meas){
-            Mp.block(0,i, 3,1) = m.first-mean_pos;
-            Mo.block(0,i, 3,1) = quaternionToRPY(m.second*mean_rot.inverse());
-            i++;
-          }
-
-          e::Matrix3d Cp = (Mp*Mp.transpose())/(meas.size()-1);
-          e::Matrix3d Co = (Mo*Mo.transpose())/(meas.size()-1);
-
-          e::Matrix6d C = e::Matrix6d::Zero();
-          C.topLeftCorner(3,3) = Cp;
-          C.bottomRightCorner(3,3) = Co;
-
-          return {{mean_pos,mean_rot},C};
-
+          return mean_rot;
         }
 
-        //based on [Nima Moshtagh (2022). Minimum Volume Enclosing Ellipsoid (https://www.mathworks.com/matlabcentral/fileexchange/9542-minimum-volume-enclosing-ellipsoid), MATLAB Central File Exchange. Retrieved May 11, 2022.]
+
         std::pair<std::pair<e::Vector3d, e::Quaterniond>, e::MatrixXd> getMeasurementElipsoidHull(std::vector<std::pair<e::Vector3d, e::Quaterniond>> meas){
           if (meas.size() < 1){
             ROS_ERROR_STREAM("[UVDARPoseCalculator]: No hypotheses provided. Returning!");
@@ -2523,17 +2537,49 @@ namespace uvdar {
           }
 
           // position
+          std::vector<e::Vector3d> meas_pos;
 
+          e::Vector3d mean_pos(0.0,0.0,0.0);
+
+          for (auto &m : meas){
+            meas_pos.push_back(m.first);
+            mean_pos += m.first;
+          }
+          mean_pos /= ((double)(meas.size()));
+          std::vector<e::Vector3d> meas_pos_diff;
 
           // orientation
-          // ...TODO - get average quaternion, convert differences to 3D vectors, do the magic
+          e::Quaterniond mean_rot = getAverageOrientation(meas);
+          std::vector<e::Vector3d> meas_rpy_diff;
+
+          for (auto &m : meas){
+            meas_pos_diff.push_back(m.first-mean_pos);
+            meas_rpy_diff.push_back(quaternionToRPY(m.second*mean_rot.inverse()));
+          }
+
+          auto Hp = get3DEnclosingEllipsoid(meas_pos_diff,0.001);
+          auto Ho = get3DEnclosingEllipsoid(meas_rpy_diff,0.01);
+          
+          e::Vector3d mean_pos_shift = Hp.first;
+          
+          e::Quaterniond mean_rot_shift =
+                      e::AngleAxisd(Ho.first(0), e::Vector3d::UnitX()) *
+                      e::AngleAxisd(Ho.first(1), e::Vector3d::UnitY()) *
+                      e::AngleAxisd(Ho.first(2), e::Vector3d::UnitZ());
+
+          e::Matrix6d C = e::Matrix6d::Zero();
+          C.topLeftCorner(3,3) = Hp.second;
+          C.bottomRightCorner(3,3) = Ho.second;
+
+          return {{mean_pos+mean_pos_shift,mean_rot*mean_rot_shift},C};
         }
 
+        //based on [Nima Moshtagh (2022). Minimum Volume Enclosing Ellipsoid (https://www.mathworks.com/matlabcentral/fileexchange/9542-minimum-volume-enclosing-ellipsoid), MATLAB Central File Exchange. Retrieved May 11, 2022.]
         std::pair<e::Vector3d, e::Matrix3d> get3DEnclosingEllipsoid(std::vector<e::Vector3d> Pv, double tolerance){
           //function [A , c] = MinVolEllipse(P, tolerance)
 
           // [A , c] = MinVolEllipse(P, tolerance)
-          // Finds the minimum volume enclsing ellipsoid (MVEE) of a set of data
+          // Finds the minimum volume enclosing ellipsoid (MVEE) of a set of data
           // points stored in matrix P. The following optimization problem is solved: 
           //
           // minimize       log(det(A))
@@ -2584,23 +2630,24 @@ namespace uvdar {
           Q.block(0,0, 3,N) = P;
           // initializations
           // -----------------------------------
-          int count = 1;
+          int count = 0;
           double err = 1.0;
           e::VectorXd u = (1.0/((double)(N))) * e::VectorXd::Constant(N,1.0);          // 1st iteration
             // Khachiyan Algorithm
             // -----------------------------------
-          while (err > tolerance){
+          while ((err > tolerance) && (count < 1000) ){
             e::Matrix3d X = Q * u.asDiagonal() * Q.transpose();       // X = \sum_i ( u_i * q_i * q_i')  is a (d+1)x(d+1) matrix
             e::VectorXd M = (Q.transpose() * X.inverse() * Q).diagonal();  // M the diagonal vector of an NxN matrix
             int j;
             double maximum = M.maxCoeff(&j);
-            double step_size = (maximum - (double)(d) -1.0)/(double)((d+1)*(maximum-1));
+            double step_size = (maximum - (double)(d) - 1.0)/(double)((d+1)*(maximum-1));
             e::VectorXd new_u = (1.0 - step_size)*u ;
             new_u(j) = new_u(j) + step_size;
             count = count + 1;
             err = (new_u - u).norm();
             u = new_u;
           }
+          ROS_INFO_STREAM("["<< ros::this_node::getName().c_str()<<"]: " << "We did "<< count << " iterations. err: " << err );
           //%%%%%%%%%%%%%%%%%% Computing the Ellipse parameters%%%%%%%%%%%%%%%%%%%%%%
           // Finds the ellipse equation in the 'center form': 
           // (x-c)' * A * (x-c) = 1
@@ -2609,12 +2656,33 @@ namespace uvdar {
           e::MatrixXd U = u.asDiagonal();
           // the A matrix for the ellipse
           // --------------------------------------------
-          e::Matrix3d A = (1.0/(double)(d)) * (P * U * P.transpose() - (P * u)*(P*u).transpose() ).inverse();
+          /* e::Matrix3d A = (1.0/(double)(d)) * (P * U * P.transpose() - (P*u)*(P*u).transpose() ).inverse(); */
+          e::Matrix3d A = (1.0/(double)(d)) * (P * U * P.transpose() - (P*u)*(P*u).transpose() ).inverse();
+          /* e::Matrix3d A = (1.0/(double)(d)) * (P * U * P.transpose() - (P*u)*(P*u).transpose() ).inverse(); */
+
+
+          //Now to convert it into covariance matrix
+          e::JacobiSVD<e::MatrixXd> svd(A, e::ComputeThinU | e::ComputeThinV);
+          e::Matrix3d D = svd.singularValues().cwiseInverse().asDiagonal();
+          e::Matrix3d V = svd.matrixV();
+
+            /* ROS_INFO_STREAM("[UVDARPoseCalculator]: Singular values: [\n" << svd.singularValues() << "\n]"); */
+            /* ROS_INFO_STREAM("[UVDARPoseCalculator]: Matrix V: [\n" << svd.matrixV() << "\n]"); */
+
+          //
+          /* e::EigenSolver<e::Matrix3d> es(A); */
+          /* e::Matrix3d D = es.eigenvalues().real().cwiseInverse().asDiagonal(); */
+          /* e::Matrix3d V = es.eigenvectors().real(); */
+
+          ROS_INFO_STREAM("[UVDARPoseCalculator]: D:\n" << D);
+
+          e::Matrix3d C = V*D*V.inverse();
+
           // center of the ellipse 
           // --------------------------------------------
           e::Vector3d c = P * u;
 
-          return {c,A};
+          return {c,C};
         }
 
         e::MatrixXd stdVecOfVectorsToMatrix(std::vector<e::Vector3d> V){
