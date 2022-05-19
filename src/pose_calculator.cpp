@@ -68,6 +68,7 @@ namespace Eigen
 {
   typedef Matrix< double, 6, 6 > 	Matrix6d;
   typedef Matrix< double, 1, 6 > 	Vector6d;
+  /* typedef Matrix< double, 4, 4 > 	Matrix4d; */
 }
 
 namespace uvdar {
@@ -2557,8 +2558,9 @@ namespace uvdar {
             meas_rpy_diff.push_back(quaternionToRPY(m.second*mean_rot.inverse()));
           }
 
-          auto Hp = get3DEnclosingEllipsoid(meas_pos_diff,0.001);
-          auto Ho = get3DEnclosingEllipsoid(meas_rpy_diff,0.01);
+          /* auto Hp = get3DEnclosingEllipsoid(meas_pos_diff,0.001); */
+          auto Hp = get3DEnclosingEllipsoid(meas_pos_diff);
+          auto Ho = get3DEnclosingEllipsoid(meas_rpy_diff);
           
           e::Vector3d mean_pos_shift = Hp.first;
           
@@ -2575,7 +2577,10 @@ namespace uvdar {
         }
 
         //based on [Nima Moshtagh (2022). Minimum Volume Enclosing Ellipsoid (https://www.mathworks.com/matlabcentral/fileexchange/9542-minimum-volume-enclosing-ellipsoid), MATLAB Central File Exchange. Retrieved May 11, 2022.]
-        std::pair<e::Vector3d, e::Matrix3d> get3DEnclosingEllipsoid(std::vector<e::Vector3d> Pv, double tolerance){
+        //
+        //condition and initialization changed to one from [Michael J. Todd; E. Alper Yıldırım (2005). On Khachiyan’s Algorithm for the Computation of Minimum Volume Enclosing Ellipsoids] which seems to work much better
+        //
+        std::pair<e::Vector3d, e::Matrix3d> get3DEnclosingEllipsoid(std::vector<e::Vector3d> Pv){
           //function [A , c] = MinVolEllipse(P, tolerance)
 
           // [A , c] = MinVolEllipse(P, tolerance)
@@ -2623,6 +2628,7 @@ namespace uvdar {
           // data points 
           // -----------------------------------
           int d = 3;
+          double n = (double)(d+1);
           int N = (int)(Pv.size());
           e::MatrixXd P = stdVecOfVectorsToMatrix(Pv);
 
@@ -2632,20 +2638,128 @@ namespace uvdar {
           // -----------------------------------
           int count = 0;
           double err = 1.0;
-          e::VectorXd u = (1.0/((double)(N))) * e::VectorXd::Constant(N,1.0);          // 1st iteration
-            // Khachiyan Algorithm
+          /* e::VectorXd u = (1.0/((double)(N))) * e::VectorXd::Constant(N,1.0);          // 1st iteration */
+          e::VectorXd u = e::VectorXd::Zero(N);
+
+          //initial volume approximation 
+          {
+            std::vector<e::Vector3d> Pv_local = Pv;
+            if (N <= (2*d)){
+              u = e::VectorXd::Constant(N,(1.0/((double)(N)))); 
+            }
+            else {
+              u = e::VectorXd::Zero(N);
+              int span_dim = 0;
+              int compliant_count = 0;
+              e::MatrixXd psi(3,0);
+              while (span_dim < d){
+                e::Vector3d direction;
+                if (span_dim == 0){
+                  direction = e::Vector3d(1.0,0.0,0.0);
+                }
+                else {
+                  e::FullPivLU<e::MatrixXd> lu(psi.transpose());
+                  e::MatrixXd l_null_space = lu.kernel();
+                  ROS_INFO_STREAM("[UVDARPoseCalculator]: span: \n" << psi);
+                  ROS_INFO_STREAM("[UVDARPoseCalculator]: nullspace: \n" << l_null_space);
+                  direction = l_null_space.topLeftCorner(3,1).normalized();
+                }
+                ROS_INFO_STREAM("[UVDARPoseCalculator]: direction: " << direction);
+
+                double alpha = std::numeric_limits<double>::lowest();
+                double beta = std::numeric_limits<double>::max();
+                e::Vector3d a_alpha, a_beta;
+                int j_alpha = -1, j_beta = -1;
+                int j = 0;
+                for (e::Vector3d &v : Pv_local){
+                  if (v.array().isNaN().any()){
+                    j++;
+                    continue;
+                  }
+                  double dirtest = direction.transpose()*v;
+                  ROS_INFO_STREAM("[UVDARPoseCalculator]: dirtest: " << dirtest);
+                  if (dirtest > alpha){
+                    alpha = dirtest;
+                    a_alpha = v;
+                    j_alpha = j;
+                  }
+                  if (dirtest < beta){
+                    beta = dirtest;
+                    a_beta = v;
+                    j_beta = j;
+                  }
+                  j++;
+                }
+                Pv_local[j_alpha] = e::Vector3d(std::nan(""),std::nan(""),std::nan(""));//so that we won't get duplicates
+                Pv_local[j_beta] = e::Vector3d(std::nan(""),std::nan(""),std::nan(""));//so that we won't get duplicates
+                /* ROS_INFO_STREAM("[UVDARPoseCalculator]: alpha: " << alpha << ", beta: " << beta); */
+                ROS_INFO_STREAM("[UVDARPoseCalculator]: j_alpha: " << j_alpha << ", j_beta: " << j_beta);
+                if ((j_alpha == -1) || (j_beta == -1)){
+                  ROS_ERROR("[UVDARPoseCalculator]: index -1 on enclosing ellipsoid initialization!");
+                }
+                if (u(j_alpha)<1){
+                  compliant_count++;
+                  u(j_alpha) = 1.0;
+                }
+                if (u(j_beta)<1){
+                  compliant_count++;
+                  u(j_beta) = 1.0;
+                }
+                e::MatrixXd psi_new(3,span_dim+1);
+                psi_new << psi, (a_beta-a_alpha).normalized();
+                psi = psi_new;
+                span_dim++;
+              }
+              u = u*(1.0/(double)(compliant_count));
+              /* ROS_INFO_STREAM("[UVDARPoseCalculator]: Basing initial u on " << compliant_count << " points"); */
+            }
+          }
+          // Khachiyan Algorithm
             // -----------------------------------
-          while ((err > tolerance) && (count < 1000) ){
-            e::Matrix3d X = Q * u.asDiagonal() * Q.transpose();       // X = \sum_i ( u_i * q_i * q_i')  is a (d+1)x(d+1) matrix
-            e::VectorXd M = (Q.transpose() * X.inverse() * Q).diagonal();  // M the diagonal vector of an NxN matrix
-            int j;
-            double maximum = M.maxCoeff(&j);
-            double step_size = (maximum - (double)(d) - 1.0)/(double)((d+1)*(maximum-1));
-            e::VectorXd new_u = (1.0 - step_size)*u ;
-            new_u(j) = new_u(j) + step_size;
+          /* e::VectorXd cmp = e::VectorXd::Constant(N,((1+eps)*n)); */
+          while (count < 1000){
+            e::Matrix4d X = Q * u.asDiagonal() * Q.transpose();       // X = \sum_i ( u_i * q_i * q_i')  is a (d+1)x(d+1) matrix
+            e::VectorXd m = (Q.transpose() * X.inverse() * Q).diagonal();  // M the diagonal vector of an NxN matrix
+
+
+            int jp, jm;
+            double maximum = m.maxCoeff(&jp);
+            double minimum = m.minCoeff(&jm);
+            double eps_plus = ((maximum/n) - 1.0);
+            double eps_minus = (1.0 - (minimum/n));
+
+            double eps = std::max(eps_plus,eps_minus);
+            bool test = ((m.array()>((1.0+eps)*n)).any()) || (((m.array()<((1.0-eps)*n))&&(u.array()>0.00001)).any()) ;
+            ROS_INFO_STREAM("["<< ros::this_node::getName().c_str()<<"]: " << u.transpose());
+            ROS_INFO_STREAM("["<< ros::this_node::getName().c_str()<<"]: " << m.transpose());
+            ROS_INFO_STREAM("["<< ros::this_node::getName().c_str()<<"]: " << ((1.0+eps)*n));
+            ROS_INFO_STREAM("["<< ros::this_node::getName().c_str()<<"]: " << (m.array()>((1.0+eps)*n)));
+              ROS_INFO_STREAM("["<< ros::this_node::getName().c_str()<<"]: " << ((1.0-eps)*n));
+              ROS_INFO_STREAM("["<< ros::this_node::getName().c_str()<<"]: " << (m.array()<((1.0-eps)*n)));
+            if (!test){
+              break;
+            }
+
+            double step_size;
+            e::VectorXd new_u;
+            if (eps_plus>=eps_minus){
+              eps = eps_plus;
+              step_size = (maximum - n)/(n*(maximum-1.0));
+              new_u = (1.0 - step_size)*u ;
+              new_u(jp) = new_u(jp) + step_size;
+              ROS_INFO_STREAM("["<< ros::this_node::getName().c_str()<<"]: " << "+");
+            }
+            else{
+              eps = eps_minus;
+              step_size = std::min(((n - minimum)/(n*(minimum-1.0))),((u(jm))/(1.0-u(jm))));
+              new_u = (1.0 + step_size)*u ;
+              new_u(jm) = new_u(jm) - step_size;
+              ROS_INFO_STREAM("["<< ros::this_node::getName().c_str()<<"]: " << "-");
+            }
             count = count + 1;
             err = (new_u - u).norm();
             u = new_u;
+
           }
           ROS_INFO_STREAM("["<< ros::this_node::getName().c_str()<<"]: " << "We did "<< count << " iterations. err: " << err );
           //%%%%%%%%%%%%%%%%%% Computing the Ellipse parameters%%%%%%%%%%%%%%%%%%%%%%
@@ -2662,8 +2776,13 @@ namespace uvdar {
 
 
           //Now to convert it into covariance matrix
+          ROS_INFO_STREAM("[UVDARPoseCalculator]: A:\n" << A);
           e::JacobiSVD<e::MatrixXd> svd(A, e::ComputeThinU | e::ComputeThinV);
-          e::Matrix3d D = svd.singularValues().cwiseInverse().asDiagonal();
+          ROS_INFO_STREAM("[UVDARPoseCalculator]: sgval of A:\n" << svd.singularValues().transpose());
+          ROS_INFO_STREAM("[UVDARPoseCalculator]: sgvec of A:\n" << svd.matrixV());
+
+          e::Vector3d sgvs = svd.singularValues();
+          e::Matrix3d D = ((sgvs.array()<0.00000001).select(std::numeric_limits<double>::max(),sgvs)).cwiseInverse().asDiagonal();
           e::Matrix3d V = svd.matrixV();
 
             /* ROS_INFO_STREAM("[UVDARPoseCalculator]: Singular values: [\n" << svd.singularValues() << "\n]"); */
