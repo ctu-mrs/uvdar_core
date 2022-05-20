@@ -145,7 +145,7 @@ namespace uvdar {
           return std::string(2*curr_depth_indent, ' ');
       }
 
-      bool active = true;
+      bool active = false;
       int curr_depth_indent = 0;
 
       std::vector<std::pair<std::string,int>>  elapsed_time;
@@ -381,6 +381,13 @@ namespace uvdar {
 
         param_loader.loadParam("debug", _debug_, bool(false));
         param_loader.loadParam("profiling", _profiling_, bool(false));
+
+        if (_profiling_){
+          profiler.start();
+        }
+        else {
+          profiler.stop();
+        }
 
         param_loader.loadParam("gui", _gui_, bool(false));
         param_loader.loadParam("publish_visualization", _publish_visualization_, bool(false));
@@ -772,8 +779,8 @@ namespace uvdar {
               profiler.addValueSince("Target "+std::to_string(separated_points_[image_index][i].first),start_target_iteration);
               if (_profiling_){
                 profiler.printAll("[UVDARPoseCalculator]: [cam:"+std::to_string(image_index)+"]-[tg:"+std::to_string(separated_points_[image_index][i].first)+"]:");
-                profiler.clear();
               }
+              profiler.clear();
             }
 
             profiler.unindent();
@@ -781,8 +788,8 @@ namespace uvdar {
 
             if (_profiling_){
               profiler.printAll("[UVDARPoseCalculator]: [cam:"+std::to_string(image_index)+"]:");
-              profiler.clear();
             }
+            profiler.clear();
           }
           pub_measured_poses_[image_index].publish(msg_measurement_array);
 
@@ -2637,7 +2644,7 @@ namespace uvdar {
           // initializations
           // -----------------------------------
           int count = 0;
-          double err = 1.0;
+          [[maybe_unused]] double err = 1.0;
           /* e::VectorXd u = (1.0/((double)(N))) * e::VectorXd::Constant(N,1.0);          // 1st iteration */
           e::VectorXd u = e::VectorXd::Zero(N);
 
@@ -2660,11 +2667,11 @@ namespace uvdar {
                 else {
                   e::FullPivLU<e::MatrixXd> lu(psi.transpose());
                   e::MatrixXd l_null_space = lu.kernel();
-                  ROS_INFO_STREAM("[UVDARPoseCalculator]: span: \n" << psi);
-                  ROS_INFO_STREAM("[UVDARPoseCalculator]: nullspace: \n" << l_null_space);
+                  /* ROS_INFO_STREAM("[UVDARPoseCalculator]: span: \n" << psi); */
+                  /* ROS_INFO_STREAM("[UVDARPoseCalculator]: nullspace: \n" << l_null_space); */
                   direction = l_null_space.topLeftCorner(3,1).normalized();
                 }
-                ROS_INFO_STREAM("[UVDARPoseCalculator]: direction: " << direction);
+                /* ROS_INFO_STREAM("[UVDARPoseCalculator]: direction: " << direction); */
 
                 double alpha = std::numeric_limits<double>::lowest();
                 double beta = std::numeric_limits<double>::max();
@@ -2677,7 +2684,7 @@ namespace uvdar {
                     continue;
                   }
                   double dirtest = direction.transpose()*v;
-                  ROS_INFO_STREAM("[UVDARPoseCalculator]: dirtest: " << dirtest);
+                  /* ROS_INFO_STREAM("[UVDARPoseCalculator]: dirtest: " << dirtest); */
                   if (dirtest > alpha){
                     alpha = dirtest;
                     a_alpha = v;
@@ -2693,9 +2700,9 @@ namespace uvdar {
                 Pv_local[j_alpha] = e::Vector3d(std::nan(""),std::nan(""),std::nan(""));//so that we won't get duplicates
                 Pv_local[j_beta] = e::Vector3d(std::nan(""),std::nan(""),std::nan(""));//so that we won't get duplicates
                 /* ROS_INFO_STREAM("[UVDARPoseCalculator]: alpha: " << alpha << ", beta: " << beta); */
-                ROS_INFO_STREAM("[UVDARPoseCalculator]: j_alpha: " << j_alpha << ", j_beta: " << j_beta);
+                /* ROS_INFO_STREAM("[UVDARPoseCalculator]: j_alpha: " << j_alpha << ", j_beta: " << j_beta); */
                 if ((j_alpha == -1) || (j_beta == -1)){
-                  ROS_ERROR("[UVDARPoseCalculator]: index -1 on enclosing ellipsoid initialization!");
+                  /* ROS_ERROR("[UVDARPoseCalculator]: index -1 on enclosing ellipsoid initialization!"); */
                 }
                 if (u(j_alpha)<1){
                   compliant_count++;
@@ -2730,12 +2737,12 @@ namespace uvdar {
 
             double eps = std::max(eps_plus,eps_minus);
             bool test = ((m.array()>((1.0+eps)*n)).any()) || (((m.array()<((1.0-eps)*n))&&(u.array()>0.00001)).any()) ;
-            ROS_INFO_STREAM("["<< ros::this_node::getName().c_str()<<"]: " << u.transpose());
-            ROS_INFO_STREAM("["<< ros::this_node::getName().c_str()<<"]: " << m.transpose());
-            ROS_INFO_STREAM("["<< ros::this_node::getName().c_str()<<"]: " << ((1.0+eps)*n));
-            ROS_INFO_STREAM("["<< ros::this_node::getName().c_str()<<"]: " << (m.array()>((1.0+eps)*n)));
-              ROS_INFO_STREAM("["<< ros::this_node::getName().c_str()<<"]: " << ((1.0-eps)*n));
-              ROS_INFO_STREAM("["<< ros::this_node::getName().c_str()<<"]: " << (m.array()<((1.0-eps)*n)));
+            /* ROS_INFO_STREAM("["<< ros::this_node::getName().c_str()<<"]: " << u.transpose()); */
+            /* ROS_INFO_STREAM("["<< ros::this_node::getName().c_str()<<"]: " << m.transpose()); */
+            /* ROS_INFO_STREAM("["<< ros::this_node::getName().c_str()<<"]: " << ((1.0+eps)*n)); */
+            /* ROS_INFO_STREAM("["<< ros::this_node::getName().c_str()<<"]: " << (m.array()>((1.0+eps)*n))); */
+            /*   ROS_INFO_STREAM("["<< ros::this_node::getName().c_str()<<"]: " << ((1.0-eps)*n)); */
+            /*   ROS_INFO_STREAM("["<< ros::this_node::getName().c_str()<<"]: " << (m.array()<((1.0-eps)*n))); */
             if (!test){
               break;
             }
@@ -2747,21 +2754,21 @@ namespace uvdar {
               step_size = (maximum - n)/(n*(maximum-1.0));
               new_u = (1.0 - step_size)*u ;
               new_u(jp) = new_u(jp) + step_size;
-              ROS_INFO_STREAM("["<< ros::this_node::getName().c_str()<<"]: " << "+");
+              /* ROS_INFO_STREAM("["<< ros::this_node::getName().c_str()<<"]: " << "+"); */
             }
             else{
               eps = eps_minus;
               step_size = std::min(((n - minimum)/(n*(minimum-1.0))),((u(jm))/(1.0-u(jm))));
               new_u = (1.0 + step_size)*u ;
               new_u(jm) = new_u(jm) - step_size;
-              ROS_INFO_STREAM("["<< ros::this_node::getName().c_str()<<"]: " << "-");
+              /* ROS_INFO_STREAM("["<< ros::this_node::getName().c_str()<<"]: " << "-"); */
             }
             count = count + 1;
             err = (new_u - u).norm();
             u = new_u;
 
           }
-          ROS_INFO_STREAM("["<< ros::this_node::getName().c_str()<<"]: " << "We did "<< count << " iterations. err: " << err );
+          /* ROS_INFO_STREAM("["<< ros::this_node::getName().c_str()<<"]: " << "We did "<< count << " iterations. err: " << err ); */
           //%%%%%%%%%%%%%%%%%% Computing the Ellipse parameters%%%%%%%%%%%%%%%%%%%%%%
           // Finds the ellipse equation in the 'center form': 
           // (x-c)' * A * (x-c) = 1
@@ -2776,10 +2783,10 @@ namespace uvdar {
 
 
           //Now to convert it into covariance matrix
-          ROS_INFO_STREAM("[UVDARPoseCalculator]: A:\n" << A);
+          /* ROS_INFO_STREAM("[UVDARPoseCalculator]: A:\n" << A); */
           e::JacobiSVD<e::MatrixXd> svd(A, e::ComputeThinU | e::ComputeThinV);
-          ROS_INFO_STREAM("[UVDARPoseCalculator]: sgval of A:\n" << svd.singularValues().transpose());
-          ROS_INFO_STREAM("[UVDARPoseCalculator]: sgvec of A:\n" << svd.matrixV());
+          /* ROS_INFO_STREAM("[UVDARPoseCalculator]: sgval of A:\n" << svd.singularValues().transpose()); */
+          /* ROS_INFO_STREAM("[UVDARPoseCalculator]: sgvec of A:\n" << svd.matrixV()); */
 
           e::Vector3d sgvs = svd.singularValues();
           e::Matrix3d D = ((sgvs.array()<0.00000001).select(std::numeric_limits<double>::max(),sgvs)).cwiseInverse().asDiagonal();
@@ -2793,7 +2800,7 @@ namespace uvdar {
           /* e::Matrix3d D = es.eigenvalues().real().cwiseInverse().asDiagonal(); */
           /* e::Matrix3d V = es.eigenvectors().real(); */
 
-          ROS_INFO_STREAM("[UVDARPoseCalculator]: D:\n" << D);
+          /* ROS_INFO_STREAM("[UVDARPoseCalculator]: D:\n" << D); */
 
           e::Matrix3d C = V*D*V.inverse();
 
