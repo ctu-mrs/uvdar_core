@@ -15,6 +15,55 @@ This package contains the core signal processing and pose estimation software co
 
 ## Releavant papers
 <details>
+  <summary>V Walter, N Staub, A Franchi and M Saska. UVDAR System for Visual Relative Localization With Application to Leader–Follower Formations of Multirotor UAVs. IEEE Robotics and Automation Letters 4(3):2637-2644, July 2019. </summary>
+
+```
+@article{uvdar_dirfol,
+	author = "V. {Walter} and N. {Staub} and A. {Franchi} and M. {Saska}",
+	journal = "IEEE Robotics and Automation Letters",
+	title = "UVDAR System for Visual Relative Localization With Application to Leader–Follower Formations of Multirotor UAVs",
+	year = 2019,
+	volume = 4,
+	number = 3,
+	pages = "2637-2644",
+	doi = "10.1109/LRA.2019.2901683",
+	issn = "2377-3766",
+	month = "July",
+	pdf = "data/papers/walterRAL2019.pdf"
+}
+```
+</details>
+<details>
+  <summary>V Walter, M Vrba and M Saska. On training datasets for machine learning-based visual relative localization of micro-scale UAVs. In 2020 IEEE International Conference on Robotics and Automation (ICRA) (). August 2020, 10674-10680.</summary>
+
+```
+@inproceedings{walter_icra2020,
+	author = "V. {Walter} and M. {Vrba} and M. {Saska}",
+	booktitle = "2020 IEEE International Conference on Robotics and Automation (ICRA)",
+	title = "On training datasets for machine learning-based visual relative localization of micro-scale {UAVs}",
+	year = 2020,
+	volume = "",
+	number = "",
+	month = "Aug",
+	pages = "10674-10680",
+	pdf = "data/papers/walter2020_icra.pdf"
+}
+```
+</details>
+<details>
+  <summary>V Walter, N.Staub, M Saska and A Franchi. Mutual Localization of UAVs based on Blinking Ultraviolet Markers and 3D Time-Position Hough Transform. In 14th IEEE International Conference on Automation Science and Engineering (CASE 2018). 2018.</summary>
+
+```
+@inproceedings{uvdd2,
+	author = "V. Walter and N.Staub and M. Saska and A. Franchi",
+	title = "Mutual Localization of UAVs based on Blinking Ultraviolet Markers and 3D Time-Position Hough Transform",
+	booktitle = "14th IEEE International Conference on Automation Science and Engineering (CASE 2018)",
+	pdf = "data/papers/uvdd2.pdf",
+	year = 2018
+}
+```
+</details>
+<details>
   <summary>V Walter, M Saska and A Franchi. Fast mutual relative localization of uavs using ultraviolet led markers. In 2018 International Conference on Unmanned Aircraft System (ICUAS 2018). 2018.</summary>
 
 ```
@@ -27,6 +76,8 @@ This package contains the core signal processing and pose estimation software co
 }
 ```
 </details>
+
+
 
 ## System requirements
 
