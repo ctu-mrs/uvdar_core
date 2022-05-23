@@ -14,8 +14,6 @@ This package contains the core signal processing and pose estimation software co
 * robust to a variety of lighting conditions
 
 ## Releavant papers
-{::options parse_block_html="true" /}
-
 <details>
   <summary>V Walter, M Saska and A Franchi. Fast mutual relative localization of uavs using ultraviolet led markers. In 2018 International Conference on Unmanned Aircraft System (ICUAS 2018). 2018.</summary>
 
@@ -29,9 +27,6 @@ This package contains the core signal processing and pose estimation software co
 }
 ```
 </details>
-
-{::options parse_block_html="false" /}
-
 
 ## System requirements
 
