@@ -1,4 +1,4 @@
-# UVDAR drivers and processing
+[#](#) UVDAR drivers and processing
 
 ![](.fig/thumbnail.jpg)
 
@@ -12,6 +12,23 @@ This package contains the core signal processing and pose estimation software co
 * based on ultraviolet-sensitive cameras and blinking ultraviolet markers
 * can be used both indoors and outdoors without infrastructure
 * robust to a variety of lighting conditions
+
+## Releavant papers
+{::options parse_block_html="true" /}
+* <details>
+  <summary>V Walter, M Saska and A Franchi. Fast mutual relative localization of uavs using ultraviolet led markers. In 2018 International Conference on Unmanned Aircraft System (ICUAS 2018). 2018.</summary>
+```
+@inproceedings{uvdd1,
+	author = "V. Walter and M. Saska and A. Franchi",
+	title = "Fast mutual relative localization of uavs using ultraviolet led markers",
+	booktitle = "2018 International Conference on Unmanned Aircraft System (ICUAS 2018)",
+	pdf = "data/papers/uvdd1.pdf",
+	year = 2018
+}
+```
+{::options parse_block_html="false" /}
+
+</details>
 
 ## System requirements
 
