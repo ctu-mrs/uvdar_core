@@ -245,6 +245,9 @@ namespace uvdar {
         camera_image_sizes_[image_index].width = msg->image_width;
         camera_image_sizes_[image_index].height = msg->image_height;
         ht4dbt_trackers_[image_index]->updateResolution(cv::Size(msg->image_width, msg->image_height));
+        if (image_sizes_received_ < (int)(camera_image_sizes_.size())){
+          image_sizes_received_++;
+        }
       }
     }
   }
@@ -371,7 +374,7 @@ namespace uvdar {
    */
   /* generateVisualization() //{ */
   int generateVisualization(cv::Mat& output_image) {
-    if (_use_camera_for_visualization_ && !images_received_)
+    if (image_sizes_received_<(int)(camera_image_sizes_.size()))
       return -2;
 
     if (current_visualization_done_)
@@ -380,12 +383,18 @@ namespace uvdar {
     int max_image_height = 0;
     int sum_image_width = 0;
     std::vector<int> start_widths;
+    int i =0;
     for (auto curr_size : camera_image_sizes_){
+      if ((curr_size.width < 0) || (curr_size.height < 0)){
+        ROS_ERROR_STREAM("[UVDARBlinkProcessor]: Size of image " << i << " was not received! Returning.");
+        return -4;
+      }
       if (max_image_height < curr_size.height){
         max_image_height = curr_size.height;
       }
       start_widths.push_back(sum_image_width);
       sum_image_width += curr_size.width;
+      i++;
     }
 
     if ( (sum_image_width <= 0) || (max_image_height <= 0) ){
@@ -486,9 +495,11 @@ namespace uvdar {
     if ( (camera_image_sizes_[image_index].width <= 0 ) || (camera_image_sizes_[image_index].width <= 0 )){
       camera_image_sizes_[image_index] = image->image.size();
       ht4dbt_trackers_[image_index]->updateResolution(image->image.size());
+      if (image_sizes_received_ < (int)(camera_image_sizes_.size())){
+        image_sizes_received_++;
+      }
     }
 
-    images_received_ = true;
   }
   //}
 
@@ -548,7 +559,7 @@ namespace uvdar {
   /* attributes //{ */
   std::atomic_bool initialized_ = false;
   std::atomic_bool current_visualization_done_ = false;
-  bool images_received_ = false;
+  int image_sizes_received_ = 0;
 
   std::string              _uav_name_;
   bool                     _debug_;

@@ -108,13 +108,17 @@ namespace uvdar {
       }
 
       void indent(){
-        latest_times.push_back(getTime());
-        curr_depth_indent++;
+        if (active){
+          latest_times.push_back(getTime());
+          curr_depth_indent++;
+        }
       }
 
       void unindent(){
-        latest_times.pop_back();
-        curr_depth_indent--;
+        if (active){
+          latest_times.pop_back();
+          curr_depth_indent--;
+        }
       }
 
       void printAll(std::string preamble){
@@ -125,6 +129,7 @@ namespace uvdar {
 
       void clear(){
         elapsed_time.clear();
+        latest_times.clear();
       }
 
       void stop(){
@@ -409,7 +414,7 @@ namespace uvdar {
         /* load the signals //{ */
         param_loader.loadParam("signal_ids", _signal_ids_);
         if (_signal_ids_.empty()){
-          ROS_WARN("[UVDARPoseCalculator]: No signal IDs were supplied, using the default frequency set.");
+          ROS_WARN("[UVDARPoseCalculator]: No signal IDs were supplied, using the default sequence set.");
           _signal_ids_ = {0, 1, 2, 3, 4, 5, 6, 7, 8};
         }
 
@@ -2193,9 +2198,10 @@ namespace uvdar {
           /* for (auto& proj_point : projected_markers){ */
           for (auto& proj_point : selected_markers){
             /* double tent_signal_distance = abs( (1.0/(_signal_ids_[(target*signals_per_target_)+proj_point.signal_id])) - (1.0/(obs_point.z)) ); */
-            /* ROS_INFO_STREAM("[UVDARPoseCalculator]: signal distance:  " << tent_signal_distance); */
+            /* ROS_INFO_STREAM("[UVDARPoseCalculator]: signal id:  " << (target*signals_per_target_)+proj_point.signal_id); */
+            /* ROS_INFO_STREAM("[UVDARPoseCalculator]: signal ids size:  " << _signal_ids_.size()); */
             /* if (tent_signal_distance < (2.0/estimated_framerate_[image_index])){ */
-            if (_signal_ids_[(target*signals_per_target_)+proj_point.signal_id] == (int)(obs_point.z)){
+            if (_signal_ids_.at(((target%1000)*signals_per_target_)+proj_point.signal_id) == (int)(obs_point.z)){
               double tent_image_distance;
               if (!discrete_pixels){
                 tent_image_distance = cv::norm(proj_point.position - cv::Point2d(obs_point.x, obs_point.y));
@@ -3013,15 +3019,15 @@ namespace uvdar {
 
 
         /**
-         * @brief Returns the index of target UAV with a marker based on the frequency-based ID of that marker
+         * @brief Returns the index of target UAV with a marker based on the signal-based ID of that marker
          *
-         * @param f_i Index of the frequency of the given marker
+         * @param s_i Index of the signal of the given marker
          *
          * @return Index of the target carrying the marker
          */
         /* classifyMatch //{ */
-        int classifyMatch(int f_i) {
-          return f_i/signals_per_target_;
+        int classifyMatch(int s_i) {
+          return s_i/signals_per_target_;
         }
         //}
 

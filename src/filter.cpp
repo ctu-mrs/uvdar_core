@@ -573,7 +573,7 @@ namespace uvdar {
 
         /* ROS_INFO_STREAM("[UVDARKalman]: Scaling by: " << 1.0/match_level << " due to match level of " << match_level); */
 
-        double volume_ratio_pos = std::min(1.0,filter_local.filter_state.P.topLeftCorner(3,3).determinant()/P_local.topLeftCorner(3,3).determinant());
+        /* double volume_ratio_pos = std::min(1.0,filter_local.filter_state.P.topLeftCorner(3,3).determinant()/P_local.topLeftCorner(3,3).determinant()); */
 
         /* P_local.topLeftCorner(3,3) *= (1.0/(match_level_pos*volume_ratio_pos)); */
 
