@@ -3027,7 +3027,13 @@ namespace uvdar {
          */
         /* classifyMatch //{ */
         int classifyMatch(int s_i) {
-          return s_i/signals_per_target_;
+
+          if (std::find(_signal_ids_.begin(), _signal_ids_.end(), s_i) != _signal_ids_.end()){
+            return s_i/signals_per_target_;
+          }
+          else {
+            return -1;
+          }
         }
         //}
 

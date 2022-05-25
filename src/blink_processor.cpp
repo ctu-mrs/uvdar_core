@@ -315,7 +315,12 @@ namespace uvdar {
         mrs_msgs::Point2DWithFloat point;
         point.x     = blinker.first.x;
         point.y     = blinker.first.y;
-        point.value = blinker.second;
+        if (std::find(_signal_ids_.begin(), _signal_ids_.end(), blinker.second) != _signal_ids_.end()){
+          point.value = blinker.second;
+        }
+        else {
+          point.value = -2;
+        }
         msg.points.push_back(point);
       }
 
