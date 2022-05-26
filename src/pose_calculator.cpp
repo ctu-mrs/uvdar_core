@@ -49,7 +49,7 @@
 #define LED_GROUP_DISTANCE 0.03
 
 #define ERROR_THRESHOLD_INITIAL sqr(10)
-#define ERROR_THRESHOLD_FITTED sqr(3)
+#define ERROR_THRESHOLD_FITTED sqr(QPIX)
 
 #define SIMILAR_ERRORS_THRESHOLD sqr(1)
 
@@ -755,7 +755,7 @@ namespace uvdar {
           }
 
           auto start_target_cycle = profiler.getTime();
-          profiler.indent();
+          /* profiler.indent(); */
           for (int i = 0; i < ((int)(separated_points_[image_index].size())); i++) {
 
             auto start_target_iteration = profiler.getTime();
@@ -782,10 +782,9 @@ namespace uvdar {
 
 
               profiler.addValueSince("Target "+std::to_string(separated_points_[image_index][i].first),start_target_iteration);
-              if (_profiling_){
-                profiler.printAll("[UVDARPoseCalculator]: [cam:"+std::to_string(image_index)+"]-[tg:"+std::to_string(separated_points_[image_index][i].first)+"]:");
-              }
-              profiler.clear();
+              /* if (_profiling_){ */
+              /*   profiler.printAll("[UVDARPoseCalculator]: [cam:"+std::to_string(image_index)+"]-[tg:"+std::to_string(separated_points_[image_index][i].first)+"]:"); */
+              /* } */
             }
 
             profiler.addValueSince("All targets",start_target_cycle);
@@ -795,7 +794,7 @@ namespace uvdar {
             }
             profiler.clear();
           }
-          profiler.unindent();
+          /* profiler.unindent(); */
           pub_measured_poses_[image_index].publish(msg_measurement_array);
 
           if (_publish_constituents_){
@@ -1179,8 +1178,7 @@ namespace uvdar {
           if (_debug_)
             ROS_INFO_STREAM("[UVDARPoseCalculator]: Rough hypotheses for target " << target << " in image " << image_index << ": ");
           int i = 0;
-          /* if (_debug_) */
-          if (true)
+          if (_debug_)
             for (auto h: hypotheses){
               ROS_INFO_STREAM("x: [" << h.first.transpose() << "] rot: [" << rad2deg(camera_view_[image_index].inverse()*quaternionToRPY(h.second)).transpose() << "] with error of " << errors.at(i++));
             }
@@ -1259,6 +1257,7 @@ namespace uvdar {
           }
 
             if (fitted_pose.first.norm() < 0.5) { //We don't expect to be able to measure relative poses of UAVs this close - the markers would be too bright and too far apart
+              ROS_INFO_STREAM("[UVDARPoseCalculator]: Hypothesis too close: " << fitted_pose.first << " is " << fitted_pose.first.norm() << "m from camera.");
               continue;
             }
 
@@ -1286,9 +1285,11 @@ namespace uvdar {
 
           for (int i = 0; i<(int)(selected_poses.size()); i++){
 
-            ROS_ERROR_STREAM("[UVDARPoseCalculator]: error: " << projection_errors[i]);
 
             if (projection_errors[i] > threshold){ // if the frequencies are the same, they tend to merge. Otherwise, the result varies
+              if (_debug_){
+                ROS_ERROR_STREAM("[UVDARPoseCalculator]: error: " << projection_errors[i]);
+              }
               selected_poses.erase(selected_poses.begin()+i); //remove the other
               projection_errors.erase(projection_errors.begin()+i);
               i--; 
@@ -1938,7 +1939,7 @@ namespace uvdar {
                     }
                     else {
                       /* ROS_INFO_STREAM("[UVDARPoseCalculator]:  terminating"); */
-                      dist = alpha_lin_step*2.0;
+                      dist = alpha_lin_step;
                       break;
                     }
                   }
@@ -2034,7 +2035,7 @@ namespace uvdar {
                 bool shrinking;
                 model_rotated_curr = model_curr.rotate(position_curr, p_step_axis,alpha_rot_step);
                 error_rot_curr = totalError(model_rotated_curr, observed_points, target, image_index);
-                      ROS_INFO_STREAM("[UVDARPoseCalculator]:  prev: "<< error_rot_prev << ", curr: " << error_rot_curr);
+                /* ROS_INFO_STREAM("[UVDARPoseCalculator]:  prev: "<< error_rot_prev << ", curr: " << error_rot_curr); */
                 if ((error_rot_prev-error_rot_curr) >= (alpha_rot_step*t_parameter)){
                   shrinking = false;
                 }
@@ -2048,29 +2049,30 @@ namespace uvdar {
                   model_rotated_curr = model_curr.rotate(position_curr, p_step_axis,alpha_rot_step);
                   error_rot_curr = totalError(model_rotated_curr, observed_points, target, image_index);
                   
+                  /* ROS_INFO_STREAM("[UVDARPoseCalculator]:  prev: "<< error_rot_prev << ", curr: " << error_rot_curr); */
+                  /* ROS_INFO_STREAM("[UVDARPoseCalculator]:  alpha_rot_step: "<< alpha_rot_step << ", t_parameter: " << t_parameter << ", product: " << alpha_rot_step*t_parameter); */
                   if (!shrinking){
                     if ((error_rot_prev-error_rot_curr) >= (alpha_rot_step*t_parameter)){
-                      ROS_INFO_STREAM("[UVDARPoseCalculator]:  growing");
+                      /* ROS_INFO_STREAM("[UVDARPoseCalculator]:  growing"); */
                       alpha_rot_step *= 2.0;
                     }
                     else {
-                      ROS_INFO_STREAM("[UVDARPoseCalculator]:  terminating");
+                      /* ROS_INFO_STREAM("[UVDARPoseCalculator]:  terminating"); */
                       angle = alpha_rot_step*0.5;
                       break;
                     }
                   }
                   else {
                     if ((error_rot_prev-error_rot_curr) < (alpha_rot_step*t_parameter)){
-                      ROS_INFO_STREAM("[UVDARPoseCalculator]:  shrinking");
+                      /* ROS_INFO_STREAM("[UVDARPoseCalculator]:  shrinking"); */
                       alpha_rot_step *= 0.5;
                     }
                     else {
-                      ROS_INFO_STREAM("[UVDARPoseCalculator]:  terminating");
-                      angle = alpha_rot_step*2.0;
+                      /* ROS_INFO_STREAM("[UVDARPoseCalculator]:  terminating"); */
+                      angle = alpha_rot_step;
                       break;
                     }
                   }
-                  ROS_INFO_STREAM("[UVDARPoseCalculator]:  prev: "<< error_rot_prev << ", curr: " << error_rot_curr);
 
                   if (alpha_rot_step > 1.5){
                     backtracking_failed = true;
@@ -2743,7 +2745,7 @@ namespace uvdar {
           // Khachiyan Algorithm
             // -----------------------------------
           /* e::VectorXd cmp = e::VectorXd::Constant(N,((1+eps)*n)); */
-          ROS_INFO_STREAM("[UVDARPoseCalculator]: u_i:\n" << u.transpose());
+          /* ROS_INFO_STREAM("[UVDARPoseCalculator]: u_i:\n" << u.transpose()); */
           while (count < 1000){
             e::Matrix4d X = Q * u.asDiagonal() * Q.transpose();       // X = \sum_i ( u_i * q_i * q_i')  is a (d+1)x(d+1) matrix
             e::VectorXd m = (Q.transpose() * X.inverse() * Q).diagonal();  // M the diagonal vector of an NxN matrix
@@ -2788,8 +2790,8 @@ namespace uvdar {
             u = new_u;
 
           }
-          ROS_INFO_STREAM("[UVDARPoseCalculator]: P:\n" << P);
-          ROS_INFO_STREAM("[UVDARPoseCalculator]: u:\n" << u.transpose());
+          /* ROS_INFO_STREAM("[UVDARPoseCalculator]: P:\n" << P); */
+          /* ROS_INFO_STREAM("[UVDARPoseCalculator]: u:\n" << u.transpose()); */
           /* ROS_INFO_STREAM("["<< ros::this_node::getName().c_str()<<"]: " << "We did "<< count << " iterations. err: " << err ); */
           //%%%%%%%%%%%%%%%%%% Computing the Ellipse parameters%%%%%%%%%%%%%%%%%%%%%%
           // Finds the ellipse equation in the 'center form': 
