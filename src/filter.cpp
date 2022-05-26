@@ -341,7 +341,7 @@ namespace uvdar {
           auto eigvals = es.eigenvalues();
           for (int i=0; i<(int)(eigvals.size()); i++){
             /* ROS_INFO_STREAM("[UVDARKalman]: Eigenvalues: "<< eigvals(i).real() << " im: " <<  eigvals(i).imag()); */
-            if (eigvals(i).real() > sqr(M_PI/3.0)){ //angle std.dev representing no knowledge (3*sigma contains 99.7 percent)
+            if (eigvals(i).real() >= sqr(M_PI)){ //angle std.dev representing no knowledge (3*sigma contains 99.7 percent #edit: but one sigma is still meaningful with the "enclosing ellipsoid" approach)
               eigvals(i) = sqr(666.0); //arbitrarily large number, s.t. the measurement will not affect the state
               changed = true;
             }
