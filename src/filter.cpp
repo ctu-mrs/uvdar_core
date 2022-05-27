@@ -143,6 +143,7 @@ namespace uvdar {
         param_loader.loadParam("indoor", _indoor_, bool(false));
         param_loader.loadParam("odometry_available", _odometry_available_, bool(true));
         param_loader.loadParam("use_velocity", _use_velocity_, bool(false));
+        const auto transform_lookup_timeout = param_loader.loadParam2<ros::Duration>("transform_lookup_timeout", ros::Duration(0.005));
 
         if (_indoor_){ //lateral and vertical velocities are more limited in indoor conditions
           vl = 1;
@@ -165,6 +166,7 @@ namespace uvdar {
         timer = nh.createTimer(filter_update_period, &UVDARKalman::spin, this);
 
         transformer_ = std::make_unique<mrs_lib::Transformer>("UVDARKalman");
+        transformer_->setLookupTimeout(transform_lookup_timeout);
         transformer_->setDefaultPrefix(_uav_name_);
 
         std::vector<std::string> _measured_poses_topics;
