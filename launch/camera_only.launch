@@ -1,6 +1,6 @@
 <launch>
   <arg name="uav_name" default="$(optenv UAV_NAME uav2)"/>
-  <arg name="nato_name" default="$(optenv NATO_NAME)"/>
+  <arg name="mrs_id" default="$(optenv MRS_ID)"/>
 
   <arg name="standalone" default="false"/>
 

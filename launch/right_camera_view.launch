@@ -72,7 +72,7 @@
   <arg name="Delay" default="100"/>
   <arg name="TimeScale" default="1.0"/>
 
-  <arg name="nato_name" default="$(optenv NATO_NAME)"/>
+  <arg name="mrs_id" default="$(optenv MRS_ID)"/>
 
   <arg name="beacon" default="false"/>
 
@@ -164,8 +164,8 @@
       <param name="threshold" type="int" value="$(arg threshold)"/>
 
       <param name="use_masks"         type="bool" value="$(arg use_masks)"/>
-      <param name="body_name"         type = "string" value="$(arg nato_name)"/>
-      <rosparam param="mask_file_names" subst_value="True"> ["$(arg calibrations_folder)/masks/$(arg nato_name)_$(arg right).png"] </rosparam>
+      <param name="body_name"         type = "string" value="$(arg mrs_id)"/>
+      <rosparam param="mask_file_names" subst_value="True"> ["$(arg calibrations_folder)/masks/$(arg mrs_id)_$(arg right).png"] </rosparam>
 
       <rosparam param="camera_topics"> [ "camera_right"] </rosparam>
       <rosparam param="points_seen_topics"> [ "points_seen_right"] </rosparam>

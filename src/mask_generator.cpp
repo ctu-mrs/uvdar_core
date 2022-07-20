@@ -28,7 +28,7 @@ public:
     initialized_ = false;
 
     nh_.param("uav_name", _uav_name_, std::string());
-    nh_.param("nato_name", _nato_name_, std::string());
+    nh_.param("mrs_id", _mrs_id_, std::string());
     nh_.param("DEBUG", DEBUG, bool(false));
     nh_.param("GUI", GUI, bool(false));
     if (GUI)
@@ -127,7 +127,7 @@ private:
         break;
     }
     for (auto &data : maskData){
-      cv::imwrite(ros::package::getPath("uvdar")+"/masks/"+_nato_name_+"_"+data.camera_id+".bmp", data.mask_img);
+      cv::imwrite(ros::package::getPath("uvdar")+"/masks/"+_mrs_id_+"_"+data.camera_id+".bmp", data.mask_img);
     }
 
   }
@@ -179,7 +179,7 @@ private:
   std::atomic_bool initialized_;
 
   std::string              _uav_name_;
-  std::string              _nato_name_;
+  std::string              _mrs_id_;
   bool                     DEBUG;
   bool                     GUI;
   cv::Mat                  viewImage;

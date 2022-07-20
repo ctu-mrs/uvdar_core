@@ -74,7 +74,7 @@
   <arg name="Delay" default="100"/>
   <arg name="TimeScale" default="1.0"/>
 
-  <arg name="nato_name" default="$(optenv NATO_NAME)"/>
+  <arg name="mrs_id" default="$(optenv MRS_ID)"/>
 
   <arg name="beacon" default="false"/>
 

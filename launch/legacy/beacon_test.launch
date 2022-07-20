@@ -52,7 +52,7 @@
   <arg name="cemeraRotated" default="false"/>
   <arg name="TimeScale" default="1.0"/>
 
-  <arg name="frameNatoName" default="$(optenv NATO_NAME)"/>
+  <arg name="frameMRSid" default="$(optenv MRS_ID)"/>
 
   <arg name="beacon" default="true"/>
 
