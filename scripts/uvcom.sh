@@ -14,7 +14,7 @@ cd $MY_PATH
 rm .tmuxinator.yml
 
 # link the session file to .tmuxinator.yml
-ln session_uvcom.yml .tmuxinator.yml
+ln uvcom.yml .tmuxinator.yml
 
 # start tmuxinator
 tmuxinator
