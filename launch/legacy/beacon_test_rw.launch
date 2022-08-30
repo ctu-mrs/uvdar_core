@@ -52,7 +52,7 @@
   <arg name="cemeraRotated" default="false"/>
   <arg name="TimeScale" default="1.0"/>
 
-  <arg name="frameNatoName" default="$(env NATO_NAME)"/>
+  <arg name="frameMRSid" default="$(env MRS_ID)"/>
 
   <arg name="beacon" default="true"/>
   <arg name="beacon_height" default="0.12"/>
@@ -81,8 +81,8 @@
 <!-- OR -->
   <group ns="$(arg uav_name)">
 
-    <include file="$(arg calibrations_folder)/extrinsics/$(arg frameNatoName)_left.xml" pass_all_args="true" />
-    <include file="$(arg calibrations_folder)/extrinsics/$(arg frameNatoName)_right.xml" pass_all_args="true" />
+    <include file="$(arg calibrations_folder)/extrinsics/$(arg frameMRSid)_left.xml" pass_all_args="true" />
+    <include file="$(arg calibrations_folder)/extrinsics/$(arg frameMRSid)_right.xml" pass_all_args="true" />
 
     <node pkg="nodelet" type="nodelet" name="$(arg uav_name)_uvdar_nodelet_manager" args="manager" output="screen" >
     <!-- <node pkg="nodelet" type="nodelet" name="$(arg uav_name)_uvdar_nodelet_manager" args="manager" output="screen" launch-prefix="debug_roslaunch"> -->
@@ -160,7 +160,7 @@
       <param name="publish_sun_points" type="bool" value="true"/>
 
       <param name="use_masks"         type="bool" value="true"/>
-      <param name="body_name"         type = "string" value="$(arg frameNatoName)"/>
+      <param name="body_name"         type = "string" value="$(arg frameMRSid)"/>
       <rosparam param="mask_file_names" subst_value="True"> ["$(arg left)", "$(arg right)"] </rosparam>
 
 

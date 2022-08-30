@@ -37,7 +37,7 @@
 
 
 
-  <arg name="frameNatoName" default="$(optenv NATO_NAME)"/>
+  <arg name="frameMRSid" default="$(optenv MRS_ID)"/>
 
   <!-- Node Settings -->
   <arg name="output" default="screen"/>
@@ -59,7 +59,7 @@
     <node name="mask_generator" pkg="uvdar" type="uvdar_mask_generator_node" output="screen">
     <!-- <node name="mask_generator" pkg="uvdar" type="uvdar_mask_generator_node" output="screen" launch-prefix="debug_roslaunch"> -->
       <param name="uav_name" type = "string" value="$(arg uav_name)"/>
-      <param name="nato_name" type = "string" value="$(arg frameNatoName)"/>
+      <param name="mrs_id" type = "string" value="$(arg frameMRSid)"/>
       <param name="debug"		type="bool" value="$(arg debug)"/> 
       <param name="GUI"             type="bool" value="$(arg gui)"/>
       <param name="expansionSize" type="int" value="$(arg expansionSize)"/>

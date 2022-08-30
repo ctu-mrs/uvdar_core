@@ -69,7 +69,7 @@
   <arg name="Delay" default="100"/>
   <arg name="TimeScale" default="1.0"/>
 
-  <arg name="frameNatoName" default="$(optenv NATO_NAME)"/>
+  <arg name="frameMRSid" default="$(optenv MRS_ID)"/>
 
   <group ns="$(arg uav_name)">
   
