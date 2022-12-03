@@ -14,6 +14,7 @@ namespace uvdar {
         sequence_size_ = sequences_.at(0).size();
         for (auto &curr_seq : sequences_){
           auto curr_seq_copy = curr_seq;
+          // append the original signal at the end and delete last Bit e.g. 0,1 -> 0,1,0 
           curr_seq.insert(curr_seq.end(),curr_seq_copy.begin(),curr_seq_copy.end()-1);
         }
       }

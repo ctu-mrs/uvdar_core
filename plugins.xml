@@ -18,3 +18,8 @@
     <description>Signal setter nodelet</description>
   </class>
 </library>
+<library path="lib/libHello_World">
+ <class name="uvdar/hello_world" type="uvdar::Hello_World" base_class_type="nodelet::Nodelet">
+ <description> Nodelet subscribes to raw image.</description> </class>
+</library>
+

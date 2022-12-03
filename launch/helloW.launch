@@ -1,0 +1,11 @@
+<launch> 
+  	<arg name="uav_name" default="$(optenv UAV_NAME uav2)"/>
+
+	<node pkg="nodelet" type="nodelet" name="standalone_nodelet" args="manager" output="screen" />
+
+  	<node pkg="nodelet" type="nodelet" name="Hello_World" args="load uvdar/hello_world standalone_nodelet" output="screen">
+		<param name="uav_name"		type="string" value="$(arg uav_name)"/>
+		<remap from="~$(arg uav_name)/uvdar_bluefox_left/image_raw" to="/$(arg uav_name)/uvdar_bluefox_left/image_raw"/>
+	</node>
+
+</launch>

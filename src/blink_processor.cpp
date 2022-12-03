@@ -81,6 +81,9 @@ namespace uvdar {
         }
         //}
 
+        param_loader.loadParam("enable_manchester", _enable_manchester, bool(false));
+        if (_enable_manchester) ROS_WARN_STREAM("[UVDARBlinkProcessor]: Manchester Decoding is enabled. Make sure Transmitter has same coding enabled!");
+
         std::string _sequence_file;
         param_loader.loadParam("sequence_file", _sequence_file, std::string());
         parseSequenceFile(_sequence_file);
@@ -524,7 +527,6 @@ namespace uvdar {
     std::string word;
     std::string line;
 
-    if (enable_manchester) ROS_WARN_STREAM("[UVDARBlinkProcessor]: Manchester Decoding is enabled! Are you sure that the Transmitter is sending also with Manchester Coding?");
 
     std::vector<std::vector<bool>> sequences;
     if (ifs.good()) {
@@ -538,7 +540,7 @@ namespace uvdar {
         std::stringstream iss(line); 
         std::string token;
         while(std::getline(iss, token, ',')) {
-          if (!enable_manchester) {
+          if (!_enable_manchester) {
             sequence.push_back(token=="1");
           } else {
             // Manchester Coding - IEEE 802.3 Conversion: 1 = [0,1]; 0 = [1,0]
@@ -557,14 +559,6 @@ namespace uvdar {
           else show_string += "0,";
         }
 
-      
-
-        // ROS_INFO("AGAIN");
-        // for (auto i : sequence){
-        //   if (i) ROS_INFO("TRUE, ");
-        //   else ROS_INFO("False, ");
-        // }
-
         sequences.push_back(sequence);
         ROS_INFO_STREAM("[UVDARBlinkProcessor]:   [" << show_string << "]");
       }
@@ -572,6 +566,7 @@ namespace uvdar {
       ifs.close();
 
       _sequences_ = sequences;
+    
     }
     else {
       ROS_ERROR_STREAM("[UVDARBlinkProcessor]: Failed to load sequence file " << sequence_file << "! Returning.");
@@ -639,7 +634,7 @@ namespace uvdar {
 
 
   std::vector<std::vector<bool>> _sequences_;
-  bool enable_manchester = true;
+  bool _enable_manchester;
 
   std::vector<int> _signal_ids_;
   /* std::unique_ptr<UVDARFrequencyClassifier> ufc_; */

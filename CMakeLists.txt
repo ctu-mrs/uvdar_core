@@ -153,6 +153,8 @@ add_dependencies(uvdar_mask_generator_node ${${PROJECT_NAME}_EXPORTED_TARGETS} $
 add_executable(uvdar_led_manager_node src/led_manager.cpp)
 add_dependencies(uvdar_led_manager_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
+add_library(Hello_World src/hello_world.cpp)
+
 add_custom_target(headers SOURCES ${HEADER_FILES} ${LAUNCHER_FILES} ${YAML_FILES})
 
 target_link_libraries(UVDARDetector
@@ -216,4 +218,11 @@ target_link_libraries(uvdar_mask_generator_node
 target_link_libraries(uvdar_led_manager_node
   ${catkin_LIBRARIES}
   )
+
+
+target_link_libraries(Hello_World 
+  ${catkin_LIBRARIES} 
+  ${OpenCV_LIBRARIES}
+  )
+
 
