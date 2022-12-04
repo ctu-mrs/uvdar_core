@@ -26,7 +26,7 @@ namespace uvdar
                 NODELET_DEBUG("Initializing nodelet...");
 
                 bool loaded = false; 
-                mrs_lib::ParamLoader param_loader(private_nh, loaded, "UVDARBlinkProcessor");
+                mrs_lib::ParamLoader param_loader(private_nh, loaded, "ImageSub");
 
                 param_loader.loadParam("uav_name", _uav_name_, std::string());
 
