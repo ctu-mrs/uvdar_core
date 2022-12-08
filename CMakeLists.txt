@@ -153,7 +153,11 @@ add_dependencies(uvdar_mask_generator_node ${${PROJECT_NAME}_EXPORTED_TARGETS} $
 add_executable(uvdar_led_manager_node src/led_manager.cpp)
 add_dependencies(uvdar_led_manager_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
-add_library(Hello_World src/hello_world.cpp)
+add_library(UVDAR_BP_Tim src/bp_tim.cpp)
+add_dependencies(UVDAR_BP_Tim ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+
+add_library(ImgSubscriber src/img_subscriber_tim.cpp)
+add_dependencies(ImgSubscriber ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 add_custom_target(headers SOURCES ${HEADER_FILES} ${LAUNCHER_FILES} ${YAML_FILES})
 
@@ -169,6 +173,16 @@ target_link_libraries(UVDARBlinkProcessor
   ht4dbt
   frequency_classifier
   color_selector
+  )
+
+  target_link_libraries(UVDAR_BP_Tim 
+  ${catkin_LIBRARIES} 
+  ${OpenCV_LIBRARIES}
+  )
+
+  target_link_libraries(ImgSubscriber 
+  ${catkin_LIBRARIES} 
+  ${OpenCV_LIBRARIES}
   )
 
 # target_link_libraries(uvdar_uav_pose_calculator_node
@@ -220,9 +234,6 @@ target_link_libraries(uvdar_led_manager_node
   )
 
 
-target_link_libraries(Hello_World 
-  ${catkin_LIBRARIES} 
-  ${OpenCV_LIBRARIES}
-  )
+
 
 

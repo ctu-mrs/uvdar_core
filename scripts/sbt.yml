@@ -1,7 +1,7 @@
 name: simulation
 root: ./
 startup_window: uv_observer 
-pre_window: export RUN_TYPE=simulation; export UAV_TYPE=f450; export WORLD_NAME=simulation; export ODOMETRY_TYPE=gps; export SENSORS="garmin_down"
+pre_window: export RUN_TYPE=simulation; export UAV_TYPE=f450; export WORLD_NAME=simulation; export ODOMETRY_TYPE=gps; export SENSORS="garmin_down"; waitForCompile
 windows:
   - roscore:
       layout: even-vertical
@@ -10,7 +10,7 @@ windows:
   - gazebo:
       layout: even-vertical
       panes:
-        - waitForCompile; waitForRos; roslaunch uvdar_core uvdar_gazebo.launch gui:=true
+        - waitForCompile; waitForRos; roslaunch uvdar_core uvdar_gazebo.launch gui:=false
   # - status:
       # layout: even-vertical
       # panes:
@@ -25,12 +25,12 @@ windows:
         - waitForCompile; waitForSimulation; sleep 3; rosservice call /mrs_drone_spawner/spawn  "2 $UAV_TYPE --pos-file $(rospack find uvdar_core)/scripts/position2.csv --enable-rangefinder --enable-ground-truth --enable_all_LED --uvled_beacon_f 0 --uvled_s_1 0 --uvled_s_2 0 --uvled_s_3 0 --uvled_s_4 0"
         #--enable_uv_leds_beacon --uvled_beacon_f 0 --enable-uv_leds --uvled_s_l 0 --uvled_s_r 0"
       #   - waitForSimulation; sleep 10; rosservice call /mrs_drone_spawner/spawn  "3 $UAV_TYPE --pos-file $(rospack find uvdar_core)/scripts/position3.csv --enable-rangefinder --enable-ground-truth --enable_uv_leds_beacon --uvled_beacon_f 3"  
-  # - sq_setter:
-  #     layout: even-vertical
-  #     panes:
-  #       - export UAV_NAME=uav2; waitForOdometry; roslaunch uvdar_core led_manager.launch
-  #       - 'history -s rosservice call /uav2/uvdar_led_manager_node/quick_start 5'
-  #       - 'history -s rosservice call /uav2/uvdar_led_manager_node/set_frequency 59'
+#   - sq_setter:
+#       layout: even-vertical
+#       panes:
+#         - export UAV_NAME=uav2; waitForOdometry; roslaunch uvdar_core led_manager.launch
+#         - 'history -s rosservice call /uav2/uvdar_led_manager_node/quick_start 5'
+#         - 'history -s rosservice call /uav2/uvdar_led_manager_node/set_frequency 59'
   - control:
       layout: even-vertical
       panes:
@@ -67,7 +67,7 @@ windows:
   - uv_observer:
       layout: even-vertical
       panes:
-        - waitForCompile; waitForSimulation; gz world --pause=0; sleep 6;  export UAV_NAME=uav1; waitForControl; roslaunch uvdar_core sim_three_sided.launch debug:=true beacon:=true enable_manchester:=false 
+        - waitForCompile; waitForSimulation; gz world --pause=0; sleep 6;  export UAV_NAME=uav1; waitForControl; roslaunch uvdar_core sim_three_sided.launch debug:=false beacon:=true enable_manchester:=false 
   #       # - waitForCompile; gz world --pause=0; sleep 6;  export UAV_NAME=uav1; waitForControl; roslaunch uvdar_core multi_frequency_test.launch
   # - kalman_filter:
   #     layout: even-vertical
@@ -87,4 +87,8 @@ windows:
   - img_subscription:
       layout: even-vertical
       panes: 
-          - waitForCompile; waitForSimulation; roslaunch uvdar_core helloW.launch
+          - waitForCompile; waitForSimulation;  export UAV_NAME=uav1; roslaunch uvdar_core startTwoCam.launch
+  # - img_subscription2:
+  #     layout: even-vertical
+  #     panes: 
+  #         - waitForCompile; waitForSimulation;  export UAV_NAME=uav1; roslaunch uvdar_core startOneCam.launch
