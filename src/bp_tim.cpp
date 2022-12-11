@@ -1,97 +1,82 @@
-#include <ros/ros.h>
-#include <std_msgs/String.h>
-#include <nodelet/nodelet.h>
-#include <stdio.h>
-#include <mrs_lib/param_loader.h>
-#include <std_msgs/Float32.h>
-#include <mrs_msgs/ImagePointsWithFloatStamped.h>
-#include <fstream>
-
-
-
-
-#include <cv_bridge/cv_bridge.h>
-#include <image_transport/image_transport.h>
-#include <opencv2/highgui/highgui.hpp>
-
+#include <bp_tim.h>
 
 namespace uvdar
 {
 
-    class UVDAR_BP_Tim : public nodelet::Nodelet
-    {
-        public:
-            UVDAR_BP_Tim()
-            {}
+            UVDAR_BP_Tim::UVDAR_BP_Tim(){}; 
+            UVDAR_BP_Tim::~UVDAR_BP_Tim(){}; 
 
-        private:
-            void onInit()
+            void UVDAR_BP_Tim::onInit()
             {
                 ros::NodeHandle& private_nh_ = getMTPrivateNodeHandle();
                 NODELET_DEBUG("[UVDAR_BP_Tim]: Initializing Nodelet...");
 
-                bool printParams = false; 
+                const bool printParams = false; 
 
                 loadParams(printParams, private_nh_);
                 parseSequenceFile(_sequence_file);
                  
                 if (!checkVectorSizeMatch(_blinkers_seen_topics,_estimated_framerate_topics, _points_seen_topics)) return;
 
-                subscribeToCameras(private_nh_);
+                _buffer_size_ = 3;
 
-
-                // init data structure
+                // setup data structure
                 std::vector<mrs_msgs::ImagePointsWithFloatStampedConstPtr> b;
+                b.reserve(_buffer_size_);
                 small_buffer_.reserve(_points_seen_topics.size());
                 for (const auto i : _points_seen_topics) {
-                    small_buffer_.push_back(b);
+                        small_buffer_.push_back(b);
                 }
+
+                subscribeToPublishedPoints(private_nh_);
+
 
                 // for (size_t i = 0; i < _blinkers_seen_topics.size(); ++i) {
                 //     pub_blinkers_seen_.push_back(private_nh_.advertise<mrs_msgs::ImagePointsWithFloatStamped>(_blinkers_seen_topics[i], 1));
                 //     pub_estimated_framerate_.push_back(private_nh_.advertise<std_msgs::Float32>(_estimated_framerate_topics[i], 1));
                 // }
         
-                current_visualization_done_ = false;
+                // current_visualization_done_ = false;
                 // timer_visualization_ = private_nh_.createTimer(ros::Rate(_visualization_rate_), &UVDAR_BP_Tim::VisualizationThread, this, false);
 
 
-                getResults(private_nh_);
+                // getResults(private_nh_);
   
 
                 initialized_ = true;
                 if (initialized_) ROS_INFO("[UVDAR_BP_Tim]: Nodelet sucessfully initialized");
             }
 
-            // runs @ 60 Hz for each camera on which points are detected
-            void processPoint(const mrs_msgs::ImagePointsWithFloatStampedConstPtr &ptsMsg, size_t img_index) {
-                ROS_INFO_STREAM("[UVDAR_BP_Tim] The Time Stamp: "<<  ptsMsg->stamp <<   " The width: " << ptsMsg->image_width <<" The image height" << ptsMsg->image_height);
+            // called when points seen in corresponding camera
+            void UVDAR_BP_Tim::processPoint(const mrs_msgs::ImagePointsWithFloatStampedConstPtr &ptsMsg, const size_t & img_index) {
+                
+                small_buffer_.at(img_index).push_back(ptsMsg);
+                if ( small_buffer_.at(img_index).size() >= _buffer_size_ ) {
 
-                for (auto a : ptsMsg->points) 
-                    ROS_INFO_STREAM("x " << a.x << " y " << a.y << " Value " << a.value);
+                    processBuffer(small_buffer_.at(img_index));
+                    small_buffer_.at(img_index).clear();
+                } 
+            }
+            
+            
+            void UVDAR_BP_Tim::processBuffer(std::vector<mrs_msgs::ImagePointsWithFloatStampedConstPtr> & ptsBufferImg){
+                
 
-                if (small_buffer_.size() < 3 ) {
-                    small_buffer_.at(img_index).push_back(ptsMsg);
-                } else if (small_buffer_.size() == 3) {
-                    processBuffer();
-                } else {
-                    small_buffer_.clear();
+                for ( auto k = 1; k < _buffer_size_; k++ ){
+                    double timediff = (ptsBufferImg.at(k)->stamp - ptsBufferImg.at(k-1)->stamp).toSec();
+                    if( timediff < 0) {
+                        ROS_WARN("The time difference between the last two messages is negative!",1);
+                    }
                 }
-                ROS_INFO_STREAM("THE VECTOR SIZE IS" << small_buffer_.size());
 
             }
-            
-            
-            void processBuffer(){
-                
-            }
 
-            void processSunPoint(const mrs_msgs::ImagePointsWithFloatStampedConstPtr &ptMsg, size_t img_index) {
+            void UVDAR_BP_Tim::processSunPoint(const mrs_msgs::ImagePointsWithFloatStampedConstPtr &ptMsg, const size_t & img_index) {
                 
 
             }
 
-            void getResults(ros::NodeHandle & private_nh_){
+            void UVDAR_BP_Tim::getResults(ros::NodeHandle & private_nh_){
                 // for (size_t i = 0; i < _points_seen_topics.size(); ++i) {
                 
                 //     timer_process_.push_back(private_nh_.createTimer(ros::Duration(1.0/(double)(_proces_rate)), boost::bind(&UVDAR_BP_Tim::ProcessThread, this, _1, i), false, true));
@@ -100,11 +85,11 @@ namespace uvdar
             }
 
             /**
-             * @brief Callback for each camera
+             * @brief Callback for points published by each camera  
              * 
              * @param private_nh_ 
              */
-            void subscribeToCameras( ros::NodeHandle & private_nh_){
+            void UVDAR_BP_Tim::subscribeToPublishedPoints( ros::NodeHandle & private_nh_){
                  
                  for (size_t i = 0; i < _points_seen_topics.size(); ++i) {
                     // Subscribe to corresponding topics
@@ -130,7 +115,7 @@ namespace uvdar
              * @param _points_seen_topics
              * @param _estimated_framerate_topics
              */
-            bool checkVectorSizeMatch(const std::vector<std::string> & _blinkers_seen_topics, const std::vector<std::string> & _estimated_framerate_topics , const std::vector<std::string> & _points_seen_topics){
+            bool UVDAR_BP_Tim::checkVectorSizeMatch(const std::vector<std::string> & _blinkers_seen_topics, const std::vector<std::string> & _estimated_framerate_topics , const std::vector<std::string> & _points_seen_topics){
 
                 if (_blinkers_seen_topics.size() != _points_seen_topics.size()) {
                   ROS_ERROR_STREAM("[UVDAR_BP_Tim] The number of poinsSeenTopics (" << _points_seen_topics.size() 
@@ -152,7 +137,7 @@ namespace uvdar
              *
              * @return Success status
              */
-            bool parseSequenceFile(std::string sequence_file){
+            bool UVDAR_BP_Tim::parseSequenceFile(const std::string & sequence_file){
                 ROS_WARN_STREAM("[UVDAR_BP_Tim]: Add sanitation - sequences must be of equal, non-zero length");
                 ROS_INFO_STREAM("[UVDAR_BP_Tim]: Loading sequence from file: [ " + sequence_file + " ]");
                 std::ifstream ifs;
@@ -210,7 +195,7 @@ namespace uvdar
              * @param printParams 
              * @param private_nh_ 
              */
-            void loadParams(const bool & printParams, const ros::NodeHandle & private_nh_){
+            void UVDAR_BP_Tim::loadParams(const bool & printParams, ros::NodeHandle & private_nh_){
 
                 mrs_lib::ParamLoader param_loader(private_nh_, printParams, "UVDAR_BP_Tim");
 
@@ -230,6 +215,8 @@ namespace uvdar
                 param_loader.loadParam("enable_manchester", _enable_manchester_, bool(false));
                 if (_enable_manchester_) ROS_WARN_STREAM("[UVDARBlinkProcessor]: Manchester Decoding is enabled. Make sure Transmitter has same coding enabled!");
 
+                // param_loader.loadParam("buffer_size", _buffer_size_, int(3));
+
                 param_loader.loadParam("sequence_file", _sequence_file, std::string());
                 
                 private_nh_.param("blinkers_seen_topics", _blinkers_seen_topics, _blinkers_seen_topics);
@@ -239,50 +226,8 @@ namespace uvdar
 
             }
 
-            std::atomic_bool initialized_ = false;  
-            std::atomic_bool current_visualization_done_ = false;
-            ros::Timer timer_visualization_;
-            std::vector<std::vector<bool>> _sequences_;
-            std::vector<ros::Publisher> pub_blinkers_seen_;
-            std::vector<ros::Publisher> pub_estimated_framerate_;
-            std::vector<ros::Timer> timer_process_;
-            std::vector<std::shared_ptr<std::mutex>>  mutex_camera_image_;
 
 
-            std::vector<std::string> _blinkers_seen_topics;
-            std::vector<std::string> _estimated_framerate_topics;
-            std::vector<std::string> _points_seen_topics;
-            std::string _sequence_file;
-
-            std::vector<std::vector<mrs_msgs::ImagePointsWithFloatStampedConstPtr>> small_buffer_;
-
-               
-
-            using image_callback_t = boost::function<void (const sensor_msgs::ImageConstPtr&)>;
-            std::vector<image_callback_t> cals_image_;
-            std::vector<ros::Subscriber> sub_image_;
-
-            using points_seen_callback_t = boost::function<void (const mrs_msgs::ImagePointsWithFloatStampedConstPtr&)>;
-            std::vector<points_seen_callback_t> cals_points_seen_;
-            std::vector<points_seen_callback_t> cals_sun_points_;
-            std::vector<ros::Subscriber> sub_points_seen_;
-            std::vector<ros::Subscriber> sub_sun_points_;
-            
-            // Params
-            std::string _uav_name_;   
-            bool        _debug_;
-            bool        _visual_debug_;
-            bool        _gui_;
-            bool        _publish_visualization_;
-            float       _visualization_rate_;
-            bool        _use_camera_for_visualization_;
-            bool        _enable_manchester_;
-
-
-
-
-
-    }; // UVDAR_BP_Tim class
 } // uvdar namespace
 
 
