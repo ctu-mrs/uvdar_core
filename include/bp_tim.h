@@ -14,8 +14,10 @@
 #include <image_transport/image_transport.h>
 #include <opencv2/highgui/highgui.hpp>
 
+#define MAX_BUFFER_SIZE 5 // the maximum number of stored points in consecutive frames
 
 namespace uvdar {
+
 
     class UVDAR_BP_Tim : public nodelet::Nodelet {
        
@@ -32,15 +34,19 @@ namespace uvdar {
             bool parseSequenceFile(const std::string &);
             bool checkVectorSizeMatch(const std::vector<std::string> &, const std::vector<std::string> &, const std::vector<std::string> & );
             void subscribeToPublishedPoints(ros::NodeHandle &);
-            void getResults(ros::NodeHandle &);
+            // void getResults(ros::NodeHandle &);
             void processPoint(const mrs_msgs::ImagePointsWithFloatStampedConstPtr &, const size_t &);
-            void processSunPoint(const mrs_msgs::ImagePointsWithFloatStampedConstPtr &, const size_t &) ;
-            void processBuffer(std::vector<mrs_msgs::ImagePointsWithFloatStampedConstPtr> &);
+            // void processSunPoint(const mrs_msgs::ImagePointsWithFloatStampedConstPtr &, const size_t &) ;
+            void processBuffer(std::vector<mrs_msgs::ImagePointsWithFloatStampedConstPtr> &, int);
+            void initSmallBuffer();
 
+            unsigned int cnt_ = 0;
+            bool first_call_; 
 
             std::atomic_bool initialized_ = false;  
             std::atomic_bool current_visualization_done_ = false;
             ros::Timer timer_visualization_;
+
             std::vector<std::vector<bool>> _sequences_;
             std::vector<ros::Publisher> pub_blinkers_seen_;
             std::vector<ros::Publisher> pub_estimated_framerate_;
