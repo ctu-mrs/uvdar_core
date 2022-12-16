@@ -5,6 +5,7 @@
 #include <mrs_lib/param_loader.h>
 #include <std_msgs/Float32.h>
 #include <mrs_msgs/ImagePointsWithFloatStamped.h>
+#include <mrs_msgs/Point2DWithFloat.h>
 #include <fstream>
 
 
@@ -15,6 +16,10 @@
 #include <opencv2/highgui/highgui.hpp>
 
 #define MAX_BUFFER_SIZE 5 // the maximum number of stored points in consecutive frames
+
+
+using pairPoints = std::pair<mrs_msgs::Point2DWithFloat, mrs_msgs::Point2DWithFloat>;
+using vectorPair = std::vector<pairPoints>;
 
 namespace uvdar {
 
@@ -39,9 +44,8 @@ namespace uvdar {
             // void processSunPoint(const mrs_msgs::ImagePointsWithFloatStampedConstPtr &, const size_t &) ;
             void processBuffer(std::vector<mrs_msgs::ImagePointsWithFloatStampedConstPtr> &, int);
             void initSmallBuffer();
+            void findClosest(mrs_msgs::ImagePointsWithFloatStampedConstPtr, mrs_msgs::ImagePointsWithFloatStampedConstPtr);
 
-            unsigned int cnt_ = 0;
-            bool first_call_; 
 
             std::atomic_bool initialized_ = false;  
             std::atomic_bool current_visualization_done_ = false;
@@ -51,7 +55,6 @@ namespace uvdar {
             std::vector<ros::Publisher> pub_blinkers_seen_;
             std::vector<ros::Publisher> pub_estimated_framerate_;
             std::vector<ros::Timer> timer_process_;
-            std::vector<std::shared_ptr<std::mutex>>  mutex_camera_image_;
 
 
             std::vector<std::string> _blinkers_seen_topics;
@@ -60,6 +63,11 @@ namespace uvdar {
             std::string _sequence_file;
 
             std::vector<std::vector<mrs_msgs::ImagePointsWithFloatStampedConstPtr>> small_buffer_;
+            unsigned int buffer_cnt_ = 0;
+            bool first_call_; // bool for preventing the access of non assigned values in small_buffer
+            std::vector<std::pair<mrs_msgs::ImagePointsWithFloatStampedConstPtr, mrs_msgs::ImagePointsWithFloatStampedConstPtr>> closestPair_;
+            unsigned int max_pixel_shift_x_ = 2;
+            unsigned int max_pixel_shift_y_ = 2;
 
                
 

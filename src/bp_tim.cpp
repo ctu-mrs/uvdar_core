@@ -1,5 +1,8 @@
 #include <bp_tim.h>
 
+
+
+
 // default constructor
 uvdar::UVDAR_BP_Tim::UVDAR_BP_Tim(){}; 
 
@@ -19,7 +22,6 @@ void uvdar::UVDAR_BP_Tim::onInit(){
     if (!checkVectorSizeMatch(_blinkers_seen_topics,_estimated_framerate_topics, _points_seen_topics)) return;
 
     // setup data structure
-
     initSmallBuffer();
  
     first_call_ = true;
@@ -52,54 +54,77 @@ void uvdar::UVDAR_BP_Tim::onInit(){
  * @param img_index 
  * @return * void 
  */
- 
 void uvdar::UVDAR_BP_Tim::processPoint(const mrs_msgs::ImagePointsWithFloatStampedConstPtr &ptsMsg, const size_t & img_index) {
 
+    small_buffer_[img_index].at(buffer_cnt_) = ptsMsg;
 
+    processBuffer(small_buffer_[img_index], buffer_cnt_);
+    buffer_cnt_++;
 
-    small_buffer_.at(img_index).at(cnt_) = ptsMsg;
-
-    processBuffer(small_buffer_.at(img_index), cnt_);
-    
-    if ( cnt_ == (_buffer_size_ - 1 ) ) {
-        cnt_ = -1;
+    if ( buffer_cnt_ == _buffer_size_ ) {
+        buffer_cnt_ = 0;
         first_call_ = false; 
     }
-    cnt_++;
 }
             
             
 void uvdar::UVDAR_BP_Tim::processBuffer(std::vector<mrs_msgs::ImagePointsWithFloatStampedConstPtr>& ptsBufferImg, int counter){
     
-    double timediff_new;
-    double timediff_old;
-    double timediff_edge;
-
+    std::vector<double> timediff;
+    std::cout << "Counter " << counter << std::endl;
     // go over the "newest" messages in the buffer
     for ( int i = 0; i < counter; i++ ){
-        timediff_new = (ptsBufferImg.at(i+1)->stamp - ptsBufferImg.at(i)->stamp).toSec();
+        timediff.push_back( (ptsBufferImg.at(i+1)->stamp - ptsBufferImg.at(i)->stamp).toSec() );
+        findClosest(ptsBufferImg[i+1], ptsBufferImg[i]);
     }
 
     // // go over the "older" messages in the buffer
-    if (!first_call_){ // prevention of accessing vector elements which haven't been initialized yet
-        for (int i = counter + 1; i < ( _buffer_size_ - 1 ); i++  ){
-            std::cout << "Counter called " << i << std::endl;
-            timediff_old = (ptsBufferImg.at(i+1)->stamp - ptsBufferImg.at(i)->stamp).toSec();
-        }
-        // compare also the last element of the buffer with the first element, as long as counter is not at the end of the buffer
+    if (!first_call_){ // prevention of accessing vector elements which haven't been assigned yet
+        // compare the last element of the buffer with the first element, as long as counter is not at the end of the buffer
         if (counter != ( _buffer_size_ - 1 ) ) {
-            timediff_edge = (ptsBufferImg.at(0)->stamp - ptsBufferImg.at( _buffer_size_ - 1 )->stamp).toSec();
+            timediff.push_back( (ptsBufferImg.at(0)->stamp - ptsBufferImg.at( _buffer_size_ - 1 )->stamp).toSec() );
+        }
+
+        for (int i = counter + 1; i < ( _buffer_size_ - 1 ); i++  ){
+            timediff.push_back( (ptsBufferImg.at(i+1)->stamp - ptsBufferImg.at(i)->stamp).toSec() );
         }
     }
 
+    for ( const auto k : timediff  ) {
+        if (k < 0)
+        ROS_WARN_THROTTLE( 1, "[UVDAR_BP_Tim]: The Time difference between the last two messages is negative!");
+        if (k == 0)
+        ROS_WARN_THROTTLE( 1, "[UVDAR_BP_Tim]: The Time difference between the last two messages is equal to zero!");
+    }
+}
 
-    
-    // if( timediff_new < 0 || timediff_old < 0) {
-    //     ROS_WARN("The time difference between the last two messages is negative!",1);
-    // }
 
-    std::cout << "The Counter is" << counter << std::endl;
+void uvdar::UVDAR_BP_Tim::findClosest(mrs_msgs::ImagePointsWithFloatStampedConstPtr ptsNewerImg, mrs_msgs::ImagePointsWithFloatStampedConstPtr ptsOlderImg){
 
+    std::cout << "The size 1 " <<  ptsNewerImg->points.size() << std::endl;
+    std::cout << "The size 2 " <<  ptsOlderImg->points.size() << std::endl;
+    vectorPair pairs;
+    for (const auto pointNewerImg : ptsNewerImg->points ) {
+    // for (auto k = 0; k < ptsNewerImg->points.size(); k++){
+        // for (auto i = 0; i < ptsOlderImg->points.size(); i++){
+        for ( const auto pointOlderImg : ptsOlderImg->points ){
+            
+            double pixelShift_x = std::abs(pointNewerImg.x - pointOlderImg.x);
+            double pixelShift_y = std::abs(pointNewerImg.y - pointOlderImg.y);
+
+            // std::cout << "First IMG x " << ptsNewerImg->points[k].x << " y " << ptsNewerImg->points[k].y << "time stp " << ptsNewerImg->stamp.toSec() << "Scd x " << ptsOlderImg->points[i].x << "y " << ptsOlderImg->points[i].y <<  " stamp " << ptsOlderImg->stamp.toSec() << std::endl;
+
+            std::cout << "First IMG x " << pointNewerImg.x << " y "<< pointNewerImg.y << "time stp " << ptsNewerImg->stamp.toSec() << "Scd x " << pointOlderImg.x << " y " << pointNewerImg.y << " stamp " << ptsOlderImg->stamp.toSec() << std::endl;
+
+            if (pixelShift_x > max_pixel_shift_x_ || pixelShift_y > max_pixel_shift_y_ ) {
+                ROS_INFO("[UVDAR_BP_Tim]: Pixel shift is too big.");
+            //     return;
+            } 
+
+            pairs.push_back(pairPoints (pointNewerImg, pointOlderImg) ); 
+            std::cout << "The Pixel shift in x is: " << pixelShift_x << " y: " << pixelShift_y << std::endl;            
+        }
+    }
 
 }
 
