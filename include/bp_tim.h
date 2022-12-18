@@ -33,6 +33,8 @@ namespace uvdar {
             ~UVDAR_BP_Tim();
         
         private:
+            using vectPoint3D = std::vector<mrs_msgs::Point2DWithFloat>;
+            using img3DPointStamped = mrs_msgs::ImagePointsWithFloatStampedConstPtr;
 
             virtual void onInit();
             void loadParams(const bool &, ros::NodeHandle &);
@@ -40,12 +42,15 @@ namespace uvdar {
             bool checkVectorSizeMatch(const std::vector<std::string> &, const std::vector<std::string> &, const std::vector<std::string> & );
             void subscribeToPublishedPoints(ros::NodeHandle &);
             // void getResults(ros::NodeHandle &);
-            void processPoint(const mrs_msgs::ImagePointsWithFloatStampedConstPtr &, const size_t &);
+            void processPoint(const img3DPointStamped &, const size_t &);
             // void processSunPoint(const mrs_msgs::ImagePointsWithFloatStampedConstPtr &, const size_t &) ;
-            void processBuffer(std::vector<mrs_msgs::ImagePointsWithFloatStampedConstPtr> &, int);
+            void processBuffer(std::vector<vectPoint3D> &);
             void initSmallBuffer();
-            void findClosest(mrs_msgs::ImagePointsWithFloatStampedConstPtr, mrs_msgs::ImagePointsWithFloatStampedConstPtr);
+            void findClosestAndLEDState(vectPoint3D & , vectPoint3D & );
+            void checkLEDValidity();
 
+
+            
 
             std::atomic_bool initialized_ = false;  
             std::atomic_bool current_visualization_done_ = false;
@@ -62,12 +67,12 @@ namespace uvdar {
             std::vector<std::string> _points_seen_topics;
             std::string _sequence_file;
 
-            std::vector<std::vector<mrs_msgs::ImagePointsWithFloatStampedConstPtr>> small_buffer_;
+            std::vector<std::vector<vectPoint3D>> small_buffer_;
             unsigned int buffer_cnt_ = 0;
             bool first_call_; // bool for preventing the access of non assigned values in small_buffer
-            std::vector<std::pair<mrs_msgs::ImagePointsWithFloatStampedConstPtr, mrs_msgs::ImagePointsWithFloatStampedConstPtr>> closestPair_;
-            unsigned int max_pixel_shift_x_ = 2;
-            unsigned int max_pixel_shift_y_ = 2;
+            unsigned int max_pixel_shift_x_ = 3;
+            unsigned int max_pixel_shift_y_ = 3;
+            bool nearestNeighbor_ = true;   // bool for predicting the LED state. Assumption: When in both images Points are existend. Some nearest neighbors will be found
 
                
 
@@ -90,7 +95,7 @@ namespace uvdar {
             float       _visualization_rate_;
             bool        _use_camera_for_visualization_;
             bool        _enable_manchester_;
-            int   _buffer_size_;
+            int         _buffer_size_;
 
 
     };

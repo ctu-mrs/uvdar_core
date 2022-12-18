@@ -1,8 +1,5 @@
 #include <bp_tim.h>
 
-
-
-
 // default constructor
 uvdar::UVDAR_BP_Tim::UVDAR_BP_Tim(){}; 
 
@@ -54,13 +51,16 @@ void uvdar::UVDAR_BP_Tim::onInit(){
  * @param img_index 
  * @return * void 
  */
-void uvdar::UVDAR_BP_Tim::processPoint(const mrs_msgs::ImagePointsWithFloatStampedConstPtr &ptsMsg, const size_t & img_index) {
+void uvdar::UVDAR_BP_Tim::processPoint(const img3DPointStamped &ptsMsg, const size_t & img_index) {
 
-    small_buffer_[img_index].at(buffer_cnt_) = ptsMsg;
+    vectPoint3D p(std::begin(ptsMsg->points), std::end(ptsMsg->points));
 
-    processBuffer(small_buffer_[img_index], buffer_cnt_);
+    small_buffer_[img_index].at(buffer_cnt_) = p;
+    // std::cout << "Img ind" << img_index <<std::endl;
+    processBuffer(small_buffer_[img_index]);
     buffer_cnt_++;
 
+    // resets buffer -> override of oldest message
     if ( buffer_cnt_ == _buffer_size_ ) {
         buffer_cnt_ = 0;
         first_call_ = false; 
@@ -68,63 +68,95 @@ void uvdar::UVDAR_BP_Tim::processPoint(const mrs_msgs::ImagePointsWithFloatStamp
 }
             
             
-void uvdar::UVDAR_BP_Tim::processBuffer(std::vector<mrs_msgs::ImagePointsWithFloatStampedConstPtr>& ptsBufferImg, int counter){
-    
-    std::vector<double> timediff;
-    std::cout << "Counter " << counter << std::endl;
+void uvdar::UVDAR_BP_Tim::processBuffer(std::vector<vectPoint3D>& ptsBufferImg){
     // go over the "newest" messages in the buffer
-    for ( int i = 0; i < counter; i++ ){
-        timediff.push_back( (ptsBufferImg.at(i+1)->stamp - ptsBufferImg.at(i)->stamp).toSec() );
-        findClosest(ptsBufferImg[i+1], ptsBufferImg[i]);
+    for ( unsigned int i = 0; i < buffer_cnt_; i++ ){
+        // std::cout << "P count " << ptsBufferImg.at(i).size() <<std::endl;
+
+        // timediff.push_back( (ptsBufferImg.at(i+1)->stamp - ptsBufferImg.at(i)->stamp).toSec() );
+        findClosestAndLEDState(ptsBufferImg[i+1], ptsBufferImg[i]);
     }
 
-    // // go over the "older" messages in the buffer
-    if (!first_call_){ // prevention of accessing vector elements which haven't been assigned yet
-        // compare the last element of the buffer with the first element, as long as counter is not at the end of the buffer
-        if (counter != ( _buffer_size_ - 1 ) ) {
-            timediff.push_back( (ptsBufferImg.at(0)->stamp - ptsBufferImg.at( _buffer_size_ - 1 )->stamp).toSec() );
-        }
+// NOT NEEDED!?!
+    // // go over the "older" messages in the buffer 
+    // if (!first_call_){ // prevention of accessing vector elements which haven't been assigned yet
+    //     // compare the last element of the buffer with the first element, as long as counter is not at the end of the buffer
+    //     if (buffer_cnt_ != ( _buffer_size_ - 1 ) ) {
+    //         // timediff.push_back( (ptsBufferImg.at(0)->stamp - ptsBufferImg.at( _buffer_size_ - 1 )->stamp).toSec() );
+    //     }
 
-        for (int i = counter + 1; i < ( _buffer_size_ - 1 ); i++  ){
-            timediff.push_back( (ptsBufferImg.at(i+1)->stamp - ptsBufferImg.at(i)->stamp).toSec() );
-        }
-    }
+    //     for (int i = buffer_cnt_ + 1; i < ( _buffer_size_ - 1 ); i++  ){
+    //         // timediff.push_back( (ptsBufferImg.at(i+1)->stamp - ptsBufferImg.at(i)->stamp).toSec() );
+    //     }
+    // }
 
-    for ( const auto k : timediff  ) {
-        if (k < 0)
-        ROS_WARN_THROTTLE( 1, "[UVDAR_BP_Tim]: The Time difference between the last two messages is negative!");
-        if (k == 0)
-        ROS_WARN_THROTTLE( 1, "[UVDAR_BP_Tim]: The Time difference between the last two messages is equal to zero!");
-    }
 }
 
 
-void uvdar::UVDAR_BP_Tim::findClosest(mrs_msgs::ImagePointsWithFloatStampedConstPtr ptsNewerImg, mrs_msgs::ImagePointsWithFloatStampedConstPtr ptsOlderImg){
+void uvdar::UVDAR_BP_Tim::findClosestAndLEDState(vectPoint3D & ptsNewerImg, vectPoint3D & ptsOlderImg){
 
-    std::cout << "The size 1 " <<  ptsNewerImg->points.size() << std::endl;
-    std::cout << "The size 2 " <<  ptsOlderImg->points.size() << std::endl;
-    vectorPair pairs;
-    for (const auto pointNewerImg : ptsNewerImg->points ) {
-    // for (auto k = 0; k < ptsNewerImg->points.size(); k++){
-        // for (auto i = 0; i < ptsOlderImg->points.size(); i++){
-        for ( const auto pointOlderImg : ptsOlderImg->points ){
+    for ( auto pointOlderImg : ptsOlderImg ){
+    // for (int i = 0; i< ptsOlderImg.size(); ++i){
+        // pointOlderImg.value = 1; // set LED state to "on" because point exists
+        for ( auto pointNewerImg : ptsNewerImg ) {
+        // for (int k = 0; k < ptsNewerImg.size(); ++k){
             
+            // double pixelShift_x = std::abs(ptsNewerImg[k].x - ptsOlderImg[i].x);
+            // double pixelShift_y = std::abs(ptsNewerImg[k].y - ptsOlderImg[i].y);
+
             double pixelShift_x = std::abs(pointNewerImg.x - pointOlderImg.x);
             double pixelShift_y = std::abs(pointNewerImg.y - pointOlderImg.y);
 
-            // std::cout << "First IMG x " << ptsNewerImg->points[k].x << " y " << ptsNewerImg->points[k].y << "time stp " << ptsNewerImg->stamp.toSec() << "Scd x " << ptsOlderImg->points[i].x << "y " << ptsOlderImg->points[i].y <<  " stamp " << ptsOlderImg->stamp.toSec() << std::endl;
-
-            std::cout << "First IMG x " << pointNewerImg.x << " y "<< pointNewerImg.y << "time stp " << ptsNewerImg->stamp.toSec() << "Scd x " << pointOlderImg.x << " y " << pointNewerImg.y << " stamp " << ptsOlderImg->stamp.toSec() << std::endl;
+            // // std::cout << "Pixel shift x " << pixelShift_x << " PixelShift y " << pixelShift_y <<  std::endl;
 
             if (pixelShift_x > max_pixel_shift_x_ || pixelShift_y > max_pixel_shift_y_ ) {
-                ROS_INFO("[UVDAR_BP_Tim]: Pixel shift is too big.");
-            //     return;
-            } 
-
-            pairs.push_back(pairPoints (pointNewerImg, pointOlderImg) ); 
-            std::cout << "The Pixel shift in x is: " << pixelShift_x << " y: " << pixelShift_y << std::endl;            
+                nearestNeighbor_ = false;
+                if (_debug_){
+                    ROS_INFO("[UVDAR_BP_Tim]: Pixel shift is too big.");
+                }
+            } else {
+                nearestNeighbor_ = true;
+                pointNewerImg.value = 1; // match found - LED is "on"
+                pointOlderImg.value = 1; 
+            }
         }
+
+        if ( ptsNewerImg.size() == 0 ) nearestNeighbor_ = false; // when no pint exists, no nearest neighbor can be found 
+
+        // TODO: WRONG!!!!!!!!!!!!!!!
+        if (!nearestNeighbor_ && ( ptsOlderImg.size() != ptsNewerImg.size() ) ){
+            // no Match found! 
+            // insert coordinate values of the current point into dummy point and set LED state to zero
+            mrs_msgs::Point2DWithFloat p;
+            p.x = pointOlderImg.x;
+            p.y = pointOlderImg.y;
+            p.value = 0; // 0 equals turned "off" 
+            ptsNewerImg.push_back(p);  
+        } 
     }
+
+    // here the LED States needs to be checked: e.g. 3x Off/On not possible!
+    checkLEDValidity();
+}
+
+void uvdar::UVDAR_BP_Tim::checkLEDValidity(){
+
+    // preliminary
+    std::cout << "---------------------------------------" << std::endl;
+    std::cout << "Size 0 " << small_buffer_[2][0].size() << std::endl;
+    for (const auto i : small_buffer_[2][0] ){
+        std::cout << " Buffer 1 " << i.value << std::endl;
+    }
+    std::cout << "Size 1 " << small_buffer_[2][1].size() << std::endl;
+        for (const auto i : small_buffer_[2][1] ){
+        std::cout << " Buffer 2 " << i.value << std::endl;
+    }
+    std::cout << "Size 2 " << small_buffer_[2][2].size() << std::endl;
+        for (const auto i : small_buffer_[2][2] ){
+        std::cout << " Buffer 3 " << i.value << std::endl;
+    }
+    std::cout << "---------------------------------------" << std::endl;
+
 
 }
 
@@ -293,16 +325,14 @@ void uvdar::UVDAR_BP_Tim::initSmallBuffer(){
     
     small_buffer_.reserve(_points_seen_topics.size());
     for (const auto i : _points_seen_topics) {
-        std::vector<mrs_msgs::ImagePointsWithFloatStampedConstPtr> b = std::vector<mrs_msgs::ImagePointsWithFloatStampedConstPtr>();
-        for (int k = 0; k < _buffer_size_; k++){
-            mrs_msgs::ImagePointsWithFloatStampedConstPtr point = mrs_msgs::ImagePointsWithFloatStampedConstPtr();
+       std::vector<vectPoint3D> b;
+       for (int k = 0; k < _buffer_size_; k++){
+            vectPoint3D point;
             b.push_back(point);
         }
         small_buffer_.push_back(b);
     }
 }
 
-
 #include <pluginlib/class_list_macros.h>
 PLUGINLIB_EXPORT_CLASS(uvdar::UVDAR_BP_Tim, nodelet::Nodelet);
-
