@@ -15,9 +15,8 @@
 #include <image_transport/image_transport.h>
 #include <opencv2/highgui/highgui.hpp>
 
-#define MAX_BUFFER_SIZE 5 // the maximum number of stored points in consecutive frames
-
-
+#define MAX_BUFFER_SIZE 5 // max frames which are stored
+#define MIN_BUFFER_SIZE 3 // min frames which are stored  
 using pairPoints = std::pair<mrs_msgs::Point2DWithFloat, mrs_msgs::Point2DWithFloat>;
 using vectorPair = std::vector<pairPoints>;
 
@@ -34,7 +33,7 @@ namespace uvdar {
         
         private:
             using vectPoint3D = std::vector<mrs_msgs::Point2DWithFloat>;
-            using img3DPointStamped = mrs_msgs::ImagePointsWithFloatStampedConstPtr;
+            // using img3DPointStamped = mrs_msgs::ImagePointsWithFloatStampedConstPtr;
 
             virtual void onInit();
             void loadParams(const bool &, ros::NodeHandle &);
@@ -42,13 +41,18 @@ namespace uvdar {
             bool checkVectorSizeMatch(const std::vector<std::string> &, const std::vector<std::string> &, const std::vector<std::string> & );
             void subscribeToPublishedPoints(ros::NodeHandle &);
             // void getResults(ros::NodeHandle &);
-            void processPoint(const img3DPointStamped &, const size_t &);
+            void processPoint(const mrs_msgs::ImagePointsWithFloatStampedConstPtr &, const size_t &);
             // void processSunPoint(const mrs_msgs::ImagePointsWithFloatStampedConstPtr &, const size_t &) ;
             void processBuffer(std::vector<vectPoint3D> &);
             void initSmallBuffer();
             void findClosestAndLEDState(vectPoint3D & , vectPoint3D & );
-            void checkLEDValidity();
+            void checkLEDValidity(std::vector<vectPoint3D> );
+            void insertEmptyPoint(vectPoint3D &, const mrs_msgs::Point2DWithFloat);
+            bool checkInsertVP(vectPoint3D &ptsNewerImg, vectPoint3D &ptsOlderImg);
 
+
+            std::vector<vectPoint3D> pVect;
+            std::vector<vectPoint3D> potentialSequences;
 
             
 
@@ -68,11 +72,12 @@ namespace uvdar {
             std::string _sequence_file;
 
             std::vector<std::vector<vectPoint3D>> small_buffer_;
-            unsigned int buffer_cnt_ = 0;
+            int buffer_cnt_ = 0;
             bool first_call_; // bool for preventing the access of non assigned values in small_buffer
-            unsigned int max_pixel_shift_x_ = 3;
-            unsigned int max_pixel_shift_y_ = 3;
-            bool nearestNeighbor_ = true;   // bool for predicting the LED state. Assumption: When in both images Points are existend. Some nearest neighbors will be found
+            bool consecutiveFramesZero_ = false;
+
+            int max_pixel_shift_x_ = 3;
+            int max_pixel_shift_y_ = 3;
 
                
 
