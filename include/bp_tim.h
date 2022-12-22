@@ -16,7 +16,7 @@
 #include <opencv2/highgui/highgui.hpp>
 
 #define MAX_BUFFER_SIZE 5 // max frames which are stored
-#define MIN_BUFFER_SIZE 3 // min frames which are stored  
+#define MIN_BUFFER_SIZE 3 // min consecutive frames - required due to Manchester Coding 
 using pairPoints = std::pair<mrs_msgs::Point2DWithFloat, mrs_msgs::Point2DWithFloat>;
 using vectorPair = std::vector<pairPoints>;
 
@@ -48,13 +48,11 @@ namespace uvdar {
             void findClosestAndLEDState(vectPoint3D & , vectPoint3D & );
             void checkLEDValidity(std::vector<vectPoint3D> );
             void insertEmptyPoint(vectPoint3D &, const mrs_msgs::Point2DWithFloat);
-            bool checkInsertVP(vectPoint3D &ptsNewerImg, vectPoint3D &ptsOlderImg);
+            bool checkInsertVP(vectPoint3D &, vectPoint3D &);
 
 
             std::vector<vectPoint3D> pVect;
-            std::vector<vectPoint3D> potentialSequences;
-
-            
+            std::vector<vectPoint3D> potentialSequences; 
 
             std::atomic_bool initialized_ = false;  
             std::atomic_bool current_visualization_done_ = false;
@@ -73,7 +71,7 @@ namespace uvdar {
 
             std::vector<std::vector<vectPoint3D>> small_buffer_;
             int buffer_cnt_ = 0;
-            bool first_call_; // bool for preventing the access of non assigned values in small_buffer
+            bool first_call_; // bool for preventing access of non assigned values in small_buffer
             bool consecutiveFramesZero_ = false;
 
             int max_pixel_shift_x_ = 3;

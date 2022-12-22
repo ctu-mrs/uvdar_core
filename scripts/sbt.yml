@@ -10,7 +10,7 @@ windows:
   - gazebo:
       layout: even-vertical
       panes:
-        - waitForCompile; waitForRos; roslaunch uvdar_core uvdar_gazebo.launch gui:=false
+        - waitForCompile; waitForRos; roslaunch uvdar_core uvdar_gazebo.launch gui:=true
   # - status:
   #     layout: even-vertical
   #     panes:
@@ -27,7 +27,7 @@ windows:
         
       #   - waitForSimulation; sleep 12; rosservice call /mrs_drone_spawner/spawn  "2 $UAV_TYPE --pos-file $(rospack find uvdar_core)/scripts/position2.csv --enable-rangefinder --enable-ground-truth --enable-uv-leds --uvled_s_l 0 --uvled_s_r 0"
 
-      # spawn UAV with all LED on and on pose 3 - slightly turned
+      # spawn UAV with all LED "on" and on pose 3 - slightly turned
         # - waitForCompile; waitForSimulation; sleep 3; rosservice call /mrs_drone_spawner/spawn  "3 $UAV_TYPE --pos-file $(rospack find uvdar_core)/scripts/position3.csv --enable-rangefinder --enable-ground-truth --enable_all_LED --uvled_beacon_f 0 --uvled_s_1 0 --uvled_s_2 0 --uvled_s_3 0 --uvled_s_4 0"
 
       # spawn UAV with only beacon LED
@@ -84,10 +84,10 @@ windows:
       layout: even-vertical
       panes:
       #   - waitForSimulation; waitForRos; sleep 60; gz physics -u 80
-          - waitForCompile; waitForSimulation; sleep 10; gz physics -u 50
+          - waitForCompile; waitForSimulation; sleep 20; gz physics -u 50
 
-  # - goto:
-  #     layout: even-vertical
-  #     panes:
-  #       - 'history -s rosservice call /uav3/control_manager/goto_fcu \"goal: \[0.0, 0.0, 0.0, 0.7\]\"'
+  - goto:
+      layout: even-vertical
+      panes:
+        - 'history -s rosservice call /uav3/control_manager/goto_fcu \"goal: \[0.0, 0.0, 0.0, 0.7\]\"'
 
