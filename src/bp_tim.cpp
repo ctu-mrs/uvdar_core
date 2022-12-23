@@ -22,6 +22,20 @@ void uvdar::UVDAR_BP_Tim::onInit()
 
     // setup data structure
     initSmallBuffer();
+    
+    for (size_t i = 0; i < _points_seen_topics.size(); ++i) {
+        aht_.push_back(
+                std::make_shared<alternativeHT>(_buffer_size_, max_pixel_shift_x_, max_pixel_shift_y_)
+              );
+        //   ht4dbt_trackers_.back()->setDebug(_debug_, _visual_debug_);
+        //   ht4dbt_trackers_.back()->setSequences(_sequences_);
+
+        //   blink_data_.push_back(BlinkData());
+
+        //   mutex_camera_image_.push_back(std::make_shared<std::mutex>());
+        //   camera_image_sizes_.push_back(cv::Size(-1,-1));
+    }
+
 
     first_call_ = true;
     subscribeToPublishedPoints(private_nh_);
@@ -37,8 +51,6 @@ void uvdar::UVDAR_BP_Tim::onInit()
     // getResults(private_nh_);
 
     initialized_ = true;
-    if (initialized_)
-        ROS_INFO("[UVDAR_BP_Tim]: Nodelet sucessfully initialized");
 }
 
 /**
@@ -51,8 +63,9 @@ void uvdar::UVDAR_BP_Tim::onInit()
  * @param img_index
  * @return * void
  */
-void uvdar::UVDAR_BP_Tim::processPoint(const mrs_msgs::ImagePointsWithFloatStampedConstPtr &ptsMsg, const size_t &img_index)
+void uvdar::UVDAR_BP_Tim::insertPoint(const mrs_msgs::ImagePointsWithFloatStampedConstPtr &ptsMsg, const size_t &img_index)
 {
+    if (!initialized_) return;
     vectPoint3D points(std::begin(ptsMsg->points), std::end(ptsMsg->points));
     std::cout << "============================================" << std::endl;
     std::cout << "B size" << ptsMsg->points.size() << " Buffer cnt " << buffer_cnt_ <<std::endl;
@@ -98,38 +111,50 @@ void uvdar::UVDAR_BP_Tim::processPoint(const mrs_msgs::ImagePointsWithFloatStamp
     }
 }
 
-// TODO - CLEAN THIS MESS!
 void uvdar::UVDAR_BP_Tim::processBuffer(std::vector<vectPoint3D> & ptsBufferImg)
 {
 
     // std::cout << "P " << small_buffer_[img_index][buffer_cnt_].size() <<std::endl;
     // std::cout << "Psize " << ptsBufferImg[buffer_cnt_].size() <<std::endl;
 
-    // vectPoint3D & currFrame     = ptsBufferImg[buffer_cnt_];
+    vectPoint3D & currFrame     = ptsBufferImg[buffer_cnt_];
     // std::cout << "Size CURRFRAME" << currFrame.size() << std::endl;
     // vectPoint3D & previousFrame = ptsBufferImg[buffer_cnt_]; // default initializing - will be overridden
     if (first_call_) {
-        std::cout << "First call " << std::endl;
-        if ( buffer_cnt_ != 0 ) {
-            checkInsertVP(ptsBufferImg[buffer_cnt_], ptsBufferImg[buffer_cnt_ - 1]);
+        if ( buffer_cnt_ == 0 ) {
+            if ( _debug_ ) ROS_INFO("[UVDAR_BP_Tim]: Buffer not filled with enough data.");
+            return;
         }
-        if ( _debug_ ) {
-            ROS_INFO("[UVDAR_BP_Tim]: Buffer not filled with enough data.");
-        }
-        return;
+        checkInsertVP(currFrame, ptsBufferImg[buffer_cnt_ - 1]);
     }
-
-    // not really nice programmed!    
+    
+    // select index for the previous frame dependent on the current buffer_cnt_ and if closest point can be computed/ virtual point is inserted
+    int indexPrevFrame = -1;
     if (buffer_cnt_ == 0 ){
-        if (!checkInsertVP(ptsBufferImg[buffer_cnt_], ptsBufferImg[ _buffer_size_ - 1 ] )){
-            findClosestAndLEDState(ptsBufferImg[buffer_cnt_], ptsBufferImg[ _buffer_size_ - 1 ]);
+        indexPrevFrame = _buffer_size_ - 1; 
+        if ( checkInsertVP(currFrame, ptsBufferImg[ indexPrevFrame ] ) ){
+            return;
+        } 
+        if (bothFramesEmpty(currFrame, ptsBufferImg[ indexPrevFrame ] ) ){
+            return;
         }
     } else if ( buffer_cnt_ <= _buffer_size_){
-        if (!checkInsertVP(ptsBufferImg[ buffer_cnt_ ] , ptsBufferImg[ buffer_cnt_ - 1 ]))
-            findClosestAndLEDState(ptsBufferImg[buffer_cnt_], ptsBufferImg[ buffer_cnt_ - 1 ]);
-    } else {
-        ROS_WARN("[UVDAR_BP_Tim]: Previous Frame and Current Frame pointing to the frame. Algorithm will not work!");
-    }
+        indexPrevFrame = buffer_cnt_ - 1; 
+        if ( checkInsertVP(currFrame , ptsBufferImg[ indexPrevFrame ] ) ) {
+            return;
+        }
+        if ( bothFramesEmpty(currFrame, ptsBufferImg[ indexPrevFrame ] ) ) {
+            return;
+        }
+
+    } 
+
+
+    findClosestAndLEDState( currFrame, ptsBufferImg [ indexPrevFrame ]);
+    
+
+
+    // findClosestAndLEDState( currFrame, ptsBufferImg [ indexPrevFrame ]);
 
     // go over the "newest" messages in the buffer
     // for (unsigned int i = 0; i < buffer_cnt_; i++)  
@@ -153,16 +178,8 @@ void uvdar::UVDAR_BP_Tim::findClosestAndLEDState(vectPoint3D & ptsCurrentImg, ve
     // std::cout << "Size start" << ptsCurrentImg.size() << " " << ptsOlderImg.size() << std::endl;
 
     bool nearestNeighbor = true; // bool for predicting the LED state. Assumption: When in both images Points are existent. Some nearest neighbors will be found
-    consecutiveFramesZero_ = false;
     // std::cout << "new in find" << ptsNewerImg.size() << std::endl;
     // std::cout << "old in find" << ptsOlderImg.size() << std::endl;
-
-    // if the current frames are both empty return
-    if ((ptsCurrentImg.size() == 0) && (ptsPrevImg.size() == 0))
-    {
-        consecutiveFramesZero_ = true; // if two consecutive frames are empty
-        return;
-    }
  
     for (auto & pointOlderImg : ptsPrevImg)
     {
@@ -225,9 +242,9 @@ void uvdar::UVDAR_BP_Tim::findClosestAndLEDState(vectPoint3D & ptsCurrentImg, ve
  * @return true 
  * @return false 
  */
-bool uvdar::UVDAR_BP_Tim::checkInsertVP(vectPoint3D &ptsCurrentImg, vectPoint3D &ptsOlderImg){
-    if (ptsCurrentImg.size() == 0 && ptsOlderImg.size() != 0){
-        for ( auto & p : ptsOlderImg)
+bool uvdar::UVDAR_BP_Tim::checkInsertVP(vectPoint3D &ptsCurrentImg, vectPoint3D &ptsPrevImg){
+    if (ptsCurrentImg.size() == 0 && ptsPrevImg.size() != 0){
+        for ( auto & p : ptsPrevImg)
         {
             insertEmptyPoint(ptsCurrentImg, p);
             // p.value = 1;
@@ -235,15 +252,23 @@ bool uvdar::UVDAR_BP_Tim::checkInsertVP(vectPoint3D &ptsCurrentImg, vectPoint3D 
         return true; 
     }
 
-    if (ptsOlderImg.size() == 0 && ptsCurrentImg.size() != 0)
+    if (ptsPrevImg.size() == 0 && ptsCurrentImg.size() != 0)
     {        
         for ( auto & p : ptsCurrentImg)
         {  
-            insertEmptyPoint(ptsOlderImg, p);
+            insertEmptyPoint(ptsPrevImg, p);
             // p.value = 1;
         }     
         return true; 
     }
+    return false;
+}
+
+
+bool uvdar::UVDAR_BP_Tim::bothFramesEmpty(vectPoint3D ptsCurrentImg, vectPoint3D ptsPrevImg){
+
+    if ( ptsCurrentImg.size () == 0 && ptsPrevImg.size()) return true;    
+
     return false;
 }
 
@@ -260,7 +285,7 @@ void uvdar::UVDAR_BP_Tim::subscribeToPublishedPoints(ros::NodeHandle &private_nh
         // Subscribe to corresponding topics
         points_seen_callback_t callback = [image_index = i, this](const mrs_msgs::ImagePointsWithFloatStampedConstPtr &pointsMessage)
         {
-            processPoint(pointsMessage, image_index);
+            insertPoint(pointsMessage, image_index);
         };
         cals_points_seen_.push_back(callback);
         sub_points_seen_.push_back(private_nh_.subscribe(_points_seen_topics[i], 1, cals_points_seen_[i]));
@@ -417,13 +442,11 @@ void uvdar::UVDAR_BP_Tim::loadParams(const bool &printParams, ros::NodeHandle &p
         ROS_WARN_STREAM("[UVDARBlinkProcessor]: Manchester Decoding is enabled. Make sure Transmitter has same coding enabled!");
 
     param_loader.loadParam("buffer_size", _buffer_size_, int(3));
-    if (_buffer_size_ > MAX_BUFFER_SIZE)
-    {
-        ROS_ERROR_STREAM("[UVDAR_BP_Tim]: The wanted buffer size: " << _buffer_size_ << "is bigger than the maximum buffer size. This might cause tracking and blink extraction failure");
+    if ( _buffer_size_ > max_buffer_size_ ) {
+        ROS_ERROR_STREAM("[UVDAR_BP_Tim]: The wanted buffer size: " << _buffer_size_ << " is bigger than the maximum buffer size. The maximum buffer size is " << max_buffer_size_ << ". The current setting might cause tracking and blink extraction failure");
     }
-    if (_buffer_size_ < MIN_BUFFER_SIZE)
-    {
-        ROS_ERROR_STREAM("[UVDAR_BP_Tim]: The wanted buffer size: " << _buffer_size_ << "is smaller than the maximum buffer size. The minimum size for a working system is: " << MIN_BUFFER_SIZE);
+    if ( _buffer_size_ < min_buffer_size_ ) {
+        ROS_ERROR_STREAM("[UVDAR_BP_Tim]: The wanted buffer size: " << _buffer_size_ << " is smaller than the minimum buffer size. The minimum size for a working system is: " << min_buffer_size_);
     }
 
     param_loader.loadParam("sequence_file", _sequence_file, std::string());

@@ -1,3 +1,5 @@
+#pragma once
+
 #include <ros/ros.h>
 #include <std_msgs/String.h>
 #include <nodelet/nodelet.h>
@@ -14,9 +16,8 @@
 #include <cv_bridge/cv_bridge.h>
 #include <image_transport/image_transport.h>
 #include <opencv2/highgui/highgui.hpp>
+#include <alternativeHT/alternativeHT.h>
 
-#define MAX_BUFFER_SIZE 5 // max frames which are stored
-#define MIN_BUFFER_SIZE 3 // min consecutive frames - required due to Manchester Coding 
 using pairPoints = std::pair<mrs_msgs::Point2DWithFloat, mrs_msgs::Point2DWithFloat>;
 using vectorPair = std::vector<pairPoints>;
 
@@ -41,7 +42,7 @@ namespace uvdar {
             bool checkVectorSizeMatch(const std::vector<std::string> &, const std::vector<std::string> &, const std::vector<std::string> & );
             void subscribeToPublishedPoints(ros::NodeHandle &);
             // void getResults(ros::NodeHandle &);
-            void processPoint(const mrs_msgs::ImagePointsWithFloatStampedConstPtr &, const size_t &);
+            void insertPoint(const mrs_msgs::ImagePointsWithFloatStampedConstPtr &, const size_t &);
             // void processSunPoint(const mrs_msgs::ImagePointsWithFloatStampedConstPtr &, const size_t &) ;
             void processBuffer(std::vector<vectPoint3D> &);
             void initSmallBuffer();
@@ -49,8 +50,10 @@ namespace uvdar {
             void checkLEDValidity(std::vector<vectPoint3D> );
             void insertEmptyPoint(vectPoint3D &, const mrs_msgs::Point2DWithFloat);
             bool checkInsertVP(vectPoint3D &, vectPoint3D &);
+            bool bothFramesEmpty(vectPoint3D, vectPoint3D);
 
 
+            std::vector<std::shared_ptr<alternativeHT>> aht_;
             std::vector<vectPoint3D> pVect;
             std::vector<vectPoint3D> potentialSequences; 
 
@@ -77,6 +80,8 @@ namespace uvdar {
             int max_pixel_shift_x_ = 3;
             int max_pixel_shift_y_ = 3;
 
+            const int max_buffer_size_ = 5; // max frames which are stored
+            const int min_buffer_size_ = 3; // min consecutive frames - required due to Manchester Coding 
                
 
             using image_callback_t = boost::function<void (const sensor_msgs::ImageConstPtr&)>;
