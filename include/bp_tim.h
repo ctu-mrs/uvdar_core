@@ -44,13 +44,8 @@ namespace uvdar {
             // void getResults(ros::NodeHandle &);
             void insertPoint(const mrs_msgs::ImagePointsWithFloatStampedConstPtr &, const size_t &);
             // void processSunPoint(const mrs_msgs::ImagePointsWithFloatStampedConstPtr &, const size_t &) ;
-            void processBuffer(std::vector<vectPoint3D> &);
+
             void initSmallBuffer();
-            void findClosestAndLEDState(vectPoint3D & , vectPoint3D & );
-            void checkLEDValidity(std::vector<vectPoint3D> );
-            void insertEmptyPoint(vectPoint3D &, const mrs_msgs::Point2DWithFloat);
-            bool checkInsertVP(vectPoint3D &, vectPoint3D &);
-            bool bothFramesEmpty(vectPoint3D, vectPoint3D);
 
 
             std::vector<std::shared_ptr<alternativeHT>> aht_;
@@ -75,10 +70,8 @@ namespace uvdar {
             std::vector<std::vector<vectPoint3D>> small_buffer_;
             int buffer_cnt_ = 0;
             bool first_call_; // bool for preventing access of non assigned values in small_buffer
-            bool consecutiveFramesZero_ = false;
 
-            int max_pixel_shift_x_ = 3;
-            int max_pixel_shift_y_ = 3;
+
 
             const int max_buffer_size_ = 5; // max frames which are stored
             const int min_buffer_size_ = 3; // min consecutive frames - required due to Manchester Coding 
