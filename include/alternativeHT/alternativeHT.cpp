@@ -5,130 +5,55 @@
 using namespace uvdar;
 
 alternativeHT::alternativeHT( int i_buffer_size ){
-    buffer_size_        = i_buffer_size;
-
-
-    // initialize data structure
+    
+    buffer_size_ = i_buffer_size;
+    
     for (int i = 0; i < buffer_size_; i++ ){
-        vectPoint3D p; 
-        fast_buffer_.push_back(p);
+        Fast_Buffer f;
+        fast_buffer_.push_back(f);
     }
-
 }
 
 alternativeHT::~alternativeHT()
-{
-}
+{}
 
+void alternativeHT::processBuffer(vectPoint3D & ptsCurrentFrame, const int buffer_cnt) {
 
+    fast_buffer_.at(buffer_cnt).set_frame_pts(ptsCurrentFrame);
 
-void alternativeHT::processBuffer(std::vector<vectPoint3D> & ptsBufferImg, int buffer_cnt)
-{
-
-    // std::cout << "P " << small_buffer_[img_index][buffer_cnt_].size() <<std::endl;
-    // std::cout << "Psize " << ptsBufferImg[buffer_cnt_].size() <<std::endl;
-
-    vectPoint3D & currFrame     = ptsBufferImg[buffer_cnt];
-    // std::cout << "Size CURRFRAME" << currFrame.size() << std::endl;
-    // vectPoint3D & previousFrame = ptsBufferImg[buffer_cnt_]; // default initializing - will be overridden
     if (first_call_) {
         if ( buffer_cnt == 0 ) {
             // if ( _debug_ ) ROS_INFO("[UVDAR_BP_Tim]: Buffer not filled with enough data.");
             return;
         }
-        checkInsertVP(currFrame, ptsBufferImg[buffer_cnt - 1]);
+        checkInsertVP(ptsCurrentFrame, fast_buffer_.at(buffer_cnt - 1).get_pts_reference() );
     }
     
     // select index for the previous frame dependent on the current buffer_cnt_ and if closest point can be computed/ virtual point is inserted
     int indexPrevFrame = -1;
     if (buffer_cnt == 0 ){
         indexPrevFrame = buffer_size_ - 1; 
-        if ( checkInsertVP(currFrame, ptsBufferImg[ indexPrevFrame ] ) ){
-            return;
-        } 
-        if (bothFramesEmpty(currFrame, ptsBufferImg[ indexPrevFrame ] ) ){
-            return;
-        }
     } else if ( buffer_cnt <= buffer_size_){
         indexPrevFrame = buffer_cnt - 1; 
-        if ( checkInsertVP(currFrame , ptsBufferImg[ indexPrevFrame ] ) ) {
-            return;
-        }
-        if ( bothFramesEmpty(currFrame, ptsBufferImg[ indexPrevFrame ] ) ) {
-            return;
-        }
-
     } 
 
-    findClosestAndLEDState( currFrame, ptsBufferImg [ indexPrevFrame ]);
+    if (indexPrevFrame != -1 ) {
+        if ( checkInsertVP(ptsCurrentFrame , fast_buffer_.at(indexPrevFrame).get_pts_reference() ) ) {
+            return;
+        }
+        if ( bothFramesEmpty(ptsCurrentFrame, fast_buffer_.at(indexPrevFrame).get_pts_reference() ) ) {
+             return; 
+        }
+    }
 
+    findClosestAndLEDState( ptsCurrentFrame, fast_buffer_.at(indexPrevFrame).get_pts_reference());
+
+    cleanUpBuffer(buffer_cnt);
 
 }
 
-
-
-void alternativeHT::findClosestAndLEDState(vectPoint3D & ptsCurrentImg, vectPoint3D & ptsPrevImg)
-{   
-
-    // std::cout << "Size start" << ptsCurrentImg.size() << " " << ptsOlderImg.size() << std::endl;
-
-    bool nearestNeighbor = true; // bool for predicting the LED state. Assumption: When in both images Points are existent. Some nearest neighbors will be found
-    // std::cout << "new in find" << ptsNewerImg.size() << std::endl;
-    // std::cout << "old in find" << ptsOlderImg.size() << std::endl;
+bool alternativeHT::checkInsertVP(vectPoint3D &ptsCurrentImg, vectPoint3D &ptsPrevImg) {
     
-    std::cout << "Size of points old " << ptsPrevImg.size() << " Current " << ptsCurrentImg.size() << std::endl;
-
-    for (auto & pointOlderImg : ptsPrevImg)
-    {
-        // pointOlderImg.value = 1; // set LED state to "on" because point exists
-        for (auto & pointNewerImg : ptsCurrentImg)
-        {
-
-            double pixelShift_x = std::abs(pointNewerImg.x - pointOlderImg.x);
-            double pixelShift_y = std::abs(pointNewerImg.y - pointOlderImg.y);
-
-            // std::cout << "Pixel shift x " << pixelShift_x << " PixelShift y " << pixelShift_y <<  std::endl;
-
-            if (pixelShift_x > max_pixel_shift_x_ || pixelShift_y > max_pixel_shift_y_)
-            {
-                nearestNeighbor = false;
-                // if (_debug_){
-                // std::cout << "Nearest Neighbor false!" << std::endl;
-                // ROS_INFO("[UVDAR_BP_Tim]: Pixel shift is too big.");
-                // }
-            }
-            else
-            {   
-                nearestNeighbor = true;
-                pointNewerImg.value = 1; // match found - LED is "on"
-            }
-        }
-        // dangerous -> never exiting the for loop!
-        if (!nearestNeighbor) { // no Match found! 
-            // insert coordinate values of the current point into dummy point and set LED state to zero
-            insertEmptyPoint(ptsCurrentImg, pointOlderImg);
-        }
-    }
-
-    for (const auto k : ptsPrevImg ) {
-        std::cout << " value old " << k.value << std::endl;
-    }
-    for (const auto k : ptsCurrentImg ) {
-        std::cout << " value new " << k.value << std::endl;
-    }
-}    
-
-
-
-/**
- * @brief if one of the frames is empty, virtual point is inserted into the empty image
- * 
- * @param ptsCurrentImg 
- * @param ptsOlderImg 
- * @return true 
- * @return false 
- */
-bool alternativeHT::checkInsertVP(vectPoint3D &ptsCurrentImg, vectPoint3D &ptsPrevImg){
     if (ptsCurrentImg.size() == 0 && ptsPrevImg.size() != 0){
         for ( auto & p : ptsPrevImg)
         {
@@ -150,20 +75,54 @@ bool alternativeHT::checkInsertVP(vectPoint3D &ptsCurrentImg, vectPoint3D &ptsPr
     return false;
 }
 
-
-bool alternativeHT::bothFramesEmpty(vectPoint3D ptsCurrentImg, vectPoint3D ptsPrevImg){
+bool alternativeHT::bothFramesEmpty(vectPoint3D ptsCurrentImg, vectPoint3D ptsPrevImg) {
 
     if ( ptsCurrentImg.size () == 0 && ptsPrevImg.size()) return true;    
-
     return false;
 }
 
-/**
- * @brief insert empty point into point Vector
- *
- * @param pointVector
- * @param point
- */
+void alternativeHT::findClosestAndLEDState(vectPoint3D & ptsCurrentImg, vectPoint3D & ptsPrevImg) {   
+
+
+    std::cout << "Size of points old " << ptsPrevImg.size() << " Current " << ptsCurrentImg.size() << std::endl;
+
+    for (auto & pointPrevImg : ptsPrevImg)
+    {
+        bool nearestNeighbor = true; // bool for predicting the LED state. Assumption: When in both images Points are existent. Some nearest neighbors will be found
+        for (auto & pointCurrentImg : ptsCurrentImg)
+        {
+
+            double pixelShift_x = std::abs(pointCurrentImg.x - pointPrevImg.x);
+            double pixelShift_y = std::abs(pointCurrentImg.y - pointPrevImg.y);
+
+            if (pixelShift_x > max_pixel_shift_x_ || pixelShift_y > max_pixel_shift_y_) {
+                nearestNeighbor = false;
+                // if (_debug_){
+                // std::cout << "Nearest Neighbor false!" << std::endl;
+                // ROS_INFO("[UVDAR_BP_Tim]: Pixel shift is too big.");
+                // }
+            }
+            else {   
+                nearestNeighbor = true;
+                pointCurrentImg.value = 1; // match found - LED is "on"
+            }
+        }
+
+        // dangerous -> never exiting the for loop!
+        if (!nearestNeighbor) { // no Match found! 
+            // insert coordinate values of the current point into dummy point and set LED state to zero
+            insertEmptyPoint(ptsCurrentImg, pointPrevImg);
+        }
+    }
+
+    for (const auto k : ptsPrevImg ) {
+        std::cout << " value old " << k.value << std::endl;
+    }
+    for (const auto k : ptsCurrentImg ) {
+        std::cout << " value new " << k.value << std::endl;
+    }
+}    
+
 void alternativeHT::insertEmptyPoint(vectPoint3D &pointVector, const mrs_msgs::Point2DWithFloat point)
 {   
     std::cout << "Insert empty point" << std::endl;
@@ -173,3 +132,49 @@ void alternativeHT::insertEmptyPoint(vectPoint3D &pointVector, const mrs_msgs::P
     pointVector.push_back(p);
 }
 
+void alternativeHT::cleanUpBuffer(const int buffer_cnt_){
+
+    int currFrameIndex = buffer_cnt_;
+    int prevFrameIndex = buffer_cnt_ - 1; 
+    int prevPrevFrameIndex = buffer_cnt_ - 2; 
+
+    if (prevFrameIndex == 0 ) {
+        prevPrevFrameIndex = buffer_size_ - 1; 
+    }
+
+    if ( buffer_cnt_ == 0 ){
+        prevFrameIndex = buffer_size_ - 1; 
+        prevPrevFrameIndex  = buffer_size_ - 2; 
+    }
+
+    for ( auto & firstFramePoint : fast_buffer_.at(currFrameIndex).get_pts_reference() ) {
+        for ( auto & secondFramePoint : fast_buffer_.at(prevFrameIndex).get_pts_reference() ){
+            
+            double pixelShift_x = std::abs(firstFramePoint.x - secondFramePoint.x);
+            double pixelShift_y = std::abs(firstFramePoint.y - secondFramePoint.y);
+
+            if (pixelShift_x > max_pixel_shift_x_ || pixelShift_y > max_pixel_shift_y_) {
+                return;
+            } else {   
+                if ( firstFramePoint.value == 0 && secondFramePoint.value == 0 ) {
+                    for ( auto & thirdFramePoint : fast_buffer_.at(prevPrevFrameIndex).get_pts_reference() ){
+                        double pixelShift_x = std::abs(thirdFramePoint.x - secondFramePoint.x);
+                        double pixelShift_y = std::abs(thirdFramePoint.y - secondFramePoint.y);
+
+                        if (pixelShift_x > max_pixel_shift_x_ || pixelShift_y > max_pixel_shift_y_) {
+                            return;
+                        } else {
+                            if ( thirdFramePoint.value == 0 ){
+                                // delete point 
+                                //  fast_buffer_.at(prevFrameIndex).().
+                            } 
+                        }
+                    }
+                }
+            }
+            
+        }
+    }
+    
+
+}

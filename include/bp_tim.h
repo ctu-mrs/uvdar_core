@@ -37,17 +37,15 @@ namespace uvdar {
             // using img3DPointStamped = mrs_msgs::ImagePointsWithFloatStampedConstPtr;
 
             virtual void onInit();
-            void loadParams(const bool &, ros::NodeHandle &);
+            void loadParams(const bool & );
             bool parseSequenceFile(const std::string &);
-            bool checkVectorSizeMatch(const std::vector<std::string> &, const std::vector<std::string> &, const std::vector<std::string> & );
-            void subscribeToPublishedPoints(ros::NodeHandle &);
-            // void getResults(ros::NodeHandle &);
-            void insertPoint(const mrs_msgs::ImagePointsWithFloatStampedConstPtr &, const size_t &);
-            // void processSunPoint(const mrs_msgs::ImagePointsWithFloatStampedConstPtr &, const size_t &) ;
+            bool checkCameraTopicSizeMatch();
+            void initAlternativeHTDataStructure();
+            void subscribeToPublishedPoints();
+            void insertPointToAHT(const mrs_msgs::ImagePointsWithFloatStampedConstPtr &, const size_t &);
+            void updateBufferAndSetFirstCallBool(const size_t & img_index);
 
-            void initSmallBuffer();
-
-
+            ros::NodeHandle private_nh_;
             std::vector<std::shared_ptr<alternativeHT>> aht_;
             std::vector<vectPoint3D> pVect;
             std::vector<vectPoint3D> potentialSequences; 
