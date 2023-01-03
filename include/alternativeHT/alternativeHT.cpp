@@ -12,34 +12,42 @@ alternativeHT::alternativeHT( int i_buffer_size ){
         vectPoint3D p;
         buffer_with_frame_points.push_back(p);
     }
+
+
+    for ( int i = 0; i < buffer_size_; i++ ) {
+        std::vector<std::pair<mrs_msgs::Point2DWithFloat, int>> p; 
+        buffer_3DPoint_seqIndex.push_back(p);
+    }
+    
 }
 
 alternativeHT::~alternativeHT()
 {}
+std::vector<vectPoint3DWithIndex> buf;  
+void alternativeHT::processBuffer( vectPoint3DWithIndex & ptsCurrentFrame, const int buffer_cnt) {
 
-
-std::vector<vectPoint3D> buf;
-
-void alternativeHT::processBuffer(vectPoint3D & ptsCurrentFrame, const int buffer_cnt) {
-
-    buffer_with_frame_points.at(buffer_cnt) = ptsCurrentFrame;
-    std::cout << buffer_with_frame_points.at(buffer_cnt).size() << " Start " << std::endl;
+    buffer_3DPoint_seqIndex[buffer_cnt] = ptsCurrentFrame;
+    // buffer_3DPoint_seqIndex.at(buffer_cnt) 
 
     if (first_call_ && buffer_cnt == 0 ) {
             return;
     }
-    
+
     int indexPrevFrame = -1; 
     if (buffer_cnt == 0 ){
         indexPrevFrame = buffer_size_ - 1; 
     } else if ( buffer_cnt <= buffer_size_){
         indexPrevFrame = buffer_cnt - 1; 
     } 
-    vectPoint3D & ptsPrevFrame = buffer_with_frame_points.at(indexPrevFrame);
+    
+    vectPoint3DWithIndex & ptsPrevFrame = buffer_3DPoint_seqIndex[indexPrevFrame];
 
-    findClosestAndLEDState( buffer_with_frame_points.at(buffer_cnt), ptsPrevFrame );
+    findClosestAndLEDState( buffer_3DPoint_seqIndex.at(buffer_cnt), ptsPrevFrame );
 
-    // cleanUpBuffer(buffer_cnt);
+    std::tuple<int,int,int> buffer_indices =  findCurrentIndexState(buffer_cnt);
+
+
+    // evalulateBuffer(buffer_indices);
 
     std::cout << " Size of Frame " << ptsCurrentFrame.size() << " Prev Frame " << ptsPrevFrame.size();
 
@@ -51,7 +59,7 @@ void alternativeHT::processBuffer(vectPoint3D & ptsCurrentFrame, const int buffe
         std::cout << "BUFFER VALUES " << std::endl;
         for (const auto r : buf ) {
             for (const auto k : r ) {
-            std::cout << k.value << ", ";
+            std::cout << k.first.value << ", ";
             }
             std::cout << std::endl << "-----" << std::endl;
         }
@@ -61,15 +69,15 @@ void alternativeHT::processBuffer(vectPoint3D & ptsCurrentFrame, const int buffe
     }
 }
 
-void alternativeHT::findClosestAndLEDState(vectPoint3D & ptsCurrentImg, vectPoint3D & ptsPrevImg) {   
 
-    for (auto & pPrevImg : ptsPrevImg) {
+void alternativeHT::findClosestAndLEDState(vectPoint3DWithIndex & ptsCurrentImg, vectPoint3DWithIndex & ptsPrevImg) {   
+
+    for ( size_t indexPrevImg = 0;  indexPrevImg < ptsPrevImg.size(); indexPrevImg++ ) {
         bool nearestNeighbor = false;
-        for (auto & pCurrentImg : ptsCurrentImg) {
+        for ( size_t indexCurrentImg = 0; indexCurrentImg < ptsCurrentImg.size(); indexCurrentImg++ ) {
 
-            mrs_msgs::Point2DWithFloat diff = computeXYDifference(pCurrentImg, pPrevImg);
+            mrs_msgs::Point2DWithFloat diff = computeXYDifference(ptsCurrentImg[indexCurrentImg].first, ptsPrevImg[indexPrevImg].first);
             // std::cout << " The pixel diff is " << diff.x << " " << diff.y << std::endl;
-
 
 
             if (diff.x > max_pixel_shift_x_ || diff.y > max_pixel_shift_y_) {
@@ -78,22 +86,18 @@ void alternativeHT::findClosestAndLEDState(vectPoint3D & ptsCurrentImg, vectPoin
             else {   
                 // std::cout << "Match!" << std::endl;
                 nearestNeighbor = true;
-                pCurrentImg.value = 1; // match found - LED is "on"
+                ptsCurrentImg[indexCurrentImg].first.value = 1; // match found - LED is "on"
+                updateSequenceIndex( ptsPrevImg[indexPrevImg].second, indexCurrentImg, ptsCurrentImg );
                 break;
             }
         }
         if (nearestNeighbor == true) break;
         if (nearestNeighbor == false) {
-            insertEmptyPoint(ptsCurrentImg, pPrevImg);
+            insertVirtualPoint(ptsCurrentImg, ptsPrevImg[indexPrevImg]);
         }
     }
 
-    // for (const auto k : ptsPrevImg ) {
-    //     std::cout << " value old " << k.value << std::endl;
-    // }
-    // for (const auto k : ptsCurrentImg ) {
-    //     std::cout << " value new " << k.value << std::endl;
-    // }
+
 }    
 
 mrs_msgs::Point2DWithFloat uvdar::alternativeHT::computeXYDifference(mrs_msgs::Point2DWithFloat first, mrs_msgs::Point2DWithFloat second){
@@ -107,39 +111,65 @@ mrs_msgs::Point2DWithFloat uvdar::alternativeHT::computeXYDifference(mrs_msgs::P
 
 }
 
-void alternativeHT::insertEmptyPoint(vectPoint3D &pointVector, const mrs_msgs::Point2DWithFloat point)
+// not tested yet!! current implementation dangerous 
+void alternativeHT::updateSequenceIndex( const int indexPrev, const int indexCurr ,vectPoint3DWithIndex & pointVector){
+    
+    if ( indexPrev == indexCurr ) return;
+
+    for ( auto & p : pointVector ) {
+
+        if ( p.second == indexPrev ) {
+            p.second = pointVector[indexCurr].second;
+            pointVector[indexCurr].second = indexPrev;
+        }
+    }
+}
+void alternativeHT::insertVirtualPoint(vectPoint3DWithIndex &pointVector, const point3DWithIndex point)
 {   
     // std::cout << "Insert empty" << std::endl;
-    mrs_msgs::Point2DWithFloat p;
-    p = point;
-    p.value = 0; // equals LED "off" state
+    point3DWithIndex p;
+    p.first = point.first;
+    p.first.value = 0; // equals LED "off" state
+    
+    p.second = point.second; 
     pointVector.push_back(p);
 }
 
-void alternativeHT::cleanUpBuffer(const int buffer_cnt_){
+std::tuple<int, int,int> alternativeHT::findCurrentIndexState(const int buffer_cnt){
+    
+    int firstIndex  = buffer_cnt;
+    int secondIndex = buffer_cnt - 1; 
+    int thirdIndex  = buffer_cnt - 2; 
+
+    if ( firstIndex == 0 ){
+        secondIndex = buffer_size_ - 1; 
+        thirdIndex  = buffer_size_ - 2; 
+    }
+    if (secondIndex == 0 ) {
+        thirdIndex = buffer_size_ - 1; 
+    }
+
+    return {firstIndex, secondIndex, thirdIndex};
+
+}
+
+void alternativeHT::evalulateBuffer( const std::tuple<int,int,int> buffer_indices ){
 
     if (first_call_) return; 
+    
+    const int first     = std::get<0>(buffer_indices);
+    const int second    = std::get<1>(buffer_indices);
+    const int third     = std::get<2>(buffer_indices);
 
-    int prevFrameIndex = buffer_cnt_ - 1; 
-    int prevPrevFrameIndex = buffer_cnt_ - 2; 
-
-    if (prevFrameIndex == 0 ) {
-        prevPrevFrameIndex = buffer_size_ - 1; 
-    }
-
-    if ( buffer_cnt_ == 0 ){
-        prevFrameIndex = buffer_size_ - 1; 
-        prevPrevFrameIndex  = buffer_size_ - 2; 
-    }
 
     // for ( auto & firstFramePoint : fast_buffer_.at(currFrameIndex).get_pts_reference() ) {
     //     for ( auto & secondFramePoint : fast_buffer_.at(prevFrameIndex).get_pts_reference() ){
             
-    for ( int firstBuff = 0; firstBuff <  buffer_with_frame_points[buffer_cnt_].size(); firstBuff++ ) {
-        for (int secondBuff = 0; secondBuff < buffer_with_frame_points[prevFrameIndex].size(); secondBuff++ ) {
+    for ( size_t firstBuff = 0; firstBuff <  buffer_with_frame_points[first].size(); firstBuff++ ) {
+        for (size_t secondBuff = 0; secondBuff < buffer_with_frame_points[second].size(); secondBuff++ ) {
             
-            mrs_msgs::Point2DWithFloat pFirstBuff =  buffer_with_frame_points[buffer_cnt_][firstBuff];
-            mrs_msgs::Point2DWithFloat pSecondBuff =  buffer_with_frame_points[buffer_cnt_][secondBuff];
+            mrs_msgs::Point2DWithFloat pFirstBuff =  buffer_with_frame_points[first][firstBuff];
+            mrs_msgs::Point2DWithFloat pSecondBuff =  buffer_with_frame_points[second][secondBuff];
 
             mrs_msgs::Point2DWithFloat diffFirstSecond = computeXYDifference(pFirstBuff, pSecondBuff); 
 
@@ -149,17 +179,17 @@ void alternativeHT::cleanUpBuffer(const int buffer_cnt_){
             } else {   
                 if ( pFirstBuff.value == 0 && pSecondBuff.value == 0 ) {
 
-                    for ( int thirdBuff = 0; thirdBuff < buffer_with_frame_points[prevPrevFrameIndex].size(); thirdBuff++ ) {
+                    for ( size_t thirdBuff = 0; thirdBuff < buffer_with_frame_points[third].size(); thirdBuff++ ) {
                         
-                        mrs_msgs::Point2DWithFloat pThirdBuff = buffer_with_frame_points[prevPrevFrameIndex][thirdBuff];
+                        mrs_msgs::Point2DWithFloat pThirdBuff = buffer_with_frame_points[third][thirdBuff];
                         mrs_msgs::Point2DWithFloat diffSecondThird = computeXYDifference(pThirdBuff, pSecondBuff);
-                        std::cout << "The sizes: " <<  buffer_with_frame_points[buffer_cnt_].size() << " " <<  buffer_with_frame_points[prevFrameIndex].size() << " " <<  buffer_with_frame_points[prevPrevFrameIndex].size() << std::endl;;
+                        std::cout << "The sizes: " <<  buffer_with_frame_points[first].size() << " " <<  buffer_with_frame_points[second].size() << " " <<  buffer_with_frame_points[third].size() << std::endl;;
                         if ( diffSecondThird.x > max_pixel_shift_x_ || diffSecondThird.y > max_pixel_shift_y_) {
                             return;
                         } else {
                             if ( pThirdBuff.value == 0 ){
                                 // delete point 
-                                 removeEntity(buffer_with_frame_points[prevPrevFrameIndex], thirdBuff);
+                                 removeEntity(buffer_with_frame_points[third], thirdBuff);
                             } 
                         }
                     }

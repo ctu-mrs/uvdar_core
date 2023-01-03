@@ -156,7 +156,12 @@ void uvdar::UVDAR_BP_Tim::initAlternativeHTDataStructure(){
         aht_.push_back(
                 std::make_shared<alternativeHT>( _buffer_size_ )
               );
+        if (_enable_manchester_) {
+            aht_[i]->setManchesterBoolTrue();
     }
+    }
+
+
 }
 
 void uvdar::UVDAR_BP_Tim::subscribeToPublishedPoints() {
@@ -193,8 +198,15 @@ void uvdar::UVDAR_BP_Tim::insertPointToAHT(const mrs_msgs::ImagePointsWithFloatS
     for (auto & point : points ) {
         point.value = 1;  
     }
+    
+    std::vector<std::pair<mrs_msgs::Point2DWithFloat, int>> pointsWithIndex;
+    for ( size_t i = 0; i < points.size(); i++ ) {
+        points[i].value = 1;
+        pointsWithIndex.push_back( std::make_pair( points[i], i ) );
+    }
 
-    aht_[img_index]->processBuffer( points, buffer_cnt_);
+    aht_[img_index]->processBuffer( pointsWithIndex, buffer_cnt_ );
+    // aht_[img_index]->processBuffer( points, buffer_cnt_ );
 
     updateBufferAndSetFirstCallBool(img_index);
  
