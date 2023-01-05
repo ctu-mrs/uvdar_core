@@ -19,10 +19,10 @@ namespace uvdar
         
         const int max_pixel_shift_x_ = 3;
         const int max_pixel_shift_y_ = 3;
+        const int max_sequences_seen = 100;
 
         std::vector<vectPoint3D> buffer_with_frame_points;
         std::vector<vectPoint3DWithIndex> buffer_3DPoint_seqIndex;
-
 
         std::vector<mrs_msgs::Point2DWithFloat> sequences;
 
@@ -41,8 +41,8 @@ namespace uvdar
         // void processBuffer(vectPoint3D &, const int );
         void findClosestAndLEDState(vectPoint3DWithIndex &, vectPoint3DWithIndex &) ;
         mrs_msgs::Point2DWithFloat computeXYDifference(mrs_msgs::Point2DWithFloat, mrs_msgs::Point2DWithFloat );
-        void updateSequenceIndex( const int, const int, vectPoint3DWithIndex & );
-        void insertVirtualPoint(vectPoint3DWithIndex &, const point3DWithIndex );
+        void swapIndex( const int, const int, vectPoint3DWithIndex & );
+        void insertVirtualPointAndUpdateIndices(vectPoint3DWithIndex &, const point3DWithIndex );
 
         std::tuple<int,int,int>  findCurrentIndexState(const int);
         void evalulateBuffer( const std::tuple<int,int,int> buffer_indices );

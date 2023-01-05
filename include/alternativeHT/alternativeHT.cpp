@@ -1,7 +1,9 @@
 #include "alternativeHT.h"
 #include <iostream>
-#include <ros/ros.h>
+// #include <ros/ros.h>
 
+
+#include <ros/console.h>
 using namespace uvdar;
 
 alternativeHT::alternativeHT( int i_buffer_size ){
@@ -18,13 +20,20 @@ alternativeHT::alternativeHT( int i_buffer_size ){
         std::vector<std::pair<mrs_msgs::Point2DWithFloat, int>> p; 
         buffer_3DPoint_seqIndex.push_back(p);
     }
-    
+
+    for ( int i = 0; i < max_sequences_seen; i++ ){
+        mrs_msgs::Point2DWithFloat p;
+        sequences.push_back(p);
+    }
+
 }
 
 alternativeHT::~alternativeHT()
 {}
-std::vector<vectPoint3DWithIndex> buf;  
+
 void alternativeHT::processBuffer( vectPoint3DWithIndex & ptsCurrentFrame, const int buffer_cnt) {
+
+    // std::cout << " Size " << ptsCurrentFrame.size() << std::endl;
 
     buffer_3DPoint_seqIndex[buffer_cnt] = ptsCurrentFrame;
     // buffer_3DPoint_seqIndex.at(buffer_cnt) 
@@ -44,59 +53,74 @@ void alternativeHT::processBuffer( vectPoint3DWithIndex & ptsCurrentFrame, const
 
     findClosestAndLEDState( buffer_3DPoint_seqIndex.at(buffer_cnt), ptsPrevFrame );
 
-    std::tuple<int,int,int> buffer_indices =  findCurrentIndexState(buffer_cnt);
+
+    for ( const auto p : ptsPrevFrame ) {
+        if ( p.second > max_sequences_seen ) {
+            ROS_WARN("[AlternativeHT]: Can't insert point to sequence buffer! The max number of indices is: %d. The wanted insertion has the index: %d", max_sequences_seen, p.second); 
+            break;
+        }
+
+        sequences.at(p.second) = p.first; 
+
+    }
+
+    // std::tuple<int,int,int> buffer_indices =  findCurrentIndexState(buffer_cnt);
 
 
     // evalulateBuffer(buffer_indices);
 
-    std::cout << " Size of Frame " << ptsCurrentFrame.size() << " Prev Frame " << ptsPrevFrame.size();
-
-    buf.push_back(ptsPrevFrame);
-
-    std::cout << std::endl;
-
-    if ( buf.size() >= 15 ) {
-        std::cout << "BUFFER VALUES " << std::endl;
-        for (const auto r : buf ) {
-            for (const auto k : r ) {
-            std::cout << k.first.value << ", ";
-            }
-            std::cout << std::endl << "-----" << std::endl;
-        }
-        
-        std::cout << "==============" << std::endl;
-        buf.clear();
-    }
+  
 }
 
 
 void alternativeHT::findClosestAndLEDState(vectPoint3DWithIndex & ptsCurrentImg, vectPoint3DWithIndex & ptsPrevImg) {   
 
-    for ( size_t indexPrevImg = 0;  indexPrevImg < ptsPrevImg.size(); indexPrevImg++ ) {
+    // std::reverse(ptsCurrentImg.begin(), ptsCurrentImg.end()); // just for testing!
+
+    for ( int i = 0; i < ptsPrevImg.size(); i++ ) {
+        ptsPrevImg[i].second = ptsPrevImg.size()  + i + 100; 
+    }
+
+
+    for (const auto k : ptsCurrentImg) {
+        std::cout << "Index Current " << k.second << " Values x: " << k.first.x << " y " << k.first.y << std::endl;
+    }
+   
+
+    // for (const auto k : ptsPrevImg) {
+    //     std::cout << "Index Prev " << k.second << " Values x: " << k.first.x << " y " << k.first.y << std::endl;
+    // }
+
+    for ( size_t iPrevImg = 0;  iPrevImg < ptsPrevImg.size(); iPrevImg++ ) {
         bool nearestNeighbor = false;
-        for ( size_t indexCurrentImg = 0; indexCurrentImg < ptsCurrentImg.size(); indexCurrentImg++ ) {
+        for ( size_t iCurrentImg = 0; iCurrentImg < ptsCurrentImg.size(); iCurrentImg++ ) {
 
-            mrs_msgs::Point2DWithFloat diff = computeXYDifference(ptsCurrentImg[indexCurrentImg].first, ptsPrevImg[indexPrevImg].first);
-            // std::cout << " The pixel diff is " << diff.x << " " << diff.y << std::endl;
-
+            mrs_msgs::Point2DWithFloat diff = computeXYDifference(ptsCurrentImg[iCurrentImg].first, ptsPrevImg[iPrevImg].first);
 
             if (diff.x > max_pixel_shift_x_ || diff.y > max_pixel_shift_y_) {
                 nearestNeighbor = false; 
             }
             else {   
-                // std::cout << "Match!" << std::endl;
                 nearestNeighbor = true;
-                ptsCurrentImg[indexCurrentImg].first.value = 1; // match found - LED is "on"
-                updateSequenceIndex( ptsPrevImg[indexPrevImg].second, indexCurrentImg, ptsCurrentImg );
+                ptsCurrentImg[iCurrentImg].first.value = 1; // match found - LED is "on"
+                int wantedIndex = ptsPrevImg[iPrevImg].second;
+                int currentIndex = ptsCurrentImg[iCurrentImg].second; 
+                std::cout << wantedIndex << " Current " << currentIndex << std::endl;
+                swapIndex( wantedIndex, currentIndex, ptsCurrentImg );
                 break;
             }
         }
-        if (nearestNeighbor == true) break;
         if (nearestNeighbor == false) {
-            insertVirtualPoint(ptsCurrentImg, ptsPrevImg[indexPrevImg]);
+            insertVirtualPointAndUpdateIndices(ptsCurrentImg, ptsPrevImg[iPrevImg]);
         }
     }
 
+    for (const auto k : ptsCurrentImg) {
+        std::cout << "After Swap " << k.second << std::endl;
+    }
+
+
+    
 
 }    
 
@@ -111,30 +135,39 @@ mrs_msgs::Point2DWithFloat uvdar::alternativeHT::computeXYDifference(mrs_msgs::P
 
 }
 
-// not tested yet!! current implementation dangerous 
-void alternativeHT::updateSequenceIndex( const int indexPrev, const int indexCurr ,vectPoint3DWithIndex & pointVector){
+void alternativeHT::swapIndex( const int wantedIndex, const int currentIndex ,vectPoint3DWithIndex & points){
     
-    if ( indexPrev == indexCurr ) return;
-
-    for ( auto & p : pointVector ) {
-
-        if ( p.second == indexPrev ) {
-            p.second = pointVector[indexCurr].second;
-            pointVector[indexCurr].second = indexPrev;
-        }
+    
+    if ( wantedIndex == currentIndex ) {
+        return;
     }
+
+    for ( auto & p : points ) {
+
+        if ( p.second == wantedIndex ) {
+            int swapIndexTemp = points[currentIndex].second;
+            p.second = swapIndexTemp;
+        } 
+    }
+    
+    points[currentIndex].second = wantedIndex;
+
 }
-void alternativeHT::insertVirtualPoint(vectPoint3DWithIndex &pointVector, const point3DWithIndex point)
+void alternativeHT::insertVirtualPointAndUpdateIndices(vectPoint3DWithIndex &pointVector, const point3DWithIndex pointPrevFrame)
 {   
     // std::cout << "Insert empty" << std::endl;
     point3DWithIndex p;
-    p.first = point.first;
+    p.first = pointPrevFrame.first;
     p.first.value = 0; // equals LED "off" state
     
-    p.second = point.second; 
+    p.second = pointVector.size(); // prevention for inserting duplicated indices
     pointVector.push_back(p);
+
+    swapIndex( pointPrevFrame.second, p.second, pointVector );
+
 }
 
+// depricated??
 std::tuple<int, int,int> alternativeHT::findCurrentIndexState(const int buffer_cnt){
     
     int firstIndex  = buffer_cnt;
