@@ -1,38 +1,43 @@
 #include "alternativeHT.h"
 #include <iostream>
-// #include <ros/ros.h>
-
-
 #include <ros/console.h>
+
 using namespace uvdar;
 
 alternativeHT::alternativeHT( int i_buffer_size ){
     
     buffer_size_ = i_buffer_size;
     
-    for (int i = 0; i < buffer_size_; i++ ){
-        vectPoint3D p;
-        buffer_with_frame_points.push_back(p);
-    }
+    initBuffer();
+    initSequenceBuffer();
+}
 
-
+void alternativeHT::initBuffer(){
+    
     for ( int i = 0; i < buffer_size_; i++ ) {
         std::vector<std::pair<mrs_msgs::Point2DWithFloat, int>> p; 
         buffer_3DPoint_seqIndex.push_back(p);
     }
-
-    for ( int i = 0; i < max_sequences_seen; i++ ){
-        mrs_msgs::Point2DWithFloat p;
-        sequences.push_back(p);
-    }
-
 }
 
-alternativeHT::~alternativeHT()
-{}
+void alternativeHT::initSequenceBuffer(){
+
+    if (max_sequences_seen_ > 10000) {
+        initialized_ = false;
+        ROS_ERROR("[AlternativeHT]: The maximal sequence size is too big! ");
+        return;
+    }
+
+    for ( int i = 0; i < max_sequences_seen_; i++ ){
+        mrs_msgs::Point2DWithFloat p;
+        p.x = p.y = p.value = -1;
+        sequences.push_back(p);
+    }
+}
 
 void alternativeHT::processBuffer( vectPoint3DWithIndex & ptsCurrentFrame, const int buffer_cnt) {
 
+    if (!initialized_) return;
     // std::cout << " Size " << ptsCurrentFrame.size() << std::endl;
 
     buffer_3DPoint_seqIndex[buffer_cnt] = ptsCurrentFrame;
@@ -53,16 +58,10 @@ void alternativeHT::processBuffer( vectPoint3DWithIndex & ptsCurrentFrame, const
 
     findClosestAndLEDState( buffer_3DPoint_seqIndex.at(buffer_cnt), ptsPrevFrame );
 
+    insertToSequencesBuffer(ptsPrevFrame);
 
-    for ( const auto p : ptsPrevFrame ) {
-        if ( p.second > max_sequences_seen ) {
-            ROS_WARN("[AlternativeHT]: Can't insert point to sequence buffer! The max number of indices is: %d. The wanted insertion has the index: %d", max_sequences_seen, p.second); 
-            break;
-        }
 
-        sequences.at(p.second) = p.first; 
 
-    }
 
     // std::tuple<int,int,int> buffer_indices =  findCurrentIndexState(buffer_cnt);
 
@@ -77,9 +76,9 @@ void alternativeHT::findClosestAndLEDState(vectPoint3DWithIndex & ptsCurrentImg,
 
     // std::reverse(ptsCurrentImg.begin(), ptsCurrentImg.end()); // just for testing!
 
-    for ( int i = 0; i < ptsPrevImg.size(); i++ ) {
-        ptsPrevImg[i].second = ptsPrevImg.size()  + i + 100; 
-    }
+    // for ( int i = 0; i < ptsPrevImg.size(); i++ ) {
+    //     ptsPrevImg[i].second = ptsPrevImg.size()  + i + 100; 
+    // }
 
 
     for (const auto k : ptsCurrentImg) {
@@ -115,15 +114,19 @@ void alternativeHT::findClosestAndLEDState(vectPoint3DWithIndex & ptsCurrentImg,
         }
     }
 
-    for (const auto k : ptsCurrentImg) {
-        std::cout << "After Swap " << k.second << std::endl;
-    }
+}
 
-
+void alternativeHT::insertToSequencesBuffer(vectPoint3DWithIndex & pts){
     
+    for ( const auto p : pts ) {
+        if ( p.second > max_sequences_seen_ ) {
+            ROS_WARN("[AlternativeHT]: Can't insert point to sequence buffer! The max number of indices is: %d. The wanted insertion has the index: %d", max_sequences_seen_, p.second); 
+            break;
+        }
+        sequences.at(p.second) = p.first; 
 
-}    
-
+    }
+}
 mrs_msgs::Point2DWithFloat uvdar::alternativeHT::computeXYDifference(mrs_msgs::Point2DWithFloat first, mrs_msgs::Point2DWithFloat second){
 
     mrs_msgs::Point2DWithFloat p; 
@@ -153,6 +156,7 @@ void alternativeHT::swapIndex( const int wantedIndex, const int currentIndex ,ve
     points[currentIndex].second = wantedIndex;
 
 }
+
 void alternativeHT::insertVirtualPointAndUpdateIndices(vectPoint3DWithIndex &pointVector, const point3DWithIndex pointPrevFrame)
 {   
     // std::cout << "Insert empty" << std::endl;
@@ -167,79 +171,8 @@ void alternativeHT::insertVirtualPointAndUpdateIndices(vectPoint3DWithIndex &poi
 
 }
 
-// depricated??
-std::tuple<int, int,int> alternativeHT::findCurrentIndexState(const int buffer_cnt){
-    
-    int firstIndex  = buffer_cnt;
-    int secondIndex = buffer_cnt - 1; 
-    int thirdIndex  = buffer_cnt - 2; 
 
-    if ( firstIndex == 0 ){
-        secondIndex = buffer_size_ - 1; 
-        thirdIndex  = buffer_size_ - 2; 
-    }
-    if (secondIndex == 0 ) {
-        thirdIndex = buffer_size_ - 1; 
-    }
 
-    return {firstIndex, secondIndex, thirdIndex};
+alternativeHT::~alternativeHT() {
 
 }
-
-void alternativeHT::evalulateBuffer( const std::tuple<int,int,int> buffer_indices ){
-
-    if (first_call_) return; 
-    
-    const int first     = std::get<0>(buffer_indices);
-    const int second    = std::get<1>(buffer_indices);
-    const int third     = std::get<2>(buffer_indices);
-
-
-    // for ( auto & firstFramePoint : fast_buffer_.at(currFrameIndex).get_pts_reference() ) {
-    //     for ( auto & secondFramePoint : fast_buffer_.at(prevFrameIndex).get_pts_reference() ){
-            
-    for ( size_t firstBuff = 0; firstBuff <  buffer_with_frame_points[first].size(); firstBuff++ ) {
-        for (size_t secondBuff = 0; secondBuff < buffer_with_frame_points[second].size(); secondBuff++ ) {
-            
-            mrs_msgs::Point2DWithFloat pFirstBuff =  buffer_with_frame_points[first][firstBuff];
-            mrs_msgs::Point2DWithFloat pSecondBuff =  buffer_with_frame_points[second][secondBuff];
-
-            mrs_msgs::Point2DWithFloat diffFirstSecond = computeXYDifference(pFirstBuff, pSecondBuff); 
-
-        
-            if (diffFirstSecond.x > max_pixel_shift_x_ || diffFirstSecond.y > max_pixel_shift_y_) {
-                return;
-            } else {   
-                if ( pFirstBuff.value == 0 && pSecondBuff.value == 0 ) {
-
-                    for ( size_t thirdBuff = 0; thirdBuff < buffer_with_frame_points[third].size(); thirdBuff++ ) {
-                        
-                        mrs_msgs::Point2DWithFloat pThirdBuff = buffer_with_frame_points[third][thirdBuff];
-                        mrs_msgs::Point2DWithFloat diffSecondThird = computeXYDifference(pThirdBuff, pSecondBuff);
-                        std::cout << "The sizes: " <<  buffer_with_frame_points[first].size() << " " <<  buffer_with_frame_points[second].size() << " " <<  buffer_with_frame_points[third].size() << std::endl;;
-                        if ( diffSecondThird.x > max_pixel_shift_x_ || diffSecondThird.y > max_pixel_shift_y_) {
-                            return;
-                        } else {
-                            if ( pThirdBuff.value == 0 ){
-                                // delete point 
-                                 removeEntity(buffer_with_frame_points[third], thirdBuff);
-                            } 
-                        }
-                    }
-                }
-            }
-            
-        }
-    }
-    
-}
-
-
-void uvdar::alternativeHT::removeEntity(vectPoint3D & vec, size_t pos)
-{
-    std::cout << "REMOVING ENTITY!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << std::endl;
-    vectPoint3D::iterator it = vec.begin();
-    std::advance(it, pos);
-    vec.erase(it);
-}
-

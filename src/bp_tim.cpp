@@ -9,7 +9,7 @@ uvdar::UVDAR_BP_Tim::~UVDAR_BP_Tim(){};
 void uvdar::UVDAR_BP_Tim::onInit()
 {
 
-    private_nh_ = getMTPrivateNodeHandle();
+    private_nh_ = nodelet::Nodelet::getMTPrivateNodeHandle();
     NODELET_DEBUG("[UVDAR_BP_Tim]: Initializing Nodelet...");
 
     const bool printParams = false;
@@ -220,15 +220,10 @@ void uvdar::UVDAR_BP_Tim::updateBufferAndSetFirstCallBool(const size_t & img_ind
     if (buffer_cnt_ == _buffer_size_) {
         buffer_cnt_ = 0;
         
-
-        
         first_call_ = false; 
 
-
-        // set the first_call_ bool once
-        /*
-        Code within lambda function is executed only once, when the static variable is initialized to the return value of lambda function. It should be thread-safe as long as your compiler support thread-safe static initialization. */
-        static bool once = [i=img_index, firstCall = first_call_, this](){
+        // call flag once - MAYBE NOT WORKING WIOTH MULTIPLE CAMERAS!!!!!!!!
+        [[maybe_unused]] static bool once = [i=img_index, firstCall = first_call_, this](){
             aht_[i]->setFirstCallBool(firstCall);
             return true;
         }();

@@ -9,13 +9,9 @@
 #include <mrs_msgs/ImagePointsWithFloatStamped.h>
 #include <mrs_msgs/Point2DWithFloat.h>
 #include <fstream>
-
-
-
+#include <thread>
 
 #include <cv_bridge/cv_bridge.h>
-#include <image_transport/image_transport.h>
-#include <opencv2/highgui/highgui.hpp>
 #include <alternativeHT/alternativeHT.h>
 
 using pairPoints = std::pair<mrs_msgs::Point2DWithFloat, mrs_msgs::Point2DWithFloat>;
@@ -43,9 +39,11 @@ namespace uvdar {
             void initAlternativeHTDataStructure();
             void subscribeToPublishedPoints();
             void insertPointToAHT(const mrs_msgs::ImagePointsWithFloatStampedConstPtr &, const size_t &);
+
             void updateBufferAndSetFirstCallBool(const size_t & img_index);
 
             ros::NodeHandle private_nh_;
+
             std::vector<std::shared_ptr<alternativeHT>> aht_;
             std::vector<vectPoint3D> pVect;
             std::vector<vectPoint3D> potentialSequences; 
