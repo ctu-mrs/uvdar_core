@@ -42,6 +42,8 @@ namespace uvdar {
 
             void updateBufferAndSetFirstCallBool(const size_t & img_index);
 
+            void ProcessThread([[maybe_unused]] const ros::TimerEvent&, size_t);
+
             ros::NodeHandle private_nh_;
 
             std::vector<std::shared_ptr<alternativeHT>> aht_;
@@ -52,7 +54,7 @@ namespace uvdar {
             std::atomic_bool current_visualization_done_ = false;
             ros::Timer timer_visualization_;
 
-            std::vector<std::vector<bool>> _sequences_;
+            std::vector<std::vector<bool>> sequences_;
             std::vector<ros::Publisher> pub_blinkers_seen_;
             std::vector<ros::Publisher> pub_estimated_framerate_;
             std::vector<ros::Timer> timer_process_;
@@ -62,11 +64,12 @@ namespace uvdar {
             std::vector<std::string> _estimated_framerate_topics;
             std::vector<std::string> _points_seen_topics;
             std::string _sequence_file;
-
+            int _number_sequences;
             std::vector<std::vector<vectPoint3D>> small_buffer_;
             int buffer_cnt_ = 0;
             bool first_call_; // bool for preventing access of non assigned values in small_buffer
 
+            int process_rate = 1;
 
 
             const int max_buffer_size_ = 5; // max frames which are stored
@@ -82,6 +85,7 @@ namespace uvdar {
             std::vector<points_seen_callback_t> cals_sun_points_;
             std::vector<ros::Subscriber> sub_points_seen_;
             std::vector<ros::Subscriber> sub_sun_points_;
+
             
             // Params
             std::string _uav_name_;   

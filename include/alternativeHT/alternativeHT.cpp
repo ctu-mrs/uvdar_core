@@ -9,7 +9,6 @@ alternativeHT::alternativeHT( int i_buffer_size ){
     buffer_size_ = i_buffer_size;
     
     initBuffer();
-    initSequenceBuffer();
 }
 
 void alternativeHT::initBuffer(){
@@ -20,25 +19,29 @@ void alternativeHT::initBuffer(){
     }
 }
 
+void alternativeHT::setSequences(std::vector<std::vector<bool>> i_sequences){
+  
+    sequences_ = i_sequences;
+    matcher_ = std::make_unique<SignalMatcher>(sequences_);
+    
+    number_sequences_ = sequences_.size(); 
+
+    initSequenceBuffer();
+
+}
+
 void alternativeHT::initSequenceBuffer(){
 
-    if (max_sequences_seen_ > 10000) {
-        initialized_ = false;
-        ROS_ERROR("[AlternativeHT]: The maximal sequence size is too big! ");
-        return;
-    }
-
-    for ( int i = 0; i < max_sequences_seen_; i++ ){
-        mrs_msgs::Point2DWithFloat p;
-        p.x = p.y = p.value = -1;
-        sequences.push_back(p);
+    for ( int i = 0; i < number_sequences_; i++ ){
+        std::vector<int> p(10,-1);
+        std::vector<bool> k;
+        // p.x = p.y = p.value = -1;
+        potentialSequences_.push_back(k);
+        signal.push_back(k);
     }
 }
 
 void alternativeHT::processBuffer( vectPoint3DWithIndex & ptsCurrentFrame, const int buffer_cnt) {
-
-    if (!initialized_) return;
-    // std::cout << " Size " << ptsCurrentFrame.size() << std::endl;
 
     buffer_3DPoint_seqIndex[buffer_cnt] = ptsCurrentFrame;
     // buffer_3DPoint_seqIndex.at(buffer_cnt) 
@@ -58,32 +61,19 @@ void alternativeHT::processBuffer( vectPoint3DWithIndex & ptsCurrentFrame, const
 
     findClosestAndLEDState( buffer_3DPoint_seqIndex.at(buffer_cnt), ptsPrevFrame );
 
+    // for (const auto k : ptsPrevFrame){
+    //     std::cout << "The val " << k.first.value << std::endl;
+    // }
     insertToSequencesBuffer(ptsPrevFrame);
 
-
-
-
-    // std::tuple<int,int,int> buffer_indices =  findCurrentIndexState(buffer_cnt);
-
-
-    // evalulateBuffer(buffer_indices);
-
-  
 }
 
 
 void alternativeHT::findClosestAndLEDState(vectPoint3DWithIndex & ptsCurrentImg, vectPoint3DWithIndex & ptsPrevImg) {   
 
-    // std::reverse(ptsCurrentImg.begin(), ptsCurrentImg.end()); // just for testing!
-
-    // for ( int i = 0; i < ptsPrevImg.size(); i++ ) {
-    //     ptsPrevImg[i].second = ptsPrevImg.size()  + i + 100; 
+    // for (const auto k : ptsCurrentImg) {
+    //     std::cout << "Index Current " << k.second << " Values x: " << k.first.x << " y " << k.first.y << std::endl;
     // }
-
-
-    for (const auto k : ptsCurrentImg) {
-        std::cout << "Index Current " << k.second << " Values x: " << k.first.x << " y " << k.first.y << std::endl;
-    }
    
 
     // for (const auto k : ptsPrevImg) {
@@ -104,7 +94,7 @@ void alternativeHT::findClosestAndLEDState(vectPoint3DWithIndex & ptsCurrentImg,
                 ptsCurrentImg[iCurrentImg].first.value = 1; // match found - LED is "on"
                 int wantedIndex = ptsPrevImg[iPrevImg].second;
                 int currentIndex = ptsCurrentImg[iCurrentImg].second; 
-                std::cout << wantedIndex << " Current " << currentIndex << std::endl;
+                // std::cout << wantedIndex << " Current " << currentIndex << std::endl;
                 swapIndex( wantedIndex, currentIndex, ptsCurrentImg );
                 break;
             }
@@ -118,13 +108,27 @@ void alternativeHT::findClosestAndLEDState(vectPoint3DWithIndex & ptsCurrentImg,
 
 void alternativeHT::insertToSequencesBuffer(vectPoint3DWithIndex & pts){
     
-    for ( const auto p : pts ) {
-        if ( p.second > max_sequences_seen_ ) {
-            ROS_WARN("[AlternativeHT]: Can't insert point to sequence buffer! The max number of indices is: %d. The wanted insertion has the index: %d", max_sequences_seen_, p.second); 
+    for (const auto p : pts) {
+        if (p.second > number_sequences_) {
+            ROS_WARN("[AlternativeHT]: Can't insert point to sequence buffer! The current maximal index number is: %d. The wanted insertion has the index: %d", number_sequences_, p.second); 
             break;
         }
-        sequences.at(p.second) = p.first; 
 
+        if(p.first.value == 1) {
+            potentialSequences_.at(p.second).push_back(true); 
+        } else {
+            potentialSequences_.at(p.second).push_back(false);
+        }
+        if (potentialSequences_[p.second].size() > 12){
+            for (auto r : potentialSequences_[p.second]){
+                if (r) { std::cout << "1,";}
+                else {std::cout << "0,";}
+            }
+            std::cout << std::endl;
+            int k = matcher_->matchSignal(potentialSequences_[p.second]);
+            potentialSequences_[p.second].clear();
+            std::cout << "The signal is " << k  << std::endl;
+        }
     }
 }
 mrs_msgs::Point2DWithFloat uvdar::alternativeHT::computeXYDifference(mrs_msgs::Point2DWithFloat first, mrs_msgs::Point2DWithFloat second){
@@ -138,8 +142,7 @@ mrs_msgs::Point2DWithFloat uvdar::alternativeHT::computeXYDifference(mrs_msgs::P
 
 }
 
-void alternativeHT::swapIndex( const int wantedIndex, const int currentIndex ,vectPoint3DWithIndex & points){
-    
+void alternativeHT::swapIndex(const int wantedIndex, const int currentIndex ,vectPoint3DWithIndex & points){
     
     if ( wantedIndex == currentIndex ) {
         return;
@@ -171,6 +174,34 @@ void alternativeHT::insertVirtualPointAndUpdateIndices(vectPoint3DWithIndex &poi
 
 }
 
+
+void alternativeHT::getResult(){
+    // std::cout << "I'm  called!!!!" << std::endl;
+    // int p = retrieveSignalID();
+
+
+    // for ( int i = 0; i < potentialSequences_.size(); i++){
+    //     std::cout << "The Sequence: " << std::endl;
+        
+    //     for (const auto k : potentialSequences_[i]){
+    //         if (k) {
+    //         std::cout << "1,";
+    //         } else {
+    //             std::cout << "0,";
+    //         }
+    //     }
+    //     std::cout << std::endl;
+
+
+    //     int k = matcher_->matchSignal(potentialSequences_[i]);
+    //     std::cout << "The signal ID : " << k << std::endl;
+    // }
+
+    // for ( int i = 0; i < potentialSequences_.size(); i++){
+    //     potentialSequences_[i].clear();
+    // }
+
+}
 
 
 alternativeHT::~alternativeHT() {

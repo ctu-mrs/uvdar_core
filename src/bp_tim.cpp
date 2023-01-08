@@ -1,5 +1,5 @@
 #include <bp_tim.h>
-
+#include <mutex>
 // default constructor
 uvdar::UVDAR_BP_Tim::UVDAR_BP_Tim(){};
 
@@ -15,15 +15,19 @@ void uvdar::UVDAR_BP_Tim::onInit()
     const bool printParams = false;
 
     loadParams(printParams);
-    parseSequenceFile(_sequence_file);
 
     const bool match = checkCameraTopicSizeMatch();
     if( !match ) return;
 
+    parseSequenceFile(_sequence_file);
     initAlternativeHTDataStructure();
 
     first_call_ = true;
     subscribeToPublishedPoints();
+
+    for (size_t i = 0; i < _points_seen_topics.size(); ++i) {
+        timer_process_.push_back(private_nh_.createTimer(ros::Duration(1.0/(double)(process_rate)), boost::bind(&UVDAR_BP_Tim::ProcessThread, this, _1, i), false, true));
+    }
 
     initialized_ = true;
 }
@@ -122,7 +126,7 @@ bool uvdar::UVDAR_BP_Tim::parseSequenceFile(const std::string &sequence_file) {
         }
         ROS_INFO("[UVDAR_BP_Tim]: ]");
         ifs.close();
-        _sequences_ = sequences;
+        sequences_ = sequences;
     }
     else
     {
@@ -154,14 +158,13 @@ void uvdar::UVDAR_BP_Tim::initAlternativeHTDataStructure(){
 
     for (size_t i = 0; i < _points_seen_topics.size(); ++i) {
         aht_.push_back(
-                std::make_shared<alternativeHT>( _buffer_size_ )
+                std::make_shared<alternativeHT>(_buffer_size_)
               );
         if (_enable_manchester_) {
             aht_[i]->setManchesterBoolTrue();
+        }
+        aht_[i]->setSequences(sequences_);
     }
-    }
-
-
 }
 
 void uvdar::UVDAR_BP_Tim::subscribeToPublishedPoints() {
@@ -192,7 +195,6 @@ void uvdar::UVDAR_BP_Tim::insertPointToAHT(const mrs_msgs::ImagePointsWithFloatS
     
     // std::cout << "============================================" << std::endl;
     // std::cout << "B size" << ptsMsg->points.size() << " Buffer cnt " << buffer_cnt_ <<std::endl;
-    
 
     // set the default LED state to "on" for any existent point
     for (auto & point : points ) {
@@ -222,14 +224,25 @@ void uvdar::UVDAR_BP_Tim::updateBufferAndSetFirstCallBool(const size_t & img_ind
         
         first_call_ = false; 
 
-        // call flag once - MAYBE NOT WORKING WIOTH MULTIPLE CAMERAS!!!!!!!!
+        // call flag once - MAYBE NOT WORKING WITH MULTIPLE CAMERAS!!!!!!!!
         [[maybe_unused]] static bool once = [i=img_index, firstCall = first_call_, this](){
             aht_[i]->setFirstCallBool(firstCall);
+            std::cout << "FIRST BOOL CALL" << std::endl;
             return true;
         }();
 
     }
 }
+
+void uvdar::UVDAR_BP_Tim::ProcessThread([[maybe_unused]] const ros::TimerEvent& te, size_t image_index){
+
+
+    // int signa_id;
+    aht_[image_index]->getResult();
+
+
+}
+
 
 #include <pluginlib/class_list_macros.h>
 PLUGINLIB_EXPORT_CLASS(uvdar::UVDAR_BP_Tim, nodelet::Nodelet);
