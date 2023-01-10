@@ -164,6 +164,7 @@ void uvdar::UVDAR_BP_Tim::initAlternativeHTDataStructure(){
             aht_[i]->setManchesterBoolTrue();
         }
         aht_[i]->setSequences(sequences_);
+        aht_[i]->setDebugFlags(_debug_, _visual_debug_);
     }
 }
 
