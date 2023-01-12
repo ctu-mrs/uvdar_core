@@ -1,18 +1,20 @@
 #pragma once
 
+#include <ros/console.h>
+
 #include <opencv2/highgui/highgui.hpp>
 #include <mrs_msgs/Point2DWithFloat.h>
 #include "signal_matcher/signal_matcher.h"
 
-using vectPoint3D = std::vector<mrs_msgs::Point2DWithFloat>;
-using point3DWithIndex = std::pair<mrs_msgs::Point2DWithFloat, int>;
-using vectPoint3DWithIndex = std::vector<point3DWithIndex>;
 
 namespace uvdar
 {
+    using vectPoint3D = std::vector<mrs_msgs::Point2DWithFloat>;
+    using point3DWithIndex = std::pair<mrs_msgs::Point2DWithFloat, int>;
+    using vectPoint3DWithIndex = std::vector<point3DWithIndex>;
 
-       class alternativeHT
-    {
+    class alternativeHT {
+
     private:
         int buffer_size_;
         bool initialized_ = false;
@@ -28,7 +30,9 @@ namespace uvdar
         std::vector<vectPoint3DWithIndex> buffer_3DPoint_seqIndex_;
 
         std::vector<std::vector<bool>> sequences_;
-        std::vector<std::vector<bool>> potentialSequences_;
+        // std::vector<std::vector<bool>> potentialSequences_;
+        std::vector<std::pair<std::vector<bool>,cv::Point2d>> potentialSequences_;
+
         int number_sequences_;
         std::unique_ptr<SignalMatcher> matcher_;
 
@@ -58,11 +62,16 @@ namespace uvdar
         mrs_msgs::Point2DWithFloat computeXYDifference(mrs_msgs::Point2DWithFloat, mrs_msgs::Point2DWithFloat );
         void swapIndex( const int, const int, vectPoint3DWithIndex & );
         void insertVirtualPointAndUpdateIndices(vectPoint3DWithIndex &, const point3DWithIndex );
-        int findMatch(const int);
-        void getResult();
+        int findMatch(std::vector<bool>);
+        std::vector<std::pair<cv::Point2d, int>> getResult();
 
     };
 
+    struct BlinkSignals{
+            std::vector<std::vector<bool>> originalSequences_;
+            std::vector<std::pair<std::vector<bool>,cv::Point2d>> potentialSequences_;
+            std::vector<std::pair<cv::Point2d,int>> retrievedSignals_;
+    };
 
     
 

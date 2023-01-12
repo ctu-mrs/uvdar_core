@@ -1,13 +1,14 @@
 #include <bp_tim.h>
-#include <mutex>
+#include <color_selector/color_selector.h>
+
+using namespace uvdar;
 // default constructor
-uvdar::UVDAR_BP_Tim::UVDAR_BP_Tim(){};
+UVDAR_BP_Tim::UVDAR_BP_Tim(){};
 
 // destructor
-uvdar::UVDAR_BP_Tim::~UVDAR_BP_Tim(){};
+UVDAR_BP_Tim::~UVDAR_BP_Tim(){};
 
-void uvdar::UVDAR_BP_Tim::onInit()
-{
+void UVDAR_BP_Tim::onInit() {
 
     private_nh_ = nodelet::Nodelet::getMTPrivateNodeHandle();
     NODELET_DEBUG("[UVDAR_BP_Tim]: Initializing Nodelet...");
@@ -25,14 +26,42 @@ void uvdar::UVDAR_BP_Tim::onInit()
     first_call_ = true;
     subscribeToPublishedPoints();
 
-    for (size_t i = 0; i < _points_seen_topics.size(); ++i) {
-        timer_process_.push_back(private_nh_.createTimer(ros::Duration(1.0/(double)(process_rate)), boost::bind(&UVDAR_BP_Tim::ProcessThread, this, _1, i), false, true));
+    if (_gui_ || _publish_visualization_){ 
+          // load the frequencies
+        current_visualization_done_ = false;
+        timer_visualization_ = private_nh_.createTimer(ros::Rate(_visualization_rate_), &UVDAR_BP_Tim::VisualizationThread, this, false);
+        
+        if (_use_camera_for_visualization_){
+            /* subscribe to cameras //{ */
+
+            std::vector<std::string> _camera_topics;
+            private_nh_.param("camera_topics", _camera_topics, _camera_topics);
+            if (_camera_topics.empty()) {
+              ROS_WARN("[UVDARBlinkProcessor]: No topics of cameras were supplied");
+              _use_camera_for_visualization_ = false;
+            }
+            else {
+              images_current_.resize(_camera_topics.size());
+              // Create callbacks for each camera
+              for (size_t i = 0; i < _camera_topics.size(); ++i) {
+                current_images_received_.push_back(false);
+                image_callback_t callback = [image_index=i,this] (const sensor_msgs::ImageConstPtr& image_msg) { 
+                  callbackImage(image_msg, image_index);
+                };
+                cals_image_.push_back(callback);
+                // Subscribe to corresponding topics
+                sub_image_.push_back(private_nh_.subscribe(_camera_topics[i], 1, cals_image_[i]));
+              }
+            }
+            //}
+          }
+    
     }
 
     initialized_ = true;
 }
 
-void uvdar::UVDAR_BP_Tim::loadParams(const bool &printParams) {
+void UVDAR_BP_Tim::loadParams(const bool &printParams) {
 
     mrs_lib::ParamLoader param_loader(private_nh_, printParams, "UVDAR_BP_Tim");
 
@@ -70,7 +99,7 @@ void uvdar::UVDAR_BP_Tim::loadParams(const bool &printParams) {
     private_nh_.param("use_camera_for_visualization", _use_camera_for_visualization_, bool(true));
 }
 
-bool uvdar::UVDAR_BP_Tim::parseSequenceFile(const std::string &sequence_file) {
+bool UVDAR_BP_Tim::parseSequenceFile(const std::string &sequence_file) {
 
     ROS_WARN_STREAM("[UVDAR_BP_Tim]: Add sanitation - sequences must be of equal, non-zero length");
     ROS_INFO_STREAM("[UVDAR_BP_Tim]: Loading sequence from file: [ " + sequence_file + " ]");
@@ -127,6 +156,7 @@ bool uvdar::UVDAR_BP_Tim::parseSequenceFile(const std::string &sequence_file) {
         ROS_INFO("[UVDAR_BP_Tim]: ]");
         ifs.close();
         sequences_ = sequences;
+        number_sequences_ = sequences_.size();
     }
     else
     {
@@ -137,11 +167,11 @@ bool uvdar::UVDAR_BP_Tim::parseSequenceFile(const std::string &sequence_file) {
     return true;
 }
 
-bool uvdar::UVDAR_BP_Tim::checkCameraTopicSizeMatch() {
+bool UVDAR_BP_Tim::checkCameraTopicSizeMatch() {
 
     if (_blinkers_seen_topics.size() != _points_seen_topics.size())
     {
-        ROS_ERROR_STREAM("[UVDAR_BP_Tim] The number of poinsSeenTopics (" << _points_seen_topics.size()
+        ROS_ERROR_STREAM("[UVDAR_BP_Tim]: The number of poinsSeenTopics (" << _points_seen_topics.size()
                                                                           << ") is not matching the number of blinkers_seen_topics (" << _blinkers_seen_topics.size() << ")!");
         return false;
     }
@@ -154,7 +184,7 @@ bool uvdar::UVDAR_BP_Tim::checkCameraTopicSizeMatch() {
     return true;
 }
 
-void uvdar::UVDAR_BP_Tim::initAlternativeHTDataStructure(){
+void UVDAR_BP_Tim::initAlternativeHTDataStructure(){
 
     for (size_t i = 0; i < _points_seen_topics.size(); ++i) {
         aht_.push_back(
@@ -165,10 +195,23 @@ void uvdar::UVDAR_BP_Tim::initAlternativeHTDataStructure(){
         }
         aht_[i]->setSequences(sequences_);
         aht_[i]->setDebugFlags(_debug_, _visual_debug_);
+
+        std::vector<std::pair<cv::Point2d, int>> pair;
+        signals_.push_back(pair);
+
+        // sun_points_.resize(_points_seen_topics.size());
+
+        mutex_camera_image_.push_back(std::make_shared<std::mutex>());
+        camera_image_sizes_.push_back(cv::Size(-1,-1));
+    }
+
+
+    for (size_t i = 0; i < _points_seen_topics.size(); ++i) {
+      timer_process_.push_back(private_nh_.createTimer(ros::Duration(1.0/(double)(10)), boost::bind(&UVDAR_BP_Tim::ProcessThread, this, _1, i), false, true));
     }
 }
 
-void uvdar::UVDAR_BP_Tim::subscribeToPublishedPoints() {
+void UVDAR_BP_Tim::subscribeToPublishedPoints() {
 
     for (size_t i = 0; i < _points_seen_topics.size(); ++i)
     {
@@ -188,7 +231,7 @@ void uvdar::UVDAR_BP_Tim::subscribeToPublishedPoints() {
     }
 }
 
-void uvdar::UVDAR_BP_Tim::insertPointToAHT(const mrs_msgs::ImagePointsWithFloatStampedConstPtr &ptsMsg, const size_t &img_index) {
+void UVDAR_BP_Tim::insertPointToAHT(const mrs_msgs::ImagePointsWithFloatStampedConstPtr &ptsMsg, const size_t &img_index) {
     
     if (!initialized_) return;
 
@@ -212,10 +255,22 @@ void uvdar::UVDAR_BP_Tim::insertPointToAHT(const mrs_msgs::ImagePointsWithFloatS
     // aht_[img_index]->processBuffer( points, buffer_cnt_ );
 
     updateBufferAndSetFirstCallBool(img_index);
+
+
+
+    if ((!_use_camera_for_visualization_) || ((!_gui_) && (!_publish_visualization_))){
+      if ( (camera_image_sizes_[img_index].width <= 0 ) || (camera_image_sizes_[img_index].width <= 0 )){
+        camera_image_sizes_[img_index].width = ptsMsg->image_width;
+        camera_image_sizes_[img_index].height = ptsMsg->image_height;
+        if (image_sizes_received_ < (int)(camera_image_sizes_.size())){
+          image_sizes_received_++;
+        }
+      }
+    }
  
 } 
 
-void uvdar::UVDAR_BP_Tim::updateBufferAndSetFirstCallBool(const size_t & img_index) {
+void UVDAR_BP_Tim::updateBufferAndSetFirstCallBool(const size_t & img_index) {
 
     buffer_cnt_++;
 
@@ -235,14 +290,152 @@ void uvdar::UVDAR_BP_Tim::updateBufferAndSetFirstCallBool(const size_t & img_ind
     }
 }
 
-void uvdar::UVDAR_BP_Tim::ProcessThread([[maybe_unused]] const ros::TimerEvent& te, size_t image_index){
+void UVDAR_BP_Tim::ProcessThread([[maybe_unused]] const ros::TimerEvent& te, size_t image_index) {
+      if (!initialized_){
+        return;
+      }
 
-
-    // int signa_id;
-    aht_[image_index]->getResult();
-
+    signals_[image_index] = aht_[image_index]->getResult();
+    
 
 }
+void UVDAR_BP_Tim::VisualizationThread([[maybe_unused]] const ros::TimerEvent& te) {
+
+    if (initialized_){
+        int rec = generateVisualization(image_visualization_);
+        std::cout << "Generate functioning" << rec << std::endl;
+      if(generateVisualization(image_visualization_) >= 0){
+        if ((image_visualization_.cols != 0) && (image_visualization_.rows != 0)){
+          if (_publish_visualization_){
+            pub_visualization_->publish("uvdar_blink_visualization", 0.01, image_visualization_, true);
+          }
+          if (_gui_){
+            cv::imshow("ocv_uvdar_blink_" + _uav_name_, image_visualization_);
+            cv::waitKey(25);
+          }
+
+          if (_visual_debug_){
+            std::cout << "Visual Debug enabled" << std::endl;
+            cv::Mat image_visual_debug_;
+            // image_visual_debug_ = ht4dbt_trackers_[0]->getVisualization();
+            // if ((image_visual_debug_.cols > 0) && (image_visual_debug_.rows > 0)){
+            //   cv::imshow("ocv_uvdar_hough_space_" + _uav_name_, image_visual_debug_);
+            // }
+            cv::waitKey(25);
+          }
+        }
+      }
+    }
+  }
+
+int UVDAR_BP_Tim::generateVisualization(cv::Mat & output_image) {
+    if (image_sizes_received_<(int)(camera_image_sizes_.size()))
+      return -2;
+
+    if (current_visualization_done_)
+      return 1;
+
+    int max_image_height = 0;
+    int sum_image_width = 0;
+    std::vector<int> start_widths;
+    int i =0;
+    for (auto curr_size : camera_image_sizes_){
+      if ((curr_size.width < 0) || (curr_size.height < 0)){
+        ROS_ERROR_STREAM("[UVDAR_BP_Tim]: Size of image " << i << " was not received! Returning.");
+        return -4;
+      }
+      if (max_image_height < curr_size.height){
+        max_image_height = curr_size.height;
+      }
+      start_widths.push_back(sum_image_width);
+      sum_image_width += curr_size.width;
+      i++;
+    }
+
+    if ( (sum_image_width <= 0) || (max_image_height <= 0) ){
+      return -3;
+    }
+
+    output_image = cv::Mat(cv::Size(sum_image_width+((int)(camera_image_sizes_.size())-1), max_image_height),CV_8UC3);
+    output_image = cv::Scalar(255, 255, 255);
+
+    if ( (output_image.cols <= 0) || (output_image.rows <= 0) ){
+      return -1;
+    }
+
+    int image_index = 0;
+
+
+    // for (int i = 0; ) {
+    //   std::vector<std::pair<cv::Point2d, int>> signals_ = aht_[]
+    // }
+      // {
+        // std::scoped_lock lock(*(blink_data_[image_index].mutex_retrieved_blinkers));
+
+  
+    for ([[maybe_unused]] auto curr_size : camera_image_sizes_){
+      std::scoped_lock lock(*(mutex_camera_image_[image_index]));
+      cv::Point start_point = cv::Point(start_widths[image_index]+image_index, 0);
+      if (_use_camera_for_visualization_){
+        if (current_images_received_[image_index]){
+          cv::Mat image_rgb;
+          /* ROS_INFO_STREAM("[UVDARBlinkProcessor]: Channel count: " << images_current_[image_index].channels()); */
+          cv::cvtColor(images_current_[image_index], image_rgb, cv::COLOR_GRAY2BGR);
+          image_rgb.copyTo(output_image(cv::Rect(start_point.x,0,images_current_[image_index].cols,images_current_[image_index].rows)));
+        }
+      }
+      else {
+        output_image(cv::Rect(start_point.x,0,camera_image_sizes_[image_index].width,camera_image_sizes_[image_index].height)) = cv::Scalar(0,0,0);
+      }
+
+      {
+            for (int j = 0; j < (int)(signals_[image_index].size()); j++) {
+          cv::Point center = signals_[image_index][j].first;
+          int signal_index = signals_[image_index][j].second;
+        if (signal_index >= 0) {
+            std::string signal_text = std::to_string(std::max(signal_index, 0));
+            cv::putText(output_image, cv::String(signal_text.c_str()), center + cv::Point(-5, -5), cv::FONT_HERSHEY_SIMPLEX, 0.3, cv::Scalar(255, 255, 255));
+            cv::Scalar color = ColorSelector::markerColor(signal_index);
+            cv::circle(output_image, center, 5, color);
+          } else {
+            cv::circle(output_image, center, 2, cv::Scalar(160,160,160));
+          }
+        }
+      }
+
+      // insert here stuff for the sun!!
+      image_index++;
+    }
+
+    // }
+    // // draw the legend
+    for (int i = 0; i < sequences_.size(); ++i) {
+      cv::Scalar color = ColorSelector::markerColor(i);
+      cv::circle(output_image, cv::Point(10, 10 + 15 * i), 5, color);
+      cv::putText(output_image, cv::String(std::to_string(i)), cv::Point(15, 15 + 15 * i), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 255, 255));
+    }
+
+    current_visualization_done_ = true;
+    return 0;
+}
+
+
+  void UVDAR_BP_Tim::callbackImage(const sensor_msgs::ImageConstPtr& image_msg, size_t image_index) {
+    cv_bridge::CvImageConstPtr image;
+    image = cv_bridge::toCvShare(image_msg, sensor_msgs::image_encodings::MONO8);
+    {
+      std::scoped_lock lock(*(mutex_camera_image_[image_index]));
+      images_current_[image_index] = image->image; 
+      current_images_received_[image_index] = true;
+      current_visualization_done_ = false;
+    }
+    if ( (camera_image_sizes_[image_index].width <= 0 ) || (camera_image_sizes_[image_index].width <= 0 )){
+      camera_image_sizes_[image_index] = image->image.size();
+      if (image_sizes_received_ < (int)(camera_image_sizes_.size())){
+        image_sizes_received_++;
+      }
+    }
+  }
 
 
 #include <pluginlib/class_list_macros.h>

@@ -1,6 +1,5 @@
 #include "alternativeHT.h"
 #include <iostream>
-#include <ros/console.h>
 
 using namespace uvdar;
 
@@ -37,13 +36,14 @@ void alternativeHT::setSequences(std::vector<std::vector<bool>> i_sequences){
 
 void alternativeHT::initSequenceBuffer(){
 
+    // TODO: right now out of bounds execption might happen!
     for ( int i = 0; i < number_sequences_; i++ ){
-        int sequenceLength = sequences_[0].size() - 2; 
-        if (sequenceLength <= 0 ){
-            ROS_ERROR("[AlternativeHT]: The Sequence Length is too short!");
-        }
+        const int sequenceLength = sequences_[0].size() - 2; // TODO: fix that constant - relative arbitrary 
+        if (sequenceLength < 0 ) {ROS_ERROR("[AlternativeHT]: The sequence length is too short!");}
         std::vector<bool> k(sequenceLength, false);
-        potentialSequences_.push_back(k);
+        std::pair<std::vector<bool>, cv::Point2d> pair;
+        pair.first = k;
+        potentialSequences_.push_back(pair);
     }
 }
 
@@ -100,20 +100,26 @@ void alternativeHT::findClosestAndLEDState(vectPoint3DWithIndex & ptsCurrentImg,
 
 void alternativeHT::insertToSequencesBuffer(vectPoint3DWithIndex & pts){
 
-    for (int i = 0; i < pts.size(); i++) {
+    for (size_t i = 0; i < pts.size(); i++) {
         int sequenceIndex = pts[i].second;
-        int pointValue = pts[i].first.value;
+        cv::Point2d currPoint = cv::Point(pts[i].first.x, pts[i].first.y);
+        int currPointValue = pts[i].first.value;
         if (sequenceIndex > number_sequences_) {
             ROS_WARN("[AlternativeHT]: Can't insert point to sequence buffer! The current maximal index number is: %d. The wanted insertion has the index: %d", number_sequences_, sequenceIndex); 
             break;
         }
-        if(pointValue == 1) {
-            potentialSequences_[sequenceIndex].push_back(true); 
+        if(currPointValue == 1) {
+            potentialSequences_[sequenceIndex].first.push_back(true); 
         } else {
-            potentialSequences_[sequenceIndex].push_back(false);
+            potentialSequences_[sequenceIndex].first.push_back(false);
         }
-        int id = findMatch(sequenceIndex);
-        if (debug_) std::cout << "[AlternativeHT]: The current signal ID is: " << id << std::endl;
+        potentialSequences_[sequenceIndex].second = currPoint;
+        int id = findMatch(potentialSequences_[sequenceIndex].first);
+        std::cout << "the ID is " << id << std::endl;
+        // if ( id >= 0 ){
+        //     retrievedSignals_.push_back(std::make_pair(currPoint, id));
+        // }
+        // if (debug_) std::cout << "[AlternativeHT]: The current signal ID is: " << id << std::endl;
     }
 }
 
@@ -160,16 +166,13 @@ void alternativeHT::insertVirtualPointAndUpdateIndices(vectPoint3DWithIndex &poi
 
 }
 
-int alternativeHT::findMatch(const int sequenceIndex){
+int alternativeHT::findMatch(std::vector<bool> sequence){
 
-    std::vector<bool> & sequence = potentialSequences_[sequenceIndex];
-    const auto currLength = sequence.size();
-
-    if ( currLength < 24 || currLength > 28){
+    if (sequence.size() > sequences_[0].size()){
+        sequence.clear(); // TODO:
         return -2;
     }
     if (debug_) std::cout << "[AlternativeHT]: The signal sequence: ";
-    bool threeConsecutiveFalse = false;
     for ( int i = 2; i < sequence.size(); i++) {
         if (debug_) {
                 if (sequence[i]) {
@@ -179,84 +182,32 @@ int alternativeHT::findMatch(const int sequenceIndex){
                 }
         }
         if (sequence[i] == false && sequence[i-1] == false && sequence[i-2] == false){
-            sequence.clear();
+            sequence.clear(); // TODO:
             return -3;
         }
     }
     if (debug_) std::cout << std::endl;
     
     int id = matcher_->matchSignal(sequence);
-    sequence.clear();
+    sequence.clear(); // TODO:
     return id;
 }
 
-// void alternativeHT::findMatch(){
-//     for ( auto & k : potentialSequences_) {
-//         bool threeConsecutiveFalse = false;
-//         if (k.size() > 24 && k.size() < 28){
-//             for (size_t i = 2; i < k.size(); i++){
-
-//                 if (debug_) {
-//                     std::cout << "[AlternativeHT]: The signal sequence: ";
-//                      for ( auto r : k ) {
-//                         if (r) {
-//                             std::cout << "1,";
-//                         } else {
-//                         std::cout << "0,";
-//                         }
-//                     }
-//                     std::cout << std::endl;
-//                 }
-//                 if (k[i] == false && k[i-1] == false && k[i-2] == false){
-//                     if (debug_) {
-//                         std::cout << "[AlternativeHT]: Sequence with three consecutive empty bits - skipping!" << std::endl;
-//                     }
-//                     threeConsecutiveFalse = true;
-//                 }
-//             }
-//             if (threeConsecutiveFalse){ 
-//                 k.clear();
-//                 break;
-//             }
+std::vector<std::pair<cv::Point2d, int>> alternativeHT::getResult(){
     
-//             int id = matcher_->matchSignal(k);
-//             if (debug_) {
-//                 std::cout << "[AlternativeHT]: The current signal ID is: " << id << std::endl;
-//             }
-//             k.clear();
-//         }
-//     }
-// }
+    std::vector<std::pair<cv::Point2d, int>> retrievedSignals;
 
-void alternativeHT::getResult(){
-    // std::cout << "I'm  called!!!!" << std::endl;
-    // int p = retrieveSignalID();
-
-
-    // for ( int i = 0; i < potentialSequences_.size(); i++){
-    //     std::cout << "The Sequence: " << std::endl;
-        
-    //     for (const auto k : potentialSequences_[i]){
-    //         if (k) {
-    //         std::cout << "1,";
-    //         } else {
-    //             std::cout << "0,";
-    //         }
-    //     }
-    //     std::cout << std::endl;
-
-
-    //     int k = matcher_->matchSignal(potentialSequences_[i]);
-    //     std::cout << "The signal ID : " << k << std::endl;
+    // for (auto sequence : potentialSequences_) {
+    //     int id = findMatch(sequence.first);
+    //     std::cout << "THE IDE IS " << id << std::endl;
+    //     cv::Point2d originPoint = sequence.second;
+    //     retrievedSignals.push_back(std::make_pair(originPoint, id));
     // }
 
-    // for ( int i = 0; i < potentialSequences_.size(); i++){
-    //     potentialSequences_[i].clear();
-    // }
-
+    
+    return retrievedSignals;
 }
 
 
 alternativeHT::~alternativeHT() {
-
 }

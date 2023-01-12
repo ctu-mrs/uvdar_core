@@ -1,18 +1,19 @@
 #pragma once
 
 #include <ros/ros.h>
-#include <std_msgs/String.h>
 #include <nodelet/nodelet.h>
-#include <stdio.h>
 #include <mrs_lib/param_loader.h>
+#include <mrs_lib/image_publisher.h>
 #include <std_msgs/Float32.h>
 #include <mrs_msgs/ImagePointsWithFloatStamped.h>
 #include <mrs_msgs/Point2DWithFloat.h>
-#include <fstream>
-#include <thread>
 
 #include <cv_bridge/cv_bridge.h>
 #include <alternativeHT/alternativeHT.h>
+#include <mutex>
+#include <opencv2/core/core.hpp>
+#include <opencv2/highgui/highgui.hpp>
+#include <fstream>
 
 using pairPoints = std::pair<mrs_msgs::Point2DWithFloat, mrs_msgs::Point2DWithFloat>;
 using vectorPair = std::vector<pairPoints>;
@@ -41,20 +42,41 @@ namespace uvdar {
             void insertPointToAHT(const mrs_msgs::ImagePointsWithFloatStampedConstPtr &, const size_t &);
 
             void updateBufferAndSetFirstCallBool(const size_t & img_index);
-
+            
             void ProcessThread([[maybe_unused]] const ros::TimerEvent&, size_t);
+            void VisualizationThread([[maybe_unused]] const ros::TimerEvent&);
+            int generateVisualization(cv::Mat& );
+
+            void callbackImage(const sensor_msgs::ImageConstPtr&, size_t);
+
 
             ros::NodeHandle private_nh_;
+            
+            int image_sizes_received_ = 0;
 
             std::vector<std::shared_ptr<alternativeHT>> aht_;
-            std::vector<vectPoint3D> pVect;
-            std::vector<vectPoint3D> potentialSequences; 
+            std::vector<vectPoint3D> pVect_;
+            std::vector<vectPoint3D> potentialSequences_; 
+            std::vector<std::vector<std::pair<cv::Point2d, int>>> signals_;
+
 
             std::atomic_bool initialized_ = false;  
             std::atomic_bool current_visualization_done_ = false;
+            std::vector<cv::Mat>     images_current_;
+
+            cv::Mat image_visualization_;
+            std::vector<bool>        current_images_received_;
+            std::vector<cv::Size> camera_image_sizes_;
+            std::unique_ptr<mrs_lib::ImagePublisher> pub_visualization_;
+            std::vector<std::shared_ptr<std::mutex>>  mutex_camera_image_;
+
+
+
+            
             ros::Timer timer_visualization_;
 
             std::vector<std::vector<bool>> sequences_;
+            size_t number_sequences_;
             std::vector<ros::Publisher> pub_blinkers_seen_;
             std::vector<ros::Publisher> pub_estimated_framerate_;
             std::vector<ros::Timer> timer_process_;

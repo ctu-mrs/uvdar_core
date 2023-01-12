@@ -180,6 +180,7 @@ target_link_libraries(UVDARBlinkProcessor
   ${catkin_LIBRARIES} 
   ${OpenCV_LIBRARIES}
   alternativeHT
+  color_selector
   )
 
   target_link_libraries(ImgSubscriber 
