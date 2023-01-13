@@ -25,10 +25,10 @@ void alternativeHT::setDebugFlags(bool debug, bool visual_debug){
 
 void alternativeHT::setSequences(std::vector<std::vector<bool>> i_sequences){
   
-    sequences_ = i_sequences;
-    matcher_ = std::make_unique<SignalMatcher>(sequences_);
+    originalSequences_ = i_sequences;
+    matcher_ = std::make_unique<SignalMatcher>(originalSequences_);
     
-    number_sequences_ = sequences_.size(); 
+    number_sequences_ = originalSequences_.size(); 
 
     initSequenceBuffer();
 
@@ -38,11 +38,9 @@ void alternativeHT::initSequenceBuffer(){
 
     // TODO: right now out of bounds execption might happen!
     for ( int i = 0; i < number_sequences_; i++ ){
-        const int sequenceLength = sequences_[0].size() - 2; // TODO: fix that constant - relative arbitrary 
+        const int sequenceLength = originalSequences_[0].size() - 2; // TODO: fix that constant - relative arbitrary 
         if (sequenceLength < 0 ) {ROS_ERROR("[AlternativeHT]: The sequence length is too short!");}
-        std::vector<bool> k(sequenceLength, false);
         std::pair<std::vector<bool>, cv::Point2d> pair;
-        pair.first = k;
         potentialSequences_.push_back(pair);
     }
 }
@@ -78,11 +76,10 @@ void alternativeHT::findClosestAndLEDState(vectPoint3DWithIndex & ptsCurrentImg,
         for ( size_t iCurrentImg = 0; iCurrentImg < ptsCurrentImg.size(); iCurrentImg++ ) {
 
             mrs_msgs::Point2DWithFloat diff = computeXYDifference(ptsCurrentImg[iCurrentImg].first, ptsPrevImg[iPrevImg].first);
-
+            // std::cout << "The Current Index is: " << ptsCurrentImg[iCurrentImg].first.x << " y " << ptsCurrentImg[iCurrentImg].first.y; 
             if (diff.x > max_pixel_shift_x_ || diff.y > max_pixel_shift_y_) {
                 nearestNeighbor = false; 
-            }
-            else {   
+            } else {   
                 nearestNeighbor = true;
                 ptsCurrentImg[iCurrentImg].first.value = 1; // match found - LED is "on"
                 int wantedIndex = ptsPrevImg[iPrevImg].second;
@@ -102,8 +99,11 @@ void alternativeHT::insertToSequencesBuffer(vectPoint3DWithIndex & pts){
 
     for (size_t i = 0; i < pts.size(); i++) {
         int sequenceIndex = pts[i].second;
-        cv::Point2d currPoint = cv::Point(pts[i].first.x, pts[i].first.y);
         int currPointValue = pts[i].first.value;
+        cv::Point2d currPoint = cv::Point(pts[i].first.x, pts[i].first.y);
+
+        size_t sizeCurrSeq = potentialSequences_[sequenceIndex].first.size();
+
         if (sequenceIndex > number_sequences_) {
             ROS_WARN("[AlternativeHT]: Can't insert point to sequence buffer! The current maximal index number is: %d. The wanted insertion has the index: %d", number_sequences_, sequenceIndex); 
             break;
@@ -114,12 +114,6 @@ void alternativeHT::insertToSequencesBuffer(vectPoint3DWithIndex & pts){
             potentialSequences_[sequenceIndex].first.push_back(false);
         }
         potentialSequences_[sequenceIndex].second = currPoint;
-        int id = findMatch(potentialSequences_[sequenceIndex].first);
-        std::cout << "the ID is " << id << std::endl;
-        // if ( id >= 0 ){
-        //     retrievedSignals_.push_back(std::make_pair(currPoint, id));
-        // }
-        // if (debug_) std::cout << "[AlternativeHT]: The current signal ID is: " << id << std::endl;
     }
 }
 
@@ -147,7 +141,7 @@ void alternativeHT::swapIndex(const int wantedIndex, const int currentIndex ,vec
             p.second = swapIndexTemp;
         } 
     }
-    std::cout << wantedIndex << " Current " << currentIndex << std::endl;
+    // std::cout << wantedIndex << " Current " << currentIndex << std::endl;
     
     points[currentIndex].second = wantedIndex;
 
@@ -155,20 +149,29 @@ void alternativeHT::swapIndex(const int wantedIndex, const int currentIndex ,vec
 
 void alternativeHT::insertVirtualPointAndUpdateIndices(vectPoint3DWithIndex &pointVector, const point3DWithIndex pointPrevFrame)
 {   
+    // std::cout << "THE POINT VECTOR SIZE " << pointVector.size() << std::endl;
     point3DWithIndex p;
     p.first = pointPrevFrame.first;
     p.first.value = 0; // equals LED "off" state
 
     p.second = pointVector.size(); // prevention for inserting duplicated indices
     pointVector.push_back(p);
-
     swapIndex( pointPrevFrame.second, p.second, pointVector );
 
 }
 
-int alternativeHT::findMatch(std::vector<bool> sequence){
+int alternativeHT::findMatch(std::vector<bool>& sequence){
 
-    if (sequence.size() > sequences_[0].size()){
+    // std::cout << "The seq" ;
+    // for (const auto k : sequence ){
+    //     if (k) std::cout << "1,";
+    //     else std::cout << "0,";
+    // }
+    // std::cout << std::endl;
+
+
+
+    if (sequence.size() > originalSequences_[0].size()){
         sequence.clear(); // TODO:
         return -2;
     }
@@ -188,8 +191,14 @@ int alternativeHT::findMatch(std::vector<bool> sequence){
     }
     if (debug_) std::cout << std::endl;
     
+    if ( sequence.size() < originalSequences_[0].size() / 2 ){
+        return -4;
+    }
+    
     int id = matcher_->matchSignal(sequence);
-    sequence.clear(); // TODO:
+    if ( originalSequences_[0].size() <= sequence.size()) {
+        sequence.clear();
+    } 
     return id;
 }
 
@@ -197,14 +206,26 @@ std::vector<std::pair<cv::Point2d, int>> alternativeHT::getResult(){
     
     std::vector<std::pair<cv::Point2d, int>> retrievedSignals;
 
-    // for (auto sequence : potentialSequences_) {
-    //     int id = findMatch(sequence.first);
-    //     std::cout << "THE IDE IS " << id << std::endl;
-    //     cv::Point2d originPoint = sequence.second;
-    //     retrievedSignals.push_back(std::make_pair(originPoint, id));
-    // }
 
-    
+    for (auto & sequence : potentialSequences_) {
+        //     std::cout << "The retrieved sequence "; 
+        // for (const auto r : sequence.first){
+        //     if (r){
+        //         std::cout << "1,";
+        //     } else std::cout << "0,";
+        // }
+        // std::cout << std::endl;
+        int id = findMatch(sequence.first);
+        cv::Point2d originPoint = sequence.second;
+        retrievedSignals.push_back(std::make_pair(originPoint, id));
+    }
+
+    // std::cout << "The sequences: called By BP " << std::endl;
+    // for (const auto k : retrievedSignals){
+    //     if ( k.first.x != 0) std::cout << "The ID " << k.second << " The point x" << k.first.x << std::endl;
+    // }
+    // std::cout <<  "=========================================================" << std::endl;
+
     return retrievedSignals;
 }
 

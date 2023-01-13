@@ -55,7 +55,9 @@ void UVDAR_BP_Tim::onInit() {
             }
             //}
           }
-    
+    }
+    for (size_t i = 0; i < _points_seen_topics.size(); ++i) {
+      timer_process_.push_back(private_nh_.createTimer(ros::Duration(1.0/(double)(10)), boost::bind(&UVDAR_BP_Tim::ProcessThread, this, _1, i), false, true));
     }
 
     initialized_ = true;
@@ -205,10 +207,6 @@ void UVDAR_BP_Tim::initAlternativeHTDataStructure(){
         camera_image_sizes_.push_back(cv::Size(-1,-1));
     }
 
-
-    for (size_t i = 0; i < _points_seen_topics.size(); ++i) {
-      timer_process_.push_back(private_nh_.createTimer(ros::Duration(1.0/(double)(10)), boost::bind(&UVDAR_BP_Tim::ProcessThread, this, _1, i), false, true));
-    }
 }
 
 void UVDAR_BP_Tim::subscribeToPublishedPoints() {
@@ -256,7 +254,7 @@ void UVDAR_BP_Tim::insertPointToAHT(const mrs_msgs::ImagePointsWithFloatStampedC
 
     updateBufferAndSetFirstCallBool(img_index);
 
-
+    signals_[img_index] = aht_[img_index]->getResult();
 
     if ((!_use_camera_for_visualization_) || ((!_gui_) && (!_publish_visualization_))){
       if ( (camera_image_sizes_[img_index].width <= 0 ) || (camera_image_sizes_[img_index].width <= 0 )){
@@ -294,13 +292,13 @@ void UVDAR_BP_Tim::ProcessThread([[maybe_unused]] const ros::TimerEvent& te, siz
       if (!initialized_){
         return;
       }
-
-    signals_[image_index] = aht_[image_index]->getResult();
+    current_visualization_done_ = false;
+    // signals_[image_index] = aht_[image_index]->getResult();
     
 
 }
 void UVDAR_BP_Tim::VisualizationThread([[maybe_unused]] const ros::TimerEvent& te) {
-
+    
     if (initialized_){
         int rec = generateVisualization(image_visualization_);
         std::cout << "Generate functioning" << rec << std::endl;
@@ -365,14 +363,6 @@ int UVDAR_BP_Tim::generateVisualization(cv::Mat & output_image) {
 
     int image_index = 0;
 
-
-    // for (int i = 0; ) {
-    //   std::vector<std::pair<cv::Point2d, int>> signals_ = aht_[]
-    // }
-      // {
-        // std::scoped_lock lock(*(blink_data_[image_index].mutex_retrieved_blinkers));
-
-  
     for ([[maybe_unused]] auto curr_size : camera_image_sizes_){
       std::scoped_lock lock(*(mutex_camera_image_[image_index]));
       cv::Point start_point = cv::Point(start_widths[image_index]+image_index, 0);
@@ -388,10 +378,13 @@ int UVDAR_BP_Tim::generateVisualization(cv::Mat & output_image) {
         output_image(cv::Rect(start_point.x,0,camera_image_sizes_[image_index].width,camera_image_sizes_[image_index].height)) = cv::Scalar(0,0,0);
       }
 
-      {
-            for (int j = 0; j < (int)(signals_[image_index].size()); j++) {
+      
+      for (int j = 0; j < (int)(signals_[image_index].size()); j++) {
           cv::Point center = signals_[image_index][j].first;
           int signal_index = signals_[image_index][j].second;
+          if (center.x > 0 || center.y > 0 ) {
+            std::cout << "The receiving point is : " << center.x << " " << center.y << " And ID " << signal_index << std::endl;
+          }
         if (signal_index >= 0) {
             std::string signal_text = std::to_string(std::max(signal_index, 0));
             cv::putText(output_image, cv::String(signal_text.c_str()), center + cv::Point(-5, -5), cv::FONT_HERSHEY_SIMPLEX, 0.3, cv::Scalar(255, 255, 255));
@@ -400,10 +393,9 @@ int UVDAR_BP_Tim::generateVisualization(cv::Mat & output_image) {
           } else {
             cv::circle(output_image, center, 2, cv::Scalar(160,160,160));
           }
-        }
       }
-
-      // insert here stuff for the sun!!
+      
+      // TODO: insert here stuff for the sun!!
       image_index++;
     }
 

@@ -22,14 +22,14 @@ namespace uvdar
         bool enable_manchester_ = false; 
         bool debug_, visual_debug_ = false;
         
-        const int max_pixel_shift_x_ = 3;
-        const int max_pixel_shift_y_ = 3;
-        const int max_sequences_seen_ = 100; // the predefined max number of possible sequences 
+        const int max_pixel_shift_x_ = 190;
+        const int max_pixel_shift_y_ = 100;
+        const int max_potentialSequence_length_ = 22;
 
         std::vector<vectPoint3D> buffer_with_frame_points;
         std::vector<vectPoint3DWithIndex> buffer_3DPoint_seqIndex_;
 
-        std::vector<std::vector<bool>> sequences_;
+        std::vector<std::vector<bool>> originalSequences_;
         // std::vector<std::vector<bool>> potentialSequences_;
         std::vector<std::pair<std::vector<bool>,cv::Point2d>> potentialSequences_;
 
@@ -62,16 +62,16 @@ namespace uvdar
         mrs_msgs::Point2DWithFloat computeXYDifference(mrs_msgs::Point2DWithFloat, mrs_msgs::Point2DWithFloat );
         void swapIndex( const int, const int, vectPoint3DWithIndex & );
         void insertVirtualPointAndUpdateIndices(vectPoint3DWithIndex &, const point3DWithIndex );
-        int findMatch(std::vector<bool>);
+        int findMatch(std::vector<bool>&);
         std::vector<std::pair<cv::Point2d, int>> getResult();
 
     };
 
-    struct BlinkSignals{
-            std::vector<std::vector<bool>> originalSequences_;
-            std::vector<std::pair<std::vector<bool>,cv::Point2d>> potentialSequences_;
-            std::vector<std::pair<cv::Point2d,int>> retrievedSignals_;
-    };
+    // struct BlinkSignals{
+    //         std::vector<std::vector<bool>> originalSequences_;
+    //         std::vector<std::pair<std::vector<bool>,cv::Point2d>> potentialSequencesWithPoint_;
+    //         std::vector<std::pair<cv::Point2d,int>> retrievedSignals_;
+    // };
 
     
 
