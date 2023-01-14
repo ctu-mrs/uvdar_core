@@ -210,7 +210,6 @@ void UVDAR_BP_Tim::initAlternativeHTDataStructure(){
 }
 
 void UVDAR_BP_Tim::subscribeToPublishedPoints() {
-
     for (size_t i = 0; i < _points_seen_topics.size(); ++i)
     {
         // Subscribe to corresponding topics
@@ -230,13 +229,11 @@ void UVDAR_BP_Tim::subscribeToPublishedPoints() {
 }
 
 void UVDAR_BP_Tim::insertPointToAHT(const mrs_msgs::ImagePointsWithFloatStampedConstPtr &ptsMsg, const size_t &img_index) {
-    
     if (!initialized_) return;
 
     vectPoint3D points(std::begin(ptsMsg->points), std::end(ptsMsg->points));
     
     // std::cout << "============================================" << std::endl;
-    // std::cout << "B size" << ptsMsg->points.size() << " Buffer cnt " << buffer_cnt_ <<std::endl;
 
     // set the default LED state to "on" for any existent point
     for (auto & point : points ) {
@@ -261,7 +258,7 @@ void UVDAR_BP_Tim::insertPointToAHT(const mrs_msgs::ImagePointsWithFloatStampedC
         camera_image_sizes_[img_index].width = ptsMsg->image_width;
         camera_image_sizes_[img_index].height = ptsMsg->image_height;
         if (image_sizes_received_ < (int)(camera_image_sizes_.size())){
-          image_sizes_received_++;
+          image_sizes_received_++; 
         }
       }
     }
@@ -277,13 +274,15 @@ void UVDAR_BP_Tim::updateBufferAndSetFirstCallBool(const size_t & img_index) {
         buffer_cnt_ = 0;
         
         first_call_ = false; 
+        // TODO: call only once for each 
+        aht_[img_index]->setFirstCallBool(first_call_);
 
         // call flag once - MAYBE NOT WORKING WITH MULTIPLE CAMERAS!!!!!!!!
-        [[maybe_unused]] static bool once = [i=img_index, firstCall = first_call_, this](){
-            aht_[i]->setFirstCallBool(firstCall);
-            std::cout << "FIRST BOOL CALL" << std::endl;
-            return true;
-        }();
+        // [[maybe_unused]] static bool once = [i=img_index, firstCall = first_call_, this](){
+        //     aht_[i]->setFirstCallBool(firstCall);
+        //     std::cout << "FIRST BOOL CALL" << std::endl;
+        //     return true;
+        // }();
 
     }
 }
@@ -300,8 +299,6 @@ void UVDAR_BP_Tim::ProcessThread([[maybe_unused]] const ros::TimerEvent& te, siz
 void UVDAR_BP_Tim::VisualizationThread([[maybe_unused]] const ros::TimerEvent& te) {
     
     if (initialized_){
-        int rec = generateVisualization(image_visualization_);
-        std::cout << "Generate functioning" << rec << std::endl;
       if(generateVisualization(image_visualization_) >= 0){
         if ((image_visualization_.cols != 0) && (image_visualization_.rows != 0)){
           if (_publish_visualization_){
@@ -313,7 +310,6 @@ void UVDAR_BP_Tim::VisualizationThread([[maybe_unused]] const ros::TimerEvent& t
           }
 
           if (_visual_debug_){
-            std::cout << "Visual Debug enabled" << std::endl;
             cv::Mat image_visual_debug_;
             // image_visual_debug_ = ht4dbt_trackers_[0]->getVisualization();
             // if ((image_visual_debug_.cols > 0) && (image_visual_debug_.rows > 0)){
@@ -382,9 +378,6 @@ int UVDAR_BP_Tim::generateVisualization(cv::Mat & output_image) {
       for (int j = 0; j < (int)(signals_[image_index].size()); j++) {
           cv::Point center = signals_[image_index][j].first;
           int signal_index = signals_[image_index][j].second;
-          if (center.x > 0 || center.y > 0 ) {
-            std::cout << "The receiving point is : " << center.x << " " << center.y << " And ID " << signal_index << std::endl;
-          }
         if (signal_index >= 0) {
             std::string signal_text = std::to_string(std::max(signal_index, 0));
             cv::putText(output_image, cv::String(signal_text.c_str()), center + cv::Point(-5, -5), cv::FONT_HERSHEY_SIMPLEX, 0.3, cv::Scalar(255, 255, 255));

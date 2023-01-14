@@ -1,9 +1,9 @@
 #ifndef SIGNAL_MATCHER_H
 #define SIGNAL_MATCHER_H
 
-#define MATCH_ERROR_THRESHOLD 0
+#define MATCH_ERROR_THRESHOLD 14
 /* #define MATCH_ERROR_THRESHOLD 1 */
-
+#include <iostream>
 namespace uvdar {
 
   class SignalMatcher{
@@ -39,6 +39,31 @@ namespace uvdar {
         return -1;
 
       }
+
+      int matchSignalWithCrossCorr(std::vector<bool> i_signal){
+
+        if (i_signal.size() == 0){
+          return -1;
+        }
+
+        for (int s=0; s<(int)(sequences_.size()); s++){
+          for (int i=0; i<(int)sequences_[s].size(); i++){
+            int corrVal = 0;
+            for (int j=0; j<(int)i_signal.size(); j++){
+              if(sequences_[s][i+j] == i_signal[j]){
+                corrVal++;
+              }
+            }
+            if (corrVal == i_signal.size()){
+              return s;
+            }
+
+          }
+        }
+        return -1; 
+      }
+
+
     private:
 
       

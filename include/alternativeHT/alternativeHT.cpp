@@ -1,12 +1,11 @@
 #include "alternativeHT.h"
-#include <iostream>
 
 using namespace uvdar;
 
 alternativeHT::alternativeHT( int i_buffer_size ){
     
     buffer_size_ = i_buffer_size;
-    
+    ROS_WARN("PIXELSHITF?????"); // TODO:
     initBuffer();
 }
 
@@ -63,6 +62,7 @@ void alternativeHT::processBuffer( vectPoint3DWithIndex & ptsCurrentFrame, const
     vectPoint3DWithIndex & ptsPrevFrame = buffer_3DPoint_seqIndex_[indexPrevFrame];
 
     findClosestAndLEDState( buffer_3DPoint_seqIndex_[buffer_cnt], ptsPrevFrame );
+    // printVectorIfNotEmpty(buffer_3DPoint_seqIndex_[buffer_cnt], "")
 
     insertToSequencesBuffer(buffer_3DPoint_seqIndex_[buffer_cnt]);
 
@@ -70,7 +70,7 @@ void alternativeHT::processBuffer( vectPoint3DWithIndex & ptsCurrentFrame, const
 
 
 void alternativeHT::findClosestAndLEDState(vectPoint3DWithIndex & ptsCurrentImg, vectPoint3DWithIndex & ptsPrevImg) {   
-
+    std::scoped_lock lock(mutex_potSequence_);
     for ( size_t iPrevImg = 0;  iPrevImg < ptsPrevImg.size(); iPrevImg++ ) {
         bool nearestNeighbor = false;
         for ( size_t iCurrentImg = 0; iCurrentImg < ptsCurrentImg.size(); iCurrentImg++ ) {
@@ -93,28 +93,6 @@ void alternativeHT::findClosestAndLEDState(vectPoint3DWithIndex & ptsCurrentImg,
         }
     }
 
-}
-
-void alternativeHT::insertToSequencesBuffer(vectPoint3DWithIndex & pts){
-
-    for (size_t i = 0; i < pts.size(); i++) {
-        int sequenceIndex = pts[i].second;
-        int currPointValue = pts[i].first.value;
-        cv::Point2d currPoint = cv::Point(pts[i].first.x, pts[i].first.y);
-
-        size_t sizeCurrSeq = potentialSequences_[sequenceIndex].first.size();
-
-        if (sequenceIndex > number_sequences_) {
-            ROS_WARN("[AlternativeHT]: Can't insert point to sequence buffer! The current maximal index number is: %d. The wanted insertion has the index: %d", number_sequences_, sequenceIndex); 
-            break;
-        }
-        if(currPointValue == 1) {
-            potentialSequences_[sequenceIndex].first.push_back(true); 
-        } else {
-            potentialSequences_[sequenceIndex].first.push_back(false);
-        }
-        potentialSequences_[sequenceIndex].second = currPoint;
-    }
 }
 
 mrs_msgs::Point2DWithFloat uvdar::alternativeHT::computeXYDifference(mrs_msgs::Point2DWithFloat first, mrs_msgs::Point2DWithFloat second){
@@ -141,7 +119,7 @@ void alternativeHT::swapIndex(const int wantedIndex, const int currentIndex ,vec
             p.second = swapIndexTemp;
         } 
     }
-    // std::cout << wantedIndex << " Current " << currentIndex << std::endl;
+    std::cout << "SWAP - Wanted Prev" <<  wantedIndex << " Current " << currentIndex << std::endl;
     
     points[currentIndex].second = wantedIndex;
 
@@ -149,6 +127,7 @@ void alternativeHT::swapIndex(const int wantedIndex, const int currentIndex ,vec
 
 void alternativeHT::insertVirtualPointAndUpdateIndices(vectPoint3DWithIndex &pointVector, const point3DWithIndex pointPrevFrame)
 {   
+    // std::cout << "Insert Virtual point!" << std::endl; 
     // std::cout << "THE POINT VECTOR SIZE " << pointVector.size() << std::endl;
     point3DWithIndex p;
     p.first = pointPrevFrame.first;
@@ -160,75 +139,69 @@ void alternativeHT::insertVirtualPointAndUpdateIndices(vectPoint3DWithIndex &poi
 
 }
 
-int alternativeHT::findMatch(std::vector<bool>& sequence){
+void alternativeHT::insertToSequencesBuffer(vectPoint3DWithIndex pts){
 
-    // std::cout << "The seq" ;
-    // for (const auto k : sequence ){
-    //     if (k) std::cout << "1,";
-    //     else std::cout << "0,";
-    // }
-    // std::cout << std::endl;
+    std::scoped_lock lock(mutex_potSequence_);
+    for (size_t i = 0; i < pts.size(); i++) {
+        int sequenceIndex = pts[i].second;
+        int currPointValue = pts[i].first.value;
+        cv::Point2d currPoint = cv::Point(pts[i].first.x, pts[i].first.y);
 
+        size_t sizeCurrSeq = potentialSequences_[sequenceIndex].first.size();
 
+        if ( sizeCurrSeq == ( originalSequences_[0].size()) ) // TODO: hard coded value..
+        {
+            printVectorIfNotEmpty(potentialSequences_[sequenceIndex].first, "insert");
+            potentialSequences_[sequenceIndex].first.erase(potentialSequences_[sequenceIndex].first.begin()); 
+        }
+
+        if (sequenceIndex > number_sequences_) {
+            ROS_WARN("[AlternativeHT]: Can't insert point to sequence buffer! The current maximal index number is: %d. The wanted insertion has the index: %d", number_sequences_, sequenceIndex); 
+            break;
+        }
+        if(currPointValue == 1) {
+            potentialSequences_[sequenceIndex].first.push_back(true); 
+        } else {
+            potentialSequences_[sequenceIndex].first.push_back(false);
+        }
+        potentialSequences_[sequenceIndex].second = currPoint;
+    }
+}
+
+int alternativeHT::findMatch(std::vector<bool> sequence){
 
     if (sequence.size() > originalSequences_[0].size()){
-        sequence.clear(); // TODO:
+        std::cout << " This shouldn't happen" << std::endl;
         return -2;
     }
-    if (debug_) std::cout << "[AlternativeHT]: The signal sequence: ";
     for ( int i = 2; i < sequence.size(); i++) {
-        if (debug_) {
-                if (sequence[i]) {
-                    std::cout << "1,";
-                } else {
-                std::cout << "0,";
-                }
-        }
         if (sequence[i] == false && sequence[i-1] == false && sequence[i-2] == false){
-            sequence.clear(); // TODO:
             return -3;
         }
     }
-    if (debug_) std::cout << std::endl;
     
-    if ( sequence.size() < originalSequences_[0].size() / 2 ){
-        return -4;
-    }
-    
-    int id = matcher_->matchSignal(sequence);
-    if ( originalSequences_[0].size() <= sequence.size()) {
-        sequence.clear();
-    } 
+    int id = matcher_->matchSignalWithCrossCorr(sequence);
+    // int id = matcher_->matchSignal(sequence);
+
     return id;
 }
+
 
 std::vector<std::pair<cv::Point2d, int>> alternativeHT::getResult(){
     
     std::vector<std::pair<cv::Point2d, int>> retrievedSignals;
 
-
-    for (auto & sequence : potentialSequences_) {
-        //     std::cout << "The retrieved sequence "; 
-        // for (const auto r : sequence.first){
-        //     if (r){
-        //         std::cout << "1,";
-        //     } else std::cout << "0,";
-        // }
-        // std::cout << std::endl;
-        int id = findMatch(sequence.first);
-        cv::Point2d originPoint = sequence.second;
-        retrievedSignals.push_back(std::make_pair(originPoint, id));
+    {
+        std::scoped_lock lock(mutex_potSequence_);
+        for (const auto  sequence : potentialSequences_) {
+            if (debug_) printVectorIfNotEmpty(sequence.first, "predicted sequence");
+            int id = findMatch(sequence.first);
+            cv::Point2d originPoint = sequence.second;
+            retrievedSignals.push_back(std::make_pair(originPoint, id));
+}
     }
-
-    // std::cout << "The sequences: called By BP " << std::endl;
-    // for (const auto k : retrievedSignals){
-    //     if ( k.first.x != 0) std::cout << "The ID " << k.second << " The point x" << k.first.x << std::endl;
-    // }
-    // std::cout <<  "=========================================================" << std::endl;
-
     return retrievedSignals;
 }
-
 
 alternativeHT::~alternativeHT() {
 }
