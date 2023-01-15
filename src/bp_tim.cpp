@@ -75,9 +75,9 @@ void UVDAR_BP_Tim::loadParams(const bool &printParams) {
         ROS_WARN_STREAM("[UVDAR_BP_Tim]: You are using visual debugging. This option is only meant for development. Activating it significantly increases load on the system and the user should do so with care.");
     }
 
-    param_loader.loadParam("gui", _gui_, bool(true));                                      // currently not used!
-    param_loader.loadParam("publish_visualization", _publish_visualization_, bool(false)); // currently not used!
-    param_loader.loadParam("visualization_rate", _visualization_rate_, float(2.0));        // currently not used!
+    param_loader.loadParam("gui", _gui_, bool(true));                                     
+    param_loader.loadParam("publish_visualization", _publish_visualization_, bool(false));
+    param_loader.loadParam("visualization_rate", _visualization_rate_, float(2.0));       
 
     param_loader.loadParam("points_seen_topics", _points_seen_topics, _points_seen_topics);
 
@@ -85,6 +85,7 @@ void UVDAR_BP_Tim::loadParams(const bool &printParams) {
     if (_enable_manchester_)
         ROS_WARN_STREAM("[UVDARBlinkProcessor]: Manchester Decoding is enabled. Make sure Transmitter has same coding enabled!");
 
+//TODO: Set to fixed value 
     param_loader.loadParam("buffer_size", _buffer_size_, int(3));
     if ( _buffer_size_ > max_buffer_size_ ) {
         ROS_ERROR_STREAM("[UVDAR_BP_Tim]: The wanted buffer size: " << _buffer_size_ << " is bigger than the maximum buffer size. The maximum buffer size is " << max_buffer_size_ << ". The current setting might cause tracking and blink extraction failure");
@@ -246,7 +247,7 @@ void UVDAR_BP_Tim::insertPointToAHT(const mrs_msgs::ImagePointsWithFloatStampedC
         pointsWithIndex.push_back( std::make_pair( points[i], i ) );
     }
 
-    aht_[img_index]->processBuffer( pointsWithIndex, buffer_cnt_ );
+    aht_[img_index]->processBuffer(pointsWithIndex);
     // aht_[img_index]->processBuffer( points, buffer_cnt_ );
 
     updateBufferAndSetFirstCallBool(img_index);
@@ -287,7 +288,7 @@ void UVDAR_BP_Tim::updateBufferAndSetFirstCallBool(const size_t & img_index) {
     }
 }
 
-void UVDAR_BP_Tim::ProcessThread([[maybe_unused]] const ros::TimerEvent& te, size_t image_index) {
+void UVDAR_BP_Tim::ProcessThread([[maybe_unused]] const ros::TimerEvent& te, [[maybe_unused]] size_t image_index) {
       if (!initialized_){
         return;
       }
@@ -378,6 +379,10 @@ int UVDAR_BP_Tim::generateVisualization(cv::Mat & output_image) {
       for (int j = 0; j < (int)(signals_[image_index].size()); j++) {
           cv::Point center = signals_[image_index][j].first;
           int signal_index = signals_[image_index][j].second;
+          // std::cout << "The signal index " << signal_index << std::endl;
+          if (signal_index == -2) {
+            continue;
+          }
         if (signal_index >= 0) {
             std::string signal_text = std::to_string(std::max(signal_index, 0));
             cv::putText(output_image, cv::String(signal_text.c_str()), center + cv::Point(-5, -5), cv::FONT_HERSHEY_SIMPLEX, 0.3, cv::Scalar(255, 255, 255));
@@ -394,7 +399,7 @@ int UVDAR_BP_Tim::generateVisualization(cv::Mat & output_image) {
 
     // }
     // // draw the legend
-    for (int i = 0; i < sequences_.size(); ++i) {
+    for (int i = 0; i < (int)sequences_.size(); ++i) {
       cv::Scalar color = ColorSelector::markerColor(i);
       cv::circle(output_image, cv::Point(10, 10 + 15 * i), 5, color);
       cv::putText(output_image, cv::String(std::to_string(i)), cv::Point(15, 15 + 15 * i), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 255, 255));

@@ -54,7 +54,7 @@ namespace uvdar {
                 corrVal++;
               }
             }
-            if (corrVal == i_signal.size()){
+            if (corrVal == (int)i_signal.size()){
               return s;
             }
 

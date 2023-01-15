@@ -19,7 +19,7 @@
 
   <arg name="calibrations_folder" default="$(find mrs_uav_general)/config/uvdar_calibrations"/>
 
-  <arg name="blink_process_rate" default="10"/>
+  <arg name="blink_process_rate" default="60"/>
 
   <arg name="accumulator_length"         default="12"/>
   <arg name="pitch_steps"         default="16"/>
@@ -163,7 +163,7 @@
       <param name="gui"             type="bool" value="true"/>
       <param name="publish_visualization"             type="bool" value="false"/>
       <param name="use_camera_for_visualization"         type="bool" value="false"/>
-      <param name="visualization_rate"         type="double" value="2.0"/>
+      <param name="visualization_rate"         type="double" value="15.0"/>
 
       <!-- <rosparam param="frequencies" subst_value="true"> [$(arg frequency1), $(arg frequency2), $(arg frequency3)] </rosparam> -->
       <rosparam param="signal_ids" subst_value="true"> [$(arg id1), $(arg id2), $(arg id3), $(arg id4), $(arg id5), $(arg id6), $(arg id7), $(arg id8), $(arg id9), $(arg id10), $(arg id11), $(arg id12)] </rosparam>

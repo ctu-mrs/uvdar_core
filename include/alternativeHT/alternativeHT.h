@@ -28,8 +28,8 @@ namespace uvdar
         bool debug_, visual_debug_ = false;
         
         
-        const int max_pixel_shift_x_ = 5;
-        const int max_pixel_shift_y_ = 5;
+        const int max_pixel_shift_x_ = 2;
+        const int max_pixel_shift_y_ = 2;
         const int max_potentialSequence_length_ = 22;
 
         std::vector<vectPoint3D> buffer_with_frame_points;
@@ -62,12 +62,13 @@ namespace uvdar
 
         void setSequences(std::vector<std::vector<bool>>);
 
-        void processBuffer(vectPoint3DWithIndex &, const int);
+        void processBuffer(vectPoint3DWithIndex &);
 
         void findClosestAndLEDState(vectPoint3DWithIndex &, vectPoint3DWithIndex &) ;
         void insertToSequencesBuffer(vectPoint3DWithIndex);
+        void checkIfThreeConsecutiveZeros();
 
-        mrs_msgs::Point2DWithFloat computeXYDifference(mrs_msgs::Point2DWithFloat, mrs_msgs::Point2DWithFloat );
+        mrs_msgs::Point2DWithFloat computeXYDiff(mrs_msgs::Point2DWithFloat, mrs_msgs::Point2DWithFloat );
         void swapIndex( const int, const int, vectPoint3DWithIndex & );
         void insertVirtualPointAndUpdateIndices(vectPoint3DWithIndex &, const point3DWithIndex );
         int findMatch(std::vector<bool>);

@@ -139,7 +139,7 @@
       <!-- Changeable for each nodelet independently. - no arguments! -->
       <param name="publish_visualization"             type="bool" value="false"/>
       <param name="use_camera_for_visualization"         type="bool" value="false"/>
-      <param name="visualization_rate"         type="double" value="2.0"/>
+      <param name="visualization_rate"         type="double" value="15"/>
 
 
       <param name="sequence_file"         type="string" value="$(arg sequence_file)"/>
