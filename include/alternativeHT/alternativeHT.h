@@ -67,9 +67,10 @@ namespace uvdar
         void findClosestAndLEDState(vectPoint3DWithIndex &, vectPoint3DWithIndex &) ;
         void insertToSequencesBuffer(vectPoint3DWithIndex);
         void checkIfThreeConsecutiveZeros();
+        void cleanPotentialBuffer();
 
         mrs_msgs::Point2DWithFloat computeXYDiff(mrs_msgs::Point2DWithFloat, mrs_msgs::Point2DWithFloat );
-        void swapIndex( const int, const int, vectPoint3DWithIndex & );
+        void swapIndex( const int, point3DWithIndex &, vectPoint3DWithIndex & );
         void insertVirtualPointAndUpdateIndices(vectPoint3DWithIndex &, const point3DWithIndex );
         int findMatch(std::vector<bool>);
         std::vector<std::pair<cv::Point2d, int>> getResult();

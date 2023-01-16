@@ -50,7 +50,7 @@ void alternativeHT::processBuffer( vectPoint3DWithIndex & ptsCurrentFrame) {
         buffer_3DPoint_seqIndex_.push_back(ptsCurrentFrame);
     } else {
         // buffer_3DPoint_seqIndex_.pop_front();
-        buffer_3DPoint_seqIndex_.erase(buffer_3DPoint_seqIndex_.begin());
+        buffer_3DPoint_seqIndex_.erase(buffer_3DPoint_seqIndex_.begin()); 
         buffer_3DPoint_seqIndex_.push_back(ptsCurrentFrame);
     } 
 
@@ -66,7 +66,7 @@ void alternativeHT::processBuffer( vectPoint3DWithIndex & ptsCurrentFrame) {
 
     checkIfThreeConsecutiveZeros();
 
-    std::cout << "The buffer size " << ptsCurrentFrame.size() << std::endl;
+    // std::cout << "The buffer size " << ptsCurrentFrame.size() << std::endl;
 
     insertToSequencesBuffer(ptsCurrFrame);
 
@@ -75,6 +75,8 @@ void alternativeHT::processBuffer( vectPoint3DWithIndex & ptsCurrentFrame) {
 
 void alternativeHT::findClosestAndLEDState(vectPoint3DWithIndex & ptsCurrentImg, vectPoint3DWithIndex & ptsPrevImg) {   
 
+    // std::cout << "The prev size "<<  ptsPrevImg.size() << " current "<< ptsCurrentImg.size() << "\n";
+
     for ( int iPrevImg = 0;  iPrevImg < (int)ptsPrevImg.size(); iPrevImg++ ) {
         bool nearestNeighbor = false;
         for ( int iCurrentImg = 0; iCurrentImg < (int)ptsCurrentImg.size(); iCurrentImg++ ) {
@@ -82,7 +84,8 @@ void alternativeHT::findClosestAndLEDState(vectPoint3DWithIndex & ptsCurrentImg,
             mrs_msgs::Point2DWithFloat diff = computeXYDiff(ptsCurrentImg[iCurrentImg].first, ptsPrevImg[iPrevImg].first);
             if (diff.x <= max_pixel_shift_x_ && diff.y <= max_pixel_shift_y_){
                 nearestNeighbor = true;
-                swapIndex(ptsPrevImg[iPrevImg].second, ptsCurrentImg[iCurrentImg].second, ptsCurrentImg);
+                // std::cout << "match" << std::endl;
+                // swapIndex(ptsPrevImg[iPrevImg].second, ptsCurrentImg[iCurrentImg], ptsCurrentImg);
                 break;
             } else {
                 nearestNeighbor = false;
@@ -90,6 +93,7 @@ void alternativeHT::findClosestAndLEDState(vectPoint3DWithIndex & ptsCurrentImg,
 
         }
         if (nearestNeighbor == false) {
+            // std::cout << "insert vp" << std::endl;
             insertVirtualPointAndUpdateIndices(ptsCurrentImg, ptsPrevImg[iPrevImg]);
         }
     }
@@ -111,8 +115,11 @@ mrs_msgs::Point2DWithFloat uvdar::alternativeHT::computeXYDiff(mrs_msgs::Point2D
 
 }
 
-void alternativeHT::swapIndex(const int wantedIndex, const int currentIndex ,vectPoint3DWithIndex & points){
+void alternativeHT::swapIndex(const int wantedIndex, point3DWithIndex & currentPoint ,vectPoint3DWithIndex & points){
     
+    const int currentIndex = currentPoint.second;
+
+
     if ( wantedIndex == currentIndex ) {
         return;
     }
@@ -122,16 +129,20 @@ void alternativeHT::swapIndex(const int wantedIndex, const int currentIndex ,vec
         if ( p.second == wantedIndex ) {
             int swapIndexTemp = points[currentIndex].second;
             p.second = swapIndexTemp;
+            std::cout << "swap occured\n";
         } 
     }
     // std::cout << "SWAP - Wanted Prev" <<  wantedIndex << " Current " << currentIndex << std::endl;
     
     points[currentIndex].second = wantedIndex;
 
+
+
 }
 
 void alternativeHT::insertVirtualPointAndUpdateIndices(vectPoint3DWithIndex & pointVector, const point3DWithIndex pointPrevFrame)
 {   
+    // std::cout << "Insert vp" << std::endl;
 
     point3DWithIndex p;
     p.first = pointPrevFrame.first;
@@ -139,11 +150,11 @@ void alternativeHT::insertVirtualPointAndUpdateIndices(vectPoint3DWithIndex & po
 
     p.second = pointVector.size(); // prevention for inserting duplicated indices
     pointVector.push_back(p);
-    swapIndex( pointPrevFrame.second, p.second, pointVector );
+    // swapIndex( pointPrevFrame.second, p, pointVector );
 
 }
 
-//TODO: Now not working!
+//TODO: Now not working!?
 void alternativeHT::checkIfThreeConsecutiveZeros(){
 
     auto & currentFrame   =   buffer_3DPoint_seqIndex_.end()[-1];
@@ -182,16 +193,17 @@ void alternativeHT::checkIfThreeConsecutiveZeros(){
 void alternativeHT::insertToSequencesBuffer(vectPoint3DWithIndex pts){
 
     std::scoped_lock lock(mutex_potSequence_);
+    // std::cout << "++++++++++++++" << std::endl;
     for (size_t i = 0; i < pts.size(); i++) {
-        int sequenceIndex = pts[i].second;
-        int currPointValue = pts[i].first.value;
+        const int sequenceIndex = pts[i].second;
+        const int currPointValue = pts[i].first.value;
         cv::Point2d currPoint = cv::Point(pts[i].first.x, pts[i].first.y);
-
         size_t sizeCurrSeq = potentialSequences_[sequenceIndex].first.size();
+        
+        // std::cout << sequenceIndex << ", ";
 
-        if ( sizeCurrSeq == ( originalSequences_[0].size()) ) // TODO: hard coded value..
-        {
-            // printVectorIfNotEmpty(potentialSequences_[sequenceIndex].first, "insert");
+        if ( sizeCurrSeq == ( originalSequences_[0].size()) ) {
+            // TODO: MOVE ALL ONE FORWARD???
             potentialSequences_[sequenceIndex].first.erase(potentialSequences_[sequenceIndex].first.begin()); 
         }
 
@@ -204,9 +216,32 @@ void alternativeHT::insertToSequencesBuffer(vectPoint3DWithIndex pts){
         } else {
             potentialSequences_[sequenceIndex].first.push_back(false);
         }
+        // printVectorIfNotEmpty(potentialSequences_[sequenceIndex].first, "Potential Sequence");
         potentialSequences_[sequenceIndex].second = currPoint;
     }
+
+    // cleanPotentialBuffer();
+
+    std::cout << "The sequences: "<<std::endl;
+    for (const auto l  : potentialSequences_) {
+        printVectorIfNotEmpty(l.first, "Seq");    
+    }
+    std::cout << "\n";
 }
+
+void alternativeHT::cleanPotentialBuffer(){
+
+    for (auto & s : potentialSequences_){
+        if (s.first.size() > 2){
+            for (int i = 2; i < s.first.size(); i++){
+                if (s.first[i-2] == 0 && s.first[i-1] == 0 && s.first[i] == 0){
+                    s.first.clear();
+                }
+            }
+        }
+    }
+}
+
 
 int alternativeHT::findMatch(std::vector<bool> sequence){
 

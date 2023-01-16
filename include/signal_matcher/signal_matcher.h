@@ -46,6 +46,10 @@ namespace uvdar {
           return -1;
         }
 
+        if (i_signal.size() < 3){
+          return -3;
+        }
+
         for (int s=0; s<(int)(sequences_.size()); s++){
           for (int i=0; i<(int)sequences_[s].size(); i++){
             int corrVal = 0;
@@ -54,10 +58,10 @@ namespace uvdar {
                 corrVal++;
               }
             }
-            if (corrVal == (int)i_signal.size()){
+            // if (corrVal == (int)i_signal.size()){
+            if (corrVal == sequence_size_){
               return s;
             }
-
           }
         }
         return -1; 
