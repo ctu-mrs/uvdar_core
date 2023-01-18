@@ -53,25 +53,24 @@ namespace uvdar
         }
         
         void setManchesterBoolTrue(){
+            std::cout << "==============================================================" << std::endl;
             enable_manchester_ = true;
         }
 
         void initBuffer();
-        void initSequenceBuffer();
         void setDebugFlags(bool, bool);
-
         void setSequences(std::vector<std::vector<bool>>);
 
         void processBuffer(vectPoint3DWithIndex &);
 
         void findClosestAndLEDState(vectPoint3DWithIndex &, vectPoint3DWithIndex &) ;
-        void insertToSequencesBuffer(vectPoint3DWithIndex);
+        mrs_msgs::Point2DWithFloat computeXYDiff(mrs_msgs::Point2DWithFloat, mrs_msgs::Point2DWithFloat );
+        void insertPointToSequence(const point3DWithIndex point);
+        void insertVirtualPoint(vectPoint3DWithIndex &, const point3DWithIndex );
+
         void checkIfThreeConsecutiveZeros();
         void cleanPotentialBuffer();
 
-        mrs_msgs::Point2DWithFloat computeXYDiff(mrs_msgs::Point2DWithFloat, mrs_msgs::Point2DWithFloat );
-        void swapIndex( const int, point3DWithIndex &, vectPoint3DWithIndex & );
-        void insertVirtualPointAndUpdateIndices(vectPoint3DWithIndex &, const point3DWithIndex );
         int findMatch(std::vector<bool>);
         std::vector<std::pair<cv::Point2d, int>> getResult();
         

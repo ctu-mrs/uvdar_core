@@ -234,21 +234,13 @@ void UVDAR_BP_Tim::insertPointToAHT(const mrs_msgs::ImagePointsWithFloatStampedC
 
     vectPoint3D points(std::begin(ptsMsg->points), std::end(ptsMsg->points));
     
-    // std::cout << "============================================" << std::endl;
-
-    // set the default LED state to "on" for any existent point
-    for (auto & point : points ) {
-        point.value = 1;  
-    }
-    
     std::vector<std::pair<mrs_msgs::Point2DWithFloat, int>> pointsWithIndex;
     for ( size_t i = 0; i < points.size(); i++ ) {
         points[i].value = 1;
-        pointsWithIndex.push_back( std::make_pair( points[i], i ) );
+        pointsWithIndex.push_back(std::make_pair( points[i],-1));
     }
 
     aht_[img_index]->processBuffer(pointsWithIndex);
-    // aht_[img_index]->processBuffer( points, buffer_cnt_ );
 
     updateBufferAndSetFirstCallBool(img_index);
 
@@ -275,16 +267,8 @@ void UVDAR_BP_Tim::updateBufferAndSetFirstCallBool(const size_t & img_index) {
         buffer_cnt_ = 0;
         
         first_call_ = false; 
-        // TODO: call only once for each 
+        // TODO: call only once for each cam
         aht_[img_index]->setFirstCallBool(first_call_);
-
-        // call flag once - MAYBE NOT WORKING WITH MULTIPLE CAMERAS!!!!!!!!
-        // [[maybe_unused]] static bool once = [i=img_index, firstCall = first_call_, this](){
-        //     aht_[i]->setFirstCallBool(firstCall);
-        //     std::cout << "FIRST BOOL CALL" << std::endl;
-        //     return true;
-        // }();
-
     }
 }
 
@@ -379,8 +363,7 @@ int UVDAR_BP_Tim::generateVisualization(cv::Mat & output_image) {
       for (int j = 0; j < (int)(signals_[image_index].size()); j++) {
           cv::Point center = signals_[image_index][j].first;
           int signal_index = signals_[image_index][j].second;
-          // std::cout << "The signal index " << signal_index << std::endl;
-          if (signal_index == -2) {
+          if (signal_index == -2 || signal_index == -3) {
             continue;
           }
         if (signal_index >= 0) {

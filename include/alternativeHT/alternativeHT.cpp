@@ -28,20 +28,6 @@ void alternativeHT::setSequences(std::vector<std::vector<bool>> i_sequences){
     matcher_ = std::make_unique<SignalMatcher>(originalSequences_);
     
     number_sequences_ = originalSequences_.size(); 
-
-    initSequenceBuffer();
-
-}
-
-void alternativeHT::initSequenceBuffer(){
-
-    // TODO: right now out of bounds execption might happen!
-    for ( int i = 0; i < number_sequences_; i++ ){
-        const int sequenceLength = originalSequences_[0].size() - 2; // TODO: fix that constant - relative arbitrary 
-        if (sequenceLength < 0 ) {ROS_ERROR("[AlternativeHT]: The sequence length is too short!");}
-        std::pair<std::vector<bool>, cv::Point2d> pair;
-        potentialSequences_.push_back(pair);
-    }
 }
 
 void alternativeHT::processBuffer( vectPoint3DWithIndex & ptsCurrentFrame) {
@@ -49,12 +35,11 @@ void alternativeHT::processBuffer( vectPoint3DWithIndex & ptsCurrentFrame) {
     if ((int)buffer_3DPoint_seqIndex_.size() < buffer_size_){
         buffer_3DPoint_seqIndex_.push_back(ptsCurrentFrame);
     } else {
-        // buffer_3DPoint_seqIndex_.pop_front();
         buffer_3DPoint_seqIndex_.erase(buffer_3DPoint_seqIndex_.begin()); 
         buffer_3DPoint_seqIndex_.push_back(ptsCurrentFrame);
     } 
 
-    if (first_call_ ) {
+    if (buffer_3DPoint_seqIndex_.size() < 2) {
             return;
     }
 
@@ -62,100 +47,110 @@ void alternativeHT::processBuffer( vectPoint3DWithIndex & ptsCurrentFrame) {
     vectPoint3DWithIndex & ptsPrevFrame = buffer_3DPoint_seqIndex_.end()[-2];
 
     findClosestAndLEDState( ptsCurrFrame, ptsPrevFrame );
-    // printVectorIfNotEmpty(buffer_3DPoint_seqIndex_[buffer_cnt], "")
 
     checkIfThreeConsecutiveZeros();
+    cleanPotentialBuffer();
 
-    // std::cout << "The buffer size " << ptsCurrentFrame.size() << std::endl;
 
-    insertToSequencesBuffer(ptsCurrFrame);
+    std::cout << "The buffer size is: " << potentialSequences_.size() <<  std::endl;
+    for (const auto l : potentialSequences_){
+        printVectorIfNotEmpty(l.first, "sequence");
+    }
 
 }
 
 
 void alternativeHT::findClosestAndLEDState(vectPoint3DWithIndex & ptsCurrentImg, vectPoint3DWithIndex & ptsPrevImg) {   
 
-    // std::cout << "The prev size "<<  ptsPrevImg.size() << " current "<< ptsCurrentImg.size() << "\n";
-
-    for ( int iPrevImg = 0;  iPrevImg < (int)ptsPrevImg.size(); iPrevImg++ ) {
+    for(int iPrevImg = 0;  iPrevImg < (int)ptsPrevImg.size(); iPrevImg++){
         bool nearestNeighbor = false;
-        for ( int iCurrentImg = 0; iCurrentImg < (int)ptsCurrentImg.size(); iCurrentImg++ ) {
-            
+        for(int iCurrentImg = 0; iCurrentImg < (int)ptsCurrentImg.size(); iCurrentImg++){
             mrs_msgs::Point2DWithFloat diff = computeXYDiff(ptsCurrentImg[iCurrentImg].first, ptsPrevImg[iPrevImg].first);
-            if (diff.x <= max_pixel_shift_x_ && diff.y <= max_pixel_shift_y_){
-                nearestNeighbor = true;
-                // std::cout << "match" << std::endl;
-                // swapIndex(ptsPrevImg[iPrevImg].second, ptsCurrentImg[iCurrentImg], ptsCurrentImg);
+            if(diff.x <= max_pixel_shift_x_ && diff.y <= max_pixel_shift_y_){
+                nearestNeighbor = true;           
+                if(ptsPrevImg[iPrevImg].second == -1 && ptsCurrentImg[iCurrentImg].second == -1){
+                    ptsPrevImg[iPrevImg].second         = potentialSequences_.size();
+                    ptsCurrentImg[iCurrentImg].second   = potentialSequences_.size();
+                }else if(ptsPrevImg[iPrevImg].second == -1 && ptsCurrentImg[iCurrentImg].second != -1){
+                    ROS_WARN("POINT ALREADY ASSIGNED! WRONG ASSOCIATEN MAYBE OCURED");
+                }else{
+                    ptsCurrentImg[iCurrentImg].second = ptsPrevImg[iPrevImg].second;
+                }
+                if (buffer_3DPoint_seqIndex_.size() < 3){
+                    std::cout << "Should only be called in the beginning!\n"; 
+                    insertPointToSequence(ptsPrevImg[iPrevImg]);
+                }
+                insertPointToSequence(ptsCurrentImg[iCurrentImg]);
                 break;
-            } else {
+            }else{
                 nearestNeighbor = false;
             }
-
         }
-        if (nearestNeighbor == false) {
-            // std::cout << "insert vp" << std::endl;
-            insertVirtualPointAndUpdateIndices(ptsCurrentImg, ptsPrevImg[iPrevImg]);
+        if(nearestNeighbor == false){
+            if (ptsPrevImg[iPrevImg].second == -1){
+                ptsPrevImg[iPrevImg].second = potentialSequences_.size();
+                insertPointToSequence(ptsPrevImg[iPrevImg]);
+            }
+            insertVirtualPoint(ptsCurrentImg, ptsPrevImg[iPrevImg]);
+            insertPointToSequence(ptsCurrentImg.end()[-1]);
         }
     }
-    //     std::cout << "======================"  << std::endl;
-    // for (auto p : ptsCurrentImg) {
-    //     std::cout << "Point" << p.first.x  << "," << p.first.y << " Index " << p.second << std::endl;
-    // }
-    // std::cout << "==========" << std::endl;
-
 }
 
 mrs_msgs::Point2DWithFloat uvdar::alternativeHT::computeXYDiff(mrs_msgs::Point2DWithFloat first, mrs_msgs::Point2DWithFloat second){
-
-    mrs_msgs::Point2DWithFloat p; 
-    p.x = std::abs(first.x - second.x);
-    p.y = std::abs(first.y - second.y);
-
-    return p;
-
+    
+    mrs_msgs::Point2DWithFloat difference; 
+    difference.x = std::abs(first.x - second.x);
+    difference.y = std::abs(first.y - second.y);
+    return difference;
 }
 
-void alternativeHT::swapIndex(const int wantedIndex, point3DWithIndex & currentPoint ,vectPoint3DWithIndex & points){
+void alternativeHT::insertPointToSequence(const point3DWithIndex point){
+    int insertIndex = point.second;
+    int stateCurrentPoint    = point.first.value;  
+    cv::Point2d p = cv::Point2d(point.first.x, point.first.y);
+    bool ledState;
+    if (stateCurrentPoint){
+        ledState = true; 
+    } else {
+        ledState = false;
+    }
     
-    const int currentIndex = currentPoint.second;
-
-
-    if ( wantedIndex == currentIndex ) {
-        return;
+    // start new sequence
+    if (insertIndex >= potentialSequences_.size()){
+        std::vector<bool> newSeq;
+        newSeq.push_back(ledState);
+        potentialSequences_.push_back(std::make_pair(newSeq, p));
+        return; 
     }
 
-    for ( auto & p : points ) {
-
-        if ( p.second == wantedIndex ) {
-            int swapIndexTemp = points[currentIndex].second;
-            p.second = swapIndexTemp;
-            std::cout << "swap occured\n";
-        } 
+    if (potentialSequences_[insertIndex].first.size() == originalSequences_[0].size()){
+        potentialSequences_[insertIndex].first.erase(potentialSequences_[insertIndex].first.begin());
     }
-    // std::cout << "SWAP - Wanted Prev" <<  wantedIndex << " Current " << currentIndex << std::endl;
+
+    potentialSequences_[insertIndex].first.push_back(ledState);
+    potentialSequences_[insertIndex].second = cv::Point2d(point.first.x, point.first.y);
+
+}
+
+void alternativeHT::insertVirtualPoint(vectPoint3DWithIndex & pointVector, const point3DWithIndex pointPrevFrame){   
+
+    point3DWithIndex virtualPoint;
+    virtualPoint.first = pointPrevFrame.first;
+    virtualPoint.second = pointPrevFrame.second;
     
-    points[currentIndex].second = wantedIndex;
+    virtualPoint.first.value = 0; // equals LED "off" state
 
-
-
+    pointVector.push_back(virtualPoint);
 }
 
-void alternativeHT::insertVirtualPointAndUpdateIndices(vectPoint3DWithIndex & pointVector, const point3DWithIndex pointPrevFrame)
-{   
-    // std::cout << "Insert vp" << std::endl;
-
-    point3DWithIndex p;
-    p.first = pointPrevFrame.first;
-    p.first.value = 0; // equals LED "off" state
-
-    p.second = pointVector.size(); // prevention for inserting duplicated indices
-    pointVector.push_back(p);
-    // swapIndex( pointPrevFrame.second, p, pointVector );
-
-}
 
 //TODO: Now not working!?
 void alternativeHT::checkIfThreeConsecutiveZeros(){
+    
+    if (first_call_){
+        return;
+    }
 
     auto & currentFrame   =   buffer_3DPoint_seqIndex_.end()[-1];
     auto & lastFrame      =   buffer_3DPoint_seqIndex_.end()[-2];
@@ -186,57 +181,29 @@ void alternativeHT::checkIfThreeConsecutiveZeros(){
             }
         }
     }
-    // std::cout << "The sizes " << currentFrame.size() << "," << lastFrame.size() << ", " << thirdLastFrame.size()<< std::endl;
-
 }
 
-void alternativeHT::insertToSequencesBuffer(vectPoint3DWithIndex pts){
 
-    std::scoped_lock lock(mutex_potSequence_);
-    // std::cout << "++++++++++++++" << std::endl;
-    for (size_t i = 0; i < pts.size(); i++) {
-        const int sequenceIndex = pts[i].second;
-        const int currPointValue = pts[i].first.value;
-        cv::Point2d currPoint = cv::Point(pts[i].first.x, pts[i].first.y);
-        size_t sizeCurrSeq = potentialSequences_[sequenceIndex].first.size();
-        
-        // std::cout << sequenceIndex << ", ";
-
-        if ( sizeCurrSeq == ( originalSequences_[0].size()) ) {
-            // TODO: MOVE ALL ONE FORWARD???
-            potentialSequences_[sequenceIndex].first.erase(potentialSequences_[sequenceIndex].first.begin()); 
-        }
-
-        if (sequenceIndex > number_sequences_) {
-            ROS_WARN("[AlternativeHT]: Can't insert point to sequence buffer! The current maximal index number is: %d. The wanted insertion has the index: %d", number_sequences_, sequenceIndex); 
-            break;
-        }
-        if(currPointValue == 1) {
-            potentialSequences_[sequenceIndex].first.push_back(true); 
-        } else {
-            potentialSequences_[sequenceIndex].first.push_back(false);
-        }
-        // printVectorIfNotEmpty(potentialSequences_[sequenceIndex].first, "Potential Sequence");
-        potentialSequences_[sequenceIndex].second = currPoint;
-    }
-
-    // cleanPotentialBuffer();
-
-    std::cout << "The sequences: "<<std::endl;
-    for (const auto l  : potentialSequences_) {
-        printVectorIfNotEmpty(l.first, "Seq");    
-    }
-    std::cout << "\n";
-}
 
 void alternativeHT::cleanPotentialBuffer(){
 
-    for (auto & s : potentialSequences_){
-        if (s.first.size() > 2){
-            for (int i = 2; i < s.first.size(); i++){
-                if (s.first[i-2] == 0 && s.first[i-1] == 0 && s.first[i] == 0){
-                    s.first.clear();
+    for (int s = 0; s < potentialSequences_.size(); s++){
+        if (potentialSequences_[s].first.size() > 2){
+            for (int j = 2; j < potentialSequences_[s].first.size(); j++){
+                // if (potentialSequences_[s].first[j-2] == 0 && potentialSequences_[s].first[j-1] == 0 && potentialSequences_[s].first[j] == 0){
+                //     ROS_WARN("I'm here ");
+                //     potentialSequences_.erase(potentialSequences_.begin()+s);
+
+                // }
+                bool thirdLast = potentialSequences_[s].first.end()[-3];
+                bool secondLast = potentialSequences_[s].first.end()[-2];
+                bool lastElement = potentialSequences_[s].first.end()[-1];
+                if (!thirdLast && !secondLast && !lastElement){
+                    ROS_WARN("HERE");
+                    potentialSequences_[s].first.end()[-2] = true;
+                    potentialSequences_[s].first.end()[-1] = true;
                 }
+
             }
         }
     }
@@ -250,27 +217,26 @@ int alternativeHT::findMatch(std::vector<bool> sequence){
             return -2;
         }
     }
-    
     int id = matcher_->matchSignalWithCrossCorr(sequence);
-    // int id = matcher_->matchSignal(sequence);
 
     return id;
 }
 
-
+// TODO: not called right now!!
 std::vector<std::pair<cv::Point2d, int>> alternativeHT::getResult(){
     
     std::vector<std::pair<cv::Point2d, int>> retrievedSignals;
 
-    {
-        std::scoped_lock lock(mutex_potSequence_);
+        // std::cout << "The size of the sequence " << potentialSequences_.size() << std::endl;
         for (const auto  sequence : potentialSequences_) {
             // if (debug_) printVectorIfNotEmpty(sequence.first, "predicted sequence");
             int id = findMatch(sequence.first);
+            
+            // printVectorIfNotEmpty(sequence.first, "pot");
+
             cv::Point2d originPoint = sequence.second;
             retrievedSignals.push_back(std::make_pair(originPoint, id));
-}
-    }
+        }
     return retrievedSignals;
 }
 
