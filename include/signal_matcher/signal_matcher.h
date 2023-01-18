@@ -3,7 +3,7 @@
 
 #define MATCH_ERROR_THRESHOLD 14
 /* #define MATCH_ERROR_THRESHOLD 1 */
-#include <iostream>
+
 namespace uvdar {
 
   class SignalMatcher{
@@ -58,7 +58,6 @@ namespace uvdar {
                 corrVal++;
               }
             }
-            // if (corrVal == (int)i_signal.size()){
             if (corrVal == sequence_size_){
               return s;
             }
