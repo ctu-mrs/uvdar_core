@@ -174,14 +174,12 @@ bool UVDAR_BP_Tim::checkCameraTopicSizeMatch() {
 
     if (_blinkers_seen_topics.size() != _points_seen_topics.size())
     {
-        ROS_ERROR_STREAM("[UVDAR_BP_Tim]: The number of poinsSeenTopics (" << _points_seen_topics.size()
-                                                                          << ") is not matching the number of blinkers_seen_topics (" << _blinkers_seen_topics.size() << ")!");
+        ROS_ERROR_STREAM("[UVDAR_BP_Tim]: The number of pointsSeenTopics (" << _points_seen_topics.size() << ") is not matching the number of blinkers_seen_topics (" << _blinkers_seen_topics.size() << ")!");
         return false;
     }
     if (_estimated_framerate_topics.size() != _points_seen_topics.size())
     {
-        ROS_ERROR_STREAM("[UVDAR_BP_Tim] The number of poinsSeenTopics (" << _points_seen_topics.size()
-                                                                          << ") is not matching the number of blinkers_seen_topics (" << _estimated_framerate_topics.size() << ")!");
+        ROS_ERROR_STREAM("[UVDAR_BP_Tim] The number of pointsSeenTopics (" << _points_seen_topics.size() << ") is not matching the number of blinkers_seen_topics (" << _estimated_framerate_topics.size() << ")!");
         return false;
     }
     return true;
@@ -232,15 +230,8 @@ void UVDAR_BP_Tim::subscribeToPublishedPoints() {
 void UVDAR_BP_Tim::insertPointToAHT(const mrs_msgs::ImagePointsWithFloatStampedConstPtr &ptsMsg, const size_t &img_index) {
     if (!initialized_) return;
 
-    vectPoint3D points(std::begin(ptsMsg->points), std::end(ptsMsg->points));
-    
-    std::vector<std::pair<mrs_msgs::Point2DWithFloat, int>> pointsWithIndex;
-    for ( size_t i = 0; i < points.size(); i++ ) {
-        points[i].value = 1;
-        pointsWithIndex.push_back(std::make_pair( points[i],-1));
-    }
 
-    aht_[img_index]->processBuffer(pointsWithIndex);
+    aht_[img_index]->processBuffer(ptsMsg);
 
     updateBufferAndSetFirstCallBool(img_index);
 

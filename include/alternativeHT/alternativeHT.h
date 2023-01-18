@@ -5,12 +5,20 @@
 
 #include <mutex>
 #include <opencv2/highgui/highgui.hpp>
-#include <mrs_msgs/Point2DWithFloat.h>
+#include <mrs_msgs/ImagePointsWithFloatStamped.h>
 #include "signal_matcher/signal_matcher.h"
 
 
 namespace uvdar
 {
+
+    struct BlinkSignal{
+        cv::Point2d point;
+        bool ledState; 
+        int index;
+        ros::Time insertTime;
+    };
+
     using vectPoint3D = std::vector<mrs_msgs::Point2DWithFloat>;
     using point3DWithIndex = std::pair<mrs_msgs::Point2DWithFloat, int>;
     using vectPoint3DWithIndex = std::vector<point3DWithIndex>;
@@ -30,10 +38,8 @@ namespace uvdar
         
         const int max_pixel_shift_x_ = 2;
         const int max_pixel_shift_y_ = 2;
-        const int max_potentialSequence_length_ = 22;
 
-        std::vector<vectPoint3D> buffer_with_frame_points;
-        std::vector<vectPoint3DWithIndex> buffer_3DPoint_seqIndex_;
+        std::vector<std::vector<BlinkSignal>> buffer;
 
         std::vector<std::vector<bool>> originalSequences_;
         // std::vector<std::vector<bool>> potentialSequences_;
@@ -42,6 +48,8 @@ namespace uvdar
 
 
         int number_sequences_;
+
+
         std::unique_ptr<SignalMatcher> matcher_;
 
     public:
@@ -61,12 +69,12 @@ namespace uvdar
         void setDebugFlags(bool, bool);
         void setSequences(std::vector<std::vector<bool>>);
 
-        void processBuffer(vectPoint3DWithIndex &);
+        void processBuffer(const mrs_msgs::ImagePointsWithFloatStampedConstPtr);
 
-        void findClosestAndLEDState(vectPoint3DWithIndex &, vectPoint3DWithIndex &) ;
-        mrs_msgs::Point2DWithFloat computeXYDiff(mrs_msgs::Point2DWithFloat, mrs_msgs::Point2DWithFloat );
-        void insertPointToSequence(const point3DWithIndex point);
-        void insertVirtualPoint(vectPoint3DWithIndex &, const point3DWithIndex );
+        void findClosestAndLEDState(std::vector<BlinkSignal> &, std::vector<BlinkSignal> &);
+        cv::Point2d computeXYDiff(const cv::Point2d, const cv::Point2d);
+        void insertPointToSequence(BlinkSignal);
+        void insertVirtualPoint(std::vector<BlinkSignal> &, const BlinkSignal );
 
         void checkIfThreeConsecutiveZeros();
         void cleanPotentialBuffer();

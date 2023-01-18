@@ -11,9 +11,10 @@ alternativeHT::alternativeHT( int i_buffer_size ){
 
 void alternativeHT::initBuffer(){
 
-    for ( int i = 0; i < buffer_size_; i++ ) {
-        std::vector<std::pair<mrs_msgs::Point2DWithFloat, int>> p; 
-        buffer_3DPoint_seqIndex_.push_back(p);
+
+    for (int i = 0; i < buffer_size_; i++){
+        std::vector<BlinkSignal> signalWithPointDummy;
+        buffer.push_back(signalWithPointDummy);
     }
 }
 
@@ -30,23 +31,32 @@ void alternativeHT::setSequences(std::vector<std::vector<bool>> i_sequences){
     number_sequences_ = originalSequences_.size(); 
 }
 
-void alternativeHT::processBuffer( vectPoint3DWithIndex & ptsCurrentFrame) {
+void alternativeHT::processBuffer(const mrs_msgs::ImagePointsWithFloatStampedConstPtr ptsMsg) {
 
-    if ((int)buffer_3DPoint_seqIndex_.size() < buffer_size_){
-        buffer_3DPoint_seqIndex_.push_back(ptsCurrentFrame);
-    } else {
-        buffer_3DPoint_seqIndex_.erase(buffer_3DPoint_seqIndex_.begin()); 
-        buffer_3DPoint_seqIndex_.push_back(ptsCurrentFrame);
-    } 
 
-    if (buffer_3DPoint_seqIndex_.size() < 2) {
-            return;
+    vectPoint3D points(std::begin(ptsMsg->points), std::end(ptsMsg->points));
+    std::vector<BlinkSignal> signals; 
+    for ( size_t i = 0; i < points.size(); i++ ) {
+        BlinkSignal s;
+        s.point = cv::Point(points[i].x, points[i].y);
+        s.index = -1;
+        s.ledState = true; // every existent point is "on"
+        s.insertTime = ptsMsg->stamp;
+        signals.push_back(s);
     }
 
-    vectPoint3DWithIndex & ptsCurrFrame = buffer_3DPoint_seqIndex_.end()[-1];
-    vectPoint3DWithIndex & ptsPrevFrame = buffer_3DPoint_seqIndex_.end()[-2];
+    if((int)buffer.size() < buffer_size_){
+        buffer.push_back(signals);
+    }else{
+        buffer.erase(buffer.begin());
+        buffer.push_back(signals);
+    }
 
-    findClosestAndLEDState( ptsCurrFrame, ptsPrevFrame );
+    if((int)buffer.size() < 2){
+        return;
+    }
+
+    findClosestAndLEDState(buffer.end()[-1], buffer.end()[-2]);
 
     checkIfThreeConsecutiveZeros();
     cleanPotentialBuffer();
@@ -60,23 +70,23 @@ void alternativeHT::processBuffer( vectPoint3DWithIndex & ptsCurrentFrame) {
 }
 
 
-void alternativeHT::findClosestAndLEDState(vectPoint3DWithIndex & ptsCurrentImg, vectPoint3DWithIndex & ptsPrevImg) {   
+void alternativeHT::findClosestAndLEDState(std::vector<BlinkSignal> & ptsCurrentImg, std::vector<BlinkSignal> & ptsPrevImg) {   
 
     for(int iPrevImg = 0;  iPrevImg < (int)ptsPrevImg.size(); iPrevImg++){
         bool nearestNeighbor = false;
         for(int iCurrentImg = 0; iCurrentImg < (int)ptsCurrentImg.size(); iCurrentImg++){
-            mrs_msgs::Point2DWithFloat diff = computeXYDiff(ptsCurrentImg[iCurrentImg].first, ptsPrevImg[iPrevImg].first);
+            cv::Point2d diff = computeXYDiff(ptsCurrentImg[iCurrentImg].point, ptsPrevImg[iPrevImg].point);
             if(diff.x <= max_pixel_shift_x_ && diff.y <= max_pixel_shift_y_){
                 nearestNeighbor = true;           
-                if(ptsPrevImg[iPrevImg].second == -1 && ptsCurrentImg[iCurrentImg].second == -1){
-                    ptsPrevImg[iPrevImg].second         = potentialSequences_.size();
-                    ptsCurrentImg[iCurrentImg].second   = potentialSequences_.size();
-                }else if(ptsPrevImg[iPrevImg].second == -1 && ptsCurrentImg[iCurrentImg].second != -1){
+                if(ptsPrevImg[iPrevImg].index == -1 && ptsCurrentImg[iCurrentImg].index == -1){
+                    ptsPrevImg[iPrevImg].index         = potentialSequences_.size();
+                    ptsCurrentImg[iCurrentImg].index   = potentialSequences_.size();
+                }else if(ptsPrevImg[iPrevImg].index == -1 && ptsCurrentImg[iCurrentImg].index != -1){
                     ROS_WARN("POINT ALREADY ASSIGNED! WRONG ASSOCIATEN MAYBE OCURED");
                 }else{
-                    ptsCurrentImg[iCurrentImg].second = ptsPrevImg[iPrevImg].second;
+                    ptsCurrentImg[iCurrentImg].index = ptsPrevImg[iPrevImg].index;
                 }
-                if (buffer_3DPoint_seqIndex_.size() < 3){
+                if (buffer.size() < 3){
                     std::cout << "Should only be called in the beginning!\n"; 
                     insertPointToSequence(ptsPrevImg[iPrevImg]);
                 }
@@ -87,8 +97,8 @@ void alternativeHT::findClosestAndLEDState(vectPoint3DWithIndex & ptsCurrentImg,
             }
         }
         if(nearestNeighbor == false){
-            if (ptsPrevImg[iPrevImg].second == -1){
-                ptsPrevImg[iPrevImg].second = potentialSequences_.size();
+            if (ptsPrevImg[iPrevImg].index == -1){
+                ptsPrevImg[iPrevImg].index = potentialSequences_.size();
                 insertPointToSequence(ptsPrevImg[iPrevImg]);
             }
             insertVirtualPoint(ptsCurrentImg, ptsPrevImg[iPrevImg]);
@@ -97,29 +107,22 @@ void alternativeHT::findClosestAndLEDState(vectPoint3DWithIndex & ptsCurrentImg,
     }
 }
 
-mrs_msgs::Point2DWithFloat uvdar::alternativeHT::computeXYDiff(mrs_msgs::Point2DWithFloat first, mrs_msgs::Point2DWithFloat second){
+cv::Point2d uvdar::alternativeHT::computeXYDiff(const cv::Point2d first, const cv::Point2d second){
     
-    mrs_msgs::Point2DWithFloat difference; 
+    cv::Point2d difference; 
     difference.x = std::abs(first.x - second.x);
     difference.y = std::abs(first.y - second.y);
     return difference;
 }
 
-void alternativeHT::insertPointToSequence(const point3DWithIndex point){
-    int insertIndex = point.second;
-    int stateCurrentPoint    = point.first.value;  
-    cv::Point2d p = cv::Point2d(point.first.x, point.first.y);
-    bool ledState;
-    if (stateCurrentPoint){
-        ledState = true; 
-    } else {
-        ledState = false;
-    }
+void alternativeHT::insertPointToSequence(BlinkSignal signal){
+    int insertIndex = signal.index;
+    cv::Point2d p = signal.point;
     
     // start new sequence
     if (insertIndex >= potentialSequences_.size()){
         std::vector<bool> newSeq;
-        newSeq.push_back(ledState);
+        newSeq.push_back(signal.ledState);
         potentialSequences_.push_back(std::make_pair(newSeq, p));
         return; 
     }
@@ -128,20 +131,19 @@ void alternativeHT::insertPointToSequence(const point3DWithIndex point){
         potentialSequences_[insertIndex].first.erase(potentialSequences_[insertIndex].first.begin());
     }
 
-    potentialSequences_[insertIndex].first.push_back(ledState);
-    potentialSequences_[insertIndex].second = cv::Point2d(point.first.x, point.first.y);
+    potentialSequences_[insertIndex].first.push_back(signal.ledState);
+    potentialSequences_[insertIndex].second = signal.point;
 
 }
 
-void alternativeHT::insertVirtualPoint(vectPoint3DWithIndex & pointVector, const point3DWithIndex pointPrevFrame){   
+void alternativeHT::insertVirtualPoint(std::vector<BlinkSignal> & signalVector, const BlinkSignal signalPrevFrame){   
 
-    point3DWithIndex virtualPoint;
-    virtualPoint.first = pointPrevFrame.first;
-    virtualPoint.second = pointPrevFrame.second;
-    
-    virtualPoint.first.value = 0; // equals LED "off" state
-
-    pointVector.push_back(virtualPoint);
+    BlinkSignal offState;
+    offState.point = signalPrevFrame.point;
+    offState.index = signalPrevFrame.index;
+    offState.ledState = false;
+    offState.insertTime = ros::Time::now(); //TODO: DOUBLE CHECK SAME FORMAT?! 
+    signalVector.push_back(offState);
 }
 
 
@@ -152,22 +154,22 @@ void alternativeHT::checkIfThreeConsecutiveZeros(){
         return;
     }
 
-    auto & currentFrame   =   buffer_3DPoint_seqIndex_.end()[-1];
-    auto & lastFrame      =   buffer_3DPoint_seqIndex_.end()[-2];
-    auto & thirdLastFrame = buffer_3DPoint_seqIndex_.end()[-3];
+    auto & currentFrame   =   buffer.end()[-1];
+    auto & lastFrame      =   buffer.end()[-2];
+    auto & thirdLastFrame = buffer.end()[-3];
 
     for (int i = 0; i < (int)currentFrame.size(); i++) {
-        const int valCurrFrame = currentFrame[i].first.value;
-        const int index        = currentFrame[i].second;
+        bool valCurrFrame = currentFrame[i].ledState;
+        const int index = currentFrame[i].index;
         for (int k = 0; k < (int)lastFrame.size(); k++) {
-            const int valLastFrame  = lastFrame[k].first.value;
-            const int indexLast     = lastFrame[k].second; 
+            const int valLastFrame = lastFrame[k].ledState;
+            const int indexLast = lastFrame[k].index; 
             if (index == indexLast) {
                 for ( int l = 0; l < (int)thirdLastFrame.size(); l++ ){
-                    const int valThirdLastFrame = thirdLastFrame[l].first.value;
-                    const int indexThirdLast = thirdLastFrame[l].second; 
+                    const int valThirdLastFrame = thirdLastFrame[l].ledState;
+                    const int indexThirdLast = thirdLastFrame[l].index; 
                     if (index == indexThirdLast){
-                        if ( valCurrFrame == 0 && valLastFrame == 0 && valThirdLastFrame == 0){
+                        if (!valCurrFrame && !valLastFrame && !valThirdLastFrame){
                             if (debug_){
                                 ROS_WARN("[AlternativeHT]: Three consecutive points zero - Is Manchester Coding enabled?");
                             }
