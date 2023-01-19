@@ -159,7 +159,6 @@ bool UVDAR_BP_Tim::parseSequenceFile(const std::string &sequence_file) {
         ROS_INFO("[UVDAR_BP_Tim]: ]");
         ifs.close();
         sequences_ = sequences;
-        number_sequences_ = sequences_.size();
     }
     else
     {
@@ -191,9 +190,6 @@ void UVDAR_BP_Tim::initAlternativeHTDataStructure(){
         aht_.push_back(
                 std::make_shared<alternativeHT>(_buffer_size_)
               );
-        if (_enable_manchester_) {
-            aht_[i]->setManchesterBoolTrue();
-        }
         aht_[i]->setSequences(sequences_);
         aht_[i]->setDebugFlags(_debug_, _visual_debug_);
 

@@ -5,16 +5,14 @@ using namespace uvdar;
 alternativeHT::alternativeHT( int i_buffer_size ){
     
     buffer_size_ = i_buffer_size;
-    ROS_WARN("PIXELSHITF?????"); // TODO:
     initBuffer();
 }
 
 void alternativeHT::initBuffer(){
 
-
     for (int i = 0; i < buffer_size_; i++){
-        std::vector<BlinkSignal> signalWithPointDummy;
-        buffer.push_back(signalWithPointDummy);
+        std::vector<PointState> dummyVector;
+        buffer.push_back(dummyVector);
     }
 }
 
@@ -28,80 +26,83 @@ void alternativeHT::setSequences(std::vector<std::vector<bool>> i_sequences){
     originalSequences_ = i_sequences;
     matcher_ = std::make_unique<SignalMatcher>(originalSequences_);
     
-    number_sequences_ = originalSequences_.size(); 
 }
 
 void alternativeHT::processBuffer(const mrs_msgs::ImagePointsWithFloatStampedConstPtr ptsMsg) {
 
-
-    vectPoint3D points(std::begin(ptsMsg->points), std::end(ptsMsg->points));
-    std::vector<BlinkSignal> signals; 
-    for ( size_t i = 0; i < points.size(); i++ ) {
-        BlinkSignal s;
-        s.point = cv::Point(points[i].x, points[i].y);
-        s.index = -1;
-        s.ledState = true; // every existent point is "on"
-        s.insertTime = ptsMsg->stamp;
-        signals.push_back(s);
+    std::vector<mrs_msgs::Point2DWithFloat> point3D(std::begin(ptsMsg->points), std::end(ptsMsg->points));
+    std::vector<PointState> points; 
+    for ( size_t i = 0; i < point3D.size(); i++ ) {
+        PointState p;
+        p.point = cv::Point(point3D[i].x, point3D[i].y);
+        p.index = -1;
+        p.ledState = true; // every existent point is "on"
+        p.insertTime = ptsMsg->stamp;
+        points.push_back(p);
     }
 
     if((int)buffer.size() < buffer_size_){
-        buffer.push_back(signals);
+        buffer.push_back(points);
     }else{
         buffer.erase(buffer.begin());
-        buffer.push_back(signals);
+        buffer.push_back(points);
     }
 
     if((int)buffer.size() < 2){
         return;
     }
 
-    findClosestAndLEDState(buffer.end()[-1], buffer.end()[-2]);
+    findClosestAndLEDState();
 
     checkIfThreeConsecutiveZeros();
     cleanPotentialBuffer();
-
-
-    std::cout << "The buffer size is: " << potentialSequences_.size() <<  std::endl;
-    for (const auto l : potentialSequences_){
-        printVectorIfNotEmpty(l.first, "sequence");
-    }
-
 }
 
 
-void alternativeHT::findClosestAndLEDState(std::vector<BlinkSignal> & ptsCurrentImg, std::vector<BlinkSignal> & ptsPrevImg) {   
+void alternativeHT::findClosestAndLEDState() {   
 
-    for(int iPrevImg = 0;  iPrevImg < (int)ptsPrevImg.size(); iPrevImg++){
+    std::vector<PointState> & ptsCurrentImg = buffer.end()[-1]; // newest points;
+    std::vector<PointState> & ptsPrevImg    = buffer.end()[-2]; // second newest points
+
+    for(int iPrev = 0;  iPrev < (int)ptsPrevImg.size(); iPrev++){
         bool nearestNeighbor = false;
-        for(int iCurrentImg = 0; iCurrentImg < (int)ptsCurrentImg.size(); iCurrentImg++){
-            cv::Point2d diff = computeXYDiff(ptsCurrentImg[iCurrentImg].point, ptsPrevImg[iPrevImg].point);
+        for(int iCurr = 0; iCurr < (int)ptsCurrentImg.size(); iCurr++){
+            cv::Point2d diff = computeXYDiff(ptsCurrentImg[iCurr].point, ptsPrevImg[iPrev].point);
             if(diff.x <= max_pixel_shift_x_ && diff.y <= max_pixel_shift_y_){
                 nearestNeighbor = true;           
-                if(ptsPrevImg[iPrevImg].index == -1 && ptsCurrentImg[iCurrentImg].index == -1){
-                    ptsPrevImg[iPrevImg].index         = potentialSequences_.size();
-                    ptsCurrentImg[iCurrentImg].index   = potentialSequences_.size();
-                }else if(ptsPrevImg[iPrevImg].index == -1 && ptsCurrentImg[iCurrentImg].index != -1){
-                    ROS_WARN("POINT ALREADY ASSIGNED! WRONG ASSOCIATEN MAYBE OCURED");
+                if(ptsPrevImg[iPrev].index == -1){
+                        {
+                        std::scoped_lock lock(mutex_foundSequences_);
+                        int size = (int)foundSequences_.size();  
+                        ptsCurrentImg[iCurr].index  = size;
+                        ptsPrevImg[iPrev].index     = size;
+                        }
                 }else{
-                    ptsCurrentImg[iCurrentImg].index = ptsPrevImg[iPrevImg].index;
+                    ptsCurrentImg[iCurr].index = ptsPrevImg[iPrev].index;
                 }
                 if (buffer.size() < 3){
-                    std::cout << "Should only be called in the beginning!\n"; 
-                    insertPointToSequence(ptsPrevImg[iPrevImg]);
+                    insertPointToSequence(ptsPrevImg[iPrev]);
                 }
-                insertPointToSequence(ptsCurrentImg[iCurrentImg]);
+                std::cout << "index " << ptsCurrentImg[iCurr].index <<"\n";
+                insertPointToSequence(ptsCurrentImg[iCurr]);
                 break;
             }else{
                 nearestNeighbor = false;
             }
         }
         if(nearestNeighbor == false){
-            if (ptsPrevImg[iPrevImg].index == -1){
-                ptsPrevImg[iPrevImg].index = potentialSequences_.size();
-                insertPointToSequence(ptsPrevImg[iPrevImg]);
+            if (ptsPrevImg[iPrev].index == -1){
+                {
+                    std::scoped_lock lock(mutex_foundSequences_);
+                    int size = (int)foundSequences_.size();  
+                    ptsPrevImg[iPrev].index = size;
+                    std::cout << "The size " << size << std::endl;
+                    ROS_ERROR("wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww"); 
+                }
+                insertPointToSequence(ptsPrevImg[iPrev]);
             }
-            insertVirtualPoint(ptsCurrentImg, ptsPrevImg[iPrevImg]);
+            std::cout << "VP index " << ptsPrevImg[iPrev].index << std::endl;
+            insertVirtualPoint(ptsPrevImg[iPrev]);
             insertPointToSequence(ptsCurrentImg.end()[-1]);
         }
     }
@@ -115,39 +116,43 @@ cv::Point2d uvdar::alternativeHT::computeXYDiff(const cv::Point2d first, const c
     return difference;
 }
 
-void alternativeHT::insertPointToSequence(BlinkSignal signal){
-    int insertIndex = signal.index;
-    cv::Point2d p = signal.point;
+void alternativeHT::insertPointToSequence(PointState signal){
+    // std::cout << "Found Seq file size" << foundSequences_.size()  << std::endl;
+    std::scoped_lock lock(mutex_foundSequences_);
+
+    auto k = foundSequences_.find(signal.index);
     
-    // start new sequence
-    if (insertIndex >= potentialSequences_.size()){
-        std::vector<bool> newSeq;
-        newSeq.push_back(signal.ledState);
-        potentialSequences_.push_back(std::make_pair(newSeq, p));
+    // start new sequence, if signal index is not existent
+    if (k == foundSequences_.end()){
+        std::vector<bool> newSequence;
+        newSequence.push_back(signal.ledState);
+        sequenceWithPoint s; 
+        s.lastInsertedPoint = signal;
+        s.seq = newSequence;
+        foundSequences_[signal.index] = s;
+        std::cout << "here" << std::endl;
         return; 
     }
 
-    if (potentialSequences_[insertIndex].first.size() == originalSequences_[0].size()){
-        potentialSequences_[insertIndex].first.erase(potentialSequences_[insertIndex].first.begin());
+    // start deleting first element of sequence vector if it is equivalent to the wanted size 
+    if (k->second.seq.size() == originalSequences_[0].size()){
+        k->second.seq.erase(k->second.seq.begin());
     }
 
-    potentialSequences_[insertIndex].first.push_back(signal.ledState);
-    potentialSequences_[insertIndex].second = signal.point;
-
+    k->second.lastInsertedPoint = signal;
+    k->second.seq.push_back(signal.ledState);
 }
 
-void alternativeHT::insertVirtualPoint(std::vector<BlinkSignal> & signalVector, const BlinkSignal signalPrevFrame){   
+void alternativeHT::insertVirtualPoint(const PointState signalPrevFrame){   
 
-    BlinkSignal offState;
+    PointState offState;
     offState.point = signalPrevFrame.point;
     offState.index = signalPrevFrame.index;
     offState.ledState = false;
-    offState.insertTime = ros::Time::now(); //TODO: DOUBLE CHECK SAME FORMAT?! 
-    signalVector.push_back(offState);
+    offState.insertTime = ros::Time::now();
+    buffer.end()[-1].push_back(offState);
 }
 
-
-//TODO: Now not working!?
 void alternativeHT::checkIfThreeConsecutiveZeros(){
     
     if (first_call_){
@@ -186,27 +191,20 @@ void alternativeHT::checkIfThreeConsecutiveZeros(){
 }
 
 
-
 void alternativeHT::cleanPotentialBuffer(){
+    double timeThreeFrames = (1/60.0) * 4; 
 
-    for (int s = 0; s < potentialSequences_.size(); s++){
-        if (potentialSequences_[s].first.size() > 2){
-            for (int j = 2; j < potentialSequences_[s].first.size(); j++){
-                // if (potentialSequences_[s].first[j-2] == 0 && potentialSequences_[s].first[j-1] == 0 && potentialSequences_[s].first[j] == 0){
-                //     ROS_WARN("I'm here ");
-                //     potentialSequences_.erase(potentialSequences_.begin()+s);
 
-                // }
-                bool thirdLast = potentialSequences_[s].first.end()[-3];
-                bool secondLast = potentialSequences_[s].first.end()[-2];
-                bool lastElement = potentialSequences_[s].first.end()[-1];
-                if (!thirdLast && !secondLast && !lastElement){
-                    ROS_WARN("HERE");
-                    potentialSequences_[s].first.end()[-2] = true;
-                    potentialSequences_[s].first.end()[-1] = true;
-                }
+    std::scoped_lock lock(mutex_foundSequences_);
 
-            }
+    std::map<int, sequenceWithPoint> b = foundSequences_;
+    
+    for (auto k : b){
+        double insertTime = k.second.lastInsertedPoint.insertTime.toSec();
+        double timeDiffLastInsert = std::abs(insertTime - ros::Time::now().toSec());
+        if ( timeDiffLastInsert > timeThreeFrames){
+            ROS_WARN("DELETING"); 
+            foundSequences_.erase(k.first);
         }
     }
 }
@@ -224,20 +222,17 @@ int alternativeHT::findMatch(std::vector<bool> sequence){
     return id;
 }
 
-// TODO: not called right now!!
 std::vector<std::pair<cv::Point2d, int>> alternativeHT::getResult(){
     
+    std::scoped_lock lock(mutex_foundSequences_);
     std::vector<std::pair<cv::Point2d, int>> retrievedSignals;
 
-        // std::cout << "The size of the sequence " << potentialSequences_.size() << std::endl;
-        for (const auto  sequence : potentialSequences_) {
-            // if (debug_) printVectorIfNotEmpty(sequence.first, "predicted sequence");
-            int id = findMatch(sequence.first);
-            
-            // printVectorIfNotEmpty(sequence.first, "pot");
-
-            cv::Point2d originPoint = sequence.second;
-            retrievedSignals.push_back(std::make_pair(originPoint, id));
+    for (auto k : foundSequences_){
+        int id = findMatch(k.second.seq);
+        std::cout << " The id " << id << std::endl;
+        printVectorIfNotEmpty(k.second.seq, "Sequence");
+        cv::Point2d originPoint = k.second.lastInsertedPoint.point;
+        retrievedSignals.push_back(std::make_pair(originPoint, id));
         }
     return retrievedSignals;
 }

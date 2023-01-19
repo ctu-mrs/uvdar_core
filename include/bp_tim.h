@@ -15,9 +15,6 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <fstream>
 
-using pairPoints = std::pair<mrs_msgs::Point2DWithFloat, mrs_msgs::Point2DWithFloat>;
-using vectorPair = std::vector<pairPoints>;
-
 namespace uvdar {
 
 
@@ -76,25 +73,14 @@ namespace uvdar {
             ros::Timer timer_visualization_;
 
             std::vector<std::vector<bool>> sequences_;
-            size_t number_sequences_;
             std::vector<ros::Publisher> pub_blinkers_seen_;
             std::vector<ros::Publisher> pub_estimated_framerate_;
             std::vector<ros::Timer> timer_process_;
 
-
-            std::vector<std::string> _blinkers_seen_topics;
-            std::vector<std::string> _estimated_framerate_topics;
-            std::vector<std::string> _points_seen_topics;
-            std::string _sequence_file;
-            int _number_sequences;
-            std::vector<std::vector<vectPoint3D>> small_buffer_;
             int buffer_cnt_ = 0;
             bool first_call_; // bool for preventing access of non assigned values in small_buffer
 
-            int process_rate = 1;
-
-
-            const int max_buffer_size_ = 5; // max frames which are stored
+            const int max_buffer_size_ = 5; // max allowed frames which are stored
             const int min_buffer_size_ = 3; // min consecutive frames - required due to Manchester Coding 
                
 
@@ -119,6 +105,10 @@ namespace uvdar {
             bool        _use_camera_for_visualization_;
             bool        _enable_manchester_;
             int         _buffer_size_;
+            std::vector<std::string> _blinkers_seen_topics;
+            std::vector<std::string> _estimated_framerate_topics;
+            std::vector<std::string> _points_seen_topics;
+            std::string _sequence_file;
 
 
     };
