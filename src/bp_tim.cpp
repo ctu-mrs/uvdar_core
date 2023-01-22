@@ -27,6 +27,8 @@ void UVDAR_BP_Tim::onInit() {
     subscribeToPublishedPoints();
 
     if (_gui_ || _publish_visualization_){ 
+        video = cv::VideoWriter("BLA.avi",cv::VideoWriter::fourcc('M','J','P','G'),5, cv::Size(2258,480));
+
           // load the frequencies
         current_visualization_done_ = false;
         timer_visualization_ = private_nh_.createTimer(ros::Rate(_visualization_rate_), &UVDAR_BP_Tim::VisualizationThread, this, false);
@@ -77,7 +79,7 @@ void UVDAR_BP_Tim::loadParams(const bool &printParams) {
 
     param_loader.loadParam("gui", _gui_, bool(true));                                     
     param_loader.loadParam("publish_visualization", _publish_visualization_, bool(false));
-    param_loader.loadParam("visualization_rate", _visualization_rate_, float(2.0));       
+    param_loader.loadParam("visualization_rate", _visualization_rate_, float(15.0));       
 
     param_loader.loadParam("points_seen_topics", _points_seen_topics, _points_seen_topics);
 
@@ -215,21 +217,25 @@ void UVDAR_BP_Tim::subscribeToPublishedPoints() {
         cals_points_seen_.push_back(callback);
         sub_points_seen_.push_back(private_nh_.subscribe(_points_seen_topics[i], 1, cals_points_seen_[i]));
 
-        // points_seen_callback_t sun_callback = [image_index=i,this] (const mrs_msgs::ImagePointsWithFloatStampedConstPtr& sunPointsMessage) {
-        //     // processSunPoint(sunPointsMessage, image_index);
-        // };
+        points_seen_callback_t sun_callback = [image_index=i,this] (const mrs_msgs::ImagePointsWithFloatStampedConstPtr& sunPointsMessage) {
+            InsertSunPoints(sunPointsMessage, image_index);
+        };
         cals_sun_points_.push_back(callback);
         sub_sun_points_.push_back(private_nh_.subscribe(_points_seen_topics[i] + "/sun", 1, cals_sun_points_[i]));
     }
+    
+    sun_points_.resize(_points_seen_topics.size());
+
 }
 
-void UVDAR_BP_Tim::insertPointToAHT(const mrs_msgs::ImagePointsWithFloatStampedConstPtr &ptsMsg, const size_t &img_index) {
+void UVDAR_BP_Tim::insertPointToAHT(const mrs_msgs::ImagePointsWithFloatStampedConstPtr &ptsMsg, const size_t & img_index) {
     if (!initialized_) return;
 
 
     aht_[img_index]->processBuffer(ptsMsg);
 
     updateBufferAndSetFirstCallBool(img_index);
+    std::cout << "The imag index" << img_index << "\n";
 
     signals_[img_index] = aht_[img_index]->getResult();
 
@@ -244,6 +250,24 @@ void UVDAR_BP_Tim::insertPointToAHT(const mrs_msgs::ImagePointsWithFloatStampedC
     }
  
 } 
+
+
+void UVDAR_BP_Tim::InsertSunPoints(const mrs_msgs::ImagePointsWithFloatStampedConstPtr& msg, size_t image_index) {
+  if (!initialized_) return;
+
+  /* int                      countSeen; */
+  std::vector<cv::Point2i> points;
+
+  for (auto& point : msg->points) {
+    points.push_back(cv::Point2d(point.x, point.y));
+  }
+
+  {
+    std::scoped_lock lock(mutex_sun);
+    sun_points_[image_index] = points;
+  }
+}
+
 
 void UVDAR_BP_Tim::updateBufferAndSetFirstCallBool(const size_t & img_index) {
 
@@ -269,7 +293,6 @@ void UVDAR_BP_Tim::ProcessThread([[maybe_unused]] const ros::TimerEvent& te, [[m
 
 }
 void UVDAR_BP_Tim::VisualizationThread([[maybe_unused]] const ros::TimerEvent& te) {
-    
     if (initialized_){
       if(generateVisualization(image_visualization_) >= 0){
         if ((image_visualization_.cols != 0) && (image_visualization_.rows != 0)){
@@ -278,15 +301,7 @@ void UVDAR_BP_Tim::VisualizationThread([[maybe_unused]] const ros::TimerEvent& t
           }
           if (_gui_){
             cv::imshow("ocv_uvdar_blink_" + _uav_name_, image_visualization_);
-            cv::waitKey(25);
-          }
-
-          if (_visual_debug_){
-            cv::Mat image_visual_debug_;
-            // image_visual_debug_ = ht4dbt_trackers_[0]->getVisualization();
-            // if ((image_visual_debug_.cols > 0) && (image_visual_debug_.rows > 0)){
-            //   cv::imshow("ocv_uvdar_hough_space_" + _uav_name_, image_visual_debug_);
-            // }
+            video.write(image_visualization_);
             cv::waitKey(25);
           }
         }
@@ -307,7 +322,7 @@ int UVDAR_BP_Tim::generateVisualization(cv::Mat & output_image) {
     int i =0;
     for (auto curr_size : camera_image_sizes_){
       if ((curr_size.width < 0) || (curr_size.height < 0)){
-        ROS_ERROR_STREAM("[UVDAR_BP_Tim]: Size of image " << i << " was not received! Returning.");
+        ROS_ERROR_STREAM("[UVDARBlinkProcessor]: Size of image " << i << " was not received! Returning.");
         return -4;
       }
       if (max_image_height < curr_size.height){
@@ -346,9 +361,11 @@ int UVDAR_BP_Tim::generateVisualization(cv::Mat & output_image) {
         output_image(cv::Rect(start_point.x,0,camera_image_sizes_[image_index].width,camera_image_sizes_[image_index].height)) = cv::Scalar(0,0,0);
       }
 
-      
       for (int j = 0; j < (int)(signals_[image_index].size()); j++) {
-          cv::Point center = signals_[image_index][j].first;
+          cv::Point center = cv::Point(
+            signals_[image_index][j].first.x, 
+            signals_[image_index][j].first.y)
+             + start_point;
           int signal_index = signals_[image_index][j].second;
           if (signal_index == -2 || signal_index == -3) {
             continue;
@@ -358,12 +375,16 @@ int UVDAR_BP_Tim::generateVisualization(cv::Mat & output_image) {
             cv::putText(output_image, cv::String(signal_text.c_str()), center + cv::Point(-5, -5), cv::FONT_HERSHEY_SIMPLEX, 0.3, cv::Scalar(255, 255, 255));
             cv::Scalar color = ColorSelector::markerColor(signal_index);
             cv::circle(output_image, center, 5, color);
-          } else {
+        } else {
             cv::circle(output_image, center, 2, cv::Scalar(160,160,160));
           }
       }
-      
-      // TODO: insert here stuff for the sun!!
+       for (int j = 0; j < (int)(sun_points_[image_index].size()); j++) {
+        cv::Point sun_current = sun_points_[image_index][j]+start_point;
+        cv::circle(output_image, sun_current, 10, cv::Scalar(0,0,255));
+        cv::circle(output_image, sun_current, 2,  cv::Scalar(0,0,255));
+        cv::putText(output_image, cv::String("Sun"), sun_current + cv::Point(10, -10), cv::FONT_HERSHEY_SIMPLEX, 0.3, cv::Scalar(255, 255, 255));
+      }
       image_index++;
     }
 

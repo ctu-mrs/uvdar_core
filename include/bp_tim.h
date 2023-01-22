@@ -28,7 +28,6 @@ namespace uvdar {
         
         private:
             using vectPoint3D = std::vector<mrs_msgs::Point2DWithFloat>;
-            // using img3DPointStamped = mrs_msgs::ImagePointsWithFloatStampedConstPtr;
 
             virtual void onInit();
             void loadParams(const bool & );
@@ -37,7 +36,7 @@ namespace uvdar {
             void initAlternativeHTDataStructure();
             void subscribeToPublishedPoints();
             void insertPointToAHT(const mrs_msgs::ImagePointsWithFloatStampedConstPtr &, const size_t &);
-
+            void InsertSunPoints(const mrs_msgs::ImagePointsWithFloatStampedConstPtr&, size_t);
             void updateBufferAndSetFirstCallBool(const size_t & img_index);
             
             void ProcessThread([[maybe_unused]] const ros::TimerEvent&, size_t);
@@ -45,18 +44,17 @@ namespace uvdar {
             int generateVisualization(cv::Mat& );
 
             void callbackImage(const sensor_msgs::ImageConstPtr&, size_t);
+            int i =0; 
 
-
+            cv::VideoWriter video;
             ros::NodeHandle private_nh_;
             
             int image_sizes_received_ = 0;
-
             std::vector<std::shared_ptr<alternativeHT>> aht_;
             std::vector<vectPoint3D> pVect_;
             std::vector<vectPoint3D> potentialSequences_; 
             std::vector<std::vector<std::pair<cv::Point2d, int>>> signals_;
-
-
+            
             std::atomic_bool initialized_ = false;  
             std::atomic_bool current_visualization_done_ = false;
             std::vector<cv::Mat>     images_current_;
@@ -67,6 +65,9 @@ namespace uvdar {
             std::unique_ptr<mrs_lib::ImagePublisher> pub_visualization_;
             std::vector<std::shared_ptr<std::mutex>>  mutex_camera_image_;
 
+
+            std::vector<std::vector<cv::Point>> sun_points_;
+            std::mutex mutex_sun;
 
 
             

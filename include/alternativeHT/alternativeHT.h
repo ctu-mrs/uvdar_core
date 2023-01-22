@@ -45,6 +45,7 @@ namespace uvdar
         std::unique_ptr<SignalMatcher> matcher_;
 
         std::mutex mutex_foundSequences_;
+        std::mutex mutex_buffer;
 
 
     public:
@@ -68,6 +69,9 @@ namespace uvdar
 
         void checkIfThreeConsecutiveZeros();
         void cleanPotentialBuffer();
+
+        int randomInt(const int);
+
 
         int findMatch(std::vector<bool>);
         std::vector<std::pair<cv::Point2d, int>> getResult();
