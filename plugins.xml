@@ -22,7 +22,3 @@
  <class name="uvdar/UVDAR_BP_Tim" type="uvdar::UVDAR_BP_Tim" base_class_type="nodelet::Nodelet">
  <description>Processes the points published by the detector.</description> </class>
 </library>
-<library path="lib/libImgSubscriber">
- <class name="uvdar/ImgSubscriber" type="uvdar::ImgSubscriber" base_class_type="nodelet::Nodelet">
- <description>Nodelet subscribes to raw bluefox image.</description> </class>
-</library>
