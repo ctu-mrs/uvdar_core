@@ -1,7 +1,7 @@
 #ifndef SIGNAL_MATCHER_H
 #define SIGNAL_MATCHER_H
 
-#define MATCH_ERROR_THRESHOLD 0
+#define MATCH_ERROR_THRESHOLD 14
 /* #define MATCH_ERROR_THRESHOLD 1 */
 
 namespace uvdar {
@@ -14,6 +14,7 @@ namespace uvdar {
         sequence_size_ = sequences_.at(0).size();
         for (auto &curr_seq : sequences_){
           auto curr_seq_copy = curr_seq;
+          // append the original signal at the end and delete last Bit e.g. 0,1 -> 0,1,0 
           curr_seq.insert(curr_seq.end(),curr_seq_copy.begin(),curr_seq_copy.end()-1);
         }
       }
@@ -38,6 +39,34 @@ namespace uvdar {
         return -1;
 
       }
+
+      int matchSignalWithCrossCorr(std::vector<bool> i_signal){
+
+        if (i_signal.size() == 0){
+          return -1;
+        }
+
+        if (i_signal.size() < 3){
+          return -3;
+        }
+
+        for (int s=0; s<(int)(sequences_.size()); s++){
+          for (int i=0; i<(int)sequences_[s].size(); i++){
+            int corrVal = 0;
+            for (int j=0; j<(int)i_signal.size(); j++){
+              if(sequences_[s][i+j] == i_signal[j]){
+                corrVal++;
+              }
+            }
+            if (corrVal == sequence_size_){
+              return s;
+            }
+          }
+        }
+        return -1; 
+      }
+
+
     private:
 
       

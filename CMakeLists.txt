@@ -97,6 +97,7 @@ add_library(OCamCalib include/OCamCalib/ocam_functions.cpp )
 target_compile_options(OCamCalib PRIVATE -Wno-unused-variable -Wno-unused-result)
 
 add_library(ht4dbt include/ht4dbt/ht4d.cpp)
+add_library(alternativeHT include/alternativeHT/alternativeHT.cpp)
 add_library(uv_led_detect_fast include/detect/uv_led_detect_fast.cpp)
 add_library(frequency_classifier include/frequency_classifier/frequency_classifier.cpp)
 add_library(color_selector include/color_selector/color_selector.cpp)
@@ -153,6 +154,9 @@ add_dependencies(uvdar_mask_generator_node ${${PROJECT_NAME}_EXPORTED_TARGETS} $
 add_executable(uvdar_led_manager_node src/led_manager.cpp)
 add_dependencies(uvdar_led_manager_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
+add_library(UVDAR_BP_Tim src/bp_tim.cpp)
+add_dependencies(UVDAR_BP_Tim ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+
 add_custom_target(headers SOURCES ${HEADER_FILES} ${LAUNCHER_FILES} ${YAML_FILES})
 
 target_link_libraries(UVDARDetector
@@ -166,6 +170,13 @@ target_link_libraries(UVDARBlinkProcessor
   ${OpenCV_LIBRARIES}
   ht4dbt
   frequency_classifier
+  color_selector
+  )
+
+  target_link_libraries(UVDAR_BP_Tim 
+  ${catkin_LIBRARIES} 
+  ${OpenCV_LIBRARIES}
+  alternativeHT
   color_selector
   )
 
@@ -216,4 +227,8 @@ target_link_libraries(uvdar_mask_generator_node
 target_link_libraries(uvdar_led_manager_node
   ${catkin_LIBRARIES}
   )
+
+
+
+
 
