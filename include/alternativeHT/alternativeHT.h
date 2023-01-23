@@ -74,7 +74,7 @@ namespace uvdar
 
 
         int findMatch(std::vector<bool>);
-        std::vector<std::pair<cv::Point2d, int>> getResult();
+        std::vector<std::pair<PointState, int>> getResults();
         
         template <typename T>
         void printVectorIfNotEmpty(T vect, std::string name) {

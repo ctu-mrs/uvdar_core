@@ -283,17 +283,14 @@ int alternativeHT::findMatch(std::vector<bool> sequence){
     return id;
 }
 
-std::vector<std::pair<cv::Point2d, int>> alternativeHT::getResult(){
-    
+std::vector<std::pair<PointState, int>> alternativeHT::getResults(){
+
     std::scoped_lock lock(mutex_foundSequences_);
-    std::vector<std::pair<cv::Point2d, int>> retrievedSignals;
+    std::vector<std::pair<PointState, int>> retrievedSignals;
 
     for (auto k : foundSequences_){
         int id = findMatch(k.second.seq);
-        // std::cout << " The id " << id << " the index " << k.first << std::endl;
-        // printVectorIfNotEmpty(k.second.seq, "Sequence");
-       
-        cv::Point2d originPoint = k.second.lastInsertedPoint.point;
+        PointState originPoint = k.second.lastInsertedPoint;
         retrievedSignals.push_back(std::make_pair(originPoint, id));
         }
     return retrievedSignals;
