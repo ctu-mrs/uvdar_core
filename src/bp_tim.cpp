@@ -314,7 +314,6 @@ namespace uvdar{
     
   
     if ((!_use_camera_for_visualization_) || ((!_gui_) && (!_publish_visualization_))){
-      std::cout << "01 image_sized" << image_sizes_received_ << " cam imag " << camera_image_sizes_.size() << std::endl; 
       if ( (camera_image_sizes_[img_index].width <= 0 ) || (camera_image_sizes_[img_index].width <= 0 )){
         camera_image_sizes_[img_index].width = ptsMsg->image_width;
         camera_image_sizes_[img_index].height = ptsMsg->image_height;
@@ -336,7 +335,6 @@ namespace uvdar{
         point.y     = signal.first.point.y;
         if (signal.second <= (int)sequences_.size()){
           point.value = signal.second;
-          std::cout << "The signal ids " << point.value << "\n";
         }
         else {
           point.value = -2;
@@ -502,7 +500,6 @@ namespace uvdar{
       current_images_received_[image_index] = true;
       current_visualization_done_ = false;
     }
-    std::cout << camera_image_sizes_.size() << std::endl;  
     if((camera_image_sizes_[image_index].width <= 0 ) || (camera_image_sizes_[image_index].width <= 0)){
       camera_image_sizes_[image_index] = image->image.size();
       if(image_sizes_received_ < (int)(camera_image_sizes_.size())){
