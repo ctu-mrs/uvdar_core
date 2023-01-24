@@ -4,6 +4,7 @@
 #include <map>
 #include <ros/console.h>
 // #include <mutex>
+#include <list>
 #include <opencv2/highgui/highgui.hpp>
 #include <mrs_msgs/ImagePointsWithFloatStamped.h>
 #include "signal_matcher/signal_matcher.h"
@@ -40,11 +41,12 @@ namespace uvdar
         std::vector<std::vector<PointState>> buffer;
 
         std::vector<std::vector<bool>> originalSequences_;
-        std::map<int, sequenceWithPoint> foundSequences_;
+        std::map<int, sequenceWithPoint> generatedSequences_;
+        std::list<sequenceWithPoint> foundSequences_;
 
         std::unique_ptr<SignalMatcher> matcher_;
 
-        std::mutex mutex_foundSequences_;
+        std::mutex mutex_generatedSequences_;
         std::mutex mutex_buffer;
 
 
@@ -71,6 +73,7 @@ namespace uvdar
         void cleanPotentialBuffer();
 
         int randomInt(const int);
+        bool equalElements( PointState, PointState);
 
 
         int findMatch(std::vector<bool>);
