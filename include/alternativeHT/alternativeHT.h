@@ -20,7 +20,7 @@ namespace uvdar
         ros::Time insertTime;
         cv::Point2d bbLeftUp; 
         cv::Point2d bbRightDown;
-        std::list<std::vector<PointState>>::iterator iterator;
+        bool insertedToSeq = false; 
     };
 
     struct sequenceWithPoint{
@@ -60,13 +60,14 @@ namespace uvdar
         PointState findClosest(const std::vector<PointState>, const PointState);
 
         cv::Point2d computeXYDiff(const cv::Point2d, const cv::Point2d);
-        void insertPointToSequence(PointState &, std::list<std::vector<PointState>>::iterator);
+        void insertPointToSequence(PointState &, PointState);
         void insertVirtualPoint(const PointState);
 
         void checkIfThreeConsecutiveZeros();
         void cleanPotentialBuffer();
 
         int findMatch(std::vector<bool>);
+        bool equalPoints(PointState,PointState);
 
     public:
 
