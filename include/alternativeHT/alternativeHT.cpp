@@ -63,7 +63,6 @@ void alternativeHT::processBuffer(const mrs_msgs::ImagePointsWithFloatStampedCon
     findClosestAndLEDState();
     cleanPotentialBuffer(); 
     // checkIfThreeConsecutiveZeros(); // TODO: eventually buffer not preventing from overflow
-std::cout << "Buffer size " << buffer.end()[-2].size() << std::endl; 
 }
 
 
@@ -74,28 +73,28 @@ void alternativeHT::findClosestAndLEDState() {
     std::vector<PointState> & ptsCurrentImg = buffer.end()[-1]; // newest points;
     std::vector<PointState> & ptsPrevImg    = buffer.end()[-2]; // second newest points
     
-    for(int iPrev = 0;  iPrev < (int)ptsPrevImg.size(); iPrev++){
+    for(auto & prevPoint : ptsPrevImg){
         bool nearestNeighbor = false;
-        for(int iCurr = 0; iCurr < (int)ptsCurrentImg.size(); iCurr++){
-            cv::Point2d diff = computeXYDiff(ptsCurrentImg[iCurr].point, ptsPrevImg[iPrev].point);
+        for(auto & currPoint : ptsCurrentImg){
+            cv::Point2d diff = computeXYDiff(currPoint.point, prevPoint.point);
             if(diff.x <= max_pixel_shift_x_ && diff.y <= max_pixel_shift_y_){
                 nearestNeighbor = true;
-                if (!ptsPrevImg[iPrev].insertedToSeq){
-                    insertPointToSequence(ptsPrevImg[iPrev], ptsPrevImg[iPrev]);
+                if (!prevPoint.insertedToSeq){
+                    insertPointToSequence(prevPoint, prevPoint);
                 }
-                insertPointToSequence(ptsCurrentImg[iCurr], ptsPrevImg[iPrev]);
+                insertPointToSequence(currPoint, prevPoint);
                 break;
             }else{
                 nearestNeighbor = false;
             }
         }
         if(nearestNeighbor == false){
-            if (!ptsPrevImg[iPrev].insertedToSeq){
+            if (!prevPoint.insertedToSeq){
                 ROS_ERROR("2---NOT INSERTED");
-                // insertPointToSequence(ptsPrevImg[iPrev], ptsPrevImg[iPrev]); // TODO: double check necessary
+                insertPointToSequence(prevPoint, prevPoint); // TODO: double check necessary
             }
-            insertVirtualPoint(ptsPrevImg[iPrev]);
-            insertPointToSequence(ptsCurrentImg.end()[-1], ptsPrevImg[iPrev]);
+            insertVirtualPoint(prevPoint);
+            insertPointToSequence(ptsCurrentImg.end()[-1], prevPoint);
         }
     }
 }
@@ -130,7 +129,7 @@ void alternativeHT::insertPointToSequence(PointState & signal, PointState prev){
         return;
     }
 
-// find where signal has to be inserted
+// find sequence where signal should be inserted
     if (prev.insertedToSeq){
         for( auto & sequence : generatedSequences_){
             if(equalPoints(prev, sequence.end()[-1])){
@@ -146,7 +145,6 @@ void alternativeHT::insertPointToSequence(PointState & signal, PointState prev){
     
 }
 
-
 bool alternativeHT::equalPoints(PointState p1, PointState p2){
 
     if (p1.point.x == p2.point.x && p1.point.y == p2.point.y && p1.ledState == p2.ledState && p1.insertTime.toSec() == p2.insertTime.toSec()) {
@@ -156,8 +154,8 @@ bool alternativeHT::equalPoints(PointState p1, PointState p2){
 
 }
 
-// TODO: check if necessary?!
 void alternativeHT::checkIfThreeConsecutiveZeros(){
+// TODO: check if necessary?!
     
     if (first_call_){
         return;
@@ -275,12 +273,15 @@ bool uvdar::alternativeHT::checkBoundingBoxIntersection(PointState & point){
             break; 
         }
 
+// TODO: Right now the case because of insertion of VP! 
         if(hitPoints.size() != 3){
             ROS_ERROR("Sequence already corrupted");
             break;
         }
 
-        correctVPpose(hitPoints, point);
+        if(checkForValidity(hitPoints)){
+            // here it goes on
+        }
     }
 }
 
@@ -293,14 +294,22 @@ void uvdar::alternativeHT::checkForHit(const PointState point, const PointState 
         }
 }
 
-void uvdar::alternativeHT::correctVPpose(const std::vector<PointState> & points, PointState & point){
+bool uvdar::alternativeHT::checkForValidity(const std::vector<PointState> & points){
 
     // if all LEDs are "on" Manchester Coding Property is violated
     if ((points[0].ledState && points[1].ledState && points[2].ledState)){
-
+        return false;
     }
 
-    // (!points[0].ledState && !points[1].ledState && !points[2].ledState)
+    //if all LEDs are "on" Manchester Coding Property is violated
+    if(!points[0].ledState && !points[1].ledState && !points[2].ledState){
+        return false;
+    }
+
+    // if the last two LEDs are "on" Manchester Coding Property would be violated if current "on" point will be inserted 
+    if(points[1].ledState && points[2].ledState){
+        return false; 
+    }
 
 }
 

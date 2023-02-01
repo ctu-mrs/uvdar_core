@@ -69,7 +69,7 @@ namespace uvdar
         int findMatch(std::vector<bool>);
         bool equalPoints(PointState,PointState);
         void checkForHit(const PointState, const PointState, std::vector<PointState> &);
-        void correctVPpose(const std::vector<PointState>&, PointState &);
+        bool checkForValidity(const std::vector<PointState>&);
 
     public:
 
