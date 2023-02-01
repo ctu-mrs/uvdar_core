@@ -56,7 +56,6 @@ namespace uvdar
 
         void initBuffer();
         void findClosestAndLEDState();
-        void checkBoundingBoxIntersection(PointState &);
         PointState findClosest(const std::vector<PointState>, const PointState);
 
         cv::Point2d computeXYDiff(const cv::Point2d, const cv::Point2d);
@@ -66,8 +65,11 @@ namespace uvdar
         void checkIfThreeConsecutiveZeros();
         void cleanPotentialBuffer();
 
+        bool checkBoundingBoxIntersection(PointState &);
         int findMatch(std::vector<bool>);
         bool equalPoints(PointState,PointState);
+        void checkForHit(const PointState, const PointState, std::vector<PointState> &);
+        void correctVPpose(const std::vector<PointState>&, PointState &);
 
     public:
 

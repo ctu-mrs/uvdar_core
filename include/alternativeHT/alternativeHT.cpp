@@ -29,13 +29,13 @@ void alternativeHT::setSequences(std::vector<std::vector<bool>> i_sequences){
 }
 
 void alternativeHT::processBuffer(const mrs_msgs::ImagePointsWithFloatStampedConstPtr ptsMsg) {
-    {   
+
+    {
         std::scoped_lock lock(mutex_buffer);
-        std::vector<mrs_msgs::Point2DWithFloat> point3D(std::begin(ptsMsg->points), std::end(ptsMsg->points));
         std::vector<PointState> points; 
-        for ( size_t i = 0; i < point3D.size(); i++ ) {
+        for ( auto pointWithTimeStamp : ptsMsg->points) {
             PointState p;
-            p.point = cv::Point(point3D[i].x, point3D[i].y);
+            p.point = cv::Point(pointWithTimeStamp.x, pointWithTimeStamp.y);
             p.ledState = true; // every existent point is "on"
             p.insertTime = ptsMsg->stamp;
             cv::Point2d leftUpperCorner, rightDownCorner;
@@ -58,21 +58,14 @@ void alternativeHT::processBuffer(const mrs_msgs::ImagePointsWithFloatStampedCon
         if((int)buffer.size() < 2){
             return;
         }
-
-
-        // std::cout << "The buffer is: " << std::endl;
-        // for (const auto k : buffer ){
-            // for (const auto r : k){
-                // if (r.ledState){ std::cout<< "1,";}
-                // else std::cout << "0,";
-            // } std::cout << std::endl;
-        // }
     }
 
     findClosestAndLEDState();
     cleanPotentialBuffer(); 
-    // checkIfThreeConsecutiveZeros();
+    // checkIfThreeConsecutiveZeros(); // TODO: eventually buffer not preventing from overflow
+std::cout << "Buffer size " << buffer.end()[-2].size() << std::endl; 
 }
+
 
 void alternativeHT::findClosestAndLEDState() {   
     
@@ -85,9 +78,7 @@ void alternativeHT::findClosestAndLEDState() {
         bool nearestNeighbor = false;
         for(int iCurr = 0; iCurr < (int)ptsCurrentImg.size(); iCurr++){
             cv::Point2d diff = computeXYDiff(ptsCurrentImg[iCurr].point, ptsPrevImg[iPrev].point);
-            // std::cout << "The diff are " << diff.x << ", " << diff.y << std::endl; 
             if(diff.x <= max_pixel_shift_x_ && diff.y <= max_pixel_shift_y_){
-                std::scoped_lock lock(mutex_generatedSequences_);
                 nearestNeighbor = true;
                 if (!ptsPrevImg[iPrev].insertedToSeq){
                     insertPointToSequence(ptsPrevImg[iPrev], ptsPrevImg[iPrev]);
@@ -99,10 +90,9 @@ void alternativeHT::findClosestAndLEDState() {
             }
         }
         if(nearestNeighbor == false){
-            std::scoped_lock lock(mutex_generatedSequences_);
             if (!ptsPrevImg[iPrev].insertedToSeq){
                 ROS_ERROR("2---NOT INSERTED");
-                // insertPointToSequence(ptsPrevImg[iPrev], ptsPrevImg[iPrev]);
+                // insertPointToSequence(ptsPrevImg[iPrev], ptsPrevImg[iPrev]); // TODO: double check necessary
             }
             insertVirtualPoint(ptsPrevImg[iPrev]);
             insertPointToSequence(ptsCurrentImg.end()[-1], ptsPrevImg[iPrev]);
@@ -127,8 +117,11 @@ void alternativeHT::insertVirtualPoint(const PointState signalPrevFrame){
     buffer.end()[-1].push_back(offState);
 }
 
+// return val for sucess?
 void alternativeHT::insertPointToSequence(PointState & signal, PointState prev){
+    std::scoped_lock lock(mutex_generatedSequences_);
     
+    // start new sequence - if the previous element wasn't inserted: signal = prev 
     if(generatedSequences_.size() == 0 || !prev.insertedToSeq){
         signal.insertedToSeq = true;
         std::vector<PointState> vect;
@@ -137,6 +130,7 @@ void alternativeHT::insertPointToSequence(PointState & signal, PointState prev){
         return;
     }
 
+// find where signal has to be inserted
     if (prev.insertedToSeq){
         for( auto & sequence : generatedSequences_){
             if(equalPoints(prev, sequence.end()[-1])){
@@ -148,9 +142,8 @@ void alternativeHT::insertPointToSequence(PointState & signal, PointState prev){
                 return;
             }
         }
-    }else{
-        ROS_ERROR("This is not possible");
     }
+    
 }
 
 
@@ -163,6 +156,7 @@ bool alternativeHT::equalPoints(PointState p1, PointState p2){
 
 }
 
+// TODO: check if necessary?!
 void alternativeHT::checkIfThreeConsecutiveZeros(){
     
     if (first_call_){
@@ -197,7 +191,9 @@ void alternativeHT::checkIfThreeConsecutiveZeros(){
 }
 
 void alternativeHT::cleanPotentialBuffer(){
-    double timeThreeFrames = (1/60.0) * 4; 
+
+//TODO: eventually not needed - correction in Moving Avg part
+    double timeThreeFrames = (1/60.0) * 3; 
 
     std::scoped_lock lock(mutex_generatedSequences_);
 
@@ -205,18 +201,6 @@ void alternativeHT::cleanPotentialBuffer(){
         if (it->empty()){
             continue;
         } 
-        std::vector<bool> b;
-        // std::cout << "The seq: ";
-        // for (auto k : *it){
-        //     int i = -1;
-        //     if(k.ledState) i = 1; 
-        //     else i = 0;
-        //     std::cout << k.point.x << "," << k.point.y << "," << i << " - ";
-        // }
-    //    std::cout << "\n"<< std::endl;
-
-
-        // printVectorIfNotEmpty(b, "seq");
 
         bool first = true;
         bool second = true;
@@ -226,12 +210,6 @@ void alternativeHT::cleanPotentialBuffer(){
             second  = it->end()[-2].ledState;
             third   =  it->end()[-3].ledState;
         }
-        // std::cout << "The size " << it->size() << " sssss " << (*it).size() << std::endl;
-
-        // if ((*it).size() > originalSequences_[0].size()){
-        //     it->erase(it->begin());
-        // }
-
         double insertTime = it->end()[-1].insertTime.toSec(); 
         double timeDiffLastInsert = std::abs(insertTime - ros::Time::now().toSec());
         if (timeDiffLastInsert > timeThreeFrames || (first == false && second == false && third == false) ){ //&& i != generatedSequences_.end()){
@@ -246,23 +224,14 @@ std::vector<std::pair<PointState, int>> alternativeHT::getResults(){
 
     std::scoped_lock lock(mutex_generatedSequences_);
     std::vector<std::pair<PointState, int>> retrievedSignals;
-    // std::cout << "++++++++++++++++++++++++\n"; 
-    // std::cout << "The list size " << generatedSequences_.size() << "\n";
 
-    for (auto points : generatedSequences_){
+    for (auto sequence : generatedSequences_){
         std::vector<bool> ledStates;
-        if(points.size() != originalSequences_[0].size()){
-            // std::cout << "Not long enough\n"; 
-        }
-        for (auto point : points){
+        for (auto point : sequence){
             ledStates.push_back(point.ledState);
         }
-        // double diff =  std::abs(points.end()[-1].insertTime.toSec() - ros::Time::now().toSec()); 
-        // std::cout << "time diff " <<  diff << std::endl;
-        // printVectorIfNotEmpty(ledStates, "seq");
         int id = findMatch(ledStates);
-        std::cout << "The id " << id << std::endl;
-        retrievedSignals.push_back(std::make_pair(points.end()[-1], id));
+        retrievedSignals.push_back(std::make_pair(sequence.end()[-1], id));
     }
 
     return retrievedSignals;
@@ -288,43 +257,65 @@ alternativeHT::~alternativeHT() {
 
 /*****************************************************************************/
 // stuff for moving average 
-// void uvdar::alternativeHT::checkBoundingBoxIntersection(PointState & point){
+bool uvdar::alternativeHT::checkBoundingBoxIntersection(PointState & point){
 
-//     std::vector<PointState> & ptsCurr   = buffer_.end()[-1];
-//     std::vector<PointState> & ptsSec    = buffer_.end()[-2];
-//     std::vector<PointState> & ptsThird  = buffer_.end()[-3];
-    
-//     std::vector<PointState> boxMatchPoints;
-//     for (auto & p : ptsSec){
-//         if(p.bbLeftUp.x > point.bbRightDown.x || point.bbLeftUp.x > p.bbRightDown.x || 
-//         p.bbRightDown.y > point.bbLeftUp.y || point.bbRightDown.y > p.bbLeftUp.y){
-//         } else{
-//             ROS_INFO("HIT");
-//             boxMatchPoints.push_back(p);
-//         }
-//     }
-//     if ((int)boxMatchPoints.size() == 1){
 
-//     } else if ((int)boxMatchPoints.size() > 1){
-//         PointState closest  = findClosest(boxMatchPoints, point);
-//     } else {
-//         ROS_INFO("NO MATCH FOUND - start new sequence!");
-//     }
+    for (auto & p : generatedSequences_){
+    std::vector<PointState> hitPoints;
+        auto lastElement = p.end()[-1]; 
+        auto secondlastElement = p.end()[-2];
+        auto thirdlastElement = p.end()[-3];
 
-// }
+        checkForHit(point, lastElement,         hitPoints);
+        checkForHit(point, secondlastElement,   hitPoints);
+        checkForHit(point, thirdlastElement,    hitPoints);
+        
+        if(hitPoints.size() == 0){
+            ROS_WARN("NO HIt at all");
+            break; 
+        }
 
-// PointState uvdar::alternativeHT::findClosest(const std::vector<PointState> boxMatchPoints, const PointState point){
-//     cv::Point2d min;
-//     PointState selected; 
-//     min.x = FRAME_SIZE_X;
-//     min.y = FRAME_SIZE_Y; 
-//     for (const auto p : boxMatchPoints){
-//         cv::Point2d diff = computeXYDiff(p.point, point.point);
-//         if(diff.x < min.x && diff.y < min.y){
-//             selected = p;
-//             min.x = diff.x; 
-//             min.y = diff.y;
-//         }
-//     }
-//     return selected;
-// }
+        if(hitPoints.size() != 3){
+            ROS_ERROR("Sequence already corrupted");
+            break;
+        }
+
+        correctVPpose(hitPoints, point);
+    }
+}
+
+void uvdar::alternativeHT::checkForHit(const PointState point, const PointState p, std::vector<PointState> & hits ){
+     if(p.bbLeftUp.x > point.bbRightDown.x || point.bbLeftUp.x > p.bbRightDown.x || 
+        p.bbRightDown.y > point.bbLeftUp.y || point.bbRightDown.y > p.bbLeftUp.y){
+    } else{
+            ROS_INFO("HIT");
+            hits.push_back(p);
+        }
+}
+
+void uvdar::alternativeHT::correctVPpose(const std::vector<PointState> & points, PointState & point){
+
+    // if all LEDs are "on" Manchester Coding Property is violated
+    if ((points[0].ledState && points[1].ledState && points[2].ledState)){
+
+    }
+
+    // (!points[0].ledState && !points[1].ledState && !points[2].ledState)
+
+}
+
+PointState uvdar::alternativeHT::findClosest(const std::vector<PointState> boxMatchPoints, const PointState point){
+    cv::Point2d min;
+    PointState selected; 
+    min.x = -1;
+    min.y = -1; 
+    for (const auto p : boxMatchPoints){
+        cv::Point2d diff = computeXYDiff(p.point, point.point);
+        if( (diff.x < min.x && diff.y < min.y) || (min.x == -1 && min.y == -1) ){
+            selected = p;
+            min.x = diff.x; 
+            min.y = diff.y;
+        }
+    }
+    return selected;
+}
