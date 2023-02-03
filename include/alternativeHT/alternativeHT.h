@@ -60,16 +60,16 @@ namespace uvdar
 
         cv::Point2d computeXYDiff(const cv::Point2d, const cv::Point2d);
         void insertPointToSequence(PointState &, PointState);
-        void insertVirtualPoint(const PointState);
+        void insertVirtualPointToCurrentFrame(const PointState);
 
         void checkIfThreeConsecutiveZeros();
         void cleanPotentialBuffer();
 
-        bool checkBoundingBoxIntersection(PointState &);
-        int findMatch(std::vector<bool>);
-        bool equalPoints(PointState,PointState);
-        void checkForHit(const PointState, const PointState, std::vector<PointState> &);
-        bool checkForValidity(const std::vector<PointState>&);
+        void checkBoundingBoxIntersection(std::vector<std::shared_ptr<PointState>>, std::vector<std::shared_ptr<PointState>>);
+        int findSequenceMatch(std::vector<bool>);
+        bool equalPoints(const PointState & ,const PointState &);
+        bool bbIntersec(const std::shared_ptr<PointState>, const std::shared_ptr<PointState>);
+        bool checkForValidityWithNewInsertedPoint(const std::vector<PointState>& , const std::shared_ptr<PointState>);
 
     public:
 

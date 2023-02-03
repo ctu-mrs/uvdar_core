@@ -32,7 +32,7 @@ void alternativeHT::processBuffer(const mrs_msgs::ImagePointsWithFloatStampedCon
 
     {
         std::scoped_lock lock(mutex_buffer);
-        std::vector<PointState> points; 
+        std::vector<PointState> points;
         for ( auto pointWithTimeStamp : ptsMsg->points) {
             PointState p;
             p.point = cv::Point(pointWithTimeStamp.x, pointWithTimeStamp.y);
@@ -46,6 +46,7 @@ void alternativeHT::processBuffer(const mrs_msgs::ImagePointsWithFloatStampedCon
             p.bbLeftUp = leftUpperCorner;
             p.bbRightDown = rightDownCorner;
             points.push_back(p);
+
         }
 
         if((int)buffer.size() < buffer_size_){
@@ -70,32 +71,56 @@ void alternativeHT::findClosestAndLEDState() {
     
     std::scoped_lock lock(mutex_buffer);
     
-    std::vector<PointState> & ptsCurrentImg = buffer.end()[-1]; // newest points;
-    std::vector<PointState> & ptsPrevImg    = buffer.end()[-2]; // second newest points
+    std::vector<PointState> & currPts = buffer.end()[-1]; // newest points;
+    std::vector<PointState> & prevPts = buffer.end()[-2]; // second newest points
+
+    std::vector<std::shared_ptr<PointState>> currPtsPointer;
+    std::vector<std::shared_ptr<PointState>> noNNFoundPrev; 
     
-    for(auto & prevPoint : ptsPrevImg){
+    for (auto & k : currPts){
+        std::shared_ptr<PointState> p = std::make_shared<PointState>(k);
+        currPtsPointer.push_back(p);
+    }
+    
+    
+    std::cout << "POINTER " <<  currPtsPointer.size()<< std::endl; 
+    for(auto & prevPoint : prevPts){
         bool nearestNeighbor = false;
-        for(auto & currPoint : ptsCurrentImg){
-            cv::Point2d diff = computeXYDiff(currPoint.point, prevPoint.point);
+        for(int i = 0; i<(int)currPtsPointer.size(); ++i){
+            cv::Point2d diff = computeXYDiff(currPtsPointer[i]->point, prevPoint.point);
             if(diff.x <= max_pixel_shift_x_ && diff.y <= max_pixel_shift_y_){
                 nearestNeighbor = true;
                 if (!prevPoint.insertedToSeq){
                     insertPointToSequence(prevPoint, prevPoint);
                 }
-                insertPointToSequence(currPoint, prevPoint);
+                insertPointToSequence(*currPtsPointer[i], prevPoint);
+                std::cout << "match\n";
+                currPtsPointer.erase(currPtsPointer.begin()+i);
                 break;
             }else{
                 nearestNeighbor = false;
             }
         }
         if(nearestNeighbor == false){
-            if (!prevPoint.insertedToSeq){
-                ROS_ERROR("2---NOT INSERTED");
-                insertPointToSequence(prevPoint, prevPoint); // TODO: double check necessary
-            }
-            insertVirtualPoint(prevPoint);
-            insertPointToSequence(ptsCurrentImg.end()[-1], prevPoint);
+            noNNFoundPrev.push_back(std::make_shared<PointState>(prevPoint));
         }
+    }
+
+    // for each point in current frame a correspondence is found - however points exist in previous frame where no correspondence was found -> insert VP in current frame
+    if(noNNFoundPrev.size() != 0 && currPtsPointer.size() == 0){
+        for(auto k : noNNFoundPrev){
+            if(!k->insertedToSeq){
+                insertPointToSequence(*k, *k);
+            }
+            insertVirtualPointToCurrentFrame(*k);
+            insertPointToSequence(currPts.end()[-1], *k);
+        }
+    }
+
+    // search for nearest neighbors within the bounding boxes for all not assigned points 
+    if(noNNFoundPrev.size() != 0 && currPtsPointer.size() != 0){
+        std::cout << "ERROR?!\n";  
+        // checkBoundingBoxIntersection(noNNFoundPrev, currPtsPointer);
     }
 }
 
@@ -107,7 +132,7 @@ cv::Point2d uvdar::alternativeHT::computeXYDiff(const cv::Point2d first, const c
     return difference;
 }
 
-void alternativeHT::insertVirtualPoint(const PointState signalPrevFrame){   
+void alternativeHT::insertVirtualPointToCurrentFrame(const PointState signalPrevFrame){   
     PointState offState;
     offState.insertedToSeq = false;
     offState.point = signalPrevFrame.point;
@@ -145,7 +170,7 @@ void alternativeHT::insertPointToSequence(PointState & signal, PointState prev){
     
 }
 
-bool alternativeHT::equalPoints(PointState p1, PointState p2){
+bool alternativeHT::equalPoints(const PointState & p1, const PointState & p2){
 
     if (p1.point.x == p2.point.x && p1.point.y == p2.point.y && p1.ledState == p2.ledState && p1.insertTime.toSec() == p2.insertTime.toSec()) {
         return true;
@@ -153,6 +178,180 @@ bool alternativeHT::equalPoints(PointState p1, PointState p2){
     return false; 
 
 }
+
+void uvdar::alternativeHT::checkBoundingBoxIntersection(std::vector<std::shared_ptr<PointState>> noNNPrev, std::vector<std::shared_ptr<PointState>> notAssignedCurr){
+
+    std::vector<std::pair<std::shared_ptr<PointState>,std::vector<std::shared_ptr<PointState>>>> correspondences; 
+    for(const auto prev : noNNPrev){
+        std::vector<std::shared_ptr<PointState>> ptsHit;
+        if(prev->insertedToSeq){
+            std::scoped_lock lock(mutex_generatedSequences_);
+            for(const auto seq : generatedSequences_){
+                if(equalPoints(*prev, seq.end()[-1])){
+                    for(const auto curr : notAssignedCurr){
+                        // if(checkForValidityWithNewInsertedPoint(seq, curr)){
+                            // NOW check if boxes hit
+                            // ptsHit.push_back(curr);
+                        // }
+                    
+                    }
+                }
+            }
+        }
+        // else{
+                
+            // }
+        // }
+
+
+        // for( const auto curr : notAssignedCurr){
+
+        //     if(bbIntersec(prev, curr)){
+        //         ptsHit.push_back(curr);
+        //     };
+        // }
+        // if((int)ptsHit.size() != 0){
+        //     correspondences.push_back(std::make_pair(prev, ptsHit));
+        // }
+    }
+
+}
+
+bool uvdar::alternativeHT::bbIntersec(const std::shared_ptr<PointState> prev, const std::shared_ptr<PointState> curr){
+    
+    if(curr->bbLeftUp.x > prev->bbRightDown.x || prev->bbLeftUp.x > curr->bbRightDown.x || 
+        curr->bbRightDown.y > prev->bbLeftUp.y || prev->bbRightDown.y > curr->bbLeftUp.y){
+        return false;
+    }
+    return true;
+}
+
+bool uvdar::alternativeHT::checkForValidityWithNewInsertedPoint(const std::vector<PointState> & seq, const std::shared_ptr<PointState> currPoint){
+
+    if(seq.size() <= 1){
+        return true;
+    }
+    // if all LEDs are "on" Manchester Coding Property is violated
+    if ((seq.end()[-1].ledState && seq.end()[-2].ledState && currPoint->ledState)){
+        return false;
+    }
+
+    //if all LEDs are "off" Manchester Coding Property is violated
+    if(!seq.end()[-1].ledState && !seq.end()[-2].ledState && !currPoint->ledState){
+        return false;
+    }
+
+    // if the last two LEDs are "on" Manchester Coding Property would be violated if current "on" point will be inserted 
+    if(seq.end()[-1].ledState && seq.end()[-2].ledState && !currPoint->ledState){
+        ROS_ERROR("Shouldn't happen! VIRTUAL POINT SHOULDN'T BE HERE");
+        return false; 
+    }
+
+    return true; 
+}
+//TODO: Change to ICP
+PointState uvdar::alternativeHT::findClosest(const std::vector<PointState> boxMatchPoints, const PointState point){
+    cv::Point2d min;
+    PointState selected; 
+    min.x = -1;
+    min.y = -1; 
+    for (const auto p : boxMatchPoints){
+        cv::Point2d diff = computeXYDiff(p.point, point.point);
+        if( (diff.x < min.x && diff.y < min.y) || (min.x == -1 && min.y == -1) ){
+            selected = p;
+            min.x = diff.x; 
+            min.y = diff.y;
+        }
+    }
+    return selected;
+}
+
+void alternativeHT::cleanPotentialBuffer(){
+
+//TODO: eventually not needed - correction in Moving Avg part
+    double timeThreeFrames = (1/60.0) * 4; 
+
+    std::scoped_lock lock(mutex_generatedSequences_);
+
+    for (auto it = generatedSequences_.begin(); it != generatedSequences_.end(); ++it){ 
+        if (it->empty()){
+            continue;
+        } 
+
+        std::vector<bool> p;
+
+        for (const auto k : generatedSequences_){
+            for(const auto l : k)
+            p.push_back(l.ledState);
+        }
+
+        // printVectorIfNotEmpty(p, "seq");
+
+        bool first = true;
+        bool second = true;
+        bool third = true;
+        if(it->size() >= 3){
+            first   = it->end()[-1].ledState;
+            second  = it->end()[-2].ledState;
+            third   =  it->end()[-3].ledState;
+        }
+        if (first == false && second == false && third == false){
+            // std::cout << "THREE zero\n"; 
+            it = generatedSequences_.erase(it);
+            continue;
+        }
+        
+        
+        
+        double insertTime = it->end()[-1].insertTime.toSec(); 
+        double timeDiffLastInsert = std::abs(insertTime - ros::Time::now().toSec());
+        if (timeDiffLastInsert > timeThreeFrames){ //&& i != generatedSequences_.end()){
+            // std::cout << "TIME\n";
+            it = generatedSequences_.erase(it);
+            continue;
+        }
+
+    }
+}
+
+std::vector<std::pair<PointState, int>> alternativeHT::getResults(){
+
+    std::scoped_lock lock(mutex_generatedSequences_);
+    std::vector<std::pair<PointState, int>> retrievedSignals;
+
+    for (auto sequence : generatedSequences_){
+        std::vector<bool> ledStates;
+        for (auto point : sequence){
+            ledStates.push_back(point.ledState);
+        }
+        int id = findSequenceMatch(ledStates);
+        retrievedSignals.push_back(std::make_pair(sequence.end()[-1], id));
+    }
+
+    return retrievedSignals;
+}
+
+int alternativeHT::findSequenceMatch(std::vector<bool> sequence){
+
+    for ( int i = 2; i < (int)sequence.size(); i++) {
+        if (sequence[i] == false && sequence[i-1] == false && sequence[i-2] == false){
+            return -2;
+        }
+    }
+    int id = matcher_->matchSignalWithCrossCorr(sequence);
+
+    return id;
+}
+
+alternativeHT::~alternativeHT() {
+    // delete generatedSequences_;
+}
+
+
+
+/*****************************************************************************/
+// stuff for moving average 
+
 
 void alternativeHT::checkIfThreeConsecutiveZeros(){
 // TODO: check if necessary?!
@@ -186,145 +385,4 @@ void alternativeHT::checkIfThreeConsecutiveZeros(){
 
         }
     }
-}
-
-void alternativeHT::cleanPotentialBuffer(){
-
-//TODO: eventually not needed - correction in Moving Avg part
-    double timeThreeFrames = (1/60.0) * 3; 
-
-    std::scoped_lock lock(mutex_generatedSequences_);
-
-    for (auto it = generatedSequences_.begin(); it != generatedSequences_.end(); ++it){ 
-        if (it->empty()){
-            continue;
-        } 
-
-        bool first = true;
-        bool second = true;
-        bool third = true;
-        if(it->size() >= 3){
-            first   = it->end()[-1].ledState;
-            second  = it->end()[-2].ledState;
-            third   =  it->end()[-3].ledState;
-        }
-        double insertTime = it->end()[-1].insertTime.toSec(); 
-        double timeDiffLastInsert = std::abs(insertTime - ros::Time::now().toSec());
-        if (timeDiffLastInsert > timeThreeFrames || (first == false && second == false && third == false) ){ //&& i != generatedSequences_.end()){
-            it = generatedSequences_.erase(it);
-            continue;
-        }
-
-    }
-}
-
-std::vector<std::pair<PointState, int>> alternativeHT::getResults(){
-
-    std::scoped_lock lock(mutex_generatedSequences_);
-    std::vector<std::pair<PointState, int>> retrievedSignals;
-
-    for (auto sequence : generatedSequences_){
-        std::vector<bool> ledStates;
-        for (auto point : sequence){
-            ledStates.push_back(point.ledState);
-        }
-        int id = findMatch(ledStates);
-        retrievedSignals.push_back(std::make_pair(sequence.end()[-1], id));
-    }
-
-    return retrievedSignals;
-}
-
-int alternativeHT::findMatch(std::vector<bool> sequence){
-
-    for ( int i = 2; i < (int)sequence.size(); i++) {
-        if (sequence[i] == false && sequence[i-1] == false && sequence[i-2] == false){
-            return -2;
-        }
-    }
-    int id = matcher_->matchSignalWithCrossCorr(sequence);
-
-    return id;
-}
-
-alternativeHT::~alternativeHT() {
-    // delete generatedSequences_;
-}
-
-
-
-/*****************************************************************************/
-// stuff for moving average 
-bool uvdar::alternativeHT::checkBoundingBoxIntersection(PointState & point){
-
-
-    for (auto & p : generatedSequences_){
-    std::vector<PointState> hitPoints;
-        auto lastElement = p.end()[-1]; 
-        auto secondlastElement = p.end()[-2];
-        auto thirdlastElement = p.end()[-3];
-
-        checkForHit(point, lastElement,         hitPoints);
-        checkForHit(point, secondlastElement,   hitPoints);
-        checkForHit(point, thirdlastElement,    hitPoints);
-        
-        if(hitPoints.size() == 0){
-            ROS_WARN("NO HIt at all");
-            break; 
-        }
-
-// TODO: Right now the case because of insertion of VP! 
-        if(hitPoints.size() != 3){
-            ROS_ERROR("Sequence already corrupted");
-            break;
-        }
-
-        if(checkForValidity(hitPoints)){
-            // here it goes on
-        }
-    }
-}
-
-void uvdar::alternativeHT::checkForHit(const PointState point, const PointState p, std::vector<PointState> & hits ){
-     if(p.bbLeftUp.x > point.bbRightDown.x || point.bbLeftUp.x > p.bbRightDown.x || 
-        p.bbRightDown.y > point.bbLeftUp.y || point.bbRightDown.y > p.bbLeftUp.y){
-    } else{
-            ROS_INFO("HIT");
-            hits.push_back(p);
-        }
-}
-
-bool uvdar::alternativeHT::checkForValidity(const std::vector<PointState> & points){
-
-    // if all LEDs are "on" Manchester Coding Property is violated
-    if ((points[0].ledState && points[1].ledState && points[2].ledState)){
-        return false;
-    }
-
-    //if all LEDs are "on" Manchester Coding Property is violated
-    if(!points[0].ledState && !points[1].ledState && !points[2].ledState){
-        return false;
-    }
-
-    // if the last two LEDs are "on" Manchester Coding Property would be violated if current "on" point will be inserted 
-    if(points[1].ledState && points[2].ledState){
-        return false; 
-    }
-
-}
-
-PointState uvdar::alternativeHT::findClosest(const std::vector<PointState> boxMatchPoints, const PointState point){
-    cv::Point2d min;
-    PointState selected; 
-    min.x = -1;
-    min.y = -1; 
-    for (const auto p : boxMatchPoints){
-        cv::Point2d diff = computeXYDiff(p.point, point.point);
-        if( (diff.x < min.x && diff.y < min.y) || (min.x == -1 && min.y == -1) ){
-            selected = p;
-            min.x = diff.x; 
-            min.y = diff.y;
-        }
-    }
-    return selected;
 }
