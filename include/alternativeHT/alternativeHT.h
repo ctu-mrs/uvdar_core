@@ -46,6 +46,8 @@ namespace uvdar
 
         std::vector<std::vector<PointState>> buffer;
 
+
+
         std::vector<std::vector<bool>> originalSequences_;
         std::list<std::vector<PointState>> generatedSequences_;
 
@@ -55,7 +57,7 @@ namespace uvdar
         std::mutex mutex_buffer;
 
         void initBuffer();
-        void findClosestAndLEDState();
+        void findClosestAndLEDState(std::vector<PointState>&);
         PointState findClosest(const std::vector<PointState>, const PointState);
 
         cv::Point2d computeXYDiff(const cv::Point2d, const cv::Point2d);
