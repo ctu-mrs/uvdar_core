@@ -32,7 +32,6 @@ namespace uvdar{
       void initAlternativeHTDataStructure();
       void subscribeToPublishedPoints();
       void insertPointToAHT(const mrs_msgs::ImagePointsWithFloatStampedConstPtr &, const size_t &);
-      void updateBufferAndSetFirstCallBool(const size_t & img_index);
       void InsertSunPoints(const mrs_msgs::ImagePointsWithFloatStampedConstPtr&, size_t);
 
 
@@ -54,10 +53,6 @@ namespace uvdar{
       
       std::vector<std::vector<bool>> sequences_;
       std::vector<ros::Publisher> pub_blinkers_seen_;
-      int buffer_cnt_ = 0;
-      bool first_call_; // bool for preventing access of non assigned values in small_buffer
-      const int max_buffer_size_ = 5; // max allowed frames which are stored
-      const int min_buffer_size_ = 3; // min consecutive frames - required due to Manchester Coding 
       std::mutex mutex_signals_;
       
   
@@ -95,7 +90,6 @@ namespace uvdar{
       float       _visualization_rate_;
       bool        _use_camera_for_visualization_;
       bool        _enable_manchester_;
-      int         _buffer_size_;
       std::vector<std::string> _blinkers_seen_topics;
       std::vector<std::string> _estimated_framerate_topics;
       std::vector<std::string> _points_seen_topics;
@@ -117,7 +111,6 @@ namespace uvdar{
     parseSequenceFile(_sequence_file);
     initAlternativeHTDataStructure();
 
-    first_call_ = true;
     subscribeToPublishedPoints();
 
     initGUI(); 
@@ -143,15 +136,6 @@ namespace uvdar{
     param_loader.loadParam("points_seen_topics", _points_seen_topics, _points_seen_topics);
 
     param_loader.loadParam("enable_manchester", _enable_manchester_, bool(false));
-    if (_enable_manchester_) ROS_WARN_STREAM("[UVDARBlinkProcessor]: Manchester Decoding is enabled. Make sure Transmitter has same coding enabled!");
-
-    param_loader.loadParam("buffer_size", _buffer_size_, int(3));
-    if ( _buffer_size_ > max_buffer_size_ ) {
-      ROS_ERROR_STREAM("[UVDAR_BP_Tim]: The wanted buffer size: " << _buffer_size_ << " is bigger than the maximum buffer size. The maximum buffer size is " << max_buffer_size_ << ". The current setting might cause tracking and blink extraction failure");
-    }
-    if ( _buffer_size_ < min_buffer_size_ ) {
-      ROS_ERROR_STREAM("[UVDAR_BP_Tim]: The wanted buffer size: " << _buffer_size_ << " is smaller than the minimum buffer size. The minimum size for a working system is: " << min_buffer_size_);
-    }
 
     param_loader.loadParam("sequence_file", _sequence_file, std::string());
 
@@ -232,7 +216,7 @@ namespace uvdar{
   void UVDAR_BP_Tim::initAlternativeHTDataStructure(){
 
     for (size_t i = 0; i < _points_seen_topics.size(); ++i) {
-      aht_.push_back(std::make_shared<alternativeHT>(_buffer_size_));
+      aht_.push_back(std::make_shared<alternativeHT>());
       aht_[i]->setSequences(sequences_);
       aht_[i]->setDebugFlags(_debug_, _visual_debug_);
 
@@ -310,9 +294,6 @@ namespace uvdar{
 
     aht_[img_index]->processBuffer(ptsMsg);
 
-    updateBufferAndSetFirstCallBool(img_index);
-    
-  
     if ((!_use_camera_for_visualization_) || ((!_gui_) && (!_publish_visualization_))){
       if ( (camera_image_sizes_[img_index].width <= 0 ) || (camera_image_sizes_[img_index].width <= 0 )){
         camera_image_sizes_[img_index].width = ptsMsg->image_width;
@@ -365,19 +346,18 @@ namespace uvdar{
   }
 
 
-  void UVDAR_BP_Tim::updateBufferAndSetFirstCallBool(const size_t & img_index) {
+  // void UVDAR_BP_Tim::updateBufferAndSetFirstCallBool(const size_t & img_index) {
 
-    buffer_cnt_++;
+  //   buffer_cnt_++;
 
-    // resets buffer -> start overriding older messages
-    if (buffer_cnt_ == _buffer_size_) {
-      buffer_cnt_ = 0;
+  //   // resets buffer -> start overriding older messages
+  //   if (buffer_cnt_ == _buffer_size_) {
+  //     buffer_cnt_ = 0;
 
-      first_call_ = false; 
-      // TODO: call only once for each cam
-      aht_[img_index]->setFirstCallBool(first_call_);
-    }
-  }
+  //     first_call_ = false; 
+  //     // TODO: call only once for each cam
+  //   }
+  // }
 
   void UVDAR_BP_Tim::ProcessThread([[maybe_unused]] const ros::TimerEvent& te, [[maybe_unused]] size_t image_index) {
     if (!initialized_){

@@ -49,7 +49,6 @@
 
   <arg name="sequence_file" default="$(find uvdar_core)/config/selected.txt"/>
   <arg name="enable_manchester" default="false"/>
-  <arg name="buffer_size" default="3"/>
   <arg name="model_file" default="$(find uvdar_core)/config/models/quadrotor_foursided.txt"/>
   <!-- ideal angle: 1.221730476 - pi/2 -->
 
@@ -144,7 +143,6 @@
 
       <param name="sequence_file"         type="string" value="$(arg sequence_file)"/>
       <param name="enable_manchester"     type="bool"   value="$(arg enable_manchester)"/>
-      <param name="buffer_size"           type="int"    value="$(arg buffer_size)"/>
 
       <rosparam param="camera_topics"> ["camera_left", "camera_right", "camera_back"] </rosparam>
       <rosparam param="points_seen_topics"> ["points_seen_left", "points_seen_right", "points_seen_back"] </rosparam>
