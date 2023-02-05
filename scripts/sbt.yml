@@ -32,7 +32,7 @@ windows:
         # - waitForCompile; waitForSimulation; sleep 3; rosservice call /mrs_drone_spawner/spawn  "3 $UAV_TYPE --pos-file $(rospack find uvdar_core)/scripts/position3.csv --enable-rangefinder --enable-ground-truth --enable_all_LED --uvled_beacon_f 0 --uvled_s_1 0 --uvled_s_2 0 --uvled_s_3 0 --uvled_s_4 0"
 
       # spawn UAV without beacon LED and on pose 3 - slightly turned
-        # - waitForCompile; waitForSimulation; sleep 3; rosservice call /mrs_drone_spawner/spawn  "3 $UAV_TYPE --pos-file $(rospack find uvdar_core)/scripts/position3.csv --enable-rangefinder --enable-ground-truth --enable-uv-leds --uvled_s_l 0 --uvled_s_r 0"
+        # - waitForCompile; waitForSimulation; sleep 3; rosservice call /mrs_drone_spawner/spawn  "2 $UAV_TYPE --pos-file $(rospack find uvdar_core)/scripts/position2.csv --enable-rangefinder --enable-ground-truth --enable-uv-leds --uvled_s_l 1 --uvled_s_r 1"
 
       # spawn UAV with only beacon LED
         # - waitForSimulation; sleep 3; rosservice call /mrs_drone_spawner/spawn  "3 $UAV_TYPE --pos-file $(rospack find uvdar_core)/scripts/position3.csv --enable-rangefinder --enable-ground-truth --enable_uv_leds_beacon --uvled_beacon_f 0"  
@@ -59,9 +59,9 @@ windows:
 
 ###################################
         # - waitForSimulation; rosservice call /mrs_drone_spawner/spawn  "1 $UAV_TYPE --pos-file $(rospack find uvdar_core)/scripts/position1.csv --enable-rangefinder --enable-ground-truth --enable-dual-uv-cameras --enable-back-uv-camera --uvcam_calib_file \"$(rospack find uvdar_core)/include/OCamCalib/config/calib_results_bf_uv_fe.txt\""
-        - waitForSimulation; sleep 5; rosservice call /mrs_drone_spawner/spawn  "2 $UAV_TYPE --pos-file $(rospack find uvdar_core)/scripts/position2.csv --enable-rangefinder --enable-ground-truth --enable-uv-leds --uvled_s_l 0 --uvled_s_r 0"
-        - waitForSimulation; sleep 10; rosservice call /mrs_drone_spawner/spawn  "3 $UAV_TYPE --pos-file $(rospack find uvdar_core)/scripts/position3.csv --enable-rangefinder --enable-ground-truth --enable-uv-leds --uvled_s_l 1 --uvled_s_r 1"
-        # - waitForSimulation; sleep 15; rosservice call /mrs_drone_spawner/spawn  "4 $UAV_TYPE --pos-file $(rospack find uvdar_core)/scripts/position4.csv --enable-rangefinder --enable-ground-truth --enable-uv-leds --uvled_s_l 2 --uvled_s_r 2"
+        - waitForSimulation; sleep 5; rosservice call /mrs_drone_spawner/spawn  "2 $UAV_TYPE --pos-file $(rospack find uvdar_core)/scripts/position2.csv --enable-rangefinder --enable-ground-truth --enable_uv_leds_beacon 2"
+        # - waitForSimulation; sleep 10; rosservice call /mrs_drone_spawner/spawn  "3 $UAV_TYPE --pos-file $(rospack find uvdar_core)/scripts/position3.csv --enable-rangefinder --enable-ground-truth --enable-uv-leds --uvled_s_l 0 --uvled_s_r 1"
+        # - waitForSimulation; sleep 12; rosservice call /mrs_drone_spawner/spawn  "4 $UAV_TYPE --pos-file $(rospack find uvdar_core)/scripts/position4.csv --enable-rangefinder --enable-ground-truth --enable-uv-leds --uvled_s_l 4 --uvled_s_r 2"
         # - waitForSimulation; sleep 20; rosservice call /mrs_drone_spawner/spawn  "5 $UAV_TYPE --pos-file $(rospack find uvdar_core)/scripts/position5.csv --enable-rangefinder --enable-ground-truth --enable-uv-leds --uvled_s_l 3 --uvled_s_r 3"
         # - waitForSimulation; sleep 25; rosservice call /mrs_drone_spawner/spawn  "6 $UAV_TYPE --pos-file $(rospack find uvdar_core)/scripts/position6.csv --enable-rangefinder --enable-ground-truth --enable-uv-leds --uvled_s_l 4 --uvled_s_r 4"
         # - waitForSimulation; sleep 30; rosservice call /mrs_drone_spawner/spawn  "7 $UAV_TYPE --pos-file $(rospack find uvdar_core)/scripts/position7.csv --enable-rangefinder --enable-ground-truth --enable-uv-leds --uvled_s_l 5 --uvled_s_r 5"
@@ -92,55 +92,45 @@ windows:
   - autostart:
       layout: even-vertical
       panes:
-        - export UAV_NAME=uav2; waitForSimulation;  sleep 100;roslaunch mrs_uav_general automatic_start.launch
-        - export UAV_NAME=uav1; waitForSimulation;  sleep 100;roslaunch mrs_uav_general automatic_start.launch
-        - export UAV_NAME=uav3; waitForSimulation;  sleep 100;roslaunch mrs_uav_general automatic_start.launch
-
+        - export UAV_NAME=uav1; waitForSimulation; roslaunch mrs_uav_general automatic_start.launch
+        - export UAV_NAME=uav2; waitForSimulation; roslaunch mrs_uav_general automatic_start.launch
+        - export UAV_NAME=uav3; waitForSimulation; roslaunch mrs_uav_general automatic_start.launch
   - takeoff:
       layout: even-vertical
       panes:
-        - 'export UAV_NAME=uav1;
-          waitForControl; sleep 130;
-          rosservice call /$UAV_NAME/mavros/cmd/arming 1;
-          rosservice call /$UAV_NAME/mavros/set_mode 0 offboard'
-        - 'export UAV_NAME=uav2; 
-          waitForControl; sleep 130;
+        # - 'export UAV_NAME=uav1;
+        #   waitForControl;
+        #   rosservice call /$UAV_NAME/mavros/cmd/arming 1;
+        #   rosservice call /$UAV_NAME/mavros/set_mode 0 offboard'
+        - 'export UAV_NAME=uav2;
+          waitForControl;
           rosservice call /$UAV_NAME/mavros/cmd/arming 1;
           rosservice call /$UAV_NAME/mavros/set_mode 0 offboard'
         - 'export UAV_NAME=uav3;
-          waitForControl; sleep 130;
+          waitForControl;
           rosservice call /$UAV_NAME/mavros/cmd/arming 1;
           rosservice call /$UAV_NAME/mavros/set_mode 0 offboard'
-        # - 'export UAV_NAME=uav10;
-        #   waitForControl; sleep 130;
-        #   rosservice call /$UAV_NAME/mavros/cmd/arming 1;
-        #   rosservice call /$UAV_NAME/mavros/set_mode 0 offboard'
-        #}
-  # - rviz:
-      # layout: even-vertical
-      # panes:
-        # - export UAV_NAME=uav1; waitForControl; roslaunch uvdar_core multimodal_hypothesis_rviz.launch
-        # - export UAV_NAME=uav1; waitForControl; roslaunch uvdar_core multi_frequency_test_rviz.launch
+        # #}
   - uv_observer:
       layout: even-vertical
       panes:
-        - waitForCompile; waitForSimulation; gz world --pause=0; sleep 6;  export UAV_NAME=uav1; waitForControl; roslaunch uvdar_core tl_Three_Sided.launch debug:=false beacon:=true buffer_size:=3 enable_manchester:=false
+        - waitForCompile; waitForSimulation; gz world --pause=0; sleep 6;  export UAV_NAME=uav1; waitForControl; roslaunch uvdar_core tl_Three_Sided.launch debug:=false beacon:=true enable_manchester:=false
         # - waitForCompile; gz world --pause=0; sleep 6;  export UAV_NAME=uav1; waitForControl; roslaunch uvdar_core sim_three_sided.launch
 
   #       # - waitForCompile; gz world --pause=0; sleep 6;  export UAV_NAME=uav1; waitForControl; roslaunch uvdar_core multi_frequency_test.launch
-  # - kalman_filter:
-  #     layout: even-vertical
-  #     panes:
-  #       - export UAV_NAME=uav1; waitForControl; roslaunch uvdar_core uvdar_kalman.launch output_frame:=$UAV_NAME/stable_origin
+  - kalman_filter:
+      layout: even-vertical
+      panes:
+        - export UAV_NAME=uav1; waitForControl; roslaunch uvdar_core uvdar_kalman.launch output_frame:=$UAV_NAME/stable_origin
   - slow_down:
       layout: even-vertical
       panes:
-        - waitForSimulation; waitForRos; sleep 60; gz physics -u 83
+        - waitForSimulation; sleep 15; gz physics -u 83
           # - waitForCompile; waitForSimulation; sleep 15; gz physics -u 80
 
   - goto:
       layout: even-vertical
       panes:
-        - 'history -s rosservice call /uav2/control_manager/goto_fcu "goal: [2.0, 10.0, 0.0, 0.7]"'
+        - 'history -s rosservice call /uav2/control_manager/goto_fcu \"goal: \[-10.0, 5.0, -1.0, 0.7\]\"'        
         - 'history -s rosservice call /uav3/control_manager/goto_fcu \"goal: \[0.0, 0.0, 0.0, 0.7\]\"'
 
