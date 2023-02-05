@@ -35,23 +35,31 @@ void alternativeHT::processBuffer(const mrs_msgs::ImagePointsWithFloatStampedCon
     }
 
     findClosestPixelAndInsert(currentFrame);
+std::cout<< "======================================\n";
+    // for (const auto k : generatedSequences_){
+        // std::vector<bool> p;
+        // for (auto r : k){
+            // if(r.ledState) p.push_back(true);
+            // else p.push_back(false);
+        // }
+        // printVectorIfNotEmpty(p, "before");
+    // }
     inserVPIfNoNewPointArrived(currentFrame);
+    //     for (const auto k : generatedSequences_){
+    //     std::vector<bool> p;
+    //     for (auto r : k){
+    //         if(r.ledState) p.push_back(true);
+    //         else p.push_back(false);
+    //     }
+    //     printVectorIfNotEmpty(p, "after");
+    // }
     cleanPotentialBuffer();  // TODO: NOT WORKING!!!!!
     
-std::cout<< "======================================\n";
-    for (const auto k : generatedSequences_){
-        std::vector<bool> p;
-        for (auto r : k){
-            if(r.ledState) p.push_back(true);
-            else p.push_back(false);
-        }
-        printVectorIfNotEmpty(p, "seq");
-    }
 }
 
 void alternativeHT::findClosestPixelAndInsert(std::vector<PointState> & currentFrame) {   
     
-    std::vector<std::shared_ptr<PointState>> noNN;
+    std::vector<PointState> noNN;
     for(auto & currPoint : currentFrame){
         std::scoped_lock lock(mutex_generatedSequences_);
         bool nearestNeighbor = false;
@@ -68,7 +76,7 @@ void alternativeHT::findClosestPixelAndInsert(std::vector<PointState> & currentF
         }
         if(nearestNeighbor == false){
             // std::cout << "curr point " << currPoint.point.x << "," << currPoint.point.y << "\n";
-            noNN.push_back(std::make_shared<PointState>(currPoint));
+            noNN.push_back(currPoint);
 // // here was before ther "stasrt new sequence"
 //             std::vector<PointState> vect;
 //             vect.push_back(currPoint);
@@ -123,7 +131,7 @@ void alternativeHT::inserVPIfNoNewPointArrived(std::vector<PointState> & current
     }
 }
 
-void uvdar::alternativeHT::checkBoundingBoxIntersection(std::vector<std::shared_ptr<PointState>> noNNCurrentFrame){
+void uvdar::alternativeHT::checkBoundingBoxIntersection(std::vector<PointState> noNNCurrentFrame){
 
     for(const auto point : noNNCurrentFrame){
         std::vector<std::shared_ptr<std::vector<PointState>>> ptsHit; 
@@ -133,8 +141,8 @@ void uvdar::alternativeHT::checkBoundingBoxIntersection(std::vector<std::shared_
             if(checkForValidityWithNewInsertedPoint(seq, point)){
                 // NOW check if boxes hit
                     // std::cout << "seq" << seq.end()[-1].point.x << ", " << seq.end()[-1].point.y << " -- " << point->point.x << ", " << point->point.y << "\n";
-                if(bbIntersec(seq.end()[-1], *point)){
-                    // ROS_ERROR("HIT");
+                if(bbIntersec(seq.end()[-1], point)){
+                    ROS_ERROR("HIT");
                     ptsHit.push_back(std::make_shared<std::vector<PointState>>(seq));
                 }
             }
@@ -142,41 +150,53 @@ void uvdar::alternativeHT::checkBoundingBoxIntersection(std::vector<std::shared_
 
         if(ptsHit.size() == 0){
             // // start new sequence
-            // std::cout << "new seq\n";
+            std::cout << "new seq\n";
             std::vector<PointState> vect;
-            vect.push_back(*point);
+            vect.push_back(point);
             generatedSequences_.push_back(vect);
             continue;
         }
-        for (auto p : ptsHit){
-            std::cout << p->end()[-1].point.x << "," << p->end()[-1].point.y << "\n";
+
+        for (const auto k : generatedSequences_){
+            std::vector<bool> p;
+            for (auto r : k){
+                    if(r.ledState) p.push_back(true);
+                    else p.push_back(false);
+            }
+            printVectorIfNotEmpty(p, "before");
         }
-        // std::cout << "after continue\n";
-        auto selectedSequence = findClosestWithinSelectedBB(ptsHit, *point);
-        // std::cout << "The selected one " << point->point.x << "," << point->point.y << " the seq " << selectedSequence->end()[-1].point.x << "," <<  selectedSequence->end()[-1].point.y <<  "\n";
-        insertPointToSequence(*selectedSequence, *point);
+        auto selectedSequence = findClosestWithinSelectedBB(ptsHit, point);
+        insertPointToSequence(*selectedSequence, point);
+        for (const auto k : generatedSequences_){
+            std::vector<bool> p;
+            for (auto r : k){
+                if(r.ledState) p.push_back(true);
+                else p.push_back(false);
+            }
+            printVectorIfNotEmpty(p, "before");
+        }
     }
 
 }
 
 
-bool uvdar::alternativeHT::checkForValidityWithNewInsertedPoint(const std::vector<PointState> & seq, const std::shared_ptr<PointState> currPoint){
+bool uvdar::alternativeHT::checkForValidityWithNewInsertedPoint(const std::vector<PointState> & seq, const PointState currPoint){
 
     if(seq.size() <= 1){
         return true;
     }
     // if all LEDs are "on" Manchester Coding Property is violated
-    if ((seq.end()[-1].ledState && seq.end()[-2].ledState && currPoint->ledState)){
+    if ((seq.end()[-1].ledState && seq.end()[-2].ledState && currPoint.ledState)){
         return false;
     }
 
     //if all LEDs are "off" Manchester Coding Property is violated
-    if(!seq.end()[-1].ledState && !seq.end()[-2].ledState && !currPoint->ledState){
+    if(!seq.end()[-1].ledState && !seq.end()[-2].ledState && !currPoint.ledState){
         return false;
     }
 
     // if the last two LEDs are "on" Manchester Coding Property would be violated if current "on" point will be inserted 
-    if(seq.end()[-1].ledState && seq.end()[-2].ledState && !currPoint->ledState){
+    if(seq.end()[-1].ledState && seq.end()[-2].ledState && !currPoint.ledState){
         ROS_ERROR("Shouldn't happen! VIRTUAL POINT SHOULDN'T BE HERE");
         return false; 
     }
@@ -184,7 +204,7 @@ bool uvdar::alternativeHT::checkForValidityWithNewInsertedPoint(const std::vecto
     return true; 
 }
 
-
+// current not implemented 
 bool uvdar::alternativeHT::bbIntersec(const PointState & prev, const PointState & curr){
     
     // if(curr.bbLeftUp.x > prev.bbRightDown.x || prev.bbLeftUp.x > curr.bbRightDown.x || 
@@ -193,7 +213,7 @@ bool uvdar::alternativeHT::bbIntersec(const PointState & prev, const PointState 
     // }
     // return true;
     auto diff = computeXYDiff(prev.point, curr.point);
-    if(diff.x <= 20 && diff.y <= 20){
+    if(diff.x <= 50 && diff.y <= 50){
         return true;
     }
 
@@ -206,12 +226,12 @@ std::shared_ptr<std::vector<PointState>> uvdar::alternativeHT::findClosestWithin
 
     cv::Point2d min;
     std::shared_ptr<std::vector<PointState>> selected; 
-    min.x = -1;
-    min.y = -1; 
+    min.x = 200;  // TODO
+    min.y = 200; // TODO
     for (const auto p : boxMatchPoints){
         auto matchedPoint = p->end()[-1];
         cv::Point2d diff = computeXYDiff(matchedPoint.point, queryPoint.point);
-        if( (diff.x < min.x && diff.y < min.y) || (min.x == -1 && min.y == -1) ){
+        if( (diff.x < min.x && diff.y < min.y)){
             selected = p;
             min.x = diff.x; 
             min.y = diff.y;
@@ -231,19 +251,22 @@ void alternativeHT::cleanPotentialBuffer(){
             continue;
         }
 
-        // if(it->size() >= 3){
-        // bool first = true;
-        // bool second = true;
-        // bool third = true;
-        //     first   = it->end()[-1].ledState;
-        //     second  = it->end()[-2].ledState;
-        //     third   =  it->end()[-3].ledState;
-        //     if((first && second && third) || (!first && !second && !third)){
-        //     ROS_ERROR("MOTHERFUCKER");
-        //     it = generatedSequences_.erase(it);
-        //     continue;
-        // }
-        // }
+        if(it->size() > 3){
+            bool first  = it->end()[-1].ledState;
+            bool second = it->end()[-2].ledState;
+            bool third  = it->end()[-3].ledState;
+            bool forth  = it->end()[-4].ledState;
+            if(first && second && third && forth){
+                ROS_ERROR("all true");
+                it = generatedSequences_.erase(it);
+                continue;
+            }
+            if(!first && !second && !third && !forth){
+                ROS_ERROR("all false");
+                it = generatedSequences_.erase(it);
+                continue;
+            }
+        }
         
         
         

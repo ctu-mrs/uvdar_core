@@ -50,10 +50,10 @@ namespace uvdar
         void cleanPotentialBuffer();
 
         // moving average approach 
-        void checkBoundingBoxIntersection(std::vector<std::shared_ptr<PointState>>);
-        bool checkForValidityWithNewInsertedPoint(const std::vector<PointState>& , const std::shared_ptr<PointState>);
+        void checkBoundingBoxIntersection(std::vector<PointState>);
+        bool checkForValidityWithNewInsertedPoint(const std::vector<PointState>& , const PointState);
         bool bbIntersec(const PointState &, const PointState &);
-        std::shared_ptr<std::vector<PointState>> findClosestWithinSelectedBB(std::vector<std::shared_ptr<std::vector<PointState>>>, const PointState);
+        std::shared_ptr<std::vector<PointState>> findClosestWithinSelectedBB(std::vector<std::shared_ptr<std::vector<PointState>>> , const PointState);
         
         int findSequenceMatch(std::vector<bool>);
 
