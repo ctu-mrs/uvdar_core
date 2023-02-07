@@ -53,7 +53,7 @@ namespace uvdar
         void checkBoundingBoxIntersection(std::vector<PointState>);
         bool checkForValidityWithNewInsertedPoint(const std::vector<PointState>& , const PointState);
         bool bbIntersec(const PointState &, const PointState &);
-        std::shared_ptr<std::vector<PointState>> findClosestWithinSelectedBB(std::vector<std::shared_ptr<std::vector<PointState>>> , const PointState);
+        std::vector<PointState>* findClosestWithinSelectedBB(std::vector<std::vector<PointState>*>  , const PointState);
         
         int findSequenceMatch(std::vector<bool>);
 

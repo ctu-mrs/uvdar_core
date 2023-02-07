@@ -27,6 +27,8 @@ void alternativeHT::processBuffer(const mrs_msgs::ImagePointsWithFloatStampedCon
         cv::Point2d leftUpperCorner, rightDownCorner;
         leftUpperCorner.x = p.point.x - boundingBox_x_Size_; 
         leftUpperCorner.y = p.point.y - boundingBox_y_Size_;
+        rightDownCorner.x = p.point.x + boundingBox_x_Size_;
+        rightDownCorner.y = p.point.y + boundingBox_y_Size_;
         if (p.bbLeftUp.x < 0) p.bbLeftUp.x = 0;
         if (p.bbLeftUp.y < 0) p.bbLeftUp.y = 0;
         p.bbLeftUp = leftUpperCorner;
@@ -35,7 +37,6 @@ void alternativeHT::processBuffer(const mrs_msgs::ImagePointsWithFloatStampedCon
     }
 
     findClosestPixelAndInsert(currentFrame);
-std::cout<< "======================================\n";
     // for (const auto k : generatedSequences_){
         // std::vector<bool> p;
         // for (auto r : k){
@@ -45,16 +46,17 @@ std::cout<< "======================================\n";
         // printVectorIfNotEmpty(p, "before");
     // }
     inserVPIfNoNewPointArrived(currentFrame);
-    //     for (const auto k : generatedSequences_){
+// std::cout << "---------------------------------------------\n";
+    cleanPotentialBuffer();  // TODO: NOT WORKING!!!!!
+    // for (const auto k : generatedSequences_){
     //     std::vector<bool> p;
     //     for (auto r : k){
     //         if(r.ledState) p.push_back(true);
     //         else p.push_back(false);
     //     }
     //     printVectorIfNotEmpty(p, "after");
+    std::cout << generatedSequences_.size() << std::endl; 
     // }
-    cleanPotentialBuffer();  // TODO: NOT WORKING!!!!!
-    
 }
 
 void alternativeHT::findClosestPixelAndInsert(std::vector<PointState> & currentFrame) {   
@@ -75,12 +77,11 @@ void alternativeHT::findClosestPixelAndInsert(std::vector<PointState> & currentF
             }
         }
         if(nearestNeighbor == false){
-            // std::cout << "curr point " << currPoint.point.x << "," << currPoint.point.y << "\n";
             noNN.push_back(currPoint);
 // // here was before ther "stasrt new sequence"
-//             std::vector<PointState> vect;
-//             vect.push_back(currPoint);
-//             generatedSequences_.push_back(vect);
+            // std::vector<PointState> vect;
+            // vect.push_back(currPoint);
+            // generatedSequences_.push_back(vect);
         }
     }
 
@@ -109,24 +110,28 @@ void alternativeHT::insertPointToSequence(std::vector<PointState> & sequence, co
 void alternativeHT::inserVPIfNoNewPointArrived(std::vector<PointState> & currentFrame){
     std::scoped_lock lock(mutex_generatedSequences_);
     for(auto & sequence : generatedSequences_){
-
+        
+        if(sequence.size() >= 2){
+            bool lastLEDstate = sequence.end()[-1].ledState;
+            bool secondLastLEDstate = sequence.end()[-2].ledState;
+            if(!lastLEDstate && !secondLastLEDstate){
+                continue;
+            }
+        }
+        
         if(currentFrame.size() != 0){
             ros::Time lastInsert = currentFrame[0].insertTime;
             if(lastInsert != sequence.end()[-1].insertTime){
-                // ROS_ERROR("Should happen sometimes");
                 auto p = sequence.end()[-1];
                 p.ledState = false; 
                 p.insertTime = ros::Time::now();
                 insertPointToSequence(sequence, p);
             }
         }else{
-            ros::Time now = ros::Time::now();
-            if(now != sequence.end()[-1].insertTime){
-                auto p = sequence.end()[-1];
-                p.ledState = false; 
-                p.insertTime = now;
-                insertPointToSequence(sequence, p);
-            }
+            auto p = sequence.end()[-1];
+            p.ledState = false; 
+            p.insertTime = ros::Time::now();;
+            insertPointToSequence(sequence, p);
         }
     }
 }
@@ -134,51 +139,57 @@ void alternativeHT::inserVPIfNoNewPointArrived(std::vector<PointState> & current
 void uvdar::alternativeHT::checkBoundingBoxIntersection(std::vector<PointState> noNNCurrentFrame){
 
     for(const auto point : noNNCurrentFrame){
-        std::vector<std::shared_ptr<std::vector<PointState>>> ptsHit; 
+        std::vector<std::vector<PointState>*> ptsHit; 
         // std::vector<std::shared_ptr<PointState>> ptsHit;
         std::scoped_lock lock(mutex_generatedSequences_);
-        for(const auto seq : generatedSequences_){
+        for(auto & seq : generatedSequences_){
             if(checkForValidityWithNewInsertedPoint(seq, point)){
                 // NOW check if boxes hit
                     // std::cout << "seq" << seq.end()[-1].point.x << ", " << seq.end()[-1].point.y << " -- " << point->point.x << ", " << point->point.y << "\n";
                 if(bbIntersec(seq.end()[-1], point)){
-                    ROS_ERROR("HIT");
-                    ptsHit.push_back(std::make_shared<std::vector<PointState>>(seq));
+                    // ROS_ERROR("HIT");
+                    // std::vector<PointState>* s = &seq; 
+                    ptsHit.push_back(&seq);
+                }else{
+                    // std::cout << "no hit\n";
                 }
+            } else{
             }
         }
 
         if(ptsHit.size() == 0){
             // // start new sequence
-            std::cout << "new seq\n";
+            // std::cout << "Current point " << point.point.x << "," << point.point.y << std::endl;
+            // for(const auto k : generatedSequences_ ){
+            //     std::cout << "Seq " <<  k.end()[-1].point.x << "," << k.end()[-1].point.y << std::endl;
+            // }
             std::vector<PointState> vect;
             vect.push_back(point);
             generatedSequences_.push_back(vect);
             continue;
         }
 
-        for (const auto k : generatedSequences_){
-            std::vector<bool> p;
-            for (auto r : k){
-                    if(r.ledState) p.push_back(true);
-                    else p.push_back(false);
-            }
-            printVectorIfNotEmpty(p, "before");
-        }
+        // for (const auto k : generatedSequences_){
+        //     std::vector<bool> p;
+        //     for (auto r : k){
+        //             if(r.ledState) p.push_back(true);
+        //             else p.push_back(false);
+        //     }
+        //     printVectorIfNotEmpty(p, "before");
+        // }
         auto selectedSequence = findClosestWithinSelectedBB(ptsHit, point);
         insertPointToSequence(*selectedSequence, point);
-        for (const auto k : generatedSequences_){
-            std::vector<bool> p;
-            for (auto r : k){
-                if(r.ledState) p.push_back(true);
-                else p.push_back(false);
-            }
-            printVectorIfNotEmpty(p, "before");
-        }
+        // for (const auto k : generatedSequences_){
+        //     std::vector<bool> p;
+        //     for (auto r : k){
+        //         if(r.ledState) p.push_back(true);
+        //         else p.push_back(false);
+        //     }
+        //     printVectorIfNotEmpty(p, "after");
+        // }
     }
 
 }
-
 
 bool uvdar::alternativeHT::checkForValidityWithNewInsertedPoint(const std::vector<PointState> & seq, const PointState currPoint){
 
@@ -204,34 +215,30 @@ bool uvdar::alternativeHT::checkForValidityWithNewInsertedPoint(const std::vecto
     return true; 
 }
 
-// current not implemented 
-bool uvdar::alternativeHT::bbIntersec(const PointState & prev, const PointState & curr){
+// return true, if bounding boxes hit 
+bool uvdar::alternativeHT::bbIntersec(const PointState & point1, const PointState & point2){
     
-    // if(curr.bbLeftUp.x > prev.bbRightDown.x || prev.bbLeftUp.x > curr.bbRightDown.x || 
-    //     curr.bbRightDown.y > prev.bbLeftUp.y || prev.bbRightDown.y > curr.bbLeftUp.y){
-    //     return false;
-    // }
-    // return true;
-    auto diff = computeXYDiff(prev.point, curr.point);
-    if(diff.x <= 50 && diff.y <= 50){
+    if( (point1.bbRightDown.x >= point2.bbLeftUp.x && point2.bbRightDown.x >= point1.bbLeftUp.x ) && (point1.bbRightDown.y >= point2.bbLeftUp.y && point2.bbRightDown.y >= point1.bbLeftUp.y)){
         return true;
     }
-
     return false; 
 }
 
 
 //TODO: Change to ICP
-std::shared_ptr<std::vector<PointState>> uvdar::alternativeHT::findClosestWithinSelectedBB(std::vector<std::shared_ptr<std::vector<PointState>>> boxMatchPoints, const PointState queryPoint){
+std::vector<PointState>* uvdar::alternativeHT::findClosestWithinSelectedBB(std::vector<std::vector<PointState>*> boxMatchPoints, const PointState queryPoint){
 
     cv::Point2d min;
-    std::shared_ptr<std::vector<PointState>> selected; 
-    min.x = 200;  // TODO
-    min.y = 200; // TODO
-    for (const auto p : boxMatchPoints){
+
+    std::vector<PointState>* selected = nullptr; 
+    // guarantee that selected will be assigned - otherwise this function shoudln't be called 
+    min.x = boundingBox_x_Size_*3;
+    min.y = boundingBox_y_Size_*3;
+    for(auto p : boxMatchPoints){
         auto matchedPoint = p->end()[-1];
         cv::Point2d diff = computeXYDiff(matchedPoint.point, queryPoint.point);
-        if( (diff.x < min.x && diff.y < min.y)){
+
+        if( (diff.x <= min.x && diff.y <= min.y)){
             selected = p;
             min.x = diff.x; 
             min.y = diff.y;
@@ -251,17 +258,16 @@ void alternativeHT::cleanPotentialBuffer(){
             continue;
         }
 
-        if(it->size() > 3){
+        if(it->size() >= 3){
             bool first  = it->end()[-1].ledState;
             bool second = it->end()[-2].ledState;
             bool third  = it->end()[-3].ledState;
-            bool forth  = it->end()[-4].ledState;
-            if(first && second && third && forth){
-                ROS_ERROR("all true");
-                it = generatedSequences_.erase(it);
-                continue;
-            }
-            if(!first && !second && !third && !forth){
+            // if(first && second && third && forth){
+            //     ROS_ERROR("all true");
+            //     it = generatedSequences_.erase(it);
+            //     continue;
+            // }
+            if(!first && !second && !third){
                 ROS_ERROR("all false");
                 it = generatedSequences_.erase(it);
                 continue;
@@ -272,6 +278,7 @@ void alternativeHT::cleanPotentialBuffer(){
         
         double insertTime = it->end()[-1].insertTime.toSec(); 
         double timeDiffLastInsert = std::abs(insertTime - ros::Time::now().toSec());
+        // std::cout << "time last inserted" << timeDiffLastInsert << "last insedrt" << insertTime; 
         if (timeDiffLastInsert > timeThreeFrames){ //&& i != generatedSequences_.end()){
             ROS_ERROR("TIME");
             it = generatedSequences_.erase(it);
