@@ -50,9 +50,13 @@ namespace uvdar
         void cleanPotentialBuffer();
 
         // moving average approach 
-        void checkBoundingBoxIntersection(std::vector<PointState>);
-        bool checkForValidityWithNewInsertedPoint(const std::vector<PointState>& , const PointState);
-        bool bbIntersec(const PointState &, const PointState &);
+        void checkBoundingBoxIntersection(std::vector<PointState> &, std::list<std::vector<PointState>*> &);
+        bool checkValidWithPotentialNewPoint(const std::vector<PointState>& , const PointState);
+        bool bbIntersect(const PointState &, const PointState &);
+        void computeVariance(const std::vector<PointState> &, std::list<std::vector<PointState>*>);
+        void permute( std::vector<PointState>, int, int, std::vector<std::vector<PointState>> &);
+
+
         std::vector<PointState>* findClosestWithinSelectedBB(std::vector<std::vector<PointState>*>  , const PointState);
         
         int findSequenceMatch(std::vector<bool>);
