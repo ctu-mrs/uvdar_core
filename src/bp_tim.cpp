@@ -3,6 +3,7 @@
 #include <mrs_lib/param_loader.h>
 #include <mrs_lib/image_publisher.h>
 #include <std_msgs/Float32.h>
+#include <sensor_msgs/Imu.h>
 #include <mrs_msgs/ImagePointsWithFloatStamped.h>
 
 #include <cv_bridge/cv_bridge.h>
@@ -41,6 +42,8 @@ namespace uvdar{
       void VisualizationThread([[maybe_unused]] const ros::TimerEvent&);
       int generateVisualization(cv::Mat& );
       void callbackImage(const sensor_msgs::ImageConstPtr&, size_t);
+      void imuCallback(const sensor_msgs::Imu::ConstPtr& msg);
+
 
 
       ros::NodeHandle private_nh_;
@@ -61,7 +64,10 @@ namespace uvdar{
       std::vector<points_seen_callback_t> cals_sun_points_;
       std::vector<ros::Subscriber> sub_points_seen_;
       std::vector<ros::Subscriber> sub_sun_points_;
-      
+
+      using imu_data_callback_t = boost::function<void (const sensor_msgs::Imu::ConstPtr&)>;
+
+
       // visualization variables
       std::vector<ros::Timer> timer_process_;
       ros::Timer timer_visualization_;
@@ -94,6 +100,7 @@ namespace uvdar{
       std::vector<std::string> _estimated_framerate_topics;
       std::vector<std::string> _points_seen_topics;
       std::string _sequence_file;
+      std::string _imu_topic_;
   };
       
   void UVDAR_BP_Tim::onInit(){
@@ -143,9 +150,16 @@ namespace uvdar{
     private_nh_.param("estimated_framerate_topics", _estimated_framerate_topics, _estimated_framerate_topics);
     private_nh_.param("use_camera_for_visualization", _use_camera_for_visualization_, bool(true));
 
+    private_nh_.param("imu_topic", _imu_topic_, std::string());
+
   }
 
   bool UVDAR_BP_Tim::checkCameraTopicSizeMatch() {
+
+    for (size_t i = 0; i < _blinkers_seen_topics.size(); ++i) {
+      pub_blinkers_seen_.push_back(private_nh_.advertise<mrs_msgs::ImagePointsWithFloatStamped>(_blinkers_seen_topics[i], 1));
+      // pub_estimated_framerate_.push_back(private_nh_.advertise<std_msgs::Float32>(_estimated_framerate_topics[i], 1));
+    }
 
     if (_blinkers_seen_topics.size() != _points_seen_topics.size()){
       ROS_ERROR_STREAM("[UVDAR_BP_Tim]: The number of pointsSeenTopics (" << _points_seen_topics.size() << ") is not matching the number of blinkers_seen_topics (" << _blinkers_seen_topics.size() << ")!");
@@ -247,6 +261,15 @@ namespace uvdar{
       sub_sun_points_.push_back(private_nh_.subscribe(_points_seen_topics[i] + "/sun", 1, cals_sun_points_[i]));
     } 
     sun_points_.resize(_points_seen_topics.size());
+
+
+    imu_data_callback_t callback = [this](const sensor_msgs::Imu::ConstPtr& msg){
+      imuCallback(msg);
+    };
+    _imu_topic_ = "/uav1/mavros/imu/data";
+    private_nh_.subscribe(_imu_topic_, 100, callback);
+
+
   }
 
 
@@ -288,6 +311,16 @@ namespace uvdar{
       }
   }
 
+  void UVDAR_BP_Tim::imuCallback(const sensor_msgs::Imu::ConstPtr& msg)
+  {
+    ROS_INFO("Received IMU data: [angular_velocity (x,y,z)]: [%f, %f, %f]", 
+             msg->angular_velocity.x, 
+             msg->angular_velocity.y, 
+             msg->angular_velocity.z);
+  }
+
+
+
   void UVDAR_BP_Tim::insertPointToAHT(const mrs_msgs::ImagePointsWithFloatStampedConstPtr &ptsMsg, const size_t & img_index) {
     if (!initialized_) return;
 
@@ -325,6 +358,9 @@ namespace uvdar{
       }
     msg.image_width   = camera_image_sizes_[img_index].width;
     msg.image_height  = camera_image_sizes_[img_index].height;
+    
+    // TODO: ?!
+    pub_blinkers_seen_[img_index].publish(msg);
 
     }
     

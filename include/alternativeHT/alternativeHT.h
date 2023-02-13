@@ -50,11 +50,19 @@ namespace uvdar
         void cleanPotentialBuffer();
 
         // moving average approach 
-        void checkBoundingBoxIntersection(std::vector<PointState> &, std::list<std::vector<PointState>*> &);
-        bool checkValidWithPotentialNewPoint(const std::vector<PointState>& , const PointState);
+        void checkBoundingBoxIntersection(std::vector<PointState> &, std::vector<std::vector<PointState>*> &);
+        bool checkValidWithPotentialNewPoint(const std::vector<PointState>&);
         bool bbIntersect(const PointState &, const PointState &);
-        void computeVariance(const std::vector<PointState> &, std::list<std::vector<PointState>*>);
+        void computeHypothesisSets(const std::vector<PointState> &, std::vector<std::vector<PointState>*>);
+        void calcVariance(std::vector<PointState> &);
         void permute( std::vector<PointState>, int, int, std::vector<std::vector<PointState>> &);
+
+
+        // check intersection
+        bool doIntersect(PointState p1, PointState q1, PointState p2, PointState q2);
+        bool onSegment(PointState p, PointState q, PointState r);
+        int orientation(PointState p, PointState q, PointState r);
+
 
 
         std::vector<PointState>* findClosestWithinSelectedBB(std::vector<std::vector<PointState>*>  , const PointState);
