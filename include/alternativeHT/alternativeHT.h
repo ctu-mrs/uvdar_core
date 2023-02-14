@@ -1,7 +1,6 @@
 #pragma once
 
 #include <iostream>
-#include <map>
 #include <list>
 #include <ros/console.h>
 // #include <mutex>
@@ -32,6 +31,8 @@ namespace uvdar
         const int max_pixel_shift_y_ = 2;
         const int boundingBox_x_Size_ = 3;
         const int boundingBox_y_Size_ = 3;
+        double framerate_;
+
 
         std::vector<std::vector<bool>> originalSequences_;
         
@@ -39,6 +40,7 @@ namespace uvdar
         std::list<std::vector<PointState>> generatedSequences_;
 
         std::unique_ptr<SignalMatcher> matcher_;
+
 
 
         void findClosestPixelAndInsert(std::vector<PointState>&);
@@ -76,6 +78,7 @@ namespace uvdar
         
         void setSequences(std::vector<std::vector<bool>>);
         void setDebugFlags(bool, bool);
+        void updateFramerate(double);
 
         void processBuffer(const mrs_msgs::ImagePointsWithFloatStampedConstPtr);
 

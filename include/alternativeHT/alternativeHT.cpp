@@ -18,6 +18,11 @@ void alternativeHT::setSequences(std::vector<std::vector<bool>> i_sequences){
     matcher_ = std::make_unique<SignalMatcher>(originalSequences_);
 }
 
+void alternativeHT::updateFramerate(double input) {
+  if (input > 1.0)
+    framerate_ = input;
+}
+
 void alternativeHT::processBuffer(const mrs_msgs::ImagePointsWithFloatStampedConstPtr ptsMsg) {
     
     std::vector<PointState> currentFrame;
@@ -159,12 +164,12 @@ void alternativeHT::inserVPIfNoNewPointArrived(std::vector<PointState> & current
 void uvdar::alternativeHT::checkBoundingBoxIntersection(std::vector<PointState> & noNNCurrentFrame, std::vector<std::vector<PointState>*> & sequencesNoInsert){
 
 
-    std::vector<std::vector<PointState>> allCombinationsFrame;
-    permute(noNNCurrentFrame, 0, (int)(noNNCurrentFrame.size() - 1), allCombinationsFrame);
+    // std::vector<std::vector<PointState>> allCombinationsFrame;
+    // permute(noNNCurrentFrame, 0, (int)(noNNCurrentFrame.size() - 1), allCombinationsFrame);
 
-    for(auto perm : allCombinationsFrame){
-        computeHypothesisSets(perm, sequencesNoInsert);
-    }
+    // for(auto perm : allCombinationsFrame){
+    //     computeHypothesisSets(perm, sequencesNoInsert);
+    // }
     
 
 

@@ -13,7 +13,8 @@
 #include <fstream>
 #include <color_selector/color_selector.h>
 #include <alternativeHT/alternativeHT.h>
-
+#include <imu_processor/imu_processor.h>
+    
 namespace uvdar{
 
   class UVDAR_BP_Tim : public nodelet::Nodelet {
@@ -44,18 +45,17 @@ namespace uvdar{
       void callbackImage(const sensor_msgs::ImageConstPtr&, size_t);
       void imuCallback(const sensor_msgs::Imu::ConstPtr& msg);
 
-
-
       ros::NodeHandle private_nh_;
       std::atomic_bool initialized_ = false;  
       
                   
       int image_sizes_received_ = 0;
       std::vector<std::shared_ptr<alternativeHT>> aht_;
-      std::vector<std::vector<std::pair<PointState, int>>> signals_;
       
       std::vector<std::vector<bool>> sequences_;
       std::vector<ros::Publisher> pub_blinkers_seen_;
+      std::vector<ros::Publisher> pub_estimated_framerate_;
+
       std::mutex mutex_signals_;
       
   
@@ -65,8 +65,10 @@ namespace uvdar{
       std::vector<ros::Subscriber> sub_points_seen_;
       std::vector<ros::Subscriber> sub_sun_points_;
 
-      using imu_data_callback_t = boost::function<void (const sensor_msgs::Imu::ConstPtr&)>;
 
+      using imu_data_callback_t = boost::function<void (const sensor_msgs::Imu::ConstPtr&)>;
+      std::vector<imu_data_callback_t> cals_imu_data;
+      ros::Subscriber sub_imu;
 
       // visualization variables
       std::vector<ros::Timer> timer_process_;
@@ -95,12 +97,29 @@ namespace uvdar{
       bool        _publish_visualization_;
       float       _visualization_rate_;
       bool        _use_camera_for_visualization_;
-      bool        _enable_manchester_;
+      bool        _imu_compensation_;
       std::vector<std::string> _blinkers_seen_topics;
       std::vector<std::string> _estimated_framerate_topics;
       std::vector<std::string> _points_seen_topics;
       std::string _sequence_file;
-      std::string _imu_topic_;
+      std::string _imu_topic;
+
+
+      struct BlinkData {
+      std::vector<std::pair<PointState,int>>      retrieved_blinkers;
+      std::shared_ptr<std::mutex>   mutex_retrieved_blinkers;
+      ros::Time                     last_sample_time;
+      ros::Time                     last_sample_time_diagnostic;
+      unsigned int                  sample_count = -1;
+      double                        framerate_estimate = 72;
+
+      BlinkData(){mutex_retrieved_blinkers = std::make_shared<std::mutex>();}
+      ~BlinkData(){mutex_retrieved_blinkers.reset();}
+    };
+
+      // std::vector<std::vector<std::pair<PointState, int>>> blink_data;
+    std::vector<BlinkData> blink_data_; 
+
   };
       
   void UVDAR_BP_Tim::onInit(){
@@ -142,7 +161,7 @@ namespace uvdar{
 
     param_loader.loadParam("points_seen_topics", _points_seen_topics, _points_seen_topics);
 
-    param_loader.loadParam("enable_manchester", _enable_manchester_, bool(false));
+    param_loader.loadParam("imu_compensation", _imu_compensation_, bool(false));
 
     param_loader.loadParam("sequence_file", _sequence_file, std::string());
 
@@ -150,7 +169,7 @@ namespace uvdar{
     private_nh_.param("estimated_framerate_topics", _estimated_framerate_topics, _estimated_framerate_topics);
     private_nh_.param("use_camera_for_visualization", _use_camera_for_visualization_, bool(true));
 
-    private_nh_.param("imu_topic", _imu_topic_, std::string());
+    private_nh_.param("imu_topic", _imu_topic, std::string());
 
   }
 
@@ -158,7 +177,7 @@ namespace uvdar{
 
     for (size_t i = 0; i < _blinkers_seen_topics.size(); ++i) {
       pub_blinkers_seen_.push_back(private_nh_.advertise<mrs_msgs::ImagePointsWithFloatStamped>(_blinkers_seen_topics[i], 1));
-      // pub_estimated_framerate_.push_back(private_nh_.advertise<std_msgs::Float32>(_estimated_framerate_topics[i], 1));
+      pub_estimated_framerate_.push_back(private_nh_.advertise<std_msgs::Float32>(_estimated_framerate_topics[i], 1));
     }
 
     if (_blinkers_seen_topics.size() != _points_seen_topics.size()){
@@ -166,7 +185,7 @@ namespace uvdar{
       return false;
     }
     if (_estimated_framerate_topics.size() != _points_seen_topics.size()){
-      ROS_ERROR_STREAM("[UVDAR_BP_Tim] The number of pointsSeenTopics (" << _points_seen_topics.size() << ") is not matching the number of blinkers_seen_topics (" << _estimated_framerate_topics.size() << ")!");
+      ROS_ERROR_STREAM("[UVDAR_BP_Tim]: The number of pointsSeenTopics (" << _points_seen_topics.size() << ") is not matching the number of blinkers_seen_topics (" << _estimated_framerate_topics.size() << ")!");
       return false;
     }
     return true;
@@ -192,7 +211,7 @@ namespace uvdar{
         std::stringstream iss(line);
         std::string token;
         while (std::getline(iss, token, ',')){
-          if (!_enable_manchester_){
+          if (true){
             sequence.push_back(token == "1");
           }else{
             // Manchester Coding - IEEE 802.3 Conversion: 1 = [0,1]; 0 = [1,0]
@@ -234,8 +253,11 @@ namespace uvdar{
       aht_[i]->setSequences(sequences_);
       aht_[i]->setDebugFlags(_debug_, _visual_debug_);
 
-      std::vector<std::pair<PointState, int>> pair;
-      signals_.push_back(pair);
+      // std::vector<std::pair<PointState, int>> pair;
+      // signals_.push_back(pair);
+
+      blink_data_.push_back(BlinkData());
+
 
       // sun_points_.resize(_points_seen_topics.size());
 
@@ -262,12 +284,26 @@ namespace uvdar{
     } 
     sun_points_.resize(_points_seen_topics.size());
 
+    for (size_t i = 0; i < _blinkers_seen_topics.size(); ++i) {
+          pub_blinkers_seen_.push_back(private_nh_.advertise<mrs_msgs::ImagePointsWithFloatStamped>(_blinkers_seen_topics[i], 1));
+          pub_estimated_framerate_.push_back(private_nh_.advertise<std_msgs::Float32>(_estimated_framerate_topics[i], 1));
+    }
 
-    imu_data_callback_t callback = [this](const sensor_msgs::Imu::ConstPtr& msg){
+
+
+    // ros::Subscriber sub = private_nh_.subscribe("imu_topic", 10, imuCallback);
+    if(_imu_compensation_){
+
+    // _imu_topic_ = "/uav1/mavros/imu/data";
+    imu_data_callback_t callbackK = [this](const sensor_msgs::Imu::ConstPtr& msg){
       imuCallback(msg);
     };
-    _imu_topic_ = "/uav1/mavros/imu/data";
-    private_nh_.subscribe(_imu_topic_, 100, callback);
+    cals_imu_data.push_back(callbackK);
+    sub_imu = private_nh_.subscribe(_imu_topic, 1, callbackK);
+
+    // _imu_topic_ = "/uav1/uvdar/mavros/imu/data";
+    // private_nh_.subscribe(_imu_topic_, 100, callback);
+    }
 
 
   }
@@ -313,16 +349,62 @@ namespace uvdar{
 
   void UVDAR_BP_Tim::imuCallback(const sensor_msgs::Imu::ConstPtr& msg)
   {
+
     ROS_INFO("Received IMU data: [angular_velocity (x,y,z)]: [%f, %f, %f]", 
              msg->angular_velocity.x, 
              msg->angular_velocity.y, 
              msg->angular_velocity.z);
+
+
+    for(auto k : msg->angular_velocity_covariance){
+      std::cout << k << std::endl;
+    }
+
+    // std::cout << "The cov" << msg->angular_velocity_covariance << std::endl;;
   }
 
 
 
   void UVDAR_BP_Tim::insertPointToAHT(const mrs_msgs::ImagePointsWithFloatStampedConstPtr &ptsMsg, const size_t & img_index) {
     if (!initialized_) return;
+
+
+    blink_data_[img_index].sample_count++;
+
+    if ((blink_data_[img_index].sample_count % 10) == 0) { //update the estimate of frequency every 10 samples
+      blink_data_[img_index].framerate_estimate = 10000000000.0 / (double)((ptsMsg->stamp - blink_data_[img_index].last_sample_time_diagnostic).toNSec());
+      if (_debug_){
+        ROS_INFO_STREAM("[UVDAR_BP_Tim]: Updating frequency: " << blink_data_[img_index].framerate_estimate << " Hz");
+      }
+
+      aht_[img_index]->updateFramerate(blink_data_[img_index].framerate_estimate);
+      blink_data_[img_index].sample_count = 0;
+
+      blink_data_[img_index].last_sample_time_diagnostic = ptsMsg->stamp;
+    }
+
+    if (_debug_)
+        ROS_INFO_STREAM("[UVDAR_BP_Tim]: td: " << ptsMsg->stamp - blink_data_[img_index].last_sample_time);
+    if (blink_data_[img_index].last_sample_time >= ptsMsg->stamp){
+      ROS_ERROR_STREAM("[UVDAR_BP_Tim]: Points arrived out of order!: prev: "<< blink_data_[img_index].last_sample_time << "; curr: " << ptsMsg->stamp);
+    }
+    double dt = (ptsMsg->stamp - blink_data_[img_index].last_sample_time).toSec();
+    if (dt > (1.5/(blink_data_[img_index].framerate_estimate)) ){
+      int new_frame_count = (int)(dt*(blink_data_[img_index].framerate_estimate) + 0.5) - 1;
+      ROS_ERROR_STREAM("[UVDAR_BP_Tim]: Missing frames! Inserting " << new_frame_count << " empty frames!"); 
+      const mrs_msgs::ImagePointsWithFloatStampedConstPtr null_points;
+      for (int i = 0; i < new_frame_count; i++){
+        //TODO: DO SOMETHING
+        // aht_[img_index]->processBuffer(null_points);
+      }
+    }
+    blink_data_[img_index].last_sample_time = ptsMsg->stamp;
+
+    if (_debug_) {
+      ROS_INFO_STREAM("[UVDAR_BP_Tim]: Received contours: " << ptsMsg->points.size());
+    }
+
+
 
 
     aht_[img_index]->processBuffer(ptsMsg);
@@ -340,10 +422,12 @@ namespace uvdar{
 
     
     mrs_msgs::ImagePointsWithFloatStamped msg;
+    ros::Time local_last_sample_time = blink_data_[img_index].last_sample_time;
     {
-    std::scoped_lock lock(mutex_signals_);
-    signals_[img_index] = aht_[img_index]->getResults();
-    for (auto& signal : signals_[img_index]) {
+      std::scoped_lock lock(*(blink_data_[img_index].mutex_retrieved_blinkers));
+      blink_data_[img_index].retrieved_blinkers = aht_[img_index]->getResults();
+      
+      for (auto& signal : blink_data_[img_index].retrieved_blinkers) {
         mrs_msgs::Point2DWithFloat point;
         point.x     = signal.first.point.x;
         point.y     = signal.first.point.y;
@@ -353,14 +437,18 @@ namespace uvdar{
         else {
           point.value = -2;
         }
-        msg.stamp = signal.first.insertTime; // TODO: Take latest point??
         msg.points.push_back(point);
       }
+    msg.stamp         = local_last_sample_time;
     msg.image_width   = camera_image_sizes_[img_index].width;
     msg.image_height  = camera_image_sizes_[img_index].height;
     
-    // TODO: ?!
-    pub_blinkers_seen_[img_index].publish(msg);
+// TODO: comment back in!
+    // pub_blinkers_seen_[img_index].publish(msg);
+
+    std_msgs::Float32 msgFramerate;
+    msgFramerate.data = blink_data_[img_index].framerate_estimate;
+    pub_estimated_framerate_[img_index].publish(msgFramerate);
 
     }
     
@@ -381,19 +469,6 @@ namespace uvdar{
     }
   }
 
-
-  // void UVDAR_BP_Tim::updateBufferAndSetFirstCallBool(const size_t & img_index) {
-
-  //   buffer_cnt_++;
-
-  //   // resets buffer -> start overriding older messages
-  //   if (buffer_cnt_ == _buffer_size_) {
-  //     buffer_cnt_ = 0;
-
-  //     first_call_ = false; 
-  //     // TODO: call only once for each cam
-  //   }
-  // }
 
   void UVDAR_BP_Tim::ProcessThread([[maybe_unused]] const ros::TimerEvent& te, [[maybe_unused]] size_t image_index) {
     if (!initialized_){
@@ -469,11 +544,14 @@ namespace uvdar{
       }else{
         output_image(cv::Rect(start_point.x,0,camera_image_sizes_[image_index].width,camera_image_sizes_[image_index].height)) = cv::Scalar(0,0,0);
       }
+      
+      {
+      std::scoped_lock lock(*(blink_data_[image_index].mutex_retrieved_blinkers));
 
-      for(int j = 0; j < (int)(signals_[image_index].size()); j++){
+      for(int j = 0; j < (int)(blink_data_[image_index].retrieved_blinkers.size()); j++){
         // cv::Point center = cv::Point(signals_[image_index][j].point.first.x, signals_[image_index][j].first.y) + start_point;
-        cv::Point center = cv::Point(signals_[image_index][j].first.point.x, signals_[image_index][j].first.point.y) + start_point;
-        int signal_index = signals_[image_index][j].second;
+        cv::Point center = cv::Point(blink_data_[image_index].retrieved_blinkers[j].first.point.x, blink_data_[image_index].retrieved_blinkers[j].first.point.y) + start_point;
+        int signal_index = blink_data_[image_index].retrieved_blinkers[j].second;
         if(signal_index == -2 || signal_index == -3) {
           continue;
         }
@@ -486,6 +564,8 @@ namespace uvdar{
           cv::circle(output_image, center, 2, cv::Scalar(160,160,160));
         }
       }
+      }
+
       for (int j = 0; j < (int)(sun_points_[image_index].size()); j++) {
         cv::Point sun_current = sun_points_[image_index][j]+start_point;
         cv::circle(output_image, sun_current, 10, cv::Scalar(0,0,255));
