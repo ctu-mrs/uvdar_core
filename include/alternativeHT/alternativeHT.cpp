@@ -52,27 +52,27 @@ void alternativeHT::processBuffer(const mrs_msgs::ImagePointsWithFloatStampedCon
     //     }
     //     printVectorIfNotEmpty(p, "before");
     // }
-    inserVPIfNoNewPointArrived(currentFrame);
+    insertVPIfNoNewPointArrived(currentFrame);
 // std::cout << "---------------------------------------------\n";
     cleanPotentialBuffer();  // TODO: NOT WORKING!!!!!
-    for (const auto k : generatedSequences_){
-        std::vector<bool> p;
-        for (auto r : k){
-            if(r.ledState) p.push_back(true);
-            else p.push_back(false);
-        }
-        // printVectorIfNotEmpty(p, "after");
-        // for( auto p : k){
-        //     std::cout << p.insertTime << ", ";
-        // }
-        // std::cout << std::endl;
-    }
+    // for (const auto k : generatedSequences_){
+    //     std::vector<bool> p;
+    //     for (auto r : k){
+    //         if(r.ledState) p.push_back(true);
+    //         else p.push_back(false);
+    //     }
+    //     // printVectorIfNotEmpty(p, "after");
+    //     // for( auto p : k){
+    //     //     std::cout << p.insertTime << ", ";
+    //     // }
+    //     // std::cout << std::endl;
+    // }
 }
 
 void alternativeHT::findClosestPixelAndInsert(std::vector<PointState> & currentFrame) {   
     
-    // std::list<std::vector<PointState>*> pGenSequence;
-    std::vector<std::vector<PointState>*> pGenSequence;
+    // reference to sequences used for processing in the moving average functions
+    std::vector<seqPointer> pGenSequence;
     {
        std::scoped_lock lock(mutex_generatedSequences_);
         for(auto & seq : generatedSequences_){
@@ -80,8 +80,6 @@ void alternativeHT::findClosestPixelAndInsert(std::vector<PointState> & currentF
         }
 
     }
-
-
 
     std::vector<PointState> noNN;
     for(auto & currPoint : currentFrame){
@@ -101,17 +99,24 @@ void alternativeHT::findClosestPixelAndInsert(std::vector<PointState> & currentF
         }
         if(nearestNeighbor == false){
             noNN.push_back(currPoint);
-// // here was before ther "stasrt new sequence"
+//TODO: here was before the "start new sequence" stuff
             std::vector<PointState> vect;
             vect.push_back(currPoint);
             generatedSequences_.push_back(vect);
         }
     }
 
-    // if((int)noNN.size() != 0 ){
-    //     std::cout << "HEY\n"; 
-    //     checkBoundingBoxIntersection(noNN, pGenSequence);
+// TODO: This is done within the insertVP - However maybe more usefull here?!
+    // if((int)noNN.size() == 0 && pGenSequence.size() != 0){
+    //     for(auto & seq : pGenSequence){
+            
+    //         insertPointToSequence(*seq, signal);
+    //     }
     // }
+
+    if((int)noNN.size() != 0 ){
+        expandedSearch(noNN, pGenSequence);
+    }
    
 }
 
@@ -130,8 +135,93 @@ void alternativeHT::insertPointToSequence(std::vector<PointState> & sequence, co
         }
 }
 
+
+void uvdar::alternativeHT::expandedSearch(std::vector<PointState> & noNNCurrentFrame, std::vector<seqPointer> & sequencesNoInsert){
+
+    movAvgCheckLastTwoLEDStates(sequencesNoInsert);
+    assignSequencesToHypothesisSet(sequencesNoInsert);
+    for(auto seq : sequencesNoInsert){
+        HelpFunctions::polynomialRegression(*seq);
+    }
+
+}
+
+void uvdar::alternativeHT::movAvgCheckLastTwoLEDStates(std::vector<seqPointer>& sequencesNoInsert){
+
+    for(auto it = sequencesNoInsert.begin(); it != sequencesNoInsert.end(); ++it){
+        if((*it)->size() >= 2){
+            // if the last two led states were on - no new inserted point is expected and the sequence can be erased from the NoInsert vector
+            if((*it)->end()[-1].ledState && (*it)->end()[-2].ledState){
+                it = sequencesNoInsert.erase(it);
+                // TODO: Insert here new Zero bit??
+                continue; 
+            }
+        }
+    }
+}
+
+void uvdar::alternativeHT::assignSequencesToHypothesisSet(std::vector<seqPointer>& sequencesNoInsert){
+
+    // std::vector<std::vector<seqPointer>> allHypothesis;
+    // for(auto itSeq = sequencesNoInsert.begin(); itSeq != sequencesNoInsert.end(); ++itSeq){
+    //     std::vector<seqPointer> hypothesisSet; 
+    //     hypothesisSet.push_back(*itSeq);
+    //     auto nextSeq = std::next(itSeq,1); 
+    //     for(auto it = nextSeq; it != sequencesNoInsert.end(); ++it){
+    //         auto pointFirstSeq = (*itSeq)->end()[-1];
+    //         auto pointNextSeq = (*it)->end()[-1];
+    //         if(bbIntersect(pointFirstSeq, pointNextSeq)){
+    //             // match
+    //             hypothesisSet.push_back(*nextSeq);
+    //             it = sequencesNoInsert.erase(it);
+    //             continue;
+    //         }
+    //     }
+    
+    //     allHypothesis.push_back(hypothesisSet);
+    //     itSeq = sequencesNoInsert.erase(itSeq);
+    //     continue;
+    // }
+}
+
+
+
+
+// return true, if bounding boxes hit 
+bool uvdar::alternativeHT::bbIntersect(const PointState & point1, const PointState & point2){
+    
+    if( (point1.bbRightDown.x >= point2.bbLeftUp.x && point2.bbRightDown.x >= point1.bbLeftUp.x ) && (point1.bbRightDown.y >= point2.bbLeftUp.y && point2.bbRightDown.y >= point1.bbLeftUp.y)){
+        return true;
+    }
+    return false; 
+}
+
+//TODO: depricated Change to ICP 
+std::vector<PointState>* uvdar::alternativeHT::findClosestWithinSelectedBB(std::vector<seqPointer> boxMatchPoints, const PointState queryPoint){
+
+    cv::Point2d min;
+
+    std::vector<PointState>* selected = nullptr; 
+    // guarantee that selected will be assigned - otherwise this function shoudln't be called 
+    min.x = boundingBox_x_Size_*3;
+    min.y = boundingBox_y_Size_*3;
+    for(auto p : boxMatchPoints){
+        auto matchedPoint = p->end()[-1];
+        cv::Point2d diff = computeXYDiff(matchedPoint.point, queryPoint.point);
+
+        if( (diff.x <= min.x && diff.y <= min.y)){
+            selected = p;
+            min.x = diff.x; 
+            min.y = diff.y;
+        }
+    }
+    return selected;
+}
+
+
+//TODO: Too time sensitve
  // for all sequences where no correspondence was found insert VP
-void alternativeHT::inserVPIfNoNewPointArrived(std::vector<PointState> & currentFrame){
+void alternativeHT::insertVPIfNoNewPointArrived(std::vector<PointState> & currentFrame){
     std::scoped_lock lock(mutex_generatedSequences_);
     for(auto & sequence : generatedSequences_){
         
@@ -159,198 +249,6 @@ void alternativeHT::inserVPIfNoNewPointArrived(std::vector<PointState> & current
             insertPointToSequence(sequence, p);
         }
     }
-}
-
-void uvdar::alternativeHT::checkBoundingBoxIntersection(std::vector<PointState> & noNNCurrentFrame, std::vector<std::vector<PointState>*> & sequencesNoInsert){
-
-
-    // std::vector<std::vector<PointState>> allCombinationsFrame;
-    // permute(noNNCurrentFrame, 0, (int)(noNNCurrentFrame.size() - 1), allCombinationsFrame);
-
-    // for(auto perm : allCombinationsFrame){
-    //     computeHypothesisSets(perm, sequencesNoInsert);
-    // }
-    
-
-
-
-
-
-        // std::vector<PointState> vect;
-        // vect.push_back(pts);
-        // generatedSequences_.push_back(vect);
-    
-}
-
-bool uvdar::alternativeHT::onSegment(PointState p, PointState q, PointState r)
-{
-	if (q.point.x <= std::max(p.point.x, r.point.x) && q.point.x >= std::min(p.point.x, r.point.x) &&
-		q.point.y <= std::max(p.point.y, r.point.y) && q.point.y >= std::min(p.point.y, r.point.y))
-	return true;
-
-	return false;
-}
-
-// To find orientation of ordered triplet (p, q, r).
-// The function returns following values
-// 0 --> p, q and r are collinear
-// 1 --> Clockwise
-// 2 --> Counterclockwise
-int uvdar::alternativeHT::orientation(PointState p, PointState q, PointState r)
-{
-	// See https://www.geeksforgeeks.org/orientation-3-ordered-points/
-    int val = (q.point.y - p.point.y) * (r.point.x - q.point.x) -
-              (q.point.x - p.point.x) * (r.point.y - q.point.y);
-  
-	if (val == 0) return 0; // collinear
-
-	return (val > 0)? 1: 2; // clock or counterclock wise
-}
-
-// The main function that returns true if line segment 'p1q1'
-// and 'p2q2' intersect.
-bool uvdar::alternativeHT::doIntersect(PointState p1, PointState q1, PointState p2, PointState q2)
-{
-	// Find the four orientations needed for general and
-	// special cases
-	int o1 = orientation(p1, q1, p2);
-	int o2 = orientation(p1, q1, q2);
-	int o3 = orientation(p2, q2, p1);
-	int o4 = orientation(p2, q2, q1);
-
-	// General case
-	if (o1 != o2 && o3 != o4)
-		return true;
-
-	// Special Cases
-	// p1, q1 and p2 are collinear and p2 lies on segment p1q1
-	if (o1 == 0 && onSegment(p1, p2, q1)) return true;
-
-	// p1, q1 and q2 are collinear and q2 lies on segment p1q1
-	if (o2 == 0 && onSegment(p1, q2, q1)) return true;
-
-	// p2, q2 and p1 are collinear and p1 lies on segment p2q2
-	if (o3 == 0 && onSegment(p2, p1, q2)) return true;
-
-	// p2, q2 and q1 are collinear and q1 lies on segment p2q2
-	if (o4 == 0 && onSegment(p2, q1, q2)) return true;
-
-	return false; // Doesn't fall in any of the above cases
-}
-
-void permute( std::vector<PointState> a, int l, int r, std::vector<std::vector<PointState>> & result) {
-    // Base case
-    if (l == r)
-    {
-        result.push_back(a);
-    }else {
-        // Permutations made
-        for (int i = l; i <= r; i++) {
- 
-            // Swapping done
-            std::swap(a[l], a[i]);
- 
-            // Recursion called
-            permute(a, l + 1, r, result);
- 
-            // backtrack
-            std::swap(a[l], a[i]);
-        }
-    }
-}
-
-//TODO: rename
-void uvdar::alternativeHT::computeHypothesisSets(const std::vector<PointState> & hypothesisSet, std::vector<std::vector<PointState>*> sequencesNoInsert){
-
-}
-
-void calcVariance(std::vector<PointState> & distVector) {
-
-    double sizeVector = (double)distVector.size();
-    double xAvg = 0.0;
-    double yAvg = 0.0;  
-
-    // std::cout << "Vector " <<std::endl;
-    // for(auto k : distVector){
-    //     std::cout << "{" << k.x << "," << k.y << "}";
-    // }
-    // std::cout << std::endl;
-    
-    // compute average
-    for( const auto vect : distVector){
-        xAvg = xAvg + vect.point.x; 
-        yAvg = yAvg + vect.point.y;
-    }
-
-    xAvg = xAvg/sizeVector;
-    yAvg = yAvg/sizeVector;
-    // std::cout << "avg " << xAvg << ", " << yAvg << "\n";
-
-    PointState variance;
-    std::vector<PointState> sum;
-    for(const auto vect : distVector){
-        variance.point.x = ((vect.point.x - xAvg)*(vect.point.x - xAvg));
-        variance.point.y = ((vect.point.y - yAvg)*(vect.point.y - yAvg));  
-        // std::cout << "var x" << variance.x << ", " << variance.y << std::endl;
-        sum.push_back(variance);
-    }
-
-    PointState p; 
-    p.point.x = 0;
-    p.point.y = 0; 
-    for(auto k : sum){
-        p.point.x = p.point.x + k.point.x; 
-        p.point.y = p.point.y + k.point.y;
-    }
-
-    p.point.x = p.point.x / (double)sizeVector;
-    p.point.y = p.point.y / (double)sizeVector;
-
-    // std::cout << "Variance x " << p.x << " Variance y " << p.y <<std::endl;
-
-}
-
-bool uvdar::alternativeHT::checkValidWithPotentialNewPoint(const std::vector<PointState> & seq){
-
-    if(seq.size() <= 1){
-        return true;
-    }
-    if ((seq.end()[-1].ledState && seq.end()[-2].ledState)){
-        return false;
-    }
-
-    return true; 
-}
-
-// return true, if bounding boxes hit 
-bool uvdar::alternativeHT::bbIntersect(const PointState & point1, const PointState & point2){
-    
-    if( (point1.bbRightDown.x >= point2.bbLeftUp.x && point2.bbRightDown.x >= point1.bbLeftUp.x ) && (point1.bbRightDown.y >= point2.bbLeftUp.y && point2.bbRightDown.y >= point1.bbLeftUp.y)){
-        return true;
-    }
-    return false; 
-}
-
-//TODO: Change to ICP
-std::vector<PointState>* uvdar::alternativeHT::findClosestWithinSelectedBB(std::vector<std::vector<PointState>*> boxMatchPoints, const PointState queryPoint){
-
-    cv::Point2d min;
-
-    std::vector<PointState>* selected = nullptr; 
-    // guarantee that selected will be assigned - otherwise this function shoudln't be called 
-    min.x = boundingBox_x_Size_*3;
-    min.y = boundingBox_y_Size_*3;
-    for(auto p : boxMatchPoints){
-        auto matchedPoint = p->end()[-1];
-        cv::Point2d diff = computeXYDiff(matchedPoint.point, queryPoint.point);
-
-        if( (diff.x <= min.x && diff.y <= min.y)){
-            selected = p;
-            min.x = diff.x; 
-            min.y = diff.y;
-        }
-    }
-    return selected;
 }
 
 void alternativeHT::cleanPotentialBuffer(){

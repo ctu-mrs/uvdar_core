@@ -1,10 +1,9 @@
 #pragma once
 
+#include "helpFunctions.h"
 #include <iostream>
 #include <list>
-#include <ros/console.h>
 // #include <mutex>
-#include <opencv2/highgui/highgui.hpp>
 #include <mrs_msgs/ImagePointsWithFloatStamped.h>
 #include "signal_matcher/signal_matcher.h"
 
@@ -13,13 +12,7 @@
 namespace uvdar
 {
 
-    struct PointState{
-        cv::Point2d point;
-        bool ledState; 
-        ros::Time insertTime;
-        cv::Point2d bbLeftUp; 
-        cv::Point2d bbRightDown;
-    };
+
 
     class alternativeHT {
     
@@ -41,34 +34,30 @@ namespace uvdar
 
         std::unique_ptr<SignalMatcher> matcher_;
 
-
+        using seqPointer = std::vector<PointState>*;
 
         void findClosestPixelAndInsert(std::vector<PointState>&);
-
         cv::Point2d computeXYDiff(const cv::Point2d, const cv::Point2d);
         void insertPointToSequence(std::vector<PointState> &, const PointState &);
 
-        void inserVPIfNoNewPointArrived(std::vector<PointState> &);
-        void cleanPotentialBuffer();
 
         // moving average approach 
-        void checkBoundingBoxIntersection(std::vector<PointState> &, std::vector<std::vector<PointState>*> &);
-        bool checkValidWithPotentialNewPoint(const std::vector<PointState>&);
+        void expandedSearch(std::vector<PointState> &, std::vector<seqPointer> &);
+        void movAvgCheckLastTwoLEDStates(std::vector<seqPointer>&);
+        void assignSequencesToHypothesisSet(std::vector<seqPointer>&);
+
+        void checkSeqNewPointExpectation(std::vector<seqPointer>&);
         bool bbIntersect(const PointState &, const PointState &);
-        void computeHypothesisSets(const std::vector<PointState> &, std::vector<std::vector<PointState>*>);
-        void calcVariance(std::vector<PointState> &);
-        void permute( std::vector<PointState>, int, int, std::vector<std::vector<PointState>> &);
-
-
-        // check intersection
-        bool doIntersect(PointState p1, PointState q1, PointState p2, PointState q2);
-        bool onSegment(PointState p, PointState q, PointState r);
-        int orientation(PointState p, PointState q, PointState r);
-
-
-
-        std::vector<PointState>* findClosestWithinSelectedBB(std::vector<std::vector<PointState>*>  , const PointState);
         
+        // depricated
+        std::vector<PointState>* findClosestWithinSelectedBB(std::vector<seqPointer>  , const PointState);
+   
+
+
+
+        void insertVPIfNoNewPointArrived(std::vector<PointState> &);
+        void cleanPotentialBuffer();
+
         int findSequenceMatch(std::vector<bool>);
 
     public:
@@ -76,8 +65,8 @@ namespace uvdar
         alternativeHT();
         ~alternativeHT();
         
-        void setSequences(std::vector<std::vector<bool>>);
         void setDebugFlags(bool, bool);
+        void setSequences(std::vector<std::vector<bool>>);
         void updateFramerate(double);
 
         void processBuffer(const mrs_msgs::ImagePointsWithFloatStampedConstPtr);

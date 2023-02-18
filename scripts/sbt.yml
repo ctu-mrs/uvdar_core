@@ -10,7 +10,7 @@ windows:
   - gazebo:
       layout: even-vertical
       panes:
-        - waitForCompile; waitForRos; roslaunch uvdar_core uvdar_gazebo.launch gui:=true
+        - waitForCompile; waitForRos; roslaunch uvdar_core uvdar_gazebo.launch gui:=false
   # - status:
   #     layout: even-vertical
   #     panes:
@@ -107,7 +107,7 @@ windows:
   - uv_observer:
       layout: even-vertical
       panes:
-        - waitForCompile; waitForSimulation; gz world --pause=0;  export UAV_NAME=uav1; waitForControl; roslaunch uvdar_core tl_Three_Sided.launch debug:=false imu_compensation:=true
+        - waitForCompile; waitForSimulation; gz world --pause=0;  export UAV_NAME=uav1; waitForControl; roslaunch uvdar_core tl_Three_Sided.launch debug:=false imu_compensation:=false
         # - waitForCompile; gz world --pause=0; sleep 6;  export UAV_NAME=uav1; waitForControl; roslaunch uvdar_core sim_three_sided.launch
 
   #       # - waitForCompile; gz world --pause=0; sleep 6;  export UAV_NAME=uav1; waitForControl; roslaunch uvdar_core multi_frequency_test.launch
