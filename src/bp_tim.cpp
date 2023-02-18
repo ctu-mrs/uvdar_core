@@ -13,7 +13,6 @@
 #include <fstream>
 #include <color_selector/color_selector.h>
 #include <alternativeHT/alternativeHT.h>
-#include <imu_processor/imu_processor.h>
     
 namespace uvdar{
 
@@ -65,7 +64,7 @@ namespace uvdar{
       std::vector<ros::Subscriber> sub_points_seen_;
       std::vector<ros::Subscriber> sub_sun_points_;
 
-
+// TODO: currently not in use
       using imu_data_callback_t = boost::function<void (const sensor_msgs::Imu::ConstPtr&)>;
       std::vector<imu_data_callback_t> cals_imu_data;
       ros::Subscriber sub_imu;
@@ -354,6 +353,8 @@ namespace uvdar{
              msg->angular_velocity.x, 
              msg->angular_velocity.y, 
              msg->angular_velocity.z);
+
+            //  msg->orientation.
 
 
     for(auto k : msg->angular_velocity_covariance){
