@@ -100,9 +100,9 @@ void alternativeHT::findClosestPixelAndInsert(std::vector<PointState> & currentF
         if(nearestNeighbor == false){
             noNN.push_back(currPoint);
 //TODO: here was before the "start new sequence" stuff
-            std::vector<PointState> vect;
-            vect.push_back(currPoint);
-            generatedSequences_.push_back(vect);
+            // std::vector<PointState> vect;
+            // vect.push_back(currPoint);
+            // generatedSequences_.push_back(vect);
         }
     }
 
@@ -140,8 +140,22 @@ void uvdar::alternativeHT::expandedSearch(std::vector<PointState> & noNNCurrentF
 
     movAvgCheckLastTwoLEDStates(sequencesNoInsert);
     assignSequencesToHypothesisSet(sequencesNoInsert);
+    std::vector<std::pair<seqPointer, Eigen::VectorXd>> sequencesWithPolynomials;
+    std::cout << "-----------------------------------------------------\n"; 
     for(auto seq : sequencesNoInsert){
-        HelpFunctions::polynomialRegression(*seq);
+        auto pair = HelpFunctions::polynomialRegression(seq, 4);
+        sequencesWithPolynomials.push_back(pair);
+        std::cout << "The calculated coeff: " << pair.second << "\n";
+
+    }
+
+    // if still points are not inserted start new sequence
+    if(noNNCurrentFrame.size() != 0){
+        for(auto point : noNNCurrentFrame){
+            std::vector<PointState> vect;
+            vect.push_back(point);
+            generatedSequences_.push_back(vect);
+        }
     }
 
 }

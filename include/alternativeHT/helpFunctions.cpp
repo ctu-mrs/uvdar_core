@@ -86,16 +86,27 @@ namespace uvdar{
         
     // }
 
-    void HelpFunctions::selectLastFourOnLEDs(std::vector<PointState> seq, std::vector<double> selectedPoints ){
+    void HelpFunctions::selectLastNDataPoints(std::vector<PointState> seq, std::vector<PointState> selectedPoints, int numerOfDataPoints ){
     //     std::cout << "HERE\n";
+        if((int)seq.size() < numerOfDataPoints){
+            ROS_ERROR("[UVDAR_BP_Tim]: The wanted number for the polynomial regression is higher than the sequence lenght!");
+            return;
+        }
         for(auto itSeq = seq.end(); itSeq != seq.begin(); --itSeq){
             if(itSeq->ledState){
-                selectedPoints.push_back((*itSeq).point.x);
-                selectedPoints.push_back((*itSeq).point.y);
-                selectedPoints.push_back((*itSeq).insertTime.toSec());
+                ros::Duration timeInsertedIterator(itSeq->insertTime.toSec()); 
                 
+                
+                auto point = *itSeq;
+                // point.insertTime = seq.end()[-1].insertTime - timeInsertedIterator;
+                
+                
+                
+                // itSeq->insertTime = (seq.end()[-1].insertTime + lastInserted);
+                std::cout << point.insertTime << "The seq end " << seq.end()[-1].insertTime.toSec() << " it " << itSeq->insertTime << "\n"; 
+               selectedPoints.push_back(point);
             }
-            if((int)selectedPoints.size() == 4){
+            if((int)selectedPoints.size() == numerOfDataPoints){
                 return;
             }
         }
@@ -104,44 +115,49 @@ namespace uvdar{
 
     }
 
-    void HelpFunctions::polynomialRegression(std::vector<PointState> sequence){
-         std::vector<double> selectedPts;
-        HelpFunctions::selectLastFourOnLEDs(sequence, selectedPts);
+    std::pair<std::vector<PointState>*, Eigen::VectorXd> HelpFunctions::polynomialRegression(std::vector<PointState>* sequence, int numberOfDataPoints){
+        
+        std::vector<PointState> selectedPts;
+        HelpFunctions::selectLastNDataPoints(*sequence, selectedPts, numberOfDataPoints);
         // Input data: x, y coordinates of a 2D trajectory at different times t
-         MatrixXd data(4, 3);
+        Eigen::MatrixXd data(numberOfDataPoints, 3);
+        
+        for(int i = 0; i < (int)selectedPts.size(); ++i){
+            data(i,0) = selectedPts[i].point.x;
+            data(i,1) = selectedPts[i].point.y;
+            data(i,2) = selectedPts[i].insertTime.toSec(); 
+        }
+
         //  data << selectedPts;
 
         //  for(const auto k : data){
             //  std::cout << k;
         //  }
          // Define the degree of the polynomial to fit
-         int degree = 2;
+        int degree = 2;
+        // Build the design matrix
+        int n = data.rows(); // number of data points
+        int m = (degree+1)*(degree+2)/2; // number of polynomial terms
+        Eigen::MatrixXd A(n, m);
+        for (int i = 0; i < n; i++) {
+            int k = 0;
+            for (int j = 0; j <= degree; j++) {
+                for (int l = 0; l <= j; l++) {
+                    A(i, k) = pow(data(i, 0), j-l) * pow(data(i, 1), l);
+                    k++;
+                }
+            }
+        }
+        // Define the response vector y
+        Eigen::VectorXd y(n);
+        y = data.col(2);
+        
+        // Compute the least-squares solution using QR decomposition
+        Eigen::VectorXd coeffs(m);
+        coeffs = A.householderQr().solve(y);
 
-         // Build the design matrix
-         int n = data.rows(); // number of data points
-         int m = (degree+1)*(degree+2)/2; // number of polynomial terms
-         MatrixXd A(n, m);
-         for (int i = 0; i < n; i++) {
-             int k = 0;
-             for (int j = 0; j <= degree; j++) {
-                 for (int l = 0; l <= j; l++) {
-                     A(i, k) = pow(data(i, 0), j-l) * pow(data(i, 1), l);
-                     k++;
-                 }
-             }
-         }
+        return std::make_pair(sequence, coeffs);
 
-         // Define the response vector y
-         VectorXd y(n);
-         y = data.col(2);
-
-         // Compute the least-squares solution using QR decomposition
-         VectorXd coeffs(m);
-         coeffs = A.householderQr().solve(y);
-
-         // Output the coefficients of the fitted polynomial
-         std::cout << "Coefficients: " << std::endl << coeffs << std::endl;
-
-}
+    }
 
 } // uvdar

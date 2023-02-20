@@ -2,7 +2,7 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <Eigen/Dense>
 
-using namespace Eigen;
+// using namespace Eigen;
 
 namespace uvdar{
 
@@ -18,11 +18,11 @@ namespace uvdar{
         private: 
             HelpFunctions();
             ~HelpFunctions();
-            static void selectLastFourOnLEDs(std::vector<PointState>, std::vector<double>);
+            static void selectLastNDataPoints(std::vector<PointState>, std::vector<PointState>, int);
         public:
             static void permute( std::vector<PointState>, int, int, std::vector<std::vector<PointState>>&);
             static void calcVariance(std::vector<PointState>&);
-            static void polynomialRegression(std::vector<PointState>);
+            static std::pair<std::vector<PointState>*, Eigen::VectorXd> polynomialRegression(std::vector<PointState>*, int);
     };
 
 } // uvdar
