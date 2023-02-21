@@ -144,17 +144,18 @@ void uvdar::alternativeHT::expandedSearch(std::vector<PointState> & noNNCurrentF
         return;
     }
 
-
     ros::Time insertTime = noNNCurrentFrame[0].insertTime; 
-    std::vector<PredictPath> sequencesWithRegression;
+    std::vector<SeqWithTrajectory> sequencesWithRegression;
     for(auto seq : sequencesNoInsert){
-        auto xyCoeff = HelpFunctions::prepareForPolyReg(seq, 10, 2);
-        PredictPath p;
-        p.xCoeff = xyCoeff.first;
-        p.yCoeff = xyCoeff.second;
-        p.seq = seq;  
-        calculatePredictionWindow(p, insertTime);   
-        sequencesWithRegression.push_back(p);
+
+        SeqWithTrajectory seqTrajectory;
+        seqTrajectory.seq = seq;
+        if(!HelpFunctions::prepareForPolyReg(seqTrajectory, 2)){
+            continue;
+        }
+        
+        calculatePredictionTriangle(seqTrajectory, insertTime);   
+        sequencesWithRegression.push_back(seqTrajectory);
     }
 
 
@@ -182,16 +183,26 @@ void uvdar::alternativeHT::movAvgCheckLastTwoLEDStates(std::vector<seqPointer>& 
     }
 }
 
-void uvdar::alternativeHT::calculatePredictionWindow(PredictPath & path, const ros::Time insertTime){
+void uvdar::alternativeHT::calculatePredictionTriangle(SeqWithTrajectory & path, const ros::Time insertTime){
 // TODO: not tested yet
-    // int polynomSize = (int)path.xCoeff.size();
-    // double xPredict = 0;
-    // for(int i = 0; i < (int)path.xCoeff.size(); ++i){
-    //     for(int power = 0; power < polynomSize; ++power){
-    //         xPredict += path.xCoeff[i]*pow(insertTime.toSec(), power); 
-    //     }
-    // }
+    int polynomSize = (int)path.xCoeff.size();
+    double xPredict = 0, yPredict = 0;
+    if(path.yCoeff.size() != path.xCoeff.size()){
+        return;
+    }
+    for(int i = 0; i < (int)path.xCoeff.size(); ++i){
+        xPredict += path.xCoeff[i]*pow(insertTime.toSec(), i); 
+        yPredict += path.yCoeff[i]*pow(insertTime.toSec(), i);
+    }
 
+    cv::Point2d predictionWindowMax = cv::Point2d(xPredict, yPredict);
+    findOrthogonalVector(predictionWindowMax);
+
+
+}
+
+void uvdar::alternativeHT::findOrthogonalVector(cv::Point2d predictionVector){
+    cv::Point2d orthogonal; 
 }
 
 

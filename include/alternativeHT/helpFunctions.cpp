@@ -80,46 +80,27 @@ namespace uvdar{
 
     }
 
-    // void HelpFunctions::polynomialRegression(const std::vector<PointState> sequence){
-    //     std::vector<PointState> selectedPts;
-    //     this->selectLastFourOnLEDs(sequence, selectedPts);
+
+
+    bool HelpFunctions::prepareForPolyReg(SeqWithTrajectory & prediction, const int order){
         
-    // }
-
-    void HelpFunctions::selectLastNDataPoints(const std::vector<PointState>& seq, std::vector<PointState>& selectedPoints, int numerOfDataPoints ){
-    //     std::cout << "HERE\n";
-        if((int)seq.size() < numerOfDataPoints){
-            ROS_ERROR("[UVDAR_BP_Tim]: The wanted number for the polynomial regression is higher than the sequence lenght!");
-            return;
-        }
-        for(auto itSeq = seq.end(); itSeq != seq.begin(); --itSeq){
-            if(itSeq->ledState){
-               selectedPoints.push_back(*itSeq);
-            }
-            // if((int)selectedPoints.size() == numerOfDataPoints){
-            //     return;
-            // }
-        }
-
-    }
-
-    std::pair<std::vector<double>, std::vector<double>> HelpFunctions::prepareForPolyReg(std::vector<PointState>* sequence, const int numberOfDataPoints, const int order){
-
-        std::vector<PointState> selectedPts;
-        HelpFunctions::selectLastNDataPoints(*sequence, selectedPts, numberOfDataPoints);
-
         std::vector<double> x,y;
         std::vector<ros::Time> time;
-        for(const auto point : selectedPts){
-            x.push_back(point.point.x);
-            y.push_back(point.point.y);
-            time.push_back(point.insertTime);
+
+        for(const auto point : *(prediction.seq)){
+            if(point.ledState){
+                x.push_back(point.point.x);
+                y.push_back(point.point.y);
+                time.push_back(point.insertTime);
+            }
         }
 
-        std::vector<double> coeffX = polyReg(x, time, order); 
-        std::vector<double> coeffY = polyReg(y, time, order);
-        std::pair<std::vector<double>, std::vector<double>> polyRegression = std::make_pair(coeffX, coeffY);
+        if(x.size() < 5 || y.size() < 5) return false;
+        
+        prediction.xCoeff = polyReg(x, time, order); 
+        prediction.yCoeff = polyReg(y, time, order);
 
+        return true;
     }
 
     std::vector<double> HelpFunctions::polyReg(const std::vector<double>& pixelCoordinate, const std::vector<ros::Time>& time, const int order){

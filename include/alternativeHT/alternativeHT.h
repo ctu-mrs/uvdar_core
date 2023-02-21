@@ -11,13 +11,7 @@
 
 namespace uvdar
 {
-    using seqPointer = std::vector<PointState>*;
 
-    struct PredictPath{
-        seqPointer seq;
-        std::vector<double> xCoeff;
-        std::vector<double> yCoeff;
-    };
 
 
     class alternativeHT {
@@ -49,7 +43,8 @@ namespace uvdar
         // moving average approach 
         void expandedSearch(std::vector<PointState> &, std::vector<seqPointer> &);
         void movAvgCheckLastTwoLEDStates(std::vector<seqPointer>&);
-        void calculatePredictionWindow(PredictPath &, const ros::Time);
+        void calculatePredictionTriangle(SeqWithTrajectory &, const ros::Time);
+        void findOrthogonalVector(cv::Point2d);
         
         void checkSeqNewPointExpectation(std::vector<seqPointer>&);
         bool bbIntersect(const PointState &, const PointState &);

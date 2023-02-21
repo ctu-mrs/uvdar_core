@@ -5,6 +5,7 @@
 // using namespace Eigen;
 
 namespace uvdar{
+    
 
     struct PointState{
         cv::Point2d point;
@@ -14,16 +15,25 @@ namespace uvdar{
         cv::Point2d bbRightDown;
     };
 
+    using seqPointer = std::vector<PointState>*;
+    
+    struct SeqWithTrajectory{
+        seqPointer seq;
+        std::vector<double> xCoeff;
+        std::vector<double> yCoeff;
+    };
+
+
     class HelpFunctions{
         private: 
             HelpFunctions();
             ~HelpFunctions();
-            static void selectLastNDataPoints(const std::vector<PointState>&, std::vector<PointState>&, int);
+            // static bool selectLastNDataPoints(const std::vector<PointState>&, std::vector<PointState>&, int);
             static std::vector<double> polyReg(const std::vector<double>&, const std::vector<ros::Time>&, const int); 
         public:
             static void permute( std::vector<PointState>, int, int, std::vector<std::vector<PointState>>&);
             static void calcVariance(std::vector<PointState>&);
-            static std::pair<std::vector<double>, std::vector<double>> prepareForPolyReg(std::vector<PointState>*, const int, const int);
+            static bool prepareForPolyReg(SeqWithTrajectory&, const int);
             
     };
 
