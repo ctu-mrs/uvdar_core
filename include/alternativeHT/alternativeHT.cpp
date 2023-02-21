@@ -139,15 +139,24 @@ void alternativeHT::insertPointToSequence(std::vector<PointState> & sequence, co
 void uvdar::alternativeHT::expandedSearch(std::vector<PointState> & noNNCurrentFrame, std::vector<seqPointer> & sequencesNoInsert){
 
     movAvgCheckLastTwoLEDStates(sequencesNoInsert);
-    assignSequencesToHypothesisSet(sequencesNoInsert);
-    std::vector<std::pair<seqPointer, Eigen::VectorXd>> sequencesWithPolynomials;
-    std::cout << "-----------------------------------------------------\n"; 
-    for(auto seq : sequencesNoInsert){
-        auto pair = HelpFunctions::polynomialRegression(seq, 4);
-        sequencesWithPolynomials.push_back(pair);
-        std::cout << "The calculated coeff: " << pair.second << "\n";
 
+    if(noNNCurrentFrame.size() == 0){
+        return;
     }
+
+
+    ros::Time insertTime = noNNCurrentFrame[0].insertTime; 
+    std::vector<PredictPath> sequencesWithRegression;
+    for(auto seq : sequencesNoInsert){
+        auto xyCoeff = HelpFunctions::prepareForPolyReg(seq, 10, 2);
+        PredictPath p;
+        p.xCoeff = xyCoeff.first;
+        p.yCoeff = xyCoeff.second;
+        p.seq = seq;  
+        calculatePredictionWindow(p, insertTime);   
+        sequencesWithRegression.push_back(p);
+    }
+
 
     // if still points are not inserted start new sequence
     if(noNNCurrentFrame.size() != 0){
@@ -157,7 +166,6 @@ void uvdar::alternativeHT::expandedSearch(std::vector<PointState> & noNNCurrentF
             generatedSequences_.push_back(vect);
         }
     }
-
 }
 
 void uvdar::alternativeHT::movAvgCheckLastTwoLEDStates(std::vector<seqPointer>& sequencesNoInsert){
@@ -174,30 +182,17 @@ void uvdar::alternativeHT::movAvgCheckLastTwoLEDStates(std::vector<seqPointer>& 
     }
 }
 
-void uvdar::alternativeHT::assignSequencesToHypothesisSet(std::vector<seqPointer>& sequencesNoInsert){
-
-    // std::vector<std::vector<seqPointer>> allHypothesis;
-    // for(auto itSeq = sequencesNoInsert.begin(); itSeq != sequencesNoInsert.end(); ++itSeq){
-    //     std::vector<seqPointer> hypothesisSet; 
-    //     hypothesisSet.push_back(*itSeq);
-    //     auto nextSeq = std::next(itSeq,1); 
-    //     for(auto it = nextSeq; it != sequencesNoInsert.end(); ++it){
-    //         auto pointFirstSeq = (*itSeq)->end()[-1];
-    //         auto pointNextSeq = (*it)->end()[-1];
-    //         if(bbIntersect(pointFirstSeq, pointNextSeq)){
-    //             // match
-    //             hypothesisSet.push_back(*nextSeq);
-    //             it = sequencesNoInsert.erase(it);
-    //             continue;
-    //         }
+void uvdar::alternativeHT::calculatePredictionWindow(PredictPath & path, const ros::Time insertTime){
+// TODO: not tested yet
+    // int polynomSize = (int)path.xCoeff.size();
+    // double xPredict = 0;
+    // for(int i = 0; i < (int)path.xCoeff.size(); ++i){
+    //     for(int power = 0; power < polynomSize; ++power){
+    //         xPredict += path.xCoeff[i]*pow(insertTime.toSec(), power); 
     //     }
-    
-    //     allHypothesis.push_back(hypothesisSet);
-    //     itSeq = sequencesNoInsert.erase(itSeq);
-    //     continue;
     // }
-}
 
+}
 
 
 

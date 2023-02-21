@@ -86,7 +86,7 @@ namespace uvdar{
         
     // }
 
-    void HelpFunctions::selectLastNDataPoints(std::vector<PointState> seq, std::vector<PointState> selectedPoints, int numerOfDataPoints ){
+    void HelpFunctions::selectLastNDataPoints(const std::vector<PointState>& seq, std::vector<PointState>& selectedPoints, int numerOfDataPoints ){
     //     std::cout << "HERE\n";
         if((int)seq.size() < numerOfDataPoints){
             ROS_ERROR("[UVDAR_BP_Tim]: The wanted number for the polynomial regression is higher than the sequence lenght!");
@@ -94,70 +94,57 @@ namespace uvdar{
         }
         for(auto itSeq = seq.end(); itSeq != seq.begin(); --itSeq){
             if(itSeq->ledState){
-                ros::Duration timeInsertedIterator(itSeq->insertTime.toSec()); 
-                
-                
-                auto point = *itSeq;
-                // point.insertTime = seq.end()[-1].insertTime - timeInsertedIterator;
-                
-                
-                
-                // itSeq->insertTime = (seq.end()[-1].insertTime + lastInserted);
-                std::cout << point.insertTime << "The seq end " << seq.end()[-1].insertTime.toSec() << " it " << itSeq->insertTime << "\n"; 
-               selectedPoints.push_back(point);
+               selectedPoints.push_back(*itSeq);
             }
-            if((int)selectedPoints.size() == numerOfDataPoints){
-                return;
-            }
+            // if((int)selectedPoints.size() == numerOfDataPoints){
+            //     return;
+            // }
         }
-
-    //     std::cout << " No polynomial of degree 3 can be build!\n";
 
     }
 
-    std::pair<std::vector<PointState>*, Eigen::VectorXd> HelpFunctions::polynomialRegression(std::vector<PointState>* sequence, int numberOfDataPoints){
-        
+    std::pair<std::vector<double>, std::vector<double>> HelpFunctions::prepareForPolyReg(std::vector<PointState>* sequence, const int numberOfDataPoints, const int order){
+
         std::vector<PointState> selectedPts;
         HelpFunctions::selectLastNDataPoints(*sequence, selectedPts, numberOfDataPoints);
-        // Input data: x, y coordinates of a 2D trajectory at different times t
-        Eigen::MatrixXd data(numberOfDataPoints, 3);
-        
-        for(int i = 0; i < (int)selectedPts.size(); ++i){
-            data(i,0) = selectedPts[i].point.x;
-            data(i,1) = selectedPts[i].point.y;
-            data(i,2) = selectedPts[i].insertTime.toSec(); 
+
+        std::vector<double> x,y;
+        std::vector<ros::Time> time;
+        for(const auto point : selectedPts){
+            x.push_back(point.point.x);
+            y.push_back(point.point.y);
+            time.push_back(point.insertTime);
         }
 
-        //  data << selectedPts;
-
-        //  for(const auto k : data){
-            //  std::cout << k;
-        //  }
-         // Define the degree of the polynomial to fit
-        int degree = 2;
-        // Build the design matrix
-        int n = data.rows(); // number of data points
-        int m = (degree+1)*(degree+2)/2; // number of polynomial terms
-        Eigen::MatrixXd A(n, m);
-        for (int i = 0; i < n; i++) {
-            int k = 0;
-            for (int j = 0; j <= degree; j++) {
-                for (int l = 0; l <= j; l++) {
-                    A(i, k) = pow(data(i, 0), j-l) * pow(data(i, 1), l);
-                    k++;
-                }
-            }
-        }
-        // Define the response vector y
-        Eigen::VectorXd y(n);
-        y = data.col(2);
-        
-        // Compute the least-squares solution using QR decomposition
-        Eigen::VectorXd coeffs(m);
-        coeffs = A.householderQr().solve(y);
-
-        return std::make_pair(sequence, coeffs);
+        std::vector<double> coeffX = polyReg(x, time, order); 
+        std::vector<double> coeffY = polyReg(y, time, order);
+        std::pair<std::vector<double>, std::vector<double>> polyRegression = std::make_pair(coeffX, coeffY);
 
     }
+
+    std::vector<double> HelpFunctions::polyReg(const std::vector<double>& pixelCoordinate, const std::vector<ros::Time>& time, const int order){
+
+
+        Eigen::MatrixXd DesignMat(time.size(), order + 1);
+	    Eigen::VectorXd pixelMat = Eigen::VectorXd::Map(&pixelCoordinate.front(), pixelCoordinate.size());
+        Eigen::VectorXd result(order+1);
+
+        // fill the Design matrix
+	    for(int i = 0 ; i < (int)time.size(); ++i){
+	    	for(int j = 0; j < order + 1; ++j){
+	    		DesignMat(i, j) = pow(time[i].toSec(), j);
+	    	}
+	    }
+	    // Solve for linear least square fit
+	    result = DesignMat.householderQr().solve(pixelMat);
+        std::vector<double> coeff;
+        for(int i = 0; i < result.size(); ++i){
+            coeff.push_back(result[i]);
+        }
+        return coeff;
+    }
+
+
+
 
 } // uvdar

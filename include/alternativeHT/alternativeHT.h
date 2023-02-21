@@ -11,7 +11,13 @@
 
 namespace uvdar
 {
+    using seqPointer = std::vector<PointState>*;
 
+    struct PredictPath{
+        seqPointer seq;
+        std::vector<double> xCoeff;
+        std::vector<double> yCoeff;
+    };
 
 
     class alternativeHT {
@@ -34,7 +40,6 @@ namespace uvdar
 
         std::unique_ptr<SignalMatcher> matcher_;
 
-        using seqPointer = std::vector<PointState>*;
 
         void findClosestPixelAndInsert(std::vector<PointState>&);
         cv::Point2d computeXYDiff(const cv::Point2d, const cv::Point2d);
@@ -44,8 +49,8 @@ namespace uvdar
         // moving average approach 
         void expandedSearch(std::vector<PointState> &, std::vector<seqPointer> &);
         void movAvgCheckLastTwoLEDStates(std::vector<seqPointer>&);
-        void assignSequencesToHypothesisSet(std::vector<seqPointer>&);
-
+        void calculatePredictionWindow(PredictPath &, const ros::Time);
+        
         void checkSeqNewPointExpectation(std::vector<seqPointer>&);
         bool bbIntersect(const PointState &, const PointState &);
         
