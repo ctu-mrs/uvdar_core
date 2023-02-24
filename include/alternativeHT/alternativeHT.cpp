@@ -102,9 +102,9 @@ void alternativeHT::findClosestPixelAndInsert(std::vector<PointState> & currentF
         if(nearestNeighbor == false){
             noNN.push_back(currPoint);
 //TODO: here was before the "start new sequence" stuff
-            std::vector<PointState> vect;
-            vect.push_back(currPoint);
-            generatedSequences_.push_back(vect);
+            // std::vector<PointState> vect;
+            // vect.push_back(currPoint);
+            // generatedSequences_.push_back(vect);
         }
     }
 
