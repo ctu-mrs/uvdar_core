@@ -34,6 +34,7 @@ namespace uvdar{
             static void permute( std::vector<PointState>, int, int, std::vector<std::vector<PointState>>&);
             static void calcVariance(std::vector<PointState>&);
             static bool prepareForPolyReg(SeqWithTrajectory&, const int);
+            static void findOrthogonalVectorWithLength(const cv::Point2d, const double);
             
     };
 

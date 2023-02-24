@@ -369,9 +369,9 @@ namespace uvdar{
   void UVDAR_BP_Tim::insertPointToAHT(const mrs_msgs::ImagePointsWithFloatStampedConstPtr &ptsMsg, const size_t & img_index) {
     if (!initialized_) return;
 
-
     blink_data_[img_index].sample_count++;
 
+    
     if ((blink_data_[img_index].sample_count % 10) == 0) { //update the estimate of frequency every 10 samples
       blink_data_[img_index].framerate_estimate = 10000000000.0 / (double)((ptsMsg->stamp - blink_data_[img_index].last_sample_time_diagnostic).toNSec());
       if (_debug_){

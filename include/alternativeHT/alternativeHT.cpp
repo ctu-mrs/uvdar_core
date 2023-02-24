@@ -26,11 +26,13 @@ void alternativeHT::updateFramerate(double input) {
 void alternativeHT::processBuffer(const mrs_msgs::ImagePointsWithFloatStampedConstPtr ptsMsg) {
     
     std::vector<PointState> currentFrame;
+    std::cout << "-------------------------\n";
     for ( auto pointWithTimeStamp : ptsMsg->points) {
         PointState p;
         p.point = cv::Point(pointWithTimeStamp.x, pointWithTimeStamp.y);
         p.ledState = true; // every existent point is "on"
         p.insertTime = ptsMsg->stamp;
+        std::cout << p.point.x << " -- " << p.point.y << "\n";
         cv::Point2d leftUpperCorner, rightDownCorner;
         leftUpperCorner.x = p.point.x - boundingBox_x_Size_; 
         leftUpperCorner.y = p.point.y - boundingBox_y_Size_;
@@ -54,7 +56,7 @@ void alternativeHT::processBuffer(const mrs_msgs::ImagePointsWithFloatStampedCon
     // }
     insertVPIfNoNewPointArrived(currentFrame);
 // std::cout << "---------------------------------------------\n";
-    cleanPotentialBuffer();  // TODO: NOT WORKING!!!!!
+    // cleanPotentialBuffer();  // TODO: NOT WORKING!!!!!
     // for (const auto k : generatedSequences_){
     //     std::vector<bool> p;
     //     for (auto r : k){
@@ -100,9 +102,9 @@ void alternativeHT::findClosestPixelAndInsert(std::vector<PointState> & currentF
         if(nearestNeighbor == false){
             noNN.push_back(currPoint);
 //TODO: here was before the "start new sequence" stuff
-            // std::vector<PointState> vect;
-            // vect.push_back(currPoint);
-            // generatedSequences_.push_back(vect);
+            std::vector<PointState> vect;
+            vect.push_back(currPoint);
+            generatedSequences_.push_back(vect);
         }
     }
 
@@ -114,9 +116,9 @@ void alternativeHT::findClosestPixelAndInsert(std::vector<PointState> & currentF
     //     }
     // }
 
-    if((int)noNN.size() != 0 ){
-        expandedSearch(noNN, pGenSequence);
-    }
+    // if((int)noNN.size() != 0 ){
+    //     expandedSearch(noNN, pGenSequence);
+    // }
    
 }
 
@@ -322,6 +324,14 @@ std::vector<std::pair<PointState, int>> alternativeHT::getResults(){
         for (auto point : sequence){
             ledStates.push_back(point.ledState);
         }
+        // std::cout << "The seq" << std::endl; 
+        // for(auto k : ledStates){
+        //     if(k)std::cout << "1,";
+        //     else std::cout << "0,";
+        // }
+        // std::cout << std::endl;
+
+
         int id = findSequenceMatch(ledStates);
         retrievedSignals.push_back(std::make_pair(sequence.end()[-1], id));
     }

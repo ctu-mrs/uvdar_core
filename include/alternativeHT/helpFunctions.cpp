@@ -126,6 +126,27 @@ namespace uvdar{
     }
 
 
+    void HelpFunctions::findOrthogonalVectorWithLength(const cv::Point2d vect, const double len){
+    
+        cv::Point2d orthoFirst;
+        cv::Point2d orthoSecond; 
+        // second solution also needed!
+    
+        if(len < 0.001){
+            std::cout << "TOO SHORT " << std::endl;
+        }
+    
+        orthoFirst.y =  sqrt( pow(len,2) / (pow((vect.y/vect.x),2) + 1) );  
+        orthoFirst.x = - ( orthoFirst.y * vect.y ) / vect.x;
+    
+        orthoSecond.y =  -sqrt( pow(len,2) / (pow((vect.y/vect.x),2) + 1) );  
+        orthoSecond.x = - ( orthoSecond.y * vect.y ) / vect.x;
+    
+        std::cout << orthoFirst.x << " " << orthoFirst.y << "\t"<< orthoSecond.x  << " " << orthoSecond.y; 
+    
+    }
+
+
 
 
 } // uvdar
