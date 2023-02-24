@@ -126,27 +126,48 @@ namespace uvdar{
     }
 
 
-    void HelpFunctions::findOrthogonalVectorWithLength(const cv::Point2d vect, const double len){
-    
+    std::vector<cv::Point2d> HelpFunctions::findOrthogonalVectorWithLength(const cv::Point2d vect, const double len){
+
         cv::Point2d orthoFirst;
         cv::Point2d orthoSecond; 
         // second solution also needed!
-    
+
         if(len < 0.001){
             std::cout << "TOO SHORT " << std::endl;
         }
-    
+
         orthoFirst.y =  sqrt( pow(len,2) / (pow((vect.y/vect.x),2) + 1) );  
         orthoFirst.x = - ( orthoFirst.y * vect.y ) / vect.x;
-    
+
         orthoSecond.y =  -sqrt( pow(len,2) / (pow((vect.y/vect.x),2) + 1) );  
         orthoSecond.x = - ( orthoSecond.y * vect.y ) / vect.x;
-    
-        std::cout << orthoFirst.x << " " << orthoFirst.y << "\t"<< orthoSecond.x  << " " << orthoSecond.y; 
-    
+
+        std::vector<cv::Point2d> solutions;
+        solutions.push_back(orthoFirst);
+        solutions.push_back(orthoSecond);
+        return solutions;
     }
 
 
+    float HelpFunctions::area(const cv::Point2d p1, const cv::Point2d p2, const cv::Point2d p3){
+       return abs((p1.x*(p2.y-p3.y) + p2.x*(p3.y-p1.y)+ p3.x*(p1.y-p2.y))/2.0);
+    }
+    
+    bool HelpFunctions::isInside(const cv::Point2d p1, const cv::Point2d p2, const cv::Point2d p3, const cv::Point2d query){  
+       /* Calculate area of triangle ABC */
+       float A = HelpFunctions::area (p1, p2, p3);
+    
+       /* Calculate area of triangle PBC */ 
+       float A1 = HelpFunctions::area (query, p2, p3);
+    
+       /* Calculate area of triangle PAC */ 
+       float A2 = HelpFunctions::area (p1, query, p3);
+    
+       /* Calculate area of triangle PAB */  
+       float A3 = HelpFunctions::area (p1, p2, query);
 
+       /* Check if sum of A1, A2 and A3 is same as A */
+       return (A == A1 + A2 + A3);
+    }
 
 } // uvdar

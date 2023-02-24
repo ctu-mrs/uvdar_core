@@ -11,8 +11,8 @@ namespace uvdar{
         cv::Point2d point;
         bool ledState; 
         ros::Time insertTime;
-        cv::Point2d bbLeftUp; 
-        cv::Point2d bbRightDown;
+        cv::Point2d firstEdgeTri; 
+        cv::Point2d secEdgeTri;
     };
 
     using seqPointer = std::vector<PointState>*;
@@ -34,8 +34,8 @@ namespace uvdar{
             static void permute( std::vector<PointState>, int, int, std::vector<std::vector<PointState>>&);
             static void calcVariance(std::vector<PointState>&);
             static bool prepareForPolyReg(SeqWithTrajectory&, const int);
-            static void findOrthogonalVectorWithLength(const cv::Point2d, const double);
-            
+            static std::vector<cv::Point2d> findOrthogonalVectorWithLength(const cv::Point2d, const double);
+            static float area(const cv::Point2d, const cv::Point2d, const cv::Point2d);
+            static bool isInside(const cv::Point2d, const cv::Point2d, const cv::Point2d, const cv::Point2d);
     };
-
 } // uvdar

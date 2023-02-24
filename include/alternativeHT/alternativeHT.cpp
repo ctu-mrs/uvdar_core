@@ -32,16 +32,15 @@ void alternativeHT::processBuffer(const mrs_msgs::ImagePointsWithFloatStampedCon
         p.point = cv::Point(pointWithTimeStamp.x, pointWithTimeStamp.y);
         p.ledState = true; // every existent point is "on"
         p.insertTime = ptsMsg->stamp;
-        std::cout << p.point.x << " -- " << p.point.y << "\n";
-        cv::Point2d leftUpperCorner, rightDownCorner;
-        leftUpperCorner.x = p.point.x - boundingBox_x_Size_; 
-        leftUpperCorner.y = p.point.y - boundingBox_y_Size_;
-        rightDownCorner.x = p.point.x + boundingBox_x_Size_;
-        rightDownCorner.y = p.point.y + boundingBox_y_Size_;
-        if (p.bbLeftUp.x < 0) p.bbLeftUp.x = 0;
-        if (p.bbLeftUp.y < 0) p.bbLeftUp.y = 0;
-        p.bbLeftUp = leftUpperCorner;
-        p.bbRightDown = rightDownCorner;
+        // cv::Point2d leftUpperCorner, rightDownCorner;
+        // leftUpperCorner.x = p.point.x - boundingBox_x_Size_; 
+        // leftUpperCorner.y = p.point.y - boundingBox_y_Size_;
+        // rightDownCorner.x = p.point.x + boundingBox_x_Size_;
+        // rightDownCorner.y = p.point.y + boundingBox_y_Size_;
+        // if (p.bbLeftUp.x < 0) p.bbLeftUp.x = 0;
+        // if (p.bbLeftUp.y < 0) p.bbLeftUp.y = 0;
+        // p.bbLeftUp = leftUpperCorner;
+        // p.bbRightDown = rightDownCorner;
         currentFrame.push_back(p);
     }
 
@@ -116,9 +115,9 @@ void alternativeHT::findClosestPixelAndInsert(std::vector<PointState> & currentF
     //     }
     // }
 
-    // if((int)noNN.size() != 0 ){
-    //     expandedSearch(noNN, pGenSequence);
-    // }
+    if((int)noNN.size() != 0 ){
+        expandedSearch(noNN, pGenSequence);
+    }
    
 }
 
@@ -197,47 +196,27 @@ void uvdar::alternativeHT::calculatePredictionTriangle(SeqWithTrajectory & path,
         yPredict += path.yCoeff[i]*pow(insertTime.toSec(), i);
     }
 
-    cv::Point2d predictionWindowMax = cv::Point2d(xPredict, yPredict);
-    findOrthogonalVector(predictionWindowMax);
+    cv::Point2d predictedPoint = cv::Point2d(xPredict, yPredict);
+    std::cout << "predicted point " << predictedPoint.x  << "\t" << predictedPoint.y << "\n";
+
+    cv::Point2d lastInserted = path.seq->end()[-1].point;
+    cv::Point2d diffVect = predictedPoint - lastInserted;
+
+    std::vector<cv::Point2d> orthoVects = HelpFunctions::findOrthogonalVectorWithLength(diffVect, 2);
+
+    // construct triangle in coordinate center
+    cv::Point2d firstEdgeCenter   = diffVect + orthoVects[0];
+    cv::Point2d secEdgeCenter   = diffVect + orthoVects[1]; 
+
+    //project to the last seen point
+    cv::Point2d firstEdge = lastInserted + firstEdgeCenter;
+    cv::Point2d secEdge = lastInserted + secEdgeCenter; 
 
 
-}
-
-void uvdar::alternativeHT::findOrthogonalVector(cv::Point2d predictionVector){
-    cv::Point2d orthogonal; 
-}
-
-
-
-// return true, if bounding boxes hit 
-bool uvdar::alternativeHT::bbIntersect(const PointState & point1, const PointState & point2){
+    path.seq->end()[-1].firstEdgeTri    = firstEdge;
+    path.seq->end()[-1].secEdgeTri      = secEdge;
     
-    if( (point1.bbRightDown.x >= point2.bbLeftUp.x && point2.bbRightDown.x >= point1.bbLeftUp.x ) && (point1.bbRightDown.y >= point2.bbLeftUp.y && point2.bbRightDown.y >= point1.bbLeftUp.y)){
-        return true;
-    }
-    return false; 
-}
 
-//TODO: depricated Change to ICP 
-std::vector<PointState>* uvdar::alternativeHT::findClosestWithinSelectedBB(std::vector<seqPointer> boxMatchPoints, const PointState queryPoint){
-
-    cv::Point2d min;
-
-    std::vector<PointState>* selected = nullptr; 
-    // guarantee that selected will be assigned - otherwise this function shoudln't be called 
-    min.x = boundingBox_x_Size_*3;
-    min.y = boundingBox_y_Size_*3;
-    for(auto p : boxMatchPoints){
-        auto matchedPoint = p->end()[-1];
-        cv::Point2d diff = computeXYDiff(matchedPoint.point, queryPoint.point);
-
-        if( (diff.x <= min.x && diff.y <= min.y)){
-            selected = p;
-            min.x = diff.x; 
-            min.y = diff.y;
-        }
-    }
-    return selected;
 }
 
 
@@ -247,7 +226,6 @@ void alternativeHT::insertVPIfNoNewPointArrived(std::vector<PointState> & curren
     std::scoped_lock lock(mutex_generatedSequences_);
     for(auto & sequence : generatedSequences_){
         
-        // if the two latest inserted led-states are off, don't insert a third "off"-state 
         if(sequence.size() >= 2){
             bool lastLEDstate = sequence.end()[-1].ledState;
             bool secondLastLEDstate = sequence.end()[-2].ledState;
@@ -273,10 +251,11 @@ void alternativeHT::insertVPIfNoNewPointArrived(std::vector<PointState> & curren
     }
 }
 
+
 void alternativeHT::cleanPotentialBuffer(){
 
 //TODO: eventually not needed - correction in Moving Avg part
-    double timeThreeFrames = (1/60.0) * 4; 
+    double timeThreeFrames = (1/60.0) * 6; 
 
     std::scoped_lock lock(mutex_generatedSequences_);
     for (auto it = generatedSequences_.begin(); it != generatedSequences_.end(); ++it){ 
@@ -304,7 +283,7 @@ void alternativeHT::cleanPotentialBuffer(){
         
         double insertTime = it->end()[-1].insertTime.toSec(); 
         double timeDiffLastInsert = std::abs(insertTime - ros::Time::now().toSec());
-        // std::cout << "time last inserted" << timeDiffLastInsert << "last insedrt" << insertTime; 
+        std::cout << "time diff " << timeDiffLastInsert << " last insedrt " << insertTime; 
         if (timeDiffLastInsert > timeThreeFrames){ //&& i != generatedSequences_.end()){
             ROS_ERROR("TIME");
             it = generatedSequences_.erase(it);

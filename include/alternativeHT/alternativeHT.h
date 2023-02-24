@@ -20,8 +20,8 @@ namespace uvdar
     
         bool debug_, visual_debug_ = false;
         
-        const int max_pixel_shift_x_ = 3;
-        const int max_pixel_shift_y_ = 3;
+        const int max_pixel_shift_x_ = 2;
+        const int max_pixel_shift_y_ = 2;
         const int boundingBox_x_Size_ = 3;
         const int boundingBox_y_Size_ = 3;
         double framerate_;
@@ -47,10 +47,10 @@ namespace uvdar
         void findOrthogonalVector(cv::Point2d);
         
         void checkSeqNewPointExpectation(std::vector<seqPointer>&);
-        bool bbIntersect(const PointState &, const PointState &);
+        // bool bbIntersect(const PointState &, const PointState &);
         
         // depricated
-        std::vector<PointState>* findClosestWithinSelectedBB(std::vector<seqPointer>  , const PointState);
+        // std::vector<PointState>* findClosestWithinSelectedBB(std::vector<seqPointer>  , const PointState);
    
 
 
