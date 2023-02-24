@@ -37,12 +37,12 @@ namespace uvdar
 
         void findClosestPixelAndInsert(std::vector<PointState>&);
         cv::Point2d computeXYDiff(const cv::Point2d, const cv::Point2d);
-        void insertPointToSequence(std::vector<PointState> &, const PointState &);
+        void insertPointToSequence(std::vector<PointState> &, const PointState);
 
 
         // moving average approach 
-        void expandedSearch(std::vector<PointState> &, std::vector<seqPointer> &);
-        void movAvgCheckLastTwoLEDStates(std::vector<seqPointer>&);
+        void expandedSearch(std::vector<PointState> &, std::vector<seqPointer>);
+        void movAvgCheckLastTwoLEDStates(std::vector<seqPointer>);
         void calculatePredictionTriangle(SeqWithTrajectory &, const ros::Time);
         void findOrthogonalVector(cv::Point2d);
         

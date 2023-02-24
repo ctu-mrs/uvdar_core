@@ -26,7 +26,6 @@ void alternativeHT::updateFramerate(double input) {
 void alternativeHT::processBuffer(const mrs_msgs::ImagePointsWithFloatStampedConstPtr ptsMsg) {
     
     std::vector<PointState> currentFrame;
-    std::cout << "-------------------------\n";
     for ( auto pointWithTimeStamp : ptsMsg->points) {
         PointState p;
         p.point = cv::Point(pointWithTimeStamp.x, pointWithTimeStamp.y);
@@ -44,30 +43,22 @@ void alternativeHT::processBuffer(const mrs_msgs::ImagePointsWithFloatStampedCon
         currentFrame.push_back(p);
     }
 
-    findClosestPixelAndInsert(currentFrame);
-    // for (const auto k : generatedSequences_){
-    //     std::vector<bool> p;
-    //     for (auto r : k){
-    //         if(r.ledState) p.push_back(true);
-    //         else p.push_back(false);
-    //     }
-    //     printVectorIfNotEmpty(p, "before");
-    // }
-    insertVPIfNoNewPointArrived(currentFrame);
 // std::cout << "---------------------------------------------\n";
-    // cleanPotentialBuffer();  // TODO: NOT WORKING!!!!!
-    // for (const auto k : generatedSequences_){
-    //     std::vector<bool> p;
-    //     for (auto r : k){
-    //         if(r.ledState) p.push_back(true);
-    //         else p.push_back(false);
+    findClosestPixelAndInsert(currentFrame);
+
+    // insertVPIfNoNewPointArrived(currentFrame);
+    cleanPotentialBuffer();  // TODO: NOT WORKING!!!!!
+    // std::cout << " Size " << generatedSequences_.size() << std::endl;
+    
+    // for(auto k : generatedSequences_){
+    //     for(auto l : k){
+    //         if(l.ledState) std::cout << "1,";
+    //         else std::cout << "0,";
     //     }
-    //     // printVectorIfNotEmpty(p, "after");
-    //     // for( auto p : k){
-    //     //     std::cout << p.insertTime << ", ";
-    //     // }
-    //     // std::cout << std::endl;
+    //     std::cout << std::endl; 
     // }
+    // std::cout << "\n";
+  
 }
 
 void alternativeHT::findClosestPixelAndInsert(std::vector<PointState> & currentFrame) {   
@@ -82,24 +73,28 @@ void alternativeHT::findClosestPixelAndInsert(std::vector<PointState> & currentF
 
     }
 
+    // std::cout << "pt3n" << pGenSequence.size() << std::endl;
+    
     std::vector<PointState> noNN;
     for(auto & currPoint : currentFrame){
-        std::scoped_lock lock(mutex_generatedSequences_);
-        bool nearestNeighbor = false;
-        for(auto seq = pGenSequence.begin(); seq != pGenSequence.end(); ++seq){
-            PointState lastInserted = (*seq)->end()[-1];
-            cv::Point2d diff = computeXYDiff(currPoint.point, lastInserted.point);
-            if(diff.x <= max_pixel_shift_x_ && diff.y <= max_pixel_shift_y_){
-                nearestNeighbor = true;
-                insertPointToSequence(*(*seq), currPoint);    
-                pGenSequence.erase(seq);
-                break;
-            }else{
-                nearestNeighbor = false;
-            }
-        }
-        if(nearestNeighbor == false){
-            noNN.push_back(currPoint);
+      std::scoped_lock lock(mutex_generatedSequences_);
+      bool nearestNeighbor = false;
+      for(auto seq = pGenSequence.begin(); seq != pGenSequence.end(); ++seq){
+          PointState lastInserted = (*seq)->end()[-1];
+          cv::Point2d diff = computeXYDiff(currPoint.point, lastInserted.point);
+          if(diff.x <= max_pixel_shift_x_ && diff.y <= max_pixel_shift_y_){
+              nearestNeighbor = true;
+              insertPointToSequence(*(*seq), currPoint);    
+              pGenSequence.erase(seq);
+              break;
+          }else{
+              nearestNeighbor = false;
+          }
+      }
+      if(nearestNeighbor == false){
+        // std::cout << "here\n"; 
+        noNN.push_back(currPoint);
+
 //TODO: here was before the "start new sequence" stuff
             // std::vector<PointState> vect;
             // vect.push_back(currPoint);
@@ -107,17 +102,10 @@ void alternativeHT::findClosestPixelAndInsert(std::vector<PointState> & currentF
         }
     }
 
-// TODO: This is done within the insertVP - However maybe more usefull here?!
-    // if((int)noNN.size() == 0 && pGenSequence.size() != 0){
-    //     for(auto & seq : pGenSequence){
-            
-    //         insertPointToSequence(*seq, signal);
-    //     }
-    // }
+    // std::cout << "no NN" << noNN.size() << "\n";
 
-    if((int)noNN.size() != 0 ){
-        expandedSearch(noNN, pGenSequence);
-    }
+    expandedSearch(noNN, pGenSequence);
+    
    
 }
 
@@ -129,7 +117,7 @@ cv::Point2d uvdar::alternativeHT::computeXYDiff(const cv::Point2d first, const c
     return difference;
 }
 
-void alternativeHT::insertPointToSequence(std::vector<PointState> & sequence, const PointState & signal){
+void alternativeHT::insertPointToSequence(std::vector<PointState> & sequence, const PointState signal){
         sequence.push_back(signal);            
         if(sequence.size() > originalSequences_[0].size()){
             sequence.erase(sequence.begin());
@@ -137,47 +125,82 @@ void alternativeHT::insertPointToSequence(std::vector<PointState> & sequence, co
 }
 
 
-void uvdar::alternativeHT::expandedSearch(std::vector<PointState> & noNNCurrentFrame, std::vector<seqPointer> & sequencesNoInsert){
+void uvdar::alternativeHT::expandedSearch(std::vector<PointState> & noNNCurrentFrame, std::vector<seqPointer> sequencesNoInsert){
+    
+    std::scoped_lock lock(mutex_generatedSequences_);
 
-    movAvgCheckLastTwoLEDStates(sequencesNoInsert);
+    // makes absolutely no sense to use this function!
+    // movAvgCheckLastTwoLEDStates(sequencesNoInsert);
+    if(noNNCurrentFrame.size() != 0){
+        ros::Time insertTime = noNNCurrentFrame[0].insertTime; 
+        if(sequencesNoInsert.size() != 0){
+            for(auto seq = sequencesNoInsert.begin(); seq != sequencesNoInsert.end(); ++seq){
 
-    if(noNNCurrentFrame.size() == 0){
-        return;
-    }
+                SeqWithTrajectory seqTrajectory;
+                seqTrajectory.seq = *seq;
+                if(!HelpFunctions::prepareForPolyReg(seqTrajectory, 4)){
+                    continue;
+                }
 
-    ros::Time insertTime = noNNCurrentFrame[0].insertTime; 
-    std::vector<SeqWithTrajectory> sequencesWithRegression;
-    for(auto seq : sequencesNoInsert){
+                calculatePredictionTriangle(seqTrajectory, insertTime);   
 
-        SeqWithTrajectory seqTrajectory;
-        seqTrajectory.seq = seq;
-        if(!HelpFunctions::prepareForPolyReg(seqTrajectory, 2)){
-            continue;
+                // // take the constructed triangle from the 
+                cv::Point2d firstPoint = seqTrajectory.seq->end()[-1].firstEdgeTri;
+                cv::Point2d secondtPoint = seqTrajectory.seq->end()[-1].secEdgeTri;
+                cv::Point2d initialPoint = seqTrajectory.seq->end()[-1].point;
+
+                for(auto it = noNNCurrentFrame.begin(); it != noNNCurrentFrame.end(); ++it){
+                    if(HelpFunctions::isInside(firstPoint, secondtPoint, initialPoint, it->point)){
+                        std::cout <<"INSIDE!!!!!!!!!!!!!\n"; 
+                        insertPointToSequence(*(*seq), *it);
+                        it = noNNCurrentFrame.erase(it);
+                        seq = sequencesNoInsert.erase(seq);
+                        continue;
+                    }
+                    continue;
+                }
+            }
         }
-        
-        calculatePredictionTriangle(seqTrajectory, insertTime);   
-        sequencesWithRegression.push_back(seqTrajectory);
     }
 
+
+    // insert VP to sequnces were no point was inserted
+    if(sequencesNoInsert.size() != 0){
+        for(auto seq : sequencesNoInsert){
+            if(seq->size() == 0){
+                continue;
+            }
+            PointState pVirtual;
+            pVirtual.insertTime = ros::Time::now();
+            pVirtual.point = seq->end()[-1].point;
+            pVirtual.ledState = false;
+            insertPointToSequence(*seq, pVirtual);
+        }
+                // std::cout << "1\n";  
+
+    }
+
+    // std::cout << "====================The PSIZE " << sequencesNoInsert.size() << "\n"; 
 
     // if still points are not inserted start new sequence
     if(noNNCurrentFrame.size() != 0){
+
         for(auto point : noNNCurrentFrame){
             std::vector<PointState> vect;
             vect.push_back(point);
             generatedSequences_.push_back(vect);
         }
+
     }
 }
 
-void uvdar::alternativeHT::movAvgCheckLastTwoLEDStates(std::vector<seqPointer>& sequencesNoInsert){
+void uvdar::alternativeHT::movAvgCheckLastTwoLEDStates(std::vector<seqPointer> sequencesNoInsert){
 
     for(auto it = sequencesNoInsert.begin(); it != sequencesNoInsert.end(); ++it){
         if((*it)->size() >= 2){
             // if the last two led states were on - no new inserted point is expected and the sequence can be erased from the NoInsert vector
             if((*it)->end()[-1].ledState && (*it)->end()[-2].ledState){
                 it = sequencesNoInsert.erase(it);
-                // TODO: Insert here new Zero bit??
                 continue; 
             }
         }
@@ -186,7 +209,7 @@ void uvdar::alternativeHT::movAvgCheckLastTwoLEDStates(std::vector<seqPointer>& 
 
 void uvdar::alternativeHT::calculatePredictionTriangle(SeqWithTrajectory & path, const ros::Time insertTime){
 // TODO: not tested yet
-    int polynomSize = (int)path.xCoeff.size();
+
     double xPredict = 0, yPredict = 0;
     if(path.yCoeff.size() != path.xCoeff.size()){
         return;
@@ -197,12 +220,14 @@ void uvdar::alternativeHT::calculatePredictionTriangle(SeqWithTrajectory & path,
     }
 
     cv::Point2d predictedPoint = cv::Point2d(xPredict, yPredict);
-    std::cout << "predicted point " << predictedPoint.x  << "\t" << predictedPoint.y << "\n";
 
     cv::Point2d lastInserted = path.seq->end()[-1].point;
     cv::Point2d diffVect = predictedPoint - lastInserted;
 
-    std::vector<cv::Point2d> orthoVects = HelpFunctions::findOrthogonalVectorWithLength(diffVect, 2);
+    std::cout << "Diff point " << diffVect.x  << " " << diffVect.y << " prediction " << predictedPoint.x << " " << predictedPoint.y <<  "\n";
+
+
+    std::vector<cv::Point2d> orthoVects = HelpFunctions::findOrthogonalVectorWithLength(diffVect, 2); // TODO: THINK ABOUT USEFULL HEURISTIC!!!
 
     // construct triangle in coordinate center
     cv::Point2d firstEdgeCenter   = diffVect + orthoVects[0];
@@ -219,72 +244,29 @@ void uvdar::alternativeHT::calculatePredictionTriangle(SeqWithTrajectory & path,
 
 }
 
-
-//TODO: Too time sensitve
- // for all sequences where no correspondence was found insert VP
-void alternativeHT::insertVPIfNoNewPointArrived(std::vector<PointState> & currentFrame){
-    std::scoped_lock lock(mutex_generatedSequences_);
-    for(auto & sequence : generatedSequences_){
-        
-        if(sequence.size() >= 2){
-            bool lastLEDstate = sequence.end()[-1].ledState;
-            bool secondLastLEDstate = sequence.end()[-2].ledState;
-            if(!lastLEDstate && !secondLastLEDstate){
-                continue;
-            }
-        }
-        
-        if(currentFrame.size() != 0){
-            ros::Time lastInsert = currentFrame[0].insertTime;
-            if(lastInsert != sequence.end()[-1].insertTime){
-                auto p = sequence.end()[-1];
-                p.ledState = false; 
-                p.insertTime = ros::Time::now();
-                insertPointToSequence(sequence, p);
-            }
-        }else{
-            auto p = sequence.end()[-1];
-            p.ledState = false; 
-            p.insertTime = ros::Time::now();;
-            insertPointToSequence(sequence, p);
-        }
-    }
-}
-
-
 void alternativeHT::cleanPotentialBuffer(){
 
-//TODO: eventually not needed - correction in Moving Avg part
-    double timeThreeFrames = (1/60.0) * 6; 
-
     std::scoped_lock lock(mutex_generatedSequences_);
+
+    double timeMargin = 0;
+    if(framerate_ != 0){
+        timeMargin = (1/framerate_) * 6; 
+    }
+
+    timeMargin = 50;
+
     for (auto it = generatedSequences_.begin(); it != generatedSequences_.end(); ++it){ 
         if (it->empty()){
             continue;
         }
 
-        if(it->size() >= 3){
-            bool first  = it->end()[-1].ledState;
-            bool second = it->end()[-2].ledState;
-            bool third  = it->end()[-3].ledState;
-            // if(first && second && third && forth){
-            //     ROS_ERROR("all true");
-            //     it = generatedSequences_.erase(it);
-            //     continue;
-            // }
-            if(!first && !second && !third){
-                ROS_ERROR("all false");
-                it = generatedSequences_.erase(it);
-                continue;
-            }
-        }
-        
+           
         
         
         double insertTime = it->end()[-1].insertTime.toSec(); 
         double timeDiffLastInsert = std::abs(insertTime - ros::Time::now().toSec());
-        std::cout << "time diff " << timeDiffLastInsert << " last insedrt " << insertTime; 
-        if (timeDiffLastInsert > timeThreeFrames){ //&& i != generatedSequences_.end()){
+        // std::cout << "time diff " << timeDiffLastInsert << " time margin " << timeMargin << "\n"; 
+        if (timeDiffLastInsert > timeMargin){ //&& i != generatedSequences_.end()){
             ROS_ERROR("TIME");
             it = generatedSequences_.erase(it);
             continue;

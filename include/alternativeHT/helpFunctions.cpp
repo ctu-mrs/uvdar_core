@@ -95,7 +95,7 @@ namespace uvdar{
             }
         }
 
-        if(x.size() < 5 || y.size() < 5) return false;
+        // if(x.size() < 4 || y.size() < 4) return false;
         
         prediction.xCoeff = polyReg(x, time, order); 
         prediction.yCoeff = polyReg(y, time, order);
@@ -136,10 +136,10 @@ namespace uvdar{
             std::cout << "TOO SHORT " << std::endl;
         }
 
-        orthoFirst.y =  sqrt( pow(len,2) / (pow((vect.y/vect.x),2) + 1) );  
+        orthoFirst.y =  sqrt( pow(len,2) / (pow((vect.y/vect.x),1)) );  
         orthoFirst.x = - ( orthoFirst.y * vect.y ) / vect.x;
 
-        orthoSecond.y =  -sqrt( pow(len,2) / (pow((vect.y/vect.x),2) + 1) );  
+        orthoSecond.y =  -sqrt( pow(len,2) / (pow((vect.y/vect.x),1)) );  
         orthoSecond.x = - ( orthoSecond.y * vect.y ) / vect.x;
 
         std::vector<cv::Point2d> solutions;
