@@ -81,7 +81,7 @@ namespace uvdar{
     }
 
 
-
+// returns always true!
     bool HelpFunctions::prepareForPolyReg(SeqWithTrajectory & prediction, const int order){
         
         std::vector<double> x,y;
@@ -96,8 +96,9 @@ namespace uvdar{
         }
 
         // if(x.size() < 4 || y.size() < 4) return false;
-        
-        prediction.xCoeff = polyReg(x, time, order); 
+        // std::cout << "the x vals : " <<  std::endl;
+        prediction.xCoeff = polyReg(x, time, order);
+        // std::cout << "the y vals : " <<  std::endl; 
         prediction.yCoeff = polyReg(y, time, order);
 
         return true;
@@ -122,6 +123,15 @@ namespace uvdar{
         for(int i = 0; i < result.size(); ++i){
             coeff.push_back(result[i]);
         }
+        // for(int k = 0; k < pixelCoordinate.size(); ++k){
+            // std::cout << pixelCoordinate[k] << ", " << time[k] << " ~ ";
+        // }
+        // std::cout << "\n";
+        // std::cout << "The coeff \n";
+        // for (const auto k : coeff){
+        //     std::cout << k << ", "; 
+        // }
+        // std::cout << std::endl;
         return coeff;
     }
 
