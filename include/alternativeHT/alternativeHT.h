@@ -45,6 +45,7 @@ namespace uvdar
         void movAvgCheckLastTwoLEDStates(std::vector<seqPointer>);
         bool calculatePredictionTriangle(SeqWithTrajectory &, const ros::Time);
         void findOrthogonalVector(cv::Point2d);
+
         
         void checkSeqNewPointExpectation(std::vector<seqPointer>&);
         // bool bbIntersect(const PointState &, const PointState &);

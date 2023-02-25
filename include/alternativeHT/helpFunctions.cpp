@@ -106,7 +106,6 @@ namespace uvdar{
 
     std::vector<double> HelpFunctions::polyReg(const std::vector<double>& pixelCoordinate, const std::vector<ros::Time>& time, const int order){
 
-
         Eigen::MatrixXd DesignMat(time.size(), order + 1);
 	    Eigen::VectorXd pixelMat = Eigen::VectorXd::Map(&pixelCoordinate.front(), pixelCoordinate.size());
         Eigen::VectorXd result(order+1);
@@ -143,7 +142,7 @@ namespace uvdar{
         // second solution also needed!
 
         if(len < 0.001){
-            std::cout << "TOO SHORT " << std::endl;
+            // std::cout << "TOO SHORT " << std::endl;
         }
 
         orthoFirst.y =  sqrt( pow(len,2) / (pow((vect.y/vect.x),1)) );  
