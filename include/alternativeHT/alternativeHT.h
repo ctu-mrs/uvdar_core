@@ -42,8 +42,9 @@ namespace uvdar
 
         // moving average approach 
         void expandedSearch(std::vector<PointState> &, std::vector<seqPointer>);
-        void movAvgCheckLastTwoLEDStates(std::vector<seqPointer>);
-        bool calculatePredictionTriangle(SeqWithTrajectory &, const ros::Time);
+        bool movAvgCheckLastTwoLEDStates(const seqPointer &);
+        bool checkCoeffValidity(const SeqWithTrajectory &);
+        void calculatePredictionTriangle(SeqWithTrajectory &, const ros::Time);
         void findOrthogonalVector(cv::Point2d);
 
         

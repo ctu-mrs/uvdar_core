@@ -136,22 +136,32 @@ namespace uvdar{
 
 
     std::vector<cv::Point2d> HelpFunctions::findOrthogonalVectorWithLength(const cv::Point2d vect, const double len){
+        // TODO: CURRENT DIVISION BY ZERO
 
         cv::Point2d orthoFirst;
         cv::Point2d orthoSecond; 
-        // second solution also needed!
+        // wrong
+        // orthoFirst.y =  sqrt( pow(len,2) / (pow((vect.y/vect.x),1)) );  
+        // orthoFirst.x = - ( orthoFirst.y * vect.y ) / vect.x;
 
-        if(len < 0.001){
-            // std::cout << "TOO SHORT " << std::endl;
-        }
-
-        orthoFirst.y =  sqrt( pow(len,2) / (pow((vect.y/vect.x),1)) );  
-        orthoFirst.x = - ( orthoFirst.y * vect.y ) / vect.x;
-
-        orthoSecond.y =  -sqrt( pow(len,2) / (pow((vect.y/vect.x),1)) );  
-        orthoSecond.x = - ( orthoSecond.y * vect.y ) / vect.x;
-
+        // orthoSecond.y =  -sqrt( pow(len,2) / (pow((vect.y/vect.x),1)) );  
+        // orthoSecond.x = - ( orthoSecond.y * vect.y ) / vect.x;
         std::vector<cv::Point2d> solutions;
+        if(vect.x != 0){
+            orthoFirst.y =  sqrt( pow(len,2) / (pow((vect.y/vect.x),2) + 1 ) );  
+            orthoFirst.x = - ( orthoFirst.y * vect.y ) / vect.x;
+
+            orthoSecond.y = - sqrt( pow(len,2) / (pow((vect.y/vect.x),2) + 1) );  
+            orthoSecond.x = - ( orthoSecond.y * vect.y ) / vect.x;
+
+        }else if(vect.y != 0){
+            orthoFirst.x =  sqrt( pow(len,2) / (pow((vect.x/vect.y),2) + 1 ) );  
+            orthoFirst.y = - ( orthoFirst.x * vect.x ) / vect.y;
+
+            orthoSecond.y = - sqrt( pow(len,2) / (pow((vect.x/vect.y),2) + 1) );  
+            orthoSecond.x = - ( orthoSecond.x * vect.x ) / vect.y;
+
+        }
         solutions.push_back(orthoFirst);
         solutions.push_back(orthoSecond);
         return solutions;
