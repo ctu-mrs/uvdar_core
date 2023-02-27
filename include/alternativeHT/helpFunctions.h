@@ -14,6 +14,9 @@ namespace uvdar{
         cv::Point2d firstEdgeTri = cv::Point2d(0,0); 
         cv::Point2d secEdgeTri = cv::Point2d(0,0); 
         cv::Point2d predictedNextPoint = cv::Point2d(0,0);
+        double lengthToPredict = 0;
+        cv::Point2d debug_diff = cv::Point2d(0,0);
+        cv::Point2d debug_gp = cv::Point2d(0,0);
     };
 
     using seqPointer = std::vector<PointState>*;

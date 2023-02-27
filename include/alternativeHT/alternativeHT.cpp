@@ -94,7 +94,7 @@ void alternativeHT::findClosestPixelAndInsert(std::vector<PointState> & currentF
           }
       }
       if(nearestNeighbor == false){
-        // std::cout << "here\n"; 
+        std::cout << "here\n"; 
         noNN.push_back(currPoint);
 
 //TODO: here was before the "start new sequence" stuff
@@ -130,84 +130,83 @@ void alternativeHT::insertPointToSequence(std::vector<PointState> & sequence, co
 void uvdar::alternativeHT::expandedSearch(std::vector<PointState> & noNNCurrentFrame, std::vector<seqPointer> sequencesNoInsert){
     
     std::scoped_lock lock(mutex_generatedSequences_);
-
+    auto timeI = ros::Time::now();
     std::vector<SeqWithTrajectory> sequences;
     if((int)sequencesNoInsert.size() != 0 ){
         for(auto seq : sequencesNoInsert){
             SeqWithTrajectory seqTrajectory;
             seqTrajectory.seq = seq;
-            HelpFunctions::prepareForPolyReg(seqTrajectory, 4);
-            calculatePredictionTriangle(seqTrajectory, ros::Time::now());
+            HelpFunctions::prepareForPolyReg(seqTrajectory, 3);
+            
+            calculatePredictionTriangle(seqTrajectory, timeI);
 
             sequences.push_back(seqTrajectory);
         }
     }
 
 
-    for(int k = 0; k < sequences.size(); ++k){
-
-        if(!movAvgCheckLastTwoLEDStates(sequences[k].seq)){
+    for(int k = 0; k < (int)sequences.size(); ++k){
+        // for(auto l : *(sequences[k].seq)){
+        //     if(l.ledState) std::cout << "1,";
+        //     else std::cout << "0,";
+        // }
+        // std::cout << "\n";
+        if(!checkSequenceValidityWithNewInsert(sequences[k].seq)){
             continue;
         }
 
         if(!checkCoeffValidity(sequences[k])){
+            std::cout << "HERE 2\n"; 
+            continue;
+        }
+
+        if(sequences[k].seq->end()[-1].lengthToPredict < 1.0) {
+            // std::cout << "here3\n"; 
             continue;
         }
 
 
         cv::Point2d firstPoint = sequences[k].seq->end()[-1].firstEdgeTri;
         cv::Point2d secondPoint = sequences[k].seq->end()[-1].secEdgeTri;
-        cv::Point2d initialPoint = sequences[k].seq->end()[-1].point;
-
-
-
-
-        // ***************** write to file
-
-        std::string filename = "../sequences/sequence_" +  std::to_string(k) +  ".txt";  
-        std::ofstream MyFile(filename);
-        for(int i = 0; i < sequences[k].seq->size(); ++i){
-            MyFile << std::to_string(sequences[k].seq->at(i).point.x) << " " << std::to_string(sequences[k].seq->at(i).point.y) << " " << std::to_string(sequences[k].seq->at(i).insertTime.toSec())  <<"\n";
-        }
-
-        cv::Point2d diffVect = sequences[k].seq->end()[-1].predictedNextPoint - sequences[k].seq->end()[-1].point;
-        
-        double len = sqrt(pow(diffVect.x, 2) + pow(diffVect.y,2));
-
-        MyFile << "#\n";
-        MyFile << "Len " << len << "\n";
-        MyFile << "Predicted: " << sequences[k].seq->end()[-1].predictedNextPoint.x << " " << sequences[k].seq->end()[-1].predictedNextPoint.y << "\n";
-        MyFile << "Rectangle Vals " <<  firstPoint.x << " " << firstPoint.y << " " << secondPoint.x << " " << secondPoint.y << "\n"; 
- 
-        for(int i = 0; i < sequences[k].xCoeff.size(); ++i){
-            MyFile << "X Coff " << sequences[k].xCoeff[i] << " "; 
-        }
-        MyFile << "\n";
-        for(int i = 0; i < sequences[k].yCoeff.size(); ++i){
-            MyFile << "Y Coff " << sequences[k].yCoeff[i] << " "; 
-        }
-        MyFile << "\n";
-
-
+        // cv::Point2d initialPoint = sequences[k].seq->end()[-1].point;
+        cv::Point2d initialPoint = sequences[k].seq->end()[-1].debug_gp;
 
         if(noNNCurrentFrame.size() != 0){
-        
+            std::string filename = "../sequences/sequence_" +  std::to_string(ros::Time::now().toSec()) +  ".txt";  
+            std::ofstream MyFile(filename);
+            for(int i = 0; i < (int)sequences[k].seq->size(); ++i){  
+                MyFile << std::to_string(sequences[k].seq->at(i).point.x) << " " << std::to_string(sequences[k].seq->at(i).point.y) << " " << std::to_string(sequences[k].seq->at(i).insertTime.toSec())  <<"\n";
+            }
+            MyFile << "Current Point:\n";
+            MyFile << "#\n";
+            MyFile << "Len " << sequences[k].seq->end()[-1].lengthToPredict << " DIFF " << sequences[k].seq->end()[-1].debug_diff.x << " " << sequences[k].seq->end()[-1].debug_diff.y << " GroundPoint " << sequences[k].seq->end()[-1].debug_gp.x << " " <<  sequences[k].seq->end()[-1].debug_gp.y << "\n";
+            MyFile << "Predicted: " << sequences[k].seq->end()[-1].predictedNextPoint.x << " " << sequences[k].seq->end()[-1].predictedNextPoint.y <<  " Time " << timeI.toSec() << "\n";
+            MyFile << "Ground Point: " << initialPoint.x << " " << initialPoint.y << "\n";
+            MyFile << "Triangle Vals " <<  firstPoint.x << " " << firstPoint.y << " Second " << secondPoint.x << " " << secondPoint.y << "\n"; 
+ 
+            for(int i = 0; i < (int)sequences[k].xCoeff.size(); ++i){
+                MyFile << "X Coff " << sequences[k].xCoeff[i] << " "; 
+            }
+            MyFile << "\n";
+            for(int i = 0; i < (int)sequences[k].yCoeff.size(); ++i){
+                MyFile << "Y Coff " << sequences[k].yCoeff[i] << " "; 
+            }
+            MyFile << "\n";
+            
             // predict(sequences[k].xCoeff, sequences[k].yCoeff, noNNCurrentFrame[0].insertTime.toSec());
             for(int i = 0; i < noNNCurrentFrame.size(); ++i){
                 MyFile << noNNCurrentFrame[i].point.x  << " " << noNNCurrentFrame[i].point.y << "\n";
                 // std::cout << " x: " << noNNCurrentFrame[i].point.x << " y: " << noNNCurrentFrame[i].point.y;
                 if(HelpFunctions::isInside(firstPoint, secondPoint, initialPoint, noNNCurrentFrame[i].point)){
                     insertPointToSequence(*(sequences[k].seq), noNNCurrentFrame[i]);
+                    MyFile << "HIT\n";
                     ROS_ERROR("INSERT");
                     noNNCurrentFrame.erase(noNNCurrentFrame.begin()+i);
                     sequences.erase(sequences.begin()+k);
                 }
             }
-        }
-            // else{
-            //     MyFile << "\n";
-            // }
             MyFile.close();
+        }
     }
 
 
@@ -220,12 +219,14 @@ void uvdar::alternativeHT::expandedSearch(std::vector<PointState> & noNNCurrentF
             PointState pVirtual;
             pVirtual.insertTime = ros::Time::now();
             
-            // if(seq->end()[-1].predictedNextPoint.x == 0 && seq->end()[-1].predictedNextPoint.y == 0){
-                pVirtual.point = seq.seq->end()[-1].point;
+            // if(seq.seq->end()[-1].predictedNextPoint.x != 0 && seq.seq->end()[-1].predictedNextPoint.y != 0 && seq.seq->end()[-1].lengthToPredict >= 1.0){
+                // int x = (int)seq.seq->end()[-1].predictedNextPoint.x;
+                // int y = (int)seq.seq->end()[-1].predictedNextPoint.y;
+                // std::cout << "Predict: " << x << " " << y << " Current " << seq.seq->end()[-1].point.x << " " <<  seq.seq->end()[-1].point.y << "\n"; 
+                // pVirtual.point = cv::Point2d(x, y);
             // }else{
-                // pVirtual.point = seq->end()[-1].predictedNextPoint;
+                pVirtual.point = (seq.seq)->end()[-1].point;
             // }
-
             pVirtual.ledState = false;
             insertPointToSequence(*(seq.seq), pVirtual);
         }
@@ -247,15 +248,15 @@ void uvdar::alternativeHT::expandedSearch(std::vector<PointState> & noNNCurrentF
     }
 }
 
-bool uvdar::alternativeHT::movAvgCheckLastTwoLEDStates(const seqPointer & seq){
+bool uvdar::alternativeHT::checkSequenceValidityWithNewInsert(const seqPointer & seq){
 
-    if(seq->size() >= 2){
-        // if the last two led states were on - no new inserted point is expected and the sequence can be erased from the NoInsert vector
-       if(seq->end()[-1].ledState && seq->end()[-2].ledState){
-            return true;
+    if(seq->size() > 1){
+        // if the last two led states were on - no "on" point expected -> no NN search necessary
+       if(seq->end()[-1].ledState == true && seq->end()[-2].ledState == true){
+            return false;
         }
     }
-    return false; 
+    return true; 
 }
 
 // if all coefficients are zero return false
@@ -282,14 +283,13 @@ bool uvdar::alternativeHT::checkCoeffValidity(const SeqWithTrajectory & trajecto
 }
 
 void uvdar::alternativeHT::calculatePredictionTriangle(SeqWithTrajectory & path, const ros::Time insertTime){
-// TODO: not tested yet
 
     double xPredict = 0, yPredict = 0;
     if(path.yCoeff.size() != path.xCoeff.size()){
         ROS_ERROR("[UVDAR_BP_Tim]: The Coefficients for the x and y trajectory have different sizes!"); 
     }
 
-    double predictionTime = insertTime.toSec() + 0.1; 
+    double predictionTime = insertTime.toSec() + 0.15; 
 
     for(int i = 0; i < (int)path.xCoeff.size(); ++i){
         xPredict += path.xCoeff[i]*pow(predictionTime, i); 
@@ -297,10 +297,25 @@ void uvdar::alternativeHT::calculatePredictionTriangle(SeqWithTrajectory & path,
     }
     cv::Point2d predictedPoint = cv::Point2d(xPredict, yPredict);
 
-    cv::Point2d lastInserted = path.seq->end()[-1].point;
-    cv::Point2d diffVect = predictedPoint - lastInserted;
+    cv::Point2d groundPointTriangle =  path.seq->end()[-1].point;
+    // not working!!! 
+    for( auto it = path.seq->end(); it != path.seq->begin(); --it ){
+        if(it->point.x != path.seq->end()[-1].point.x || it->point.y != path.seq->end()[-1].point.y){
+            groundPointTriangle = it->point;
+            ROS_ERROR("PREF FOPUND");
+            break;
+        }
+        ROS_ERROR("NO PREV");
+        groundPointTriangle = path.seq->end()[-1].point;
+    }
+    path.seq->end()[-1].debug_gp = groundPointTriangle; 
+    //  path.seq->end()[-2].point;
+    cv::Point2d diffVect = predictedPoint - path.seq->end()[-1].debug_gp;
 
+    path.seq->end()[-1].debug_diff = diffVect;
+    
     double len = sqrt(pow(diffVect.x,2) + pow(diffVect.y, 2));
+
     std::vector<cv::Point2d> orthoVects = HelpFunctions::findOrthogonalVectorWithLength(diffVect, len); // TODO: THINK ABOUT USEFULL HEURISTIC!!!
 
     // construct triangle in coordinate center
@@ -308,9 +323,10 @@ void uvdar::alternativeHT::calculatePredictionTriangle(SeqWithTrajectory & path,
     cv::Point2d secEdgeCenter   = diffVect + orthoVects[1]; 
 
     //project to the last seen point
-    cv::Point2d firstEdge = lastInserted + firstEdgeCenter;
-    cv::Point2d secEdge = lastInserted + secEdgeCenter; 
+    cv::Point2d firstEdge = groundPointTriangle + firstEdgeCenter;
+    cv::Point2d secEdge = groundPointTriangle + secEdgeCenter; 
 
+    path.seq->end()[-1].lengthToPredict = len;
     path.seq->end()[-1].firstEdgeTri    = firstEdge;
     path.seq->end()[-1].secEdgeTri      = secEdge;
     path.seq->end()[-1].predictedNextPoint = predictedPoint;
@@ -337,7 +353,7 @@ void alternativeHT::cleanPotentialBuffer(){
         if( it->size() >= 2){
             if(!it->end()[-1].ledState && !it->end()[-2].ledState && !it->end()[-3].ledState){
                 it = generatedSequences_.erase(it);
-                std::cout << "delete here\n"; 
+                // std::cout << "delete here\n"; 
                 continue;
             }
         }
