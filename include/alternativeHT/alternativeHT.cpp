@@ -45,21 +45,9 @@ void alternativeHT::processBuffer(const mrs_msgs::ImagePointsWithFloatStampedCon
         currentFrame.push_back(p);
     }
 
-// std::cout << "---------------------------------------------\n";
     findClosestPixelAndInsert(currentFrame);
 
-    // insertVPIfNoNewPointArrived(currentFrame);
     cleanPotentialBuffer();  // TODO: NOT WORKING!!!!!
-    // std::cout << " =================\n";
-    
-    // for(auto k : generatedSequences_){
-    //     for(auto l : k){
-    //         if(l.ledState) std::cout << "1,";
-    //         else std::cout << "0,";
-    //     }
-    //     std::cout << std::endl; 
-    // }
-    // std::cout << "\n";
   
 }
 
@@ -75,8 +63,6 @@ void alternativeHT::findClosestPixelAndInsert(std::vector<PointState> & currentF
 
     }
 
-    // std::cout << "pt3n" << pGenSequence.size() << std::endl;
-    
     std::vector<PointState> noNN;
     for(auto & currPoint : currentFrame){
       std::scoped_lock lock(mutex_generatedSequences_);
@@ -94,21 +80,10 @@ void alternativeHT::findClosestPixelAndInsert(std::vector<PointState> & currentF
           }
       }
       if(nearestNeighbor == false){
-        std::cout << "here\n"; 
         noNN.push_back(currPoint);
-
-//TODO: here was before the "start new sequence" stuff
-            // std::vector<PointState> vect;
-            // vect.push_back(currPoint);
-            // generatedSequences_.push_back(vect);
         }
     }
-
-    // std::cout << "no NN" << noNN.size() << "\n";
-
     expandedSearch(noNN, pGenSequence);
-    
-   
 }
 
 cv::Point2d uvdar::alternativeHT::computeXYDiff(const cv::Point2d first, const cv::Point2d second){
@@ -121,7 +96,7 @@ cv::Point2d uvdar::alternativeHT::computeXYDiff(const cv::Point2d first, const c
 
 void alternativeHT::insertPointToSequence(std::vector<PointState> & sequence, const PointState signal){
         sequence.push_back(signal);            
-        if(sequence.size() > (originalSequences_[0].size()*3)){
+        if(sequence.size() > (originalSequences_[0].size()*10)){
             sequence.erase(sequence.begin());
         }
 }
@@ -136,7 +111,7 @@ void uvdar::alternativeHT::expandedSearch(std::vector<PointState> & noNNCurrentF
         for(auto seq : sequencesNoInsert){
             SeqWithTrajectory seqTrajectory;
             seqTrajectory.seq = seq;
-            HelpFunctions::prepareForPolyReg(seqTrajectory, 3);
+            HelpFunctions::prepareForPolyReg(seqTrajectory, 2);
             
             calculatePredictionTriangle(seqTrajectory, timeI);
 
@@ -146,42 +121,34 @@ void uvdar::alternativeHT::expandedSearch(std::vector<PointState> & noNNCurrentF
 
 
     for(int k = 0; k < (int)sequences.size(); ++k){
-        // for(auto l : *(sequences[k].seq)){
-        //     if(l.ledState) std::cout << "1,";
-        //     else std::cout << "0,";
-        // }
-        // std::cout << "\n";
+
         if(!checkSequenceValidityWithNewInsert(sequences[k].seq)){
             continue;
         }
 
         if(!checkCoeffValidity(sequences[k])){
-            std::cout << "HERE 2\n"; 
             continue;
         }
 
         if(sequences[k].seq->end()[-1].lengthToPredict < 1.0) {
-            // std::cout << "here3\n"; 
             continue;
         }
 
 
         cv::Point2d firstPoint = sequences[k].seq->end()[-1].firstEdgeTri;
         cv::Point2d secondPoint = sequences[k].seq->end()[-1].secEdgeTri;
-        // cv::Point2d initialPoint = sequences[k].seq->end()[-1].point;
         cv::Point2d initialPoint = sequences[k].seq->end()[-1].debug_gp;
 
         if(noNNCurrentFrame.size() != 0){
-            std::string filename = "../sequences/sequence_" +  std::to_string(ros::Time::now().toSec()) +  ".txt";  
+            std::string filename = "../sequences/sequence_" + std::to_string(k) + "_" +  std::to_string(ros::Time::now().toSec()) +  ".txt";  
             std::ofstream MyFile(filename);
             for(int i = 0; i < (int)sequences[k].seq->size(); ++i){  
                 MyFile << std::to_string(sequences[k].seq->at(i).point.x) << " " << std::to_string(sequences[k].seq->at(i).point.y) << " " << std::to_string(sequences[k].seq->at(i).insertTime.toSec())  <<"\n";
             }
             MyFile << "Current Point:\n";
             MyFile << "#\n";
-            MyFile << "Len " << sequences[k].seq->end()[-1].lengthToPredict << " DIFF " << sequences[k].seq->end()[-1].debug_diff.x << " " << sequences[k].seq->end()[-1].debug_diff.y << " GroundPoint " << sequences[k].seq->end()[-1].debug_gp.x << " " <<  sequences[k].seq->end()[-1].debug_gp.y << "\n";
+            MyFile << "Len " << sequences[k].seq->end()[-1].lengthToPredict << " DIFF " << sequences[k].seq->end()[-1].debug_diff.x << " " << sequences[k].seq->end()[-1].debug_diff.y << " GroundPoint " << sequences[k].seq->end()[-1].debug_gp.x << " " <<  sequences[k].seq->end()[-1].debug_gp.y << " First: " << sequences[k].seq->end()[-1].debug_first.x <<  " "  << sequences[k].seq->end()[-1].debug_first.y << " Second: " << sequences[k].seq->end()[-1].debug_sec.x << " " << sequences[k].seq->end()[-1].debug_sec.y << "\n";
             MyFile << "Predicted: " << sequences[k].seq->end()[-1].predictedNextPoint.x << " " << sequences[k].seq->end()[-1].predictedNextPoint.y <<  " Time " << timeI.toSec() << "\n";
-            MyFile << "Ground Point: " << initialPoint.x << " " << initialPoint.y << "\n";
             MyFile << "Triangle Vals " <<  firstPoint.x << " " << firstPoint.y << " Second " << secondPoint.x << " " << secondPoint.y << "\n"; 
  
             for(int i = 0; i < (int)sequences[k].xCoeff.size(); ++i){
@@ -193,10 +160,8 @@ void uvdar::alternativeHT::expandedSearch(std::vector<PointState> & noNNCurrentF
             }
             MyFile << "\n";
             
-            // predict(sequences[k].xCoeff, sequences[k].yCoeff, noNNCurrentFrame[0].insertTime.toSec());
             for(int i = 0; i < noNNCurrentFrame.size(); ++i){
                 MyFile << noNNCurrentFrame[i].point.x  << " " << noNNCurrentFrame[i].point.y << "\n";
-                // std::cout << " x: " << noNNCurrentFrame[i].point.x << " y: " << noNNCurrentFrame[i].point.y;
                 if(HelpFunctions::isInside(firstPoint, secondPoint, initialPoint, noNNCurrentFrame[i].point)){
                     insertPointToSequence(*(sequences[k].seq), noNNCurrentFrame[i]);
                     MyFile << "HIT\n";
@@ -218,7 +183,7 @@ void uvdar::alternativeHT::expandedSearch(std::vector<PointState> & noNNCurrentF
             }
             PointState pVirtual;
             pVirtual.insertTime = ros::Time::now();
-            
+            // eventually helpfull
             // if(seq.seq->end()[-1].predictedNextPoint.x != 0 && seq.seq->end()[-1].predictedNextPoint.y != 0 && seq.seq->end()[-1].lengthToPredict >= 1.0){
                 // int x = (int)seq.seq->end()[-1].predictedNextPoint.x;
                 // int y = (int)seq.seq->end()[-1].predictedNextPoint.y;
@@ -234,7 +199,6 @@ void uvdar::alternativeHT::expandedSearch(std::vector<PointState> & noNNCurrentF
 
     }
 
-    // std::cout << "====================The PSIZE " << sequencesNoInsert.size() << "\n"; 
 
     // if still points are not inserted start new sequence
     if(noNNCurrentFrame.size() != 0){
@@ -284,40 +248,35 @@ bool uvdar::alternativeHT::checkCoeffValidity(const SeqWithTrajectory & trajecto
 
 void uvdar::alternativeHT::calculatePredictionTriangle(SeqWithTrajectory & path, const ros::Time insertTime){
 
-    double xPredict = 0, yPredict = 0;
-    if(path.yCoeff.size() != path.xCoeff.size()){
-        ROS_ERROR("[UVDAR_BP_Tim]: The Coefficients for the x and y trajectory have different sizes!"); 
-    }
+    double xPredict = 0; 
+    double yPredict = 0;
 
-    double predictionTime = insertTime.toSec() + 0.15; 
+    double predictionTime = insertTime.toSec() + 0.7; 
 
     for(int i = 0; i < (int)path.xCoeff.size(); ++i){
         xPredict += path.xCoeff[i]*pow(predictionTime, i); 
+    }
+    for(int i = 0; i < (int)path.yCoeff.size(); ++i){
         yPredict += path.yCoeff[i]*pow(predictionTime, i);
     }
     cv::Point2d predictedPoint = cv::Point2d(xPredict, yPredict);
 
     cv::Point2d groundPointTriangle =  path.seq->end()[-1].point;
-    // not working!!! 
+
     for( auto it = path.seq->end(); it != path.seq->begin(); --it ){
         if(it->point.x != path.seq->end()[-1].point.x || it->point.y != path.seq->end()[-1].point.y){
             groundPointTriangle = it->point;
-            ROS_ERROR("PREF FOPUND");
             break;
         }
-        ROS_ERROR("NO PREV");
-        groundPointTriangle = path.seq->end()[-1].point;
     }
     path.seq->end()[-1].debug_gp = groundPointTriangle; 
-    //  path.seq->end()[-2].point;
     cv::Point2d diffVect = predictedPoint - path.seq->end()[-1].debug_gp;
 
     path.seq->end()[-1].debug_diff = diffVect;
     
-    double len = sqrt(pow(diffVect.x,2) + pow(diffVect.y, 2));
+    double len =  7;//( sqrt(pow(diffVect.x,2) + pow(diffVect.y, 2)) ) * 3/4 ;
 
-    std::vector<cv::Point2d> orthoVects = HelpFunctions::findOrthogonalVectorWithLength(diffVect, len); // TODO: THINK ABOUT USEFULL HEURISTIC!!!
-
+    std::vector<cv::Point2d> orthoVects = HelpFunctions::findOrthogonalVectorWithLength(diffVect, len);
     // construct triangle in coordinate center
     cv::Point2d firstEdgeCenter   = diffVect + orthoVects[0];
     cv::Point2d secEdgeCenter   = diffVect + orthoVects[1]; 
@@ -326,12 +285,19 @@ void uvdar::alternativeHT::calculatePredictionTriangle(SeqWithTrajectory & path,
     cv::Point2d firstEdge = groundPointTriangle + firstEdgeCenter;
     cv::Point2d secEdge = groundPointTriangle + secEdgeCenter; 
 
+    firstEdge.x = std::round(firstEdge.x);
+    firstEdge.y = std::round(firstEdge.y);
+    secEdge.x = std::round(secEdge.x);
+    secEdge.y = std::round(secEdge.y);
+
+    
     path.seq->end()[-1].lengthToPredict = len;
     path.seq->end()[-1].firstEdgeTri    = firstEdge;
     path.seq->end()[-1].secEdgeTri      = secEdge;
     path.seq->end()[-1].predictedNextPoint = predictedPoint;
+    path.seq->end()[-1].debug_first = firstEdgeCenter;
+    path.seq->end()[-1].debug_sec   = secEdgeCenter;
 
-    // std::cout << "Prediction " << path.seq->end()[-1].predictedNextPoint.x <<" " << path.seq->end()[-1].predictedNextPoint.y << " First " << path.seq->end()[-1].firstEdgeTri.x << " " << path.seq->end()[-1].firstEdgeTri.y << " Second " << path.seq->end()[-1].secEdgeTri.x << " " << path.seq->end()[-1].secEdgeTri.y << "\n";
 }
 
 void alternativeHT::cleanPotentialBuffer(){

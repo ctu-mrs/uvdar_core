@@ -6,6 +6,7 @@
 // #include <mutex>
 #include <mrs_msgs/ImagePointsWithFloatStamped.h>
 #include "signal_matcher/signal_matcher.h"
+#include <cmath>
 
 
 

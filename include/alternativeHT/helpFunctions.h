@@ -17,6 +17,8 @@ namespace uvdar{
         double lengthToPredict = 0;
         cv::Point2d debug_diff = cv::Point2d(0,0);
         cv::Point2d debug_gp = cv::Point2d(0,0);
+        cv::Point2d debug_first = cv::Point2d(0,0); 
+        cv::Point2d debug_sec    = cv::Point2d(0,0); 
     };
 
     using seqPointer = std::vector<PointState>*;

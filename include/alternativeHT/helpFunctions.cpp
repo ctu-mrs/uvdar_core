@@ -122,30 +122,16 @@ namespace uvdar{
         for(int i = 0; i < result.size(); ++i){
             coeff.push_back(result[i]);
         }
-        // for(int k = 0; k < pixelCoordinate.size(); ++k){
-            // std::cout << pixelCoordinate[k] << ", " << time[k] << " ~ ";
-        // }
-        // std::cout << "\n";
-        // std::cout << "The coeff \n";
-        // for (const auto k : coeff){
-        //     std::cout << k << ", "; 
-        // }
-        // std::cout << std::endl;
+
         return coeff;
     }
 
 
     std::vector<cv::Point2d> HelpFunctions::findOrthogonalVectorWithLength(const cv::Point2d vect, const double len){
-        // TODO: CURRENT DIVISION BY ZERO
 
         cv::Point2d orthoFirst;
         cv::Point2d orthoSecond; 
-        // wrong
-        // orthoFirst.y =  sqrt( pow(len,2) / (pow((vect.y/vect.x),1)) );  
-        // orthoFirst.x = - ( orthoFirst.y * vect.y ) / vect.x;
-
-        // orthoSecond.y =  -sqrt( pow(len,2) / (pow((vect.y/vect.x),1)) );  
-        // orthoSecond.x = - ( orthoSecond.y * vect.y ) / vect.x;
+      
         std::vector<cv::Point2d> solutions;
         if(vect.x != 0){
             orthoFirst.y =  sqrt( pow(len,2) / (pow((vect.y/vect.x),2) + 1 ) );  
@@ -155,12 +141,11 @@ namespace uvdar{
             orthoSecond.x = - ( orthoSecond.y * vect.y ) / vect.x;
 
         }else if(vect.y != 0){
-            orthoFirst.x =  sqrt( pow(len,2) / (pow((vect.x/vect.y),2) + 1 ) );  
-            orthoFirst.y = - ( orthoFirst.x * vect.x ) / vect.y;
+            orthoFirst.x = sqrt( pow(len,2) / ( pow((vect.x / vect.y),2) + 1 ) );
+            orthoFirst.y = - (orthoFirst.x * vect.x/vect.y);
 
-            orthoSecond.y = - sqrt( pow(len,2) / (pow((vect.x/vect.y),2) + 1) );  
-            orthoSecond.x = - ( orthoSecond.x * vect.x ) / vect.y;
-
+            orthoSecond.x = - sqrt( pow(len,2) / ( pow((vect.x / vect.y),2) + 1 ) );
+            orthoSecond.y = - (orthoSecond.x * vect.x/vect.y);
         }
         solutions.push_back(orthoFirst);
         solutions.push_back(orthoSecond);
