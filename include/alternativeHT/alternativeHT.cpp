@@ -33,15 +33,6 @@ void alternativeHT::processBuffer(const mrs_msgs::ImagePointsWithFloatStampedCon
         p.point = cv::Point(pointWithTimeStamp.x, pointWithTimeStamp.y);
         p.ledState = true; // every existent point is "on"
         p.insertTime = ptsMsg->stamp;
-        // cv::Point2d leftUpperCorner, rightDownCorner;
-        // leftUpperCorner.x = p.point.x - boundingBox_x_Size_; 
-        // leftUpperCorner.y = p.point.y - boundingBox_y_Size_;
-        // rightDownCorner.x = p.point.x + boundingBox_x_Size_;
-        // rightDownCorner.y = p.point.y + boundingBox_y_Size_;
-        // if (p.bbLeftUp.x < 0) p.bbLeftUp.x = 0;
-        // if (p.bbLeftUp.y < 0) p.bbLeftUp.y = 0;
-        // p.bbLeftUp = leftUpperCorner;
-        // p.bbRightDown = rightDownCorner;
         currentFrame.push_back(p);
     }
 
@@ -128,16 +119,15 @@ void uvdar::alternativeHT::expandedSearch(std::vector<PointState> & noNNCurrentF
 
     for(int k = 0; k < (int)sequences.size(); ++k){
 
+        // TODO: eventually not needed!
+
         if(!checkSequenceValidityWithNewInsert(sequences[k].seq)){
             continue;
         }
 
+        bool coffAllZero = false;
         if(!checkCoeffValidity(sequences[k])){
-            continue;
-        }
-
-        if(sequences[k].seq->end()[-1].lengthToPredict < 1.0) {
-            continue;
+            coffAllZero = true;
         }
 
 
@@ -146,35 +136,52 @@ void uvdar::alternativeHT::expandedSearch(std::vector<PointState> & noNNCurrentF
         cv::Point2d initialPoint = sequences[k].seq->end()[-1].debug_gp;
 
         if(noNNCurrentFrame.size() != 0){
-            std::string filename = "../sequences/sequence_" + std::to_string(k) + "_" +  std::to_string(ros::Time::now().toSec()) +  ".txt";  
+
+            std::string filename = "../sequences/sequence_" + std::to_string(sequences.size()) + "_" +  std::to_string(ros::Time::now().toSec()) +  ".txt";  
             std::ofstream MyFile(filename);
-            for(int i = 0; i < (int)sequences[k].seq->size(); ++i){  
-                MyFile << std::to_string(sequences[k].seq->at(i).point.x) << " " << std::to_string(sequences[k].seq->at(i).point.y) << " " << std::to_string(sequences[k].seq->at(i).insertTime.toSec())  <<"\n";
-            }
-            MyFile << "Current Point:\n";
-            MyFile << "#\n";
-            MyFile << "Len " << sequences[k].seq->end()[-1].lengthToPredict << " DIFF " << sequences[k].seq->end()[-1].debug_diff.x << " " << sequences[k].seq->end()[-1].debug_diff.y << " GroundPoint " << sequences[k].seq->end()[-1].debug_gp.x << " " <<  sequences[k].seq->end()[-1].debug_gp.y << " First: " << sequences[k].seq->end()[-1].debug_first.x <<  " "  << sequences[k].seq->end()[-1].debug_first.y << " Second: " << sequences[k].seq->end()[-1].debug_sec.x << " " << sequences[k].seq->end()[-1].debug_sec.y << "\n";
-            MyFile << "Predicted: " << sequences[k].seq->end()[-1].predictedNextPoint.x << " " << sequences[k].seq->end()[-1].predictedNextPoint.y <<  " Time " << timeI.toSec() << "\n";
-            MyFile << "Triangle Vals " <<  firstPoint.x << " " << firstPoint.y << " Second " << secondPoint.x << " " << secondPoint.y << "\n"; 
- 
-            for(int i = 0; i < (int)sequences[k].xCoeff.size(); ++i){
-                MyFile << "X Coff " << sequences[k].xCoeff[i] << " "; 
-            }
-            MyFile << "\n";
-            for(int i = 0; i < (int)sequences[k].yCoeff.size(); ++i){
-                MyFile << "Y Coff " << sequences[k].yCoeff[i] << " "; 
-            }
-            MyFile << "\n";
+            bool trajectory_logfile = true;
+            // if(trajectory_logfile){
             
+                for(int i = 0; i < (int)sequences[k].seq->size(); ++i){  
+                    MyFile << std::to_string(sequences[k].seq->at(i).point.x) << " " << std::to_string(sequences[k].seq->at(i).point.y) << " " << std::to_string(sequences[k].seq->at(i).insertTime.toSec())  <<"\n";
+
+    
+                }
+                MyFile << "Current Point:\n";
+                MyFile << "#\n";
+                MyFile << "Len " << sequences[k].seq->end()[-1].lengthToPredict << " DIFF " << sequences[k].seq->end()[-1].debug_diff.x << " " << sequences[k].seq->end()[-1].debug_diff.y << " GroundPoint " << sequences[k].seq->end()[-1].debug_gp.x << " " <<  sequences[k].seq->end()[-1].debug_gp.y << " First: " << sequences[k].seq->end()[-1].debug_first.x <<  " "  << sequences[k].seq->end()[-1].debug_first.y << " Second: " << sequences[k].seq->end()[-1].debug_sec.x << " " << sequences[k].seq->end()[-1].debug_sec.y << "\n";
+                MyFile << "Predicted: " << sequences[k].seq->end()[-1].predictedNextPoint.x << " " << sequences[k].seq->end()[-1].predictedNextPoint.y <<  " Time " << timeI.toSec() << "\n";
+                MyFile << "Triangle Vals " <<  firstPoint.x << " " << firstPoint.y << " Second " << secondPoint.x << " " << secondPoint.y << "\n"; 
+    
+                for(int i = 0; i < (int)sequences[k].xCoeff.size(); ++i){
+                    MyFile << "X Coff " << sequences[k].xCoeff[i] << " "; 
+                }
+                MyFile << "\n";
+                for(int i = 0; i < (int)sequences[k].yCoeff.size(); ++i){
+                    MyFile << "Y Coff " << sequences[k].yCoeff[i] << " "; 
+                }
+                MyFile << "\n";
+            // }
             for(int i = 0; i < noNNCurrentFrame.size(); ++i){
-                MyFile << noNNCurrentFrame[i].point.x  << " " << noNNCurrentFrame[i].point.y << "\n";
-                if(HelpFunctions::isInside(firstPoint, secondPoint, initialPoint, noNNCurrentFrame[i].point)){
+                if(trajectory_logfile) MyFile << noNNCurrentFrame[i].point.x  << " " << noNNCurrentFrame[i].point.y << "\n";
+                if(!coffAllZero){
+                    if(HelpFunctions::isInside(firstPoint, secondPoint, initialPoint, noNNCurrentFrame[i].point)){
+                        insertPointToSequence(*(sequences[k].seq), noNNCurrentFrame[i]);
+                        MyFile << "HIT\n";
+                        noNNCurrentFrame.erase(noNNCurrentFrame.begin()+i);
+                        sequences.erase(sequences.begin()+k);
+                        break;
+                    }
+                }
+                cv::Point2d diff = computeXYDiff(sequences[k].seq->end()[-1].point, noNNCurrentFrame[i].point);
+                if(diff.x <= max_pixel_shift_x_+2 && diff.y <= max_pixel_shift_y_+2){
+                    MyFile << "HIT 2\n";
                     insertPointToSequence(*(sequences[k].seq), noNNCurrentFrame[i]);
-                    MyFile << "HIT\n";
-                    ROS_ERROR("INSERT");
                     noNNCurrentFrame.erase(noNNCurrentFrame.begin()+i);
                     sequences.erase(sequences.begin()+k);
+                    break;
                 }
+
             }
             MyFile.close();
         }
@@ -183,6 +190,7 @@ void uvdar::alternativeHT::expandedSearch(std::vector<PointState> & noNNCurrentF
 
     // insert VP to sequnces were no point was inserted
     if(sequences.size() != 0){
+        
         for(auto seq : sequences){
             if(seq.seq->size() == 0){
                 continue;
@@ -191,12 +199,18 @@ void uvdar::alternativeHT::expandedSearch(std::vector<PointState> & noNNCurrentF
             pVirtual.insertTime = ros::Time::now();
             // eventually helpfull
             // if(seq.seq->end()[-1].predictedNextPoint.x != 0 && seq.seq->end()[-1].predictedNextPoint.y != 0 && seq.seq->end()[-1].lengthToPredict >= 1.0){
-                // int x = (int)seq.seq->end()[-1].predictedNextPoint.x;
-                // int y = (int)seq.seq->end()[-1].predictedNextPoint.y;
-                // std::cout << "Predict: " << x << " " << y << " Current " << seq.seq->end()[-1].point.x << " " <<  seq.seq->end()[-1].point.y << "\n"; 
-                // pVirtual.point = cv::Point2d(x, y);
+                
+            //     int x = (int)seq.seq->end()[-1].predictedNextPoint.x;
+            //     int y = (int)seq.seq->end()[-1].predictedNextPoint.y;
+            //     cv::Point2d diff = computeXYDiff(seq.seq->end()[-1].predictedNextPoint, seq.seq->end()[-1].point);
+            //     double len = sqrt(pow(diff.x,2) + pow(diff.y,2));
+            //     if(len < 2.5){
+            //         pVirtual.point = cv::Point2d(x, y);
+            //     }else{
+            //         pVirtual.point = (seq.seq)->end()[-1].point;
+            //     }
             // }else{
-                pVirtual.point = (seq.seq)->end()[-1].point;
+            pVirtual.point = (seq.seq)->end()[-1].point;
             // }
             pVirtual.ledState = false;
             insertPointToSequence(*(seq.seq), pVirtual);
@@ -213,6 +227,12 @@ void uvdar::alternativeHT::expandedSearch(std::vector<PointState> & noNNCurrentF
             std::vector<PointState> vect;
             vect.push_back(point);
             generatedSequences_.push_back(vect);
+            std::cout << " Point new seq: " << point.point.x << " " << point.point.y <<" "  <<point.insertTime.toSec() << "\n";
+            for(auto k : generatedSequences_){
+                auto l = k.end()[-1];
+                std::cout << l.predictedNextPoint.x <<"," << l.predictedNextPoint.y << ";  " << l.point.x << ", " << l.point.y << "\n";  
+                std::cout << std::endl;
+            }
         }
 
     }
@@ -244,7 +264,7 @@ bool uvdar::alternativeHT::checkCoeffValidity(const SeqWithTrajectory & trajecto
             yCount++;
         }
     }
-// 
+    // if all coefficients are zero 
     if(yCount == (int)trajectory.yCoeff.size() && xCount == (int)trajectory.xCoeff.size()){
         return false;
     }
@@ -292,6 +312,9 @@ void uvdar::alternativeHT::calculatePredictionTriangle(SeqWithTrajectory & path,
 
     len = ( sqrt(pow(diffVect.x,2) + pow(diffVect.y, 2)) );
 
+    if(len > 20){
+        len = len *2/3;
+    }
 
     std::vector<cv::Point2d> orthoVects = HelpFunctions::findOrthogonalVectorWithLength(diffVect, len);
     // construct triangle in coordinate center
@@ -322,24 +345,24 @@ void alternativeHT::cleanPotentialBuffer(){
     std::scoped_lock lock(mutex_generatedSequences_);
 
     double timeMargin = 0;
+    timeMargin = 5/60;
     if(framerate_ != 0){
-        timeMargin = (1/framerate_) * 5; 
+        timeMargin = (1/framerate_) * 6; 
     }
 
-    timeMargin = 50;
 
     for (auto it = generatedSequences_.begin(); it != generatedSequences_.end(); ++it){ 
         if (it->empty()){
             continue;
         }
 
-        if( it->size() >= 2){
-            if(!it->end()[-1].ledState && !it->end()[-2].ledState && !it->end()[-3].ledState){
-                it = generatedSequences_.erase(it);
-                // std::cout << "delete here\n"; 
-                continue;
-            }
-        }
+        // if( it->size() >= 2){
+            // if(!it->end()[-1].ledState && !it->end()[-2].ledState && !it->end()[-3].ledState){
+            //     it = generatedSequences_.erase(it);
+            //     std::cout << "delete here\n"; 
+            //     continue;
+            // }
+        // }
         double insertTime = it->end()[-1].insertTime.toSec(); 
         double timeDiffLastInsert = std::abs(insertTime - ros::Time::now().toSec());
         // std::cout << "time diff " << timeDiffLastInsert << " time margin " << timeMargin << "\n"; 
