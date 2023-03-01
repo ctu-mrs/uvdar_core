@@ -34,12 +34,9 @@ namespace uvdar{
         private: 
             HelpFunctions();
             ~HelpFunctions();
-            // static bool selectLastNDataPoints(const std::vector<PointState>&, std::vector<PointState>&, int);
             static std::vector<double> polyReg(const std::vector<double>&, const std::vector<ros::Time>&, const int); 
         public:
-            static void permute( std::vector<PointState>, int, int, std::vector<std::vector<PointState>>&);
-            static void calcVariance(std::vector<PointState>&);
-            static bool prepareForPolyReg(SeqWithTrajectory&, const int);
+            static void selectPointsForRegressionAndDoRegression(SeqWithTrajectory&, const int);
             static std::vector<cv::Point2d> findOrthogonalVectorWithLength(const cv::Point2d, const double);
             static float area(const cv::Point2d, const cv::Point2d, const cv::Point2d);
             static bool isInside(const cv::Point2d, const cv::Point2d, const cv::Point2d, const cv::Point2d);

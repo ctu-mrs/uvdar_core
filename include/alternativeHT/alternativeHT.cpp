@@ -111,7 +111,13 @@ void uvdar::alternativeHT::expandedSearch(std::vector<PointState> & noNNCurrentF
         for(auto seq : sequencesNoInsert){
             SeqWithTrajectory seqTrajectory;
             seqTrajectory.seq = seq;
-            HelpFunctions::prepareForPolyReg(seqTrajectory, 2);
+            
+            int polynomOrder = 2;
+            // if the sequence is not long do only a line estimate  
+            if(seqTrajectory.seq->size() < 10){
+                polynomOrder = 1; 
+            }
+            HelpFunctions::selectPointsForRegressionAndDoRegression(seqTrajectory, polynomOrder);
             
             calculatePredictionTriangle(seqTrajectory, timeI);
 
@@ -251,7 +257,7 @@ void uvdar::alternativeHT::calculatePredictionTriangle(SeqWithTrajectory & path,
     double xPredict = 0; 
     double yPredict = 0;
 
-    double predictionTime = insertTime.toSec() + 0.7; 
+    double predictionTime = insertTime.toSec() + 0.3; 
 
     for(int i = 0; i < (int)path.xCoeff.size(); ++i){
         xPredict += path.xCoeff[i]*pow(predictionTime, i); 
@@ -263,18 +269,29 @@ void uvdar::alternativeHT::calculatePredictionTriangle(SeqWithTrajectory & path,
 
     cv::Point2d groundPointTriangle =  path.seq->end()[-1].point;
 
-    for( auto it = path.seq->end(); it != path.seq->begin(); --it ){
-        if(it->point.x != path.seq->end()[-1].point.x || it->point.y != path.seq->end()[-1].point.y){
-            groundPointTriangle = it->point;
-            break;
-        }
-    }
+    // for( auto it = path.seq->end(); it != path.seq->begin(); --it ){
+    //     if(it->point.x != path.seq->end()[-1].point.x || it->point.y != path.seq->end()[-1].point.y){
+    //         groundPointTriangle = it->point;
+    //         break;
+    //     }
+    // }
     path.seq->end()[-1].debug_gp = groundPointTriangle; 
-    cv::Point2d diffVect = predictedPoint - path.seq->end()[-1].debug_gp;
+    predictedPoint.x = std::round(predictedPoint.x); 
+    predictedPoint.y = std::round(predictedPoint.y);  
+    cv::Point2d diffVect = predictedPoint - groundPointTriangle;
 
     path.seq->end()[-1].debug_diff = diffVect;
     
-    double len =  7;//( sqrt(pow(diffVect.x,2) + pow(diffVect.y, 2)) ) * 3/4 ;
+    double len =  ( sqrt(pow(diffVect.x,2) + pow(diffVect.y, 2)) );
+
+    if(len < 2){
+        diffVect = diffVect*4;
+    }else if(len < 6){
+        diffVect = diffVect*2; 
+    }
+
+    len = ( sqrt(pow(diffVect.x,2) + pow(diffVect.y, 2)) );
+
 
     std::vector<cv::Point2d> orthoVects = HelpFunctions::findOrthogonalVectorWithLength(diffVect, len);
     // construct triangle in coordinate center
@@ -285,10 +302,10 @@ void uvdar::alternativeHT::calculatePredictionTriangle(SeqWithTrajectory & path,
     cv::Point2d firstEdge = groundPointTriangle + firstEdgeCenter;
     cv::Point2d secEdge = groundPointTriangle + secEdgeCenter; 
 
-    firstEdge.x = std::round(firstEdge.x);
-    firstEdge.y = std::round(firstEdge.y);
-    secEdge.x = std::round(secEdge.x);
-    secEdge.y = std::round(secEdge.y);
+    firstEdge.x = firstEdge.x;
+    firstEdge.y = firstEdge.y;
+    secEdge.x = secEdge.x;
+    secEdge.y = secEdge.y;
 
     
     path.seq->end()[-1].lengthToPredict = len;
