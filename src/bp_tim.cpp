@@ -156,7 +156,7 @@ namespace uvdar{
 
     param_loader.loadParam("gui", _gui_, bool(true));                                     
     param_loader.loadParam("publish_visualization", _publish_visualization_, bool(true));
-    param_loader.loadParam("visualization_rate", _visualization_rate_, float(15.0));       
+    param_loader.loadParam("visualization_rate", _visualization_rate_, float(2.0));       
 
     param_loader.loadParam("points_seen_topics", _points_seen_topics, _points_seen_topics);
 

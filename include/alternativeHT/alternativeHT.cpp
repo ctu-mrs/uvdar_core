@@ -31,11 +31,19 @@ void alternativeHT::processBuffer(const mrs_msgs::ImagePointsWithFloatStampedCon
     for ( auto pointWithTimeStamp : ptsMsg->points) {
         PointState p;
         p.point = cv::Point(pointWithTimeStamp.x, pointWithTimeStamp.y);
-        p.ledState = true; // every existent point is "on"
+        p.ledState = true;
         p.insertTime = ptsMsg->stamp;
         currentFrame.push_back(p);
     }
 
+    // std::cout << "Sequences:\n";
+    // for( auto k : generatedSequences_){
+    //     for(auto r : k){
+    //         if(r.ledState) std::cout << "1,"; 
+    //         else std::cout << "0,";
+    //     }
+    //     std::cout << "\n";
+    // }
     findClosestPixelAndInsert(currentFrame);
 
     cleanPotentialBuffer();  // TODO: NOT WORKING!!!!!
@@ -344,25 +352,23 @@ void alternativeHT::cleanPotentialBuffer(){
 
     std::scoped_lock lock(mutex_generatedSequences_);
 
-    double timeMargin = 0;
-    timeMargin = 5/60;
+    double timeMargin = 5/60;
     if(framerate_ != 0){
         timeMargin = (1/framerate_) * 6; 
     }
-
 
     for (auto it = generatedSequences_.begin(); it != generatedSequences_.end(); ++it){ 
         if (it->empty()){
             continue;
         }
 
-        // if( it->size() >= 2){
-            // if(!it->end()[-1].ledState && !it->end()[-2].ledState && !it->end()[-3].ledState){
-            //     it = generatedSequences_.erase(it);
-            //     std::cout << "delete here\n"; 
-            //     continue;
-            // }
-        // }
+        if( it->size() >= 2){
+            if(!it->end()[-1].ledState && !it->end()[-2].ledState && !it->end()[-3].ledState){
+                it = generatedSequences_.erase(it);
+                std::cout << "delete here\n"; 
+                continue;
+            }
+        }
         double insertTime = it->end()[-1].insertTime.toSec(); 
         double timeDiffLastInsert = std::abs(insertTime - ros::Time::now().toSec());
         // std::cout << "time diff " << timeDiffLastInsert << " time margin " << timeMargin << "\n"; 
