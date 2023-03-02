@@ -5,8 +5,10 @@
 #include <list>
 // #include <mutex>
 #include <mrs_msgs/ImagePointsWithFloatStamped.h>
+#include <fstream>
+
 #include "signal_matcher/signal_matcher.h"
-#include <cmath>
+// #include <cmath>
 
 
 
@@ -23,11 +25,11 @@ namespace uvdar
         
         const int max_pixel_shift_x_ = 2;
         const int max_pixel_shift_y_ = 2;
-        const int boundingBox_x_Size_ = 3;
-        const int boundingBox_y_Size_ = 3;
         double framerate_;
+        bool trajectory_logfile_ = true;
 
-
+        std::string filename_ = "../sequences/trajectory_logfile.txt";  
+        std::ofstream logFile_;
         std::vector<std::vector<bool>> originalSequences_;
         
         std::mutex mutex_generatedSequences_;
