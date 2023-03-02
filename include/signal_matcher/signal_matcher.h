@@ -4,6 +4,7 @@
 #define MATCH_ERROR_THRESHOLD 14
 /* #define MATCH_ERROR_THRESHOLD 1 */
 
+#include <iostream>
 namespace uvdar {
 
   class SignalMatcher{
@@ -61,8 +62,27 @@ namespace uvdar {
             if (corrVal == sequence_size_){
               return s;
             }
+            double percentageMatch = corrVal/sequence_size_; 
+            if(percentageMatch != 0){
+            std::cout << "THe percentage " << percentageMatch << "\n";
+            if( percentageMatch > 0.85){
+              for(auto l : i_signal){
+                if(l) std::cout <<"1,";
+                else std::cout << "0,";
+              }
+              std::cout << "\n";
+              // return s; 
+            }
+            }
           }
         }
+
+        // std::cout << "No match\n";
+        // for(auto l : i_signal){
+        //   if(l) std::cout <<"1,";
+        //   else std::cout << "0,";
+        // }
+        // std::cout << std::endl; 
         return -1; 
       }
 

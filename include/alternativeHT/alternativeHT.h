@@ -8,7 +8,6 @@
 #include <fstream>
 
 #include "signal_matcher/signal_matcher.h"
-// #include <cmath>
 
 
 
@@ -25,8 +24,9 @@ namespace uvdar
         
         const int max_pixel_shift_x_ = 2;
         const int max_pixel_shift_y_ = 2;
+        const int size_for_savedSequences_ = 10; // the multiplication factor how long the sequence should be for calculating the trajectory   
+        const bool trajectory_logfile_ = true;
         double framerate_;
-        bool trajectory_logfile_ = true;
 
         std::string filename_ = "../sequences/trajectory_logfile.txt";  
         std::ofstream logFile_;
@@ -49,20 +49,10 @@ namespace uvdar
         bool checkCoeffValidity(const SeqWithTrajectory &);
         void calculatePredictionTriangle(SeqWithTrajectory &, const ros::Time);
         void findOrthogonalVector(cv::Point2d);
+        void insertVPforSequencesWithNoInsert(seqPointer &);
 
         
-        void checkSeqNewPointExpectation(std::vector<seqPointer>&);
-        // bool bbIntersect(const PointState &, const PointState &);
-        
-        // depricated
-        // std::vector<PointState>* findClosestWithinSelectedBB(std::vector<seqPointer>  , const PointState);
-   
-
-
-
-        void insertVPIfNoNewPointArrived(std::vector<PointState> &);
         void cleanPotentialBuffer();
-
         int findSequenceMatch(std::vector<bool>);
 
     public:
@@ -78,16 +68,5 @@ namespace uvdar
 
         std::vector<std::pair<PointState, int>> getResults();
         
-        template <typename T>
-        void printVectorIfNotEmpty(T vect, std::string name) {
-            if (vect.empty())return;
-            std::cout << "The " << name << " is: ";
-            for (const auto r : vect){
-                if (r) std::cout << "1,";
-                else std::cout << "0,";
-            }
-            std::cout << std::endl;
-        }
-
     };    
 } // namespace uvdar
