@@ -24,12 +24,10 @@ namespace uvdar
         
         const int max_pixel_shift_x_ = 2;
         const int max_pixel_shift_y_ = 2;
+        const double predictionMargin_ = 0.3;
         const int size_for_savedSequences_ = 10; // the multiplication factor how long the sequence should be for calculating the trajectory   
-        const bool trajectory_logfile_ = true;
         double framerate_;
 
-        std::string filename_ = "../sequences/trajectory_logfile.txt";  
-        std::ofstream logFile_;
         std::vector<std::vector<bool>> originalSequences_;
         
         std::mutex mutex_generatedSequences_;
@@ -47,7 +45,7 @@ namespace uvdar
         void expandedSearch(std::vector<PointState> &, std::vector<seqPointer>);
         bool checkSequenceValidityWithNewInsert(const seqPointer &);
         bool checkCoeffValidity(const SeqWithTrajectory &);
-        void calculatePredictionTriangle(SeqWithTrajectory &, const ros::Time);
+        void calculatePredictionTriangle(SeqWithTrajectory &, const double);
         void findOrthogonalVector(cv::Point2d);
         void insertVPforSequencesWithNoInsert(seqPointer &);
 

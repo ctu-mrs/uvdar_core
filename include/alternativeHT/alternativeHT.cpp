@@ -6,11 +6,6 @@ using namespace uvdar;
 
 alternativeHT::alternativeHT(){
 
-    if(trajectory_logfile_){
-        logFile_.open(filename_, std::ostream::out);
-        logFile_ << "$ Logfile Structure: For each sequence all pixel with the xPixel,yPixel,insertTime are inserted.\nThe Format is: \"# \" for each point in the sequence: \" xPixel,yPixel,inserTime xPixel,..\" \"# xPixelPredict,yPixelPredict,inserTime # lenToPredictFromGroundPoint # triangle Values # xCoefficients # yCoefficients # Points that are not associated yet\" ";
-        logFile_.close();
-    }
 }
 
 void alternativeHT::setDebugFlags(bool debug, bool visual_debug){
@@ -107,94 +102,59 @@ void alternativeHT::insertPointToSequence(std::vector<PointState> & sequence, co
 void alternativeHT::expandedSearch(std::vector<PointState> & noNNCurrentFrame, std::vector<seqPointer> sequencesNoInsert){
     
     std::scoped_lock lock(mutex_generatedSequences_);
-    auto timeI = ros::Time::now();
-    std::vector<SeqWithTrajectory> sequences;
-    if((int)sequencesNoInsert.size() != 0 ){
-        for(auto seq : sequencesNoInsert){
+    
+    if(noNNCurrentFrame.size() != 0){
+        double insertTime = noNNCurrentFrame[0].insertTime.toSec() + predictionMargin_;
+
+        // std::vector<SeqWithTrajectory> sequences;
+        for(int k = 0; k < sequencesNoInsert.size(); ++k){
             SeqWithTrajectory seqTrajectory;
-            seqTrajectory.seq = seq;
+            seqTrajectory.seq = sequencesNoInsert[k];
             
             int polynomOrder = 2;
             // if the sequence is not long do only a line estimate  
             if(seqTrajectory.seq->size() < 10){
                 polynomOrder = 1; 
             }
+
             HelpFunctions::selectPointsForRegressionAndDoRegression(seqTrajectory, polynomOrder);
-            
-            calculatePredictionTriangle(seqTrajectory, timeI);
-
-            sequences.push_back(seqTrajectory);
-        }
-    }
-
-
-    for(int k = 0; k < (int)sequences.size(); ++k){
-
-        if(!checkSequenceValidityWithNewInsert(sequences[k].seq)){
-            continue;
-        }
-
-        bool coffAllZero = false;
-        if(!checkCoeffValidity(sequences[k])){
-            coffAllZero = true;
-        }
-
-
-        cv::Point2d firstPoint = sequences[k].seq->end()[-1].firstEdgeTri;
-        cv::Point2d secondPoint = sequences[k].seq->end()[-1].secEdgeTri;
-        cv::Point2d initialPoint = sequences[k].seq->end()[-1].debug_gp;
-
-        if(noNNCurrentFrame.size() != 0){
-
-            if(trajectory_logfile_){
-                logFile_.open(filename_, std::ofstream::out | std::ofstream::app); 
-                logFile_ << "# ";
-                for(int i = 0; i < (int)sequences[k].seq->size(); ++i){  
-                    logFile_ << std::to_string(sequences[k].seq->at(i).point.x) << "," << std::to_string(sequences[k].seq->at(i).point.y) << "," << std::to_string(sequences[k].seq->at(i).insertTime.toSec())  <<" ";    
-                }
-                logFile_ << "# " << sequences[k].seq->end()[-1].predictedNextPoint.x << "," << sequences[k].seq->end()[-1].predictedNextPoint.y <<  "," << timeI.toSec() << " ";
-                logFile_ << " # " << sequences[k].seq->end()[-1].lengthToPredict << " ";
-                logFile_ << " # " <<  firstPoint.x << "," << firstPoint.y << " # " << secondPoint.x << "," << secondPoint.y << " "; 
-                logFile_ << " # ";
-                for(int i = 0; i < (int)sequences[k].xCoeff.size(); ++i){
-                    logFile_ << sequences[k].xCoeff[i] << " "; 
-                }
-                logFile_ << "# ";
-                for(int i = 0; i < (int)sequences[k].yCoeff.size(); ++i){
-                    logFile_ << sequences[k].yCoeff[i] << " "; 
-                }
-                logFile_ << "# ";
+            calculatePredictionTriangle(seqTrajectory, insertTime);
+    
+            if(!checkSequenceValidityWithNewInsert(seqTrajectory.seq)){
+                continue;
             }
-
+            bool coffAllZero = false;
+            if(!checkCoeffValidity(seqTrajectory)){
+                coffAllZero = true;
+            }
+            cv::Point2d firstPoint   =  seqTrajectory.seq->end()[-1].firstEdgeTri;
+            cv::Point2d secondPoint  =  seqTrajectory.seq->end()[-1].secEdgeTri;
+            cv::Point2d initialPoint =  seqTrajectory.seq->end()[-1].point;
             for(int i = 0; i < noNNCurrentFrame.size(); ++i){
-                if(trajectory_logfile_) logFile_ << noNNCurrentFrame[i].point.x  << "," << noNNCurrentFrame[i].point.y << " ";
                 if(!coffAllZero){
                     if(HelpFunctions::isInside(firstPoint, secondPoint, initialPoint, noNNCurrentFrame[i].point)){
-                        insertPointToSequence(*(sequences[k].seq), noNNCurrentFrame[i]);
+                        insertPointToSequence(*(sequencesNoInsert[k]), noNNCurrentFrame[i]);
                         noNNCurrentFrame.erase(noNNCurrentFrame.begin()+i);
-                        sequences.erase(sequences.begin()+k);
+                        sequencesNoInsert.erase(sequencesNoInsert.begin()+k);
+                        std::cout << "hit\n";
                         break;
                     }
                 }
-                cv::Point2d diff = computeXYDiff(sequences[k].seq->end()[-1].point, noNNCurrentFrame[i].point);
+                cv::Point2d diff = computeXYDiff(sequencesNoInsert[k]->end()[-1].point, noNNCurrentFrame[i].point);
                 if(diff.x <= max_pixel_shift_x_+2 && diff.y <= max_pixel_shift_y_+2){
-                    insertPointToSequence(*(sequences[k].seq), noNNCurrentFrame[i]);
+                    insertPointToSequence(*(sequencesNoInsert[k]), noNNCurrentFrame[i]);
                     noNNCurrentFrame.erase(noNNCurrentFrame.begin()+i);
-                    sequences.erase(sequences.begin()+k);
+                    sequencesNoInsert.erase(sequencesNoInsert.begin()+k);
                     break;
                 }
-
-            }
-            if(trajectory_logfile_){
-                logFile_ << " #\n";
-                logFile_.close();
             }
         }
     }
 
+
     // insert VP to sequnces were no point was inserted
-    for(auto seq : sequences){
-        insertVPforSequencesWithNoInsert(seq.seq);
+    for(auto seq : sequencesNoInsert){
+        insertVPforSequencesWithNoInsert(seq);
     }
 
     // if still points are not inserted start new sequence
@@ -239,12 +199,10 @@ bool alternativeHT::checkCoeffValidity(const SeqWithTrajectory & trajectory){
 
 }
 
-void alternativeHT::calculatePredictionTriangle(SeqWithTrajectory & path, const ros::Time insertTime){
+void alternativeHT::calculatePredictionTriangle(SeqWithTrajectory & path, const double predictionTime){
 
     double xPredict = 0; 
     double yPredict = 0;
-
-    double predictionTime = insertTime.toSec() + 0.3; 
 
     for(int i = 0; i < (int)path.xCoeff.size(); ++i){
         xPredict += path.xCoeff[i]*pow(predictionTime, i); 
@@ -262,13 +220,10 @@ void alternativeHT::calculatePredictionTriangle(SeqWithTrajectory & path, const 
     //         break;
     //     }
     // }
-    path.seq->end()[-1].debug_gp = groundPointTriangle; 
     predictedPoint.x = std::round(predictedPoint.x); 
     predictedPoint.y = std::round(predictedPoint.y);  
     cv::Point2d diffVect = predictedPoint - groundPointTriangle;
 
-    path.seq->end()[-1].debug_diff = diffVect;
-    
     double len =  ( sqrt(pow(diffVect.x,2) + pow(diffVect.y, 2)) );
 
     if(len < 2){
@@ -302,9 +257,6 @@ void alternativeHT::calculatePredictionTriangle(SeqWithTrajectory & path, const 
     path.seq->end()[-1].firstEdgeTri    = firstEdge;
     path.seq->end()[-1].secEdgeTri      = secEdge;
     path.seq->end()[-1].predictedNextPoint = predictedPoint;
-    path.seq->end()[-1].debug_first = firstEdgeCenter;
-    path.seq->end()[-1].debug_sec   = secEdgeCenter;
-
 }
 
 void alternativeHT::insertVPforSequencesWithNoInsert(seqPointer & seq){
