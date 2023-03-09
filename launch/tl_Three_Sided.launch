@@ -143,7 +143,7 @@
 
       <param name="sequence_file"         type="string" value="$(arg sequence_file)"/>
       <param name="imu_compensation"     type="bool"   value="$(arg imu_compensation)"/>
-      <param name="imu_topic" type="string" value="/$(arg uav_name)/mavros/imu/data"/>
+      <param name="imu_topic" type="string" value="/$(arg uav_name)/odometry/odom_main"/>
 
 
       <rosparam param="camera_topics"> ["camera_left", "camera_right", "camera_back"] </rosparam>

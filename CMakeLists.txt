@@ -98,7 +98,8 @@ target_compile_options(OCamCalib PRIVATE -Wno-unused-variable -Wno-unused-result
 
 add_library(ht4dbt include/ht4dbt/ht4d.cpp)
 add_library(alternativeHT include/alternativeHT/alternativeHT.cpp)
-add_library(helpFunctions include/alternativeHT/helpFunctions.cpp)
+add_library(extendedSearch include/alternativeHT/extendedSearch.cpp)
+add_library(imu_compensation include/alternativeHT/imu_compensation.cpp)
 add_library(uv_led_detect_fast include/detect/uv_led_detect_fast.cpp)
 add_library(frequency_classifier include/frequency_classifier/frequency_classifier.cpp)
 add_library(color_selector include/color_selector/color_selector.cpp)
@@ -179,7 +180,8 @@ target_link_libraries(UVDARBlinkProcessor
   ${OpenCV_LIBRARIES}
   ${EIGEN3_LIBRARIES}
   alternativeHT
-  helpFunctions
+  extendedSearch
+  imu_compensation
   color_selector
   )
 

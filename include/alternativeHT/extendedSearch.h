@@ -26,15 +26,16 @@ namespace uvdar{
     };
 
 
-    class HelpFunctions{
+    class ExtendedSearch{
         private: 
-            HelpFunctions();
-            ~HelpFunctions();
-            static std::vector<double> polyReg(const std::vector<double>&, const std::vector<ros::Time>&, const int); 
+
+            std::vector<double> polyReg(const std::vector<double>&, const std::vector<ros::Time>&, const int); 
         public:
-            static void selectPointsForRegressionAndDoRegression(SeqWithTrajectory&, const int);
-            static std::vector<cv::Point2d> findOrthogonalVectorWithLength(const cv::Point2d, const double);
-            static float area(const cv::Point2d, const cv::Point2d, const cv::Point2d);
-            static bool isInside(const cv::Point2d, const cv::Point2d, const cv::Point2d, const cv::Point2d);
+            ExtendedSearch();
+            ~ExtendedSearch();
+            void selectPointsForRegressionAndDoRegression(SeqWithTrajectory&, const int);
+            std::vector<cv::Point2d> findOrthogonalVectorWithLength(const cv::Point2d, const double);
+            float area(const cv::Point2d, const cv::Point2d, const cv::Point2d);
+            bool isInside(const cv::Point2d, const cv::Point2d, const cv::Point2d, const cv::Point2d);
     };
 } // uvdar

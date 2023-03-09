@@ -3,7 +3,6 @@
 #include <mrs_lib/param_loader.h>
 #include <mrs_lib/image_publisher.h>
 #include <std_msgs/Float32.h>
-#include <sensor_msgs/Imu.h>
 #include <mrs_msgs/ImagePointsWithFloatStamped.h>
 
 #include <cv_bridge/cv_bridge.h>
@@ -13,7 +12,8 @@
 #include <fstream>
 #include <color_selector/color_selector.h>
 #include <alternativeHT/alternativeHT.h>
-    
+#include <alternativeHT/imu_compensation.h>
+
 namespace uvdar{
 
   class UVDAR_BP_Tim : public nodelet::Nodelet {
@@ -31,6 +31,8 @@ namespace uvdar{
       bool checkCameraTopicSizeMatch();
       bool parseSequenceFile(const std::string &);
       void initAlternativeHTDataStructure();
+      void initIMUCompensation();
+
       void subscribeToPublishedPoints();
       void insertPointToAHT(const mrs_msgs::ImagePointsWithFloatStampedConstPtr &, const size_t &);
       void InsertSunPoints(const mrs_msgs::ImagePointsWithFloatStampedConstPtr&, size_t);
@@ -42,7 +44,6 @@ namespace uvdar{
       void VisualizationThread([[maybe_unused]] const ros::TimerEvent&);
       int generateVisualization(cv::Mat& );
       void callbackImage(const sensor_msgs::ImageConstPtr&, size_t);
-      void imuCallback(const sensor_msgs::Imu::ConstPtr& msg);
 
       ros::NodeHandle private_nh_;
       std::atomic_bool initialized_ = false;  
@@ -50,6 +51,7 @@ namespace uvdar{
                   
       int image_sizes_received_ = 0;
       std::vector<std::shared_ptr<alternativeHT>> aht_;
+      std::unique_ptr<IMU_COMPENSATION> imu_comp;
       
       std::vector<std::vector<bool>> sequences_;
       std::vector<ros::Publisher> pub_blinkers_seen_;
@@ -63,11 +65,8 @@ namespace uvdar{
       std::vector<points_seen_callback_t> cals_sun_points_;
       std::vector<ros::Subscriber> sub_points_seen_;
       std::vector<ros::Subscriber> sub_sun_points_;
+      ros::Subscriber sub_imu_;
 
-// TODO: currently not in use
-      using imu_data_callback_t = boost::function<void (const sensor_msgs::Imu::ConstPtr&)>;
-      std::vector<imu_data_callback_t> cals_imu_data;
-      ros::Subscriber sub_imu;
 
       // visualization variables
       std::vector<ros::Timer> timer_process_;
@@ -84,6 +83,12 @@ namespace uvdar{
       std::unique_ptr<mrs_lib::ImagePublisher> pub_visualization_;
       std::vector<std::shared_ptr<std::mutex>>  mutex_camera_image_;
       
+      std::vector<std::string> points_seen_topics_imu_compensation_;
+      std::vector<ros::Publisher> pub_points_seen_compensated_imu_;
+      std::vector<points_seen_callback_t> cals_points_seen_imu_;
+       std::vector<ros::Subscriber> subs_points_seen_imu_;
+       std::vector<mrs_msgs::ImagePointsWithFloatStamped> vectPoints_;
+
       std::vector<std::vector<cv::Point>> sun_points_;
       std::mutex mutex_sun;
       
@@ -101,7 +106,7 @@ namespace uvdar{
       std::vector<std::string> _estimated_framerate_topics;
       std::vector<std::string> _points_seen_topics;
       std::string _sequence_file;
-      std::string _imu_topic;
+      std::string _imu_topic_;
 
 
       struct BlinkData {
@@ -135,6 +140,17 @@ namespace uvdar{
 
     parseSequenceFile(_sequence_file);
     initAlternativeHTDataStructure();
+    if(_imu_compensation_){
+      imu_comp = std::make_unique<IMU_COMPENSATION>(_imu_topic_);
+    }
+    std::string pubTopic_extension = "_imu_comp";
+    points_seen_topics_imu_compensation_ = _points_seen_topics; 
+    for(auto & topicName : points_seen_topics_imu_compensation_){
+        topicName += pubTopic_extension;
+        pub_points_seen_compensated_imu_.push_back(private_nh_.advertise<mrs_msgs::ImagePointsWithFloatStamped>(topicName, 1));
+        mrs_msgs::ImagePointsWithFloatStamped p;
+        vectPoints_.push_back(p);
+    }
 
     subscribeToPublishedPoints();
 
@@ -168,7 +184,7 @@ namespace uvdar{
     private_nh_.param("estimated_framerate_topics", _estimated_framerate_topics, _estimated_framerate_topics);
     private_nh_.param("use_camera_for_visualization", _use_camera_for_visualization_, bool(true));
 
-    private_nh_.param("imu_topic", _imu_topic, std::string());
+    private_nh_.param("imu_topic", _imu_topic_, std::string());
 
   }
 
@@ -267,14 +283,28 @@ namespace uvdar{
   }
 
   void UVDAR_BP_Tim::subscribeToPublishedPoints() {
+
     for (size_t i = 0; i < _points_seen_topics.size(); ++i){
+
+      if(_imu_compensation_){
+        points_seen_callback_t callbackIMU = [image_index = i, this](const mrs_msgs::ImagePointsWithFloatStampedConstPtr &pointsMessage){
+            imu_comp->compensateByIMUMovement(pointsMessage, image_index, pub_points_seen_compensated_imu_);
+        };
+        cals_points_seen_imu_.push_back(callbackIMU);
+        subs_points_seen_imu_.push_back(private_nh_.subscribe(_points_seen_topics[i], 1, cals_points_seen_imu_[i]));
+      }
+
       // Subscribe to corresponding topics
       points_seen_callback_t callback = [image_index = i, this](const mrs_msgs::ImagePointsWithFloatStampedConstPtr &pointsMessage){
               insertPointToAHT(pointsMessage, image_index);
       };
       cals_points_seen_.push_back(callback);
-      sub_points_seen_.push_back(private_nh_.subscribe(_points_seen_topics[i], 1, cals_points_seen_[i]));
-
+      if(_imu_compensation_){
+        // sub_points_seen_.push_back(private_nh_.subscribe(_points_seen_topics[i], 1, cals_points_seen_[i]));
+        sub_points_seen_.push_back(private_nh_.subscribe(points_seen_topics_imu_compensation_[i], 1, cals_points_seen_[i]));
+      }else{
+        sub_points_seen_.push_back(private_nh_.subscribe(_points_seen_topics[i], 1, cals_points_seen_[i]));
+      }
       points_seen_callback_t sun_callback = [image_index=i,this] (const mrs_msgs::ImagePointsWithFloatStampedConstPtr& sunPointsMessage){
         InsertSunPoints(sunPointsMessage, image_index);
       };
@@ -288,25 +318,7 @@ namespace uvdar{
           pub_estimated_framerate_.push_back(private_nh_.advertise<std_msgs::Float32>(_estimated_framerate_topics[i], 1));
     }
 
-
-
-    // ros::Subscriber sub = private_nh_.subscribe("imu_topic", 10, imuCallback);
-    if(_imu_compensation_){
-
-    // _imu_topic_ = "/uav1/mavros/imu/data";
-    imu_data_callback_t callbackK = [this](const sensor_msgs::Imu::ConstPtr& msg){
-      imuCallback(msg);
-    };
-    cals_imu_data.push_back(callbackK);
-    sub_imu = private_nh_.subscribe(_imu_topic, 1, callbackK);
-
-    // _imu_topic_ = "/uav1/uvdar/mavros/imu/data";
-    // private_nh_.subscribe(_imu_topic_, 100, callback);
-    }
-
-
   }
-
 
   void UVDAR_BP_Tim::initGUI(){
      if (_gui_ || _publish_visualization_){ 
@@ -345,25 +357,6 @@ namespace uvdar{
         timer_process_.push_back(private_nh_.createTimer(ros::Duration(1.0/(double)(10)), boost::bind(&UVDAR_BP_Tim::ProcessThread, this, _1, i), false, true));
       }
   }
-
-  void UVDAR_BP_Tim::imuCallback(const sensor_msgs::Imu::ConstPtr& msg)
-  {
-
-    ROS_INFO("Received IMU data: [angular_velocity (x,y,z)]: [%f, %f, %f]", 
-             msg->angular_velocity.x, 
-             msg->angular_velocity.y, 
-             msg->angular_velocity.z);
-
-            //  msg->orientation.
-
-
-    for(auto k : msg->angular_velocity_covariance){
-      std::cout << k << std::endl;
-    }
-
-    // std::cout << "The cov" << msg->angular_velocity_covariance << std::endl;;
-  }
-
 
 
   void UVDAR_BP_Tim::insertPointToAHT(const mrs_msgs::ImagePointsWithFloatStampedConstPtr &ptsMsg, const size_t & img_index) {
@@ -405,9 +398,6 @@ namespace uvdar{
       ROS_INFO_STREAM("[UVDAR_BP_Tim]: Received contours: " << ptsMsg->points.size());
     }
 
-
-
-
     aht_[img_index]->processBuffer(ptsMsg);
 
     if ((!_use_camera_for_visualization_) || ((!_gui_) && (!_publish_visualization_))){
@@ -444,7 +434,7 @@ namespace uvdar{
     msg.image_width   = camera_image_sizes_[img_index].width;
     msg.image_height  = camera_image_sizes_[img_index].height;
     
-// TODO: comment back in!
+// TODO: pose estimator finds no appropriate hypothesis
     // pub_blinkers_seen_[img_index].publish(msg);
 
     std_msgs::Float32 msgFramerate;

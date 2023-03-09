@@ -111,13 +111,13 @@ void alternativeHT::expandedSearch(std::vector<PointState> & noNNCurrentFrame, s
             SeqWithTrajectory seqTrajectory;
             seqTrajectory.seq = sequencesNoInsert[k];
             
-            int polynomOrder = 2;
+            int polynomOrder = 3;
             // if the sequence is not long do only a line estimate  
             if(seqTrajectory.seq->size() < 10){
                 polynomOrder = 1; 
             }
 
-            HelpFunctions::selectPointsForRegressionAndDoRegression(seqTrajectory, polynomOrder);
+            extended_search_->selectPointsForRegressionAndDoRegression(seqTrajectory, polynomOrder);
             calculatePredictionTriangle(seqTrajectory, insertTime);
     
             if(!checkSequenceValidityWithNewInsert(seqTrajectory.seq)){
@@ -132,19 +132,21 @@ void alternativeHT::expandedSearch(std::vector<PointState> & noNNCurrentFrame, s
             cv::Point2d initialPoint =  seqTrajectory.seq->end()[-1].point;
             for(int i = 0; i < noNNCurrentFrame.size(); ++i){
                 if(!coffAllZero){
-                    if(HelpFunctions::isInside(firstPoint, secondPoint, initialPoint, noNNCurrentFrame[i].point)){
+                    if(extended_search_->isInside(firstPoint, secondPoint, initialPoint, noNNCurrentFrame[i].point)){
                         insertPointToSequence(*(sequencesNoInsert[k]), noNNCurrentFrame[i]);
                         noNNCurrentFrame.erase(noNNCurrentFrame.begin()+i);
                         sequencesNoInsert.erase(sequencesNoInsert.begin()+k);
-                        std::cout << "hit\n";
+                        std::cout << "hit triangle\n";
                         break;
                     }
                 }
                 cv::Point2d diff = computeXYDiff(sequencesNoInsert[k]->end()[-1].point, noNNCurrentFrame[i].point);
-                if(diff.x <= max_pixel_shift_x_+2 && diff.y <= max_pixel_shift_y_+2){
+                if(diff.x <= max_pixel_shift_x_+4 && diff.y <= max_pixel_shift_y_+4){
                     insertPointToSequence(*(sequencesNoInsert[k]), noNNCurrentFrame[i]);
                     noNNCurrentFrame.erase(noNNCurrentFrame.begin()+i);
                     sequencesNoInsert.erase(sequencesNoInsert.begin()+k);
+                    std::cout << "hit box\n";
+
                     break;
                 }
             }
@@ -238,7 +240,7 @@ void alternativeHT::calculatePredictionTriangle(SeqWithTrajectory & path, const 
         len = len *2/3;
     }
 
-    std::vector<cv::Point2d> orthoVects = HelpFunctions::findOrthogonalVectorWithLength(diffVect, len);
+    std::vector<cv::Point2d> orthoVects = extended_search_->findOrthogonalVectorWithLength(diffVect, len);
     // construct triangle in coordinate center
     cv::Point2d firstEdgeCenter   = diffVect + orthoVects[0];
     cv::Point2d secEdgeCenter   = diffVect + orthoVects[1]; 

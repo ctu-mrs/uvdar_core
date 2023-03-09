@@ -1,6 +1,6 @@
 #pragma once
 
-#include "helpFunctions.h"
+#include "extendedSearch.h"
 #include <iostream>
 #include <list>
 // #include <mutex>
@@ -24,7 +24,7 @@ namespace uvdar
         
         const int max_pixel_shift_x_ = 2;
         const int max_pixel_shift_y_ = 2;
-        const double predictionMargin_ = 0.3;
+        const double predictionMargin_ = 0.5;
         const int size_for_savedSequences_ = 10; // the multiplication factor how long the sequence should be for calculating the trajectory   
         double framerate_;
 
@@ -34,6 +34,7 @@ namespace uvdar
         std::list<std::vector<PointState>> generatedSequences_;
 
         std::unique_ptr<SignalMatcher> matcher_;
+        std::unique_ptr<ExtendedSearch> extended_search_;
 
 
         void findClosestPixelAndInsert(std::vector<PointState>&);
