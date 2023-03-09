@@ -2,7 +2,9 @@
 
 
 
-uvdar::ExtendedSearch::ExtendedSearch(){
+uvdar::ExtendedSearch::ExtendedSearch(double decayFactor, int polyOrder){
+    decayFactor_ = decayFactor;
+    polyOrder_ = polyOrder;
 }
 
 uvdar::ExtendedSearch::~ExtendedSearch(){
@@ -11,7 +13,7 @@ uvdar::ExtendedSearch::~ExtendedSearch(){
 
 
 
-void uvdar::ExtendedSearch::selectPointsForRegressionAndDoRegression(SeqWithTrajectory & prediction, const int polyRegOrder){
+bool uvdar::ExtendedSearch::selectPointsForRegressionAndDoRegression(SeqWithTrajectory & prediction){
         
     std::vector<double> x,y;
     std::vector<ros::Time> time;
@@ -23,21 +25,37 @@ void uvdar::ExtendedSearch::selectPointsForRegressionAndDoRegression(SeqWithTraj
             time.push_back(point.insertTime);
         }
     }
-    prediction.xCoeff = polyReg(x, time, polyRegOrder);
-    prediction.yCoeff = polyReg(y, time, polyRegOrder);
+    
+    if(x.size() == 0) return false;
 
+    prediction.xCoeff = polyReg(x, time);
+    prediction.yCoeff = polyReg(y, time);
+
+    return true;
 }
 
-std::vector<double> uvdar::ExtendedSearch::polyReg(const std::vector<double>& pixelCoordinate, const std::vector<ros::Time>& time, const int order){
+std::vector<double> uvdar::ExtendedSearch::polyReg(const std::vector<double>& pixelCoordinate, const std::vector<ros::Time>& time){
+
+    int order = polyOrder_;
+    if(pixelCoordinate.size() < 10){
+        // ROS_WARN("[UVDAR_]")
+        order = 1; 
+    }
+
 
     Eigen::MatrixXd DesignMat(time.size(), order + 1);
 	Eigen::VectorXd pixelMat = Eigen::VectorXd::Map(&pixelCoordinate.front(), pixelCoordinate.size());
     Eigen::VectorXd result(order+1);
 
+    double referenceTime = time.end()[-1].toSec(); 
+    double decayFactor = 0.0; 
+
     // fill the Design matrix
 	for(int i = 0 ; i < (int)time.size(); ++i){
+        double timeDist = referenceTime - time[i].toSec();
+        double weight = exp(-decayFactor_*timeDist);
 	    for(int j = 0; j < order + 1; ++j){
-	        DesignMat(i, j) = pow(time[i].toSec(), j);
+	        DesignMat(i, j) = pow(time[i].toSec(), j)*weight;
 	    }
 	}
 	// Solve for linear least square fit

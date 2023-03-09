@@ -36,7 +36,6 @@ namespace uvdar
         std::unique_ptr<SignalMatcher> matcher_;
         std::unique_ptr<ExtendedSearch> extended_search_;
 
-
         void findClosestPixelAndInsert(std::vector<PointState>&);
         cv::Point2d computeXYDiff(const cv::Point2d, const cv::Point2d);
         void insertPointToSequence(std::vector<PointState> &, const PointState);
@@ -56,7 +55,7 @@ namespace uvdar
 
     public:
 
-        alternativeHT();
+        alternativeHT(double, int);
         ~alternativeHT();
         
         void setDebugFlags(bool, bool);

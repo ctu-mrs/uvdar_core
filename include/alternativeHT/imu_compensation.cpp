@@ -16,11 +16,10 @@ ros::Subscriber IMU_COMPENSATION::subscribeOdomTopic(ros::NodeHandle & nodeHandl
 }
 
 void IMU_COMPENSATION::odomCallback(const nav_msgs::Odometry::ConstPtr& msg){
-
-//    ROS_INFO("Received ODOM data: [angular_velocity (x,y,z)]: [%f, %f, %f]", 
-            //  msg->twist.twist.angular.x, 
-            //  msg->twist.twist.angular.y, 
-            //  msg->twist.twist.angular.z);
+   ROS_INFO("In IMU Compensator: [angular_velocity (x,y,z)]: [%f, %f, %f]", 
+             msg->twist.twist.angular.x, 
+             msg->twist.twist.angular.y, 
+             msg->twist.twist.angular.z);
 }
 
 

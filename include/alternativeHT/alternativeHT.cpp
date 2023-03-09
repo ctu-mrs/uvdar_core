@@ -4,7 +4,9 @@
 
 using namespace uvdar;
 
-alternativeHT::alternativeHT(){
+alternativeHT::alternativeHT(double decayFactor, int polyOrder){
+
+    extended_search_ = std::make_unique<ExtendedSearch>(decayFactor, polyOrder);
 
 }
 
@@ -81,6 +83,7 @@ void alternativeHT::findClosestPixelAndInsert(std::vector<PointState> & currentF
         }
     }
     expandedSearch(noNN, pGenSequence);
+
 }
 
 cv::Point2d alternativeHT::computeXYDiff(const cv::Point2d first, const cv::Point2d second){
@@ -108,21 +111,20 @@ void alternativeHT::expandedSearch(std::vector<PointState> & noNNCurrentFrame, s
 
         // std::vector<SeqWithTrajectory> sequences;
         for(int k = 0; k < sequencesNoInsert.size(); ++k){
+            
+            if(!checkSequenceValidityWithNewInsert(sequencesNoInsert[k])){
+                continue;
+            }
             SeqWithTrajectory seqTrajectory;
             seqTrajectory.seq = sequencesNoInsert[k];
             
-            int polynomOrder = 3;
-            // if the sequence is not long do only a line estimate  
-            if(seqTrajectory.seq->size() < 10){
-                polynomOrder = 1; 
-            }
-
-            extended_search_->selectPointsForRegressionAndDoRegression(seqTrajectory, polynomOrder);
-            calculatePredictionTriangle(seqTrajectory, insertTime);
-    
-            if(!checkSequenceValidityWithNewInsert(seqTrajectory.seq)){
+            if(!extended_search_->selectPointsForRegressionAndDoRegression(seqTrajectory)){
                 continue;
             }
+
+            calculatePredictionTriangle(seqTrajectory, insertTime);
+    
+
             bool coffAllZero = false;
             if(!checkCoeffValidity(seqTrajectory)){
                 coffAllZero = true;
@@ -135,8 +137,7 @@ void alternativeHT::expandedSearch(std::vector<PointState> & noNNCurrentFrame, s
                     if(extended_search_->isInside(firstPoint, secondPoint, initialPoint, noNNCurrentFrame[i].point)){
                         insertPointToSequence(*(sequencesNoInsert[k]), noNNCurrentFrame[i]);
                         noNNCurrentFrame.erase(noNNCurrentFrame.begin()+i);
-                        sequencesNoInsert.erase(sequencesNoInsert.begin()+k);
-                        std::cout << "hit triangle\n";
+                        sequencesNoInsert.erase(sequencesNoInsert.begin()+k); 
                         break;
                     }
                 }

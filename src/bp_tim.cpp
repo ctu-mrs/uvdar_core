@@ -101,13 +101,14 @@ namespace uvdar{
       bool        _publish_visualization_;
       float       _visualization_rate_;
       bool        _use_camera_for_visualization_;
-      bool        _imu_compensation_;
       std::vector<std::string> _blinkers_seen_topics;
       std::vector<std::string> _estimated_framerate_topics;
       std::vector<std::string> _points_seen_topics;
       std::string _sequence_file;
+      bool        _imu_compensation_;
       std::string _imu_topic_;
-
+      float _decayFactor_; 
+      int _polynomialDegree_;
 
       struct BlinkData {
       std::vector<std::pair<PointState,int>>      retrieved_blinkers;
@@ -176,8 +177,6 @@ namespace uvdar{
 
     param_loader.loadParam("points_seen_topics", _points_seen_topics, _points_seen_topics);
 
-    param_loader.loadParam("imu_compensation", _imu_compensation_, bool(false));
-
     param_loader.loadParam("sequence_file", _sequence_file, std::string());
 
     private_nh_.param("blinkers_seen_topics", _blinkers_seen_topics, _blinkers_seen_topics);
@@ -185,6 +184,10 @@ namespace uvdar{
     private_nh_.param("use_camera_for_visualization", _use_camera_for_visualization_, bool(true));
 
     private_nh_.param("imu_topic", _imu_topic_, std::string());
+    param_loader.loadParam("imu_compensation", _imu_compensation_, bool(false));
+
+    param_loader.loadParam("decayFactor", _decayFactor_, float(1));
+    param_loader.loadParam("polyOrder", _polynomialDegree_, int(2));
 
   }
 
@@ -264,7 +267,7 @@ namespace uvdar{
   void UVDAR_BP_Tim::initAlternativeHTDataStructure(){
 
     for (size_t i = 0; i < _points_seen_topics.size(); ++i) {
-      aht_.push_back(std::make_shared<alternativeHT>());
+      aht_.push_back(std::make_shared<alternativeHT>(_decayFactor_, _polynomialDegree_));
       aht_[i]->setSequences(sequences_);
       aht_[i]->setDebugFlags(_debug_, _visual_debug_);
 

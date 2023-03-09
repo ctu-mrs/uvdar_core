@@ -41,8 +41,9 @@
   <arg name="beacon" default="false"/>
 
   <arg name="sequence_file" default="$(find uvdar_core)/config/selected.txt"/>
-  <arg name="enable_manchester" default="false"/>
-  <arg name="buffer_size" default="3"/>
+  <arg name="imu_compensation" default="true"/>
+  <arg name="polyOrder" default="2"/>
+  <arg name="decayFactor" default="1.0"/>
   <arg name="model_file" default="$(find uvdar_core)/config/models/quadrotor_foursided.txt"/>
   <!-- ideal angle: 1.221730476 - pi/2 -->
 
@@ -105,11 +106,13 @@
       <param name="publish_visualization"             type="bool" value="false"/>
       <param name="use_camera_for_visualization"         type="bool" value="false"/>
       <param name="visualization_rate"         type="double" value="2.0"/>
-
-
+      
+      <param name="polyOrder" type="int" value="$(arg polyOrder)"/>
+      <param name="decayFactor"         type="double" value="$(arg decayFactor)"/>
+      
       <param name="sequence_file"         type="string" value="$(arg sequence_file)"/>
-      <param name="enable_manchester"     type="bool"   value="$(arg enable_manchester)"/>
-      <param name="buffer_size"           type="int"    value="$(arg buffer_size)"/>
+      <param name="imu_compensation"     type="bool"   value="$(arg imu_compensation)"/>
+      <param name="imu_topic" type="string" value="/$(arg uav_name)/odometry/odom_main"/>
 
       <rosparam param="camera_topics"> ["/uav7/uvdar_bluefox/left/image_raw"] </rosparam>
       <rosparam param="points_seen_topics"> ["points_seen_left"] </rosparam>
