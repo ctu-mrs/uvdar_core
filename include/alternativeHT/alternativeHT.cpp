@@ -115,20 +115,25 @@ void alternativeHT::expandedSearch(std::vector<PointState> & noNNCurrentFrame, s
             if(!checkSequenceValidityWithNewInsert(sequencesNoInsert[k])){
                 continue;
             }
-            SeqWithTrajectory seqTrajectory;
-            seqTrajectory.seq = sequencesNoInsert[k];
+            SeqWithTrajectory seq_trajectory;
+            seq_trajectory.seq = sequencesNoInsert[k];
             
-            if(!extended_search_->selectPointsForRegressionAndDoRegression(seqTrajectory)){
+            if(!extended_search_->selectPointsForRegressionAndDoRegression(seq_trajectory)){
                 continue;
             }
 
+            for(int k = 0; k < (int)seq_trajectory.xCoeff.size(); ++k){
+                seq_trajectory.predicted.x += seq_trajectory.xCoeff[k]*pow(insertTime, k);
+                seq_trajectory.predicted.y += seq_trajectory.yCoeff[k]*pow(insertTime, k);
+            }
+
             for(int i = 0; i < (int)noNNCurrentFrame.size(); ++i){
-                //     if(extended_search_->isInside(firstPoint, secondPoint, initialPoint, noNNCurrentFrame[i].point)){
+                    if(extended_search_->checkIfInsideEllipse(seq_trajectory, noNNCurrentFrame[i].point)){
                 //         insertPointToSequence(*(sequencesNoInsert[k]), noNNCurrentFrame[i]);
                 //         noNNCurrentFrame.erase(noNNCurrentFrame.begin()+i);
                 //         sequencesNoInsert.erase(sequencesNoInsert.begin()+k); 
                 //         break;
-                //     }
+                    }
                 // cv::Point2d diff = computeXYDiff(sequencesNoInsert[k]->end()[-1].point, noNNCurrentFrame[i].point);
                 // if(diff.x <= max_pixel_shift_x_+4 && diff.y <= max_pixel_shift_y_+4){
                 //     insertPointToSequence(*(sequencesNoInsert[k]), noNNCurrentFrame[i]);

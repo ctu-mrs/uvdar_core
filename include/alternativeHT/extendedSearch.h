@@ -11,10 +11,6 @@ namespace uvdar{
         cv::Point2d point;
         bool ledState; 
         ros::Time insertTime;
-        cv::Point2d firstEdgeTri = cv::Point2d(0,0); 
-        cv::Point2d secEdgeTri = cv::Point2d(0,0); 
-        cv::Point2d predictedNextPoint = cv::Point2d(0,0);
-        double lengthToPredict = 0;
     };
 
     using seqPointer = std::vector<PointState>*;
@@ -23,6 +19,8 @@ namespace uvdar{
         seqPointer seq;
         std::vector<double> xCoeff;
         std::vector<double> yCoeff;
+        cv::Point2d rmse_poly_reg;
+        cv::Point2d predicted;
     };
 
 
@@ -32,10 +30,13 @@ namespace uvdar{
             double decayFactor_;
             int polyOrder_;
             std::vector<double> polyReg(const std::vector<double>&, const std::vector<ros::Time>&); 
+            double calcRMSE(const std::vector<double>&, const std::vector<ros::Time>&, const std::vector<double>&);
         
         public:
             ExtendedSearch(double, int);
             ~ExtendedSearch();
+            double checkIfInsideEllipse(SeqWithTrajectory&, cv::Point2d&);
             bool selectPointsForRegressionAndDoRegression(SeqWithTrajectory&);
+
     };
 } // uvdar

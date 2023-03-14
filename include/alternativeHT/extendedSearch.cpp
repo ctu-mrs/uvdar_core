@@ -28,6 +28,9 @@ bool uvdar::ExtendedSearch::selectPointsForRegressionAndDoRegression(SeqWithTraj
 
     prediction.xCoeff = polyReg(x, time);
     prediction.yCoeff = polyReg(y, time);
+
+    prediction.rmse_poly_reg.x = calcRMSE(x, time, prediction.xCoeff);
+    prediction.rmse_poly_reg.x = calcRMSE(y, time, prediction.yCoeff);
     
     // if all coefficients are zero, the regression was not sucessfull 
     int xCount = 0, yCount = 0;
@@ -75,6 +78,27 @@ std::vector<double> uvdar::ExtendedSearch::polyReg(const std::vector<double>& pi
         coeff.push_back(result[i]);
     }
 
+
     return coeff;
 }
 
+
+double uvdar::ExtendedSearch::calcRMSE(const std::vector<double>& pixelCoordinate, const std::vector<ros::Time>& time, const std::vector<double>& coeff){
+    
+    
+    double sse = 0;
+    for(int i = 0; i < (int)pixelCoordinate.size(); ++i){
+        double predicted = 0;
+        for(int k = 0; k < (int)coeff.size(); ++k){
+            predicted += coeff[k]*pow(time[i].toSec(), k);
+        }
+        sse += pow(pixelCoordinate[i]-predicted, 1);
+    }
+    // maybe for cov only mse
+    double rmse = sqrt(sse / (int)pixelCoordinate.size());
+    return rmse;
+}
+
+double uvdar::ExtendedSearch::checkIfInsideEllipse(SeqWithTrajectory& seq, cv::Point2& query_point){
+    return pow( (query_point.x - seq.predicted.x) / seq.rmse_poly_reg.x, 2) + pow( (query_point.y - seq.predicted.y) / seq.rmse_poly_reg.y , 2);  
+} 
