@@ -37,14 +37,6 @@ void alternativeHT::processBuffer(const mrs_msgs::ImagePointsWithFloatStampedCon
         currentFrame.push_back(p);
     }
 
-    // std::cout << "Sequences:\n";
-    // for( auto k : generatedSequences_){
-    //     for(auto r : k){
-    //         if(r.ledState) std::cout << "1,"; 
-    //         else std::cout << "0,";
-    //     }
-    //     std::cout << "\n";
-    // }
     findClosestPixelAndInsert(currentFrame);
 
     cleanPotentialBuffer();  // TODO: NOT WORKING!!!!!
@@ -129,20 +121,21 @@ void alternativeHT::expandedSearch(std::vector<PointState> & noNNCurrentFrame, s
 
             for(int i = 0; i < (int)noNNCurrentFrame.size(); ++i){
                     if(extended_search_->checkIfInsideEllipse(seq_trajectory, noNNCurrentFrame[i].point)){
-                //         insertPointToSequence(*(sequencesNoInsert[k]), noNNCurrentFrame[i]);
-                //         noNNCurrentFrame.erase(noNNCurrentFrame.begin()+i);
-                //         sequencesNoInsert.erase(sequencesNoInsert.begin()+k); 
-                //         break;
+                        insertPointToSequence(*(sequencesNoInsert[k]), noNNCurrentFrame[i]);
+                        noNNCurrentFrame.erase(noNNCurrentFrame.begin()+i);
+                        sequencesNoInsert.erase(sequencesNoInsert.begin()+k); 
+                        std::cout << "ELLIPSE\n";
+                        break;
                     }
-                // cv::Point2d diff = computeXYDiff(sequencesNoInsert[k]->end()[-1].point, noNNCurrentFrame[i].point);
-                // if(diff.x <= max_pixel_shift_x_+4 && diff.y <= max_pixel_shift_y_+4){
-                //     insertPointToSequence(*(sequencesNoInsert[k]), noNNCurrentFrame[i]);
-                //     noNNCurrentFrame.erase(noNNCurrentFrame.begin()+i);
-                //     sequencesNoInsert.erase(sequencesNoInsert.begin()+k);
-                //     std::cout << "hit box\n";
-
-                //     break;
-                // }
+                cv::Point2d diff = computeXYDiff(sequencesNoInsert[k]->end()[-1].point, noNNCurrentFrame[i].point);
+                if(diff.x <= max_pixel_shift_x_+4 && diff.y <= max_pixel_shift_y_+4){
+                    insertPointToSequence(*(sequencesNoInsert[k]), noNNCurrentFrame[i]);
+                    noNNCurrentFrame.erase(noNNCurrentFrame.begin()+i);
+                    sequencesNoInsert.erase(sequencesNoInsert.begin()+k);
+                    std::cout << "hit box\n";
+// 
+                    break;
+                }
             }
         }
     }

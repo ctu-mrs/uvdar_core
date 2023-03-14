@@ -19,7 +19,7 @@ namespace uvdar{
         seqPointer seq;
         std::vector<double> xCoeff;
         std::vector<double> yCoeff;
-        cv::Point2d rmse_poly_reg;
+        cv::Point2d rmse;
         cv::Point2d predicted;
     };
 
@@ -29,13 +29,14 @@ namespace uvdar{
         private: 
             double decayFactor_;
             int polyOrder_;
-            std::vector<double> polyReg(const std::vector<double>&, const std::vector<ros::Time>&); 
-            double calcRMSE(const std::vector<double>&, const std::vector<ros::Time>&, const std::vector<double>&);
-        
+            std::pair<std::vector<double>, double> polyReg(const std::vector<double>&, const std::vector<ros::Time>&); 
+            double calcWeightedRMSE(const Eigen::VectorXd, const Eigen::VectorXd, const Eigen::VectorXd);
+            std::vector<double> calculateWeightVector(const std::vector<ros::Time>&);
+
         public:
             ExtendedSearch(double, int);
             ~ExtendedSearch();
-            double checkIfInsideEllipse(SeqWithTrajectory&, cv::Point2d&);
+            bool checkIfInsideEllipse(SeqWithTrajectory&, cv::Point2d&);
             bool selectPointsForRegressionAndDoRegression(SeqWithTrajectory&);
 
     };

@@ -16,6 +16,7 @@ bool uvdar::ExtendedSearch::selectPointsForRegressionAndDoRegression(SeqWithTraj
     std::vector<double> x,y;
     std::vector<ros::Time> time;
 
+    // prepare for polynomial regression TODO: Maybe calculate the variance over the points for outlier rejection
     for(const auto point : *(prediction.seq)){
         if(point.ledState){
             x.push_back(point.point.x);
@@ -26,11 +27,12 @@ bool uvdar::ExtendedSearch::selectPointsForRegressionAndDoRegression(SeqWithTraj
     
     if(x.size() == 0) return false;
 
-    prediction.xCoeff = polyReg(x, time);
-    prediction.yCoeff = polyReg(y, time);
+    auto x_reg = polyReg(x, time);
+    auto y_reg = polyReg(y, time);
 
-    prediction.rmse_poly_reg.x = calcRMSE(x, time, prediction.xCoeff);
-    prediction.rmse_poly_reg.x = calcRMSE(y, time, prediction.yCoeff);
+    prediction.xCoeff = x_reg.first;
+    prediction.yCoeff = y_reg.first;
+    prediction.rmse  = cv::Point2d(x_reg.second, y_reg.second);
     
     // if all coefficients are zero, the regression was not sucessfull 
     int xCount = 0, yCount = 0;
@@ -51,54 +53,82 @@ bool uvdar::ExtendedSearch::selectPointsForRegressionAndDoRegression(SeqWithTraj
     return true;
 }
 
-std::vector<double> uvdar::ExtendedSearch::polyReg(const std::vector<double>& pixelCoordinate, const std::vector<ros::Time>& time){
+
+
+std::pair<std::vector<double>,double> uvdar::ExtendedSearch::polyReg(const std::vector<double>& pixelCoordinate, const std::vector<ros::Time>& time){
 
     int order = polyOrder_;
     if(pixelCoordinate.size() < 10){
         order = 1; 
     }
 
-    Eigen::MatrixXd DesignMat(time.size(), order + 1);
-	Eigen::VectorXd pixelMat = Eigen::VectorXd::Map(&pixelCoordinate.front(), pixelCoordinate.size());
+    Eigen::MatrixXd design_mat(time.size(), order + 1);
+	Eigen::VectorXd pixel_vect = Eigen::VectorXd::Map(&pixelCoordinate.front(), pixelCoordinate.size());
+    std::vector<double> weights = calculateWeightVector(time);
+    Eigen::VectorXd weight_vect = Eigen::VectorXd::Map(&weights.front(), weights.size());
     Eigen::VectorXd result(order+1);
 
-    double referenceTime = time.end()[-1].toSec(); 
+    Eigen::MatrixXd weight_mat = weight_vect.asDiagonal();
+
+
     // fill the Design matrix
 	for(int i = 0 ; i < (int)time.size(); ++i){
-        double timeDist = referenceTime - time[i].toSec();
-        double weight = exp(-decayFactor_*timeDist);
 	    for(int j = 0; j < order + 1; ++j){
-	        DesignMat(i, j) = pow(time[i].toSec(), j)*weight;
+            if(j == 0) design_mat(i,j) = 1;
+	        else design_mat(i, j) = pow(time[i].toSec(), j);
 	    }
 	}
+    Eigen::MatrixXd weighed_design_mat = weight_mat * design_mat;
+    Eigen::VectorXd weighted_pixel_vect = weight_mat * pixel_vect;
+
 	// Solve for linear least square fit
-	result = DesignMat.householderQr().solve(pixelMat);
+	result = weighed_design_mat.householderQr().solve(weighted_pixel_vect);
     std::vector<double> coeff;
     for(int i = 0; i < result.size(); ++i){
         coeff.push_back(result[i]);
     }
 
+    auto prediction = design_mat * result;
+    double rmse = calcWeightedRMSE(prediction, pixel_vect, weight_vect);
 
-    return coeff;
+
+    return std::make_pair(coeff, rmse);
 }
 
-
-double uvdar::ExtendedSearch::calcRMSE(const std::vector<double>& pixelCoordinate, const std::vector<ros::Time>& time, const std::vector<double>& coeff){
-    
-    
-    double sse = 0;
-    for(int i = 0; i < (int)pixelCoordinate.size(); ++i){
-        double predicted = 0;
-        for(int k = 0; k < (int)coeff.size(); ++k){
-            predicted += coeff[k]*pow(time[i].toSec(), k);
-        }
-        sse += pow(pixelCoordinate[i]-predicted, 1);
+std::vector<double> uvdar::ExtendedSearch::calculateWeightVector(const std::vector<ros::Time>& time){
+    std::vector<double> weights;
+    double referenceTime = time.end()[-1].toSec();
+    for(int i = 0; i < (int)time.size(); ++i){
+        double timeDist = referenceTime - time[i].toSec();
+        double weight = exp(-decayFactor_*timeDist);
+        weights.push_back(weight);
     }
-    // maybe for cov only mse
-    double rmse = sqrt(sse / (int)pixelCoordinate.size());
+
+    return weights;
+}
+
+double uvdar::ExtendedSearch::calcWeightedRMSE(const Eigen::VectorXd prediction, const Eigen::VectorXd pixel_vect, const Eigen::VectorXd weights){
+    
+    Eigen::VectorXd residuals = prediction - pixel_vect;
+
+    double sum_squared_residuals = (weights.array().pow(2)*residuals.array().pow(2)).sum();
+    double rmse = sqrt(sum_squared_residuals/(int)prediction.size());
     return rmse;
 }
 
-double uvdar::ExtendedSearch::checkIfInsideEllipse(SeqWithTrajectory& seq, cv::Point2& query_point){
-    return pow( (query_point.x - seq.predicted.x) / seq.rmse_poly_reg.x, 2) + pow( (query_point.y - seq.predicted.y) / seq.rmse_poly_reg.y , 2);  
+
+bool uvdar::ExtendedSearch::checkIfInsideEllipse(SeqWithTrajectory& seq, cv::Point2d& query_point){
+    
+    double result = pow( (query_point.x - seq.predicted.x) / seq.rmse.x, 2) + pow( (query_point.y - seq.predicted.y) / seq.rmse.y , 2);  
+    if(result < 1){
+        return true;
+    }else if(result > 1){
+        return false;
+    }
+
+    if(result == 1){
+        std::cout << "Is on the ellipse" << std::endl;
+        return true;
+    }
+    
 } 
