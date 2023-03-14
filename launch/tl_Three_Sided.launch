@@ -50,7 +50,7 @@
   <arg name="sequence_file" default="$(find uvdar_core)/config/selected.txt"/>
   <arg name="imu_compensation" default="true"/>
   <arg name="polyOrder" default="2"/>
-  <arg name="decayFactor" default="1.0"/>
+  <arg name="decayFactor" default="0.1"/>
 
   <arg name="model_file" default="$(find uvdar_core)/config/models/quadrotor_foursided.txt"/>
   <!-- ideal angle: 1.221730476 - pi/2 -->

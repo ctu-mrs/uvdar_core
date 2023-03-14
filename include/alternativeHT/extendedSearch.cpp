@@ -42,14 +42,11 @@ std::vector<double> uvdar::ExtendedSearch::polyReg(const std::vector<double>& pi
         order = 1; 
     }
 
-
     Eigen::MatrixXd DesignMat(time.size(), order + 1);
 	Eigen::VectorXd pixelMat = Eigen::VectorXd::Map(&pixelCoordinate.front(), pixelCoordinate.size());
     Eigen::VectorXd result(order+1);
 
     double referenceTime = time.end()[-1].toSec(); 
-    double decayFactor = 0.0; 
-
     // fill the Design matrix
 	for(int i = 0 ; i < (int)time.size(); ++i){
         double timeDist = referenceTime - time[i].toSec();

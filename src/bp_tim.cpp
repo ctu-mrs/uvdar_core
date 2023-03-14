@@ -186,7 +186,7 @@ namespace uvdar{
     private_nh_.param("imu_topic", _imu_topic_, std::string());
     param_loader.loadParam("imu_compensation", _imu_compensation_, bool(false));
 
-    param_loader.loadParam("decayFactor", _decayFactor_, float(1));
+    param_loader.loadParam("decayFactor", _decayFactor_, float(0.1));
     param_loader.loadParam("polyOrder", _polynomialDegree_, int(2));
 
   }
