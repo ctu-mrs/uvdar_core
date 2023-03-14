@@ -37,8 +37,5 @@ namespace uvdar{
             ExtendedSearch(double, int);
             ~ExtendedSearch();
             bool selectPointsForRegressionAndDoRegression(SeqWithTrajectory&);
-            std::vector<cv::Point2d> findOrthogonalVectorWithLength(const cv::Point2d, const double);
-            float area(const cv::Point2d, const cv::Point2d, const cv::Point2d);
-            bool isInside(const cv::Point2d, const cv::Point2d, const cv::Point2d, const cv::Point2d);
     };
 } // uvdar

@@ -106,11 +106,11 @@ void alternativeHT::expandedSearch(std::vector<PointState> & noNNCurrentFrame, s
     
     std::scoped_lock lock(mutex_generatedSequences_);
     
-    if(noNNCurrentFrame.size() != 0){
+    if((int)noNNCurrentFrame.size() != 0){
         double insertTime = noNNCurrentFrame[0].insertTime.toSec() + predictionMargin_;
 
         // std::vector<SeqWithTrajectory> sequences;
-        for(int k = 0; k < sequencesNoInsert.size(); ++k){
+        for(int k = 0; k < (int)sequencesNoInsert.size(); ++k){
             
             if(!checkSequenceValidityWithNewInsert(sequencesNoInsert[k])){
                 continue;
@@ -122,34 +122,22 @@ void alternativeHT::expandedSearch(std::vector<PointState> & noNNCurrentFrame, s
                 continue;
             }
 
-            calculatePredictionTriangle(seqTrajectory, insertTime);
-    
+            for(int i = 0; i < (int)noNNCurrentFrame.size(); ++i){
+                //     if(extended_search_->isInside(firstPoint, secondPoint, initialPoint, noNNCurrentFrame[i].point)){
+                //         insertPointToSequence(*(sequencesNoInsert[k]), noNNCurrentFrame[i]);
+                //         noNNCurrentFrame.erase(noNNCurrentFrame.begin()+i);
+                //         sequencesNoInsert.erase(sequencesNoInsert.begin()+k); 
+                //         break;
+                //     }
+                // cv::Point2d diff = computeXYDiff(sequencesNoInsert[k]->end()[-1].point, noNNCurrentFrame[i].point);
+                // if(diff.x <= max_pixel_shift_x_+4 && diff.y <= max_pixel_shift_y_+4){
+                //     insertPointToSequence(*(sequencesNoInsert[k]), noNNCurrentFrame[i]);
+                //     noNNCurrentFrame.erase(noNNCurrentFrame.begin()+i);
+                //     sequencesNoInsert.erase(sequencesNoInsert.begin()+k);
+                //     std::cout << "hit box\n";
 
-            bool coffAllZero = false;
-            if(!checkCoeffValidity(seqTrajectory)){
-                coffAllZero = true;
-            }
-            cv::Point2d firstPoint   =  seqTrajectory.seq->end()[-1].firstEdgeTri;
-            cv::Point2d secondPoint  =  seqTrajectory.seq->end()[-1].secEdgeTri;
-            cv::Point2d initialPoint =  seqTrajectory.seq->end()[-1].point;
-            for(int i = 0; i < noNNCurrentFrame.size(); ++i){
-                if(!coffAllZero){
-                    if(extended_search_->isInside(firstPoint, secondPoint, initialPoint, noNNCurrentFrame[i].point)){
-                        insertPointToSequence(*(sequencesNoInsert[k]), noNNCurrentFrame[i]);
-                        noNNCurrentFrame.erase(noNNCurrentFrame.begin()+i);
-                        sequencesNoInsert.erase(sequencesNoInsert.begin()+k); 
-                        break;
-                    }
-                }
-                cv::Point2d diff = computeXYDiff(sequencesNoInsert[k]->end()[-1].point, noNNCurrentFrame[i].point);
-                if(diff.x <= max_pixel_shift_x_+4 && diff.y <= max_pixel_shift_y_+4){
-                    insertPointToSequence(*(sequencesNoInsert[k]), noNNCurrentFrame[i]);
-                    noNNCurrentFrame.erase(noNNCurrentFrame.begin()+i);
-                    sequencesNoInsert.erase(sequencesNoInsert.begin()+k);
-                    std::cout << "hit box\n";
-
-                    break;
-                }
+                //     break;
+                // }
             }
         }
     }
@@ -179,89 +167,6 @@ bool alternativeHT::checkSequenceValidityWithNewInsert(const seqPointer & seq){
     return true; 
 }
 
-// if all coefficients are zero return false
-bool alternativeHT::checkCoeffValidity(const SeqWithTrajectory & trajectory){
-
-
-    int xCount = 0, yCount = 0;
-    for(auto coff : trajectory.xCoeff){
-        if(coff == 0.0 ){
-            xCount++;
-        }
-    }
-    for(auto coff : trajectory.yCoeff){
-        if(coff == 0.0 ){
-            yCount++;
-        }
-    }
-    // if all coefficients are zero 
-    if(yCount == (int)trajectory.yCoeff.size() && xCount == (int)trajectory.xCoeff.size()){
-        return false;
-    }
-    return true; 
-
-}
-
-void alternativeHT::calculatePredictionTriangle(SeqWithTrajectory & path, const double predictionTime){
-
-    double xPredict = 0; 
-    double yPredict = 0;
-
-    for(int i = 0; i < (int)path.xCoeff.size(); ++i){
-        xPredict += path.xCoeff[i]*pow(predictionTime, i); 
-    }
-    for(int i = 0; i < (int)path.yCoeff.size(); ++i){
-        yPredict += path.yCoeff[i]*pow(predictionTime, i);
-    }
-    cv::Point2d predictedPoint = cv::Point2d(xPredict, yPredict);
-
-    cv::Point2d groundPointTriangle =  path.seq->end()[-1].point;
-
-    // for( auto it = path.seq->end(); it != path.seq->begin(); --it ){
-    //     if(it->point.x != path.seq->end()[-1].point.x || it->point.y != path.seq->end()[-1].point.y){
-    //         groundPointTriangle = it->point;
-    //         break;
-    //     }
-    // }
-    predictedPoint.x = std::round(predictedPoint.x); 
-    predictedPoint.y = std::round(predictedPoint.y);  
-    cv::Point2d diffVect = predictedPoint - groundPointTriangle;
-
-    double len =  ( sqrt(pow(diffVect.x,2) + pow(diffVect.y, 2)) );
-
-    if(len < 2){
-        diffVect = diffVect*4;
-    }else if(len < 6){
-        diffVect = diffVect*2; 
-    }
-
-    len = ( sqrt(pow(diffVect.x,2) + pow(diffVect.y, 2)) );
-
-    if(len > 20){
-        len = len *2/3;
-    }
-
-    std::vector<cv::Point2d> orthoVects = extended_search_->findOrthogonalVectorWithLength(diffVect, len);
-    // construct triangle in coordinate center
-    cv::Point2d firstEdgeCenter   = diffVect + orthoVects[0];
-    cv::Point2d secEdgeCenter   = diffVect + orthoVects[1]; 
-
-    //project to the last seen point
-    cv::Point2d firstEdge = groundPointTriangle + firstEdgeCenter;
-    cv::Point2d secEdge = groundPointTriangle + secEdgeCenter; 
-
-    firstEdge.x = firstEdge.x;
-    firstEdge.y = firstEdge.y;
-    secEdge.x = secEdge.x;
-    secEdge.y = secEdge.y;
-
-    
-    path.seq->end()[-1].lengthToPredict = len;
-    path.seq->end()[-1].firstEdgeTri    = firstEdge;
-    path.seq->end()[-1].secEdgeTri      = secEdge;
-    path.seq->end()[-1].predictedNextPoint = predictedPoint;
-}
-
 void alternativeHT::insertVPforSequencesWithNoInsert(seqPointer & seq){
     
     PointState pVirtual;
@@ -286,20 +191,18 @@ void alternativeHT::cleanPotentialBuffer(){
             continue;
         }
 
-        // if( it->size() >= 2){
-        //     if(!it->end()[-1].ledState && !it->end()[-2].ledState && !it->end()[-3].ledState){
-        //         it = generatedSequences_.erase(it);
-        //         std::cout << "delete here\n"; 
-        //         continue;
-        //     }
-        // }
-        // double insertTime = it->end()[-1].insertTime.toSec(); 
-        // double timeDiffLastInsert = std::abs(insertTime - ros::Time::now().toSec());
-        // if (timeDiffLastInsert > timeMargin){ //&& i != generatedSequences_.end()){
-        //     ROS_ERROR("TIME");
-        //     it = generatedSequences_.erase(it);
-        //     continue;
-        // }
+        if( it->size() >= 2){
+            if(!it->end()[-1].ledState && !it->end()[-2].ledState && !it->end()[-3].ledState){
+                it = generatedSequences_.erase(it);
+                continue;
+            }
+        }
+        double insertTime = it->end()[-1].insertTime.toSec(); 
+        double timeDiffLastInsert = std::abs(insertTime - ros::Time::now().toSec());
+        if (timeDiffLastInsert > timeMargin){ //&& i != generatedSequences_.end()){
+            it = generatedSequences_.erase(it);
+            continue;
+        }
 
     }
 }
@@ -317,7 +220,7 @@ std::vector<std::pair<PointState, int>> alternativeHT::getResults(){
             int diff = (int)sequence.size() - (int)originalSequences_[0].size();
             // std::cout << "the diff" << diff << "\n";
 
-            for(int i = diff; i < sequence.size(); ++i){
+            for(int i = diff; i < (int)sequence.size(); ++i){
                 selected.push_back(sequence[i]);
             }
         }else{

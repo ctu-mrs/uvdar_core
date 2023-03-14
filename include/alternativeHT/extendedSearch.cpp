@@ -11,8 +11,6 @@ uvdar::ExtendedSearch::~ExtendedSearch(){
 
 }
 
-
-
 bool uvdar::ExtendedSearch::selectPointsForRegressionAndDoRegression(SeqWithTrajectory & prediction){
         
     std::vector<double> x,y;
@@ -30,6 +28,22 @@ bool uvdar::ExtendedSearch::selectPointsForRegressionAndDoRegression(SeqWithTraj
 
     prediction.xCoeff = polyReg(x, time);
     prediction.yCoeff = polyReg(y, time);
+    
+    // if all coefficients are zero, the regression was not sucessfull 
+    int xCount = 0, yCount = 0;
+    for(auto coff : prediction.xCoeff){
+        if(coff == 0.0 ){
+            xCount++;
+        }
+    }
+    for(auto coff : prediction.yCoeff){
+        if(coff == 0.0 ){
+            yCount++;
+        }
+    }
+    if(yCount == (int)prediction.yCoeff.size() && xCount == (int)prediction.xCoeff.size()){
+        return false;
+    }
 
     return true;
 }
@@ -38,7 +52,6 @@ std::vector<double> uvdar::ExtendedSearch::polyReg(const std::vector<double>& pi
 
     int order = polyOrder_;
     if(pixelCoordinate.size() < 10){
-        // ROS_WARN("[UVDAR_]")
         order = 1; 
     }
 
@@ -65,50 +78,3 @@ std::vector<double> uvdar::ExtendedSearch::polyReg(const std::vector<double>& pi
     return coeff;
 }
 
-
-std::vector<cv::Point2d> uvdar::ExtendedSearch::findOrthogonalVectorWithLength(const cv::Point2d vect, const double len){
-
-    cv::Point2d orthoFirst;
-    cv::Point2d orthoSecond; 
-      
-    std::vector<cv::Point2d> solutions;
-    if(vect.x != 0){
-        orthoFirst.y =  sqrt( pow(len,2) / (pow((vect.y/vect.x),2) + 1 ) );  
-        orthoFirst.x = - ( orthoFirst.y * vect.y ) / vect.x;
-
-        orthoSecond.y = - sqrt( pow(len,2) / (pow((vect.y/vect.x),2) + 1) );  
-        orthoSecond.x = - ( orthoSecond.y * vect.y ) / vect.x;
-
-    }else if(vect.y != 0){
-        orthoFirst.x = sqrt( pow(len,2) / ( pow((vect.x / vect.y),2) + 1 ) );
-        orthoFirst.y = - (orthoFirst.x * vect.x/vect.y);
-
-        orthoSecond.x = - sqrt( pow(len,2) / ( pow((vect.x / vect.y),2) + 1 ) );
-        orthoSecond.y = - (orthoSecond.x * vect.x/vect.y);
-    }
-    solutions.push_back(orthoFirst);
-    solutions.push_back(orthoSecond);
-    return solutions;
-}
-
-
-float uvdar::ExtendedSearch::area(const cv::Point2d p1, const cv::Point2d p2, const cv::Point2d p3){
-    return abs((p1.x*(p2.y-p3.y) + p2.x*(p3.y-p1.y)+ p3.x*(p1.y-p2.y))/2.0);
-}
-    
-bool uvdar::ExtendedSearch::isInside(const cv::Point2d p1, const cv::Point2d p2, const cv::Point2d p3, const cv::Point2d query){  
-    /* Calculate area of triangle ABC */
-    float A = ExtendedSearch::area (p1, p2, p3);
-    
-    /* Calculate area of triangle PBC */ 
-    float A1 = ExtendedSearch::area (query, p2, p3);
-    
-    /* Calculate area of triangle PAC */ 
-    float A2 = ExtendedSearch::area (p1, query, p3);
-    
-    /* Calculate area of triangle PAB */  
-    float A3 = ExtendedSearch::area (p1, p2, query);
-
-   /* Check if sum of A1, A2 and A3 is same as A */
-   return (A == A1 + A2 + A3);
-}

@@ -44,7 +44,6 @@ namespace uvdar
         // moving average approach 
         void expandedSearch(std::vector<PointState> &, std::vector<seqPointer>);
         bool checkSequenceValidityWithNewInsert(const seqPointer &);
-        bool checkCoeffValidity(const SeqWithTrajectory &);
         void calculatePredictionTriangle(SeqWithTrajectory &, const double);
         void findOrthogonalVector(cv::Point2d);
         void insertVPforSequencesWithNoInsert(seqPointer &);
