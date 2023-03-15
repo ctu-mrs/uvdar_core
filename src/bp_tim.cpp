@@ -111,11 +111,7 @@ namespace uvdar{
       int _polynomialDegree_;
 
       struct BlinkData {
-        std::vector<std::pair<PointState,int>>      retrieved_blinkers;
-        std::vector<double> x_coeff;
-        std::vector<double> y_coeff;
-        cv::Point2d ellipse;
-        cv::Point2d predicted;
+        std::vector<std::pair<PointState,int>> retrieved_blinkers;
         std::shared_ptr<std::mutex>   mutex_retrieved_blinkers;
         ros::Time                     last_sample_time;
         ros::Time                     last_sample_time_diagnostic;
@@ -177,7 +173,7 @@ namespace uvdar{
 
     param_loader.loadParam("gui", _gui_, bool(true));                                     
     param_loader.loadParam("publish_visualization", _publish_visualization_, bool(true));
-    param_loader.loadParam("visualization_rate", _visualization_rate_, float(2.0));       
+    param_loader.loadParam("visualization_rate", _visualization_rate_, float(15.0));       
 
     param_loader.loadParam("points_seen_topics", _points_seen_topics, _points_seen_topics);
 
@@ -424,17 +420,18 @@ namespace uvdar{
     {
       std::scoped_lock lock(*(blink_data_[img_index].mutex_retrieved_blinkers));
       blink_data_[img_index].retrieved_blinkers = aht_[img_index]->getResults();
-      blink_data_[img_index].x_coeff = aht_[img_index]->getXCoeff();
-      blink_data_[img_index].y_coeff = aht_[img_index]->getYCoeff();
-      blink_data_[img_index].ellipse = aht_[img_index]->getEllipse();
-      blink_data_[img_index].predicted = aht_[img_index]->getPrediction();
-      
-
 
       for (auto& signal : blink_data_[img_index].retrieved_blinkers) {
         mrs_msgs::Point2DWithFloat point;
-        point.x     = signal.first.point.x;
-        point.y     = signal.first.point.y;
+        point.x = signal.first.point.x;
+        point.y = signal.first.point.y;
+        if(signal.first.computedExtendedSearch){
+        //   cv::Point2d ellipse = signal.first.ellipse;
+        //   cv::Point2d predicted = signal.first.predicted;
+        //   auto x_coeff = signal.first.x_coeff;
+        //   auto y_coeff = signal.first.y_coeff;
+          // ROS_ERROR("JERE");
+        }
         if (signal.second <= (int)sequences_.size()){
           point.value = signal.second;
         }
@@ -480,6 +477,7 @@ namespace uvdar{
     }
     current_visualization_done_ = false;
   }
+
   void UVDAR_BP_Tim::VisualizationThread([[maybe_unused]] const ros::TimerEvent& te) {
     if(initialized_){
       if(generateVisualization(image_visualization_) >= 0){
@@ -552,8 +550,46 @@ namespace uvdar{
       {
       std::scoped_lock lock(*(blink_data_[image_index].mutex_retrieved_blinkers));
 
+      // std::vector<std::vector<cv::Point>> predicted_points;
+      // for(int i = 0; i < image_index; ++i){
+      //   std::vector<cv::Point> dummy;
+      //   predicted_points.push_back(dummy);
+      // }
       for(int j = 0; j < (int)(blink_data_[image_index].retrieved_blinkers.size()); j++){
-        // cv::Point center = cv::Point(signals_[image_index][j].point.first.x, signals_[image_index][j].first.y) + start_point;
+        
+        bool draw_prediction = false;
+        cv::Point2d ellipse;
+        cv::Point2d predicted; 
+        cv::Scalar predictionColor(255,153,255);
+        if(blink_data_[image_index].retrieved_blinkers[j].first.computedExtendedSearch){
+          ellipse = blink_data_[image_index].retrieved_blinkers[j].first.ellipse;
+          predicted = blink_data_[image_index].retrieved_blinkers[j].first.predicted;
+          auto x_coeff = blink_data_[image_index].retrieved_blinkers[j].first.x_coeff;
+          auto y_coeff = blink_data_[image_index].retrieved_blinkers[j].first.y_coeff;
+
+          auto currentTime = blink_data_[image_index].retrieved_blinkers[j].first.insertTime;
+          double predictionWindow = 4.0;
+          auto drawPredictionTime = currentTime.toSec() + predictionWindow;
+          double step_size_sec = 0.01;
+          int point_size = step_size_sec*drawPredictionTime;
+          double computed_time = currentTime.toSec();
+          // for(int i = 0; i < point_size; ++i){
+          //   if(x_coeff.size() == y_coeff.size()){
+          //     cv::Point prediction;
+          //     for(int j = 0; j < (int)x_coeff.size(); ++j){
+          //       prediction.x += x_coeff[j]*pow(computed_time, j);
+          //       prediction.y += y_coeff[j]*pow(computed_time, j);
+          //     }
+          //     computed_time += step_size_sec;
+          //     prediction = prediction + start_point;
+          //     // predicted_points[image_index].push_back(prediction);              
+          //   }
+          // }
+          // if(predicted_points[image_index].size() !=0) std::cout  << " I'm here "<< predicted_points[image_index].size() << "\n";
+
+          draw_prediction = true;
+        }
+
         cv::Point center = cv::Point(blink_data_[image_index].retrieved_blinkers[j].first.point.x, blink_data_[image_index].retrieved_blinkers[j].first.point.y) + start_point;
         int signal_index = blink_data_[image_index].retrieved_blinkers[j].second;
         if(signal_index == -2 || signal_index == -3) {
@@ -564,11 +600,26 @@ namespace uvdar{
           cv::putText(output_image, cv::String(signal_text.c_str()), center + cv::Point(-5, -5), cv::FONT_HERSHEY_SIMPLEX, 0.3, cv::Scalar(255, 255, 255));
           cv::Scalar color = ColorSelector::markerColor(signal_index);
           cv::circle(output_image, center, 5, color);
+
         }else{
           cv::circle(output_image, center, 2, cv::Scalar(160,160,160));
         }
+
+        if(draw_prediction){
+          cv::Point centerPrediction;
+          centerPrediction = cv::Point(predicted.x, predicted.y) + start_point; 
+          cv::circle(output_image, centerPrediction, 2, predictionColor, cv::FILLED);
+          cv::ellipse(output_image, centerPrediction, cv::Size(ellipse.x, ellipse.y), 0, 0, 360, cv::Scalar(255, 128, 0), 1, cv::LINE_AA);
+          // cv::polylines(output_image, predicted_points[image_index], false, cv::Scalar(255,128,0), 2);
+        }
       }
       }
+
+
+
+
+
+
 
       for (int j = 0; j < (int)(sun_points_[image_index].size()); j++) {
         cv::Point sun_current = sun_points_[image_index][j]+start_point;

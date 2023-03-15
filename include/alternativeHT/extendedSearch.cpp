@@ -11,42 +11,31 @@ uvdar::ExtendedSearch::~ExtendedSearch(){
 
 }
 
-bool uvdar::ExtendedSearch::selectPointsForRegressionAndDoRegression(SeqWithTrajectory & prediction){
-        
-    std::vector<double> x,y;
-    std::vector<ros::Time> time;
-
-    // prepare for polynomial regression TODO: Maybe calculate the variance over the points for outlier rejection
-    for(const auto point : *(prediction.seq)){
-        if(point.ledState){
-            x.push_back(point.point.x);
-            y.push_back(point.point.y);
-            time.push_back(point.insertTime);
-        }
-    }
-    
-    if(x.size() == 0) return false;
+bool uvdar::ExtendedSearch::doRegression(seqPointer& prediction, std::vector<double>& x, std::vector<double>& y, std::vector<ros::Time>& time ){
 
     auto x_reg = polyReg(x, time);
     auto y_reg = polyReg(y, time);
 
-    prediction.x_coeff = x_reg.first;
-    prediction.y_coeff = y_reg.first;
-    prediction.ellipse  = cv::Point2d(x_reg.second, y_reg.second);
+    auto lastPoint = &prediction->end()[-1];
+
+    lastPoint->computedExtendedSearch = true;
+    lastPoint->x_coeff = x_reg.first;
+    lastPoint->y_coeff = y_reg.first;
+    lastPoint->ellipse  = cv::Point2d(x_reg.second, y_reg.second);
     
     // if all coefficients are zero, the regression was not sucessfull 
     int xCount = 0, yCount = 0;
-    for(auto coff : prediction.x_coeff){
+    for(auto coff : lastPoint->x_coeff){
         if(coff == 0.0 ){
             xCount++;
         }
     }
-    for(auto coff : prediction.y_coeff){
+    for(auto coff : lastPoint->y_coeff){
         if(coff == 0.0 ){
             yCount++;
         }
     }
-    if(yCount == (int)prediction.y_coeff.size() && xCount == (int)prediction.x_coeff.size()){
+    if(yCount == (int)lastPoint->y_coeff.size() && xCount == (int)lastPoint->x_coeff.size()){
         return false;
     }
 
@@ -55,15 +44,15 @@ bool uvdar::ExtendedSearch::selectPointsForRegressionAndDoRegression(SeqWithTraj
 
 
 
-std::pair<std::vector<double>,double> uvdar::ExtendedSearch::polyReg(const std::vector<double>& pixelCoordinate, const std::vector<ros::Time>& time){
+std::pair<std::vector<double>,double> uvdar::ExtendedSearch::polyReg(const std::vector<double>& coordinate, const std::vector<ros::Time>& time){
 
     int order = polyOrder_;
-    if(pixelCoordinate.size() < 10){
+    if(coordinate.size() < 10){
         order = 1; 
     }
 
     Eigen::MatrixXd design_mat(time.size(), order + 1);
-	Eigen::VectorXd pixel_vect = Eigen::VectorXd::Map(&pixelCoordinate.front(), pixelCoordinate.size());
+	Eigen::VectorXd pixel_vect = Eigen::VectorXd::Map(&coordinate.front(), coordinate.size());
     std::vector<double> weights = calculateWeightVector(time);
     Eigen::VectorXd weight_vect = Eigen::VectorXd::Map(&weights.front(), weights.size());
     Eigen::VectorXd result(order+1);
@@ -97,9 +86,9 @@ std::pair<std::vector<double>,double> uvdar::ExtendedSearch::polyReg(const std::
 
 std::vector<double> uvdar::ExtendedSearch::calculateWeightVector(const std::vector<ros::Time>& time){
     std::vector<double> weights;
-    double referenceTime = time.end()[-1].toSec();
+    double reference_time = time.end()[-1].toSec();
     for(int i = 0; i < (int)time.size(); ++i){
-        double timeDist = referenceTime - time[i].toSec();
+        double timeDist = reference_time - time[i].toSec();
         double weight = exp(-decayFactor_*timeDist);
         weights.push_back(weight);
     }
@@ -117,9 +106,9 @@ double uvdar::ExtendedSearch::calcWeightedRMSE(const Eigen::VectorXd prediction,
 }
 
 
-bool uvdar::ExtendedSearch::checkIfInsideEllipse(SeqWithTrajectory& seq, cv::Point2d& query_point){
+bool uvdar::ExtendedSearch::checkIfInsideEllipse(PointState& point, cv::Point2d& query_point){
     
-    double result = pow( (query_point.x - seq.predicted.x) / seq.ellipse.x, 2) + pow( (query_point.y - seq.predicted.y) / seq.ellipse.y , 2);  
+    double result = pow( (query_point.x - point.predicted.x) / point.ellipse.x, 2) + pow( (query_point.y - point.predicted.y) / point.ellipse.y , 2);  
     if(result < 1){
         return true;
     }else if(result > 1){

@@ -41,7 +41,7 @@
   <arg name="beacon" default="false"/>
 
   <arg name="sequence_file" default="$(find uvdar_core)/config/selected.txt"/>
-  <arg name="imu_compensation" default="true"/>
+  <arg name="imu_compensation" default="false"/>
   <arg name="polyOrder" default="2"/>
   <arg name="decayFactor" default="1.0"/>
   <arg name="model_file" default="$(find uvdar_core)/config/models/quadrotor_foursided.txt"/>
@@ -105,7 +105,7 @@
       <!-- Changeable for each nodelet independently. - no arguments! -->
       <param name="publish_visualization"             type="bool" value="false"/>
       <param name="use_camera_for_visualization"         type="bool" value="false"/>
-      <param name="visualization_rate"         type="double" value="2.0"/>
+      <param name="visualization_rate"         type="double" value="15.0"/>
       
       <param name="polyOrder" type="int" value="$(arg polyOrder)"/>
       <param name="decayFactor"         type="double" value="$(arg decayFactor)"/>
