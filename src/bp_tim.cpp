@@ -111,12 +111,16 @@ namespace uvdar{
       int _polynomialDegree_;
 
       struct BlinkData {
-      std::vector<std::pair<PointState,int>>      retrieved_blinkers;
-      std::shared_ptr<std::mutex>   mutex_retrieved_blinkers;
-      ros::Time                     last_sample_time;
-      ros::Time                     last_sample_time_diagnostic;
-      unsigned int                  sample_count = -1;
-      double                        framerate_estimate = 72;
+        std::vector<std::pair<PointState,int>>      retrieved_blinkers;
+        std::vector<double> x_coeff;
+        std::vector<double> y_coeff;
+        cv::Point2d ellipse;
+        cv::Point2d predicted;
+        std::shared_ptr<std::mutex>   mutex_retrieved_blinkers;
+        ros::Time                     last_sample_time;
+        ros::Time                     last_sample_time_diagnostic;
+        unsigned int                  sample_count = -1;
+        double                        framerate_estimate = 72;
 
       BlinkData(){mutex_retrieved_blinkers = std::make_shared<std::mutex>();}
       ~BlinkData(){mutex_retrieved_blinkers.reset();}
@@ -420,7 +424,13 @@ namespace uvdar{
     {
       std::scoped_lock lock(*(blink_data_[img_index].mutex_retrieved_blinkers));
       blink_data_[img_index].retrieved_blinkers = aht_[img_index]->getResults();
+      blink_data_[img_index].x_coeff = aht_[img_index]->getXCoeff();
+      blink_data_[img_index].y_coeff = aht_[img_index]->getYCoeff();
+      blink_data_[img_index].ellipse = aht_[img_index]->getEllipse();
+      blink_data_[img_index].predicted = aht_[img_index]->getPrediction();
       
+
+
       for (auto& signal : blink_data_[img_index].retrieved_blinkers) {
         mrs_msgs::Point2DWithFloat point;
         point.x     = signal.first.point.x;
@@ -603,3 +613,4 @@ namespace uvdar{
 
 #include <pluginlib/class_list_macros.h>
 PLUGINLIB_EXPORT_CLASS(uvdar::UVDAR_BP_Tim, nodelet::Nodelet);
+

@@ -17,9 +17,9 @@ namespace uvdar{
     
     struct SeqWithTrajectory{
         seqPointer seq;
-        std::vector<double> xCoeff;
-        std::vector<double> yCoeff;
-        cv::Point2d rmse;
+        std::vector<double> x_coeff;
+        std::vector<double> y_coeff;
+        cv::Point2d ellipse;
         cv::Point2d predicted;
     };
 

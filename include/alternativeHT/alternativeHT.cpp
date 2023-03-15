@@ -114,10 +114,24 @@ void alternativeHT::expandedSearch(std::vector<PointState> & noNNCurrentFrame, s
                 continue;
             }
 
-            for(int k = 0; k < (int)seq_trajectory.xCoeff.size(); ++k){
-                seq_trajectory.predicted.x += seq_trajectory.xCoeff[k]*pow(insertTime, k);
-                seq_trajectory.predicted.y += seq_trajectory.yCoeff[k]*pow(insertTime, k);
+            if((int)seq_trajectory.x_coeff.size() != (int)seq_trajectory.y_coeff.size()){
+                continue;
             }
+
+
+
+            for(int k = 0; k < (int)seq_trajectory.x_coeff.size(); ++k){
+                seq_trajectory.predicted.x += seq_trajectory.x_coeff[k]*pow(insertTime, k);
+                seq_trajectory.predicted.y += seq_trajectory.y_coeff[k]*pow(insertTime, k);
+            }
+
+
+            x_coeff_.clear();
+            y_coeff_.clear();
+            x_coeff_ = seq_trajectory.x_coeff;
+            y_coeff_ = seq_trajectory.y_coeff;
+            ellipse_ = seq_trajectory.ellipse;
+            predicted_ = seq_trajectory.predicted;
 
             for(int i = 0; i < (int)noNNCurrentFrame.size(); ++i){
                     if(extended_search_->checkIfInsideEllipse(seq_trajectory, noNNCurrentFrame[i].point)){
@@ -228,13 +242,6 @@ std::vector<std::pair<PointState, int>> alternativeHT::getResults(){
         for (auto point : selected){
             ledStates.push_back(point.ledState);
         }
-        // std::cout << "The seq" << std::endl; 
-        // for(auto k : ledStates){
-        //     if(k)std::cout << "1,";
-        //     else std::cout << "0,";
-        // }
-        // std::cout << std::endl;
-
 
         int id = findSequenceMatch(ledStates);
         retrievedSignals.push_back(std::make_pair(sequence.end()[-1], id));
@@ -253,6 +260,24 @@ int alternativeHT::findSequenceMatch(std::vector<bool> sequence){
     int id = matcher_->matchSignalWithCrossCorr(sequence);
 
     return id;
+}
+
+
+std::vector<double> alternativeHT::getXCoeff(){
+    return x_coeff_;
+}
+
+
+std::vector<double> alternativeHT::getYCoeff(){
+    return y_coeff_;
+}
+
+cv::Point2d alternativeHT::getEllipse(){
+    return ellipse_;
+}
+
+cv::Point2d alternativeHT::getPrediction(){
+    return predicted_;
 }
 
 alternativeHT::~alternativeHT() {

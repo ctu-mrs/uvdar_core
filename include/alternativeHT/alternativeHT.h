@@ -28,6 +28,12 @@ namespace uvdar
         const int size_for_savedSequences_ = 10; // the multiplication factor how long the sequence should be for calculating the trajectory   
         double framerate_;
 
+        std::vector<double> x_coeff_;
+        std::vector<double> y_coeff_;
+        cv::Point2d ellipse_;
+        cv::Point2d predicted_;
+
+
         std::vector<std::vector<bool>> originalSequences_;
         
         std::mutex mutex_generatedSequences_;
@@ -64,6 +70,10 @@ namespace uvdar
         void processBuffer(const mrs_msgs::ImagePointsWithFloatStampedConstPtr);
 
         std::vector<std::pair<PointState, int>> getResults();
+        std::vector<double> getXCoeff();
+        std::vector<double> getYCoeff();
+        cv::Point2d getPrediction();
+        cv::Point2d getEllipse();
         
     };    
 } // namespace uvdar

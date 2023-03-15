@@ -30,23 +30,23 @@ bool uvdar::ExtendedSearch::selectPointsForRegressionAndDoRegression(SeqWithTraj
     auto x_reg = polyReg(x, time);
     auto y_reg = polyReg(y, time);
 
-    prediction.xCoeff = x_reg.first;
-    prediction.yCoeff = y_reg.first;
-    prediction.rmse  = cv::Point2d(x_reg.second, y_reg.second);
+    prediction.x_coeff = x_reg.first;
+    prediction.y_coeff = y_reg.first;
+    prediction.ellipse  = cv::Point2d(x_reg.second, y_reg.second);
     
     // if all coefficients are zero, the regression was not sucessfull 
     int xCount = 0, yCount = 0;
-    for(auto coff : prediction.xCoeff){
+    for(auto coff : prediction.x_coeff){
         if(coff == 0.0 ){
             xCount++;
         }
     }
-    for(auto coff : prediction.yCoeff){
+    for(auto coff : prediction.y_coeff){
         if(coff == 0.0 ){
             yCount++;
         }
     }
-    if(yCount == (int)prediction.yCoeff.size() && xCount == (int)prediction.xCoeff.size()){
+    if(yCount == (int)prediction.y_coeff.size() && xCount == (int)prediction.x_coeff.size()){
         return false;
     }
 
@@ -119,7 +119,7 @@ double uvdar::ExtendedSearch::calcWeightedRMSE(const Eigen::VectorXd prediction,
 
 bool uvdar::ExtendedSearch::checkIfInsideEllipse(SeqWithTrajectory& seq, cv::Point2d& query_point){
     
-    double result = pow( (query_point.x - seq.predicted.x) / seq.rmse.x, 2) + pow( (query_point.y - seq.predicted.y) / seq.rmse.y , 2);  
+    double result = pow( (query_point.x - seq.predicted.x) / seq.ellipse.x, 2) + pow( (query_point.y - seq.predicted.y) / seq.ellipse.y , 2);  
     if(result < 1){
         return true;
     }else if(result > 1){
