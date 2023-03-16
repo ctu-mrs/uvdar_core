@@ -4,9 +4,9 @@
 
 using namespace uvdar;
 
-alternativeHT::alternativeHT(double decayFactor, int polyOrder){
-
-    extended_search_ = std::make_unique<ExtendedSearch>(decayFactor, polyOrder);
+alternativeHT::alternativeHT(double decayFactor, int poly_order){
+    poly_order_ = poly_order;
+    extended_search_ = std::make_unique<ExtendedSearch>(decayFactor, poly_order);
 
 }
 
@@ -94,7 +94,7 @@ void alternativeHT::insertPointToSequence(std::vector<PointState> & sequence, co
 }
 
 
-void alternativeHT::expandedSearch(std::vector<PointState> & noNNCurrentFrame, std::vector<seqPointer>& sequencesNoInsert){
+void alternativeHT::expandedSearch(std::vector<PointState> & no_nn_current_frame, std::vector<seqPointer>& sequencesNoInsert){
     
     std::scoped_lock lock(mutex_generatedSequences_);
 
@@ -113,8 +113,8 @@ void alternativeHT::expandedSearch(std::vector<PointState> & noNNCurrentFrame, s
     // }
     
     // std::cout << "Sequences No Insert" << sequencesNoInsert.size() << " Seq " << generatedSequences_.size() << "\n";
-    if((int)noNNCurrentFrame.size() != 0){
-        double insertTime = noNNCurrentFrame[0].insertTime.toSec() + predictionMargin_;
+    if((int)no_nn_current_frame.size() != 0){
+        double insertTime = no_nn_current_frame[0].insertTime.toSec() + predictionMargin_;
         // std::vector<SeqWithTrajectory> sequences;
         for(int k = 0; k < (int)sequencesNoInsert.size(); ++k){
             
@@ -151,66 +151,89 @@ void alternativeHT::expandedSearch(std::vector<PointState> & noNNCurrentFrame, s
                 ss_x += pow(x[i] - mean_x, 2);
                 ss_y += pow(y[i] - mean_y, 2);
             }
+            // eventually n-1
             double std_x = sqrt(ss_x/(int)x.size());
             double std_y = sqrt(ss_y/(int)y.size());
 
-            std::cout << "STD " << std_x << " " << std_y << " Sample size " << x.size() << std::endl;
-            bool movement  = true;
-            if(std_x < 1.0 && std_y < 1.0 && (int)x.size() < 10 && (int)y.size() < 10 ){
-                movement = false;
+            bool x_all_coeff_zero = false;
+            bool y_all_coeff_zero = false; 
+            std::pair<std::vector<double>, double> x_stats, y_stats;
+            auto last_point = &sequencesNoInsert[k]->end()[-1]; 
+            bool poly_reg_y = false;
+            bool poly_reg_x = false;
+            if(std_x > 2.0){
+                poly_reg_x = true;
+                x_stats = extended_search_->polyReg(x, time);
+                x_all_coeff_zero = std::all_of(x_stats.first.begin(), x_stats.first.end(), [](double coeff){return coeff == 0;});
+                last_point->x_coeff = x_stats.first;
+                last_point->ellipse.x = (x_stats.second < 3) ? 4 : x_stats.second; 
+
+                for(int i = 0; i < last_point->x_coeff.size(); ++i){
+                    last_point->predicted.x += last_point->x_coeff[i]*pow(insertTime, i);
+                }
+            }else{
+                last_point->predicted.x = mean_x;
+                last_point->ellipse.x = (std_x < 1.0) ? max_pixel_shift_x_*2 : std_x*2;
+                last_point->x_coeff = std::vector<double>(1, 0.0);
             }
 
-            auto lastPoint = &sequencesNoInsert[k]->end()[-1]; 
-            
-            if(movement){
-                if(!extended_search_->doRegression(sequencesNoInsert[k], x, y, time)){
-                    continue;
+            if(std_y > 2.0){
+                poly_reg_y = true;
+                y_stats = extended_search_->polyReg(y, time);
+                y_all_coeff_zero = std::all_of(y_stats.first.begin(), y_stats.first.end(), [](double coeff){return coeff == 0;});
+                last_point->y_coeff = y_stats.first;
+                last_point->ellipse.y = y_stats.second;
+                for(int i = 0; i < last_point->y_coeff.size(); ++i){
+                    last_point->predicted.y += last_point->y_coeff[i]*pow(insertTime, i);
                 }
-
-
-                if((int)lastPoint->x_coeff.size() != (int)lastPoint->y_coeff.size()){
-                    continue;
-                }
-
-                for(int k = 0; k < (int)lastPoint->x_coeff.size(); ++k){
-                    lastPoint->predicted.x += lastPoint->x_coeff[k]*pow(insertTime, k);
-                    lastPoint->predicted.y += lastPoint->y_coeff[k]*pow(insertTime, k);
-                }
+                last_point->ellipse.y = (y_stats.second < 3) ? 4 : y_stats.second; 
+            }else{
+                last_point->predicted.y = mean_y;
+                last_point->ellipse.y = (std_y < 1.0) ? max_pixel_shift_y_*2 : std_y*2;
+                last_point->y_coeff = std::vector<double>(1, 0.0);
             }
+            std::cout << "PREDICTION SET" << last_point->point.x << " " << last_point->point.y << " PREDICT "<<  last_point->predicted.x << " " << last_point->predicted.y << "\n"; 
+            // if(poly_reg_x) std::cout << "Poly reg x\n";
+            // else std::cout << "Mean\n";
+            // if(poly_reg_y) std::cout << "Poly reg y\n";
+            // else std::cout << "Mean\n";
+
+            // std::cout << "Predicted " << last_point->predicted.x << " " << last_point->predicted.y << " El " << last_point->ellipse.x << " " << last_point->ellipse.y << " MEAN "<< mean_x << " " << mean_y <<"\n"; 
+            // if(last_point->ellipse.x == 0){
+            //     std::cout << "mean X " << mean_x << " coeff ";
+            //     for(auto l : last_point->x_coeff){
+            //         std::cout << l << ", ";
+            //     }
+            //     std::cout << "\n";
+            // }
+            // if(last_point->ellipse.y == 0 ){
+            //     std::cout << "mean Y " << mean_x << " coeff ";
+            //     for(auto l : last_point->y_coeff){
+            //         std::cout << l << ", ";
+            //     }
+            //     std::cout << "\n";
+            // }
+            last_point->computedExtendedSearch = true;
+
             // else std::cout << "NO bool set\n";
-            for(int i = 0; i < (int)noNNCurrentFrame.size(); ++i){
-                if(movement){
-                    if(extended_search_->checkIfInsideEllipse(*lastPoint, noNNCurrentFrame[i].point)){
-                        noNNCurrentFrame[i].computedExtendedSearch = true;
-                        noNNCurrentFrame[i].ellipse = lastPoint->ellipse;
-                        noNNCurrentFrame[i].predicted = lastPoint->predicted;
-                        noNNCurrentFrame[i].x_coeff = lastPoint->x_coeff;
-                        noNNCurrentFrame[i].y_coeff = lastPoint->y_coeff;
-                        insertPointToSequence(*(sequencesNoInsert[k]), noNNCurrentFrame[i]);
-                        noNNCurrentFrame.erase(noNNCurrentFrame.begin()+i);
-                        sequencesNoInsert.erase(sequencesNoInsert.begin()+k); 
-                        // std::cout << "ELLIPSE\n";
-                        break;
-                    }
-                }else{
-                    cv::Point2d diff = computeXYDiff(sequencesNoInsert[k]->end()[-1].point, noNNCurrentFrame[i].point);
-                    if(diff.x <= max_pixel_shift_x_*2 && diff.y <= max_pixel_shift_y_*2){
-                        ROS_ERROR("hit box");                        
-                        noNNCurrentFrame[i].computedExtendedSearch = true;
-                        noNNCurrentFrame[i].ellipse = lastPoint->ellipse;
-                        noNNCurrentFrame[i].predicted = lastPoint->predicted;
-                        noNNCurrentFrame[i].x_coeff = lastPoint->x_coeff;
-                        noNNCurrentFrame[i].y_coeff = lastPoint->y_coeff;
-                        insertPointToSequence(*(sequencesNoInsert[k]), noNNCurrentFrame[i]);
-                        noNNCurrentFrame.erase(noNNCurrentFrame.begin()+i);
-                        sequencesNoInsert.erase(sequencesNoInsert.begin()+k);
-                        break;
-                    }
+
+            for(int i = 0; i < (int)no_nn_current_frame.size(); ++i){
+                // std::cout << no_nn_current_frame[i].point.x << " " << no_nn_current_frame[i].point.y <<", ";
+                if(extended_search_->checkIfInsideEllipse(*last_point, no_nn_current_frame[i].point)){
+                    auto no_nn_point_copy = no_nn_current_frame[i].point;
+                    auto curr_time_copy = no_nn_current_frame[i].insertTime;
+                    no_nn_current_frame[i] = *last_point;
+                    no_nn_current_frame[i].point = no_nn_point_copy;
+                    no_nn_current_frame[i].insertTime = curr_time_copy;
+                    insertPointToSequence(*(sequencesNoInsert[k]), no_nn_current_frame[i]);
+                    no_nn_current_frame.erase(no_nn_current_frame.begin()+i);
+                    sequencesNoInsert.erase(sequencesNoInsert.begin()+k); 
+                    std::cout << "insert\n";
+                    break;
                 }
-            }
+             }
         }
     }
-
 
     // insert VP to sequnces were no point was inserted
     for(auto seq : sequencesNoInsert){
@@ -218,7 +241,7 @@ void alternativeHT::expandedSearch(std::vector<PointState> & noNNCurrentFrame, s
     }
 
     // if still points are not inserted start new sequence
-    for(auto point : noNNCurrentFrame){
+    for(auto point : no_nn_current_frame){
         std::vector<PointState> vect;
         vect.push_back(point);
         generatedSequences_.push_back(vect);
@@ -302,8 +325,9 @@ std::vector<std::pair<PointState, int>> alternativeHT::getResults(){
         }
 
         int id = findSequenceMatch(ledStates);
+
         retrievedSignals.push_back(std::make_pair(sequence.end()[-1], id));
-        if(sequence.end()[-1].computedExtendedSearch)std::cout << "Predicted " << sequence.end()[-1].predicted.x << " " << sequence.end()[-1].predicted.y << std::endl; 
+        // if(sequence.end()[-1].computedExtendedSearch)std::cout << "Predicted " << sequence.end()[-1].predicted.x << " " << sequence.end()[-1].predicted.y << std::endl; 
        
     }
 

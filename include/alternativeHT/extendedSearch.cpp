@@ -11,36 +11,36 @@ uvdar::ExtendedSearch::~ExtendedSearch(){
 
 }
 
-bool uvdar::ExtendedSearch::doRegression(seqPointer& prediction, std::vector<double>& x, std::vector<double>& y, std::vector<ros::Time>& time ){
+// bool uvdar::ExtendedSearch::doRegression(seqPointer& prediction, std::vector<double>& x, std::vector<double>& y, std::vector<ros::Time>& time ){
 
-    auto x_reg = polyReg(x, time);
-    auto y_reg = polyReg(y, time);
+//     auto x_reg = polyReg(x, time);
+//     auto y_reg = polyReg(y, time);
 
-    auto lastPoint = &prediction->end()[-1];
+//     auto lastPoint = &prediction->end()[-1];
 
-    lastPoint->computedExtendedSearch = true;
-    lastPoint->x_coeff = x_reg.first;
-    lastPoint->y_coeff = y_reg.first;
-    lastPoint->ellipse  = cv::Point2d(x_reg.second, y_reg.second);
+//     lastPoint->computedExtendedSearch = true;
+//     lastPoint->x_coeff = x_reg.first;
+//     lastPoint->y_coeff = y_reg.first;
+//     lastPoint->ellipse  = cv::Point2d(x_reg.second, y_reg.second);
     
-    // if all coefficients are zero, the regression was not sucessfull 
-    int xCount = 0, yCount = 0;
-    for(auto coff : lastPoint->x_coeff){
-        if(coff == 0.0 ){
-            xCount++;
-        }
-    }
-    for(auto coff : lastPoint->y_coeff){
-        if(coff == 0.0 ){
-            yCount++;
-        }
-    }
-    if(yCount == (int)lastPoint->y_coeff.size() && xCount == (int)lastPoint->x_coeff.size()){
-        return false;
-    }
+//     // if all coefficients are zero, the regression was not sucessfull 
+//     int xCount = 0, yCount = 0;
+//     for(auto coff : lastPoint->x_coeff){
+//         if(coff == 0.0 ){
+//             xCount++;
+//         }
+//     }
+//     for(auto coff : lastPoint->y_coeff){
+//         if(coff == 0.0 ){
+//             yCount++;
+//         }
+//     }
+//     if(yCount == (int)lastPoint->y_coeff.size() && xCount == (int)lastPoint->x_coeff.size()){
+//         return false;
+//     }
 
-    return true;
-}
+//     return true;
+// }
 
 
 

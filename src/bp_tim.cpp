@@ -425,13 +425,6 @@ namespace uvdar{
         mrs_msgs::Point2DWithFloat point;
         point.x = signal.first.point.x;
         point.y = signal.first.point.y;
-        if(signal.first.computedExtendedSearch){
-        //   cv::Point2d ellipse = signal.first.ellipse;
-        //   cv::Point2d predicted = signal.first.predicted;
-        //   auto x_coeff = signal.first.x_coeff;
-        //   auto y_coeff = signal.first.y_coeff;
-          // ROS_ERROR("JERE");
-        }
         if (signal.second <= (int)sequences_.size()){
           point.value = signal.second;
         }
@@ -550,17 +543,23 @@ namespace uvdar{
       {
       std::scoped_lock lock(*(blink_data_[image_index].mutex_retrieved_blinkers));
 
-      // std::vector<std::vector<cv::Point>> predicted_points;
-      // for(int i = 0; i < image_index; ++i){
-      //   std::vector<cv::Point> dummy;
-      //   predicted_points.push_back(dummy);
-      // }
       for(int j = 0; j < (int)(blink_data_[image_index].retrieved_blinkers.size()); j++){
         
         bool draw_prediction = false;
         cv::Point2d ellipse;
         cv::Point2d predicted; 
         cv::Scalar predictionColor(255,153,255);
+        std::vector<cv::Point> interpolated_prediction;
+        // if(blink_data_[image_index].retrieved_blinkers[j].first.predicted.x != 0.0){
+        //   std::cout << "blink data "<< blink_data_[image_index].retrieved_blinkers[j].first.predicted.x;
+        // }else{
+        //   std::cout << "In drawing \n";
+        // }
+
+      std::cout << "BLA "  << blink_data_[image_index].retrieved_blinkers[j].first.point.x << " " << blink_data_[image_index].retrieved_blinkers[j].first.point.y << " PRE " <<  blink_data_[image_index].retrieved_blinkers[j].first.predicted.x << " " << blink_data_[image_index].retrieved_blinkers[j].first.predicted.y << std::endl; 
+
+
+
         if(blink_data_[image_index].retrieved_blinkers[j].first.computedExtendedSearch){
           ellipse = blink_data_[image_index].retrieved_blinkers[j].first.ellipse;
           predicted = blink_data_[image_index].retrieved_blinkers[j].first.predicted;
@@ -568,27 +567,28 @@ namespace uvdar{
           auto y_coeff = blink_data_[image_index].retrieved_blinkers[j].first.y_coeff;
 
           auto currentTime = blink_data_[image_index].retrieved_blinkers[j].first.insertTime;
-          double predictionWindow = 4.0;
-          auto drawPredictionTime = currentTime.toSec() + predictionWindow;
+          double predictionWindow = 3.0;
+          // auto drawPredictionTime = currentTime.toSec() + predictionWindow;
           double step_size_sec = 0.01;
-          int point_size = step_size_sec*drawPredictionTime;
+          int point_size = predictionWindow/step_size_sec;
           double computed_time = currentTime.toSec();
-          // for(int i = 0; i < point_size; ++i){
-          //   if(x_coeff.size() == y_coeff.size()){
-          //     cv::Point prediction;
-          //     for(int j = 0; j < (int)x_coeff.size(); ++j){
-          //       prediction.x += x_coeff[j]*pow(computed_time, j);
-          //       prediction.y += y_coeff[j]*pow(computed_time, j);
-          //     }
-          //     computed_time += step_size_sec;
-          //     prediction = prediction + start_point;
-          //     // predicted_points[image_index].push_back(prediction);              
-          //   }
-          // }
-          // if(predicted_points[image_index].size() !=0) std::cout  << " I'm here "<< predicted_points[image_index].size() << "\n";
+          for(int i = 0; i < point_size; ++i){
+            if(x_coeff.size() == y_coeff.size()){
+              cv::Point prediction;
+              for(int j = 0; j < (int)x_coeff.size(); ++j){
+                prediction.x += x_coeff[j]*pow(computed_time, j);
+                prediction.y += y_coeff[j]*pow(computed_time, j);
+              }
 
-          draw_prediction = true;
+              computed_time += step_size_sec;
+              prediction = prediction + start_point;
+              interpolated_prediction.push_back(prediction);              
+            }
+          }
+          std::cout << "Size " << interpolated_prediction.size() << std::endl;
         }
+          // draw_prediction = true;
+        // }
 
         cv::Point center = cv::Point(blink_data_[image_index].retrieved_blinkers[j].first.point.x, blink_data_[image_index].retrieved_blinkers[j].first.point.y) + start_point;
         int signal_index = blink_data_[image_index].retrieved_blinkers[j].second;
@@ -605,13 +605,16 @@ namespace uvdar{
           cv::circle(output_image, center, 2, cv::Scalar(160,160,160));
         }
 
-        if(draw_prediction){
+        // if(draw_prediction){
           cv::Point centerPrediction;
           centerPrediction = cv::Point(predicted.x, predicted.y) + start_point; 
-          cv::circle(output_image, centerPrediction, 2, predictionColor, cv::FILLED);
+          // cv::circle(output_image, centerPrediction, 2, predictionColor, cv::FILLED);
           cv::ellipse(output_image, centerPrediction, cv::Size(ellipse.x, ellipse.y), 0, 0, 360, cv::Scalar(255, 128, 0), 1, cv::LINE_AA);
-          // cv::polylines(output_image, predicted_points[image_index], false, cv::Scalar(255,128,0), 2);
-        }
+          // cv::ellipse(output_image, center, cv::Size(10,5), 0, 0, 360, cv::Scalar(255, 128, 0), 1, cv::LINE_AA);
+          if(interpolated_prediction.size() != 0){
+            std::cout << "size != 0\n";
+            cv::polylines(output_image, interpolated_prediction, false, cv::Scalar(255,128,0), 5);
+          }
       }
       }
 
