@@ -123,7 +123,7 @@ windows:
   - slow_down:
       layout: even-vertical
       panes:
-        - waitForSimulation; sleep 15; gz physics -u 83
+        - waitForSimulation; sleep 15; gz physics -u 120
           # - waitForCompile; waitForSimulation; sleep 15; gz physics -u 80
 
   - goto:

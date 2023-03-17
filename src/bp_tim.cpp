@@ -111,7 +111,7 @@ namespace uvdar{
       int _polynomialDegree_;
 
       struct BlinkData {
-        std::vector<std::pair<PointState,int>> retrieved_blinkers;
+        std::vector<std::pair<std::vector<PointState>,int>> retrieved_blinkers;
         std::shared_ptr<std::mutex>   mutex_retrieved_blinkers;
         ros::Time                     last_sample_time;
         ros::Time                     last_sample_time_diagnostic;
@@ -423,8 +423,9 @@ namespace uvdar{
 
       for (auto& signal : blink_data_[img_index].retrieved_blinkers) {
         mrs_msgs::Point2DWithFloat point;
-        point.x = signal.first.point.x;
-        point.y = signal.first.point.y;
+        auto k = signal.first.end()[-1];
+        point.x = k.point.x;
+        point.y = k.point.y;
         if (signal.second <= (int)sequences_.size()){
           point.value = signal.second;
         }
@@ -502,7 +503,7 @@ namespace uvdar{
     int i =0;
     for (auto curr_size : camera_image_sizes_){
       if ((curr_size.width < 0) || (curr_size.height < 0)){
-        ROS_ERROR_STREAM("[UVDARBlinkProcessor]: Size of image " << i << " was not received! Returning.");
+        ROS_ERROR_STREAM("[UVDAR_BP]: Size of image " << i << " was not received! Returning.");
         return -4;
       }
       if (max_image_height < curr_size.height){
@@ -544,53 +545,75 @@ namespace uvdar{
       std::scoped_lock lock(*(blink_data_[image_index].mutex_retrieved_blinkers));
 
       for(int j = 0; j < (int)(blink_data_[image_index].retrieved_blinkers.size()); j++){
-        
-        bool draw_prediction = false;
         cv::Point2d ellipse;
         cv::Point2d predicted; 
-        cv::Scalar predictionColor(255,153,255);
+        cv::Scalar predict_colour(255,153,255);
+        cv::Scalar seq_colour(160,160,160);
         std::vector<cv::Point> interpolated_prediction;
-        // if(blink_data_[image_index].retrieved_blinkers[j].first.predicted.x != 0.0){
-        //   std::cout << "blink data "<< blink_data_[image_index].retrieved_blinkers[j].first.predicted.x;
+        
+        ellipse = blink_data_[image_index].retrieved_blinkers[j].first.end()[-1].ellipse;
+        predicted = blink_data_[image_index].retrieved_blinkers[j].first.end()[-1].predicted;
+        auto x_coeff = blink_data_[image_index].retrieved_blinkers[j].first.end()[-1].x_coeff;
+        auto y_coeff = blink_data_[image_index].retrieved_blinkers[j].first.end()[-1].y_coeff;
+        auto currentTime = blink_data_[image_index].retrieved_blinkers[j].first.end()[-1].insertTime;
+        double predictionWindow = 1.5;
+        double step_size_sec = 0.01;
+        int point_size = predictionWindow/step_size_sec;
+        double computed_time = currentTime.toSec();
+
+
+
+
+        // TODO: DELETE!!!!!!!!!
+        // bool x_all_coeff_zero = std::all_of(x_coeff.begin(), x_coeff.end(), [](double coeff){return coeff == 0;});
+        // bool y_all_coeff_zero = std::all_of(y_coeff.begin(), y_coeff.end(), [](double coeff){return coeff == 0;});
+        // if(x_all_coeff_zero){
+        //   std::cout << "MEAN X\n";
         // }else{
-        //   std::cout << "In drawing \n";
+        //   std::cout << "POLY X\n";
+        // }
+        // if(y_all_coeff_zero){
+        //   std::cout << "MEAN Y\n";
+        // }else{
+        //   std::cout << "POLY Y\n";
         // }
 
-      std::cout << "BLA "  << blink_data_[image_index].retrieved_blinkers[j].first.point.x << " " << blink_data_[image_index].retrieved_blinkers[j].first.point.y << " PRE " <<  blink_data_[image_index].retrieved_blinkers[j].first.predicted.x << " " << blink_data_[image_index].retrieved_blinkers[j].first.predicted.y << std::endl; 
 
 
-
-        if(blink_data_[image_index].retrieved_blinkers[j].first.computedExtendedSearch){
-          ellipse = blink_data_[image_index].retrieved_blinkers[j].first.ellipse;
-          predicted = blink_data_[image_index].retrieved_blinkers[j].first.predicted;
-          auto x_coeff = blink_data_[image_index].retrieved_blinkers[j].first.x_coeff;
-          auto y_coeff = blink_data_[image_index].retrieved_blinkers[j].first.y_coeff;
-
-          auto currentTime = blink_data_[image_index].retrieved_blinkers[j].first.insertTime;
-          double predictionWindow = 3.0;
-          // auto drawPredictionTime = currentTime.toSec() + predictionWindow;
-          double step_size_sec = 0.01;
-          int point_size = predictionWindow/step_size_sec;
-          double computed_time = currentTime.toSec();
-          for(int i = 0; i < point_size; ++i){
-            if(x_coeff.size() == y_coeff.size()){
+        for(int i = 0; i < point_size; ++i){
               cv::Point prediction;
-              for(int j = 0; j < (int)x_coeff.size(); ++j){
-                prediction.x += x_coeff[j]*pow(computed_time, j);
-                prediction.y += y_coeff[j]*pow(computed_time, j);
+
+
+              bool x_all_coeff_zero = std::all_of(x_coeff.begin(), x_coeff.end(), [](double coeff){return coeff == 0;});
+              bool y_all_coeff_zero = std::all_of(y_coeff.begin(), y_coeff.end(), [](double coeff){return coeff == 0;});
+              if(!x_all_coeff_zero){
+                for(int k = 0; k < (int)x_coeff.size(); ++k){
+                  prediction.x += x_coeff[k]*pow(computed_time, k);
+                }
+              }else{
+                prediction.x = predicted.x;
+              }
+              if(!y_all_coeff_zero){
+                for(int k = 0; k < (int)y_coeff.size(); ++k){
+                  prediction.y += y_coeff[k]*pow(computed_time, k);
+                }
+              }else{
+                prediction.y = predicted.y;
               }
 
               computed_time += step_size_sec;
               prediction = prediction + start_point;
+
+            
               interpolated_prediction.push_back(prediction);              
-            }
+            // }
           }
-          std::cout << "Size " << interpolated_prediction.size() << std::endl;
-        }
+          // std::cout << "Size " << interpolated_prediction.size() << std::endl;
+        // }
           // draw_prediction = true;
         // }
 
-        cv::Point center = cv::Point(blink_data_[image_index].retrieved_blinkers[j].first.point.x, blink_data_[image_index].retrieved_blinkers[j].first.point.y) + start_point;
+        cv::Point center = cv::Point(blink_data_[image_index].retrieved_blinkers[j].first.end()[-1].point.x, blink_data_[image_index].retrieved_blinkers[j].first.end()[-1].point.y) + start_point;
         int signal_index = blink_data_[image_index].retrieved_blinkers[j].second;
         if(signal_index == -2 || signal_index == -3) {
           continue;
@@ -608,19 +631,31 @@ namespace uvdar{
         // if(draw_prediction){
           cv::Point centerPrediction;
           centerPrediction = cv::Point(predicted.x, predicted.y) + start_point; 
-          // cv::circle(output_image, centerPrediction, 2, predictionColor, cv::FILLED);
-          cv::ellipse(output_image, centerPrediction, cv::Size(ellipse.x, ellipse.y), 0, 0, 360, cv::Scalar(255, 128, 0), 1, cv::LINE_AA);
+
+          // centerPrediction = cv::Point(250, 250) + start_point; 
+          // ellipse.x = 2; 
+          // ellipse.y = 2;
+          if(predicted.x != 0 || predicted.y != 0) std::cout << centerPrediction.x << " " << centerPrediction.y << " ELL "<< ellipse.x << " " << ellipse.y << "\n";
+
+          cv::ellipse(output_image, centerPrediction, cv::Size(ellipse.x, ellipse.y), 0, 0, 360, predict_colour, 1, cv::LINE_AA);
           // cv::ellipse(output_image, center, cv::Size(10,5), 0, 0, 360, cv::Scalar(255, 128, 0), 1, cv::LINE_AA);
-          if(interpolated_prediction.size() != 0){
-            std::cout << "size != 0\n";
-            cv::polylines(output_image, interpolated_prediction, false, cv::Scalar(255,128,0), 5);
-          }
+          // if(interpolated_prediction.size() != 0){
+            // std::cout << "size != 0\n";
+            // draw older messages 
+            std::vector<cv::Point> draw_seq;  
+            for(auto p : blink_data_[image_index].retrieved_blinkers[j].first){
+              if(p.ledState){
+                cv::Point point;
+                point.x = p.point.x;
+                point.y = p.point.y;
+                draw_seq.push_back(point+start_point);
+              }
+            }
+            cv::polylines(output_image, draw_seq, false, seq_colour, 1);
+            cv::polylines(output_image, interpolated_prediction, false, predict_colour, 1);
+          // }
       }
       }
-
-
-
-
 
 
 
