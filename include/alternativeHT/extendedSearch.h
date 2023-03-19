@@ -18,7 +18,7 @@ namespace uvdar{
         cv::Point2d predicted;
     };
 
-    using seqPointer = std::vector<PointState>*;
+    using seqPointer = std::shared_ptr<std::vector<PointState>>;
 
     class ExtendedSearch{
         

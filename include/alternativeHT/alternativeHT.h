@@ -32,7 +32,9 @@ namespace uvdar
         std::vector<std::vector<bool>> originalSequences_;
         
         std::mutex mutex_generatedSequences_;
-        std::list<std::vector<PointState>> generatedSequences_;
+        // std::list<std::vector<PointState>> generatedSequences_;
+        std::vector<std::shared_ptr<std::vector<PointState>>> gen_sequences_;
+
 
         std::unique_ptr<SignalMatcher> matcher_;
         std::unique_ptr<ExtendedSearch> extended_search_;
