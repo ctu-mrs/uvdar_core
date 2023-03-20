@@ -553,61 +553,70 @@ namespace uvdar{
         
         ellipse = blink_data_[image_index].retrieved_blinkers[j].first.end()[-1].ellipse;
         predicted = blink_data_[image_index].retrieved_blinkers[j].first.end()[-1].predicted;
+        // std::cout << "predicted " << predicted.x << " " << predicted.y << "\n"; 
         auto x_coeff = blink_data_[image_index].retrieved_blinkers[j].first.end()[-1].x_coeff;
         auto y_coeff = blink_data_[image_index].retrieved_blinkers[j].first.end()[-1].y_coeff;
         auto currentTime = blink_data_[image_index].retrieved_blinkers[j].first.end()[-1].insertTime;
+        auto bla =  blink_data_[image_index].retrieved_blinkers[j].first.end()[-1].predicted_time;
+        // if(currentTime.toSec() != bla.toSec()) {
+          // ROS_ERROR("WTF");
+          // std::cout << currentTime.toSec() << " " << bla.toSec() << "\n";
+        // }
         double predictionWindow = 1.5;
         double step_size_sec = 0.01;
         int point_size = predictionWindow/step_size_sec;
         double computed_time = currentTime.toSec();
-
-
-
-
-        // TODO: DELETE!!!!!!!!!
-        // bool x_all_coeff_zero = std::all_of(x_coeff.begin(), x_coeff.end(), [](double coeff){return coeff == 0;});
-        // bool y_all_coeff_zero = std::all_of(y_coeff.begin(), y_coeff.end(), [](double coeff){return coeff == 0;});
-        // if(x_all_coeff_zero){
-        //   std::cout << "MEAN X\n";
-        // }else{
-        //   std::cout << "POLY X\n";
-        // }
-        // if(y_all_coeff_zero){
-        //   std::cout << "MEAN Y\n";
-        // }else{
-        //   std::cout << "POLY Y\n";
-        // }
-
-
-
-        for(int i = 0; i < point_size; ++i){
-              cv::Point prediction;
-
-
-              bool x_all_coeff_zero = std::all_of(x_coeff.begin(), x_coeff.end(), [](double coeff){return coeff == 0;});
-              bool y_all_coeff_zero = std::all_of(y_coeff.begin(), y_coeff.end(), [](double coeff){return coeff == 0;});
-              if(!x_all_coeff_zero){
-                for(int k = 0; k < (int)x_coeff.size(); ++k){
-                  prediction.x += x_coeff[k]*pow(computed_time, k);
-                }
-              }else{
-                prediction.x = predicted.x;
-              }
-              if(!y_all_coeff_zero){
-                for(int k = 0; k < (int)y_coeff.size(); ++k){
-                  prediction.y += y_coeff[k]*pow(computed_time, k);
-                }
-              }else{
-                prediction.y = predicted.y;
-              }
-
-              computed_time += step_size_sec;
-              prediction = prediction + start_point;
-
-            
-              interpolated_prediction.push_back(prediction);              
-            // }
+        bool x_all_coeff_zero = std::all_of(x_coeff.begin(), x_coeff.end(), [](double coeff){return coeff == 0;});
+        bool y_all_coeff_zero = std::all_of(y_coeff.begin(), y_coeff.end(), [](double coeff){return coeff == 0;});
+        
+        double x = 0;
+        if(!x_all_coeff_zero){
+          for(int i = 0; i < (int)x_coeff.size(); ++i){
+                  x += x_coeff[i]*pow(currentTime.toSec(), i);
           }
+        }
+
+        double y;
+        if(!y_all_coeff_zero){
+          for(int i = 0; i < (int)y_coeff.size(); ++i){
+                  y += y_coeff[i]*pow(currentTime.toSec(), i);
+          }
+        }
+        // if(!x_all_coeff_zero || !y_all_coeff_zero){ 
+          std::cout << "BP " << predicted.x << " " << predicted.y << " Calculated "<< x << " " << y << " Time " << currentTime.toSec()  << "\n"; 
+        // }
+
+        // for(int i = 0; i < point_size; ++i){
+        //       cv::Point prediction = cv::Point{0,0};
+
+              // if(!x_all_coeff_zero){
+              //   // std::cout << std::fixed <<  "x " << currentTime << " ";
+              //   for(int k = 0; k < (int)x_coeff.size(); ++k){
+              //     prediction.x += x_coeff[k]*pow(currentTime.toSec(), k);
+              //     // std::cout << x_coeff[k] << ",";
+              //   }
+              //   std::cout << " PREDICTED " << prediction.x << "\n";
+
+              // }else{
+              //   prediction.x = predicted.x;
+              // }
+              // if(!y_all_coeff_zero){
+              //   // std::cout << "y "; 
+              //   for(int k = 0; k < (int)y_coeff.size(); ++k){
+              //     prediction.y += y_coeff[k]*pow(currentTime.toSec(), k);
+              //     std::cout << y_coeff[k] << ",";
+              //   }std::cout << "PREDICTED " << prediction.y << "\n";; 
+              // }else{
+              //   prediction.y = predicted.y;
+              // }
+
+              // computed_time += step_size_sec;
+              // prediction = prediction + start_point;
+              // if(( prediction.x != 0 || prediction.y != 0) && (!x_all_coeff_zero || !y_all_coeff_zero) )std::cout << "prediction " << prediction.x << " " << prediction.y << "\n"; 
+              
+              // interpolated_prediction.push_back(prediction);              
+            // }
+          // }
           // std::cout << "Size " << interpolated_prediction.size() << std::endl;
         // }
           // draw_prediction = true;
@@ -635,9 +644,9 @@ namespace uvdar{
           // centerPrediction = cv::Point(250, 250) + start_point; 
           // ellipse.x = 2; 
           // ellipse.y = 2;
-          if(predicted.x != 0 || predicted.y != 0) std::cout << centerPrediction.x << " " << centerPrediction.y << " ELL "<< ellipse.x << " " << ellipse.y << "\n";
-
-          cv::ellipse(output_image, centerPrediction, cv::Size(ellipse.x, ellipse.y), 0, 0, 360, predict_colour, 1, cv::LINE_AA);
+          // if(predicted.x != 0 || predicted.y != 0) std::cout << centerPrediction.x << " " << centerPrediction.y << " ELL "<< ellipse.x << " " << ellipse.y << "\n";
+          cv::circle(output_image, centerPrediction, 1, predict_colour);
+          // cv::ellipse(output_image, centerPrediction, cv::Size(ellipse.x, ellipse.y), 0, 0, 360, predict_colour, 1, cv::LINE_AA);
           // cv::ellipse(output_image, center, cv::Size(10,5), 0, 0, 360, cv::Scalar(255, 128, 0), 1, cv::LINE_AA);
           // if(interpolated_prediction.size() != 0){
             // std::cout << "size != 0\n";

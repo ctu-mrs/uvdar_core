@@ -106,9 +106,11 @@ double uvdar::ExtendedSearch::calcWeightedRMSE(const Eigen::VectorXd prediction,
 }
 
 
-bool uvdar::ExtendedSearch::checkIfInsideEllipse(PointState& point, cv::Point2d& query_point){
+bool uvdar::ExtendedSearch::checkIfInsideEllipse(const cv::Point2d& center_point, const cv::Point2d& variance, const cv::Point2d& query_point){
     
-    double result = pow( (query_point.x - point.predicted.x) / point.ellipse.x, 2) + pow( (query_point.y - point.predicted.y) / point.ellipse.y , 2);  
+    // double result = pow( (query_point.x - point.predicted.x) / point.ellipse.x, 2) + pow( (query_point.y - point.predicted.y) / point.ellipse.y , 2);  
+    double result = pow( (query_point.x - center_point.x) / variance.x, 2) + pow( (query_point.y - center_point.y) / variance.y , 2);  
+
     if(result < 1){
         return true;
     }else if(result > 1){
@@ -116,7 +118,6 @@ bool uvdar::ExtendedSearch::checkIfInsideEllipse(PointState& point, cv::Point2d&
     }
 
     if(result == 1){
-        std::cout << "Is on the ellipse" << std::endl;
         return true;
     }
     

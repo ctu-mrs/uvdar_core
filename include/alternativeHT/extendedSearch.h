@@ -6,20 +6,6 @@
 
 namespace uvdar{
     
-
-    struct PointState{
-        cv::Point2d point;
-        bool ledState; 
-        ros::Time insertTime;
-        bool computedExtendedSearch = false;
-        std::vector<double> x_coeff;
-        std::vector<double> y_coeff;
-        cv::Point2d ellipse;
-        cv::Point2d predicted;
-    };
-
-    using seqPointer = std::shared_ptr<std::vector<PointState>>;
-
     class ExtendedSearch{
         
         private: 
@@ -31,7 +17,7 @@ namespace uvdar{
         public:
             ExtendedSearch(double, int);
             ~ExtendedSearch();
-            bool checkIfInsideEllipse(PointState&, cv::Point2d&);
+            bool checkIfInsideEllipse(const cv::Point2d&, const cv::Point2d&, const cv::Point2d&);
             std::pair<std::vector<double>, double> polyReg(const std::vector<double>&, const std::vector<ros::Time>&); 
             // bool doRegression(seqPointer&, std::vector<double>&, std::vector<double>&, std::vector<ros::Time>&);
 

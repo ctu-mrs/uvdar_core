@@ -14,6 +14,19 @@
 namespace uvdar
 {
 
+    struct PointState{
+        cv::Point2d point;
+        bool ledState; 
+        ros::Time insertTime;
+        bool computedExtendedSearch = false;
+        std::vector<double> x_coeff;
+        std::vector<double> y_coeff;
+        cv::Point2d ellipse;
+        cv::Point2d predicted;
+        ros::Time predicted_time;
+    };
+    
+    using seqPointer = std::shared_ptr<std::vector<PointState>>;
 
 
     class alternativeHT {
