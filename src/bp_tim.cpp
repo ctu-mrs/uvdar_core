@@ -290,16 +290,16 @@ namespace uvdar{
     for (size_t i = 0; i < _points_seen_topics.size(); ++i){
 
       if(_imu_compensation_){
-        points_seen_callback_t callbackIMU = [image_index = i, this](const mrs_msgs::ImagePointsWithFloatStampedConstPtr &pointsMessage){
-            imu_comp->compensateByIMUMovement(pointsMessage, image_index, pub_points_seen_compensated_imu_);
+        points_seen_callback_t callbackIMU = [image_index = i, this](const mrs_msgs::ImagePointsWithFloatStampedConstPtr &points_msg){
+            imu_comp->compensateByIMUMovement(points_msg, image_index, pub_points_seen_compensated_imu_);
         };
         cals_points_seen_imu_.push_back(callbackIMU);
         subs_points_seen_imu_.push_back(private_nh_.subscribe(_points_seen_topics[i], 1, cals_points_seen_imu_[i]));
       }
 
       // Subscribe to corresponding topics
-      points_seen_callback_t callback = [image_index = i, this](const mrs_msgs::ImagePointsWithFloatStampedConstPtr &pointsMessage){
-              insertPointToAHT(pointsMessage, image_index);
+      points_seen_callback_t callback = [image_index = i, this](const mrs_msgs::ImagePointsWithFloatStampedConstPtr &points_msg){
+              insertPointToAHT(points_msg, image_index);
       };
       cals_points_seen_.push_back(callback);
       if(_imu_compensation_){
@@ -308,8 +308,8 @@ namespace uvdar{
       }else{
         sub_points_seen_.push_back(private_nh_.subscribe(_points_seen_topics[i], 1, cals_points_seen_[i]));
       }
-      points_seen_callback_t sun_callback = [image_index=i,this] (const mrs_msgs::ImagePointsWithFloatStampedConstPtr& sunPointsMessage){
-        InsertSunPoints(sunPointsMessage, image_index);
+      points_seen_callback_t sun_callback = [image_index=i,this] (const mrs_msgs::ImagePointsWithFloatStampedConstPtr& sun_points_msg){
+        InsertSunPoints(sun_points_msg, image_index);
       };
       cals_sun_points_.push_back(callback);
       sub_sun_points_.push_back(private_nh_.subscribe(_points_seen_topics[i] + "/sun", 1, cals_sun_points_[i]));
@@ -362,14 +362,14 @@ namespace uvdar{
   }
 
 
-  void UVDAR_BP_Tim::insertPointToAHT(const mrs_msgs::ImagePointsWithFloatStampedConstPtr &ptsMsg, const size_t & img_index) {
+  void UVDAR_BP_Tim::insertPointToAHT(const mrs_msgs::ImagePointsWithFloatStampedConstPtr &pts_msg, const size_t & img_index) {
     if (!initialized_) return;
 
     blink_data_[img_index].sample_count++;
 
     
     if ((blink_data_[img_index].sample_count % 10) == 0) { //update the estimate of frequency every 10 samples
-      blink_data_[img_index].framerate_estimate = 10000000000.0 / (double)((ptsMsg->stamp - blink_data_[img_index].last_sample_time_diagnostic).toNSec());
+      blink_data_[img_index].framerate_estimate = 10000000000.0 / (double)((pts_msg->stamp - blink_data_[img_index].last_sample_time_diagnostic).toNSec());
       if (_debug_){
         ROS_INFO_STREAM("[UVDAR_BP_Tim]: Updating frequency: " << blink_data_[img_index].framerate_estimate << " Hz");
       }
@@ -377,15 +377,15 @@ namespace uvdar{
       aht_[img_index]->updateFramerate(blink_data_[img_index].framerate_estimate);
       blink_data_[img_index].sample_count = 0;
 
-      blink_data_[img_index].last_sample_time_diagnostic = ptsMsg->stamp;
+      blink_data_[img_index].last_sample_time_diagnostic = pts_msg->stamp;
     }
 
     if (_debug_)
-        ROS_INFO_STREAM("[UVDAR_BP_Tim]: td: " << ptsMsg->stamp - blink_data_[img_index].last_sample_time);
-    if (blink_data_[img_index].last_sample_time >= ptsMsg->stamp){
-      ROS_ERROR_STREAM("[UVDAR_BP_Tim]: Points arrived out of order!: prev: "<< blink_data_[img_index].last_sample_time << "; curr: " << ptsMsg->stamp);
+        ROS_INFO_STREAM("[UVDAR_BP_Tim]: td: " << pts_msg->stamp - blink_data_[img_index].last_sample_time);
+    if (blink_data_[img_index].last_sample_time >= pts_msg->stamp){
+      ROS_ERROR_STREAM("[UVDAR_BP_Tim]: Points arrived out of order!: prev: "<< blink_data_[img_index].last_sample_time << "; curr: " << pts_msg->stamp);
     }
-    double dt = (ptsMsg->stamp - blink_data_[img_index].last_sample_time).toSec();
+    double dt = (pts_msg->stamp - blink_data_[img_index].last_sample_time).toSec();
     if (dt > (1.5/(blink_data_[img_index].framerate_estimate)) ){
       int new_frame_count = (int)(dt*(blink_data_[img_index].framerate_estimate) + 0.5) - 1;
       ROS_ERROR_STREAM("[UVDAR_BP_Tim]: Missing frames! Inserting " << new_frame_count << " empty frames!"); 
@@ -395,18 +395,18 @@ namespace uvdar{
         // aht_[img_index]->processBuffer(null_points);
       }
     }
-    blink_data_[img_index].last_sample_time = ptsMsg->stamp;
+    blink_data_[img_index].last_sample_time = pts_msg->stamp;
 
     if (_debug_) {
-      ROS_INFO_STREAM("[UVDAR_BP_Tim]: Received contours: " << ptsMsg->points.size());
+      ROS_INFO_STREAM("[UVDAR_BP_Tim]: Received contours: " << pts_msg->points.size());
     }
 
-    aht_[img_index]->processBuffer(ptsMsg);
+    aht_[img_index]->processBuffer(pts_msg);
 
     if ((!_use_camera_for_visualization_) || ((!_gui_) && (!_publish_visualization_))){
       if ( (camera_image_sizes_[img_index].width <= 0 ) || (camera_image_sizes_[img_index].width <= 0 )){
-        camera_image_sizes_[img_index].width = ptsMsg->image_width;
-        camera_image_sizes_[img_index].height = ptsMsg->image_height;
+        camera_image_sizes_[img_index].width = pts_msg->image_width;
+        camera_image_sizes_[img_index].height = pts_msg->image_height;
         if (image_sizes_received_ < (int)(camera_image_sizes_.size())){
           image_sizes_received_++; 
 
@@ -441,9 +441,9 @@ namespace uvdar{
 // TODO: pose estimator finds no appropriate hypothesis
     // pub_blinkers_seen_[img_index].publish(msg);
 
-    std_msgs::Float32 msgFramerate;
-    msgFramerate.data = blink_data_[img_index].framerate_estimate;
-    pub_estimated_framerate_[img_index].publish(msgFramerate);
+    std_msgs::Float32 msg_framerate;
+    msg_framerate.data = blink_data_[img_index].framerate_estimate;
+    pub_estimated_framerate_[img_index].publish(msg_framerate);
 
     }
     
@@ -556,34 +556,33 @@ namespace uvdar{
         // std::cout << "predicted " << predicted.x << " " << predicted.y << "\n"; 
         auto x_coeff = blink_data_[image_index].retrieved_blinkers[j].first.end()[-1].x_coeff;
         auto y_coeff = blink_data_[image_index].retrieved_blinkers[j].first.end()[-1].y_coeff;
-        auto currentTime = blink_data_[image_index].retrieved_blinkers[j].first.end()[-1].insertTime;
-        auto bla =  blink_data_[image_index].retrieved_blinkers[j].first.end()[-1].predicted_time;
+        auto curr_time = blink_data_[image_index].retrieved_blinkers[j].first.end()[-1].insert_time;
         // if(currentTime.toSec() != bla.toSec()) {
           // ROS_ERROR("WTF");
           // std::cout << currentTime.toSec() << " " << bla.toSec() << "\n";
         // }
-        double predictionWindow = 1.5;
+        double prediction_window = 1.5;
         double step_size_sec = 0.01;
-        int point_size = predictionWindow/step_size_sec;
-        double computed_time = currentTime.toSec();
+        int point_size = prediction_window/step_size_sec;
+        double computed_time = curr_time.toSec();
         bool x_all_coeff_zero = std::all_of(x_coeff.begin(), x_coeff.end(), [](double coeff){return coeff == 0;});
         bool y_all_coeff_zero = std::all_of(y_coeff.begin(), y_coeff.end(), [](double coeff){return coeff == 0;});
         
         double x = 0;
         if(!x_all_coeff_zero){
           for(int i = 0; i < (int)x_coeff.size(); ++i){
-                  x += x_coeff[i]*pow(currentTime.toSec(), i);
+                  x += x_coeff[i]*pow(curr_time.toSec(), i);
           }
         }
 
         double y;
         if(!y_all_coeff_zero){
           for(int i = 0; i < (int)y_coeff.size(); ++i){
-                  y += y_coeff[i]*pow(currentTime.toSec(), i);
+                  y += y_coeff[i]*pow(curr_time.toSec(), i);
           }
         }
         // if(!x_all_coeff_zero || !y_all_coeff_zero){ 
-          std::cout << "BP " << predicted.x << " " << predicted.y << " Calculated "<< x << " " << y << " Time " << currentTime.toSec()  << "\n"; 
+          // std::cout << "BP " << predicted.x << " " << predicted.y << " Calculated "<< x << " " << y << " Time " << curr_time.toSec()  << "\n"; 
         // }
 
         // for(int i = 0; i < point_size; ++i){
@@ -638,22 +637,21 @@ namespace uvdar{
         }
 
         // if(draw_prediction){
-          cv::Point centerPrediction;
-          centerPrediction = cv::Point(predicted.x, predicted.y) + start_point; 
+          cv::Point center_predict;
+          center_predict = cv::Point(predicted.x, predicted.y) + start_point; 
 
-          // centerPrediction = cv::Point(250, 250) + start_point; 
           // ellipse.x = 2; 
           // ellipse.y = 2;
-          // if(predicted.x != 0 || predicted.y != 0) std::cout << centerPrediction.x << " " << centerPrediction.y << " ELL "<< ellipse.x << " " << ellipse.y << "\n";
-          cv::circle(output_image, centerPrediction, 1, predict_colour);
-          // cv::ellipse(output_image, centerPrediction, cv::Size(ellipse.x, ellipse.y), 0, 0, 360, predict_colour, 1, cv::LINE_AA);
+          // if(predicted.x != 0 || predicted.y != 0) std::cout << center_predict.x << " " << center_predict.y << " ELL "<< ellipse.x << " " << ellipse.y << "\n";
+          cv::circle(output_image, center_predict, 1, predict_colour);
+          cv::ellipse(output_image, center_predict, cv::Size(ellipse.x, ellipse.y), 0, 0, 360, predict_colour, 1, cv::LINE_AA);
           // cv::ellipse(output_image, center, cv::Size(10,5), 0, 0, 360, cv::Scalar(255, 128, 0), 1, cv::LINE_AA);
           // if(interpolated_prediction.size() != 0){
             // std::cout << "size != 0\n";
             // draw older messages 
             std::vector<cv::Point> draw_seq;  
             for(auto p : blink_data_[image_index].retrieved_blinkers[j].first){
-              if(p.ledState){
+              if(p.led_state){
                 cv::Point point;
                 point.x = p.point.x;
                 point.y = p.point.y;

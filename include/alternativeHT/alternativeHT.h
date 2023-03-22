@@ -1,12 +1,7 @@
 #pragma once
 
-#include "extendedSearch.h"
-#include <iostream>
-#include <list>
-// #include <mutex>
+#include "extended_search.h"
 #include <mrs_msgs/ImagePointsWithFloatStamped.h>
-#include <fstream>
-
 #include "signal_matcher/signal_matcher.h"
 
 
@@ -16,14 +11,13 @@ namespace uvdar
 
     struct PointState{
         cv::Point2d point;
-        bool ledState; 
-        ros::Time insertTime;
-        bool computedExtendedSearch = false;
+        bool led_state; 
+        ros::Time insert_time;
+        bool computed_extended_search = false;
         std::vector<double> x_coeff;
         std::vector<double> y_coeff;
         cv::Point2d ellipse;
         cv::Point2d predicted;
-        ros::Time predicted_time;
     };
     
     using seqPointer = std::shared_ptr<std::vector<PointState>>;
@@ -37,15 +31,14 @@ namespace uvdar
         
         const int max_pixel_shift_x_ = 2;
         const int max_pixel_shift_y_ = 2;
-        const double predictionMargin_ = 0.0;
-        const int size_for_savedSequences_ = 10; // the multiplication factor how long the sequence should be for calculating the trajectory   
+        const double prediction_margin_ = 3.0;
+        const int size_for_saved_seqs_ = 10; // the multiplication factor how long the sequence should be for calculating the trajectory   
         double framerate_;
         int poly_order_; 
 
-        std::vector<std::vector<bool>> originalSequences_;
+        std::vector<std::vector<bool>> original_sequences_;
         
-        std::mutex mutex_generatedSequences_;
-        // std::list<std::vector<PointState>> generatedSequences_;
+        std::mutex mutex_gen_sequences_;
         std::vector<std::shared_ptr<std::vector<PointState>>> gen_sequences_;
 
 
@@ -64,7 +57,6 @@ namespace uvdar
         void findOrthogonalVector(cv::Point2d);
         void insertVPforSequencesWithNoInsert(seqPointer &);
 
-        
         void cleanPotentialBuffer();
         int findSequenceMatch(std::vector<bool>);
 
