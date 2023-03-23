@@ -32,6 +32,9 @@ double ExtendedSearch::calcWeightedMean(const std::vector<double>& values, const
         weighted_sum += ( values[i]*weights[i]); 
         weights_summed += weights[i];
     }
+    if(weights_summed == 0){
+        return -1;
+    }
     double weighted_mean = weighted_sum/ weights_summed;
     
     return weighted_mean; 
@@ -48,26 +51,30 @@ double ExtendedSearch::calcWSTD(const std::vector<double>& values, const std::ve
         if(weights[i] == 0.0) weight_zero++;
     }
 
+
     int non_zero_weight = (int)weights.size() - weight_zero;
-    double denominator = ( (non_zero_weight - 1) * weights_summed ) / non_zero_weight ; 
+
+    double denominator = 0; 
+    
+    if(non_zero_weight == 0){
+        std::cout << "[UVDAR_Extended_Search]: Potential division by zero! Non zero weights is equal to 0. STD is set to 1";
+        return -1;    
+    }else if(weights_summed == 0){
+        return -1;
+    } else if(non_zero_weight == 1 && weights.size() == 1){
+        if(weights[0] != 0) denominator = weights[0];
+        else return -1;
+    }else{
+        denominator = ( (non_zero_weight - 1) * weights_summed ) / non_zero_weight; 
+    }
+
+    if(denominator == 0){
+        return 0;
+    }
     double w_std = sqrt(ss / denominator); 
 
     return w_std;
 } 
-
-std::vector<double> ExtendedSearch::calcPredictionVector(const std::vector<double>& coeff, const std::vector<double>& time){
-
-    std::vector<double> predictions;
-    for(const auto curr_t : time ){
-        double predicted = 0;
-        for(int k = 0; k < (int)coeff.size(); k++){
-            predicted += coeff[k]*pow(curr_t, coeff[k]);
-        }
-        predictions.push_back(predicted);
-    }
-
-    return predictions; 
-}
 
 double ExtendedSearch::calcWMSE(const Eigen::VectorXd& predictions, const std::vector<double>& values, const std::vector<double>& weights){
     
@@ -81,6 +88,11 @@ double ExtendedSearch::calcWMSE(const Eigen::VectorXd& predictions, const std::v
         w_sum_residuals += weights[i]*squared_residuals[i];
         w_sum += weights[i];
     }
+
+    if(w_sum == 0 || predictions.size() == 0){
+        return -1;
+    }
+
     double w_mse = w_sum_residuals / predictions.size() * w_sum;
 
     return w_mse; 
@@ -88,7 +100,7 @@ double ExtendedSearch::calcWMSE(const Eigen::VectorXd& predictions, const std::v
 
 
 
-std::pair<std::vector<double>,Eigen::VectorXd> ExtendedSearch::polyReg(const std::vector<double>& coordinate, const std::vector<double>& time, const std::vector<double>& weights){
+PredictionStatistics ExtendedSearch::polyReg(const std::vector<double>& coordinate, const std::vector<double>& time, const std::vector<double>& weights){
 
     int order = default_poly_order_;
     if(coordinate.size() < 10){
@@ -122,37 +134,49 @@ std::pair<std::vector<double>,Eigen::VectorXd> ExtendedSearch::polyReg(const std
 
     auto prediction = design_mat * result;
 
+    PredictionStatistics results; 
+    results.coeff = coeff;
+    results.used_poly_order = order;
+    results.predicted_vals_past = prediction;
 
-    return std::make_pair(coeff, prediction);
+    return results; 
 }
 
-double ExtendedSearch::standardErrorPrediction( Eigen::VectorXd& predicted_past, const std::vector<double>& values, std::vector<double>& weights, const double& mean, const double& predicted_future){
+double ExtendedSearch::confidenceInterval(const PredictionStatistics& prediction_vals, const std::vector<double>& values, const std::vector<double> weights){
 
-    double w_mse = calcWMSE(predicted_past, values, weights);
+    double w_mse = calcWMSE(prediction_vals.predicted_vals_past, values, weights);
+    
+    int n = (int)values.size();
+    
+    if(w_mse == -1 || prediction_vals.mean == -1 || n == 0){
+        return -1;
+    }
+
     double standard_error_prediction = 0;
-
-    int n = values.size();
-
-    double nominator = pow(predicted_future - mean, 2);
+    double nominator = pow(prediction_vals.predicted_coordinate - prediction_vals.mean, 2);
     double denominator = 0;
     for(auto val : values){
-        denominator += pow(val -mean, 2);
+        denominator += pow(val -prediction_vals.mean, 2);
+    }
+
+    double alpha[] = { 0.5, 0.25, 0.1, 0.05, 0.01, 0.001, 0.0001, 0.00001 };
+    boost::math::students_t dist(n - prediction_vals.used_poly_order);
+    double t = quantile(complement(dist, alpha[1] / 2)); // TODO: UNDERSTAND THAT - make settable
+
+    if(denominator == 0){
+        return -1;
     }
     
-    standard_error_prediction = sqrt(w_mse * ( 1 + 1/n + nominator / denominator) );
+    standard_error_prediction = t*sqrt(w_mse * ( 1 + 1/n + nominator / denominator) );
 
 
     return standard_error_prediction;
 }
 
-
-// T - DISTRIBUTION missing or multiply sse * 2 = 95 % confidence interval
-
-
-
 bool ExtendedSearch::checkIfInsideEllipse(const cv::Point2d& center_point, const cv::Point2d& variance, const cv::Point2d& query_point){
     
     // double result = pow( (query_point.x - point.predicted.x) / point.ellipse.x, 2) + pow( (query_point.y - point.predicted.y) / point.ellipse.y , 2);  
+    
     double result = pow( (query_point.x - center_point.x) / variance.x, 2) + pow( (query_point.y - center_point.y) / variance.y , 2);  
 
     if(result < 1){

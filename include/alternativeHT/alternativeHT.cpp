@@ -35,42 +35,10 @@ void alternativeHT::processBuffer(const mrs_msgs::ImagePointsWithFloatStampedCon
         currentFrame.push_back(p);
     }
 
-
-
-
-// std::cout << "Berfore\n"; 
-
-//     for (auto l : gen_sequences_){
-//         for(auto k : l ){
-//             if(k->led_state) {
-//                 std::cout << "1,";
-//             }else{
-//                 std::cout << "0,";
-//             }
-//         }
-//         std::cout << "\n";
-//     } 
-
     findClosestPixelAndInsert(currentFrame);
-
     // currently crashing
     cleanPotentialBuffer();  // TODO: NOT WORKING!!!!!
 
-    // std::cout << "after\n";
-
-    // for (auto l : gen_sequences_){
-    //     for(auto k : l ){
-    //         if(k->led_state) {
-    //             std::cout << "1,";
-    //         }else{
-    //             std::cout << "0,";
-    //         }
-    //     }
-    //     std::cout << "\n";
-    // } 
-
-
-  
 }
 
 void alternativeHT::findClosestPixelAndInsert(std::vector<PointState> & current_frame) {   
@@ -135,7 +103,6 @@ void alternativeHT::expandedSearch(std::vector<PointState>& no_nn_current_frame,
         for(int k = 0; k < (int)sequences_no_insert.size(); ++k){
             
             if(!checkSequenceValidityWithNewInsert(sequences_no_insert[k])){
-                // std::cout << "rejected\n";
                 continue;
             }
             
@@ -152,68 +119,29 @@ void alternativeHT::expandedSearch(std::vector<PointState>& no_nn_current_frame,
                 }
             }
 
-            auto weight_vect = extended_search_->calculateWeightVector(time);
-            auto x_weighted_mean = extended_search_->calcWeightedMean(x, weight_vect); 
-            auto y_weighted_mean = extended_search_->calcWeightedMean(y, weight_vect); 
-            auto x_std = extended_search_->calcWSTD(x, weight_vect, x_weighted_mean);
-            auto y_std = extended_search_->calcWSTD(y, weight_vect, y_weighted_mean);
-
-            
-            bool x_all_coeff_zero = false;
-            bool y_all_coeff_zero = false; 
-            std::pair<std::vector<double>, Eigen::VectorXd> x_stats, y_stats;
             PointState& last_point = sequences_no_insert[k]->end()[-1]; 
-            bool x_poly_reg_computed = false, y_poly_reg_computed = false;
-
-            if(x_std > 2.0){
-                x_stats = extended_search_->polyReg(x, time, weight_vect);
-                x_all_coeff_zero = std::all_of(x_stats.first.begin(), x_stats.first.end(), [](double coeff){return coeff == 0;});
-                if(!x_all_coeff_zero) x_poly_reg_computed = true;
-                last_point.x_coeff = x_stats.first;
-                auto x_prediction_vals_past = x_stats.second;
-                // last_point.ellipse.x = (x_stats.second < 4) ? 4 : x_stats.second; 
-                for(int i = 0; i < (int)last_point.x_coeff.size(); ++i){
-                    last_point.predicted.x += last_point.x_coeff[i]*pow(insert_time, i);
-                }
-                auto x_conf_interval = extended_search_->standardErrorPrediction(x_prediction_vals_past, x, weight_vect, x_weighted_mean, last_point.predicted.x);
-                last_point.ellipse.x = x_conf_interval;
-                std::cout << "X CONF " << last_point.ellipse.x << "\n";
-
-            }
-
-
-            if(y_std > 2.0){
-                y_stats = extended_search_->polyReg(y, time, weight_vect);
-                y_all_coeff_zero = std::all_of(y_stats.first.begin(), y_stats.first.end(), [](double coeff){return coeff == 0;});
-                if(!y_all_coeff_zero) y_poly_reg_computed = true;
-                last_point.y_coeff = y_stats.first;
-                auto y_prediction_vals_past = y_stats.second;
-                // last_point.ellipse.y = y_stats.second;
-                for(int i = 0; i < (int)last_point.y_coeff.size(); ++i){
-                    last_point.predicted.y += last_point.y_coeff[i]*pow(insert_time, i);
-                }
-                
-                auto y_conf_interval = extended_search_->standardErrorPrediction(y_prediction_vals_past, y, weight_vect, y_weighted_mean, last_point.predicted.y);
-                last_point.ellipse.y = y_conf_interval;
-                std::cout << "Y CONF " << last_point.ellipse.y << "\n";
-            }
             
-            if(x_poly_reg_computed){
-                last_point.predicted.x = x_weighted_mean; // TODO: Bullshit???
-                last_point.ellipse.x = (x_std < 1.0) ? max_pixel_shift_x_*2 : x_std*2;
-                last_point.ellipse.x = (last_point.ellipse.x < 4) ? 4 : last_point.ellipse.x; 
-                last_point.x_coeff = std::vector<double>(1, 0.0);
-            }
-            
-            if(y_poly_reg_computed){
-                last_point.predicted.y = y_weighted_mean; //TODO: Bullshit ?!
-                last_point.ellipse.y = (y_std < 1.0) ? max_pixel_shift_y_*2 : y_std*2;
-                last_point.ellipse.y = (last_point.ellipse.y < 4) ? 4 : last_point.ellipse.y; 
-                last_point.y_coeff = std::vector<double>(1, 0.0);
-            }
+            PredictionStatistics x_predictions = selectStatisticsValues(x, time, insert_time, max_pixel_shift_x_);
+            PredictionStatistics y_predictions = selectStatisticsValues(y, time, insert_time, max_pixel_shift_y_);
+            last_point.ellipse.x = x_predictions.ellipse_val;
+            last_point.predicted.x = x_predictions.predicted_coordinate;
+            last_point.x_coeff = x_predictions.coeff;
+
+            last_point.ellipse.y = y_predictions.ellipse_val;
+            last_point.predicted.y= y_predictions.predicted_coordinate;
+            last_point.y_coeff = y_predictions.coeff;
+
+            // std::cout << "Predicted " << last_point.predicted.x << " " << last_point.predicted.y << " Ellipse " << last_point.ellipse.x << " " << last_point.ellipse.y << "\n";
+            // if(last_point.ellipse.x == -1 || last_point.ellipse.y == -1){
+            //     std::cout << "JERER\n";
+            //     last_point.computed_extended_search = false;
+            //     continue;
+            // }
+
             last_point.computed_extended_search = true;
 
-            for(int i = 0; i < (int)no_nn_current_frame.size(); ++i){
+            bool inserted = false;
+            for(int i = 0; i < (int)no_nn_current_frame.size(); i++){
                 if(extended_search_->checkIfInsideEllipse(last_point.point, last_point.ellipse, no_nn_current_frame[i].point)){
                     no_nn_current_frame[i].computed_extended_search = true;
                     no_nn_current_frame[i].x_coeff = last_point.x_coeff;
@@ -221,14 +149,14 @@ void alternativeHT::expandedSearch(std::vector<PointState>& no_nn_current_frame,
                     no_nn_current_frame[i].ellipse = last_point.ellipse;
                     no_nn_current_frame[i].predicted = last_point.predicted;
                     insertPointToSequence(*sequences_no_insert[k], no_nn_current_frame[i]);
+                    inserted = true;
                     no_nn_current_frame.erase(no_nn_current_frame.begin()+i);
-                    sequences_no_insert.erase(sequences_no_insert.begin()+k);
-                    continue;
-                }
+                    sequences_no_insert.erase(sequences_no_insert.begin()+k); // TODO:throws error at certain point!
+                    break;
+                }   
             }
         }
     }
-    // std::cout << "+++++++++++++++++++++++++++++++++++++++\n"; 
 
     // insert VP to sequnces were no point was inserted
     for(auto seq : sequences_no_insert){
@@ -237,12 +165,10 @@ void alternativeHT::expandedSearch(std::vector<PointState>& no_nn_current_frame,
 
     // if still points are not inserted start new sequence
     for(auto point : no_nn_current_frame){
-        // std::cout <<  no_nn_current_frame.size() << " - START NEW SEQ " << point.point.x << " " << point.point.y << "\n"  ;
         std::vector<PointState> vect;
         vect.push_back(point);
         gen_sequences_.push_back(std::make_shared<std::vector<PointState>>(vect));
     }
-    // std::cout << "==================\n";
 }
 
 bool alternativeHT::checkSequenceValidityWithNewInsert(const seqPointer & seq){
@@ -250,6 +176,13 @@ bool alternativeHT::checkSequenceValidityWithNewInsert(const seqPointer & seq){
     if(seq->size() > 1){
         // if the last two led states were on - no "on" point expected -> no NN search necessary
        if(seq->end()[-1].led_state == true && seq->end()[-2].led_state == true){
+            return false;
+        }
+    }
+
+    if(seq->size() > 2){
+        // if last three led states are off, the sequence is illegal anyways 
+        if(seq->end()[-1].led_state == false && seq->end()[-2].led_state == false && seq->end()[-3].led_state == false){
             return false;
         }
     }
@@ -264,6 +197,48 @@ void alternativeHT::insertVPforSequencesWithNoInsert(seqPointer & seq){
     pVirtual.insert_time = ros::Time::now();
     pVirtual.led_state = false;
     insertPointToSequence(*seq, pVirtual);
+}
+
+PredictionStatistics alternativeHT::selectStatisticsValues(const std::vector<double>& values, const std::vector<double>& time, const double& insert_time, const int& max_pix_shift){
+
+    auto weight_vect = extended_search_->calculateWeightVector(time);
+    auto weighted_mean = extended_search_->calcWeightedMean(values, weight_vect); 
+    auto std = extended_search_->calcWSTD(values, weight_vect, weighted_mean);
+
+    PredictionStatistics statistics;
+    statistics.mean = weighted_mean;
+           
+    bool all_coeff_zero = false, poly_reg_computed = false;
+
+    if(std > max_pix_shift){
+
+        statistics = extended_search_->polyReg(values, time, weight_vect);
+        auto coeff = statistics.coeff;
+        all_coeff_zero = std::all_of(coeff.begin(), coeff.end(), [](double coeff){return coeff == 0;});
+        if(!all_coeff_zero){
+            for(int i = 0; i < (int)coeff.size(); ++i){
+                statistics.predicted_coordinate += coeff[i]*pow(insert_time, i);
+            }
+            poly_reg_computed = true;
+        }
+        if((int)values.size() > statistics.used_poly_order){
+            statistics.ellipse_val = extended_search_->confidenceInterval(statistics, values, weight_vect);
+            // std::cout << statistics.ellipse_val <<"HERE\n"; 
+        }else{
+            // std::cout << "VALU sioze " << values.size() << "\n";
+            poly_reg_computed = false;
+        }
+    }
+    
+    if(!poly_reg_computed){
+        // std::cout << "NO POLy\n";
+        statistics.predicted_coordinate = weighted_mean; 
+        statistics.ellipse_val = (std < max_pix_shift) ? max_pix_shift*2 : std*2; // TODO: BULLSHIT i guess
+        statistics.coeff = std::vector<double>(1, 0.0);
+    }
+
+    return statistics;
+            
 }
 
 void alternativeHT::cleanPotentialBuffer(){

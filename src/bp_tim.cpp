@@ -567,20 +567,22 @@ namespace uvdar{
         double computed_time = curr_time.toSec();
         bool x_all_coeff_zero = std::all_of(x_coeff.begin(), x_coeff.end(), [](double coeff){return coeff == 0;});
         bool y_all_coeff_zero = std::all_of(y_coeff.begin(), y_coeff.end(), [](double coeff){return coeff == 0;});
-        
-        double x = 0;
-        if(!x_all_coeff_zero){
-          for(int i = 0; i < (int)x_coeff.size(); ++i){
-                  x += x_coeff[i]*pow(curr_time.toSec(), i);
-          }
-        }
 
-        double y;
-        if(!y_all_coeff_zero){
-          for(int i = 0; i < (int)y_coeff.size(); ++i){
-                  y += y_coeff[i]*pow(curr_time.toSec(), i);
-          }
-        }
+        bool draw_prediction =  blink_data_[image_index].retrieved_blinkers[j].first.end()[-1].computed_extended_search;
+
+        // double x = 0;
+        // if(!x_all_coeff_zero){
+        //   for(int i = 0; i < (int)x_coeff.size(); ++i){
+        //           x += x_coeff[i]*pow(curr_time.toSec(), i);
+        //   }
+        // }
+
+        // double y;
+        // if(!y_all_coeff_zero){
+        //   for(int i = 0; i < (int)y_coeff.size(); ++i){
+        //           y += y_coeff[i]*pow(curr_time.toSec(), i);
+        //   }
+        // }
         // if(!x_all_coeff_zero || !y_all_coeff_zero){ 
           // std::cout << "BP " << predicted.x << " " << predicted.y << " Calculated "<< x << " " << y << " Time " << curr_time.toSec()  << "\n"; 
         // }
@@ -636,7 +638,7 @@ namespace uvdar{
           cv::circle(output_image, center, 2, cv::Scalar(160,160,160));
         }
 
-        // if(draw_prediction){
+        if(draw_prediction){
           cv::Point center_predict;
           center_predict = cv::Point(predicted.x, predicted.y) + start_point; 
 
@@ -659,8 +661,8 @@ namespace uvdar{
               }
             }
             cv::polylines(output_image, draw_seq, false, seq_colour, 1);
-            cv::polylines(output_image, interpolated_prediction, false, predict_colour, 1);
-          // }
+            // cv::polylines(output_image, interpolated_prediction, false, predict_colour, 1);
+        }
       }
       }
 
