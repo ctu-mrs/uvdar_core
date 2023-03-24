@@ -106,7 +106,6 @@ PredictionStatistics ExtendedSearch::polyReg(const std::vector<double>& coordina
     if(coordinate.size() < 10){
         order = 1; 
     }
-
     Eigen::MatrixXd design_mat(time.size(), order + 1);
 	Eigen::VectorXd pixel_vect = Eigen::VectorXd::Map(&coordinate.front(), coordinate.size());
     Eigen::VectorXd weight_vect = Eigen::VectorXd::Map(&weights.front(), weights.size());

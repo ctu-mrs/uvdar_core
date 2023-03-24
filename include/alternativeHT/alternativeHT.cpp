@@ -130,13 +130,28 @@ void alternativeHT::expandedSearch(std::vector<PointState>& no_nn_current_frame,
             last_point.ellipse.y = y_predictions.ellipse_val;
             last_point.predicted.y= y_predictions.predicted_coordinate;
             last_point.y_coeff = y_predictions.coeff;
+            std::cout << "Time " << last_point.insert_time << "\t" << last_point.predicted.x << "\t" << last_point.predicted.y << "\n";
 
-            // std::cout << "Predicted " << last_point.predicted.x << " " << last_point.predicted.y << " Ellipse " << last_point.ellipse.x << " " << last_point.ellipse.y << "\n";
+
+            // std::cout << "IN AHT " << last_point.predicted.x << " " << last_point.predicted.y << " Ellipse " << last_point.ellipse.x << " " << last_point.ellipse.y << "\n";
             // if(last_point.ellipse.x == -1 || last_point.ellipse.y == -1){
             //     std::cout << "JERER\n";
             //     last_point.computed_extended_search = false;
             //     continue;
             // }
+
+
+            // std::cout << "AHT x \t" ;
+            //     for(double k : last_point.x_coeff){
+            //       std::cout << k  << ", ";
+            //     }
+            //     std::cout << "\n";
+
+            // std::cout << "AHT Y \t" ;
+            //     for(double k : last_point.y_coeff){
+            //       std::cout << k << ", ";
+            //     }
+            //     std::cout << "\n";
 
             last_point.computed_extended_search = true;
 
@@ -196,6 +211,7 @@ void alternativeHT::insertVPforSequencesWithNoInsert(seqPointer & seq){
     pVirtual = seq->end()[-1];
     pVirtual.insert_time = ros::Time::now();
     pVirtual.led_state = false;
+    pVirtual.computed_extended_search = false;
     insertPointToSequence(*seq, pVirtual);
 }
 
