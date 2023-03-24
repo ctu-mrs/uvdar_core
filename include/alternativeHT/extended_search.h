@@ -33,6 +33,6 @@ namespace uvdar{
             double calcWSTD(const std::vector<double>&, const std::vector<double>&, const double&);
             bool checkIfInsideEllipse(const cv::Point2d&, const cv::Point2d&, const cv::Point2d&);
             PredictionStatistics polyReg(const std::vector<double>&, const std::vector<double>&, const std::vector<double>&);
-            double confidenceInterval(const PredictionStatistics&, const std::vector<double>&, const std::vector<double>);
+            double confidenceInterval(const PredictionStatistics&, const std::vector<double>&, const std::vector<double>, const int&);
     };
 } // uvdar

@@ -141,7 +141,7 @@ PredictionStatistics ExtendedSearch::polyReg(const std::vector<double>& coordina
     return results; 
 }
 
-double ExtendedSearch::confidenceInterval(const PredictionStatistics& prediction_vals, const std::vector<double>& values, const std::vector<double> weights){
+double ExtendedSearch::confidenceInterval(const PredictionStatistics& prediction_vals, const std::vector<double>& values, const std::vector<double> weights, const int& wanted_percentage){
 
     double w_mse = calcWMSE(prediction_vals.predicted_vals_past, values, weights);
     
@@ -158,9 +158,10 @@ double ExtendedSearch::confidenceInterval(const PredictionStatistics& prediction
         denominator += pow(val -prediction_vals.mean, 2);
     }
 
-    double alpha[] = { 0.5, 0.25, 0.1, 0.05, 0.01, 0.001, 0.0001, 0.00001 };
-    boost::math::students_t dist(n - prediction_vals.used_poly_order);
-    double t = quantile(complement(dist, alpha[1] / 2)); // TODO: UNDERSTAND THAT - make settable
+    double percentage_scaled = (100.0 - double(wanted_percentage)) / 100.0;
+    // std::vector<double> alpha = { 0.5, 0.25, 0.1, 0.05, 0.01, 0.001, 0.0001, 0.00001 };
+    boost::math::students_t dist(n - prediction_vals.used_poly_order); // TODO: -1 
+    double t = quantile(complement(dist, percentage_scaled / 2));
 
     if(denominator == 0){
         return -1;

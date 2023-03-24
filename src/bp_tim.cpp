@@ -555,7 +555,7 @@ namespace uvdar{
           auto x_coeff = blink_data_[image_index].retrieved_blinkers[j].first.end()[-1].x_coeff;
           auto y_coeff = blink_data_[image_index].retrieved_blinkers[j].first.end()[-1].y_coeff;
           double curr_time = blink_data_[image_index].retrieved_blinkers[j].first.end()[-1].insert_time.toSec();
-          bool extended_search = blink_data_[image_index].retrieved_blinkers[j].first.end()[-1].computed_extended_search;
+          bool extended_search = blink_data_[image_index].retrieved_blinkers[j].first.end()[-1].extended_search;
           
             std::vector<cv::Point> interpolated_prediction;
           
@@ -570,7 +570,7 @@ namespace uvdar{
             int point_size = prediction_window/step_size_sec;
   
             for(int i = 0; i < point_size; ++i){
-              std::cout << "BP Time " << computed_time;
+              // std::cout << "BP Time " << computed_time;
               cv::Point interpolated_point = cv::Point{0,0};
               double x_calculated = 0.0; 
               if(!x_all_coeff_zero){
@@ -606,6 +606,10 @@ namespace uvdar{
               }else{
                 interpolated_point.y = std::round(predicted.y);
               }
+
+              if(!x_all_coeff_zero && !y_all_coeff_zero){
+                // std::cout << "Both not zero\n";
+              }
   
               computed_time += step_size_sec;
               interpolated_point = interpolated_point + start_point;
@@ -631,7 +635,7 @@ namespace uvdar{
   
           if(extended_search){
             cv::Point center_predict;
-            center_predict = cv::Point(predicted.x, predicted.y) + start_point; 
+            center_predict = cv::Point(std::round(predicted.x), std::round(predicted.y)) + start_point; 
   
             cv::circle(output_image, center_predict, 1, predict_colour);
             cv::ellipse(output_image, center_predict, cv::Size(ellipse.x, ellipse.y), 0, 0, 360, predict_colour, 1, cv::LINE_AA);

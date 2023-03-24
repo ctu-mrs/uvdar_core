@@ -13,7 +13,7 @@ namespace uvdar
         cv::Point2d point;
         bool led_state; 
         ros::Time insert_time;
-        bool computed_extended_search = false;
+        bool extended_search = false;
         std::vector<double> x_coeff;
         std::vector<double> y_coeff;
         cv::Point2d ellipse;

@@ -53,26 +53,18 @@ namespace uvdar {
 
         for (int s=0; s<(int)(sequences_.size()); s++){
           for (int i=0; i<(int)sequences_[s].size(); i++){
-            int corrVal = 0;
+            int corr_val = 0;
             for (int j=0; j<(int)i_signal.size(); j++){
               if(sequences_[s][i+j] == i_signal[j]){
-                corrVal++;
+                corr_val++;
               }
             }
-            if (corrVal == sequence_size_){
+            if (corr_val == sequence_size_){
               return s;
             }
-            double percentageMatch = corrVal/sequence_size_; 
-            if(percentageMatch != 0){
-            std::cout << "THe percentage " << percentageMatch << "\n";
-            if( percentageMatch > 0.85){
-              for(auto l : i_signal){
-                if(l) std::cout <<"1,";
-                else std::cout << "0,";
-              }
-              std::cout << "\n";
-              // return s; 
-            }
+            double percentage_match = (double)corr_val/(double)sequence_size_; 
+            if( percentage_match > 0.9){
+              return s; 
             }
           }
         }
