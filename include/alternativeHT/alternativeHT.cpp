@@ -130,6 +130,7 @@ void alternativeHT::expandedSearch(std::vector<PointState>& no_nn_current_frame,
             last_point.predicted.y= y_predictions.predicted_coordinate;
             last_point.y_coeff = y_predictions.coeff;
             last_point.extended_search = true;
+            // std::cout << " Ellipse " << last_point.ellipse.x << "\t" << last_point.ellipse.y << "\n";
 
             for(int i = 0; i < (int)no_nn_current_frame.size(); i++){
                 if(extended_search_->checkIfInsideEllipse(last_point.point, last_point.ellipse, no_nn_current_frame[i].point)){
@@ -210,7 +211,7 @@ PredictionStatistics alternativeHT::selectStatisticsValues(const std::vector<dou
            
     bool all_coeff_zero = false, poly_reg_computed = false;
 
-    // if(std > max_pix_shift){
+    if(std > max_pix_shift && (int)values.size() > 10){
 
         statistics = extended_search_->polyReg(values, time, weight_vect);
         auto coeff = statistics.coeff;
@@ -222,16 +223,15 @@ PredictionStatistics alternativeHT::selectStatisticsValues(const std::vector<dou
             poly_reg_computed = true;
         }
         if((int)values.size() > statistics.used_poly_order){
+            // std::cout << "Poly ";
             statistics.ellipse_val = extended_search_->confidenceInterval(statistics, values, weight_vect, 75);
-            // std::cout << statistics.ellipse_val <<"HERE\n"; 
         }else{
-            // std::cout << "VALU sioze " << values.size() << "\n";
             poly_reg_computed = false;
         }
-    // }
+    }
     
     if(!poly_reg_computed){
-        // std::cout << "NO POLy\n";
+        // std::cout << "NO POLy ";
         statistics.predicted_coordinate = weighted_mean; 
         statistics.ellipse_val = (std < max_pix_shift) ? max_pix_shift*2 : std*2; // TODO: BULLSHIT i guess
         statistics.coeff = std::vector<double>(1, 0.0);

@@ -565,7 +565,7 @@ namespace uvdar{
             bool x_all_coeff_zero = std::all_of(x_coeff.begin(), x_coeff.end(), [](double coeff){return coeff == 0;});
             bool y_all_coeff_zero = std::all_of(y_coeff.begin(), y_coeff.end(), [](double coeff){return coeff == 0;});
   
-            double prediction_window = 1;
+            double prediction_window = 0.5;
             double step_size_sec = 0.01;
             int point_size = prediction_window/step_size_sec;
   

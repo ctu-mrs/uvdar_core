@@ -32,7 +32,7 @@ namespace uvdar
         const int max_pixel_shift_x_ = 2;
         const int max_pixel_shift_y_ = 2;
         const double prediction_margin_ = 0.0;
-        const int size_for_saved_seqs_ = 10; // the multiplication factor how long the sequence should be for calculating the trajectory   
+        const int size_for_saved_seqs_ = 20; // the multiplication factor how long the sequence should be for calculating the trajectory   
         double framerate_;
         int poly_order_; 
 
