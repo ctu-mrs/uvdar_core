@@ -130,10 +130,12 @@ double ExtendedSearch::calcWMSE(const Eigen::VectorXd& predictions, const std::v
     }
     
 
-    double w_mse = w_sum_residuals / ( predictions.size() ); //* w_sum ); TODO: theoretically wrong
-    std::cout << "WMSE " << w_mse << " WEIGHTED SUM " << w_sum << " Resiudlas " << w_sum_residuals<<  "\n";
+    double w_mse = w_sum_residuals / ( predictions.size()  * w_sum );// TODO: theoretically wrong
+    // std::cout << "WMSE " << w_mse << " Resiudlas " << w_sum_residuals << " WEIGHTED SUM " << w_sum   << "\n";
+    // if(w_sum_residuals < 2){
     // for(int i = 0; i < (int)values.size(); ++i){
-        // std::cout << "REG " << predictions(i) << "\tVAl" << values[i] << std::endl; 
+    //     std::cout << "REG " << predictions(i) << "\tVAl" << values[i] << std::endl; 
+    // }
     // }
     return w_mse; 
 }

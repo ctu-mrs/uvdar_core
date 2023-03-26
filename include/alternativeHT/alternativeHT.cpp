@@ -141,35 +141,64 @@ void alternativeHT::expandedSearch(std::vector<PointState>& no_nn_current_frame,
                     no_nn_current_frame[i].predicted = last_point.predicted;
                     insertPointToSequence(*sequences_no_insert[k], no_nn_current_frame[i]);
                     no_nn_current_frame.erase(no_nn_current_frame.begin()+i);
-                    sequences_no_insert.erase(sequences_no_insert.begin()+k); // TODO:throws error at certain point!
+                    sequences_no_insert.erase(sequences_no_insert.begin()+k); 
                     break;
                 }   
             }
         }
     }
 
-    // maybe use bigger search space when still points with no association exist
-    if(sequences_no_insert.size() != 0 && no_nn_current_frame.size() != 0){
-        // for(auto seq : sequences_no_insert){
-        //     if(!seq->end()[-1].extended_search){
-        //         continue;
+    bool all_blinkers_equal = true; 
+
+
+    for(int k = 0; k < sequences_no_insert.size(); ++k){
+        if(all_blinkers_equal){
+            if(checkSequenceValidityWithNewInsert(sequences_no_insert[k])){
+                if(sequences_no_insert[k]->size() >= 2){
+                    if(!sequences_no_insert[k]->end()[-1].led_state && !sequences_no_insert[k]->end()[-2].led_state){
+                        cv::Point2d min(20,20);
+                        PointState selected;
+                        int iterator_place = -1;
+                        for(int i = 0; i < (int)no_nn_current_frame.size(); ++i){        
+                            auto diff = computeXYDiff(no_nn_current_frame[i].point, sequences_no_insert[k]->end()[-1].point);
+                            if(diff.x < min.x && diff.y < min.y){
+                                min = diff; 
+                                selected = no_nn_current_frame[i];
+                                iterator_place = i;
+                            }
+                        }
+                        if(iterator_place != -1){
+                            insertPointToSequence(*sequences_no_insert[k], selected);
+                            no_nn_current_frame.erase(no_nn_current_frame.begin()+iterator_place);
+                            sequences_no_insert.erase(sequences_no_insert.begin()+k);
+                            continue;
+                        }
+                    }
+                }
+            }
+        }
+    }
+        //     if(seq->end()[-1].extended_search){
+        //         std::cout << seq->size() << " P " << (*seq).end()[-1].point.x << " " << seq->end()[-1].point.y <<" Predicted " << (*seq).end()[-1].predicted.x << " " << seq->end()[-1].predicted.y << " Elli "<<seq->end()[-1].ellipse.x << " " << seq->end()[-1].ellipse.y << "\t";  
         //     }
-
-        //     for(auto point : no_nn_current_frame){
-
+        //     else{
+        //         std::cout << " wtf ";
         //     }
         // }
-    }
-
-    for(auto seq : sequences_no_insert){
-        insertVPforSequencesWithNoInsert(seq);
-    }
-
-    // if still points are not inserted start new sequence
+    // for the points, still no NN found start new sequence
     for(auto point : no_nn_current_frame){
+        std::cout << "started new sequence " << point.point.x << " " << point.point.y;
+        for(auto seq: gen_sequences_){
+            std::cout << " seq " << seq->end()[-1].point.x << " " << seq->end()[-1].point.y << " P " << seq->end()[-1].predicted.x << " " << seq->end()[-1].predicted.y;    
+        }std::cout << "\n";
         std::vector<PointState> vect;
         vect.push_back(point);
         gen_sequences_.push_back(std::make_shared<std::vector<PointState>>(vect));
+    }
+
+
+    for(auto seq : sequences_no_insert){
+        insertVPforSequencesWithNoInsert(seq);
     }
 }
 
@@ -211,7 +240,7 @@ PredictionStatistics alternativeHT::selectStatisticsValues(const std::vector<dou
            
     bool all_coeff_zero = false, poly_reg_computed = false;
 
-    if(std > max_pix_shift && (int)values.size() > 10){
+    if(std > 2*max_pix_shift && values.size() > 30 ){
 
         statistics = extended_search_->polyReg(values, time, weight_vect);
         auto coeff = statistics.coeff;
@@ -220,6 +249,7 @@ PredictionStatistics alternativeHT::selectStatisticsValues(const std::vector<dou
             for(int i = 0; i < (int)coeff.size(); ++i){
                 statistics.predicted_coordinate += coeff[i]*pow(insert_time, i);
             }
+            statistics.predicted_coordinate = std::round(statistics.predicted_coordinate);  
             poly_reg_computed = true;
         }
         if((int)values.size() > statistics.used_poly_order){
@@ -232,13 +262,15 @@ PredictionStatistics alternativeHT::selectStatisticsValues(const std::vector<dou
     
     if(!poly_reg_computed){
         // std::cout << "NO POLy ";
-        statistics.predicted_coordinate = weighted_mean; 
+        statistics.predicted_coordinate = std::round(weighted_mean); 
         statistics.ellipse_val = (std < max_pix_shift) ? max_pix_shift*2 : std*2; // TODO: BULLSHIT i guess
         statistics.coeff = std::vector<double>(1, 0.0);
     }
 
+    statistics.ellipse_val = (statistics.ellipse_val < 2*max_pix_shift) ? max_pix_shift*2 : statistics.ellipse_val;  
+
     return statistics;
-            
+
 }
 
 void alternativeHT::cleanPotentialBuffer(){

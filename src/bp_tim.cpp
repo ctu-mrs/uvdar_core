@@ -638,7 +638,8 @@ namespace uvdar{
             center_predict = cv::Point(std::round(predicted.x), std::round(predicted.y)) + start_point; 
   
             cv::circle(output_image, center_predict, 1, predict_colour);
-            cv::ellipse(output_image, center_predict, cv::Size(ellipse.x, ellipse.y), 0, 0, 360, predict_colour, 1, cv::LINE_AA);
+            if(ellipse.x >= 1 && ellipse.y >= 1) cv::ellipse(output_image, center_predict, cv::Size(ellipse.x, ellipse.y), 0, 0, 360, predict_colour, 1, cv::LINE_AA);
+            
             if(interpolated_prediction.size() != 0){
               cv::polylines(output_image, interpolated_prediction, false, predict_colour, 1);
             }
