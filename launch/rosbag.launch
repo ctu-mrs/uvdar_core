@@ -45,8 +45,10 @@
 
   <arg name="sequence_file" default="$(find uvdar_core)/config/selected.txt"/>
   <arg name="imu_compensation" default="false"/>
-  <arg name="polyOrder" default="2"/>
-  <arg name="decayFactor" default="0.01"/>
+  <arg name="poly_order" default="4"/>
+  <arg name="decay_factor" default="0.01"/>
+  <arg name="stored_seq_len_factor" default="20"/>
+  <arg name="confidence_probability" default="90.0"/>
   <arg name="model_file" default="$(find uvdar_core)/config/models/quadrotor_foursided.txt"/>
   <!-- ideal angle: 1.221730476 - pi/2 -->
 
@@ -110,8 +112,10 @@
       <param name="use_camera_for_visualization"         type="bool" value="false"/>
       <param name="visualization_rate"         type="double" value="15.0"/>
       
-      <param name="polyOrder" type="int" value="$(arg polyOrder)"/>
-      <param name="decayFactor"         type="double" value="$(arg decayFactor)"/>
+      <param name="poly_order" type="int" value="$(arg poly_order)"/>
+      <param name="decay_factor"         type="double" value="$(arg decay_factor)"/>    
+      <param name="stored_seq_len_factor"         type="int" value="$(arg stored_seq_len_factor)"/>    
+      <param name="confidence_probability"         type="double" value="$(arg confidence_probability)"/>    
       
       <param name="sequence_file"         type="string" value="$(arg sequence_file)"/>
       <param name="imu_compensation"     type="bool"   value="$(arg imu_compensation)"/>

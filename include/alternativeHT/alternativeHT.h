@@ -26,15 +26,17 @@ namespace uvdar
     class alternativeHT {
     
     private:
-    
+        int global_count = 0;
+        int poly_vs_mean = 0;
         bool debug_, visual_debug_ = false;
         
         const int max_pixel_shift_x_ = 2;
         const int max_pixel_shift_y_ = 2;
         const double prediction_margin_ = 0.0;
-        const int size_for_saved_seqs_ = 20; // the multiplication factor how long the sequence should be for calculating the trajectory   
+        int stored_seq_len_factor_; // the multiplication factor how long the sequence should be for calculating the trajectory   
         double framerate_;
         int poly_order_; 
+        double conf_probab_percent_; // in percentage
 
         std::vector<std::vector<bool>> original_sequences_;
         
@@ -52,7 +54,7 @@ namespace uvdar
 
         // moving average approach 
         void expandedSearch(std::vector<PointState>& , std::vector<seqPointer>&);
-        PredictionStatistics selectStatisticsValues(const std::vector<double>&, const std::vector<double>&, const double&, const int &);
+        PredictionStatistics selectStatisticsValues(const std::vector<double>&, const std::vector<double>&, const double&, const int &, bool&);
 
         bool checkSequenceValidityWithNewInsert(const seqPointer &);
         void findOrthogonalVector(cv::Point2d);
@@ -63,7 +65,7 @@ namespace uvdar
 
     public:
 
-        alternativeHT(double, int);
+        alternativeHT(double, int, int, double);
         ~alternativeHT();
         
         void setDebugFlags(bool, bool);

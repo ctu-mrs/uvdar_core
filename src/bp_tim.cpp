@@ -107,8 +107,10 @@ namespace uvdar{
       std::string _sequence_file;
       bool        _imu_compensation_;
       std::string _imu_topic_;
-      float _decayFactor_; 
-      int _polynomialDegree_;
+      float _decay_factor_; 
+      int _polynomial_deg_;
+      double _conf_probab_percent_;
+      int _stored_seq_len_factor_;
 
       struct BlinkData {
         std::vector<std::pair<std::vector<PointState>,int>> retrieved_blinkers;
@@ -141,8 +143,14 @@ namespace uvdar{
     const bool match = checkCameraTopicSizeMatch();
     if(!match) return;
 
+    if( 100 <= _conf_probab_percent_){
+      ROS_ERROR("[UVDAR_BP_Tim]: Wanted confidence interval size equal or bigger than 100%% is set. A Confidence interval of 100%% is not settable! Returning."); 
+      return;
+    } 
+
     parseSequenceFile(_sequence_file);
     initAlternativeHTDataStructure();
+
     if(_imu_compensation_){
       imu_comp = std::make_unique<IMU_COMPENSATION>(_imu_topic_);
     }
@@ -188,8 +196,10 @@ namespace uvdar{
     private_nh_.param("imu_topic", _imu_topic_, std::string());
     param_loader.loadParam("imu_compensation", _imu_compensation_, bool(false));
 
-    param_loader.loadParam("decayFactor", _decayFactor_, float(0.1));
-    param_loader.loadParam("polyOrder", _polynomialDegree_, int(2));
+    param_loader.loadParam("decay_factor", _decay_factor_, float(0.1));
+    param_loader.loadParam("poly_order", _polynomial_deg_, int(2));
+    param_loader.loadParam("stored_seq_len_factor", _stored_seq_len_factor_, int(15));
+    param_loader.loadParam("confidence_probability", _conf_probab_percent_, double(75.0));
 
   }
 
@@ -201,11 +211,11 @@ namespace uvdar{
     }
 
     if (_blinkers_seen_topics.size() != _points_seen_topics.size()){
-      ROS_ERROR_STREAM("[UVDAR_BP_Tim]: The number of pointsSeenTopics (" << _points_seen_topics.size() << ") is not matching the number of blinkers_seen_topics (" << _blinkers_seen_topics.size() << ")!");
+      ROS_ERROR_STREAM("[UVDAR_BP_Tim]: The number of pointsSeenTopics (" << _points_seen_topics.size() << ") is not matching the number of blinkers_seen_topics (" << _blinkers_seen_topics.size() << ")! Returning.");
       return false;
     }
     if (_estimated_framerate_topics.size() != _points_seen_topics.size()){
-      ROS_ERROR_STREAM("[UVDAR_BP_Tim]: The number of pointsSeenTopics (" << _points_seen_topics.size() << ") is not matching the number of blinkers_seen_topics (" << _estimated_framerate_topics.size() << ")!");
+      ROS_ERROR_STREAM("[UVDAR_BP_Tim]: The number of pointsSeenTopics (" << _points_seen_topics.size() << ") is not matching the number of blinkers_seen_topics (" << _estimated_framerate_topics.size() << ")! Returning.");
       return false;
     }
     return true;
@@ -269,7 +279,12 @@ namespace uvdar{
   void UVDAR_BP_Tim::initAlternativeHTDataStructure(){
 
     for (size_t i = 0; i < _points_seen_topics.size(); ++i) {
-      aht_.push_back(std::make_shared<alternativeHT>(_decayFactor_, _polynomialDegree_));
+      aht_.push_back(std::make_shared<alternativeHT>(
+          _decay_factor_, 
+          _polynomial_deg_, 
+          _stored_seq_len_factor_, 
+          _conf_probab_percent_
+      ));
       aht_[i]->setSequences(sequences_);
       aht_[i]->setDebugFlags(_debug_, _visual_debug_);
 
@@ -565,7 +580,7 @@ namespace uvdar{
             bool x_all_coeff_zero = std::all_of(x_coeff.begin(), x_coeff.end(), [](double coeff){return coeff == 0;});
             bool y_all_coeff_zero = std::all_of(y_coeff.begin(), y_coeff.end(), [](double coeff){return coeff == 0;});
   
-            double prediction_window = 0.5;
+            double prediction_window = 1;
             double step_size_sec = 0.01;
             int point_size = prediction_window/step_size_sec;
   

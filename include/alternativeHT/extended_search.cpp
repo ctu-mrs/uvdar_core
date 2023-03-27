@@ -64,6 +64,7 @@ std::vector<double> ExtendedSearch::calculateWeightVector(const std::vector<doub
     return weights;
 }
 
+// CURRENTLY USING mean not W_mean
 double ExtendedSearch::calcWeightedMean(const std::vector<double>& values, const std::vector<double>& weights){
     if(weights.size() != values.size()) return -1; 
         
@@ -114,30 +115,40 @@ double ExtendedSearch::calcWSTD(const std::vector<double>& values, const std::ve
 
 double ExtendedSearch::calcWMSE(const Eigen::VectorXd& predictions, const std::vector<double>& values, const std::vector<double>& weights){
     
-    std::vector<double> squared_residuals; 
-    for(int i = 0; i < (int)values.size(); i++){
-        squared_residuals.push_back( pow( (predictions(i) - values[i]), 2 ) );
-    }
+    // std::vector<double> squared_residuals; 
+    // for(int i = 0; i < (int)values.size(); i++){
+    //     squared_residuals.push_back( pow( (predictions(i) - values[i]), 2 ) );
+    // }
 
-    double w_sum_residuals = 0.0, w_sum = 0.0;
-    for(int i = 0; i < (int)values.size(); i++){
-        w_sum_residuals += (weights[i]*squared_residuals[i]);
-        w_sum += weights[i];
-    }
+    // double w_sum_residuals = 0.0, w_sum = 0.0;
+    // for(int i = 0; i < (int)values.size(); i++){
+    //     w_sum_residuals += (weights[i]*squared_residuals[i]);
+    //     w_sum += weights[i];
+    // }
 
-    if(w_sum == 0.0 || (int)predictions.size() == 0){
-        return -1;
-    }
+    // if(w_sum == 0.0 || (int)predictions.size() == 0){
+    //     return -1;
+    // }
     
 
-    double w_mse = w_sum_residuals / ( predictions.size()  * w_sum );// TODO: theoretically wrong
-    // std::cout << "WMSE " << w_mse << " Resiudlas " << w_sum_residuals << " WEIGHTED SUM " << w_sum   << "\n";
-    // if(w_sum_residuals < 2){
-    // for(int i = 0; i < (int)values.size(); ++i){
-    //     std::cout << "REG " << predictions(i) << "\tVAl" << values[i] << std::endl; 
-    // }
-    // }
-    return w_mse; 
+    // double w_mse = w_sum_residuals / ( predictions.size()  * w_sum );// TODO: theoretically wrong
+    // // std::cout << "WMSE " << w_mse << " Resiudlas " << w_sum_residuals << " WEIGHTED SUM " << w_sum   << "\n";
+    // // if(w_sum_residuals < 2){
+    // // for(int i = 0; i < (int)values.size(); ++i){
+    // //     std::cout << "REG " << predictions(i) << "\tVAl" << values[i] << std::endl; 
+    // // }
+    // // }
+    // return w_mse; 
+
+    double ssr =0;
+    for(int i = 0; i < (int)values.size(); i++){
+        ssr += pow( (predictions(i) - values[i]), 2  );
+    }
+
+
+    double mse = ssr / predictions.size();
+
+    return mse; 
 }
 
 
@@ -161,8 +172,7 @@ double ExtendedSearch::confidenceInterval(const PredictionStatistics& prediction
     }
 
     double percentage_scaled = (100.0 - double(wanted_percentage)) / 100.0;
-    // std::vector<double> alpha = { 0.5, 0.25, 0.1, 0.05, 0.01, 0.001, 0.0001, 0.00001 };
-    boost::math::students_t dist(n - prediction_vals.used_poly_order); // TODO: -1 
+    boost::math::students_t dist(n - prediction_vals.used_poly_order - 1);
     double t = quantile(complement(dist, percentage_scaled / 2));
 
     if(denominator == 0){
@@ -176,8 +186,6 @@ double ExtendedSearch::confidenceInterval(const PredictionStatistics& prediction
 }
 
 bool ExtendedSearch::checkIfInsideEllipse(const cv::Point2d& center_point, const cv::Point2d& variance, const cv::Point2d& query_point){
-    
-    // double result = pow( (query_point.x - point.predicted.x) / point.ellipse.x, 2) + pow( (query_point.y - point.predicted.y) / point.ellipse.y , 2);  
     
     double result = pow( (query_point.x - center_point.x) / variance.x, 2) + pow( (query_point.y - center_point.y) / variance.y , 2);  
 
