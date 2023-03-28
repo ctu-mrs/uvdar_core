@@ -14,7 +14,7 @@ namespace uvdar{
         int used_poly_order;
         double mean;
         double predicted_coordinate = -1;
-        double ellipse_val = -1;
+        double confidence_interval = -1;
     };
     
     class ExtendedSearch{
@@ -31,7 +31,7 @@ namespace uvdar{
             std::vector<double> calculateWeightVector(const std::vector<double>&);
             double calcWeightedMean(const std::vector<double>&, const std::vector<double>&);
             double calcWSTD(const std::vector<double>&, const std::vector<double>&, const double&);
-            bool checkIfInsideEllipse(const cv::Point2d&, const cv::Point2d&, const cv::Point2d&);
+            bool isInsideBB(const cv::Point2d&, const cv::Point2d&, const cv::Point2d&);
             PredictionStatistics polyReg(const std::vector<double>&, const std::vector<double>&, const std::vector<double>&);
             double confidenceInterval(const PredictionStatistics&, const std::vector<double>&, const std::vector<double>, const int&);
     };

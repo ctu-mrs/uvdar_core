@@ -565,14 +565,14 @@ namespace uvdar{
           cv::Scalar predict_colour(255,153,255);
           cv::Scalar seq_colour(160,160,160);
           
-          cv::Point2d ellipse = blink_data_[image_index].retrieved_blinkers[j].first.end()[-1].ellipse;
+          cv::Point2d confidence_interval = blink_data_[image_index].retrieved_blinkers[j].first.end()[-1].confidence_interval;
           cv::Point2d predicted = blink_data_[image_index].retrieved_blinkers[j].first.end()[-1].predicted;
           auto x_coeff = blink_data_[image_index].retrieved_blinkers[j].first.end()[-1].x_coeff;
           auto y_coeff = blink_data_[image_index].retrieved_blinkers[j].first.end()[-1].y_coeff;
           double curr_time = blink_data_[image_index].retrieved_blinkers[j].first.end()[-1].insert_time.toSec();
           bool extended_search = blink_data_[image_index].retrieved_blinkers[j].first.end()[-1].extended_search;
           
-            std::vector<cv::Point> interpolated_prediction;
+          std::vector<cv::Point> interpolated_prediction;
           
           if(extended_search){
           
@@ -580,29 +580,21 @@ namespace uvdar{
             bool x_all_coeff_zero = std::all_of(x_coeff.begin(), x_coeff.end(), [](double coeff){return coeff == 0;});
             bool y_all_coeff_zero = std::all_of(y_coeff.begin(), y_coeff.end(), [](double coeff){return coeff == 0;});
   
-            double prediction_window = 1;
-            double step_size_sec = 0.01;
+            double prediction_window = 0.5;
+            double step_size_sec = 0.04;
             int point_size = prediction_window/step_size_sec;
   
             for(int i = 0; i < point_size; ++i){
               // std::cout << "BP Time " << computed_time;
-              cv::Point interpolated_point = cv::Point{0,0};
+              cv::Point2d interpolated_point = cv::Point2d{0,0};
               double x_calculated = 0.0; 
               if(!x_all_coeff_zero){
                 for(int k = 0; k < (int)x_coeff.size(); ++k){
                 x_calculated += x_coeff[k]*pow(computed_time, k);
                 }
-                interpolated_point.x = std::round(x_calculated);
-
-                // std::cout << "\tX predict " << prediction.x<< " ";
-                // if(y_all_coeff_zero) std::cout << "\n";
-                // std::cout << "X COEFF\t"; 
-                // for(double k : x_coeff){
-                //   std::cout << k <<", ";
-                // }
-                // std::cout << "\n";
-                // std::cout << std::fixed<< "predicted X " << prediction.x << "\t" << predicted.x << "\tTime " << computed_time <<"\n"; 
-              }else{
+                interpolated_point.x = x_calculated;
+              }
+              else{
                 interpolated_point.x = std::round(predicted.x);
               }
               if(!y_all_coeff_zero){
@@ -610,26 +602,24 @@ namespace uvdar{
                 for(int k = 0; k < (int)y_coeff.size(); ++k){
                   y_calculated += y_coeff[k]*pow(computed_time, k);
                 }
-                interpolated_point.y = std::round(y_calculated);
-                // std::cout << "\tY " << prediction.y << "\n";
-                // std::cout << "Y COEFF\t"; 
-                // for(double k : y_coeff){
-                //   std::cout << k<<", ";
-                // }
-                // std::cout << "\n";
-                // std::cout << std::fixed<< "predicted Y " << prediction.y << "\t" << predicted.y << "\tTime " << computed_time <<"\n";               
-              }else{
+                interpolated_point.y = y_calculated;
+              }
+              else{
                 interpolated_point.y = std::round(predicted.y);
               }
-
-              if(!x_all_coeff_zero && !y_all_coeff_zero){
-                // std::cout << "Both not zero\n";
-              }
-  
+                cv::Point2d start_point_d; 
+                start_point_d.x = start_point.x;
+                start_point_d.y = start_point.y;
+                interpolated_point = start_point_d + interpolated_point;
+                cv::Point interpolated_point_i;
+                interpolated_point_i.x = std::round(interpolated_point.x);
+                interpolated_point_i.y = std::round(interpolated_point.y);
               computed_time += step_size_sec;
-              interpolated_point = interpolated_point + start_point;
+              // std::cout << std::fixed << computed_time << std::endl;
+              // interpolated_point = interpolated_point + start_point;
+              // std::cout << interpolated_point.x << " " << interpolated_point.y << "\n";
               // if(( prediction.x != 0 || prediction.y != 0) && (!x_all_coeff_zero || !y_all_coeff_zero) )std::cout << "prediction " << prediction.x << " " << prediction.y << "\n"; 
-              interpolated_prediction.push_back(interpolated_point);              
+              interpolated_prediction.push_back(interpolated_point_i);              
             }
           }
   
@@ -653,9 +643,22 @@ namespace uvdar{
             center_predict = cv::Point(std::round(predicted.x), std::round(predicted.y)) + start_point; 
   
             cv::circle(output_image, center_predict, 1, predict_colour);
-            if(ellipse.x >= 1 && ellipse.y >= 1) cv::ellipse(output_image, center_predict, cv::Size(ellipse.x, ellipse.y), 0, 0, 360, predict_colour, 1, cv::LINE_AA);
-            
+            if(confidence_interval.x >= 1 && confidence_interval.y >= 1) {
+              // convert to cv::Point
+              cv::Point confidence_interval_int;
+              confidence_interval_int.x = std::ceil(confidence_interval.x);
+              confidence_interval_int.y = std::ceil(confidence_interval.y);
+              // construct BB 
+              cv::Point2d left_top =     center_predict - confidence_interval_int;   
+              cv::Point2d right_bottom = center_predict + confidence_interval_int;
+
+              cv::rectangle(output_image, left_top, right_bottom, predict_colour, 1);
+            }
             if(interpolated_prediction.size() != 0){
+              std::cout << "LINE" << interpolated_prediction.size() << "\n";
+              for(auto p : interpolated_prediction){
+                std::cout << p.x << " " << p.y << "\n";
+              }
               cv::polylines(output_image, interpolated_prediction, false, predict_colour, 1);
             }
           }

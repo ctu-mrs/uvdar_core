@@ -185,21 +185,12 @@ double ExtendedSearch::confidenceInterval(const PredictionStatistics& prediction
     return standard_error_prediction;
 }
 
-bool ExtendedSearch::checkIfInsideEllipse(const cv::Point2d& center_point, const cv::Point2d& variance, const cv::Point2d& query_point){
-    
-    double result = pow( (query_point.x - center_point.x) / variance.x, 2) + pow( (query_point.y - center_point.y) / variance.y , 2);  
-
-    if(result < 1){
-        return true;
-    }else if(result > 1){
-        return false;
-    }
-
-    if(result == 1){
+bool ExtendedSearch::isInsideBB(const cv::Point2d& query_point, const cv::Point2d& left_top, const cv::Point2d& right_bottom){
+    if( left_top.x <= query_point.x && query_point.x <= right_bottom.x && left_top.y <= query_point.y && query_point.y <= right_bottom.y ) {
         return true;
     }
     return false; 
-} 
+}
 
 
 } // uvdar

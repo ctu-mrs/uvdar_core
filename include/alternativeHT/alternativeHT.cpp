@@ -142,23 +142,30 @@ void alternativeHT::expandedSearch(std::vector<PointState>& no_nn_current_frame,
             bool draw_x, draw_y;
             PredictionStatistics x_predictions = selectStatisticsValues(x, time, insert_time, max_pixel_shift_x_, draw_x);
             PredictionStatistics y_predictions = selectStatisticsValues(y, time, insert_time, max_pixel_shift_y_, draw_y);
-            last_point.ellipse.x = x_predictions.ellipse_val;
+            last_point.confidence_interval.x = x_predictions.confidence_interval;
             last_point.predicted.x = x_predictions.predicted_coordinate;
             last_point.x_coeff = x_predictions.coeff;
 
-            last_point.ellipse.y = y_predictions.ellipse_val;
+            last_point.confidence_interval.y = y_predictions.confidence_interval;
             last_point.predicted.y= y_predictions.predicted_coordinate;
             last_point.y_coeff = y_predictions.coeff;
             // if(draw_x && draw_y)
             last_point.extended_search = true;
-            // std::cout << " Ellipse " << last_point.ellipse.x << "\t" << last_point.ellipse.y << "\n";
+            
+            // construct BB 
+            cv::Point2d left_top =     last_point.predicted - last_point.confidence_interval;   
+            cv::Point2d right_bottom = last_point.predicted + last_point.confidence_interval;
+            left_top.x = std::floor(left_top.x);
+            left_top.y = std::floor(left_top.y);
+            right_bottom.x = std::ceil(right_bottom.x);
+            right_bottom.y = std::ceil(right_bottom.y);
 
             for(int i = 0; i < (int)no_nn_current_frame.size(); i++){
-                if(extended_search_->checkIfInsideEllipse(last_point.point, last_point.ellipse, no_nn_current_frame[i].point)){
+                if(extended_search_->isInsideBB(no_nn_current_frame[k].point, left_top, right_bottom)){
                     no_nn_current_frame[i].extended_search = true;
                     no_nn_current_frame[i].x_coeff = last_point.x_coeff;
                     no_nn_current_frame[i].y_coeff = last_point.y_coeff;
-                    no_nn_current_frame[i].ellipse = last_point.ellipse;
+                    no_nn_current_frame[i].confidence_interval = last_point.confidence_interval;
                     no_nn_current_frame[i].predicted = last_point.predicted;
                     insertPointToSequence(*sequences_no_insert[k], no_nn_current_frame[i]);
                     std::vector<double> _x, _y, _time;
@@ -172,10 +179,10 @@ void alternativeHT::expandedSearch(std::vector<PointState>& no_nn_current_frame,
                     PredictionStatistics x_predictions = selectStatisticsValues(_x, _time, insert_time, max_pixel_shift_x_, draw_x);
                     PredictionStatistics y_predictions = selectStatisticsValues(_y, _time, insert_time, max_pixel_shift_y_, draw_y);
                     PointState& last_point = sequences_no_insert[k]->end()[-1]; 
-                    last_point.ellipse.x = x_predictions.ellipse_val;
+                    last_point.confidence_interval.x = x_predictions.confidence_interval;
                     last_point.predicted.x = x_predictions.predicted_coordinate;
                     last_point.x_coeff = x_predictions.coeff;
-                    last_point.ellipse.y = y_predictions.ellipse_val;
+                    last_point.confidence_interval.y = y_predictions.confidence_interval;
                     last_point.predicted.y= y_predictions.predicted_coordinate;
                     last_point.y_coeff = y_predictions.coeff;
                     if(draw_x && draw_y) last_point.extended_search = true;
@@ -185,40 +192,36 @@ void alternativeHT::expandedSearch(std::vector<PointState>& no_nn_current_frame,
                 }   
             }
 
-            bool all_blinkers_equal = true; 
-            if(all_blinkers_equal){
-                if(sequences_no_insert[k]->size() >= 2 && !sequences_no_insert[k]->end()[-1].led_state && !sequences_no_insert[k]->end()[-2].led_state){
-                    cv::Point2d min(20,20);
-                    PointState selected;
-                    int iterator_place = -1;
-                    for(int i = 0; i < (int)no_nn_current_frame.size(); ++i){        
-                        auto diff = computeXYDiff(no_nn_current_frame[i].point, sequences_no_insert[k]->end()[-1].point);
-                        if(diff.x < min.x && diff.y < min.y){
-                            min = diff; 
-                            selected = no_nn_current_frame[i];
-                            iterator_place = i;
-                        }
-                    }
-                    if(iterator_place != -1){
-                        insertPointToSequence(*sequences_no_insert[k], selected);
-                        no_nn_current_frame.erase(no_nn_current_frame.begin()+iterator_place);
-                        sequences_no_insert.erase(sequences_no_insert.begin()+k);
-                        continue;
-                    }
-                }
-            }
+            // trial and error approach
+            // bool all_blinkers_equal = true; 
+            // if(all_blinkers_equal){
+            //     if(sequences_no_insert[k]->size() >= 2 && !sequences_no_insert[k]->end()[-1].led_state && !sequences_no_insert[k]->end()[-2].led_state){
+            //         cv::Point2d min(20,20);
+            //         PointState selected;
+            //         int iterator_place = -1;
+            //         for(int i = 0; i < (int)no_nn_current_frame.size(); ++i){        
+            //             auto diff = computeXYDiff(no_nn_current_frame[i].point, sequences_no_insert[k]->end()[-1].point);
+            //             if(diff.x < min.x && diff.y < min.y){
+            //                 min = diff; 
+            //                 selected = no_nn_current_frame[i];
+            //                 iterator_place = i;
+            //             }
+            //         }
+            //         if(iterator_place != -1){
+            //             insertPointToSequence(*sequences_no_insert[k], selected);
+            //             no_nn_current_frame.erase(no_nn_current_frame.begin()+iterator_place);
+            //             sequences_no_insert.erase(sequences_no_insert.begin()+k);
+            //             continue;
+            //         }
+            //     }
+            // }
         }
     }
 
     // for the points, still no NN found start new sequence
     for(auto point : no_nn_current_frame){
         ++global_count;
-        std::cout << "GC " << global_count << "\n";
-        // std::cout << "started new sequence " << point.point.x << " " << point.point.y;
-        // for(auto seq: gen_sequences_){
-            // if(seq->end()[-1].extended_search)
-            // std::cout << " seq " << seq->size() << " P " << seq->end()[-1].predicted.x << " " << seq->end()[-1].predicted.y;    
-        // }std::cout << "\n";
+        // std::cout << "GC " << global_count << "\n";
         std::vector<PointState> vect;
         vect.push_back(point);
         gen_sequences_.push_back(std::make_shared<std::vector<PointState>>(vect));
@@ -283,13 +286,11 @@ PredictionStatistics alternativeHT::selectStatisticsValues(const std::vector<dou
             }
             statistics.predicted_coordinate = std::round(statistics.predicted_coordinate);  
             poly_reg_computed = true;
-            // std::cout << "Poly\n";
-            poly_vs_mean++;
         }else{
             poly_reg_computed = false;
         }
         if((int)values.size() > statistics.used_poly_order + 1){
-            statistics.ellipse_val = extended_search_->confidenceInterval(statistics, values, weight_vect, conf_probab_percent_);
+            statistics.confidence_interval = extended_search_->confidenceInterval(statistics, values, weight_vect, conf_probab_percent_);
             confidence_interval = true;
         }else{
             confidence_interval = false;
@@ -297,16 +298,12 @@ PredictionStatistics alternativeHT::selectStatisticsValues(const std::vector<dou
     }
     
     if(!poly_reg_computed){
-        poly_vs_mean --;
-        // std::cout << "std " << std << " val size " << values.size() << "\n";
-        // std::cout << "Mean\n";
         statistics.predicted_coordinate = std::round(weighted_mean); 
         statistics.coeff = std::vector<double>(1, 0.0);
     }
-    if(!confidence_interval) statistics.ellipse_val = (std < max_pix_shift) ? max_pix_shift*2 : std*2;
+    if(!confidence_interval) statistics.confidence_interval = (std < max_pix_shift) ? max_pix_shift*2 : std*2;
 
-    statistics.ellipse_val = (statistics.ellipse_val < 2*max_pix_shift) ? max_pix_shift*2 : statistics.ellipse_val;  
-    // std::cout << poly_vs_mean << "\n";
+    statistics.confidence_interval = (statistics.confidence_interval < 2*max_pix_shift) ? max_pix_shift*2 : statistics.confidence_interval;  
     if(poly_reg_computed == false && confidence_interval == false){
         draw_poly = false;
     }else draw_poly = true;

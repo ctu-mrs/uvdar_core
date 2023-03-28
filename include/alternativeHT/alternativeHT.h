@@ -16,7 +16,7 @@ namespace uvdar
         bool extended_search = false;
         std::vector<double> x_coeff;
         std::vector<double> y_coeff;
-        cv::Point2d ellipse;
+        cv::Point2d confidence_interval;
         cv::Point2d predicted;
     };
     
@@ -27,7 +27,6 @@ namespace uvdar
     
     private:
         int global_count = 0;
-        int poly_vs_mean = 0;
         bool debug_, visual_debug_ = false;
         
         const int max_pixel_shift_x_ = 2;
