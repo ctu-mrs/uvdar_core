@@ -9,6 +9,18 @@ namespace uvdar {
 
   class SignalMatcher{
     public:
+      SignalMatcher(std::vector<std::vector<bool>> i_sequences, int i_correlation_probab_threshold){
+
+        correlation_probab_threshold_ = i_correlation_probab_threshold;
+        sequences_ = i_sequences;
+        sequence_size_ = sequences_.at(0).size();
+        for (auto &curr_seq : sequences_){
+          auto curr_seq_copy = curr_seq;
+          // append the original signal at the end and delete last Bit e.g. 0,1 -> 0,1,0 
+          curr_seq.insert(curr_seq.end(),curr_seq_copy.begin(),curr_seq_copy.end()-1);
+        }
+      }
+
       SignalMatcher(std::vector<std::vector<bool>> i_sequences){
         //TODO sanitation
         sequences_ = i_sequences;
@@ -62,19 +74,12 @@ namespace uvdar {
             if (corr_val == sequence_size_){
               return s;
             }
-            double percentage_match = (double)corr_val/(double)sequence_size_; 
-            if( percentage_match > 0.9){
+            double percentage_match = ((double)corr_val/(double)sequence_size_)*100; 
+            if( percentage_match >= correlation_probab_threshold_){
               return s; 
             }
           }
         }
-
-        // std::cout << "No match\n";
-        // for(auto l : i_signal){
-        //   if(l) std::cout <<"1,";
-        //   else std::cout << "0,";
-        // }
-        // std::cout << std::endl; 
         return -1; 
       }
 
@@ -88,6 +93,7 @@ namespace uvdar {
 
   std::vector<std::vector<bool>> sequences_;
   int sequence_size_;
+  int correlation_probab_threshold_ = 100;
 
   };
 }

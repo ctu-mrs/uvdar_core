@@ -22,6 +22,17 @@ namespace uvdar
     
     using seqPointer = std::shared_ptr<std::vector<PointState>>;
 
+    struct loadedParamsForAHT{
+        cv::Point max_pixel_shift;
+        bool communication_mode;
+        int stored_seq_len_factor; 
+        int poly_order;
+        double decay_factor;
+        double conf_probab_percent;
+        int seq_overlap_probab_percent;
+        int threshold_values_len_for_poly_reg;
+        int frame_tolerance;
+    };
 
     class alternativeHT {
     
@@ -29,13 +40,17 @@ namespace uvdar
         int global_count = 0;
         bool debug_, visual_debug_ = false;
         
-        const int max_pixel_shift_x_ = 2;
-        const int max_pixel_shift_y_ = 2;
+        cv::Point max_pixel_shift_;
+        
         const double prediction_margin_ = 0.0;
         int stored_seq_len_factor_; // the multiplication factor how long the sequence should be for calculating the trajectory   
         double framerate_;
         int poly_order_; 
         double conf_probab_percent_; // in percentage
+        bool communication_mode_;
+        int frame_tolerance_;
+        int seq_overlap_probab_percent_;
+        int threshold_values_len_for_poly_reg_;
 
         std::vector<std::vector<bool>> original_sequences_;
         
@@ -60,11 +75,10 @@ namespace uvdar
         void insertVPforSequencesWithNoInsert(seqPointer &);
 
         void cleanPotentialBuffer();
-        int findSequenceMatch(std::vector<bool>);
 
     public:
 
-        alternativeHT(double, int, int, double);
+        alternativeHT(const loadedParamsForAHT&);
         ~alternativeHT();
         
         void setDebugFlags(bool, bool);

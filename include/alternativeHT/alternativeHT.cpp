@@ -2,11 +2,18 @@
 
 using namespace uvdar;
 
-alternativeHT::alternativeHT(double decay_factor, int poly_order, int stored_seq_len_factor, double conf_probability_percent){
-    poly_order_ = poly_order;
-    extended_search_ = std::make_unique<ExtendedSearch>(decay_factor, poly_order);
-    stored_seq_len_factor_ = stored_seq_len_factor;
-    conf_probab_percent_ = conf_probability_percent;
+alternativeHT::alternativeHT(const loadedParamsForAHT& params){
+    max_pixel_shift_.x = params.max_pixel_shift.x;
+    max_pixel_shift_.y = params.max_pixel_shift.y;
+    communication_mode_  = params.communication_mode;
+    stored_seq_len_factor_ = params.stored_seq_len_factor;
+    poly_order_ = params.poly_order;
+    extended_search_ = std::make_unique<ExtendedSearch>(params.decay_factor, poly_order_);
+    conf_probab_percent_ = params.conf_probab_percent;
+    seq_overlap_probab_percent_ = params.seq_overlap_probab_percent;
+    threshold_values_len_for_poly_reg_ = params.threshold_values_len_for_poly_reg;
+    frame_tolerance_ = params.frame_tolerance;
+    
 }
 
 void alternativeHT::setDebugFlags(bool debug, bool visual_debug){
@@ -17,7 +24,7 @@ void alternativeHT::setDebugFlags(bool debug, bool visual_debug){
 void alternativeHT::setSequences(std::vector<std::vector<bool>> i_sequences){
   
     original_sequences_ = i_sequences;
-    matcher_ = std::make_unique<SignalMatcher>(original_sequences_);
+    matcher_ = std::make_unique<SignalMatcher>(original_sequences_, seq_overlap_probab_percent_);
 }
 
 void alternativeHT::updateFramerate(double input) {
@@ -26,7 +33,7 @@ void alternativeHT::updateFramerate(double input) {
 }
 
 void alternativeHT::processBuffer(const mrs_msgs::ImagePointsWithFloatStampedConstPtr pts_msg) {
-    
+
     std::vector<PointState> current_frame;
     for ( auto point_time_stamp : pts_msg->points) {
         PointState p;
@@ -38,29 +45,6 @@ void alternativeHT::processBuffer(const mrs_msgs::ImagePointsWithFloatStampedCon
 
     findClosestPixelAndInsert(current_frame);
     cleanPotentialBuffer();
-
-    // for(auto seq : gen_sequences_){
-    //     if(seq->size() > 20){
-    //         auto diff = seq->end()[-1].point - seq->end()[-18].point;
-    //         if(seq->end()[-1].extended_search){
-    //             auto diff_predict = seq->end()[-1].point - seq->end()[-1].predicted;
-    //             if( (diff.x < 0 && diff_predict.x < 0) || (diff.y < 0 && diff_predict.y < 0) ){
-    //                 std::cout << "Seq ";
-    //                 int diff_i = seq->size() - 18;
-    //                 for(int i = diff_i; i < seq->size(); ++i){
-    //                     std::cout << "x:" << (*seq)[i].point.x << " ";
-    //                 }
-    //                 std::cout << " PREDICTED X: " << seq->end()[-1].predicted.x << " ";
-
-    //                 for(int i = diff_i; i < seq->size(); ++i){
-    //                     std::cout << " y:" << (*seq)[i].point.y << " ";
-    //                 }
-    //                 std::cout << " PREDICTED Y: " << seq->end()[-1].predicted.y << "\n";
-
-    //             }
-    //         }
-    //     }
-    // }
 }
 
 void alternativeHT::findClosestPixelAndInsert(std::vector<PointState> & current_frame) {   
@@ -81,7 +65,7 @@ void alternativeHT::findClosestPixelAndInsert(std::vector<PointState> & current_
         for(auto seq = p_gen_seq.begin(); seq != p_gen_seq.end(); ++seq){
             PointState last_inserted = (*seq)->end()[-1];
             cv::Point2d diff = computeXYDiff(curr_point.point, last_inserted.point);
-            if(diff.x <= max_pixel_shift_x_ && diff.y <= max_pixel_shift_y_){
+            if(diff.x <= max_pixel_shift_.x && diff.y <= max_pixel_shift_.y){
                 nn = true;
                 insertPointToSequence(**seq, curr_point);    
                 p_gen_seq.erase(seq);
@@ -115,7 +99,6 @@ void alternativeHT::expandedSearch(std::vector<PointState>& no_nn_current_frame,
     
     std::scoped_lock lock(mutex_gen_sequences_);
 
-    // std::cout << "Sequences No Insert" << sequences_no_insert.size() << " Seq " << generatedSequences_.size() << "\n";
     if((int)no_nn_current_frame.size() != 0){
         double insert_time = no_nn_current_frame[0].insert_time.toSec() + prediction_margin_;
         // std::vector<SeqWithTrajectory> sequences;
@@ -124,10 +107,8 @@ void alternativeHT::expandedSearch(std::vector<PointState>& no_nn_current_frame,
             if(!checkSequenceValidityWithNewInsert(sequences_no_insert[k])){
                 continue;
             }
-            
 
-            std::vector<double> x,y;
-            std::vector<double> time;
+            std::vector<double> x,y,time;
 
             // prepare for polynomial regression TODO: Maybe calculate the variance over the points for outlier rejection
             for(const auto point : *sequences_no_insert[k]){
@@ -138,10 +119,12 @@ void alternativeHT::expandedSearch(std::vector<PointState>& no_nn_current_frame,
                 }
             }
 
+            if(time.size() == 0 || x.size() != y.size() || x.size() != time.size() || sequences_no_insert[k]->size() == 0)continue;
+
             PointState& last_point = sequences_no_insert[k]->end()[-1]; 
             bool draw_x, draw_y;
-            PredictionStatistics x_predictions = selectStatisticsValues(x, time, insert_time, max_pixel_shift_x_, draw_x);
-            PredictionStatistics y_predictions = selectStatisticsValues(y, time, insert_time, max_pixel_shift_y_, draw_y);
+            PredictionStatistics x_predictions = selectStatisticsValues(x, time, insert_time, max_pixel_shift_.x, draw_x);
+            PredictionStatistics y_predictions = selectStatisticsValues(y, time, insert_time, max_pixel_shift_.y, draw_y);
             last_point.confidence_interval.x = x_predictions.confidence_interval;
             last_point.predicted.x = x_predictions.predicted_coordinate;
             last_point.x_coeff = x_predictions.coeff;
@@ -160,71 +143,39 @@ void alternativeHT::expandedSearch(std::vector<PointState>& no_nn_current_frame,
             right_bottom.x = std::ceil(right_bottom.x);
             right_bottom.y = std::ceil(right_bottom.y);
 
-            for(int i = 0; i < (int)no_nn_current_frame.size(); i++){
-                if(extended_search_->isInsideBB(no_nn_current_frame[k].point, left_top, right_bottom)){
-                    no_nn_current_frame[i].extended_search = true;
-                    no_nn_current_frame[i].x_coeff = last_point.x_coeff;
-                    no_nn_current_frame[i].y_coeff = last_point.y_coeff;
-                    no_nn_current_frame[i].confidence_interval = last_point.confidence_interval;
-                    no_nn_current_frame[i].predicted = last_point.predicted;
-                    insertPointToSequence(*sequences_no_insert[k], no_nn_current_frame[i]);
-                    std::vector<double> _x, _y, _time;
-                    for(const auto point : *sequences_no_insert[k]){
-                        if(point.led_state){
-                            _x.push_back(point.point.x);
-                            _y.push_back(point.point.y);
-                            _time.push_back(point.insert_time.toSec());
-                        }
-                    }
-                    PredictionStatistics x_predictions = selectStatisticsValues(_x, _time, insert_time, max_pixel_shift_x_, draw_x);
-                    PredictionStatistics y_predictions = selectStatisticsValues(_y, _time, insert_time, max_pixel_shift_y_, draw_y);
-                    PointState& last_point = sequences_no_insert[k]->end()[-1]; 
-                    last_point.confidence_interval.x = x_predictions.confidence_interval;
-                    last_point.predicted.x = x_predictions.predicted_coordinate;
-                    last_point.x_coeff = x_predictions.coeff;
-                    last_point.confidence_interval.y = y_predictions.confidence_interval;
-                    last_point.predicted.y= y_predictions.predicted_coordinate;
-                    last_point.y_coeff = y_predictions.coeff;
-                    if(draw_x && draw_y) last_point.extended_search = true;
-                    no_nn_current_frame.erase(no_nn_current_frame.begin()+i);
+            for(auto it_frame = no_nn_current_frame.begin(); it_frame != no_nn_current_frame.end();){
+            // for(int i = 0; i < (int)no_nn_current_frame.size(); i++){
+                // if(extended_search_->isInsideBB(no_nn_current_frame[i].point, left_top, right_bottom)){
+                if(extended_search_->isInsideBB(it_frame->point, left_top, right_bottom)){
+                    // no_nn_current_frame[i].extended_search = true;
+                    // no_nn_current_frame[i].x_coeff = last_point.x_coeff;
+                    // no_nn_current_frame[i].y_coeff = last_point.y_coeff;
+                    // no_nn_current_frame[i].confidence_interval = last_point.confidence_interval;
+                    // no_nn_current_frame[i].predicted = last_point.predicted;
+                    it_frame->extended_search = true;
+                    it_frame->x_coeff = last_point.x_coeff;
+                    it_frame->y_coeff = last_point.y_coeff;
+                    it_frame->confidence_interval = last_point.confidence_interval;
+                    it_frame->predicted = last_point.predicted;
+                    // insertPointToSequence(*sequences_no_insert[k], no_nn_current_frame[i]);
+                    insertPointToSequence(*sequences_no_insert[k], *it_frame);
+                    it_frame = no_nn_current_frame.erase(it_frame);
+                    // no_nn_current_frame.erase(no_nn_current_frame.begin()+i);
                     sequences_no_insert.erase(sequences_no_insert.begin()+k); 
                     break;
-                }   
+                }else{   
+                    ++it_frame;
+                }
             }
-
-            // trial and error approach
-            // bool all_blinkers_equal = true; 
-            // if(all_blinkers_equal){
-            //     if(sequences_no_insert[k]->size() >= 2 && !sequences_no_insert[k]->end()[-1].led_state && !sequences_no_insert[k]->end()[-2].led_state){
-            //         cv::Point2d min(20,20);
-            //         PointState selected;
-            //         int iterator_place = -1;
-            //         for(int i = 0; i < (int)no_nn_current_frame.size(); ++i){        
-            //             auto diff = computeXYDiff(no_nn_current_frame[i].point, sequences_no_insert[k]->end()[-1].point);
-            //             if(diff.x < min.x && diff.y < min.y){
-            //                 min = diff; 
-            //                 selected = no_nn_current_frame[i];
-            //                 iterator_place = i;
-            //             }
-            //         }
-            //         if(iterator_place != -1){
-            //             insertPointToSequence(*sequences_no_insert[k], selected);
-            //             no_nn_current_frame.erase(no_nn_current_frame.begin()+iterator_place);
-            //             sequences_no_insert.erase(sequences_no_insert.begin()+k);
-            //             continue;
-            //         }
-            //     }
-            // }
         }
     }
 
     // for the points, still no NN found start new sequence
     for(auto point : no_nn_current_frame){
-        ++global_count;
-        // std::cout << "GC " << global_count << "\n";
         std::vector<PointState> vect;
         vect.push_back(point);
         gen_sequences_.push_back(std::make_shared<std::vector<PointState>>(vect));
+        std::cout << "start new seq\n";
     }
 
     // for sequences where still no insert happend
@@ -234,6 +185,8 @@ void alternativeHT::expandedSearch(std::vector<PointState>& no_nn_current_frame,
 }
 
 bool alternativeHT::checkSequenceValidityWithNewInsert(const seqPointer & seq){
+    
+    if(communication_mode_) return true;
 
     if(seq->size() > 1){
         // if the last two led states were on - no "on" point expected -> no NN search necessary
@@ -256,7 +209,6 @@ void alternativeHT::insertVPforSequencesWithNoInsert(seqPointer & seq){
     pVirtual = seq->end()[-1];
     pVirtual.insert_time = ros::Time::now();
     pVirtual.led_state = false;
-    // pVirtual.extended_search = false;
     insertPointToSequence(*seq, pVirtual);
 }
 
@@ -271,7 +223,7 @@ PredictionStatistics alternativeHT::selectStatisticsValues(const std::vector<dou
            
     bool confidence_interval = false, poly_reg_computed = false;
 
-    if(std > max_pix_shift && values.size() >= 10){
+    if(std > max_pix_shift && (int)values.size() >= threshold_values_len_for_poly_reg_){
 
         statistics = extended_search_->polyReg(values, time, weight_vect);
         auto coeff = statistics.coeff;
@@ -315,37 +267,30 @@ PredictionStatistics alternativeHT::selectStatisticsValues(const std::vector<dou
 void alternativeHT::cleanPotentialBuffer(){
 
     std::scoped_lock lock(mutex_gen_sequences_);
-    double timing_tolerance = 5/60;
+    double timing_tolerance = frame_tolerance_/60;
     if(framerate_ != 0){
-        timing_tolerance = (1/framerate_) * 4; 
+        timing_tolerance = (1/framerate_) * frame_tolerance_; 
     }
 
-    // std::cout << "Time margin " << timeMargin; 
-
-    auto it = gen_sequences_.begin();
-    while(it != gen_sequences_.end()){ 
-        if ((*it)->empty()){
-            ++it;
+    for(int i = 0; i < (int)gen_sequences_.size(); ++i){
+        if(gen_sequences_[i]->empty()){
             continue;
         }
 
-        if( (*it)->size() > 2){
-            if(!(*it)->end()[-1].led_state && !(*it)->end()[-2].led_state && !(*it)->end()[-3].led_state){
-                it = gen_sequences_.erase(it);
+        if(!communication_mode_ && gen_sequences_[i]->size() > 2){
+            if(!gen_sequences_[i]->end()[-1].led_state && !gen_sequences_[i]->end()[-2].led_state && !gen_sequences_[i]->end()[-3].led_state){
+                gen_sequences_.erase(gen_sequences_.begin() +i);
                 continue;
             }
         }
 
-        // works but eventually not usefull in that current implementation
-        double insert_time = (*it)->end()[-1].insert_time.toSec(); 
+        // works but eventually not useful in that current implementation
+        double insert_time = gen_sequences_[i]->end()[-1].insert_time.toSec(); 
         double diff_last_insert = std::abs(insert_time - ros::Time::now().toSec());
         if (diff_last_insert > timing_tolerance){ 
-            it = gen_sequences_.erase(it);
-            std::cout << "Time\n";
+            gen_sequences_.erase(gen_sequences_.begin()+i);
             continue;
         }
-        ++it;
-
     }
 }
 
@@ -372,25 +317,13 @@ std::vector<std::pair<std::vector<PointState>, int>> alternativeHT::getResults()
             selected = return_seq;
         }
         for (auto point : selected){
-            led_states.push_back(point.led_state);
+            led_states.push_back(point.led_state);        
         }
 
-        int id = findSequenceMatch(led_states);
+        int id = matcher_->matchSignalWithCrossCorr(led_states);
         retrieved_signals.push_back(std::make_pair(return_seq, id));
     }
     return retrieved_signals;
-}
-
-int alternativeHT::findSequenceMatch(std::vector<bool> sequence){
-
-    for ( int i = 2; i < (int)sequence.size(); i++) {
-        if (sequence[i] == false && sequence[i-1] == false && sequence[i-2] == false){
-            return -2;
-        }
-    }
-    int id = matcher_->matchSignalWithCrossCorr(sequence);
-
-    return id;
 }
 
 alternativeHT::~alternativeHT() {

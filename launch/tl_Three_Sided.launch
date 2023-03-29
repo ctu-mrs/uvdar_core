@@ -48,9 +48,12 @@
   <arg name="beacon" default="false"/>
 
   <arg name="sequence_file" default="$(find uvdar_core)/config/selected.txt"/>
-  <arg name="imu_compensation" default="true"/>
-  <arg name="poly_order" default="2"/>
-  <arg name="decay_factor" default="0.1"/>
+  <arg name="imu_compensation" default="false"/>
+  <arg name="communication_mode" default="true"/>
+  <arg name="poly_order" default="4"/>
+  <arg name="decay_factor" default="0.01"/>
+  <arg name="stored_seq_len_factor" default="1"/>
+  <arg name="confidence_probability" default="90.0"/>
 
   <arg name="model_file" default="$(find uvdar_core)/config/models/quadrotor_foursided.txt"/>
   <!-- ideal angle: 1.221730476 - pi/2 -->
@@ -144,11 +147,16 @@
       <param name="visualization_rate"         type="double" value="15"/>
 
       <param name="poly_order" type="int" value="$(arg poly_order)"/>
-      <param name="decay_factor"         type="double" value="$(arg decay_factor)"/>
-      
+      <param name="decay_factor"         type="double" value="$(arg decay_factor)"/>    
+      <param name="stored_seq_len_factor"         type="int" value="$(arg stored_seq_len_factor)"/>    
+      <param name="confidence_probability"         type="double" value="$(arg confidence_probability)"/>
+      <param name="communication_mode"     type="bool"   value="$(arg communication_mode)"/>
+ 
       <param name="sequence_file"         type="string" value="$(arg sequence_file)"/>
       <param name="imu_compensation"     type="bool"   value="$(arg imu_compensation)"/>
       <param name="imu_topic" type="string" value="/$(arg uav_name)/odometry/odom_main"/>
+      <param name="communication_mode"     type="bool"   value="$(arg communication_mode)"/>
+
 
       <rosparam param="camera_topics"> ["camera_left", "camera_right", "camera_back"] </rosparam>
       <rosparam param="points_seen_topics"> ["points_seen_left", "points_seen_right", "points_seen_back"] </rosparam>

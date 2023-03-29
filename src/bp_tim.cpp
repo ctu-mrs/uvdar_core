@@ -107,10 +107,20 @@ namespace uvdar{
       std::string _sequence_file;
       bool        _imu_compensation_;
       std::string _imu_topic_;
-      float _decay_factor_; 
-      int _polynomial_deg_;
-      double _conf_probab_percent_;
+      // params for the aht
+      int _max_pixel_shift_x_;
+      int _max_pixel_shift_y_;
+      bool _communication_mode_;
       int _stored_seq_len_factor_;
+      int _poly_order_;
+      float _decay_factor_; 
+      double _conf_probab_percent_;
+      int _seq_overlap_probab_percent_;
+      int _threshold_values_len_for_poly_reg_; 
+      int _frame_tolerance_;
+      
+
+
 
       struct BlinkData {
         std::vector<std::pair<std::vector<PointState>,int>> retrieved_blinkers;
@@ -197,10 +207,21 @@ namespace uvdar{
     param_loader.loadParam("imu_compensation", _imu_compensation_, bool(false));
 
     param_loader.loadParam("decay_factor", _decay_factor_, float(0.1));
-    param_loader.loadParam("poly_order", _polynomial_deg_, int(2));
+    param_loader.loadParam("poly_order", _poly_order_, int(2));
     param_loader.loadParam("stored_seq_len_factor", _stored_seq_len_factor_, int(15));
     param_loader.loadParam("confidence_probability", _conf_probab_percent_, double(75.0));
+    param_loader.loadParam("communication_mode", _communication_mode_, bool(false));
+    if(_communication_mode_){
+      // TODO: MAKE X + Y BB values settabel
+      ROS_WARN("[UVDAR_BP_Tim]: Communication Mode is activated. More than two consecutive on/off bits are allowed! Maybe you would like to set the search space for nearest neighbors higher. Current x size is ");
+    }
 
+    param_loader.loadParam("frame_tolerance", _frame_tolerance_, int(5));
+    param_loader.loadParam("max_pixel_shift_x", _max_pixel_shift_x_, int(2));
+    param_loader.loadParam("max_pixel_shift_y", _max_pixel_shift_y_, int(2));
+    param_loader.loadParam("seq_overlap_probab_percent", _seq_overlap_probab_percent_, int(90));
+    param_loader.loadParam("threshold_values_len_for_poly_reg", _threshold_values_len_for_poly_reg_, int(90));
+      
   }
 
   bool UVDAR_BP_Tim::checkCameraTopicSizeMatch() {
@@ -277,14 +298,20 @@ namespace uvdar{
   }
 
   void UVDAR_BP_Tim::initAlternativeHTDataStructure(){
+    loadedParamsForAHT paramsForAHT;
+    paramsForAHT.max_pixel_shift.x = _max_pixel_shift_x_;
+    paramsForAHT.max_pixel_shift.y = _max_pixel_shift_y_;
+    paramsForAHT.communication_mode = _communication_mode_;
+    paramsForAHT.stored_seq_len_factor = _stored_seq_len_factor_;
+    paramsForAHT.poly_order = _poly_order_;
+    paramsForAHT.decay_factor = _decay_factor_;
+    paramsForAHT.conf_probab_percent = _conf_probab_percent_;
+    paramsForAHT.seq_overlap_probab_percent = _seq_overlap_probab_percent_;
+    paramsForAHT.threshold_values_len_for_poly_reg = _threshold_values_len_for_poly_reg_;  
+    paramsForAHT.frame_tolerance = _frame_tolerance_;
 
     for (size_t i = 0; i < _points_seen_topics.size(); ++i) {
-      aht_.push_back(std::make_shared<alternativeHT>(
-          _decay_factor_, 
-          _polynomial_deg_, 
-          _stored_seq_len_factor_, 
-          _conf_probab_percent_
-      ));
+      aht_.push_back(std::make_shared<alternativeHT>(paramsForAHT));
       aht_[i]->setSequences(sequences_);
       aht_[i]->setDebugFlags(_debug_, _visual_debug_);
 
@@ -655,10 +682,10 @@ namespace uvdar{
               cv::rectangle(output_image, left_top, right_bottom, predict_colour, 1);
             }
             if(interpolated_prediction.size() != 0){
-              std::cout << "LINE" << interpolated_prediction.size() << "\n";
-              for(auto p : interpolated_prediction){
-                std::cout << p.x << " " << p.y << "\n";
-              }
+              // std::cout << "LINE" << interpolated_prediction.size() << "\n";
+              // for(auto p : interpolated_prediction){
+                // std::cout << p.x << " " << p.y << "\n";
+              // }
               cv::polylines(output_image, interpolated_prediction, false, predict_colour, 1);
             }
           }

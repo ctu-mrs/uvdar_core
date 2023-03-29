@@ -45,10 +45,18 @@
 
   <arg name="sequence_file" default="$(find uvdar_core)/config/selected.txt"/>
   <arg name="imu_compensation" default="false"/>
+  <arg name="communication_mode" default="true"/>
+
   <arg name="poly_order" default="4"/>
   <arg name="decay_factor" default="0.01"/>
   <arg name="stored_seq_len_factor" default="20"/>
   <arg name="confidence_probability" default="90.0"/>
+  <arg name="frame_tolerance" default="5"/>
+  <arg name="max_pixel_shift_x" default="2"/>
+  <arg name="max_pixel_shift_y" default="2"/>
+  <arg name="seq_overlap_probab_percent" default="90"/>
+  <arg name="threshold_values_len_for_poly_reg" default="10"/>
+
   <arg name="model_file" default="$(find uvdar_core)/config/models/quadrotor_foursided.txt"/>
   <!-- ideal angle: 1.221730476 - pi/2 -->
 
@@ -115,7 +123,15 @@
       <param name="poly_order" type="int" value="$(arg poly_order)"/>
       <param name="decay_factor"         type="double" value="$(arg decay_factor)"/>    
       <param name="stored_seq_len_factor"         type="int" value="$(arg stored_seq_len_factor)"/>    
-      <param name="confidence_probability"         type="double" value="$(arg confidence_probability)"/>    
+      <param name="confidence_probability"         type="double" value="$(arg confidence_probability)"/>
+      <param name="communication_mode"     type="bool"   value="$(arg communication_mode)"/>
+
+      <param name="frame_tolerance"     type="int"   value="$(arg frame_tolerance)"/>
+      <param name="max_pixel_shift_x"     type="int"   value="$(arg max_pixel_shift_x)"/>
+      <param name="max_pixel_shift_y"     type="int"   value="$(arg max_pixel_shift_y)"/>
+      <param name="seq_overlap_probab_percent"     type="int"   value="$(arg seq_overlap_probab_percent)"/>
+      <param name="threshold_values_len_for_poly_reg"     type="int"   value="$(arg threshold_values_len_for_poly_reg)"/>
+
       
       <param name="sequence_file"         type="string" value="$(arg sequence_file)"/>
       <param name="imu_compensation"     type="bool"   value="$(arg imu_compensation)"/>
