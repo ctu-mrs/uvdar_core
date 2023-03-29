@@ -175,7 +175,6 @@ void alternativeHT::expandedSearch(std::vector<PointState>& no_nn_current_frame,
         std::vector<PointState> vect;
         vect.push_back(point);
         gen_sequences_.push_back(std::make_shared<std::vector<PointState>>(vect));
-        std::cout << "start new seq\n";
     }
 
     // for sequences where still no insert happend

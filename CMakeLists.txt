@@ -62,6 +62,7 @@ add_message_files(DIRECTORY msg FILES
    USM.msg
    RecMsg.msg
    DefaultMsg.msg
+   ahtDataForLogging.msg
   )
 
 generate_messages(DEPENDENCIES

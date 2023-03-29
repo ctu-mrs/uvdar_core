@@ -1,5 +1,5 @@
 <launch>
-  <arg name="uav_name" default="$(optenv UAV_NAME uav7)"/>
+  <arg name="uav_name" default="uav7"/>
 
   <arg name="standalone" default="false"/>
 
@@ -45,7 +45,7 @@
 
   <arg name="sequence_file" default="$(find uvdar_core)/config/selected.txt"/>
   <arg name="imu_compensation" default="false"/>
-  <arg name="communication_mode" default="true"/>
+  <arg name="communication_mode" default="false"/>
 
   <arg name="poly_order" default="4"/>
   <arg name="decay_factor" default="0.01"/>
@@ -141,10 +141,13 @@
       <rosparam param="points_seen_topics"> ["points_seen_left"] </rosparam>
       <rosparam param="blinkers_seen_topics"> ["blinkers_seen_back"] </rosparam>
       <rosparam param="estimated_framerate_topics"> ["estimated_framerate_back"] </rosparam>
+      <rosparam param="aht_logging_topics"> ["aht_logging_back"] </rosparam>
 
       <remap from="~camera_left" to="/$(arg uav_name)/uvdar_bluefox/left/image_raw"/>
       <remap from="~points_seen_left" to="/$(arg uav_name)/uvdar/points_seen_left"/>
       <remap from="~blinkers_seen_back" to="/$(arg uav_name)/uvdar/blinkers_seen_back"/>
+      <remap from="~aht_logging_back" to="/$(arg uav_name)/uvdar/aht_logging_back"/>
+
       <remap from="~estimated_framerate_back" to="/$(arg uav_name)/uvdar/estimated_framerate_back"/>
       <remap from="~visualization" to="/$(arg uav_name)/uvdar/blink_visualization/image_raw"/>
 

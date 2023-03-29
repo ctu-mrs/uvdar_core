@@ -4,6 +4,7 @@
 #include <mrs_lib/image_publisher.h>
 #include <std_msgs/Float32.h>
 #include <mrs_msgs/ImagePointsWithFloatStamped.h>
+#include <uvdar_core/ahtDataForLogging.h>
 
 #include <cv_bridge/cv_bridge.h>
 #include <opencv2/core/core.hpp>
@@ -55,6 +56,7 @@ namespace uvdar{
       
       std::vector<std::vector<bool>> sequences_;
       std::vector<ros::Publisher> pub_blinkers_seen_;
+      std::vector<ros::Publisher> pub_aht_logging_;
       std::vector<ros::Publisher> pub_estimated_framerate_;
 
       std::mutex mutex_signals_;
@@ -101,9 +103,11 @@ namespace uvdar{
       bool        _publish_visualization_;
       float       _visualization_rate_;
       bool        _use_camera_for_visualization_;
-      std::vector<std::string> _blinkers_seen_topics;
-      std::vector<std::string> _estimated_framerate_topics;
-      std::vector<std::string> _points_seen_topics;
+      std::vector<std::string> _blinkers_seen_topics_;
+      std::vector<std::string> _estimated_framerate_topics_;
+      std::vector<std::string> _points_seen_topics_;
+      std::vector<std::string> _aht_logging_topics_;
+
       std::string _sequence_file;
       bool        _imu_compensation_;
       std::string _imu_topic_;
@@ -165,7 +169,7 @@ namespace uvdar{
       imu_comp = std::make_unique<IMU_COMPENSATION>(_imu_topic_);
     }
     std::string pubTopic_extension = "_imu_comp";
-    points_seen_topics_imu_compensation_ = _points_seen_topics; 
+    points_seen_topics_imu_compensation_ = _points_seen_topics_; 
     for(auto & topicName : points_seen_topics_imu_compensation_){
         topicName += pubTopic_extension;
         pub_points_seen_compensated_imu_.push_back(private_nh_.advertise<mrs_msgs::ImagePointsWithFloatStamped>(topicName, 1));
@@ -195,17 +199,17 @@ namespace uvdar{
     param_loader.loadParam("publish_visualization", _publish_visualization_, bool(true));
     param_loader.loadParam("visualization_rate", _visualization_rate_, float(15.0));       
 
-    param_loader.loadParam("points_seen_topics", _points_seen_topics, _points_seen_topics);
+    param_loader.loadParam("points_seen_topics", _points_seen_topics_, _points_seen_topics_);
 
     param_loader.loadParam("sequence_file", _sequence_file, std::string());
 
-    private_nh_.param("blinkers_seen_topics", _blinkers_seen_topics, _blinkers_seen_topics);
-    private_nh_.param("estimated_framerate_topics", _estimated_framerate_topics, _estimated_framerate_topics);
+    private_nh_.param("blinkers_seen_topics", _blinkers_seen_topics_, _blinkers_seen_topics_);
+    private_nh_.param("estimated_framerate_topics", _estimated_framerate_topics_, _estimated_framerate_topics_);
     private_nh_.param("use_camera_for_visualization", _use_camera_for_visualization_, bool(true));
-
+    private_nh_.param("aht_logging_topics", _aht_logging_topics_, _aht_logging_topics_);
     private_nh_.param("imu_topic", _imu_topic_, std::string());
-    param_loader.loadParam("imu_compensation", _imu_compensation_, bool(false));
 
+    param_loader.loadParam("imu_compensation", _imu_compensation_, bool(false));
     param_loader.loadParam("decay_factor", _decay_factor_, float(0.1));
     param_loader.loadParam("poly_order", _poly_order_, int(2));
     param_loader.loadParam("stored_seq_len_factor", _stored_seq_len_factor_, int(15));
@@ -225,18 +229,20 @@ namespace uvdar{
   }
 
   bool UVDAR_BP_Tim::checkCameraTopicSizeMatch() {
+    // TODO: previously 
+    // for (size_t i = 0; i < _blinkers_seen_topics.size(); ++i) {
+    //   pub_blinkers_seen_.push_back(private_nh_.advertise<mrs_msgs::ImagePointsWithFloatStamped>(_blinkers_seen_topics[i], 1));
+    //   pub_aht_logging_.push_back(private_nh_.advertise<uvdar_core::ahtDataForLogging>(_aht_logging_topics[i], 1));
+    //   _aht_logging_topics
+    //   pub_estimated_framerate_.push_back(private_nh_.advertise<std_msgs::Float32>(_estimated_framerate_topics[i], 1));
+    // }
 
-    for (size_t i = 0; i < _blinkers_seen_topics.size(); ++i) {
-      pub_blinkers_seen_.push_back(private_nh_.advertise<mrs_msgs::ImagePointsWithFloatStamped>(_blinkers_seen_topics[i], 1));
-      pub_estimated_framerate_.push_back(private_nh_.advertise<std_msgs::Float32>(_estimated_framerate_topics[i], 1));
-    }
-
-    if (_blinkers_seen_topics.size() != _points_seen_topics.size()){
-      ROS_ERROR_STREAM("[UVDAR_BP_Tim]: The number of pointsSeenTopics (" << _points_seen_topics.size() << ") is not matching the number of blinkers_seen_topics (" << _blinkers_seen_topics.size() << ")! Returning.");
+    if (_blinkers_seen_topics_.size() != _points_seen_topics_.size()){
+      ROS_ERROR_STREAM("[UVDAR_BP_Tim]: The number of pointsSeenTopics (" << _points_seen_topics_.size() << ") is not matching the number of blinkers_seen_topics (" << _blinkers_seen_topics_.size() << ")! Returning.");
       return false;
     }
-    if (_estimated_framerate_topics.size() != _points_seen_topics.size()){
-      ROS_ERROR_STREAM("[UVDAR_BP_Tim]: The number of pointsSeenTopics (" << _points_seen_topics.size() << ") is not matching the number of blinkers_seen_topics (" << _estimated_framerate_topics.size() << ")! Returning.");
+    if (_estimated_framerate_topics_.size() != _points_seen_topics_.size()){
+      ROS_ERROR_STREAM("[UVDAR_BP_Tim]: The number of pointsSeenTopics (" << _points_seen_topics_.size() << ") is not matching the number of blinkers_seen_topics (" << _estimated_framerate_topics_.size() << ")! Returning.");
       return false;
     }
     return true;
@@ -310,7 +316,7 @@ namespace uvdar{
     paramsForAHT.threshold_values_len_for_poly_reg = _threshold_values_len_for_poly_reg_;  
     paramsForAHT.frame_tolerance = _frame_tolerance_;
 
-    for (size_t i = 0; i < _points_seen_topics.size(); ++i) {
+    for (size_t i = 0; i < _points_seen_topics_.size(); ++i) {
       aht_.push_back(std::make_shared<alternativeHT>(paramsForAHT));
       aht_[i]->setSequences(sequences_);
       aht_[i]->setDebugFlags(_debug_, _visual_debug_);
@@ -321,7 +327,7 @@ namespace uvdar{
       blink_data_.push_back(BlinkData());
 
 
-      // sun_points_.resize(_points_seen_topics.size());
+      // sun_points_.resize(_points_seen_topics_.size());
 
       mutex_camera_image_.push_back(std::make_shared<std::mutex>());
       camera_image_sizes_.push_back(cv::Size(-1,-1));
@@ -331,14 +337,14 @@ namespace uvdar{
 
   void UVDAR_BP_Tim::subscribeToPublishedPoints() {
 
-    for (size_t i = 0; i < _points_seen_topics.size(); ++i){
+    for (size_t i = 0; i < _points_seen_topics_.size(); ++i){
 
       if(_imu_compensation_){
         points_seen_callback_t callbackIMU = [image_index = i, this](const mrs_msgs::ImagePointsWithFloatStampedConstPtr &points_msg){
             imu_comp->compensateByIMUMovement(points_msg, image_index, pub_points_seen_compensated_imu_);
         };
         cals_points_seen_imu_.push_back(callbackIMU);
-        subs_points_seen_imu_.push_back(private_nh_.subscribe(_points_seen_topics[i], 1, cals_points_seen_imu_[i]));
+        subs_points_seen_imu_.push_back(private_nh_.subscribe(_points_seen_topics_[i], 1, cals_points_seen_imu_[i]));
       }
 
       // Subscribe to corresponding topics
@@ -347,22 +353,23 @@ namespace uvdar{
       };
       cals_points_seen_.push_back(callback);
       if(_imu_compensation_){
-        // sub_points_seen_.push_back(private_nh_.subscribe(_points_seen_topics[i], 1, cals_points_seen_[i]));
+        // sub_points_seen_.push_back(private_nh_.subscribe(_points_seen_topics_[i], 1, cals_points_seen_[i]));
         sub_points_seen_.push_back(private_nh_.subscribe(points_seen_topics_imu_compensation_[i], 1, cals_points_seen_[i]));
       }else{
-        sub_points_seen_.push_back(private_nh_.subscribe(_points_seen_topics[i], 1, cals_points_seen_[i]));
+        sub_points_seen_.push_back(private_nh_.subscribe(_points_seen_topics_[i], 1, cals_points_seen_[i]));
       }
       points_seen_callback_t sun_callback = [image_index=i,this] (const mrs_msgs::ImagePointsWithFloatStampedConstPtr& sun_points_msg){
         InsertSunPoints(sun_points_msg, image_index);
       };
       cals_sun_points_.push_back(callback);
-      sub_sun_points_.push_back(private_nh_.subscribe(_points_seen_topics[i] + "/sun", 1, cals_sun_points_[i]));
+      sub_sun_points_.push_back(private_nh_.subscribe(_points_seen_topics_[i] + "/sun", 1, cals_sun_points_[i]));
     } 
-    sun_points_.resize(_points_seen_topics.size());
+    sun_points_.resize(_points_seen_topics_.size());
 
-    for (size_t i = 0; i < _blinkers_seen_topics.size(); ++i) {
-          pub_blinkers_seen_.push_back(private_nh_.advertise<mrs_msgs::ImagePointsWithFloatStamped>(_blinkers_seen_topics[i], 1));
-          pub_estimated_framerate_.push_back(private_nh_.advertise<std_msgs::Float32>(_estimated_framerate_topics[i], 1));
+    for (size_t i = 0; i < _blinkers_seen_topics_.size(); ++i) {
+      pub_blinkers_seen_.push_back(private_nh_.advertise<mrs_msgs::ImagePointsWithFloatStamped>(_blinkers_seen_topics_[i], 1));
+      pub_aht_logging_.push_back(private_nh_.advertise<uvdar_core::ahtDataForLogging>(_aht_logging_topics_[i], 1));
+      pub_estimated_framerate_.push_back(private_nh_.advertise<std_msgs::Float32>(_estimated_framerate_topics_[i], 1));
     }
 
   }
@@ -400,7 +407,7 @@ namespace uvdar{
             //}
           }
       }
-      for (size_t i = 0; i < _points_seen_topics.size(); ++i) {
+      for (size_t i = 0; i < _points_seen_topics_.size(); ++i) {
         timer_process_.push_back(private_nh_.createTimer(ros::Duration(1.0/(double)(10)), boost::bind(&UVDAR_BP_Tim::ProcessThread, this, _1, i), false, true));
       }
   }
@@ -460,6 +467,7 @@ namespace uvdar{
 
     
     mrs_msgs::ImagePointsWithFloatStamped msg;
+    uvdar_core::ahtDataForLogging aht_logging_msg;
     ros::Time local_last_sample_time = blink_data_[img_index].last_sample_time;
     {
       std::scoped_lock lock(*(blink_data_[img_index].mutex_retrieved_blinkers));
@@ -481,9 +489,11 @@ namespace uvdar{
     msg.stamp         = local_last_sample_time;
     msg.image_width   = camera_image_sizes_[img_index].width;
     msg.image_height  = camera_image_sizes_[img_index].height;
-    
+    aht_logging_msg.stamp = local_last_sample_time;
+    std::cout << "local time " << local_last_sample_time.toSec() << "\n";
 // TODO: pose estimator finds no appropriate hypothesis
     // pub_blinkers_seen_[img_index].publish(msg);
+    pub_aht_logging_[img_index].publish(aht_logging_msg);
 
     std_msgs::Float32 msg_framerate;
     msg_framerate.data = blink_data_[img_index].framerate_estimate;
