@@ -4,7 +4,7 @@
 #include <mrs_lib/image_publisher.h>
 #include <std_msgs/Float32.h>
 #include <mrs_msgs/ImagePointsWithFloatStamped.h>
-#include <uvdar_core/ahtDataForLogging.h>
+#include <uvdar_core/AhtDataForLogging.h>
 
 #include <cv_bridge/cv_bridge.h>
 #include <opencv2/core/core.hpp>
@@ -31,7 +31,7 @@ namespace uvdar{
       void loadParams(const bool & );
       bool checkCameraTopicSizeMatch();
       bool parseSequenceFile(const std::string &);
-      void initAlternativeHTDataStructure();
+      bool initAlternativeHTDataStructure();
       void initIMUCompensation();
 
       void subscribeToPublishedPoints();
@@ -112,16 +112,16 @@ namespace uvdar{
       bool        _imu_compensation_;
       std::string _imu_topic_;
       // params for the aht
-      int _max_pixel_shift_x_;
-      int _max_pixel_shift_y_;
-      bool _communication_mode_;
+      cv::Point _max_px_shift_;
+      int _max_zeros_consecutive_;
+      int _max_ones_consecutive_;
       int _stored_seq_len_factor_;
       int _poly_order_;
       float _decay_factor_; 
       double _conf_probab_percent_;
-      int _seq_overlap_probab_percent_;
       int _threshold_values_len_for_poly_reg_; 
       int _frame_tolerance_;
+      int _allowed_BER_per_seq_;
       
 
 
@@ -155,15 +155,22 @@ namespace uvdar{
     loadParams(printParams);
 
     const bool match = checkCameraTopicSizeMatch();
-    if(!match) return;
+    if(!match){
+      initialized_ = false;
+      return;
+    } 
 
     if( 100 <= _conf_probab_percent_){
       ROS_ERROR("[UVDAR_BP_Tim]: Wanted confidence interval size equal or bigger than 100%% is set. A Confidence interval of 100%% is not settable! Returning."); 
+      initialized_ = false;
       return;
     } 
 
     parseSequenceFile(_sequence_file);
-    initAlternativeHTDataStructure();
+    if(!initAlternativeHTDataStructure()){
+      initialized_ = false;
+      return;
+    } 
 
     if(_imu_compensation_){
       imu_comp = std::make_unique<IMU_COMPENSATION>(_imu_topic_);
@@ -179,7 +186,7 @@ namespace uvdar{
 
     subscribeToPublishedPoints();
 
-    initGUI(); 
+    initGUI();  
 
     initialized_ = true;
   }
@@ -214,28 +221,18 @@ namespace uvdar{
     param_loader.loadParam("poly_order", _poly_order_, int(2));
     param_loader.loadParam("stored_seq_len_factor", _stored_seq_len_factor_, int(15));
     param_loader.loadParam("confidence_probability", _conf_probab_percent_, double(75.0));
-    param_loader.loadParam("communication_mode", _communication_mode_, bool(false));
-    if(_communication_mode_){
-      // TODO: MAKE X + Y BB values settabel
-      ROS_WARN("[UVDAR_BP_Tim]: Communication Mode is activated. More than two consecutive on/off bits are allowed! Maybe you would like to set the search space for nearest neighbors higher. Current x size is ");
-    }
-
     param_loader.loadParam("frame_tolerance", _frame_tolerance_, int(5));
-    param_loader.loadParam("max_pixel_shift_x", _max_pixel_shift_x_, int(2));
-    param_loader.loadParam("max_pixel_shift_y", _max_pixel_shift_y_, int(2));
-    param_loader.loadParam("seq_overlap_probab_percent", _seq_overlap_probab_percent_, int(90));
+    param_loader.loadParam("max_px_shift_x", _max_px_shift_.x, int(2));
+    param_loader.loadParam("max_px_shift_y", _max_px_shift_.y, int(2));
+    param_loader.loadParam("max_zeros_consecutive", _max_zeros_consecutive_, int(2));
+    if(_max_zeros_consecutive_ > 2) ROS_WARN("The alloweed consecutive zero bits is set to %d. This might cause more tracking failures. Please consider to set _max_px_shift_ in x and y direction higher to achieve similar tracking results.", _max_zeros_consecutive_); 
+    param_loader.loadParam("max_ones_consecutive", _max_ones_consecutive_, int(2));
     param_loader.loadParam("threshold_values_len_for_poly_reg", _threshold_values_len_for_poly_reg_, int(90));
+    param_loader.loadParam("allowed_BER_per_seq", _allowed_BER_per_seq_, int(0));
       
   }
 
   bool UVDAR_BP_Tim::checkCameraTopicSizeMatch() {
-    // TODO: previously 
-    // for (size_t i = 0; i < _blinkers_seen_topics.size(); ++i) {
-    //   pub_blinkers_seen_.push_back(private_nh_.advertise<mrs_msgs::ImagePointsWithFloatStamped>(_blinkers_seen_topics[i], 1));
-    //   pub_aht_logging_.push_back(private_nh_.advertise<uvdar_core::ahtDataForLogging>(_aht_logging_topics[i], 1));
-    //   _aht_logging_topics
-    //   pub_estimated_framerate_.push_back(private_nh_.advertise<std_msgs::Float32>(_estimated_framerate_topics[i], 1));
-    // }
 
     if (_blinkers_seen_topics_.size() != _points_seen_topics_.size()){
       ROS_ERROR_STREAM("[UVDAR_BP_Tim]: The number of pointsSeenTopics (" << _points_seen_topics_.size() << ") is not matching the number of blinkers_seen_topics (" << _blinkers_seen_topics_.size() << ")! Returning.");
@@ -303,22 +300,22 @@ namespace uvdar{
     return true;
   }
 
-  void UVDAR_BP_Tim::initAlternativeHTDataStructure(){
+  bool UVDAR_BP_Tim::initAlternativeHTDataStructure(){
     loadedParamsForAHT paramsForAHT;
-    paramsForAHT.max_pixel_shift.x = _max_pixel_shift_x_;
-    paramsForAHT.max_pixel_shift.y = _max_pixel_shift_y_;
-    paramsForAHT.communication_mode = _communication_mode_;
+    paramsForAHT.max_px_shift = _max_px_shift_;
+    paramsForAHT.max_zeros_consecutive = _max_zeros_consecutive_;
+    paramsForAHT.max_ones_consecutive = _max_ones_consecutive_;
     paramsForAHT.stored_seq_len_factor = _stored_seq_len_factor_;
     paramsForAHT.poly_order = _poly_order_;
     paramsForAHT.decay_factor = _decay_factor_;
     paramsForAHT.conf_probab_percent = _conf_probab_percent_;
-    paramsForAHT.seq_overlap_probab_percent = _seq_overlap_probab_percent_;
     paramsForAHT.threshold_values_len_for_poly_reg = _threshold_values_len_for_poly_reg_;  
     paramsForAHT.frame_tolerance = _frame_tolerance_;
+    paramsForAHT.allowed_BER_per_seq = _allowed_BER_per_seq_;
 
     for (size_t i = 0; i < _points_seen_topics_.size(); ++i) {
       aht_.push_back(std::make_shared<alternativeHT>(paramsForAHT));
-      aht_[i]->setSequences(sequences_);
+      if(!aht_[i]->setSequences(sequences_)) return false;
       aht_[i]->setDebugFlags(_debug_, _visual_debug_);
 
       // std::vector<std::pair<PointState, int>> pair;
@@ -332,7 +329,7 @@ namespace uvdar{
       mutex_camera_image_.push_back(std::make_shared<std::mutex>());
       camera_image_sizes_.push_back(cv::Size(-1,-1));
     }
-
+    return true;
   }
 
   void UVDAR_BP_Tim::subscribeToPublishedPoints() {
@@ -368,7 +365,7 @@ namespace uvdar{
 
     for (size_t i = 0; i < _blinkers_seen_topics_.size(); ++i) {
       pub_blinkers_seen_.push_back(private_nh_.advertise<mrs_msgs::ImagePointsWithFloatStamped>(_blinkers_seen_topics_[i], 1));
-      pub_aht_logging_.push_back(private_nh_.advertise<uvdar_core::ahtDataForLogging>(_aht_logging_topics_[i], 1));
+      pub_aht_logging_.push_back(private_nh_.advertise<uvdar_core::AhtDataForLogging>(_aht_logging_topics_[i], 1));
       pub_estimated_framerate_.push_back(private_nh_.advertise<std_msgs::Float32>(_estimated_framerate_topics_[i], 1));
     }
 
@@ -467,7 +464,7 @@ namespace uvdar{
 
     
     mrs_msgs::ImagePointsWithFloatStamped msg;
-    uvdar_core::ahtDataForLogging aht_logging_msg;
+    uvdar_core::AhtDataForLogging aht_logging_msg;
     ros::Time local_last_sample_time = blink_data_[img_index].last_sample_time;
     {
       std::scoped_lock lock(*(blink_data_[img_index].mutex_retrieved_blinkers));
@@ -489,10 +486,25 @@ namespace uvdar{
     msg.stamp         = local_last_sample_time;
     msg.image_width   = camera_image_sizes_[img_index].width;
     msg.image_height  = camera_image_sizes_[img_index].height;
+
+    mrs_msgs::Point2DWithFloat max_px_shift;
+    max_px_shift.x = _max_px_shift_.x;
+    max_px_shift.y = _max_px_shift_.y;
+
     aht_logging_msg.stamp = local_last_sample_time;
-    std::cout << "local time " << local_last_sample_time.toSec() << "\n";
+    aht_logging_msg.sequence_file = _sequence_file;
+    aht_logging_msg.frame_tolerance_till_seq_rejected = _frame_tolerance_;
+    aht_logging_msg.stored_seq_len_factor = _stored_seq_len_factor_;
+    aht_logging_msg.default_poly_order = _poly_order_;
+    aht_logging_msg.confidence_probab_t_dist = _conf_probab_percent_;
+    aht_logging_msg.decay_factor_weight_func = _decay_factor_;
+    aht_logging_msg.max_px_shift = max_px_shift;
+    
+
+
+
 // TODO: pose estimator finds no appropriate hypothesis
-    // pub_blinkers_seen_[img_index].publish(msg);
+    pub_blinkers_seen_[img_index].publish(msg);
     pub_aht_logging_[img_index].publish(aht_logging_msg);
 
     std_msgs::Float32 msg_framerate;
@@ -618,7 +630,7 @@ namespace uvdar{
             bool y_all_coeff_zero = std::all_of(y_coeff.begin(), y_coeff.end(), [](double coeff){return coeff == 0;});
   
             double prediction_window = 0.5;
-            double step_size_sec = 0.04;
+            double step_size_sec = 0.02;
             int point_size = prediction_window/step_size_sec;
   
             for(int i = 0; i < point_size; ++i){

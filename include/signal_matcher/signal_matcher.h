@@ -9,9 +9,9 @@ namespace uvdar {
 
   class SignalMatcher{
     public:
-      SignalMatcher(std::vector<std::vector<bool>> i_sequences, int i_correlation_probab_threshold){
+      SignalMatcher(std::vector<std::vector<bool>> i_sequences, int i_allowed_BER_per_seq_){
 
-        correlation_probab_threshold_ = i_correlation_probab_threshold;
+        allowed_BER_per_seq_ = i_allowed_BER_per_seq_;
         sequences_ = i_sequences;
         sequence_size_ = sequences_.at(0).size();
         for (auto &curr_seq : sequences_){
@@ -74,8 +74,8 @@ namespace uvdar {
             if (corr_val == sequence_size_){
               return s;
             }
-            double percentage_match = ((double)corr_val/(double)sequence_size_)*100; 
-            if( percentage_match >= correlation_probab_threshold_){
+            int valid_bits = sequence_size_ - allowed_BER_per_seq_;
+            if(corr_val >= valid_bits ){
               return s; 
             }
           }
@@ -93,7 +93,7 @@ namespace uvdar {
 
   std::vector<std::vector<bool>> sequences_;
   int sequence_size_;
-  int correlation_probab_threshold_ = 100;
+  int allowed_BER_per_seq_ = 0;
 
   };
 }

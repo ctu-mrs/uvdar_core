@@ -45,19 +45,20 @@
 
   <arg name="sequence_file" default="$(find uvdar_core)/config/selected.txt"/>
   <arg name="imu_compensation" default="false"/>
-  <arg name="communication_mode" default="false"/>
 
   <arg name="poly_order" default="4"/>
-  <arg name="decay_factor" default="0.01"/>
-  <arg name="stored_seq_len_factor" default="20"/>
+  <arg name="decay_factor" default="0.5"/>
+  <arg name="stored_seq_len_factor" default="30"/>
   <arg name="confidence_probability" default="90.0"/>
   <arg name="frame_tolerance" default="5"/>
   <arg name="max_pixel_shift_x" default="2"/>
   <arg name="max_pixel_shift_y" default="2"/>
-  <arg name="seq_overlap_probab_percent" default="90"/>
-  <arg name="threshold_values_len_for_poly_reg" default="10"/>
+  <arg name="max_zeros_consecutive" default="2"/>
+  <arg name="max_ones_consecutive" default="2"/>
+  <arg name="threshold_values_len_for_poly_reg" default="0"/>
+  <arg name="allowed_BER_per_seq" default="1"/>
 
-  <arg name="model_file" default="$(find uvdar_core)/config/models/quadrotor_foursided.txt"/>
+  <arg name="model_file" default="$(find uvdar_core)/config/models/quadrotor.txt"/>
   <!-- ideal angle: 1.221730476 - pi/2 -->
 
       <!-- <origin xyz="0.108 0 0.085" rpy="1.57079632679 4.71238898038 1.57079632679" /> -->
@@ -124,15 +125,15 @@
       <param name="decay_factor"         type="double" value="$(arg decay_factor)"/>    
       <param name="stored_seq_len_factor"         type="int" value="$(arg stored_seq_len_factor)"/>    
       <param name="confidence_probability"         type="double" value="$(arg confidence_probability)"/>
-      <param name="communication_mode"     type="bool"   value="$(arg communication_mode)"/>
 
       <param name="frame_tolerance"     type="int"   value="$(arg frame_tolerance)"/>
       <param name="max_pixel_shift_x"     type="int"   value="$(arg max_pixel_shift_x)"/>
       <param name="max_pixel_shift_y"     type="int"   value="$(arg max_pixel_shift_y)"/>
-      <param name="seq_overlap_probab_percent"     type="int"   value="$(arg seq_overlap_probab_percent)"/>
+      <param name="max_zeros_consecutive"     type="int"   value="$(arg max_zeros_consecutive)"/>
+      <param name="max_ones_consecutive"     type="int"   value="$(arg max_ones_consecutive)"/>
       <param name="threshold_values_len_for_poly_reg"     type="int"   value="$(arg threshold_values_len_for_poly_reg)"/>
+      <param name="allowed_BER_per_seq"     type="int"   value="$(arg allowed_BER_per_seq)"/>
 
-      
       <param name="sequence_file"         type="string" value="$(arg sequence_file)"/>
       <param name="imu_compensation"     type="bool"   value="$(arg imu_compensation)"/>
       <param name="imu_topic" type="string" value="/$(arg uav_name)/odometry/odom_main"/>

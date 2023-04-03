@@ -23,15 +23,16 @@ namespace uvdar
     using seqPointer = std::shared_ptr<std::vector<PointState>>;
 
     struct loadedParamsForAHT{
-        cv::Point max_pixel_shift;
-        bool communication_mode;
-        int stored_seq_len_factor; 
+        cv::Point max_px_shift;
+        int max_zeros_consecutive;
+        int max_ones_consecutive;
+        int stored_seq_len_factor; // the multiplication factor how long the sequence should be for calculating the trajectory   
         int poly_order;
         double decay_factor;
         double conf_probab_percent;
-        int seq_overlap_probab_percent;
         int threshold_values_len_for_poly_reg;
         int frame_tolerance;
+        int allowed_BER_per_seq;
     };
 
     class alternativeHT {
@@ -39,19 +40,15 @@ namespace uvdar
     private:
         int global_count = 0;
         bool debug_, visual_debug_ = false;
-        
-        cv::Point max_pixel_shift_;
-        
-        const double prediction_margin_ = 0.0;
-        int stored_seq_len_factor_; // the multiplication factor how long the sequence should be for calculating the trajectory   
-        double framerate_;
-        int poly_order_; 
-        double conf_probab_percent_; // in percentage
-        bool communication_mode_;
-        int frame_tolerance_;
-        int seq_overlap_probab_percent_;
-        int threshold_values_len_for_poly_reg_;
 
+        int gc=0; // TODO: Delete only for logging right now
+
+        std::unique_ptr<loadedParamsForAHT> loaded_params_ = std::make_unique<loadedParamsForAHT>();
+        
+        double framerate_;
+        const double prediction_margin_ = 0.0;
+        
+    
         std::vector<std::vector<bool>> original_sequences_;
         
         std::mutex mutex_gen_sequences_;
@@ -82,7 +79,7 @@ namespace uvdar
         ~alternativeHT();
         
         void setDebugFlags(bool, bool);
-        void setSequences(std::vector<std::vector<bool>>);
+        bool setSequences(std::vector<std::vector<bool>>);
         void updateFramerate(double);
 
         void processBuffer(const mrs_msgs::ImagePointsWithFloatStampedConstPtr);

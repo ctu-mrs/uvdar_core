@@ -10,7 +10,7 @@ windows:
   - gazebo:
       layout: even-vertical
       panes:
-        - waitForCompile; waitForRos; roslaunch uvdar_core uvdar_gazebo.launch gui:=false
+        - waitForCompile; waitForRos; roslaunch uvdar_core uvdar_gazebo.launch gui:=true
   # - status:
   #     layout: even-vertical
   #     panes:
