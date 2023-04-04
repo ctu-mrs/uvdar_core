@@ -1,0 +1,3 @@
+[submodule "src/trajectory_loader"]
+	path = src/trajectory_loader
+	url = git@github.com:caspososs/trajectory_loader.git
