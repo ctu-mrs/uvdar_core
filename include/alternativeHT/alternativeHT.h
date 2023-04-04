@@ -101,7 +101,7 @@ namespace uvdar
         alternativeHT(const loadedParamsForAHT&);
         ~alternativeHT();
         
-        void setDebugFlags(bool, bool);
+        void setDebugFlags(bool);
         void updateFramerate(double);
 
         /**

@@ -329,7 +329,7 @@ std::vector<std::pair<std::vector<PointState>, int>> alternativeHT::getResults()
         } 
         retrieved_signals.push_back(std::make_pair(return_seq, id));
     }
-    std::cout << "}\n";
+    if(debug_)std::cout << "}\n";
     return retrieved_signals;
 }
 

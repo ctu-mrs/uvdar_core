@@ -330,7 +330,7 @@ namespace uvdar{
       aht_.push_back(std::make_shared<alternativeHT>(params_AHT));
 
       if(!aht_[i]->setSequences(sequences_)) return false;
-      aht_[i]->setDebugFlags(_debug_, _visual_debug_);
+      aht_[i]->setDebugFlags(_debug_);
 
       blink_data_.push_back(BlinkData());
 
