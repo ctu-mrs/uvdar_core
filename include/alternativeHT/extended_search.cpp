@@ -70,7 +70,6 @@ std::vector<double> ExtendedSearch::calcNormalizedWeightVect(const std::vector<d
     return weights;
 }
 
-// CURRENTLY USING mean not W_mean
 double ExtendedSearch::calcWeightedMean(const std::vector<double>& values, const std::vector<double>& weights){
     if(weights.size() != values.size()) return -1; 
         

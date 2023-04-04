@@ -23,17 +23,52 @@ namespace uvdar{
         private: 
             double decay_factor_;
             int default_poly_order_;
-            // double weightedSumSqauredEstimate(const Eigen::VectorXd, const Eigen::VectorXd, const Eigen::VectorXd);
+
+            /**
+             * @brief calcuate weighted sum of sqaured residuals 
+             * 
+             * @return sum_squared_residuals 
+             */
             double calcWSSR(const Eigen::VectorXd&, const std::vector<double>&, const std::vector<double>&);
 
         public:
             ExtendedSearch(double, int);
             ~ExtendedSearch();
+
+            /**
+             * @brief Calculate weighted polynomial regression 
+             * @param value vector 
+             * @param time vector 
+             * @param weight vector
+             * @return PredictionStatistics with Coefficients + predicted values for each data value
+             */
+            PredictionStatistics polyReg(const std::vector<double>&, const std::vector<double>&, const std::vector<double>&);
+
+            /**
+             * @brief calculates weight vector with exponential decay function
+             * @param time vector
+             * @return weight vector
+             */
             std::vector<double> calcNormalizedWeightVect(const std::vector<double>&);
             double calcWeightedMean(const std::vector<double>&, const std::vector<double>&);
+
+            /**
+             * @brief calculates the weighted standard deviation
+             * @param values vector
+             * @param weights vector
+             * @param mean double
+             * @return weighted standard deviation
+             */
             double calcWSTD(const std::vector<double>&, const std::vector<double>&, const double&);
+
+            /**
+             * @brief check if point lies within box 
+             * @param query_point 
+             * @param left_top 
+             * @param right_bottom
+             * @return true/false for succress 
+             */
             bool isInsideBB(const cv::Point2d&, const cv::Point2d&, const cv::Point2d&);
-            PredictionStatistics polyReg(const std::vector<double>&, const std::vector<double>&, const std::vector<double>&);
             double confidenceInterval(const PredictionStatistics&, const std::vector<double>&, const std::vector<double>&, const std::vector<double>, const int&);
     };
 } // uvdar

@@ -9,7 +9,7 @@ windows:
   - launch:
       layout: even-vertical
       panes:
-        - sleep 2; waitForCompile; roslaunch uvdar_core rosbag.launch
+        - sleep 2; waitForCompile; roslaunch uvdar_core rosbag.launch gui:=true debug:=true
   - rosbag:
       layout: even-vertical
       panes:
