@@ -1,10 +1,6 @@
 #pragma once
 
-#include <iostream>
-#include <map>
-#include <ros/console.h>
-// #include <mutex>
-#include <opencv2/highgui/highgui.hpp>
+#include "extended_search.h"
 #include <mrs_msgs/ImagePointsWithFloatStamped.h>
 #include "signal_matcher/signal_matcher.h"
 
@@ -15,78 +11,80 @@ namespace uvdar
 
     struct PointState{
         cv::Point2d point;
-        bool ledState; 
-        int index;
-        ros::Time insertTime;
+        bool led_state; 
+        ros::Time insert_time;
+        bool extended_search = false;
+        std::vector<double> x_coeff;
+        std::vector<double> y_coeff;
+        cv::Point2d confidence_interval;
+        cv::Point2d predicted;
     };
+    
+    using seqPointer = std::shared_ptr<std::vector<PointState>>;
 
-    struct sequenceWithPoint{
-        std::vector<bool> seq;
-        PointState lastInsertedPoint;
+    struct loadedParamsForAHT{
+        cv::Point max_px_shift;
+        int max_zeros_consecutive;
+        int max_ones_consecutive;
+        int stored_seq_len_factor; // the multiplication factor how long the sequence should be for calculating the trajectory   
+        int poly_order;
+        double decay_factor;
+        double conf_probab_percent;
+        int threshold_values_len_for_poly_reg;
+        int frame_tolerance;
+        int allowed_BER_per_seq;
     };
 
     class alternativeHT {
     
     private:
-        int buffer_size_;
-        bool initialized_ = false;
-        bool first_call_ = true;
-        bool enable_manchester_ = false; 
+        int global_count = 0;
         bool debug_, visual_debug_ = false;
+
+        int gc=0; // TODO: Delete only for logging right now
+
+        std::unique_ptr<loadedParamsForAHT> loaded_params_ = std::make_unique<loadedParamsForAHT>();
         
-        const int max_pixel_shift_x_ = 2;
-        const int max_pixel_shift_y_ = 2;
+        double framerate_;
+        const double prediction_margin_ = 0.0;
+        
+    
+        std::vector<std::vector<bool>> original_sequences_;
+        
+        std::mutex mutex_gen_sequences_;
+        std::vector<std::shared_ptr<std::vector<PointState>>> gen_sequences_;
 
-        std::vector<std::vector<PointState>> buffer;
-
-        std::vector<std::vector<bool>> originalSequences_;
-        std::map<int, sequenceWithPoint> foundSequences_;
 
         std::unique_ptr<SignalMatcher> matcher_;
+        std::unique_ptr<ExtendedSearch> extended_search_;
 
-        std::mutex mutex_foundSequences_;
-        std::mutex mutex_buffer;
+        void findClosestPixelAndInsert(std::vector<PointState>&);
+        cv::Point2d computeXYDiff(const cv::Point2d, const cv::Point2d);
+        void insertPointToSequence(std::vector<PointState> &, const PointState);
 
+
+        // moving average approach 
+        void expandedSearch(std::vector<PointState>& , std::vector<seqPointer>&);
+        PredictionStatistics selectStatisticsValues(const std::vector<double>&, const std::vector<double>&, const double&, const int &, bool&);
+
+        bool checkSequenceValidityWithNewInsert(const seqPointer &);
+        void findOrthogonalVector(cv::Point2d);
+        void insertVPforSequencesWithNoInsert(seqPointer &);
+
+        void cleanPotentialBuffer();
 
     public:
 
-        alternativeHT( int i_buffer_size );
+        alternativeHT(const loadedParamsForAHT&);
         ~alternativeHT();
-        void setFirstCallBool(bool i_first_call){
-            first_call_ = i_first_call;
-        }
         
-        void initBuffer();
         void setDebugFlags(bool, bool);
-        void setSequences(std::vector<std::vector<bool>>);
+        bool setSequences(std::vector<std::vector<bool>>);
+        void updateFramerate(double);
 
         void processBuffer(const mrs_msgs::ImagePointsWithFloatStampedConstPtr);
 
-        void findClosestAndLEDState();
-        cv::Point2d computeXYDiff(const cv::Point2d, const cv::Point2d);
-        void insertPointToSequence(PointState);
-        void insertVirtualPoint(const PointState);
-
-        void checkIfThreeConsecutiveZeros();
-        void cleanPotentialBuffer();
-
-        int randomInt(const int);
-
-
-        int findMatch(std::vector<bool>);
-        std::vector<std::pair<PointState, int>> getResults();
+        std::vector<std::pair<std::vector<PointState>, int>> getResults();
         
-        template <typename T>
-        void printVectorIfNotEmpty(T vect, std::string name) {
-            if (vect.empty())return;
-            std::cout << "The " << name << " elements are: ";
-            for (const auto r : vect){
-                if (r) std::cout << "1,";
-                else std::cout << "0,";
-            }
-            std::cout << std::endl;
-        }
-
     };    
 } // namespace uvdar
-

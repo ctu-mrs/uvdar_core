@@ -1,0 +1,9 @@
+time stamp
+bool comm_state
+string sequence_file
+int8 frame_tolerance_till_seq_rejected
+int8 stored_seq_len_factor 
+int8 default_poly_order
+float32 confidence_probab_t_dist
+float32 decay_factor_weight_func
+mrs_msgs/Point2DWithFloat max_px_shift
