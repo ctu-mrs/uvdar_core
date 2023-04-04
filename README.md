@@ -33,6 +33,7 @@ This package contains the core signal processing and pose estimation software co
   * [ROS (Robot Operating System)](https://www.ros.org/) Melodic Morenia
   * [mrs_lib](https://github.com/ctu-mrs/mrs_lib) - ROS package with utility libraries used by the MRS group
   * [mrs_msgs](https://github.com/ctu-mrs/mrs_msgs) - ROS package with message types used by the MRS group
+  * [mrs_serial](https://github.com/ctu-mrs/mrs_serial) - ROS package implementing serial communication with LED drivers
   * [bluefox2](https://github.com/ctu-mrs/bluefox2) - ROS package providing interface with mvBlueFOX cameras
 
 
@@ -43,7 +44,6 @@ This package contains the core signal processing and pose estimation software co
 ## Installation
 Install the dependencies.
 Clone this repository into a ROS workspace as a package.
-If you are using the `mrs_modules` meta package (currently only accessable internally to MRS staff, to be released at later date), this repository is already included.
 Build the package using catkin tools (e.g. `catkin build uvdar_core`)
 
 ## Testing
