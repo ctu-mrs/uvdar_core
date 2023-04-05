@@ -1,5 +1,5 @@
 <launch>
-  <arg name="uav_name" default="uav7"/>
+  <arg name="uav_name" default="$(optenv UAV_NAME uav7)"/>
 
   <arg name="standalone" default="false"/>
 
@@ -46,9 +46,9 @@
   <arg name="sequence_file" default="$(find uvdar_core)/config/selected.txt"/>
   <arg name="imu_compensation" default="false"/>
 
-  <arg name="poly_order" default="4"/>
-  <arg name="decay_factor" default="0.5"/>
-  <arg name="stored_seq_len_factor" default="30"/>
+  <arg name="poly_order" default="5"/>
+  <arg name="decay_factor" default="0.1"/>
+  <arg name="stored_seq_len_factor" default="5"/>
   <arg name="confidence_probability" default="90.0"/>
   <arg name="frame_tolerance" default="5"/>
   <arg name="max_pixel_shift_x" default="2"/>
@@ -93,7 +93,8 @@
       <param name="justReport" type="bool" value="true"/>
       <param name="threshold" type="int" value="$(arg threshold)"/>
 
-      <rosparam param="camera_topics"> ["/uav7/uvdar_bluefox/left/image_raw"] </rosparam>
+      <!-- <rosparam param="camera_topics"> ["uav6/uvdar_bluefox/left/image_raw"] </rosparam> -->
+      <rosparam param="camera_topics"> ["camera_left"] </rosparam>
       <rosparam param="points_seen_topics"> ["points_seen_left"] </rosparam>
 
       <param name="use_masks"         type="bool" value="false"/>
@@ -138,7 +139,7 @@
       <param name="imu_compensation"     type="bool"   value="$(arg imu_compensation)"/>
       <param name="imu_topic" type="string" value="/$(arg uav_name)/odometry/odom_main"/>
 
-      <rosparam param="camera_topics"> ["/uav7/uvdar_bluefox/left/image_raw"] </rosparam>
+      <rosparam param="camera_topics"> ["camera_left"] </rosparam>
       <rosparam param="points_seen_topics"> ["points_seen_left"] </rosparam>
       <rosparam param="blinkers_seen_topics"> ["blinkers_seen_back"] </rosparam>
       <rosparam param="estimated_framerate_topics"> ["estimated_framerate_back"] </rosparam>

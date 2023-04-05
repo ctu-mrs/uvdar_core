@@ -1,7 +1,7 @@
 name: simulation
 root: ./
 startup_window: uv_observer 
-pre_window: export RUN_TYPE=simulation; export UAV_TYPE=f450; export WORLD_NAME=simulation; export ODOMETRY_TYPE=gps; export SENSORS="garmin_down"; waitForCompile
+pre_window: export RUN_TYPE=simulation; export UAV_TYPE=f450; export WORLD_NAME=simulation; export ODOMETRY_TYPE=gps; export SENSORS="garmin_down"; waitForCompile 
 windows:
   - roscore:
       layout: even-vertical
@@ -59,8 +59,8 @@ windows:
 
 ###################################
         - waitForSimulation; rosservice call /mrs_drone_spawner/spawn  "1 $UAV_TYPE --pos-file $(rospack find uvdar_core)/scripts/position1.csv --enable-rangefinder --enable-ground-truth --enable-dual-uv-cameras --enable-back-uv-camera --uvcam_calib_file \"$(rospack find uvdar_core)/include/OCamCalib/config/calib_results_bf_uv_fe.txt\""
-        - waitForSimulation; sleep 12; rosservice call /mrs_drone_spawner/spawn  "2 $UAV_TYPE --pos-file $(rospack find uvdar_core)/scripts/position2.csv --enable-rangefinder --enable-ground-truth --enable-uv-leds --uvled_s 0 1 2 3"
-        - waitForSimulation; sleep 18; rosservice call /mrs_drone_spawner/spawn  "3 $UAV_TYPE --pos-file $(rospack find uvdar_core)/scripts/position3.csv --enable-rangefinder --enable-ground-truth --enable-uv-leds --uvled_s 4 5 6 7"
+        - waitForSimulation; sleep 12; rosservice call /mrs_drone_spawner/spawn  "2 $UAV_TYPE --pos-file $(rospack find uvdar_core)/scripts/circle_exp_uav2.csv --enable-rangefinder --enable-ground-truth --enable-uv-leds --uvled_s 0 1 2 3"
+        - waitForSimulation; sleep 18; rosservice call /mrs_drone_spawner/spawn  "3 $UAV_TYPE --pos-file $(rospack find uvdar_core)/scripts/circle_exp_uav3.csv --enable-rangefinder --enable-ground-truth --enable-uv-leds --uvled_s 4 5 6 7"
         # - waitForSimulation; sleep 12; rosservice call /mrs_drone_spawner/spawn  "4 $UAV_TYPE --pos-file $(rospack find uvdar_core)/scripts/position4.csv --enable-rangefinder --enable-ground-truth --enable-uv-leds --uvled_s_l 4 --uvled_s_r 2"
         # - waitForSimulation; sleep 20; rosservice call /mrs_drone_spawner/spawn  "5 $UAV_TYPE --pos-file $(rospack find uvdar_core)/scripts/position5.csv --enable-rangefinder --enable-ground-truth --enable-uv-leds --uvled_s_l 3 --uvled_s_r 3"
         # - waitForSimulation; sleep 45; rosservice call /mrs_drone_spawner/spawn  "10 $UAV_TYPE --pos-file $(rospack find uvdar_core)/scripts/position10.csv --enable-rangefinder --enable-ground-truth --enable-uv-leds --uvled_s_l 8 --uvled_s_r 8"
@@ -129,9 +129,7 @@ windows:
   - trajectories:
       layout: even-vertical
       panes:
-        - export UAV_NAME=uav1; roslaunch trajectory_loader single_uav.launch file:=observer.txt; rosservice call /$UAV_NAME/control_manager/goto_trajectory_start; sleep 4; rosservice call /$UAV_NAME/control_manager/start_trajectory_tracking 
-        - export UAV_NAME=uav2; roslaunch trajectory_loader single_uav.launch file:=circle_left_3_2_3.txt; rosservice call /$UAV_NAME/control_manager/goto_trajectory_start;  sleep 4; rosservice call /$UAV_NAME/control_manager/start_trajectory_tracking 
-        - export UAV_NAME=uav3; roslaunch trajectory_loader single_uav.launch file:=circle_right_7_-2_3.txt; rosservice call /$UAV_NAME/control_manager/goto_trajectory_start; sleep 4; rosservice call /$UAV_NAME/control_manager/start_trajectory_tracking 
+        - waitForControl; sleep 60; roslaunch trajectory_loader load.launch config:=$(rospack find trajectory_loader)/config/circle_loop.yaml; roslaunch trajectory_loader goto_start.launch; sleep 10; roslaunch trajectory_loader start_tracking.launch
 
 
 

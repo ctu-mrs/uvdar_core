@@ -57,12 +57,6 @@ namespace uvdar
         void findClosestPixelAndInsert(std::vector<PointState>&);
         
         /**
-         * @brief compute the absolute difference between two cv double Points 
-         * @return difference  
-         */
-        cv::Point2d computeXYDiff(const cv::Point2d, const cv::Point2d);
-
-        /**
          * @brief receives: sequences with no inserted points + points in current frame that were not inserted.
          * Calls selectStatisticsValues() and checks if point in current frame is in bounding box of the prediction. If it is inside bounding box the point is insert to the query sequence 
          */

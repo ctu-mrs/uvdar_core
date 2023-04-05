@@ -63,8 +63,6 @@ void alternativeHT::findClosestPixelAndInsert(std::vector<PointState> & current_
             PointState last_inserted = (*seq)->end()[-1];
             cv::Point2d left_top = last_inserted.point - cv::Point2d(loaded_params_->max_px_shift);
             cv::Point2d right_bottom = last_inserted.point + cv::Point2d(loaded_params_->max_px_shift);
-            // cv::Point2d diff = computeXYDiff(curr_point.point, last_inserted.point);
-            // if(diff.x <= loaded_params_->max_px_shift.x && diff.y <= loaded_params_->max_px_shift.y){
             if(extended_search_->isInsideBB( curr_point.point, left_top, right_bottom)){
                 nn = true;
                 insertPointToSequence(**seq, curr_point);    
@@ -79,13 +77,6 @@ void alternativeHT::findClosestPixelAndInsert(std::vector<PointState> & current_
         }
     }
     expandedSearch(no_nn, p_gen_seq);
-}
-
-cv::Point2d alternativeHT::computeXYDiff(const cv::Point2d first, const cv::Point2d second){
-    cv::Point2d difference; 
-    difference.x = std::abs(first.x - second.x);
-    difference.y = std::abs(first.y - second.y);
-    return difference;
 }
 
 void alternativeHT::expandedSearch(std::vector<PointState>& no_nn_current_frame, std::vector<seqPointer>& sequences_no_insert){
