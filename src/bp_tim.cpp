@@ -127,7 +127,6 @@ namespace uvdar{
       int _poly_order_;
       float _decay_factor_; 
       double _conf_probab_percent_;
-      int _threshold_values_len_for_poly_reg_; 
       int _frame_tolerance_;
       int _allowed_BER_per_seq_;
       
@@ -187,9 +186,9 @@ namespace uvdar{
     }
 
     subscribeToPublishedPoints();
-
-    initGUI();  
-
+    if(_gui_){
+      initGUI();  
+    }
     initialized_ = true;
   }
 
@@ -230,9 +229,8 @@ namespace uvdar{
     param_loader.loadParam("max_px_shift_x", _max_px_shift_.x, int(2));
     param_loader.loadParam("max_px_shift_y", _max_px_shift_.y, int(2));
     param_loader.loadParam("max_zeros_consecutive", _max_zeros_consecutive_, int(2));
-    if(_max_zeros_consecutive_ > 2) ROS_WARN("The alloweed consecutive zero bits is set to %d. This might cause more tracking failures. Please consider to set _max_px_shift_ in x and y direction higher to achieve similar tracking results.", _max_zeros_consecutive_); 
+    if(_max_zeros_consecutive_ > 2) ROS_WARN("The allowed consecutive zero bits is set to %d. This might cause more tracking failures. Please consider to set _max_px_shift_ in x and y direction higher to achieve similar tracking results.", _max_zeros_consecutive_); 
     param_loader.loadParam("max_ones_consecutive", _max_ones_consecutive_, int(2));
-    param_loader.loadParam("threshold_values_len_for_poly_reg", _threshold_values_len_for_poly_reg_, int(90));
     param_loader.loadParam("allowed_BER_per_seq", _allowed_BER_per_seq_, int(0));
       
   }
@@ -320,7 +318,6 @@ namespace uvdar{
     params_AHT.poly_order = _poly_order_;
     params_AHT.decay_factor = _decay_factor_;
     params_AHT.conf_probab_percent = _conf_probab_percent_;
-    params_AHT.threshold_values_len_for_poly_reg = _threshold_values_len_for_poly_reg_;  
     params_AHT.frame_tolerance = _frame_tolerance_;
     params_AHT.allowed_BER_per_seq = _allowed_BER_per_seq_;
     
@@ -617,16 +614,24 @@ namespace uvdar{
           cv::Scalar predict_colour(255,153,255);
           cv::Scalar seq_colour(160,160,160);
           
-          cv::Point2d confidence_interval = blink_data_[image_index].retrieved_blinkers[j].first.end()[-1].confidence_interval;
-          cv::Point2d predicted = blink_data_[image_index].retrieved_blinkers[j].first.end()[-1].predicted;
-          auto x_coeff = blink_data_[image_index].retrieved_blinkers[j].first.end()[-1].x_coeff;
-          auto y_coeff = blink_data_[image_index].retrieved_blinkers[j].first.end()[-1].y_coeff;
+          cv::Point2d confidence_interval = cv::Point2d(
+            blink_data_[image_index].retrieved_blinkers[j].first.end()[-1].x_statistics.confidence_interval,
+            blink_data_[image_index].retrieved_blinkers[j].first.end()[-1].y_statistics.confidence_interval
+          );
+          cv::Point2d predicted = cv::Point2d(
+            blink_data_[image_index].retrieved_blinkers[j].first.end()[-1].x_statistics.predicted_coordinate,
+            blink_data_[image_index].retrieved_blinkers[j].first.end()[-1].y_statistics.predicted_coordinate
+          );
+          auto x_coeff = blink_data_[image_index].retrieved_blinkers[j].first.end()[-1].x_statistics.coeff;
+          auto y_coeff = blink_data_[image_index].retrieved_blinkers[j].first.end()[-1].y_statistics.coeff;
           double curr_time = blink_data_[image_index].retrieved_blinkers[j].first.end()[-1].insert_time.toSec();
-          bool extended_search = blink_data_[image_index].retrieved_blinkers[j].first.end()[-1].extended_search;
-          
+          bool x_poly_reg_computed = blink_data_[image_index].retrieved_blinkers[j].first.end()[-1].x_statistics.poly_reg_computed;
+          bool y_poly_reg_computed = blink_data_[image_index].retrieved_blinkers[j].first.end()[-1].y_statistics.poly_reg_computed;
+
+
           std::vector<cv::Point> interpolated_prediction;
           
-          if(extended_search){
+          if(x_poly_reg_computed || y_poly_reg_computed){
           
             double computed_time = curr_time;
             bool x_all_coeff_zero = std::all_of(x_coeff.begin(), x_coeff.end(), [](double coeff){return coeff == 0;});
@@ -691,7 +696,7 @@ namespace uvdar{
             cv::circle(output_image, center, 2, cv::Scalar(160,160,160));
           }
   
-          if(extended_search){
+          if(x_poly_reg_computed || y_poly_reg_computed){
             cv::Point center_predict;
             center_predict = cv::Point(std::round(predicted.x), std::round(predicted.y)) + start_point; 
   

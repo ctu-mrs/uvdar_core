@@ -4,8 +4,6 @@
 #include <mrs_msgs/ImagePointsWithFloatStamped.h>
 #include "signal_matcher/signal_matcher.h"
 
-
-
 namespace uvdar
 {
 
@@ -13,11 +11,16 @@ namespace uvdar
         cv::Point2d point;
         bool led_state; 
         ros::Time insert_time;
-        bool extended_search = false;
-        std::vector<double> x_coeff;
-        std::vector<double> y_coeff;
-        cv::Point2d confidence_interval;
-        cv::Point2d predicted;
+        // bool extended_search = false;
+        // std::vector<double> x_coeff;
+        // std::vector<double> y_coeff;
+        // cv::Point2d confidence_interval;
+        // cv::Point2d predicted;
+        // std::unique_ptr<PredictionStatistics> x_statistics = std::make_unique<PredictionStatistics>();
+        // std::unique_ptr<PredictionStatistics> y_statistics = std::make_unique<PredictionStatistics>();
+        PredictionStatistics x_statistics;
+        PredictionStatistics y_statistics;
+        
     };
     
     using seqPointer = std::shared_ptr<std::vector<PointState>>;
@@ -83,7 +86,7 @@ namespace uvdar
          * @brief computes the expected prediction for a new appearing point by doing a polynomial regression and computing the prediction interval
          * @return PredictionStatistics 
          */
-        PredictionStatistics selectStatisticsValues(const std::vector<double>&, const std::vector<double>&, const double&, const int &, bool&);
+        PredictionStatistics selectStatisticsValues(const std::vector<double>&, const std::vector<double>&, const double&, const int &);
 
         /**
          * @brief checks all sequences if one violates the current sequence settings or if the time since a new inserted bit is too long ago

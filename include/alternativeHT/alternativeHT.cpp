@@ -105,41 +105,53 @@ void alternativeHT::expandedSearch(std::vector<PointState>& no_nn_current_frame,
             if(sequences_no_insert[k]->size() == 0)continue;
 
             PointState& last_point = sequences_no_insert[k]->end()[-1]; 
-            bool draw_x, draw_y;
-            PredictionStatistics x_predictions = selectStatisticsValues(x, time, insert_time, loaded_params_->max_px_shift.x, draw_x);
-            PredictionStatistics y_predictions = selectStatisticsValues(y, time, insert_time, loaded_params_->max_px_shift.y, draw_y);
-            last_point.confidence_interval.x = x_predictions.confidence_interval;
-            last_point.predicted.x = x_predictions.predicted_coordinate;
-            last_point.x_coeff = x_predictions.coeff;
-
-            last_point.confidence_interval.y = y_predictions.confidence_interval;
-            last_point.predicted.y= y_predictions.predicted_coordinate;
-            last_point.y_coeff = y_predictions.coeff;
-            if(draw_x && draw_y)
-            last_point.extended_search = true;
+            PredictionStatistics x_predictions = selectStatisticsValues(x, time, insert_time, loaded_params_->max_px_shift.x);
+            PredictionStatistics y_predictions = selectStatisticsValues(y, time, insert_time, loaded_params_->max_px_shift.y);
+            last_point.x_statistics = x_predictions;
+            last_point.y_statistics = y_predictions;
+            double x_predicted = last_point.x_statistics.predicted_coordinate;
+            double y_predicted = last_point.y_statistics.predicted_coordinate;
+            
+            double x_conf = last_point.x_statistics.confidence_interval;
+            double y_conf = last_point.y_statistics.confidence_interval;      
+            cv::Point2d bb_left_top = cv::Point2d( (x_predicted - x_conf), (y_predicted - y_conf) );
+            cv::Point2d bb_right_bottom = cv::Point2d( (x_predicted + x_conf), (y_predicted + y_conf) );
+            
+            
+            // last_point.confidence_interval.x = x_predictions.confidence_interval;
+            // last_point.predicted.x = x_predictions.predicted_coordinate;
+            // last_point.x_coeff = x_predictions.coeff;
+// 
+            // last_point.confidence_interval.y = y_predictions.confidence_interval;
+            // last_point.predicted.y= y_predictions.predicted_coordinate;
+            // last_point.y_coeff = y_predictions.coeff;
+            // last_point.extended_search = true;
             
             // construct BB 
-            cv::Point2d left_top =     last_point.predicted - last_point.confidence_interval;   
-            cv::Point2d right_bottom = last_point.predicted + last_point.confidence_interval;
-            left_top.x = std::floor(left_top.x);
-            left_top.y = std::floor(left_top.y);
-            right_bottom.x = std::ceil(right_bottom.x);
-            right_bottom.y = std::ceil(right_bottom.y);
+            // cv::Point2d left_top =     last_point.predicted - last_point.confidence_interval;   
+            // cv::Point2d right_bottom = last_point.predicted + last_point.confidence_interval;
+            // TODO: should be done in a later step!
+            // left_top.x = std::floor(left_top.x);
+            // left_top.y = std::floor(left_top.y);
+            // right_bottom.x = std::ceil(right_bottom.x);
+            // right_bottom.y = std::ceil(right_bottom.y);
 
             if(debug_){
-                std::cout << "[Aht]: Predicted Point: x = " << last_point.predicted.x << " y = " << last_point.predicted.y << " Prediction Interval: x = " << last_point.confidence_interval.x << " y = " << last_point.confidence_interval.y << " seq_size" << x.size();
+                std::cout << "[Aht]: Predicted Point: x = " << x_predicted << " y = " << y_predicted << " Prediction Interval: x = " << x_conf << " y = " << y_conf << " seq_size" << x.size();
                 std::cout << "\n";
             }
 
             for(auto it_frame = no_nn_current_frame.begin(); it_frame != no_nn_current_frame.end();){
             // for(int i = 0; i < (int)no_nn_current_frame.size(); i++){
                 // if(extended_search_->isInsideBB(no_nn_current_frame[i].point, left_top, right_bottom)){
-                if(extended_search_->isInsideBB(it_frame->point, left_top, right_bottom)){
-                    it_frame->extended_search = true;
-                    it_frame->x_coeff = last_point.x_coeff;
-                    it_frame->y_coeff = last_point.y_coeff;
-                    it_frame->confidence_interval = last_point.confidence_interval;
-                    it_frame->predicted = last_point.predicted;
+                if(extended_search_->isInsideBB(it_frame->point, bb_left_top, bb_right_bottom)){
+                    // it_frame->extended_search = true;
+                    // it_frame->x_coeff = last_point.x_coeff;
+                    // it_frame->y_coeff = last_point.y_coeff;
+                    // it_frame->confidence_interval = last_point.confidence_interval;
+                    // it_frame->predicted = last_point.predicted;
+                    it_frame->x_statistics = last_point.x_statistics;
+                    it_frame->y_statistics = last_point.y_statistics;
                     insertPointToSequence(*sequences_no_insert[k], *it_frame);
                     it_frame = no_nn_current_frame.erase(it_frame);
                     sequences_no_insert.erase(sequences_no_insert.begin()+k); 
@@ -200,7 +212,7 @@ void alternativeHT::insertVPforSequencesWithNoInsert(seqPointer & seq){
     insertPointToSequence(*seq, pVirtual);
 }
 
-PredictionStatistics alternativeHT::selectStatisticsValues(const std::vector<double>& values, const std::vector<double>& time, const double& insert_time, const int& max_pix_shift, bool & draw_poly){
+PredictionStatistics alternativeHT::selectStatisticsValues(const std::vector<double>& values, const std::vector<double>& time, const double& insert_time, const int& max_pix_shift){
 
     auto weight_vect = extended_search_->calcNormalizedWeightVect(time);
     double w_mean_dependent = extended_search_->calcWeightedMean(values, weight_vect); 
@@ -216,33 +228,38 @@ PredictionStatistics alternativeHT::selectStatisticsValues(const std::vector<dou
 
     // if(std > 1 && (int)values.size() >= threshold_values_len_for_poly_reg_){
     // if(std > 1 && (int)values.size() >= loaded_params_->threshold_values_len_for_poly_reg){
-
+    if(values.size() > 1){
         statistics = extended_search_->polyReg(values, time, weight_vect);
         auto coeff = statistics.coeff;
         bool all_coeff_zero = std::all_of(coeff.begin(), coeff.end(), [](double coeff){return coeff == 0.0;});
         int val = 0;
-        if(true){
+        if(true){ // TODO: ALWAYS TRUE -> previously all_coeff_zero bool inserted
             for(int i = 0; i < (int)coeff.size(); ++i){
                 statistics.predicted_coordinate += coeff[i]*pow(insert_time, i);
             }
             statistics.predicted_coordinate = std::round(statistics.predicted_coordinate);  
             poly_reg_computed = true;
+            statistics.poly_reg_computed = true;
         }else{
             poly_reg_computed = false;
         }
         statistics.confidence_interval = extended_search_->confidenceInterval(statistics, time, values, weight_vect, loaded_params_->conf_probab_percent);
         conf_interval_bool = (statistics.confidence_interval == -1.0) ? false : true; 
-    // }
+        statistics.conf_interval_bool = conf_interval_bool; 
+    }
     
     if(!poly_reg_computed){
-        statistics.predicted_coordinate = std::round(w_mean_dependent); 
+        statistics.predicted_coordinate = std::round(w_mean_dependent);
+        statistics.poly_reg_computed = false; 
     }
-    if(!conf_interval_bool) statistics.confidence_interval = (std < max_pix_shift) ? max_pix_shift : std*2; //TODO: TGINK ABOUT THIS
-
+    if(!conf_interval_bool) {
+        statistics.confidence_interval = (std < max_pix_shift) ? max_pix_shift : std*2; //TODO: TGINK ABOUT THIS
+        statistics.conf_interval_bool = false;
+    }
     // statistics.confidence_interval = (statistics.confidence_interval < max_pix_shift) ? max_pix_shift*2 : statistics.confidence_interval;  
-    if(poly_reg_computed == false){
-        draw_poly = false;
-    }else draw_poly = true;
+    // if(poly_reg_computed == false){
+    //     draw_poly = false;
+    // }else draw_poly = true;
 
     return statistics;
 
