@@ -61,8 +61,11 @@ void alternativeHT::findClosestPixelAndInsert(std::vector<PointState> & current_
         bool nn = false;
         for(auto seq = p_gen_seq.begin(); seq != p_gen_seq.end(); ++seq){
             PointState last_inserted = (*seq)->end()[-1];
-            cv::Point2d diff = computeXYDiff(curr_point.point, last_inserted.point);
-            if(diff.x <= loaded_params_->max_px_shift.x && diff.y <= loaded_params_->max_px_shift.y){
+            cv::Point2d left_top = last_inserted.point - cv::Point2d(loaded_params_->max_px_shift);
+            cv::Point2d right_bottom = last_inserted.point + cv::Point2d(loaded_params_->max_px_shift);
+            // cv::Point2d diff = computeXYDiff(curr_point.point, last_inserted.point);
+            // if(diff.x <= loaded_params_->max_px_shift.x && diff.y <= loaded_params_->max_px_shift.y){
+            if(extended_search_->isInsideBB( curr_point.point, left_top, right_bottom)){
                 nn = true;
                 insertPointToSequence(**seq, curr_point);    
                 p_gen_seq.erase(seq);
