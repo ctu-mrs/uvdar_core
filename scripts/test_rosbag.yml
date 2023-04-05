@@ -13,7 +13,8 @@ windows:
   - rosbag:
       layout: even-vertical
       panes:
-        - waitForCompile;cd ~/uvdar_rosbag/separation_same_strength/uav7/6_2021_04_23_18_52_59_10m/; rosbag play --clock _2021-04-23-18-53-23.bag
+        # - waitForCompile;cd ~/uvdar_rosbag/separation_same_strength/uav7/6_2021_04_23_18_52_59_10m/; rosbag play --clock _2021-04-23-18-53-23.bag
+        - waitForCompile; cd ~/uvdar_rosbag/tracking/uav7/22_2021_04_27_09_11_19_L12/ ; rosbag play --clock -s 30 _2021-04-27-09-11-56.bag
   - rqt_image_view:
       layout: even-vertical
       panes:

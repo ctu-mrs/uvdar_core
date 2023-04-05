@@ -1,8 +1,8 @@
-time stamp
+time inserted_time
 int8 signal_id
-int8 poly_oder
-bool extended_search_flag
+bool[] poly_reg_computed
 mrs_msgs/Point2DWithFloat predicted_point
 mrs_msgs/Point2DWithFloat confidence_interval
 float32[] x_coeff_reg
 float32[] y_coeff_reg
+mrs_msgs/Point2DWithFloat[] sequence

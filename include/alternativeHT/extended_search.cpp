@@ -14,8 +14,9 @@ ExtendedSearch::~ExtendedSearch(){
 PredictionStatistics ExtendedSearch::polyReg(const std::vector<double>& coordinate, const std::vector<double>& time, const std::vector<double>& weights){
 
     int order = default_poly_order_;
-    if(coordinate.size() < 10){
-        order = 2; 
+    int threshold_order = 2; 
+    if(coordinate.size() < 10 && threshold_order < order){
+        order = threshold_order; 
     }
     Eigen::MatrixXd design_mat(time.size(), order + 1);
 	Eigen::VectorXd pixel_vect = Eigen::VectorXd::Map(&coordinate.front(), coordinate.size());

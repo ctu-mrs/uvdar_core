@@ -245,7 +245,6 @@ PredictionStatistics alternativeHT::selectStatisticsValues(const std::vector<dou
         }
         statistics.confidence_interval = extended_search_->confidenceInterval(statistics, time, values, weight_vect, loaded_params_->conf_probab_percent);
         conf_interval_bool = (statistics.confidence_interval == -1.0) ? false : true; 
-        statistics.conf_interval_bool = conf_interval_bool; 
     }
     
     if(!poly_reg_computed){
@@ -254,7 +253,6 @@ PredictionStatistics alternativeHT::selectStatisticsValues(const std::vector<dou
     }
     if(!conf_interval_bool) {
         statistics.confidence_interval = (std < max_pix_shift) ? max_pix_shift : std*2; //TODO: TGINK ABOUT THIS
-        statistics.conf_interval_bool = false;
     }
     // statistics.confidence_interval = (statistics.confidence_interval < max_pix_shift) ? max_pix_shift*2 : statistics.confidence_interval;  
     // if(poly_reg_computed == false){
@@ -300,10 +298,10 @@ void alternativeHT::cleanPotentialBuffer(){
     }
 }
 
-std::vector<std::pair<std::vector<PointState>, int>> alternativeHT::getResults(){
+std::vector<std::pair<seqPointer, int>> alternativeHT::getResults(){
 
     std::scoped_lock lock(mutex_gen_sequences_);
-    std::vector<std::pair<std::vector<PointState>, int>> retrieved_signals;
+    std::vector<std::pair<seqPointer, int>> retrieved_signals;
     if(debug_) std::cout << "[AHT]: The retrieved signals:{\n";
     for (auto sequence : gen_sequences_){
         std::vector<bool> led_states;
@@ -338,7 +336,8 @@ std::vector<std::pair<std::vector<PointState>, int>> alternativeHT::getResults()
             // gc++;
             // std::cout << "gc " << gc << "\n";
         } 
-        retrieved_signals.push_back(std::make_pair(return_seq, id));
+        auto sequence_copy = sequence; 
+        retrieved_signals.push_back(std::make_pair(sequence_copy, id));
     }
     if(debug_)std::cout << "}\n";
     return retrieved_signals;

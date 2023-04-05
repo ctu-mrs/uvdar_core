@@ -16,8 +16,8 @@ namespace uvdar
         // std::vector<double> y_coeff;
         // cv::Point2d confidence_interval;
         // cv::Point2d predicted;
-        // std::unique_ptr<PredictionStatistics> x_statistics = std::make_unique<PredictionStatistics>();
-        // std::unique_ptr<PredictionStatistics> y_statistics = std::make_unique<PredictionStatistics>();
+        // std::shared_ptr<PredictionStatistics> x_statistics = std::make_shared<PredictionStatistics>();
+        // std::shared_ptr<PredictionStatistics> y_statistics = std::make_shared<PredictionStatistics>();
         PredictionStatistics x_statistics;
         PredictionStatistics y_statistics;
         
@@ -118,7 +118,7 @@ namespace uvdar
         * @brief compares the original sequences with the extracted ones.
         * @return returns the sequences with seq id to the bp_tim.cpp 
         */
-        std::vector<std::pair<std::vector<PointState>, int>> getResults();
+        std::vector<std::pair<seqPointer, int>> getResults();
         
     };    
 } // namespace uvdar

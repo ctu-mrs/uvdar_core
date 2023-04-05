@@ -11,7 +11,6 @@ namespace uvdar{
     struct PredictionStatistics{
         double time_pred;
         bool poly_reg_computed = false;
-        bool conf_interval_bool = false;
         std::vector<double> coeff;
         Eigen::VectorXd predicted_vals_past; 
         double mean_dependent;

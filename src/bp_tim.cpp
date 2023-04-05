@@ -11,6 +11,8 @@
 #include <mrs_lib/param_loader.h>
 #include <mrs_lib/image_publisher.h>
 #include <uvdar_core/AhtDataForLogging.h>
+#include <uvdar_core/AhtSeqVariables.h>
+#include <uvdar_core/AhtAllSequences.h>
 #include <mutex>
 #include <thread>
 #include <atomic>
@@ -63,6 +65,7 @@ namespace uvdar{
       std::vector<std::vector<bool>> sequences_;
       std::vector<ros::Publisher> pub_blinkers_seen_;
       std::vector<ros::Publisher> pub_aht_logging_;
+      std::vector<ros::Publisher> pub_aht_all_seq_info;
       std::vector<ros::Publisher> pub_estimated_framerate_;
 
       std::mutex mutex_signals_;
@@ -114,6 +117,7 @@ namespace uvdar{
       std::vector<std::string> _estimated_framerate_topics_;
       std::vector<std::string> _points_seen_topics_;
       std::vector<std::string> _aht_logging_topics_;
+      std::vector<std::string> _aht_all_seq_info_topics;
       bool _manchester_code_;
 
       std::string _sequence_file;
@@ -134,7 +138,7 @@ namespace uvdar{
 
 
       struct BlinkData {
-        std::vector<std::pair<std::vector<PointState>,int>> retrieved_blinkers;
+        std::vector<std::pair<seqPointer,int>> retrieved_blinkers;
         std::shared_ptr<std::mutex>   mutex_retrieved_blinkers;
         ros::Time                     last_sample_time;
         ros::Time                     last_sample_time_diagnostic;
@@ -218,6 +222,7 @@ namespace uvdar{
     private_nh_.param("estimated_framerate_topics", _estimated_framerate_topics_, _estimated_framerate_topics_);
     private_nh_.param("use_camera_for_visualization", _use_camera_for_visualization_, bool(true));
     private_nh_.param("aht_logging_topics", _aht_logging_topics_, _aht_logging_topics_);
+    private_nh_.param("aht_all_seq_info_topics", _aht_all_seq_info_topics, _aht_all_seq_info_topics);
     private_nh_.param("imu_topic", _imu_topic_, std::string());
 
     param_loader.loadParam("imu_compensation", _imu_compensation_, bool(false));
@@ -369,6 +374,7 @@ namespace uvdar{
     for (size_t i = 0; i < _blinkers_seen_topics_.size(); ++i) {
       pub_blinkers_seen_.push_back(private_nh_.advertise<mrs_msgs::ImagePointsWithFloatStamped>(_blinkers_seen_topics_[i], 1));
       pub_aht_logging_.push_back(private_nh_.advertise<uvdar_core::AhtDataForLogging>(_aht_logging_topics_[i], 1));
+      pub_aht_all_seq_info.push_back(private_nh_.advertise<uvdar_core::AhtAllSequences>(_aht_all_seq_info_topics[i], 1));
       pub_estimated_framerate_.push_back(private_nh_.advertise<std_msgs::Float32>(_estimated_framerate_topics_[i], 1));
     }
 
@@ -464,6 +470,7 @@ namespace uvdar{
     
     mrs_msgs::ImagePointsWithFloatStamped msg;
     uvdar_core::AhtDataForLogging aht_logging_msg;
+    uvdar_core::AhtAllSequences aht_all_seq_msg;
     ros::Time local_last_sample_time = blink_data_[img_index].last_sample_time;
     {
       std::scoped_lock lock(*(blink_data_[img_index].mutex_retrieved_blinkers));
@@ -471,25 +478,59 @@ namespace uvdar{
 
       for (auto& signal : blink_data_[img_index].retrieved_blinkers) {
         mrs_msgs::Point2DWithFloat point;
-        auto k = signal.first.end()[-1];
-        point.x = k.point.x;
-        point.y = k.point.y;
+        auto last_point = signal.first->end()[-1];
+        point.x = last_point.point.x;
+        point.y = last_point.point.y;
         if (signal.second <= (int)sequences_.size()){
           point.value = signal.second;
+
         }
         else {
           point.value = -2;
         }
+                  
+          // publish values from aht if the sequence is valid
+          uvdar_core::AhtSeqVariables aht_seq_msg;
+          aht_seq_msg.inserted_time = last_point.insert_time;
+          aht_seq_msg.signal_id = signal.second;
+
+          aht_seq_msg.confidence_interval.x = last_point.x_statistics.confidence_interval;
+          aht_seq_msg.confidence_interval.y = last_point.y_statistics.confidence_interval;
+          aht_seq_msg.predicted_point.x = last_point.x_statistics.predicted_coordinate;
+          aht_seq_msg.predicted_point.y = last_point.y_statistics.predicted_coordinate;
+
+          for(auto coeff : last_point.x_statistics.coeff){
+            aht_seq_msg.x_coeff_reg.push_back(static_cast<float>(coeff));
+          }
+
+          for(auto coeff : last_point.y_statistics.coeff){
+            aht_seq_msg.y_coeff_reg.push_back(static_cast<float>(coeff));
+          }
+
+          for(auto point_state : *signal.first){
+            mrs_msgs::Point2DWithFloat p;
+            p.x = point_state.point.x;
+            p.y = point_state.point.y;
+            p.value = point_state.led_state;
+            aht_seq_msg.sequence.push_back(p);
+          }
+
+          aht_seq_msg.poly_reg_computed.push_back(last_point.x_statistics.poly_reg_computed);
+          aht_seq_msg.poly_reg_computed.push_back(last_point.y_statistics.poly_reg_computed);
+
+
+          aht_all_seq_msg.sequences.push_back(aht_seq_msg);
+        // publish for pose calculate
         msg.points.push_back(point);
       }
       msg.stamp         = local_last_sample_time;
       msg.image_width   = camera_image_sizes_[img_index].width;
       msg.image_height  = camera_image_sizes_[img_index].height;
 
+      // publish loaded variables 
       mrs_msgs::Point2DWithFloat max_px_shift;
       max_px_shift.x = _max_px_shift_.x;
       max_px_shift.y = _max_px_shift_.y;
-
       aht_logging_msg.stamp = local_last_sample_time;
       aht_logging_msg.sequence_file = _sequence_file;
       aht_logging_msg.frame_tolerance_till_seq_rejected = _frame_tolerance_;
@@ -502,6 +543,7 @@ namespace uvdar{
 
       pub_blinkers_seen_[img_index].publish(msg);
       pub_aht_logging_[img_index].publish(aht_logging_msg);
+      pub_aht_all_seq_info[img_index].publish(aht_all_seq_msg);
 
       std_msgs::Float32 msg_framerate;
       msg_framerate.data = blink_data_[img_index].framerate_estimate;
@@ -615,18 +657,18 @@ namespace uvdar{
           cv::Scalar seq_colour(160,160,160);
           
           cv::Point2d confidence_interval = cv::Point2d(
-            blink_data_[image_index].retrieved_blinkers[j].first.end()[-1].x_statistics.confidence_interval,
-            blink_data_[image_index].retrieved_blinkers[j].first.end()[-1].y_statistics.confidence_interval
+            blink_data_[image_index].retrieved_blinkers[j].first->end()[-1].x_statistics.confidence_interval,
+            blink_data_[image_index].retrieved_blinkers[j].first->end()[-1].y_statistics.confidence_interval
           );
           cv::Point2d predicted = cv::Point2d(
-            blink_data_[image_index].retrieved_blinkers[j].first.end()[-1].x_statistics.predicted_coordinate,
-            blink_data_[image_index].retrieved_blinkers[j].first.end()[-1].y_statistics.predicted_coordinate
+            blink_data_[image_index].retrieved_blinkers[j].first->end()[-1].x_statistics.predicted_coordinate,
+            blink_data_[image_index].retrieved_blinkers[j].first->end()[-1].y_statistics.predicted_coordinate
           );
-          auto x_coeff = blink_data_[image_index].retrieved_blinkers[j].first.end()[-1].x_statistics.coeff;
-          auto y_coeff = blink_data_[image_index].retrieved_blinkers[j].first.end()[-1].y_statistics.coeff;
-          double curr_time = blink_data_[image_index].retrieved_blinkers[j].first.end()[-1].insert_time.toSec();
-          bool x_poly_reg_computed = blink_data_[image_index].retrieved_blinkers[j].first.end()[-1].x_statistics.poly_reg_computed;
-          bool y_poly_reg_computed = blink_data_[image_index].retrieved_blinkers[j].first.end()[-1].y_statistics.poly_reg_computed;
+          auto x_coeff = blink_data_[image_index].retrieved_blinkers[j].first->end()[-1].x_statistics.coeff;
+          auto y_coeff = blink_data_[image_index].retrieved_blinkers[j].first->end()[-1].y_statistics.coeff;
+          double curr_time = blink_data_[image_index].retrieved_blinkers[j].first->end()[-1].insert_time.toSec();
+          bool x_poly_reg_computed = blink_data_[image_index].retrieved_blinkers[j].first->end()[-1].x_statistics.poly_reg_computed;
+          bool y_poly_reg_computed = blink_data_[image_index].retrieved_blinkers[j].first->end()[-1].y_statistics.poly_reg_computed;
 
 
           std::vector<cv::Point> interpolated_prediction;
@@ -681,7 +723,7 @@ namespace uvdar{
             }
           }
   
-          cv::Point center = cv::Point(blink_data_[image_index].retrieved_blinkers[j].first.end()[-1].point.x, blink_data_[image_index].retrieved_blinkers[j].first.end()[-1].point.y) + start_point;
+          cv::Point center = cv::Point(blink_data_[image_index].retrieved_blinkers[j].first->end()[-1].point.x, blink_data_[image_index].retrieved_blinkers[j].first->end()[-1].point.y) + start_point;
           int signal_index = blink_data_[image_index].retrieved_blinkers[j].second;
           if(signal_index == -2 || signal_index == -3) {
             continue;
@@ -723,7 +765,7 @@ namespace uvdar{
   
           // draw "past" stored sequence points 
           std::vector<cv::Point> draw_seq;  
-          for(auto p : blink_data_[image_index].retrieved_blinkers[j].first){
+          for(auto p : *blink_data_[image_index].retrieved_blinkers[j].first){
             if(p.led_state){
               cv::Point point;
               point.x = p.point.x;
