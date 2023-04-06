@@ -52,14 +52,13 @@
 
   <arg name="poly_order" default="4"/>
   <arg name="decay_factor" default="0.01"/>
-  <arg name="stored_seq_len_factor" default="20"/>
-  <arg name="confidence_probability" default="90.0"/>
+  <arg name="stored_seq_len_factor" default="15"/>
+  <arg name="confidence_probability" default="95.0"/>
   <arg name="frame_tolerance" default="5"/>
   <arg name="max_px_shift_x" default="2"/>
   <arg name="max_px_shift_y" default="2"/>
-  <arg name="max_zeros_consecutive" default="4"/>
-  <arg name="max_ones_consecutive" default="4"/>
-  <arg name="threshold_values_len_for_poly_reg" default="10"/>
+  <arg name="max_zeros_consecutive" default="2"/>
+  <arg name="max_ones_consecutive" default="2"/>
 
   <arg name="model_file" default="$(find uvdar_core)/config/models/quadrotor_foursided.txt"/>
   <!-- ideal angle: 1.221730476 - pi/2 -->
@@ -162,8 +161,6 @@
       <param name="max_px_shift_y"     type="int"   value="$(arg max_px_shift_y)"/>
       <param name="max_zeros_consecutive"     type="int"   value="$(arg max_zeros_consecutive)"/>
       <param name="max_ones_consecutive"     type="int"   value="$(arg max_ones_consecutive)"/>
-      <param name="threshold_values_len_for_poly_reg"     type="int"   value="$(arg threshold_values_len_for_poly_reg)"/>
-
       
       <param name="sequence_file"         type="string" value="$(arg sequence_file)"/>
       <param name="imu_compensation"     type="bool"   value="$(arg imu_compensation)"/>
