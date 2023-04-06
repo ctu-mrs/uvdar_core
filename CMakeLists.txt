@@ -65,6 +65,7 @@ add_message_files(DIRECTORY msg FILES
    AhtDataForLogging.msg
    AhtSeqVariables.msg
    AhtAllSequences.msg
+   AhtSeqPoint.msg
   )
 
 generate_messages(DEPENDENCIES

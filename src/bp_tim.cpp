@@ -13,6 +13,7 @@
 #include <uvdar_core/AhtDataForLogging.h>
 #include <uvdar_core/AhtSeqVariables.h>
 #include <uvdar_core/AhtAllSequences.h>
+#include <uvdar_core/AhtSeqPoint.h>
 #include <mutex>
 #include <thread>
 #include <atomic>
@@ -508,11 +509,14 @@ namespace uvdar{
           }
 
           for(auto point_state : *signal.first){
+            uvdar_core::AhtSeqPoint ps_msg;
             mrs_msgs::Point2DWithFloat p;
             p.x = point_state.point.x;
             p.y = point_state.point.y;
             p.value = point_state.led_state;
-            aht_seq_msg.sequence.push_back(p);
+            ps_msg.point = p;
+            ps_msg.insert_time = point_state.insert_time;
+            aht_seq_msg.sequence.push_back(ps_msg);
           }
 
           aht_seq_msg.poly_reg_computed.push_back(last_point.x_statistics.poly_reg_computed);

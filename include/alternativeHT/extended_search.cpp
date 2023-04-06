@@ -129,7 +129,7 @@ double ExtendedSearch::confidenceInterval(const PredictionStatistics& prediction
 
     double percentage_scaled = (100.0 - double(wanted_percentage)) / 100.0;
     boost::math::students_t dist(n - (int)prediction_vals.coeff.size() - 1);
-    double t = quantile(complement(dist, percentage_scaled / 2));
+    double t = quantile(complement(dist, percentage_scaled / 2.0));
     
     double conf_interval_prediction = t*standard_error;
     return conf_interval_prediction;

@@ -112,7 +112,7 @@ windows:
   - uv_observer:
       layout: even-vertical
       panes:
-        - waitForCompile; waitForSimulation; gz world --pause=0; sleep 6;  export UAV_NAME=uav1; waitForControl; roslaunch uvdar_core tl_Three_Sided.launch debug:=false communication_mode:=false visual_debug:=false
+        - waitForCompile; waitForSimulation; gz world --pause=0; sleep 40;  export UAV_NAME=uav1; waitForControl; roslaunch uvdar_core tl_Three_Sided.launch debug:=false communication_mode:=false visual_debug:=false
         #  poly_order:=2 decay_factor:=0.1
         # - waitForCompile; gz world --pause=0; sleep 6;  export UAV_NAME=uav1; waitForControl; roslaunch uvdar_core sim_three_sided.launch
 

@@ -237,7 +237,7 @@ PredictionStatistics alternativeHT::selectStatisticsValues(const std::vector<dou
             for(int i = 0; i < (int)coeff.size(); ++i){
                 statistics.predicted_coordinate += coeff[i]*pow(insert_time, i);
             }
-            statistics.predicted_coordinate = std::round(statistics.predicted_coordinate);  
+            statistics.predicted_coordinate = statistics.predicted_coordinate;  // TODO: ROUND?!
             poly_reg_computed = true;
             statistics.poly_reg_computed = true;
         }else{
@@ -248,7 +248,7 @@ PredictionStatistics alternativeHT::selectStatisticsValues(const std::vector<dou
     }
     
     if(!poly_reg_computed){
-        statistics.predicted_coordinate = std::round(w_mean_dependent);
+        statistics.predicted_coordinate = w_mean_dependent; // TODO: ROUND?!
         statistics.poly_reg_computed = false; 
     }
     if(!conf_interval_bool) {
@@ -340,6 +340,7 @@ std::vector<std::pair<seqPointer, int>> alternativeHT::getResults(){
         retrieved_signals.push_back(std::make_pair(sequence_copy, id));
     }
     if(debug_)std::cout << "}\n";
+    
     return retrieved_signals;
 }
 

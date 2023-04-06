@@ -53,8 +53,8 @@
   <arg name="frame_tolerance" default="5"/>
   <arg name="max_pixel_shift_x" default="2"/>
   <arg name="max_pixel_shift_y" default="2"/>
-  <arg name="max_zeros_consecutive" default="3"/>
-  <arg name="max_ones_consecutive" default="3"/>
+  <arg name="max_zeros_consecutive" default="2"/>
+  <arg name="max_ones_consecutive" default="2"/>
   <arg name="allowed_BER_per_seq" default="0"/>
 
   <arg name="model_file" default="$(find uvdar_core)/config/models/quadrotor.txt"/>

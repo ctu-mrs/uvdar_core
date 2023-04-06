@@ -11,13 +11,7 @@ namespace uvdar
         cv::Point2d point;
         bool led_state; 
         ros::Time insert_time;
-        // bool extended_search = false;
-        // std::vector<double> x_coeff;
-        // std::vector<double> y_coeff;
-        // cv::Point2d confidence_interval;
-        // cv::Point2d predicted;
-        // std::shared_ptr<PredictionStatistics> x_statistics = std::make_shared<PredictionStatistics>();
-        // std::shared_ptr<PredictionStatistics> y_statistics = std::make_shared<PredictionStatistics>();
+
         PredictionStatistics x_statistics;
         PredictionStatistics y_statistics;
         
@@ -50,7 +44,7 @@ namespace uvdar
         const double prediction_margin_ = 0.0;
         std::vector<std::vector<bool>> original_sequences_;
         std::mutex mutex_gen_sequences_;
-        std::vector<std::shared_ptr<std::vector<PointState>>> gen_sequences_;
+        std::vector<seqPointer> gen_sequences_;
         std::unique_ptr<SignalMatcher> matcher_;
         std::unique_ptr<ExtendedSearch> extended_search_;
 
