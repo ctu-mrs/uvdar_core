@@ -157,16 +157,16 @@ namespace uvdar{
       
   void UVDAR_BP_Tim::onInit(){
   
-    ros::Time::waitForValid();
 
     private_nh_ = nodelet::Nodelet::getMTPrivateNodeHandle();
     NODELET_DEBUG("[UVDAR_BP_Tim]: Initializing UVDAR_BP_Tim Nodelet...");
-
+    
     const bool print_params_console = false;
 
     loadParams(print_params_console);
 
     if(!checkLoadedParams()){
+      ROS_ERROR("[UVDAR_BP_Tim]: Shutting down - checkLoadedParams() encountered an issue!");
       initialized_ = false;
       return;
     } 
@@ -174,6 +174,7 @@ namespace uvdar{
 
     parseSequenceFile(_sequence_file);
     if(!initAlternativeHTDataStructure()){
+      ROS_ERROR("[UVDAR_BP_Tim]: Shutting down - AlternativeHTDataStructure wasn't initialized correctly!");
       initialized_ = false;
       return;
     } 
