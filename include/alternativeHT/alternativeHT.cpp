@@ -25,7 +25,7 @@ bool alternativeHT::setSequences(std::vector<std::vector<bool>> i_sequences){
         return false;
 
     if((int)original_sequences_[0].size() < loaded_params_->max_zeros_consecutive){
-        ROS_ERROR("[Alternative_HT]: The wanted number of consecutive zeros is higher than the sequence length! Returning..");
+        ROS_ERROR("[Alternative_HT]: The wanted number of consecutive zeros is higher than the sequence length! Sequence cannot be set. Returning..");
         return false;
     }
     return true;
@@ -49,39 +49,37 @@ void alternativeHT::processBuffer(const mrs_msgs::ImagePointsWithFloatStampedCon
 void alternativeHT::findClosestPixelAndInsert(std::vector<PointState> & current_frame) {   
     
     // reference to sequences used for processing in the moving average functions
-    std::vector<seqPointer> p_gen_seq;
     {
         std::scoped_lock lock(mutex_gen_sequences_);
+        std::vector<seqPointer> p_gen_seq;
         p_gen_seq = gen_sequences_;
-    }
     
-    std::vector<PointState> no_nn;
-    for(auto & curr_point : current_frame){
-        std::scoped_lock lock(mutex_gen_sequences_);
-        bool nn = false;
-        for(auto seq = p_gen_seq.begin(); seq != p_gen_seq.end(); ++seq){
-            PointState last_inserted = (*seq)->end()[-1];
-            cv::Point2d left_top = last_inserted.point - cv::Point2d(loaded_params_->max_px_shift);
-            cv::Point2d right_bottom = last_inserted.point + cv::Point2d(loaded_params_->max_px_shift);
-            if(extended_search_->isInsideBB( curr_point.point, left_top, right_bottom)){
-                nn = true;
-                insertPointToSequence(**seq, curr_point);    
-                p_gen_seq.erase(seq);
-                break;
-            }else{
-                nn = false;
+        std::vector<PointState> no_nn;
+        for(auto & curr_point : current_frame){
+            bool nn = false;
+            for(auto seq = p_gen_seq.begin(); seq != p_gen_seq.end(); ++seq){
+                PointState last_inserted = (*seq)->end()[-1];
+                cv::Point2d left_top = last_inserted.point - cv::Point2d(loaded_params_->max_px_shift);
+                cv::Point2d right_bottom = last_inserted.point + cv::Point2d(loaded_params_->max_px_shift);
+                if(extended_search_->isInsideBB( curr_point.point, left_top, right_bottom)){
+                    nn = true;
+                    insertPointToSequence(**seq, curr_point);    
+                    p_gen_seq.erase(seq);
+                    break;
+                }else{
+                    nn = false;
+                }
+            }
+            if(nn == false){
+                no_nn.push_back(curr_point);
             }
         }
-        if(nn == false){
-            no_nn.push_back(curr_point);
-        }
+        expandedSearch(no_nn, p_gen_seq);
     }
-    expandedSearch(no_nn, p_gen_seq);
 }
 
 void alternativeHT::expandedSearch(std::vector<PointState>& no_nn_current_frame, std::vector<seqPointer>& sequences_no_insert){
     
-    std::scoped_lock lock(mutex_gen_sequences_);
 
     if((int)no_nn_current_frame.size() != 0){
         double insert_time = no_nn_current_frame[0].insert_time.toSec() + prediction_margin_;

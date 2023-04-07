@@ -44,7 +44,6 @@
   <arg name="beacon" default="false"/>
 
   <arg name="sequence_file" default="$(find uvdar_core)/config/selected.txt"/>
-  <arg name="imu_compensation" default="false"/>
 
   <arg name="poly_order" default="1"/>
   <arg name="decay_factor" default="0.1"/>
@@ -134,8 +133,6 @@
       <param name="allowed_BER_per_seq"     type="int"   value="$(arg allowed_BER_per_seq)"/>
 
       <param name="sequence_file"         type="string" value="$(arg sequence_file)"/>
-      <param name="imu_compensation"     type="bool"   value="$(arg imu_compensation)"/>
-      <param name="imu_topic" type="string" value="/$(arg uav_name)/odometry/odom_main"/>
 
       <rosparam param="camera_topics"> ["camera_left"] </rosparam>
       <rosparam param="points_seen_topics"> ["points_seen_left"] </rosparam>

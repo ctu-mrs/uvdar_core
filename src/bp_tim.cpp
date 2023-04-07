@@ -2,7 +2,6 @@
 #include <nodelet/nodelet.h>
 #include <cv_bridge/cv_bridge.h>
 #include <alternativeHT/alternativeHT.h>
-#include <alternativeHT/imu_compensation.h>
 #include <color_selector/color_selector.h>
 #include <mrs_msgs/ImagePointsWithFloatStamped.h>
 #include <std_msgs/Float32.h>
@@ -40,8 +39,6 @@ namespace uvdar{
       bool checkLoadedParams();
       bool parseSequenceFile(const std::string &);
       bool initAlternativeHTDataStructure();
-      // initializes IMU Compensation topics - currently not fully developed
-      void initIMUCompensation();
 
       void subscribeToPublishedPoints();
       void insertPointToAHT(const mrs_msgs::ImagePointsWithFloatStampedConstPtr &, const size_t &);
@@ -61,7 +58,6 @@ namespace uvdar{
                   
       int image_sizes_received_ = 0;
       std::vector<std::shared_ptr<alternativeHT>> aht_;
-      std::unique_ptr<IMU_COMPENSATION> imu_comp;
       
       std::vector<std::vector<bool>> sequences_;
       std::vector<ros::Publisher> pub_blinkers_seen_;
@@ -77,7 +73,6 @@ namespace uvdar{
       std::vector<points_seen_callback_t> cals_sun_points_;
       std::vector<ros::Subscriber> sub_points_seen_;
       std::vector<ros::Subscriber> sub_sun_points_;
-      ros::Subscriber sub_imu_;
 
 
       // visualization variables
@@ -95,16 +90,13 @@ namespace uvdar{
       std::unique_ptr<mrs_lib::ImagePublisher> pub_visualization_;
       std::vector<std::shared_ptr<std::mutex>>  mutex_camera_image_;
       
-      std::vector<std::string> points_seen_topics_imu_compensation_;
-      std::vector<ros::Publisher> pub_points_seen_compensated_imu_;
-      std::vector<points_seen_callback_t> cals_points_seen_imu_;
-       std::vector<ros::Subscriber> subs_points_seen_imu_;
-       std::vector<mrs_msgs::ImagePointsWithFloatStamped> vectPoints_;
+      std::vector<mrs_msgs::ImagePointsWithFloatStamped> vectPoints_;
 
       std::vector<std::vector<cv::Point>> sun_points_;
       std::mutex mutex_sun;
       
-      
+      ros::Time last_publish_aht_logging_;
+
       // loaded Params
       std::string _uav_name_;   
       bool        _debug_;
@@ -122,8 +114,6 @@ namespace uvdar{
       bool _manchester_code_;
 
       std::string _sequence_file;
-      bool        _imu_compensation_;
-      std::string _imu_topic_;
       // params for the aht
       cv::Point _max_px_shift_;
       int _max_zeros_consecutive_;
@@ -160,9 +150,10 @@ namespace uvdar{
 
     private_nh_ = nodelet::Nodelet::getMTPrivateNodeHandle();
     NODELET_DEBUG("[UVDAR_BP_Tim]: Initializing UVDAR_BP_Tim Nodelet...");
-    
-    const bool print_params_console = false;
 
+    last_publish_aht_logging_ = ros::Time::now();
+
+    const bool print_params_console = false;
     loadParams(print_params_console);
 
     if(!checkLoadedParams()){
@@ -173,28 +164,19 @@ namespace uvdar{
 
 
     parseSequenceFile(_sequence_file);
+    
     if(!initAlternativeHTDataStructure()){
       ROS_ERROR("[UVDAR_BP_Tim]: Shutting down - AlternativeHTDataStructure wasn't initialized correctly!");
       initialized_ = false;
       return;
     } 
 
-    if(_imu_compensation_){
-      imu_comp = std::make_unique<IMU_COMPENSATION>(_imu_topic_);
-    }
-    std::string pubTopic_extension = "_imu_comp";
-    points_seen_topics_imu_compensation_ = _points_seen_topics_; 
-    for(auto & topicName : points_seen_topics_imu_compensation_){
-        topicName += pubTopic_extension;
-        pub_points_seen_compensated_imu_.push_back(private_nh_.advertise<mrs_msgs::ImagePointsWithFloatStamped>(topicName, 1));
-        mrs_msgs::ImagePointsWithFloatStamped p;
-        vectPoints_.push_back(p);
-    }
-
     subscribeToPublishedPoints();
     if(_gui_){
       initGUI();  
     }
+
+
     initialized_ = true;
   }
 
@@ -219,15 +201,12 @@ namespace uvdar{
     param_loader.loadParam("sequence_file", _sequence_file, std::string());    
     param_loader.loadParam("manchester_code", _manchester_code_, bool(false));
 
-
     private_nh_.param("blinkers_seen_topics", _blinkers_seen_topics_, _blinkers_seen_topics_);
     private_nh_.param("estimated_framerate_topics", _estimated_framerate_topics_, _estimated_framerate_topics_);
     private_nh_.param("use_camera_for_visualization", _use_camera_for_visualization_, bool(true));
     private_nh_.param("aht_logging_topics", _aht_logging_topics_, _aht_logging_topics_);
     private_nh_.param("aht_all_seq_info_topics", _aht_all_seq_info_topics, _aht_all_seq_info_topics);
-    private_nh_.param("imu_topic", _imu_topic_, std::string());
 
-    param_loader.loadParam("imu_compensation", _imu_compensation_, bool(false));
     param_loader.loadParam("decay_factor", _decay_factor_, float(0.1));
     param_loader.loadParam("poly_order", _poly_order_, int(2));
     param_loader.loadParam("stored_seq_len_factor", _stored_seq_len_factor_, int(15));
@@ -236,7 +215,7 @@ namespace uvdar{
     param_loader.loadParam("max_px_shift_x", _max_px_shift_.x, int(2));
     param_loader.loadParam("max_px_shift_y", _max_px_shift_.y, int(2));
     param_loader.loadParam("max_zeros_consecutive", _max_zeros_consecutive_, int(2));
-    if(_max_zeros_consecutive_ > 2) ROS_WARN("The allowed consecutive zero bits is set to %d. This might cause more tracking failures. Please consider to set _max_px_shift_ in x and y direction higher to achieve similar tracking results.", _max_zeros_consecutive_); 
+
     param_loader.loadParam("max_ones_consecutive", _max_ones_consecutive_, int(2));
     param_loader.loadParam("allowed_BER_per_seq", _allowed_BER_per_seq_, int(0));
       
@@ -257,6 +236,10 @@ namespace uvdar{
       ROS_ERROR("[UVDAR_BP_Tim]: Wanted confidence interval size equal or bigger than 100%% is set. A Confidence interval of 100%% is not settable! Returning."); 
       return false;
     } 
+
+    if(_max_zeros_consecutive_ > 2){ 
+      ROS_WARN("The allowed consecutive zero bits is set to %d. This might cause more tracking failures. Consider to set the bb-search-space higher (max_px_shift in x and y).", _max_zeros_consecutive_); 
+    }
 
     return true;
   }
@@ -334,6 +317,7 @@ namespace uvdar{
       aht_.push_back(std::make_shared<alternativeHT>(params_AHT));
 
       if(!aht_[i]->setSequences(sequences_)) return false;
+
       aht_[i]->setDebugFlags(_debug_);
 
       blink_data_.push_back(BlinkData());
@@ -348,24 +332,13 @@ namespace uvdar{
 
     for (size_t i = 0; i < _points_seen_topics_.size(); ++i){
 
-      if(_imu_compensation_){
-        points_seen_callback_t callback_IMU = [image_index = i, this](const mrs_msgs::ImagePointsWithFloatStampedConstPtr &points_msg){
-            imu_comp->compensateByIMUMovement(points_msg, image_index, pub_points_seen_compensated_imu_);
-        };
-        cals_points_seen_imu_.push_back(callback_IMU);
-        subs_points_seen_imu_.push_back(private_nh_.subscribe(_points_seen_topics_[i], 1, cals_points_seen_imu_[i]));
-      }
-
       // Subscribe to corresponding topics
       points_seen_callback_t callback = [image_index = i, this](const mrs_msgs::ImagePointsWithFloatStampedConstPtr &points_msg){
               insertPointToAHT(points_msg, image_index);
       };
       cals_points_seen_.push_back(callback);
-      if(_imu_compensation_){
-        sub_points_seen_.push_back(private_nh_.subscribe(points_seen_topics_imu_compensation_[i], 1, cals_points_seen_[i]));
-      }else{
-        sub_points_seen_.push_back(private_nh_.subscribe(_points_seen_topics_[i], 1, cals_points_seen_[i]));
-      }
+      sub_points_seen_.push_back(private_nh_.subscribe(_points_seen_topics_[i], 1, cals_points_seen_[i]));
+      
       points_seen_callback_t sun_callback = [image_index=i,this] (const mrs_msgs::ImagePointsWithFloatStampedConstPtr& sun_points_msg){
         InsertSunPoints(sun_points_msg, image_index);
       };
@@ -533,21 +506,26 @@ namespace uvdar{
       msg.image_height  = camera_image_sizes_[img_index].height;
 
       // publish loaded variables 
-      mrs_msgs::Point2DWithFloat max_px_shift;
-      max_px_shift.x = _max_px_shift_.x;
-      max_px_shift.y = _max_px_shift_.y;
-      aht_logging_msg.stamp = local_last_sample_time;
-      aht_logging_msg.sequence_file = _sequence_file;
-      aht_logging_msg.frame_tolerance_till_seq_rejected = _frame_tolerance_;
-      aht_logging_msg.stored_seq_len_factor = _stored_seq_len_factor_;
-      aht_logging_msg.default_poly_order = _poly_order_;
-      aht_logging_msg.confidence_probab_t_dist = _conf_probab_percent_;
-      aht_logging_msg.decay_factor_weight_func = _decay_factor_;
-      aht_logging_msg.max_px_shift = max_px_shift;
+      double publish_rate_sec = 25.0;
+      double diff = ros::Time::now().toSec() - last_publish_aht_logging_.toSec();
+      if( publish_rate_sec < diff){
+        last_publish_aht_logging_ = ros::Time::now();
 
+        mrs_msgs::Point2DWithFloat max_px_shift;
+        max_px_shift.x = _max_px_shift_.x;
+        max_px_shift.y = _max_px_shift_.y;
+        aht_logging_msg.stamp = local_last_sample_time;
+        aht_logging_msg.sequence_file = _sequence_file;
+        aht_logging_msg.frame_tolerance_till_seq_rejected = _frame_tolerance_;
+        aht_logging_msg.stored_seq_len_factor = _stored_seq_len_factor_;
+        aht_logging_msg.default_poly_order = _poly_order_;
+        aht_logging_msg.confidence_probab_t_dist = _conf_probab_percent_;
+        aht_logging_msg.decay_factor_weight_func = _decay_factor_;
+        aht_logging_msg.max_px_shift = max_px_shift;
+        pub_aht_logging_[img_index].publish(aht_logging_msg);
+      }
 
       pub_blinkers_seen_[img_index].publish(msg);
-      pub_aht_logging_[img_index].publish(aht_logging_msg);
       pub_aht_all_seq_info[img_index].publish(aht_all_seq_msg);
 
       std_msgs::Float32 msg_framerate;
@@ -583,20 +561,21 @@ namespace uvdar{
   }
 
   void UVDAR_BP_Tim::VisualizationThread([[maybe_unused]] const ros::TimerEvent& te) {
-    if (initialized_){
-      if(generateVisualization(image_visualization_) >= 0){
-        if ((image_visualization_.cols != 0) && (image_visualization_.rows != 0)){
-          if (_publish_visualization_){
-            pub_visualization_->publish("uvdar_blink_visualization", 0.01, image_visualization_, true);
-          }
-          if (_gui_){
-            cv::imshow("ocv_uvdar_blink_" + _uav_name_, image_visualization_);
-            cv::waitKey(25);
-          }
+    if (!initialized_){
+      return;
+    }
+    if(generateVisualization(image_visualization_) >= 0){
+      if ((image_visualization_.cols != 0) && (image_visualization_.rows != 0)){
+        if (_publish_visualization_){
+          pub_visualization_->publish("uvdar_blink_visualization", 0.01, image_visualization_, true);
+        }
+        if (_gui_){
+          cv::imshow("ocv_uvdar_blink_" + _uav_name_, image_visualization_);
+          cv::waitKey(25);
+        }
 
-          if (_visual_debug_){
-            cv::waitKey(25);
-          }
+        if (_visual_debug_){
+          cv::waitKey(25);
         }
       }
     }
@@ -804,6 +783,8 @@ namespace uvdar{
 
 
   void UVDAR_BP_Tim::callbackImage(const sensor_msgs::ImageConstPtr& image_msg, size_t image_index) {
+    if(!initialized_) return;
+
     cv_bridge::CvImageConstPtr image;
     image = cv_bridge::toCvShare(image_msg, sensor_msgs::image_encodings::MONO8);
     {
