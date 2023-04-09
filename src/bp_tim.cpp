@@ -207,16 +207,15 @@ namespace uvdar{
     private_nh_.param("aht_logging_topics", _aht_logging_topics_, _aht_logging_topics_);
     private_nh_.param("aht_all_seq_info_topics", _aht_all_seq_info_topics, _aht_all_seq_info_topics);
 
-    param_loader.loadParam("decay_factor", _decay_factor_, float(0.1));
-    param_loader.loadParam("poly_order", _poly_order_, int(2));
-    param_loader.loadParam("stored_seq_len_factor", _stored_seq_len_factor_, int(15));
-    param_loader.loadParam("confidence_probability", _conf_probab_percent_, double(75.0));
-    param_loader.loadParam("frame_tolerance", _frame_tolerance_, int(5));
     param_loader.loadParam("max_px_shift_x", _max_px_shift_.x, int(2));
     param_loader.loadParam("max_px_shift_y", _max_px_shift_.y, int(2));
     param_loader.loadParam("max_zeros_consecutive", _max_zeros_consecutive_, int(2));
-
     param_loader.loadParam("max_ones_consecutive", _max_ones_consecutive_, int(2));
+    param_loader.loadParam("stored_seq_len_factor", _stored_seq_len_factor_, int(15));
+    param_loader.loadParam("poly_order", _poly_order_, int(2));
+    param_loader.loadParam("decay_factor", _decay_factor_, float(0.1));
+    param_loader.loadParam("confidence_probability", _conf_probab_percent_, double(75.0));
+    param_loader.loadParam("frame_tolerance", _frame_tolerance_, int(5));
     param_loader.loadParam("allowed_BER_per_seq", _allowed_BER_per_seq_, int(0));
     param_loader.loadParam("std_threshold_poly_reg", _std_threshold_poly_reg_, double(0.5));
       
@@ -466,40 +465,40 @@ namespace uvdar{
           point.value = -2;
         }
                   
-          // publish values from aht if the sequence is valid
-          uvdar_core::AhtSeqVariables aht_seq_msg;
-          aht_seq_msg.inserted_time = last_point.insert_time;
-          aht_seq_msg.signal_id = signal.second;
+        // publish values from aht if the sequence is valid
+        uvdar_core::AhtSeqVariables aht_seq_msg;
+        aht_seq_msg.inserted_time = last_point.insert_time;
+        aht_seq_msg.signal_id = signal.second;
 
-          aht_seq_msg.confidence_interval.x = last_point.x_statistics.confidence_interval;
-          aht_seq_msg.confidence_interval.y = last_point.y_statistics.confidence_interval;
-          aht_seq_msg.predicted_point.x = last_point.x_statistics.predicted_coordinate;
-          aht_seq_msg.predicted_point.y = last_point.y_statistics.predicted_coordinate;
+        aht_seq_msg.confidence_interval.x = last_point.x_statistics.confidence_interval;
+        aht_seq_msg.confidence_interval.y = last_point.y_statistics.confidence_interval;
+        aht_seq_msg.predicted_point.x = last_point.x_statistics.predicted_coordinate;
+        aht_seq_msg.predicted_point.y = last_point.y_statistics.predicted_coordinate;
 
-          for(auto coeff : last_point.x_statistics.coeff){
-            aht_seq_msg.x_coeff_reg.push_back(static_cast<float>(coeff));
-          }
+        for(auto coeff : last_point.x_statistics.coeff){
+          aht_seq_msg.x_coeff_reg.push_back(static_cast<float>(coeff));
+        }
 
-          for(auto coeff : last_point.y_statistics.coeff){
-            aht_seq_msg.y_coeff_reg.push_back(static_cast<float>(coeff));
-          }
+        for(auto coeff : last_point.y_statistics.coeff){
+          aht_seq_msg.y_coeff_reg.push_back(static_cast<float>(coeff));
+        }
 
-          for(auto point_state : *signal.first){
-            uvdar_core::AhtSeqPoint ps_msg;
-            mrs_msgs::Point2DWithFloat p;
-            p.x = point_state.point.x;
-            p.y = point_state.point.y;
-            p.value = point_state.led_state;
-            ps_msg.point = p;
-            ps_msg.insert_time = point_state.insert_time;
-            aht_seq_msg.sequence.push_back(ps_msg);
-          }
+        for(auto point_state : *signal.first){
+          uvdar_core::AhtSeqPoint ps_msg;
+          mrs_msgs::Point2DWithFloat p;
+          p.x = point_state.point.x;
+          p.y = point_state.point.y;
+          p.value = point_state.led_state;
+          ps_msg.point = p;
+          ps_msg.insert_time = point_state.insert_time;
+          aht_seq_msg.sequence.push_back(ps_msg);
+        }
 
-          aht_seq_msg.poly_reg_computed.push_back(last_point.x_statistics.poly_reg_computed);
-          aht_seq_msg.poly_reg_computed.push_back(last_point.y_statistics.poly_reg_computed);
+        aht_seq_msg.poly_reg_computed.push_back(last_point.x_statistics.poly_reg_computed);
+        aht_seq_msg.poly_reg_computed.push_back(last_point.y_statistics.poly_reg_computed);
 
 
-          aht_all_seq_msg.sequences.push_back(aht_seq_msg);
+        aht_all_seq_msg.sequences.push_back(aht_seq_msg);
         // publish for pose calculate
         msg.points.push_back(point);
       }
