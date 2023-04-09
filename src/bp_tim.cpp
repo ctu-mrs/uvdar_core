@@ -124,7 +124,7 @@ namespace uvdar{
       double _conf_probab_percent_;
       int _frame_tolerance_;
       int _allowed_BER_per_seq_;
-      
+      double _std_threshold_poly_reg_;
 
 
 
@@ -218,6 +218,7 @@ namespace uvdar{
 
     param_loader.loadParam("max_ones_consecutive", _max_ones_consecutive_, int(2));
     param_loader.loadParam("allowed_BER_per_seq", _allowed_BER_per_seq_, int(0));
+    param_loader.loadParam("std_threshold_poly_reg", _std_threshold_poly_reg_, double(0.5));
       
   }
 
@@ -310,6 +311,7 @@ namespace uvdar{
     params_AHT.conf_probab_percent = _conf_probab_percent_;
     params_AHT.frame_tolerance = _frame_tolerance_;
     params_AHT.allowed_BER_per_seq = _allowed_BER_per_seq_;
+    params_AHT.std_threshold_poly_reg = _std_threshold_poly_reg_;
     
     sun_points_.resize(_points_seen_topics_.size());
 

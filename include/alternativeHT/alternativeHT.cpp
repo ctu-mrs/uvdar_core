@@ -140,14 +140,7 @@ void alternativeHT::expandedSearch(std::vector<PointState>& no_nn_current_frame,
             }
 
             for(auto it_frame = no_nn_current_frame.begin(); it_frame != no_nn_current_frame.end();){
-            // for(int i = 0; i < (int)no_nn_current_frame.size(); i++){
-                // if(extended_search_->isInsideBB(no_nn_current_frame[i].point, left_top, right_bottom)){
                 if(extended_search_->isInsideBB(it_frame->point, bb_left_top, bb_right_bottom)){
-                    // it_frame->extended_search = true;
-                    // it_frame->x_coeff = last_point.x_coeff;
-                    // it_frame->y_coeff = last_point.y_coeff;
-                    // it_frame->confidence_interval = last_point.confidence_interval;
-                    // it_frame->predicted = last_point.predicted;
                     it_frame->x_statistics = last_point.x_statistics;
                     it_frame->y_statistics = last_point.y_statistics;
                     insertPointToSequence(*sequences_no_insert[k], *it_frame);
@@ -224,18 +217,15 @@ PredictionStatistics alternativeHT::selectStatisticsValues(const std::vector<dou
            
     bool conf_interval_bool = false, poly_reg_computed = false;
 
-    // if(std > 1 && (int)values.size() >= threshold_values_len_for_poly_reg_){
-    // if(std > 1 && (int)values.size() >= loaded_params_->threshold_values_len_for_poly_reg){
-    if(values.size() > 1){
+    if(values.size() > 1 && std > loaded_params_->std_threshold_poly_reg){
         statistics = extended_search_->polyReg(values, time, weight_vect);
         auto coeff = statistics.coeff;
         bool all_coeff_zero = std::all_of(coeff.begin(), coeff.end(), [](double coeff){return coeff == 0.0;});
-        int val = 0;
-        if(true){ // TODO: ALWAYS TRUE -> previously all_coeff_zero bool inserted
+        if(all_coeff_zero){ 
             for(int i = 0; i < (int)coeff.size(); ++i){
                 statistics.predicted_coordinate += coeff[i]*pow(insert_time, i);
             }
-            statistics.predicted_coordinate = statistics.predicted_coordinate;  // TODO: ROUND?!
+            statistics.predicted_coordinate = statistics.predicted_coordinate;
             poly_reg_computed = true;
             statistics.poly_reg_computed = true;
         }else{
@@ -246,16 +236,17 @@ PredictionStatistics alternativeHT::selectStatisticsValues(const std::vector<dou
     }
     
     if(!poly_reg_computed){
-        statistics.predicted_coordinate = w_mean_dependent; // TODO: ROUND?!
+        statistics.predicted_coordinate = w_mean_dependent;
         statistics.poly_reg_computed = false; 
     }
+    
+    /*  if the confidence interval is not computed and smaller than the 
+        expected max_pix_shift set to max_px_shift. Otherwise set the confidence_interval 
+        to two standard deviations -> 95% confidence interval 
+    */
     if(!conf_interval_bool) {
-        statistics.confidence_interval = (std < max_pix_shift) ? max_pix_shift : std*2; //TODO: TGINK ABOUT THIS
+        statistics.confidence_interval = (std < max_pix_shift) ? max_pix_shift : std*2;
     }
-    // statistics.confidence_interval = (statistics.confidence_interval < max_pix_shift) ? max_pix_shift*2 : statistics.confidence_interval;  
-    // if(poly_reg_computed == false){
-    //     draw_poly = false;
-    // }else draw_poly = true;
 
     return statistics;
 

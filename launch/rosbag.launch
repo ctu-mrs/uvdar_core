@@ -45,16 +45,17 @@
 
   <arg name="sequence_file" default="$(find uvdar_core)/config/selected.txt"/>
 
-  <arg name="poly_order" default="1"/>
-  <arg name="decay_factor" default="0.1"/>
-  <arg name="stored_seq_len_factor" default="15"/>
-  <arg name="confidence_probability" default="90.0"/>
-  <arg name="frame_tolerance" default="5"/>
-  <arg name="max_pixel_shift_x" default="2"/>
-  <arg name="max_pixel_shift_y" default="2"/>
+  <arg name="max_px_shift_x" default="2"/>
+  <arg name="max_px_shift_y" default="2"/>
   <arg name="max_zeros_consecutive" default="2"/>
   <arg name="max_ones_consecutive" default="2"/>
+  <arg name="stored_seq_len_factor" default="15"/>
+  <arg name="poly_order" default="4"/>
+  <arg name="decay_factor" default="0.01"/>
+  <arg name="confidence_probability" default="95.0"/>
+  <arg name="frame_tolerance" default="5"/>
   <arg name="allowed_BER_per_seq" default="0"/>
+  <arg name="std_threshold_poly_reg" default="0.5"/>
 
   <arg name="model_file" default="$(find uvdar_core)/config/models/quadrotor.txt"/>
   <!-- ideal angle: 1.221730476 - pi/2 -->
@@ -120,18 +121,19 @@
       <param name="use_camera_for_visualization"         type="bool" value="false"/>
       <param name="visualization_rate"         type="double" value="15.0"/>
       
-      <param name="poly_order" type="int" value="$(arg poly_order)"/>
-      <param name="decay_factor"         type="double" value="$(arg decay_factor)"/>    
-      <param name="stored_seq_len_factor"         type="int" value="$(arg stored_seq_len_factor)"/>    
-      <param name="confidence_probability"         type="double" value="$(arg confidence_probability)"/>
-
-      <param name="frame_tolerance"     type="int"   value="$(arg frame_tolerance)"/>
-      <param name="max_pixel_shift_x"     type="int"   value="$(arg max_pixel_shift_x)"/>
-      <param name="max_pixel_shift_y"     type="int"   value="$(arg max_pixel_shift_y)"/>
+      <param name="max_px_shift_x"     type="int"   value="$(arg max_px_shift_x)"/>
+      <param name="max_px_shift_y"     type="int"   value="$(arg max_px_shift_y)"/>
       <param name="max_zeros_consecutive"     type="int"   value="$(arg max_zeros_consecutive)"/>
       <param name="max_ones_consecutive"     type="int"   value="$(arg max_ones_consecutive)"/>
+      <param name="stored_seq_len_factor"         type="int" value="$(arg stored_seq_len_factor)"/>    
+      <param name="poly_order" type="int" value="$(arg poly_order)"/>
+      <param name="decay_factor"         type="double" value="$(arg decay_factor)"/>    
+      <param name="confidence_probability"         type="double" value="$(arg confidence_probability)"/>
+      <param name="frame_tolerance"     type="int"   value="$(arg frame_tolerance)"/>
       <param name="allowed_BER_per_seq"     type="int"   value="$(arg allowed_BER_per_seq)"/>
-
+      <param name="std_threshold_poly_reg"     type="double"   value="$(arg std_threshold_poly_reg)"/>
+      
+ 
       <param name="sequence_file"         type="string" value="$(arg sequence_file)"/>
 
       <rosparam param="camera_topics"> ["camera_left"] </rosparam>
