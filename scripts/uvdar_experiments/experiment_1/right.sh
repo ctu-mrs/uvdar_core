@@ -34,7 +34,7 @@ input=(
 '
   'Status' 'waitForRos; roslaunch mrs_uav_status status.launch
 '
-  'uvdar_observer' 'waitForRos; roslaunch uvdar_core rw_three_sided_tim.launch
+  'uvdar_observer' 'waitForRos; roslaunch uvdar_core led_manager.launch
 '
   'Trajectory' 'history -s roslaunch uvdar_core load_trajectory.launch file:=rectangular_right.txt loop:=true; rosservice call /'"$UAV_NAME"'/control_manager/goto_trajectory_start
 '
