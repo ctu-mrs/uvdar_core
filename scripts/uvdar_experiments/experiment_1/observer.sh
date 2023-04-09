@@ -13,41 +13,44 @@ fi
 
 source $HOME/.bashrc
 
-# location for storing the bag files
-# * do not change unless you know what you are doing
+# change this to your liking
+PROJECT_NAME=observer
+
+# do not change this
 MAIN_DIR=~/"bag_files"
 
-# the project name
-# * is used to define folder name in ~/$MAIN_DIR
-PROJECT_NAME=experiment_3
-
-# the name of the TMUX session
-# * can be used for attaching as 'tmux a -t <session name>'
-SESSION_NAME=uvdar_tim
-
 # following commands will be executed first in each window
-# * do NOT put ; at the end
 pre_input="mkdir -p $MAIN_DIR/$PROJECT_NAME; export WORLD_FILE=./world.yaml"
 
 # define commands
 # 'name' 'command'
-# * DO NOT PUT SPACES IN THE NAMES
-# * "new line" after the command    => the command will be called after start
-# * NO "new line" after the command => the command will wait for user's <enter>
+# DO NOT PUT SPACES IN THE NAMES
 input=(
-  'Rosbag' 'waitForOffboard; ./record.sh
+  'Rosbag' 'waitForOffboard; ../rosbag_record.sh
 '
-  'NodeChecker' 'waitForRos; roslaunch mrs_uav_general node_crash_checker.launch
-'
-  'Nimbro' 'waitForRos; rosrun mrs_uav_general run_nimbro.py custom_configs/nimbro.yaml custom_configs/uav_names.yaml
+  'Nimbro' 'waitForRos; roslaunch mrs_uav_general nimbro.launch custom_config:=../custom_configs/nimbro.yaml custom_config_uav_names:=../custom_configs/uav_names.yaml
 '
   'Sensors' 'waitForRos; roslaunch mrs_uav_general sensors.launch
 '
   'Status' 'waitForRos; roslaunch mrs_uav_status status.launch
 '
-  'Control' 'waitForRos; roslaunch mrs_uav_general core.launch config_constraint_manager:=./custom_configs/constraint_manager.yaml config_control_manager:=./custom_configs/control_manager.yaml config_mpc_tracker:=./custom_configs/mpc_tracker.yaml config_odometry:=./custom_configs/odometry.yaml config_uav_manager:=./custom_configs/uav_manager.yaml config_uav_names:=./custom_configs/uav_names.yaml config_landoff_tracker:=./custom_configs/landoff_tracker.yaml
+  'uvdar_observer' 'waitForRos; roslaunch uvdar_core rw_three_sided_tim.launch
 '
-  'AutoStart' 'waitForRos; roslaunch mrs_uav_general automatic_start.launch custom_config:=./custom_configs/automatic_start.yaml
+  'Trajectory' 'history -s roslaunch uvdar_core load_trajectory.launch file:=observer_still.txt; rosservice call /'"$UAV_NAME"'/control_manager/goto_trajectory_start
+'
+  'Start_trajectory' 'history -s rosservice call /'"$UAV_NAME"'/control_manager/start_trajectory_tracking
+'
+  'Stop_trajectory' 'history -s rosservice call /'"$UAV_NAME"'/control_manager/stop_trajectory_tracking
+'
+  'uvdar_filter' 'waitForRos; roslaunch uvdar_core uvdar_kalman.launch output_frame:='"$UAV_NAME"'/stable_origin
+'
+  'throttle_left_camera' 'waitForRos; rosrun topic_tools throttle messages /'"$UAV_NAME"'/uvdar_bluefox/left/image_raw 2.0
+'
+  'throttle_right_camera' 'waitForRos; rosrun topic_tools throttle messages /'"$UAV_NAME"'/uvdar_bluefox/right/image_raw 2.0
+'
+  'Control' 'waitForRos; roslaunch mrs_uav_general core.launch config_constraint_manager:=../custom_configs/constraint_manager.yaml config_control_manager:=../custom_configs/control_manager.yaml config_mpc_tracker:=../custom_configs/mpc_tracker.yaml config_odometry:=../custom_configs/odometry.yaml config_uav_manager:=../custom_configs/uav_manager.yaml config_uav_names:=../custom_configs/uav_names.yaml
+'
+  'AutoStart' 'waitForRos; roslaunch mrs_uav_general automatic_start.launch custom_config:=../custom_configs/automatic_start.yaml
 '
   'slow_odom' 'waitForRos; rostopic echo /'"$UAV_NAME"'/odometry/slow_odom
 '
@@ -61,16 +64,13 @@ input=(
 '
 )
 
-# the name of the window to focus after start
 init_window="Status"
-
-# automatically attach to the new session?
-# {true, false}, default true
-attach="true"
 
 ###########################
 ### DO NOT MODIFY BELOW ###
 ###########################
+
+SESSION_NAME=mav
 
 # prefere the user-compiled tmux
 if [ -f /usr/local/bin/tmux ]; then
@@ -170,10 +170,6 @@ done
 
 $TMUX_BIN select-window -t $SESSION_NAME:$init_index
 
-if [[ "$attach" == "true" ]]; then
-  $TMUX_BIN -2 attach-session -t $SESSION_NAME
-else
-  echo "The session was started"
-  echo "You can later attach by calling:"
-  echo "  tmux a -t $SESSION_NAME"
-fi
+$TMUX_BIN -2 attach-session -t $SESSION_NAME
+
+clear

@@ -21,6 +21,7 @@ network:
 
   robot_names: [
 
-    uav1, uav2, uav3, uav4, uav5,
+    klaxalk, dan,
+    uav1, uav2, uav3, uav4, uav5, uav6, uav7, uav8, uav9, uav10,
 
   ]
