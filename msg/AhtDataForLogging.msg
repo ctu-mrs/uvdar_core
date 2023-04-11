@@ -1,4 +1,5 @@
 time stamp
+int8 pub_rate  
 string sequence_file
 int8 frame_tolerance_till_seq_rejected
 int8 stored_seq_len_factor 
@@ -7,4 +8,4 @@ int8 max_zeros_consecutive
 int8 max_ones_consecutive
 float32 confidence_probab_t_dist
 float32 decay_factor_weight_func
-mrs_msgs/Point2DWithFloat max_px_shift  
+mrs_msgs/Point2DWithFloat max_px_shift

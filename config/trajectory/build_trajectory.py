@@ -13,12 +13,13 @@ def writeCircle(name, radius, x, y, z, heading, data_points, ccw):
           # x = start_point_x + round(x, 6)
           y_computed = y + y_computed
           z_computed = z + z_computed
-          if(x < 0.001 and x > -0.001):
+          if(x < 0.01 and x > -0.01):
                x = 0.0
-          if(z < 0.001 and z > -0.001):
+          if(z_computed < 0.01 and z_computed > -0.01):
                z = 0.0
-          if(y < 0.001 and y > -0.001):
-               y = 0.0 
+          if(y_computed < 0.01 and y_computed > -0.01):
+               y_computed = 0.0 
+          print(y_computed)
           file.write(str(x)[0:5] +" "+str(y_computed)[0:5]+" "+str(z_computed)[0:5]+" "+str(heading)[0:5]+"\n")
 
      file.close()
@@ -77,7 +78,7 @@ def compute_star(name, start_point, second, third, fourth, fifth, heading, data_
      
 
 def main():
-     # writeCircle(name="trajectory_files/circle_right", radius=1, x=11, y=-0.5, z=4.0, heading=0.0, data_points=70, ccw=1)
+     writeCircle(name="trajectory_files/circle_first", radius=1, x=4, y=0, z=4.0, heading=0.0, data_points=70, ccw=1)
      # writeCircle(name="trajectory_files/circle_left", radius=1, x=3, y=0.5, z=4.0, heading=0.0, data_points=70, ccw=-1)
      
      # name="trajectory_files/star"
@@ -88,13 +89,13 @@ def main():
      # right_up = [3.0, -2.5, 5.5]
      # compute_star(name, start_point, left_down, left_up, right_down, right_up, heading=0.0) 
 
-     name="trajectory_files/star"
-     first = [12.0, 2.5, 5.5]
-     second = [12.0, -2.0, 3.0]
-     third = [12.0, 0.0, 6.0]
-     fourth = [12.0, 2.0, 3.0]
-     fifth = [12.0, -2.5, 5.5]
-     compute_star(name, first, second, third, fourth, fifth, heading=0.0, data_pts_per_line=40) 
+     # name="trajectory_files/star"
+     # first = [12.0, 2.5, 5.5]
+     # second = [12.0, -2.0, 3.0]
+     # third = [12.0, 0.0, 6.0]
+     # fourth = [12.0, 2.0, 3.0]
+     # fifth = [12.0, -2.5, 5.5]
+     # compute_star(name, first, second, third, fourth, fifth, heading=0.0, data_pts_per_line=40) 
 
 if __name__ == "__main__":
     main()

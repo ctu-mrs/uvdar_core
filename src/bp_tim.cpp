@@ -126,6 +126,7 @@ namespace uvdar{
       int _allowed_BER_per_seq_;
       double _std_threshold_poly_reg_;
 
+      int _loaded_var_pub_rate_; 
 
 
       struct BlinkData {
@@ -218,6 +219,8 @@ namespace uvdar{
     param_loader.loadParam("frame_tolerance", _frame_tolerance_, int(5));
     param_loader.loadParam("allowed_BER_per_seq", _allowed_BER_per_seq_, int(0));
     param_loader.loadParam("std_threshold_poly_reg", _std_threshold_poly_reg_, double(0.5));
+
+    param_loader.loadParam("loaded_var_pub_rate", _loaded_var_pub_rate_, int(20));
       
   }
 
@@ -507,19 +510,22 @@ namespace uvdar{
       msg.image_height  = camera_image_sizes_[img_index].height;
 
       // publish loaded variables 
-      double publish_rate_sec = 25.0;
+      double publish_rate_sec = _loaded_var_pub_rate_;
       double diff = ros::Time::now().toSec() - last_publish_aht_logging_.toSec();
       if( publish_rate_sec < diff){
         last_publish_aht_logging_ = ros::Time::now();
 
-        mrs_msgs::Point2DWithFloat max_px_shift;
-        max_px_shift.x = _max_px_shift_.x;
-        max_px_shift.y = _max_px_shift_.y;
-        aht_logging_msg.stamp = local_last_sample_time;
+        aht_logging_msg.stamp = last_publish_aht_logging_;
+        aht_logging_msg.pub_rate = publish_rate_sec; 
         aht_logging_msg.sequence_file = _sequence_file;
+        mrs_msgs::Point2DWithFloat max_px_shift;
         aht_logging_msg.frame_tolerance_till_seq_rejected = _frame_tolerance_;
         aht_logging_msg.stored_seq_len_factor = _stored_seq_len_factor_;
         aht_logging_msg.default_poly_order = _poly_order_;
+        aht_logging_msg.max_zeros_consecutive = _max_zeros_consecutive_;
+        aht_logging_msg.max_ones_consecutive = _max_ones_consecutive_;
+        max_px_shift.x = _max_px_shift_.x;
+        max_px_shift.y = _max_px_shift_.y;
         aht_logging_msg.confidence_probab_t_dist = _conf_probab_percent_;
         aht_logging_msg.decay_factor_weight_func = _decay_factor_;
         aht_logging_msg.max_px_shift = max_px_shift;

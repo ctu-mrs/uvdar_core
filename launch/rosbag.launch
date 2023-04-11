@@ -56,6 +56,7 @@
   <arg name="frame_tolerance" default="5"/>
   <arg name="allowed_BER_per_seq" default="0"/>
   <arg name="std_threshold_poly_reg" default="0.5"/>
+  <arg name="loaded_var_pub_rate" default="20"/>
 
   <arg name="model_file" default="$(find uvdar_core)/config/models/quadrotor.txt"/>
   <!-- ideal angle: 1.221730476 - pi/2 -->
