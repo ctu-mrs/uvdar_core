@@ -460,9 +460,8 @@ namespace uvdar{
         auto last_point = signal.first->end()[-1];
         point.x = last_point.point.x;
         point.y = last_point.point.y;
-        if (signal.second <= (int)sequences_.size()){
+        if ( 0 <= signal.second && signal.second <= (int)sequences_.size()){ // TODO: CHANGED to check if msg is smaller than 0
           point.value = signal.second;
-
         }
         else {
           point.value = -2;
