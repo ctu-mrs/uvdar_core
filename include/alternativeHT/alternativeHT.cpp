@@ -48,20 +48,21 @@ void alternativeHT::processBuffer(const mrs_msgs::ImagePointsWithFloatStampedCon
 
 void alternativeHT::findClosestPixelAndInsert(std::vector<PointState> & current_frame) {   
     
-    // reference to sequences used for processing in the moving average functions
+    std::vector<seqPointer> p_gen_seq;
     {
         std::scoped_lock lock(mutex_gen_sequences_);
-        std::vector<seqPointer> p_gen_seq;
         p_gen_seq = gen_sequences_;
-    
-        std::vector<PointState> no_nn;
-        for(auto & curr_point : current_frame){
-            bool nn = false;
+    }    
+    std::vector<PointState> no_nn;
+    for(auto & curr_point : current_frame){
+        bool nn = false;
+        {
+            std::scoped_lock lock(mutex_gen_sequences_);
             for(auto seq = p_gen_seq.begin(); seq != p_gen_seq.end(); ++seq){
                 PointState last_inserted = (*seq)->end()[-1];
-                cv::Point2d left_top = last_inserted.point - cv::Point2d(loaded_params_->max_px_shift);
-                cv::Point2d right_bottom = last_inserted.point + cv::Point2d(loaded_params_->max_px_shift);
-                if(extended_search_->isInsideBB( curr_point.point, left_top, right_bottom)){
+                cv::Point2d bb_left_top = last_inserted.point - cv::Point2d(loaded_params_->max_px_shift);
+                cv::Point2d bb_right_bottom = last_inserted.point + cv::Point2d(loaded_params_->max_px_shift);
+                if(extended_search_->isInsideBB( curr_point.point, bb_left_top, bb_right_bottom)){
                     nn = true;
                     insertPointToSequence(**seq, curr_point);    
                     p_gen_seq.erase(seq);
@@ -70,10 +71,14 @@ void alternativeHT::findClosestPixelAndInsert(std::vector<PointState> & current_
                     nn = false;
                 }
             }
-            if(nn == false){
-                no_nn.push_back(curr_point);
-            }
         }
+        if(nn == false){
+            no_nn.push_back(curr_point);
+        }
+    }
+    
+    {
+        std::scoped_lock lock(mutex_gen_sequences_);
         expandedSearch(no_nn, p_gen_seq);
     }
 }
@@ -115,25 +120,6 @@ void alternativeHT::expandedSearch(std::vector<PointState>& no_nn_current_frame,
             cv::Point2d bb_left_top = cv::Point2d( (x_predicted - x_conf), (y_predicted - y_conf) );
             cv::Point2d bb_right_bottom = cv::Point2d( (x_predicted + x_conf), (y_predicted + y_conf) );
             
-            
-            // last_point.confidence_interval.x = x_predictions.confidence_interval;
-            // last_point.predicted.x = x_predictions.predicted_coordinate;
-            // last_point.x_coeff = x_predictions.coeff;
-// 
-            // last_point.confidence_interval.y = y_predictions.confidence_interval;
-            // last_point.predicted.y= y_predictions.predicted_coordinate;
-            // last_point.y_coeff = y_predictions.coeff;
-            // last_point.extended_search = true;
-            
-            // construct BB 
-            // cv::Point2d left_top =     last_point.predicted - last_point.confidence_interval;   
-            // cv::Point2d right_bottom = last_point.predicted + last_point.confidence_interval;
-            // TODO: should be done in a later step!
-            // left_top.x = std::floor(left_top.x);
-            // left_top.y = std::floor(left_top.y);
-            // right_bottom.x = std::ceil(right_bottom.x);
-            // right_bottom.y = std::ceil(right_bottom.y);
-
             if(debug_){
                 std::cout << "[Aht]: Predicted Point: x = " << x_predicted << " y = " << y_predicted << " Prediction Interval: x = " << x_conf << " y = " << y_conf << " seq_size" << x.size();
                 std::cout << "\n";
@@ -141,6 +127,7 @@ void alternativeHT::expandedSearch(std::vector<PointState>& no_nn_current_frame,
 
             for(auto it_frame = no_nn_current_frame.begin(); it_frame != no_nn_current_frame.end();){
                 if(extended_search_->isInsideBB(it_frame->point, bb_left_top, bb_right_bottom)){
+                    std::cout << "INSIDE\n";
                     it_frame->x_statistics = last_point.x_statistics;
                     it_frame->y_statistics = last_point.y_statistics;
                     insertPointToSequence(*sequences_no_insert[k], *it_frame);
@@ -240,13 +227,11 @@ PredictionStatistics alternativeHT::selectStatisticsValues(const std::vector<dou
         statistics.poly_reg_computed = false; 
     }
     
-    /*  if the confidence interval is not computed and smaller than the 
+    /*  if the confidence interval is not computed and the std is smaller than the 
         expected max_pix_shift set to max_px_shift. Otherwise set the confidence_interval 
-        to two standard deviations -> 95% confidence interval 
+        to two standard deviations, which is equivalent to a 95% confidence interval around the mean 
     */
-    if(!conf_interval_bool) {
-        statistics.confidence_interval = (std < max_pix_shift) ? max_pix_shift : std*2;
-    }
+    statistics.confidence_interval = ( !conf_interval_bool && (std < max_pix_shift)) ? max_pix_shift : std*2;
 
     return statistics;
 
@@ -254,28 +239,35 @@ PredictionStatistics alternativeHT::selectStatisticsValues(const std::vector<dou
 
 void alternativeHT::cleanPotentialBuffer(){
 
-    std::scoped_lock lock(mutex_gen_sequences_);
     double timing_tolerance = loaded_params_->frame_tolerance/60;
     if(framerate_ != 0){
         timing_tolerance = (1/framerate_) * loaded_params_->frame_tolerance; 
     }
 
+    std::scoped_lock lock(mutex_gen_sequences_);
     for(int i = 0; i < (int)gen_sequences_.size(); ++i){
         if(gen_sequences_[i]->empty()){
             continue;
         }
 
-        int number_zeros_till_seq_deleted = (loaded_params_->max_zeros_consecutive + loaded_params_->allowed_BER_per_seq); // TODO:!!
+
+        int number_zeros_till_seq_deleted = (loaded_params_->max_zeros_consecutive + loaded_params_->allowed_BER_per_seq);
         if((int)gen_sequences_[i]->size() > number_zeros_till_seq_deleted){
             int cnt = 0;
-            for(int k = 0; k < number_zeros_till_seq_deleted; ++k){
-                if(!(gen_sequences_[i]->end()[-(k+1)].led_state))++cnt;
-            }
-            if(cnt >= number_zeros_till_seq_deleted){
-                gen_sequences_.erase(gen_sequences_.begin() +i);
-                continue;
+            for (auto reverse_it = gen_sequences_[i]->rbegin(); 
+                reverse_it != gen_sequences_[i]->rend(); ++reverse_it ) {  
+                if(!(reverse_it->led_state)){
+                    ++cnt;
+                    if(cnt > number_zeros_till_seq_deleted){
+                        gen_sequences_.erase(gen_sequences_.begin() + i);
+                        break;
+                    }
+                }else{
+                    cnt = 0;
+                }
             }
         }
+
 
         // works but eventually not useful in that current implementation
         double insert_time = gen_sequences_[i]->end()[-1].insert_time.toSec(); 
