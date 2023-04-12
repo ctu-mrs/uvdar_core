@@ -78,8 +78,8 @@ def compute_star(name, start_point, second, third, fourth, fifth, heading, data_
      
 
 def main():
-     writeCircle(name="trajectory_files/circle_first", radius=1, x=4, y=0, z=4.0, heading=0.0, data_points=70, ccw=1)
-     # writeCircle(name="trajectory_files/circle_left", radius=1, x=3, y=0.5, z=4.0, heading=0.0, data_points=70, ccw=-1)
+     writeCircle(name="trajectory_files/two_tx/tx2_circle", radius=1, x=8.0, y=-0.0, z=4.0, heading=0.0, data_points=60, ccw=1)
+     # writeCircle(name="trajectory_files/two_tx/tx1_circle", radius=1, x=4.0, y=0.0, z=4.0, heading=0.0, data_points=100, ccw=1)
      
      # name="trajectory_files/star"
      # start_point = [3.0, 0.0, 6.0]

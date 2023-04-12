@@ -14,13 +14,13 @@ fi
 source $HOME/.bashrc
 
 # change this to your liking
-PROJECT_NAME=uvdar_tests
+PROJECT_NAME=demo_rx1
 
 # do not change this
 MAIN_DIR=~/"bag_files"
 
 # following commands will be executed first in each window
-pre_input="mkdir -p $MAIN_DIR/$PROJECT_NAME; export WORLD_FILE=./world.yaml"
+pre_input="mkdir -p $MAIN_DIR/$PROJECT_NAME; export WORLD_FILE=../custom_configs/world.yaml"
 
 # define commands
 # 'name' 'command'
@@ -28,23 +28,29 @@ pre_input="mkdir -p $MAIN_DIR/$PROJECT_NAME; export WORLD_FILE=./world.yaml"
 input=(
   'Rosbag' 'waitForOffboard; ../rosbag_record.sh
 '
-  'Nimbro' 'waitForRos; roslaunch mrs_uav_general nimbro.launch custom_config:=./custom_configs/nimbro.yaml custom_config_uav_names:=./custom_configs/uav_names.yaml
+  'Nimbro' 'waitForRos; roslaunch mrs_uav_general nimbro.launch custom_config:=../custom_configs/nimbro.yaml custom_config_uav_names:=../custom_configs/uav_names.yaml
 '
   'Sensors' 'waitForRos; roslaunch mrs_uav_general sensors.launch
 '
   'Status' 'waitForRos; roslaunch mrs_uav_status status.launch
 '
-  'uvdar_observer' 'waitForRos; roslaunch uvdar_core test_rw_two_sided.launch
+  'uvdar_observer' 'waitForRos; roslaunch uvdar_core rw_three_sided_tim.launch
 '
-  'uvdar_filter' 'waitForRos; roslaunch uvdar_core uvdar_kalman_identified.launch output_frame:='"$UAV_NAME"'/stable_origin
+  'Trajectory' 'history -s roslaunch uvdar_core load_trajectory.launch file:="demo_experiment/rx_still.txt"; rosservice call /'"$UAV_NAME"'/control_manager/goto_trajectory_start
+'
+  'Start_trajectory' 'history -s rosservice call /'"$UAV_NAME"'/control_manager/start_trajectory_tracking
+'
+  'Stop_trajectory' 'history -s rosservice call /'"$UAV_NAME"'/control_manager/stop_trajectory_tracking
+'
+  'uvdar_filter' 'waitForRos; roslaunch uvdar_core uvdar_kalman.launch output_frame:='"$UAV_NAME"'/stable_origin
 '
   'throttle_left_camera' 'waitForRos; rosrun topic_tools throttle messages /'"$UAV_NAME"'/uvdar_bluefox/left/image_raw 2.0
 '
   'throttle_right_camera' 'waitForRos; rosrun topic_tools throttle messages /'"$UAV_NAME"'/uvdar_bluefox/right/image_raw 2.0
 '
-  'Control' 'waitForRos; roslaunch mrs_uav_general core.launch config_constraint_manager:=./custom_configs/constraint_manager.yaml config_control_manager:=./custom_configs/control_manager.yaml config_mpc_tracker:=./custom_configs/mpc_tracker.yaml config_odometry:=./custom_configs/odometry.yaml config_uav_manager:=./custom_configs/uav_manager.yaml config_uav_names:=./custom_configs/uav_names.yaml
+  'Control' 'waitForRos; roslaunch mrs_uav_general core.launch config_constraint_manager:=../custom_configs/constraint_manager.yaml config_control_manager:=../custom_configs/control_manager.yaml config_mpc_tracker:=../custom_configs/mpc_tracker.yaml config_odometry:=../custom_configs/odometry.yaml config_uav_manager:=../custom_configs/uav_manager.yaml config_uav_names:=../custom_configs/uav_names.yaml
 '
-  'AutoStart' 'waitForRos; roslaunch mrs_uav_general automatic_start.launch custom_config:=./custom_configs/automatic_start.yaml
+  'AutoStart' 'waitForRos; roslaunch mrs_uav_general automatic_start.launch custom_config:=../custom_configs/automatic_start.yaml
 '
   'slow_odom' 'waitForRos; rostopic echo /'"$UAV_NAME"'/odometry/slow_odom
 '
@@ -148,7 +154,9 @@ done
 # send commands
 for ((i=0; i < ${#cmds[*]}; i++));
 do
-  $TMUX_BIN send-keys -t $SESSION_NAME:$(($i+1)) "cd $SCRIPTPATH;${pre_input};${cmds[$i]}"
+  $TMUX_BIN send-keys -t $SESSION_NAME:$(($i+1)) "cd $SCRIPTPATH;
+${pre_input};
+${cmds[$i]}"
 done
 
 # identify the index of the init window

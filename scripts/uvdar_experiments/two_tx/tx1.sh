@@ -14,13 +14,13 @@ fi
 source $HOME/.bashrc
 
 # change this to your liking
-PROJECT_NAME=observer
+PROJECT_NAME=right
 
 # do not change this
 MAIN_DIR=~/"bag_files"
 
 # following commands will be executed first in each window
-pre_input="mkdir -p $MAIN_DIR/$PROJECT_NAME; export WORLD_FILE=./world.yaml"
+pre_input="mkdir -p $MAIN_DIR/$PROJECT_NAME; export WORLD_FILE=../custom_configs/world.yaml"
 
 # define commands
 # 'name' 'command'
@@ -34,9 +34,9 @@ input=(
 '
   'Status' 'waitForRos; roslaunch mrs_uav_status status.launch
 '
-  'uvdar_observer' 'waitForRos; roslaunch uvdar_core rw_three_sided_tim.launch
+  'uvdar_observer' 'waitForRos; roslaunch uvdar_core led_manager.launch
 '
-  'Trajectory' 'history -s roslaunch uvdar_core load_trajectory.launch file:=observer_still.txt; rosservice call /'"$UAV_NAME"'/control_manager/goto_trajectory_start
+  'Trajectory' 'history -s roslaunch uvdar_core load_trajectory.launch file:="two_tx_experiment/tx1_fly_by.txt" loop:=true; rosservice call /'"$UAV_NAME"'/control_manager/goto_trajectory_start
 '
   'Start_trajectory' 'history -s rosservice call /'"$UAV_NAME"'/control_manager/start_trajectory_tracking
 '

@@ -20,7 +20,7 @@ PROJECT_NAME=right
 MAIN_DIR=~/"bag_files"
 
 # following commands will be executed first in each window
-pre_input="mkdir -p $MAIN_DIR/$PROJECT_NAME; export WORLD_FILE=./world.yaml"
+pre_input="mkdir -p $MAIN_DIR/$PROJECT_NAME; export WORLD_FILE=../custom_configs/world.yaml"
 
 # define commands
 # 'name' 'command'
@@ -36,7 +36,7 @@ input=(
 '
   'uvdar_observer' 'waitForRos; roslaunch uvdar_core led_manager.launch
 '
-  'Trajectory' 'history -s roslaunch uvdar_core load_trajectory.launch file:=rectangular_right.txt loop:=true; rosservice call /'"$UAV_NAME"'/control_manager/goto_trajectory_start
+  'Trajectory' 'history -s roslaunch uvdar_core load_trajectory.launch file:="two_tx_experiment/tx2_fly_by.txt" loop:=true; rosservice call /'"$UAV_NAME"'/control_manager/goto_trajectory_start
 '
   'Start_trajectory' 'history -s rosservice call /'"$UAV_NAME"'/control_manager/start_trajectory_tracking
 '
