@@ -669,34 +669,32 @@ namespace uvdar{
             bool x_all_coeff_zero = std::all_of(x_coeff.begin(), x_coeff.end(), [](double coeff){return coeff == 0;});
             bool y_all_coeff_zero = std::all_of(y_coeff.begin(), y_coeff.end(), [](double coeff){return coeff == 0;});
   
-            double prediction_window = 0.5;
+            double prediction_window = 0.5; // in [s]
             double step_size_sec = 0.02;
             int point_size = prediction_window/step_size_sec;
 
-            // drawing of the prediction for "prediction_window" length
+            // drawing of the prediction for "prediction_window" length 
             for(int i = 0; i < point_size; ++i){
               // std::cout << "BP Time " << computed_time;
               cv::Point2d interpolated_point = cv::Point2d{0,0};
               double x_calculated = 0.0; 
-              // if(!x_all_coeff_zero){
+              if(!x_all_coeff_zero){
                 for(int k = 0; k < (int)x_coeff.size(); ++k){
                 x_calculated += x_coeff[k]*pow(computed_time, k);
                 }
                 interpolated_point.x = x_calculated;
-              // }
-              // else{
-                // interpolated_point.x = std::round(predicted.x);
-              // }
-              // if(!y_all_coeff_zero){
+              }else{
+                interpolated_point.x = std::round(predicted.x);
+              }
+              if(!y_all_coeff_zero){
                 double y_calculated = 0.0;
                 for(int k = 0; k < (int)y_coeff.size(); ++k){
                   y_calculated += y_coeff[k]*pow(computed_time, k);
                 }
                 interpolated_point.y = y_calculated;
-              // }
-              // else{
-                // interpolated_point.y = std::round(predicted.y);
-              // }
+              }else{
+                interpolated_point.y = std::round(predicted.y);
+              }
                 cv::Point2d start_point_d; 
                 start_point_d.x = start_point.x;
                 start_point_d.y = start_point.y;
