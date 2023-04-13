@@ -51,8 +51,8 @@
 
   <arg name="max_px_shift_x" default="2"/>
   <arg name="max_px_shift_y" default="2"/>
-  <arg name="max_zeros_consecutive" default="2"/>
-  <arg name="max_ones_consecutive" default="2"/>
+  <arg name="max_zeros_consecutive" default="3"/>
+  <arg name="max_ones_consecutive" default="3"/>
   <arg name="stored_seq_len_factor" default="15"/>
   <arg name="poly_order" default="4"/>
   <arg name="decay_factor" default="0.01"/>
