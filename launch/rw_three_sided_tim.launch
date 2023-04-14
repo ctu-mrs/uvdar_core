@@ -267,7 +267,7 @@
       <remap from="~imu" to="mavros/imu/data"/>
     </node>
 
-    <node name="UVDAR_BP_Tim" pkg="nodelet" type="nodelet" args="$(arg nodelet) uvdar/UVDAR_BP_Tim $(arg nodelet_manager)" output="screen" respawn="true"> 
+    <node name="blink_processor_new" pkg="nodelet" type="nodelet" args="$(arg nodelet) uvdar/UVDAR_BP_Tim $(arg nodelet_manager)" output="screen" respawn="true"> 
     <!-- <node name="blink_processor" pkg="nodelet" type="nodelet" args="$(arg nodelet) uvdar/UVDARBlinkProcessor $(arg nodelet_manager)" output="screen" respawn="true" launch-prefix="roslaunch_debug"> --> 
       <param name="uav_name" type = "string" value="$(arg uav_name)"/>
       <!-- <param name="debug"		type="bool" value="$(arg debug)"/> --> 
@@ -312,7 +312,7 @@
       <remap from="~estimated_framerate_left" to="/$(arg uav_name)/uvdar/estimated_framerate_left"/>
       <remap from="~estimated_framerate_right" to="/$(arg uav_name)/uvdar/estimated_framerate_right"/>
       <remap from="~estimated_framerate_back" to="/$(arg uav_name)/uvdar/estimated_framerate_back"/>
-      <!-- <remap from="~visualization" to="/$(arg uav_name)/uvdar/blink_visualization/image_raw"/> -->
+      <!-- <remap from="~visualization" to="/$(arg uav_name)/uvdar/blink_visualization/image_raw"/> --> <!-- not publishing video if not commented in-->
       <remap from="~aht_logging_left" to="/$(arg uav_name)/uvdar/aht_logging_left"/>
       <remap from="~aht_logging_right" to="/$(arg uav_name)/uvdar/aht_logging_right"/>
       <remap from="~aht_logging_back" to="/$(arg uav_name)/uvdar/aht_logging_back"/>

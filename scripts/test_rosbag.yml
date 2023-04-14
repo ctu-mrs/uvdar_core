@@ -9,7 +9,7 @@ windows:
   - launch:
       layout: even-vertical
       panes:
-        - sleep 2; UAV_NAME=uav7; waitForRos; roslaunch uvdar_core rosbag.launch gui:=true debug:=false max_zeros_consecutive:=3 max_ones_consecutive:=3 allowed_BER_per_seq:=2
+        - sleep 2; UAV_NAME=uav7; waitForRos; roslaunch uvdar_core rosbag.launch publish_visualization:=false max_zeros_consecutive:=3 max_ones_consecutive:=3 allowed_BER_per_seq:=2
   - rosbag:
       layout: even-vertical
       panes:

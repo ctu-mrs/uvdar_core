@@ -173,9 +173,8 @@ namespace uvdar{
     } 
 
     subscribeToPublishedPoints();
-    if(_gui_){
-      initGUI();  
-    }
+    
+    initGUI();  
 
 
     initialized_ = true;
@@ -194,7 +193,7 @@ namespace uvdar{
 
     param_loader.loadParam("gui", _gui_, bool(true));                                     
     param_loader.loadParam("publish_visualization", _publish_visualization_, bool(true));
-    param_loader.loadParam("visualization_rate", _visualization_rate_, float(15.0));       
+    param_loader.loadParam("visualization_rate", _visualization_rate_, float(2.0));       
     private_nh_.param("camera_topics", _camera_topics_, _camera_topics_);
 
     param_loader.loadParam("points_seen_topics", _points_seen_topics_, _points_seen_topics_);
@@ -570,6 +569,7 @@ namespace uvdar{
     if (!initialized_){
       return;
     }
+
     if(generateVisualization(image_visualization_) >= 0){
       if ((image_visualization_.cols != 0) && (image_visualization_.rows != 0)){
         if (_publish_visualization_){
@@ -613,6 +613,8 @@ namespace uvdar{
     }
 
     if ( (sum_image_width <= 0) || (max_image_height <= 0) ){
+              ROS_ERROR_STREAM("[UVDAR_BP]: Size of image " << i << " was not received! Returning.");
+
       return -3;
     }
 
@@ -692,8 +694,8 @@ namespace uvdar{
                   y_calculated += y_coeff[k]*pow(computed_time, k);
                 }
                 interpolated_point.y = y_calculated;
-              }else{
-                interpolated_point.y = std::round(predicted.y);
+              // }else{
+              //   interpolated_point.y = std::round(predicted.y);
               }
                 cv::Point2d start_point_d; 
                 start_point_d.x = start_point.x;
