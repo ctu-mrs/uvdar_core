@@ -100,7 +100,6 @@ namespace uvdar{
       // loaded Params
       std::string _uav_name_;   
       bool        _debug_;
-      bool        _visual_debug_;
       bool        _gui_;
       bool        _publish_visualization_;
       float       _visualization_rate_;
@@ -186,10 +185,6 @@ namespace uvdar{
 
     param_loader.loadParam("uav_name", _uav_name_, std::string());
     param_loader.loadParam("debug", _debug_, bool(false));
-    param_loader.loadParam("visual_debug", _visual_debug_, bool(false));
-    if(_visual_debug_){
-          ROS_WARN_STREAM("[UVDAR_BP_Tim]: You are using visual debugging. This option is only meant for development. Activating it significantly increases load on the system and the user should do so with care.");
-    }
 
     param_loader.loadParam("gui", _gui_, bool(true));                                     
     param_loader.loadParam("publish_visualization", _publish_visualization_, bool(true));
@@ -579,10 +574,6 @@ namespace uvdar{
           cv::imshow("ocv_uvdar_blink_" + _uav_name_, image_visualization_);
           cv::waitKey(25);
         }
-
-        if (_visual_debug_){
-          cv::waitKey(25);
-        }
       }
     }
   }
@@ -601,7 +592,6 @@ namespace uvdar{
     int i =0;
     for (auto curr_size : camera_image_sizes_){
       if ((curr_size.width < 0) || (curr_size.height < 0)){
-        ROS_ERROR_STREAM("[UVDAR_BP]: Size of image " << i << " was not received! Returning.");
         return -4;
       }
       if (max_image_height < curr_size.height){
@@ -613,8 +603,6 @@ namespace uvdar{
     }
 
     if ( (sum_image_width <= 0) || (max_image_height <= 0) ){
-              ROS_ERROR_STREAM("[UVDAR_BP]: Size of image " << i << " was not received! Returning.");
-
       return -3;
     }
 
@@ -686,7 +674,7 @@ namespace uvdar{
                 }
                 interpolated_point.x = x_calculated;
               }else{
-                interpolated_point.x = std::round(predicted.x);
+                interpolated_point.x = predicted.x;
               }
               if(!y_all_coeff_zero){
                 double y_calculated = 0.0;
@@ -694,21 +682,17 @@ namespace uvdar{
                   y_calculated += y_coeff[k]*pow(computed_time, k);
                 }
                 interpolated_point.y = y_calculated;
-              // }else{
-              //   interpolated_point.y = std::round(predicted.y);
+              }else{
+                interpolated_point.y = predicted.y;
               }
-                cv::Point2d start_point_d; 
-                start_point_d.x = start_point.x;
-                start_point_d.y = start_point.y;
-                interpolated_point = start_point_d + interpolated_point;
-                cv::Point interpolated_point_i;
-                interpolated_point_i.x = std::round(interpolated_point.x);
-                interpolated_point_i.y = std::round(interpolated_point.y);
+              cv::Point2d start_point_d; 
+              start_point_d.x = start_point.x;
+              start_point_d.y = start_point.y;
+              interpolated_point = start_point_d + interpolated_point;
+              cv::Point interpolated_point_i;
+              interpolated_point_i.x = std::round(interpolated_point.x);
+              interpolated_point_i.y = std::round(interpolated_point.y);
               computed_time += step_size_sec;
-              // std::cout << std::fixed << computed_time << std::endl;
-              // interpolated_point = interpolated_point + start_point;
-              // std::cout << interpolated_point.x << " " << interpolated_point.y << "\n";
-              // if(( prediction.x != 0 || prediction.y != 0) && (!x_all_coeff_zero || !y_all_coeff_zero) )std::cout << "prediction " << prediction.x << " " << prediction.y << "\n"; 
               interpolated_prediction.push_back(interpolated_point_i);              
             }
           }
