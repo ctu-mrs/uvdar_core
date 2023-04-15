@@ -55,20 +55,18 @@ input=(
 '
   'uvdar_observer' 'waitForRos; roslaunch uvdar_core rw_three_sided_tim.launch
 '
-  'Trajectory' 'history -s roslaunch uvdar_core load_trajectory.launch file:="demo/rx1_still.txt"; rosservice call /'"$UAV_NAME"'/control_manager/goto_trajectory_start
+  'uvdar_filter' 'waitForRos; roslaunch uvdar_core uvdar_kalman.launch output_frame:='"$UAV_NAME"'/stable_origin
 '
-  'Start_trajectory' 'history -s rosservice call /'"$UAV_NAME"'/control_manager/start_trajectory_tracking
+  'Trajectory' 'history -s rosservice call /'"$UAV_NAME"'/control_manager/goto_trajectory_start; history -s roslaunch uvdar_core load_trajectory.launch file:="demo/rx1_still.txt";
 '
   'Stop_trajectory' 'history -s rosservice call /'"$UAV_NAME"'/control_manager/stop_trajectory_tracking
 '
-  'uvdar_filter' 'waitForRos; roslaunch uvdar_core uvdar_kalman.launch output_frame:='"$UAV_NAME"'/stable_origin
-'
-  'throttle_left_camera' 'waitForRos; rosrun topic_tools throttle messages /'"$UAV_NAME"'/uvdar_bluefox/left/image_raw 2.0 /'"$UAV_NAME"'/uvdar_bluefox/left/image_throttled
-'
-  'throttle_right_camera' 'waitForRos; rosrun topic_tools throttle messages /'"$UAV_NAME"'/uvdar_bluefox/right/image_raw 2.0 /'"$UAV_NAME"'/uvdar_bluefox/right/image_throttled
-'
-  'throttle_back_camera' 'waitForRos; rosrun topic_tools throttle messages /'"$UAV_NAME"'/uvdar_bluefox/back/image_raw 2.0 /'"$UAV_NAME"'/uvdar_bluefox/back/image_throttled
-'
+#   'throttle_left_camera' 'waitForRos; rosrun topic_tools throttle messages /'"$UAV_NAME"'/uvdar_bluefox/left/image_raw 2.0 /'"$UAV_NAME"'/uvdar_bluefox/left/image_throttled
+# '
+#   'throttle_right_camera' 'waitForRos; rosrun topic_tools throttle messages /'"$UAV_NAME"'/uvdar_bluefox/right/image_raw 2.0 /'"$UAV_NAME"'/uvdar_bluefox/right/image_throttled
+# '
+#   'throttle_back_camera' 'waitForRos; rosrun topic_tools throttle messages /'"$UAV_NAME"'/uvdar_bluefox/back/image_raw 2.0 /'"$UAV_NAME"'/uvdar_bluefox/back/image_throttled
+# '
   'mavros_diag' 'waitForRos; rostopic echo /'"$UAV_NAME"'/mavros_interface/diagnostics
 '
   'kernel_log' 'tail -f /var/log/kern.log -n 100

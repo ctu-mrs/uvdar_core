@@ -312,7 +312,7 @@
       <remap from="~estimated_framerate_left" to="/$(arg uav_name)/uvdar/estimated_framerate_left"/>
       <remap from="~estimated_framerate_right" to="/$(arg uav_name)/uvdar/estimated_framerate_right"/>
       <remap from="~estimated_framerate_back" to="/$(arg uav_name)/uvdar/estimated_framerate_back"/>
-      <!-- <remap from="~visualization" to="/$(arg uav_name)/uvdar/blink_visualization/image_raw"/> --> <!-- not publishing video if not commented in-->
+      <!-- <remap from="~visualization" to="/$(arg uav_name)/uvdar/blink_visualization/image_raw"/> --> <!-- TODO: not publishing video if not commented in-->
       <remap from="~aht_logging_left" to="/$(arg uav_name)/uvdar/aht_logging_left"/>
       <remap from="~aht_logging_right" to="/$(arg uav_name)/uvdar/aht_logging_right"/>
       <remap from="~aht_logging_back" to="/$(arg uav_name)/uvdar/aht_logging_back"/>

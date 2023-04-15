@@ -29,7 +29,7 @@
   <arg name="profiling" default="false"/>
   <arg name="debug" default="false"/>
   <arg name="visual_debug" default="false"/>
-  <arg name="gui" default="false"/>
+  <arg name="gui" default="true"/>
   <arg name="publish" default="true"/>
   
   <arg name="id1" value="0"/>
@@ -144,7 +144,6 @@
 
       <param name="uav_name" type = "string" value="$(arg uav_name)"/>
       <param name="debug"		type="bool" value="$(arg debug)"/> 
-      <param name="visual_debug"		type="bool" value="$(arg visual_debug)"/> 
       <param name="gui"             type="bool" value="$(arg gui)"/>
       
       <!-- Changeable for each nodelet independently. - no arguments! -->

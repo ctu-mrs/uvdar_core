@@ -38,8 +38,9 @@ def computeLine(first_x, first_y, second_x, second_y):
 
 def writeLine( name, start_point, end_point, line, number_data_pts, heading):
      file = open(name, 'a')
-     diff = end_point[1] - start_point[1]
-     discretization =  float(diff) / float(number_data_pts)
+     diff_y = end_point[1] - start_point[1]
+     discretization =  float(diff_y) / float(number_data_pts)
+     discretization_angle = 3.14/ float(number_data_pts)
      y_val = start_point[1] + discretization
      for val in range(number_data_pts):
           y_val = y_val + discretization
@@ -51,6 +52,8 @@ def writeLine( name, start_point, end_point, line, number_data_pts, heading):
                z = 0.0
           if(y_val < 0.001 and y_val > -0.001):
                y_val = 0.0 
+          
+          heading = heading - discretization_angle
           file.write(str(start_point[0])[0:5]+" "+str(y_val)[0:5]+" "+str(z)[0:5]+" "+str(heading)[0:5]+"\n")
      
      file.close()
@@ -78,16 +81,19 @@ def compute_star(name, start_point, second, third, fourth, fifth, heading, data_
      
 
 def main():
-     writeCircle(name="trajectory_files/two_tx/tx2_circle", radius=1, x=8.0, y=-0.0, z=4.0, heading=0.0, data_points=60, ccw=1)
+     # writeCircle(name="trajectory_files/two_tx/tx2_circle", radius=1.5, x=8.0, y=-0.0, z=4.0, heading=0.0, data_points=60, ccw=1)
      # writeCircle(name="trajectory_files/two_tx/tx1_circle", radius=1, x=4.0, y=0.0, z=4.0, heading=0.0, data_points=100, ccw=1)
      
+     file = open("tx_fssly_by2.txt", "w")
+     l = computeLine(8,-4,8,4)
+     writeLine(name="tx_fssly_by2.txt", start_point=[8.0, 4.0, 4.0], end_point=[8.0, -4.0, 4.0], line=l, number_data_pts=30, heading=3.14)
      # name="trajectory_files/star"
-     # start_point = [3.0, 0.0, 6.0]
-     # left_down = [3.0, 2.0, 3.0]
-     # left_up = [3.0, 2.5, 5.5]
-     # right_down = [3.0, -2.0, 3.0]
-     # right_up = [3.0, -2.5, 5.5]
-     # compute_star(name, start_point, left_down, left_up, right_down, right_up, heading=0.0) 
+     # start_point = [8.0, 0.0, 6.0]
+     # left_down = [8.0, 2.0, 3.0]
+     # left_up = [8.0, 2.5, 5.5]
+     # right_down = [8.0, -2.0, 3.0]
+     # right_up = [8.0, -2.5, 5.5]
+     # compute_star(name, right_up, left_up, right_down, start_point, left_down, heading=0.0, data_pts_per_line=20) 
 
      # name="trajectory_files/star"
      # first = [12.0, 2.5, 5.5]

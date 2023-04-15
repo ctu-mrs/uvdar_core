@@ -55,9 +55,7 @@ input=(
 '
   'led_manager' 'waitForRos; roslaunch uvdar_core led_manager.launch
 '
-  'Trajectory' 'history -s roslaunch uvdar_core load_trajectory.launch file:="two_tx/tx2_fly_by.txt" dt:=4 loop:=true; rosservice call /'"$UAV_NAME"'/control_manager/goto_trajectory_start
-'
-  'Start_trajectory' 'history -s rosservice call /'"$UAV_NAME"'/control_manager/start_trajectory_tracking
+  'Trajectory' 'history -s rosservice call /'"$UAV_NAME"'/control_manager/start_trajectory_tracking; history -s rosservice call /'"$UAV_NAME"'/control_manager/goto_trajectory_start; history -s roslaunch uvdar_core load_trajectory.launch file:="two_tx/tx2_fly_by.txt" loop:=true
 '
   'Stop_trajectory' 'history -s rosservice call /'"$UAV_NAME"'/control_manager/stop_trajectory_tracking
 '

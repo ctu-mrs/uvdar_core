@@ -161,7 +161,7 @@
       <!-- <param name="gui"             type="bool" value="true"/> -->
       <param name="gui"             type="bool" value="true"/>
       <param name="publish_visualization"             type="bool" value="false"/>
-      <param name="use_camera_for_visualization"         type="bool" value="false"/>
+      <param name="use_camera_for_visualization"         type="bool" value="true"/>
       <param name="visualization_rate"         type="double" value="2.0"/>
 
       <!-- <rosparam param="frequencies" subst_value="true"> [$(arg frequency1), $(arg frequency2), $(arg frequency3)] </rosparam> -->
