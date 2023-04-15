@@ -76,15 +76,12 @@ void alternativeHT::findClosestPixelAndInsert(std::vector<PointState> & current_
             no_nn.push_back(curr_point);
         }
     }
-    
-    {
-        std::scoped_lock lock(mutex_gen_sequences_);
-        expandedSearch(no_nn, p_gen_seq);
-    }
+    expandedSearch(no_nn, p_gen_seq);
 }
 
 void alternativeHT::expandedSearch(std::vector<PointState>& no_nn_current_frame, std::vector<seqPointer>& sequences_no_insert){
     
+    std::scoped_lock lock(mutex_gen_sequences_);
 
     if((int)no_nn_current_frame.size() != 0){
         double insert_time = no_nn_current_frame[0].insert_time.toSec() + prediction_margin_;

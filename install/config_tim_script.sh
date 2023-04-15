@@ -11,4 +11,4 @@ cd ~/tim_l_ws
 catkin init
 catkin config --extend ~/modules_workspace/devel
 catkin build
-cd ~/tim_l_ws/src/uvdar_core_tim/
+cd ~/tim_l_ws/src/uvdar_core_tim/scripts/demo
