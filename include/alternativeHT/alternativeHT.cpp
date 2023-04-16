@@ -118,13 +118,12 @@ void alternativeHT::expandedSearch(std::vector<PointState>& no_nn_current_frame,
             cv::Point2d bb_right_bottom = cv::Point2d( (x_predicted + x_conf), (y_predicted + y_conf) );
             
             if(debug_){
-                std::cout << "[Aht]: Predicted Point: x = " << x_predicted << " y = " << y_predicted << " Prediction Interval: x = " << x_conf << " y = " << y_conf << " seq_size" << x.size();
+                std::cout << "[Alternative_HT]: Predicted Point: x = " << x_predicted << " y = " << y_predicted << " Prediction Interval: x = " << x_conf << " y = " << y_conf << " seq_size" << x.size();
                 std::cout << "\n";
             }
 
             for(auto it_frame = no_nn_current_frame.begin(); it_frame != no_nn_current_frame.end();){
                 if(extended_search_->isInsideBB(it_frame->point, bb_left_top, bb_right_bottom)){
-                    std::cout << "INSIDE\n";
                     it_frame->x_statistics = last_point.x_statistics;
                     it_frame->y_statistics = last_point.y_statistics;
                     insertPointToSequence(*sequences_no_insert[k], *it_frame);
@@ -194,18 +193,14 @@ PredictionStatistics alternativeHT::selectStatisticsValues(const std::vector<dou
     double w_mean_independent = extended_search_->calcWeightedMean(time, weight_vect); 
     auto std = extended_search_->calcWSTD(values, weight_vect, w_mean_dependent); 
 
-    PredictionStatistics statistics;
-    statistics.mean_dependent = w_mean_dependent;
-    statistics.mean_independent = w_mean_independent; 
-    statistics.time_pred = insert_time;
-           
     bool conf_interval_bool = false, poly_reg_computed = false;
 
+    PredictionStatistics statistics;
     if(values.size() > 1 && std > loaded_params_->std_threshold_poly_reg){
         statistics = extended_search_->polyReg(values, time, weight_vect);
         auto coeff = statistics.coeff;
         bool all_coeff_zero = std::all_of(coeff.begin(), coeff.end(), [](double coeff){return coeff == 0.0;});
-        if(all_coeff_zero){ 
+        if(!all_coeff_zero){ 
             for(int i = 0; i < (int)coeff.size(); ++i){
                 statistics.predicted_coordinate += coeff[i]*pow(insert_time, i);
             }
@@ -215,6 +210,8 @@ PredictionStatistics alternativeHT::selectStatisticsValues(const std::vector<dou
         }else{
             poly_reg_computed = false;
         }
+        statistics.mean_dependent = w_mean_dependent;
+        statistics.mean_independent = w_mean_independent; 
         statistics.confidence_interval = extended_search_->confidenceInterval(statistics, time, values, weight_vect, loaded_params_->conf_probab_percent);
         conf_interval_bool = (statistics.confidence_interval == -1.0) ? false : true; 
     }
@@ -230,6 +227,10 @@ PredictionStatistics alternativeHT::selectStatisticsValues(const std::vector<dou
     */
     statistics.confidence_interval = ( !conf_interval_bool && (std < max_pix_shift)) ? max_pix_shift : std*2;
 
+    statistics.mean_dependent = w_mean_dependent;
+    statistics.mean_independent = w_mean_independent; 
+    statistics.time_pred = insert_time;
+    statistics.extended_search = true;
     return statistics;
 
 }

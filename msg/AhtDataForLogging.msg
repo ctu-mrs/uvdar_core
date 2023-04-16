@@ -1,6 +1,5 @@
 time stamp
 int8 pub_rate  
-string sequence_file
 int8 frame_tolerance_till_seq_rejected
 int8 stored_seq_len_factor 
 int8 default_poly_order

@@ -449,16 +449,19 @@ namespace uvdar{
       std::scoped_lock lock(*(blink_data_[img_index].mutex_retrieved_blinkers));
       blink_data_[img_index].retrieved_blinkers = aht_[img_index]->getResults();
 
+      int valid_signal_cnt = 0 , invalid_signal_cnt = 0;
       for (auto& signal : blink_data_[img_index].retrieved_blinkers) {
         mrs_msgs::Point2DWithFloat point;
         auto last_point = signal.first->end()[-1];
         point.x = last_point.point.x;
         point.y = last_point.point.y;
-        if ( 0 <= signal.second && signal.second <= (int)sequences_.size()){ // TODO: CHANGED to check if msg is smaller than 0
+        if ( 0 <= signal.second && signal.second <= (int)sequences_.size()){
           point.value = signal.second;
+          valid_signal_cnt++;
         }
         else {
           point.value = -2;
+          invalid_signal_cnt++;
         }
                   
         // publish values from aht if the sequence is valid
@@ -470,6 +473,7 @@ namespace uvdar{
         aht_seq_msg.confidence_interval.y = last_point.y_statistics.confidence_interval;
         aht_seq_msg.predicted_point.x = last_point.x_statistics.predicted_coordinate;
         aht_seq_msg.predicted_point.y = last_point.y_statistics.predicted_coordinate;
+        
 
         for(auto coeff : last_point.x_statistics.coeff){
           aht_seq_msg.x_coeff_reg.push_back(static_cast<float>(coeff));
@@ -493,7 +497,10 @@ namespace uvdar{
         aht_seq_msg.poly_reg_computed.push_back(last_point.x_statistics.poly_reg_computed);
         aht_seq_msg.poly_reg_computed.push_back(last_point.y_statistics.poly_reg_computed);
 
+        aht_seq_msg.extended_search.push_back(last_point.x_statistics.extended_search);
+        aht_seq_msg.extended_search.push_back(last_point.y_statistics.extended_search);
 
+        if(aht_seq_msg.poly_reg_computed[0] || aht_seq_msg.poly_reg_computed[1])
         aht_all_seq_msg.sequences.push_back(aht_seq_msg);
         // publish for pose calculate
         msg.points.push_back(point);
@@ -502,7 +509,12 @@ namespace uvdar{
       msg.image_width   = camera_image_sizes_[img_index].width;
       msg.image_height  = camera_image_sizes_[img_index].height;
 
-      // publish loaded variables 
+      if(_debug_){
+        ROS_INFO("[UVDAR_BP_Tim]: Extracted %d valid signals and %d invalid signals", valid_signal_cnt, invalid_signal_cnt);
+      }
+
+
+      // publish loaded variables every _loaded_var_pub_rate_ seconds
       double publish_rate_sec = _loaded_var_pub_rate_;
       double diff = ros::Time::now().toSec() - last_publish_aht_logging_.toSec();
       if( publish_rate_sec < diff){
@@ -510,7 +522,6 @@ namespace uvdar{
 
         aht_logging_msg.stamp = last_publish_aht_logging_;
         aht_logging_msg.pub_rate = publish_rate_sec; 
-        aht_logging_msg.sequence_file = _sequence_file;
         mrs_msgs::Point2DWithFloat max_px_shift;
         aht_logging_msg.frame_tolerance_till_seq_rejected = _frame_tolerance_;
         aht_logging_msg.stored_seq_len_factor = _stored_seq_len_factor_;
@@ -649,17 +660,16 @@ namespace uvdar{
           double curr_time = blink_data_[image_index].retrieved_blinkers[j].first->end()[-1].insert_time.toSec();
           bool x_poly_reg_computed = blink_data_[image_index].retrieved_blinkers[j].first->end()[-1].x_statistics.poly_reg_computed;
           bool y_poly_reg_computed = blink_data_[image_index].retrieved_blinkers[j].first->end()[-1].y_statistics.poly_reg_computed;
-
+          bool x_extended_search = blink_data_[image_index].retrieved_blinkers[j].first->end()[-1].x_statistics.extended_search;
+          bool y_extended_search = blink_data_[image_index].retrieved_blinkers[j].first->end()[-1].y_statistics.extended_search;
 
           std::vector<cv::Point> interpolated_prediction;
           
-          if(x_poly_reg_computed || y_poly_reg_computed){
+          if(x_extended_search || y_extended_search){
           
             double computed_time = curr_time;
-            bool x_all_coeff_zero = std::all_of(x_coeff.begin(), x_coeff.end(), [](double coeff){return coeff == 0;});
-            bool y_all_coeff_zero = std::all_of(y_coeff.begin(), y_coeff.end(), [](double coeff){return coeff == 0;});
   
-            double prediction_window = 0.5; // in [s]
+            double prediction_window = 0.3; // in [s]
             double step_size_sec = 0.02;
             int point_size = prediction_window/step_size_sec;
 
@@ -668,7 +678,7 @@ namespace uvdar{
               // std::cout << "BP Time " << computed_time;
               cv::Point2d interpolated_point = cv::Point2d{0,0};
               double x_calculated = 0.0; 
-              if(!x_all_coeff_zero){
+              if(x_poly_reg_computed){
                 for(int k = 0; k < (int)x_coeff.size(); ++k){
                 x_calculated += x_coeff[k]*pow(computed_time, k);
                 }
@@ -676,7 +686,7 @@ namespace uvdar{
               }else{
                 interpolated_point.x = predicted.x;
               }
-              if(!y_all_coeff_zero){
+              if(y_poly_reg_computed){
                 double y_calculated = 0.0;
                 for(int k = 0; k < (int)y_coeff.size(); ++k){
                   y_calculated += y_coeff[k]*pow(computed_time, k);
