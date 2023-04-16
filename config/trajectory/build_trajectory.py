@@ -40,21 +40,28 @@ def writeLine( name, start_point, end_point, line, number_data_pts, heading):
      file = open(name, 'a')
      diff_y = end_point[1] - start_point[1]
      discretization =  float(diff_y) / float(number_data_pts)
-     discretization_angle = 3.14/ float(number_data_pts)
+     discretization_angle = 0.71/ float(number_data_pts)
+     x_val = start_point[0]
+     # x_val = start_point[0] + discretization
      y_val = start_point[1] + discretization
      for val in range(number_data_pts):
           y_val = y_val + discretization
           z = line[0] * y_val + line[1]
+          # z = 4.0
+          # y_val = 0.0
+          # x_val = x_val + discretization
+          
 
-          if(start_point[0] < 0.001 and start_point[0] > -0.001):
+          if(x_val < 0.001 and x_val > -0.001):
                start_point[0] = 0.0
           if(z < 0.001 and z > -0.001):
                z = 0.0
           if(y_val < 0.001 and y_val > -0.001):
                y_val = 0.0 
           
-          heading = heading - discretization_angle
-          file.write(str(start_point[0])[0:5]+" "+str(y_val)[0:5]+" "+str(z)[0:5]+" "+str(heading)[0:5]+"\n")
+          heading = heading + discretization_angle
+
+          file.write(str(x_val)[0:5]+" "+str(y_val)[0:5]+" "+str(z)[0:5]+" "+str(heading)[0:5]+"\n")
      
      file.close()
 
@@ -63,7 +70,7 @@ def compute_star(name, start_point, second, third, fourth, fifth, heading, data_
      line_1 = computeLine(start_point[1], start_point[2], second[1], second[2])
      line_2 = computeLine(second[1], second[2], third[1], third[2])
      line_3 = computeLine(third[1], third[2], fourth[1], fourth[2])
-     line_4 = computeLine(fourth[2], fourth[2], fifth[1], fifth[2])
+     line_4 = computeLine(fourth[1], fourth[2], fifth[1], fifth[2])
      line_5 = computeLine(fifth[1], fifth[2], start_point[1], start_point[2])
 
 
@@ -84,24 +91,18 @@ def main():
      # writeCircle(name="trajectory_files/two_tx/tx2_circle", radius=1.5, x=8.0, y=-0.0, z=4.0, heading=0.0, data_points=60, ccw=1)
      # writeCircle(name="trajectory_files/two_tx/tx1_circle", radius=1, x=4.0, y=0.0, z=4.0, heading=0.0, data_points=100, ccw=1)
      
-     file = open("tx_fssly_by2.txt", "w")
-     l = computeLine(8,-4,8,4)
-     writeLine(name="tx_fssly_by2.txt", start_point=[8.0, 4.0, 4.0], end_point=[8.0, -4.0, 4.0], line=l, number_data_pts=30, heading=3.14)
+   
      # name="trajectory_files/star"
      # start_point = [8.0, 0.0, 6.0]
      # left_down = [8.0, 2.0, 3.0]
+     # right_up = [8.0, -2.5, 5.5]
      # left_up = [8.0, 2.5, 5.5]
      # right_down = [8.0, -2.0, 3.0]
-     # right_up = [8.0, -2.5, 5.5]
      # compute_star(name, right_up, left_up, right_down, start_point, left_down, heading=0.0, data_pts_per_line=20) 
 
-     # name="trajectory_files/star"
-     # first = [12.0, 2.5, 5.5]
-     # second = [12.0, -2.0, 3.0]
-     # third = [12.0, 0.0, 6.0]
-     # fourth = [12.0, 2.0, 3.0]
-     # fifth = [12.0, -2.5, 5.5]
-     # compute_star(name, first, second, third, fourth, fifth, heading=0.0, data_pts_per_line=40) 
+     file = open("file.txt", "w")
+     l = computeLine(0,4,0,-4)
+     writeLine(name="file.txt", start_point=[0.0, 4.0, 4.0], end_point=[0.0, -4.0, 4.0], line=l, number_data_pts=120, heading=0.869)
 
 if __name__ == "__main__":
     main()
