@@ -62,11 +62,11 @@ windows:
   - rviz:
       layout: even-vertical
       panes:
-        - export UAV_NAME=uav1; waitForControl; roslaunch uvdar_core multimodal_hypothesis_rviz.launch
+        - export UAV_NAME=uav2; waitForControl; roslaunch uvdar_core multimodal_hypothesis_rviz.launch
   - uv_observer:
       layout: even-vertical
       panes:
-        - waitForCompile; gz world --pause=0; sleep 6;  export UAV_NAME=uav6; waitForControl; roslaunch uvdar_core tl_Three_Sided.launch
+        - waitForCompile; gz world --pause=0; sleep 6;  export UAV_NAME=uav2; waitForControl; roslaunch uvdar_core tl_Three_Sided.launch
         # - waitForCompile; gz world --pause=0; sleep 6;  export UAV_NAME=uav1; waitForControl; roslaunch uvdar_core multi_frequency_test.launch
   - slow_down:
       layout: even-vertical
