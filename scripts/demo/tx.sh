@@ -53,7 +53,7 @@ input=(
 '
   'odom_diag' 'waitForRos; rostopic echo /'"$UAV_NAME"'/odometry/diagnostics
 '
-  'led_manager' 'waitForRos; history -s  rosservice call /'"$UAV_NAME"'/uvdar_led_manager_node/select_sequences [0,1,2,3]; roslaunch uvdar_core led_manager.launch
+  'led_manager' 'waitForRos; history -s  rosservice call /'"$UAV_NAME"'/uvdar_led_manager_node/select_sequences [0,1,2,3]; history -s  rosservice call /'"$UAV_NAME"'/uvdar_led_manager_node/load_sequences; roslaunch uvdar_core led_manager.launch
 '
   'Trajectory' 'history -s rosservice call /'"$UAV_NAME"'/control_manager/start_trajectory_tracking; history -s rosservice call /'"$UAV_NAME"'/control_manager/goto_trajectory_start; history -s roslaunch uvdar_core load_trajectory.launch file:="demo/tx_fly_by.txt" loop:=true
 '
