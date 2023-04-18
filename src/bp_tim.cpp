@@ -500,7 +500,6 @@ namespace uvdar{
         aht_seq_msg.extended_search.push_back(last_point.x_statistics.extended_search);
         aht_seq_msg.extended_search.push_back(last_point.y_statistics.extended_search);
 
-        if(aht_seq_msg.poly_reg_computed[0] || aht_seq_msg.poly_reg_computed[1])
         aht_all_seq_msg.sequences.push_back(aht_seq_msg);
         // publish for pose calculate
         msg.points.push_back(point);
@@ -535,7 +534,7 @@ namespace uvdar{
         aht_logging_msg.max_px_shift = max_px_shift;
         pub_aht_logging_[img_index].publish(aht_logging_msg);
       }
-
+      
       pub_blinkers_seen_[img_index].publish(msg);
       pub_aht_all_seq_info[img_index].publish(aht_all_seq_msg);
 
