@@ -53,7 +53,7 @@ input=(
 '
   'odom_diag' 'waitForRos; rostopic echo /'"$UAV_NAME"'/odometry/diagnostics
 '
-  'uvdar_observer' 'waitForRos; roslaunch uvdar_core rw_three_sided_tim.launch
+  'uvdar_observer' 'waitForRos; roslaunch uvdar_core rw_two_sided_tim.launch
 '
   'uvdar_filter' 'waitForRos; roslaunch uvdar_core uvdar_kalman.launch output_frame:='"$UAV_NAME"'/stable_origin
 '
