@@ -45,7 +45,7 @@
   <arg name="confidence_probability" default="95.0"/>
   <arg name="frame_tolerance" default="5"/>
   <arg name="allowed_BER_per_seq" default="0"/>
-  <arg name="std_threshold_poly_reg" default="0.5"/>
+  <arg name="std_threshold_poly_reg" default="1"/>
 
 
 <!-- TIM: NOT USED ANYWHERE?!-->
