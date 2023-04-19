@@ -132,6 +132,9 @@ add_dependencies(p3p ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGE
 add_library(UVDARBlinkProcessor src/blink_processor.cpp)
 add_dependencies(UVDARBlinkProcessor ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
+add_library(ROSTOPIC_HZ src/nodelet_rostopic_hz.cpp)
+add_dependencies(ROSTOPIC_HZ ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+
 # add_executable(uvdar_uav_pose_calculator_node src/uav_pose_calculator.cpp)
 # add_dependencies(uvdar_uav_pose_calculator_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
@@ -167,6 +170,11 @@ target_link_libraries(UVDARBlinkProcessor
   ht4dbt
   frequency_classifier
   color_selector
+  )
+
+target_link_libraries(ROSTOPIC_HZ
+  ${catkin_LIBRARIES}
+  ${OpenCV_LIBRARIES}
   )
 
 # target_link_libraries(uvdar_uav_pose_calculator_node
