@@ -1,7 +1,7 @@
 #ifndef SIGNAL_MATCHER_H
 #define SIGNAL_MATCHER_H
 
-#define MATCH_ERROR_THRESHOLD 14
+#define MATCH_ERROR_THRESHOLD 0
 /* #define MATCH_ERROR_THRESHOLD 1 */
 
 #include <iostream>
