@@ -113,7 +113,7 @@ include_directories(
 
 add_executable(uvdar_rx_node src/uvdar_rx.cpp)
 add_executable(uvdar_tx_node src/uvdar_tx.cpp)
-# add_executable(new_uvdar_rx_node src/new_uvdar_rx.cpp)
+add_executable(new_uvdar_rx_node src/new_uvdar_rx.cpp)
 
 add_library(OCamCalib include/OCamCalib/ocam_functions.cpp )
 target_compile_options(OCamCalib PRIVATE -Wno-unused-variable -Wno-unused-result)
@@ -130,14 +130,13 @@ target_link_libraries(compute_lib
 
 target_link_libraries(uvdar_rx_node ${catkin_LIBRARIES})
 target_link_libraries(uvdar_tx_node ${catkin_LIBRARIES})
-# target_link_libraries(new_uvdar_rx_node ${catkin_LIBRARIES} ${OpenCV_LIBRARIES} ht4dbt)
+target_link_libraries(new_uvdar_rx_node ${catkin_LIBRARIES} ${OpenCV_LIBRARIES} ht4dbt)
 # target_link_libraries(SignalSetter ${catkin_LIBRARIES})
-# add_dependencies(new_uvdar_rx_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+add_dependencies(new_uvdar_rx_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 add_dependencies(uvdar_rx_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 add_dependencies(uvdar_tx_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
-target_link_libraries(ht4dbt
-  debug ${OpenCV_LIBRARIES} ${catkin_LIBRARIES} compute_lib)
+target_link_libraries(ht4dbt compute_lib)
 
 target_link_libraries(uv_led_detect_fast
   debug ${OpenCV_LIBRARIES} ${catkin_LIBRARIES} compute_lib)

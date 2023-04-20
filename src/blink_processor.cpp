@@ -4,10 +4,12 @@
 #include <nodelet/nodelet.h>
 #include <cv_bridge/cv_bridge.h>
 #include <ht4dbt/ht4d_cpu.h>
+#include <ht4dbt/ht4d_gpu.h>
 #include <color_selector/color_selector.h>
 /* #include <frequency_classifier/frequency_classifier.h> */
 #include <std_msgs/Float32.h>
 #include <mrs_msgs/ImagePointsWithFloatStamped.h>
+#undef Success
 #include <mrs_lib/param_loader.h>
 #include <mrs_lib/image_publisher.h>
 #include <stdint.h>

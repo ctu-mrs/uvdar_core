@@ -154,8 +154,8 @@ std::vector< std::pair<cv::Point2d,int> > HT4DBlinkerTrackerGPU::getResults() {
 
   // create clusters from accumulator
   uint32_t i_cl;
-  t_points_cluster_t clusters[max_clusters];
-  for (i_cl = 0; i_cl < max_t_points_total; i_cl++) {
+  t_points_cluster_t* clusters = (t_points_cluster_t*) calloc(max_clusters, sizeof(t_points_cluster_t));
+  for (i_cl = 0; i_cl < max_clusters; i_cl++) {
     clusters[i_cl].t_points_array = (ivec4_t*) calloc(max_t_points_total, sizeof(ivec4_t));
   }
   uint32_t clusters_len = 0;
@@ -218,9 +218,10 @@ std::vector< std::pair<cv::Point2d,int> > HT4DBlinkerTrackerGPU::getResults() {
 
   // free resources
   free(hough_space);
-  for (i_cl = 0; i_cl < max_t_points_total; i_cl++) {
+  for (i_cl = 0; i_cl < max_clusters; i_cl++) {
     free(clusters[i_cl].t_points_array);
   }
+  free(clusters);
 
   return getResultsEnd();
 }
@@ -278,14 +279,11 @@ void HT4DBlinkerTrackerGPU::prepareClusters(t_points_cluster_t clusters[], uint3
         }
 
         if (!cluster_found && *clusters_len < max_clusters) {
-            clusters[*clusters_len] = (t_points_cluster_t) {
-                .min_x = (uint32_t) fmaxf(0, x - 2*max_dist),
-                .max_x = (uint32_t) fminf(im_res_.width-1, x + 2*max_dist),
-                .min_y = (uint32_t) fmaxf(0, y - 2*max_dist),
-                .max_y = (uint32_t) fminf(im_res_.height-1, y + 2*max_dist),
-                .t_points_array = {0},
-                .num_pts = 0
-            };
+            clusters[*clusters_len].min_x = (uint32_t) fmaxf(0, x - 2*max_dist);
+            clusters[*clusters_len].max_x = (uint32_t) fminf(im_res_.width-1, x + 2*max_dist);
+            clusters[*clusters_len].min_y = (uint32_t) fmaxf(0, y - 2*max_dist);
+            clusters[*clusters_len].max_y = (uint32_t) fminf(im_res_.height-1, y + 2*max_dist);
+            clusters[*clusters_len].num_pts = 0;
             clusters[*clusters_len].t_points_array[clusters[*clusters_len].num_pts].x = x;
             clusters[*clusters_len].t_points_array[clusters[*clusters_len].num_pts].y = y;
             clusters[*clusters_len].t_points_array[clusters[*clusters_len].num_pts].z = t;
