@@ -39,9 +39,11 @@ input=(
 '
   'NodeChecker' 'waitForRos; roslaunch mrs_uav_general node_crash_checker.launch
 '
-  'Nimbro' 'waitForRos; rosrun mrs_uav_general run_nimbro.py custom_configs/nimbro.yaml custom_configs/uav_names.yaml
-'
+  # 'Nimbro' 'waitForRos; rosrun mrs_uav_general run_nimbro.py custom_configs/nimbro.yaml custom_configs/uav_names.yaml
+# '
   'Sensors' 'waitForRos; roslaunch mrs_uav_general sensors.launch
+'
+  'RTK' 'waitForRos; roslaunch mrs_serial rtk.launch
 '
   'Status' 'waitForRos; roslaunch mrs_uav_status status.launch
 '
