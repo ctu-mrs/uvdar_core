@@ -128,20 +128,17 @@ namespace uvdar {
 
         //}
         
-        if (_gui_ || _publish_visualization_){ //frequency classifier is used here only for visualization purposes
-          // load the frequencies
-          param_loader.loadParam("signal_ids", _signal_ids_);
-          if (_signal_ids_.empty()){
-            std::vector<int> default_signal_set = {0, 1, 2, 3, 4, 5, 6, 7, 8};
-            ROS_WARN("[UVDARBlinkProcessor]: No signal IDs were supplied, using the default set. This set is as follows: ");
-            for (auto s : default_signal_set){
-              ROS_WARN_STREAM("[UVDARBlinkProcessor]: " << s);
-            }
-            _signal_ids_ = default_signal_set;
+        param_loader.loadParam("signal_ids", _signal_ids_);
+        if (_signal_ids_.empty()){
+          std::vector<int> default_signal_set = {0, 1, 2, 3, 4, 5, 6, 7, 8};
+          ROS_WARN("[UVDARBlinkProcessor]: No signal IDs were supplied, using the default set. This set is as follows: ");
+          for (auto s : default_signal_set){
+            ROS_WARN_STREAM("[UVDARBlinkProcessor]: " << s);
           }
-          /* ufc_ = std::make_unique<UVDARFrequencyClassifier>(_signal_ids_); */
-
-
+          _signal_ids_ = default_signal_set;
+        }
+        
+        if (_gui_ || _publish_visualization_){ //frequency classifier is used here only for visualization purposes
           current_visualization_done_ = false;
           timer_visualization_ = nh_.createTimer(ros::Rate(_visualization_rate_), &UVDARBlinkProcessor::VisualizationThread, this, false);
 
