@@ -40,7 +40,7 @@ def writeLine( name, start_point, end_point, line, number_data_pts, heading):
      file = open(name, 'a')
      diff_y = end_point[1] - start_point[1]
      discretization =  float(diff_y) / float(number_data_pts)
-     # discretization_angle = 0.71/ float(number_data_pts)
+     discretization_angle = 1.57/ float(number_data_pts)
      x_val = start_point[0]
      # x_val = start_point[0] + discretization
      y_val = start_point[1] + discretization
@@ -59,7 +59,7 @@ def writeLine( name, start_point, end_point, line, number_data_pts, heading):
           if(y_val < 0.001 and y_val > -0.001):
                y_val = 0.0 
           
-          # heading = heading + discretization_angle
+          heading = heading - discretization_angle
 
           file.write(str(x_val)[0:5]+" "+str(y_val)[0:5]+" "+str(z)[0:5]+" "+str(heading)[0:5]+"\n")
      
@@ -73,12 +73,13 @@ def writeLine2( name, start_point, end_point, line, number_data_pts, heading):
      discretization_x = float(diff_x) / float(number_data_pts) 
      discretization =  float(diff_y) / float(number_data_pts)
      discretization_angle = 0.71/ float(number_data_pts)
-     x_val = start_point[0]
-     # x_val = start_point[0] + discretization
+     # x_val = start_point[0]
+     x_val = start_point[0] # + discretization_x
      y_val = start_point[1] # + discretization
      for val in range(number_data_pts):
-          y_val = y_val + discretization
-          z = line[0] * y_val + line[1]
+          # y_val = y_val + discretization
+          # z = line[0] * y_val + line[1]
+          z = line[0] * x_val + line[1]
           # z = 4.0
           # y_val = 0.0
           x_val = x_val + discretization_x
@@ -144,13 +145,13 @@ def main():
      # writeCircle(name="trajectory_files/two_tx/tx1_circle", radius=1, x=-33.0, y=-22.0, z=4.0, heading=0.0, data_points=100, ccw=1)
      
    
-     name="trajectory_files/"
-     start_point = [-29.0, -22.0, 6.0]
-     left_down = [-29.0, -20.0, 3.0]
-     right_up = [-29.0, -24.5, 5.5]
-     left_up = [-29.0, -20.5, 5.5]
-     right_down = [-29.0, -24.0, 3.0]
-     compute_star(name=name, start_point=right_up, second=left_up, third=right_down, fourth=start_point, fifth=left_down, heading=0.0, data_pts_per_line=20)
+     # name="trajectory_files/"
+     # start_point = [-29.0, -22.0, 6.0]
+     # left_down = [-29.0, -20.0, 3.0]
+     # right_up = [-29.0, -24.5, 5.5]
+     # left_up = [-29.0, -20.5, 5.5]
+     # right_down = [-29.0, -24.0, 3.0]
+     # compute_star(name=name, start_point=right_up, second=left_up, third=right_down, fourth=start_point, fifth=left_down, heading=0.0, data_pts_per_line=20)
 
      # start_point = [-31.0, -22.0, 6.0]
      # left_down = [-33.0, -20.0, 3.0]
@@ -159,9 +160,9 @@ def main():
      # right_down = [-33.0, -24.0, 3.0]
      # compute_star2(name, start_point, left_down, right_up, left_up, right_down, heading=0.0, data_pts_per_line=20) 
 
-     # file = open("file.txt", "w")
-     # l = computeLine(-18,4,-26,4)
-     # writeLine(name="file.txt", start_point=[-33,-18.0, 4.0], end_point=[-33,-26.0, 4.0], line=l, number_data_pts=60, heading=0.0)
+     file = open("file.txt", "w")
+     l = computeLine(-20,4,-22,4)
+     writeLine(name="file.txt", start_point=[-37.0,-24.0, 4.0], end_point=[-37.0,-20.0, 4.0], line=l, number_data_pts=60, heading=1.57)
      # writeLine(name="file.txt", start_point=[0.0, 4.0, 4.0], end_point=[0.0, -4.0, 4.0], line=l, number_data_pts=120, heading=0.869)
 
 if __name__ == "__main__":
