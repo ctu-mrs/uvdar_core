@@ -18,8 +18,3 @@
     <description>Signal setter nodelet</description>
   </class>
 </library>
-<library path="lib/libROSTOPIC_HZ">
-  <class name="uvdar/ROSTOPIC_HZ" type="uvdar::ROSTOPIC_HZ" base_class_type="nodelet::Nodelet">
-    <description>Image rate calculator</description>
-  </class>
-</library>
