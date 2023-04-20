@@ -3,7 +3,7 @@
 #include <ros/ros.h>
 #include <nodelet/nodelet.h>
 #include <cv_bridge/cv_bridge.h>
-#include <ht4dbt/ht4d.h>
+#include <ht4dbt/ht4d_cpu.h>
 #include <color_selector/color_selector.h>
 /* #include <frequency_classifier/frequency_classifier.h> */
 #include <std_msgs/Float32.h>
@@ -90,7 +90,7 @@ namespace uvdar {
         sun_points_.resize(_points_seen_topics.size());
         for (size_t i = 0; i < _points_seen_topics.size(); ++i) {
           ht4dbt_trackers_.push_back(
-                std::make_shared<HT4DBlinkerTracker>(
+                std::make_shared<HT4DBlinkerTrackerGPU>(
                   _accumulator_length_, _pitch_steps_, _yaw_steps_, _max_pixel_shift_, cv::Size(0, 0), _nullify_radius_, _reasonable_radius_
                 )
               );

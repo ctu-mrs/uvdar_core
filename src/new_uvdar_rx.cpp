@@ -12,7 +12,7 @@
 #include <string>
 #include <cmath>
 
-#include <ht4dbt/ht4d.h>
+#include <ht4dbt/ht4d_cpu.h>
 
 #define SCFFE 30
 #define MAX_CLUSTER 100
@@ -42,7 +42,7 @@ std::vector<ros::Subscriber>      subscribers_points_seen;
  
 std::vector<int> points_loaded;
 
-std::vector<std::shared_ptr<uvdar::HT4DBlinkerTracker>> ht4dbt_trackers_;
+std::vector<std::shared_ptr<uvdar::HT4DBlinkerTrackerCPU>> ht4dbt_trackers_;
 
 /* int _accumulator_length_ = 23; */
 int _accumulator_length_ = 28;
@@ -109,7 +109,7 @@ public:
       callbacks_points_seen.push_back(callback);
       subscribers_points_seen.push_back(nh.subscribe(points_seen_topics[i], 1, callbacks_points_seen[i]));
       
-      ht4dbt_trackers_.push_back(std::make_shared<uvdar::HT4DBlinkerTracker>(ACC_LEN, _pitch_steps_, _yaw_steps_, _max_pixel_shift_, cv::Size(0, 0), _nullify_radius_, _reasonable_radius_));
+      ht4dbt_trackers_.push_back(std::make_shared<uvdar::HT4DBlinkerTrackerCPU>(ACC_LEN, _pitch_steps_, _yaw_steps_, _max_pixel_shift_, cv::Size(0, 0), _nullify_radius_, _reasonable_radius_));
       ht4dbt_trackers_.back()->setDebug(_debug_, _visual_debug_);
     
       SignalData sd_new;

@@ -113,12 +113,12 @@ include_directories(
 
 add_executable(uvdar_rx_node src/uvdar_rx.cpp)
 add_executable(uvdar_tx_node src/uvdar_tx.cpp)
-add_executable(new_uvdar_rx_node src/new_uvdar_rx.cpp)
+# add_executable(new_uvdar_rx_node src/new_uvdar_rx.cpp)
 
 add_library(OCamCalib include/OCamCalib/ocam_functions.cpp )
 target_compile_options(OCamCalib PRIVATE -Wno-unused-variable -Wno-unused-result)
 
-add_library(ht4dbt include/ht4dbt/ht4d.cpp)
+add_library(ht4dbt include/ht4dbt/ht4d.cpp include/ht4dbt/ht4d_cpu.cpp include/ht4dbt/ht4d_gpu.cpp)
 add_library(uv_led_detect_fast include/detect/uv_led_detect_fast_cpu.cpp include/detect/uv_led_detect_fast_gpu.cpp)
 add_library(frequency_classifier include/frequency_classifier/frequency_classifier.cpp)
 add_library(color_selector include/color_selector/color_selector.cpp)
@@ -130,11 +130,14 @@ target_link_libraries(compute_lib
 
 target_link_libraries(uvdar_rx_node ${catkin_LIBRARIES})
 target_link_libraries(uvdar_tx_node ${catkin_LIBRARIES})
-target_link_libraries(new_uvdar_rx_node ${catkin_LIBRARIES} ${OpenCV_LIBRARIES} ht4dbt)
+# target_link_libraries(new_uvdar_rx_node ${catkin_LIBRARIES} ${OpenCV_LIBRARIES} ht4dbt)
 # target_link_libraries(SignalSetter ${catkin_LIBRARIES})
-add_dependencies(new_uvdar_rx_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+# add_dependencies(new_uvdar_rx_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 add_dependencies(uvdar_rx_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 add_dependencies(uvdar_tx_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+
+target_link_libraries(ht4dbt
+  debug ${OpenCV_LIBRARIES} ${catkin_LIBRARIES} compute_lib)
 
 target_link_libraries(uv_led_detect_fast
   debug ${OpenCV_LIBRARIES} ${catkin_LIBRARIES} compute_lib)
@@ -194,6 +197,7 @@ target_link_libraries(UVDARBlinkProcessor
   ht4dbt
   frequency_classifier
   color_selector
+  compute_lib
   )
 
 # target_link_libraries(ROSTOPIC_HZ

@@ -5,7 +5,19 @@
 #include <memory>
 #include <numeric>
 #include <opencv2/core/core.hpp>
+#include <iostream>
+
+#include "opencv2/highgui/highgui.hpp"
 #include "signal_matcher/signal_matcher.h"
+
+
+#define WEIGHT_FACTOR 0.0 // we prioritize blinking signal retrieval to origin point position accuracy - the paper is outdated in this respect
+
+#define USE_VISIBLE_ORIGINS true // if there is a visible marker in the latest time, prefer its position to what is estimated by the HT
+
+#define SMALLER_FAST false // find Hough peaks by neighborhood of radius of 4 pixels
+
+#define CONSTANT_NEWER false // defines whether (if inputs are weighted in favor of the most recent) a number of newest inputs should retain equal weight
 
 namespace uvdar {
 
@@ -33,14 +45,10 @@ public:
       int i_yaw_steps,
       int i_max_pixel_shift,
       cv::Size i_im_res,
-      int i_nullify_radius = 8,
-      int i_reasonable_radius = 6,
-      double i_framerate = 72);
+      int i_nullify_radius,
+      int i_reasonable_radius,
+      double i_framerate);
 
-
-  /**
-   * @brief The destructor of the class
-   */
   ~HT4DBlinkerTracker();
 
   /**
@@ -56,14 +64,21 @@ public:
    * @return - A set of image points - x and y correspond to the expected position of a marker in the newest frame and z corresponds to its blinking frequency (or an error code for points with wrong blinking signal)
    */
 
-  std::vector< std::pair<cv::Point2d,int> > getResults();
+  virtual std::vector< std::pair<cv::Point2d,int> > getResults() = 0;
+
+  /**
+   * @brief Sets the image resolution of the input image (and consequently of all processing matrices such as Hough spaces) to a new value
+   *
+   * @param i_size - the new image resolution
+   */
+  virtual void updateResolution(cv::Size i_size) = 0;
 
   /**
    * @brief Returns the number of tracked image points obtained in the last retrieval cycle. Not all of these will be blinking with an expected signal - some may be e.g. static reflections
    *
    * @return - The number of the persistent image points
    */
-  int                        getTrackerCount();
+  int getTrackerCount();
 
   /**
    * @brief Retrieves the blinking signal of a given marker obtained in the last retrieval cycle
@@ -73,7 +88,6 @@ public:
    * @return - The retrieved signal
    */
   std::vector<bool> getSignal(int index);
-
 
   /**
    * @brief Retrieves the ID associated with the blinkig signal of a selected marker
@@ -146,13 +160,6 @@ public:
   void updateFramerate(double input);
 
   /**
-   * @brief Sets the image resolution of the input image (and consequently of all processing matrices such as Hough spaces) to a new value
-   *
-   * @param i_size - the new image resolution
-   */
-  void updateResolution(cv::Size i_size);
-
-  /**
    * @brief Change the blinking signal templates
    *
    * @param i_sequences - Defines the new set of template signals
@@ -175,7 +182,28 @@ public:
    */
   cv::Mat getVisualization();
 
-private:
+  /**
+   * @brief Sets the image resolution of the input image to a new value
+   *
+   * @param i_size - the new image resolution
+   */
+  void updateInterfaceResolution(cv::Size i_size);
+
+  /**
+   * @brief Resets an array of numbers to zero
+   *
+   * @param steps - Number of elements from the initial address to reset
+   */
+  void resetToZero(unsigned int *input, int steps);
+
+  /**
+   * @brief Resets an array of numbers to zero
+   *
+   * @param steps - Number of elements from the initial address to reset
+   */
+  void resetToZero(unsigned char *input, int steps);
+
+protected:
 
     /**
      * @brief Arccotangent function
@@ -186,43 +214,15 @@ private:
      */
   double acot(double input);
 
-  template < typename T >
   /**
-   * @brief Resets an array of numbers to zero
+   * @brief Generates OpenCV matrix out of internal 2D array for optional visualization
    *
-   * @param steps - Number of elements from the initial address to reset
-   */
-  void resetToZero(T *__restrict__ input, int steps);
-
-  /**
-   * @brief - generates the Hough masks that are applied to the Hough space for each input point. These are sets of 3D coordinates (w.r.t. the X-Y position of an input point) to be incremented in Hough voting. The 3rd dimension represents an index of the permutated pitch and yaw indices and thus it represents a point in 4D space.
-   */
-  void generateMasks();
-
-  /**
-   * @brief Applies Hough masks to a Hough space for each input point in the accumulator
+   * @param input - The address of the given 2D array
+   * @param threshold - Maximum value of the 2D array - will be represented by pure white in the OpenCV matrix
    *
-   * @param i_weight_factor - Factor by which the weight of the newest points in the accumulator is raised above 1
-   * @param i_constant_newer - Defines whether points from a number of newest frames have equal weight
-   * @param i_break_point - The past frame before which input points start scaling their weight (if i_constant_newer = true)
+   * @return - The visualization OpenCV matrix
    */
-  void applyMasks(double i_weightFactor,bool i_constantNewer,int i_breakPoint);
-
-  /**
-   * @brief Resets matrices to zero at indices that have been previously altered. This is faster than blindly resetting all elements.
-   */
-  void cleanTouched();
-
-  /**
-   * @brief Projects all points in the accumulator to the Hough space
-   */
-  void projectAccumulatorToHT();
-
-
-  /**
-   * @brief Generates 2D matrices (of the size of the input image) with maxima in the Hough space per pixel (X-Y coordinate) and with the indices of these maxima
-   */
-  void flattenTo2D();
+  cv::Mat getCvMat(unsigned int *__restrict__ input, unsigned int threshold);
 
   /**
    * @brief Retrieves peaks in the Hough space
@@ -248,7 +248,6 @@ private:
    * @return - The image points the surroundings of which have been nullified
    */
   std::vector<cv::Point> nullifyKnown();
-
   /**
    * @brief Checks if a position in the flattened Hough space is a peak using a method similar to FAST. Must be preceded by calling initFast.
    *
@@ -260,22 +259,15 @@ private:
    */
   bool miniFast(int x, int y, unsigned int thresh);
 
+
+  bool getResultsStart();
+
+  std::vector< std::pair<cv::Point2d,int> > getResultsEnd();
+
   /**
    * @brief - Initializes points used in the miniFast method
    */
   void initFast();
-
-
-  /**
-   * @brief Generates OpenCV matrix out of internal 2D array for optional visualization
-   *
-   * @param input - The address of the given 2D array
-   * @param threshold - Maximum value of the 2D array - will be represented by pure white in the OpenCV matrix
-   *
-   * @return - The visualization OpenCV matrix
-   */
-  cv::Mat getCvMat(unsigned int *__restrict__ input, unsigned int threshold);
-
 
   /**
    * @brief Specialized modulo function for use in angle difference calculation
@@ -306,6 +298,21 @@ private:
    */
   double angMeanXY(std::vector< cv::Point > input);
 
+  template < typename T >
+  inline T index2d(T X, T Y) { return (im_res_.width * (Y) + (X)); }
+
+  template < typename T >
+  inline T index3d(T X, T Y, T Z) { return (im_area_ * (Z) + im_res_.width * (Y) + (X)); }
+
+  template < typename T >
+  inline T indexYP(T X, T Y) { return (pitch_steps_ * (Y) + (X)); }
+
+  template < typename T >
+  inline T getPitchIndex(T X) { return ((X) % pitch_steps_); }
+
+  template < typename T >
+  inline T getYawIndex(T X) { return ((X) / pitch_steps_); }
+
   int          mem_steps_, pitch_steps_, yaw_steps_, total_steps_;
   unsigned int frame_scale_, hough_thresh_, nullify_radius_;
   double       scaling_factor_;
@@ -324,11 +331,10 @@ private:
   std::vector< std::vector< cv::Point2i > > accumulator_local_copy_;
   std::vector< int >                        pts_per_layer_;
   std::vector< int >                        pts_per_layer_local_copy_;
-  unsigned char *                           touched_matrix_;
-  unsigned int * __restrict__ hough_space_;
-  unsigned int * __restrict__ hough_space_maxima_;
   cv::Mat                                   index_matrix_;
-  std::vector< std::vector< cv::Point3i > > hybrid_masks_;
+  unsigned char * touched_matrix_;
+  unsigned int * __restrict__ hough_space_maxima_;
+  std::vector< cv::Point > fast_points_;
   std::vector< double >                     pitch_vals_,
                                             yaw_vals_,
                                             cot_set_min_,
@@ -338,8 +344,6 @@ private:
 
   std::vector< double > yaw_averages_, pitch_averages_;
   std::vector<std::vector<bool>> signals_;
-
-  std::vector< cv::Point > fast_points_;
 
   bool curr_batch_processed_;
 
