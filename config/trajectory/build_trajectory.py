@@ -142,7 +142,7 @@ def compute_star2(name, start_point, second, third, fourth, fifth, heading, data
 
 def main():
      # writeCircle(name="trajectory_files/demo", radius=1.0, x=-33.0, y=-22.0, z=4.0, heading=0.0, data_points=60, ccw=1)
-     # writeCircle(name="trajectory_files/two_tx/tx1_circle", radius=1, x=-33.0, y=-22.0, z=4.0, heading=0.0, data_points=100, ccw=1)
+     writeCircle(name="trajectory_files/two_tx/tx2_", radius=1.6, x=-29.0, y=0.0, z=4.0, heading=0.0, data_points=60, ccw=-1)
      
    
      # name="trajectory_files/"
@@ -160,9 +160,9 @@ def main():
      # right_down = [-33.0, -24.0, 3.0]
      # compute_star2(name, start_point, left_down, right_up, left_up, right_down, heading=0.0, data_pts_per_line=20) 
 
-     file = open("file.txt", "w")
-     l = computeLine(-20,4,-22,4)
-     writeLine(name="file.txt", start_point=[-37.0,-24.0, 4.0], end_point=[-37.0,-20.0, 4.0], line=l, number_data_pts=60, heading=1.57)
+     # file = open("file.txt", "w")
+     # l = computeLine(-20,4,-22,4)
+     # writeLine(name="file.txt", start_point=[-37.0,-24.0, 4.0], end_point=[-37.0,-20.0, 4.0], line=l, number_data_pts=60, heading=1.57)
      # writeLine(name="file.txt", start_point=[0.0, 4.0, 4.0], end_point=[0.0, -4.0, 4.0], line=l, number_data_pts=120, heading=0.869)
 
 if __name__ == "__main__":

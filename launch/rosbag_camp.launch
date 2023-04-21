@@ -25,7 +25,7 @@
   <arg name="profiling" default="false"/>
   <arg name="debug" default="false"/>
   <arg name="visual_debug" default="false"/>
-  <arg name="publish_visualization" default="true"/>
+  <arg name="publish_visualization" default="false"/>
   <arg name="visualization_rate" default="2"/>
 
   <arg name="gui" default="true"/>
@@ -62,7 +62,7 @@
   <arg name="loaded_var_pub_rate" default="20"/>
 
   
-  <arg name="use_masks" default="false"/>
+  <arg name="use_masks" default="true"/>
   <arg name="mrs_id" default="$(optenv MRS_ID)"/>
 
 
@@ -85,32 +85,6 @@
       <remap from="~camera_back" to="/$(arg uav_name)/uvdar_bluefox_back/image_raw"/>
       <remap from="~camera_back_transfer" to="/gazebo/$(arg uav_name)/uvdar_bluefox_back/image_raw"/>
     </node> -->
-    <node name="uv_detect" pkg="nodelet" type="nodelet" args="$(arg nodelet) uvdar/UVDARDetector $(arg nodelet_manager)" output="screen" respawn="true"> 
-    <!-- <node name="uv_detect" pkg="nodelet" type="nodelet" args="$(arg nodelet) uvdar/UVDARDetector $(arg nodelet_manager)" output="screen" respawn="true" launch-prefix="debug_roslaunch"> --> 
-      <!-- <node name="uv_detect" pkg="uvdar" type="uv_detector_node" output="screen" launch-prefix="urxvt -e gdb -q -x /home/viktor/gdb.cmds -/-args"> -->
-      <param name="uav_name" type = "string" value="$(arg uav_name)"/>
-      <param name="debug"		type="bool" value="$(arg debug)"/> 
-      <!-- <param name="debug"		type="bool" value="true"/> --> 
-      <param name="gui"             type="bool" value="false"/>
-      <param name="publish_visualization"             type="bool" value="false"/>
-      <param name="justReport" type="bool" value="true"/>
-      <param name="threshold" type="int" value="$(arg threshold)"/>
-
-      <param name="use_masks"         type="bool" value="$(arg use_masks)"/>
-      <param name="body_name"         type = "string" value="$(arg mrs_id)"/>
-      <!-- <rosparam param="mask_file_names" subst_value="True"> ["$(arg calibrations_folder)/masks/$(arg mrs_id)_$(arg left).png", "$(arg calibrations_folder)/masks/$(arg mrs_id)_$(arg right).png"] </rosparam> -->
-
-      <rosparam param="camera_topics"> ["camera_left", "camera_right"] </rosparam>
-      <rosparam param="points_seen_topics"> ["points_seen_left", "points_seen_right"] </rosparam>
-
-      <remap from="~camera_left" to="/$(arg uav_name)/uvdar_bluefox/left/image_raw_camp"/>
-      <remap from="~camera_right" to="/$(arg uav_name)/uvdar_bluefox/right/image_raw_camp"/>
-      <remap from="~points_seen_left" to="/$(arg uav_name)/uvdar/points_seen_left_camp"/>
-      <remap from="~points_seen_right" to="/$(arg uav_name)/uvdar/points_seen_right_camp"/>
-
-      <remap from="~odometry" to="/$(arg uav_name)/mrs_odometry/new_odom"/>
-      <remap from="~imu" to="mavros/imu/data"/>
-    </node>_camp
       
      <node name="blink_processor_new" pkg="nodelet" type="nodelet" args="$(arg nodelet) uvdar/UVDAR_BP_Tim $(arg nodelet_manager)" output="screen" respawn="true"> 
     <!-- <node name="blink_processor" pkg="nodelet" type="nodelet" args="$(arg nodelet) uvdar/UVDAR_BP_Tim $(arg nodelet_manager)" output="screen" respawn="true" launch-prefix="roslaunch_debug"> --> 
@@ -147,8 +121,8 @@
 
       <remap from="~camera_left" to="/$(arg uav_name)/uvdar_bluefox/left/image_raw_camp"/>
       <remap from="~camera_right" to="/$(arg uav_name)/uvdar_bluefox/right/image_raw_camp"/>
-      <remap from="~points_seen_left" to="/$(arg uav_name)/uvdar/points_seen_left_camp"/>
-      <remap from="~points_seen_right" to="/$(arg uav_name)/uvdar/points_seen_right_camp"/>
+      <remap from="~points_seen_left" to="/$(arg uav_name)/uvdar/points_seen_left"/>
+      <remap from="~points_seen_right" to="/$(arg uav_name)/uvdar/points_seen_right"/>
       <remap from="~blinkers_seen_left" to="/$(arg uav_name)/uvdar/blinkers_seen_left_camp"/>
       <remap from="~blinkers_seen_right" to="/$(arg uav_name)/uvdar/blinkers_seen_right_camp"/>
       <remap from="~estimated_framerate_left" to="/$(arg uav_name)/uvdar/estimated_framerate_left_camp"/>
@@ -158,6 +132,7 @@
       <remap from="~aht_logging_right" to="/$(arg uav_name)/uvdar/aht_logging_right_camp"/>
       <remap from="~aht_all_seq_info_left" to="/$(arg uav_name)/uvdar/aht_all_seq_info_left_camp"/>
       <remap from="~aht_all_seq_info_right" to="/$(arg uav_name)/uvdar/aht_all_seq_info_right_camp"/>
+
     </node>
     
       
