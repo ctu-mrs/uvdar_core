@@ -27,7 +27,7 @@ SESSION_NAME=mav
 
 # following commands will be executed first in each window
 # * do NOT put ; at the end
-pre_input="mkdir -p $MAIN_DIR/$PROJECT_NAME; export WORLD_FILE=./world.yaml"
+pre_input="mkdir -p $MAIN_DIR/$PROJECT_NAME"
 
 # define commands
 # 'name' 'command'
@@ -55,7 +55,7 @@ input=(
 '
   'odom_diag' 'waitForRos; rostopic echo /'"$UAV_NAME"'/odometry/diagnostics
 '
-  'uvdar_observer' 'waitForRos; roslaunch uvdar_core rw_two_sided_tim.launch
+  'uvdar_observer' 'waitForRos; sleep 3; roslaunch uvdar_core rw_two_sided_tim.launch
 '
   'uvdar_filter' 'waitForRos; roslaunch uvdar_core uvdar_kalman.launch output_frame:='"$UAV_NAME"'/stable_origin
 '

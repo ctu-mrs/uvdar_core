@@ -27,7 +27,7 @@ SESSION_NAME=mav
 
 # following commands will be executed first in each window
 # * do NOT put ; at the end
-pre_input="mkdir -p $MAIN_DIR/$PROJECT_NAME; export WORLD_FILE=./world.yaml"
+pre_input="mkdir -p $MAIN_DIR/$PROJECT_NAME"
 
 # define commands
 # 'name' 'command'
@@ -59,7 +59,11 @@ input=(
 '
   'uvdar_filter' 'waitForRos; roslaunch uvdar_core uvdar_kalman.launch output_frame:='"$UAV_NAME"'/stable_origin
 '
-  'Trajectory' 'history -s rosservice call /'"$UAV_NAME"'/control_manager/goto_trajectory_start; history -s roslaunch uvdar_core load_trajectory.launch file:="tumult/rx_still/rx_still.txt";
+  'Trajectory1' 'history -s rosservice call /'"$UAV_NAME"'/control_manager/stop_trajectory_tracking; rosservice call /'"$UAV_NAME"'/control_manager/goto_trajectory_start; history -s roslaunch uvdar_core load_trajectory.launch file:="tumult/tx_still/rx_yaw_rot.txt loop:=true dt:=0.5";
+'
+  'Trajectory2' 'history -s rosservice call /'"$UAV_NAME"'/control_manager/stop_trajectory_tracking; rosservice call /'"$UAV_NAME"'/control_manager/goto_trajectory_start; history -s roslaunch uvdar_core load_trajectory.launch file:="tumult/tx_still/rx_pitch_rot.txt loop:=true dt:=0.05";
+'
+  'Trajectory3' 'history -s rosservice call /'"$UAV_NAME"'/control_manager/stop_trajectory_tracking; rosservice call /'"$UAV_NAME"'/control_manager/goto_trajectory_start; history -s roslaunch uvdar_core load_trajectory.launch file:="tumult/all_moving/rx_trajectory.txt loop:=true";
 '
   'Stop_trajectory' 'history -s rosservice call /'"$UAV_NAME"'/control_manager/stop_trajectory_tracking
 '
