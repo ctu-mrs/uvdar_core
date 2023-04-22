@@ -82,6 +82,10 @@ add_message_files(DIRECTORY msg FILES
    USM.msg
    RecMsg.msg
    DefaultMsg.msg
+   AhtDataForLogging.msg
+   AhtSeqVariables.msg
+   AhtAllSequences.msg
+   AhtSeqPoint.msg
   )
 
 generate_messages(DEPENDENCIES
@@ -119,6 +123,8 @@ add_library(OCamCalib include/OCamCalib/ocam_functions.cpp )
 target_compile_options(OCamCalib PRIVATE -Wno-unused-variable -Wno-unused-result)
 
 add_library(ht4dbt include/ht4dbt/ht4d.cpp include/ht4dbt/ht4d_cpu.cpp include/ht4dbt/ht4d_gpu.cpp)
+add_library(alternativeHT include/alternativeHT/alternativeHT.cpp)
+add_library(extendedSearch include/alternativeHT/extended_search.cpp)
 add_library(uv_led_detect_fast include/detect/uv_led_detect_fast_cpu.cpp include/detect/uv_led_detect_fast_gpu.cpp)
 add_library(frequency_classifier include/frequency_classifier/frequency_classifier.cpp)
 add_library(color_selector include/color_selector/color_selector.cpp)
@@ -181,6 +187,9 @@ add_dependencies(UVDARBluefoxEmulator ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catk
 add_executable(uvdar_led_manager_node src/led_manager.cpp)
 add_dependencies(uvdar_led_manager_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
+add_library(UVDAR_BP_Tim src/bp_tim.cpp)
+add_dependencies(UVDAR_BP_Tim ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+
 add_custom_target(headers SOURCES ${HEADER_FILES} ${LAUNCHER_FILES} ${YAML_FILES})
 
 target_link_libraries(UVDARDetector
@@ -199,10 +208,14 @@ target_link_libraries(UVDARBlinkProcessor
   compute_lib
   )
 
-# target_link_libraries(ROSTOPIC_HZ
-#   ${catkin_LIBRARIES}
-#   ${OpenCV_LIBRARIES}
-#   )
+  target_link_libraries(UVDAR_BP_Tim 
+  ${catkin_LIBRARIES} 
+  ${OpenCV_LIBRARIES}
+  ${EIGEN3_LIBRARIES}
+  alternativeHT
+  extendedSearch
+  color_selector
+  )
 
 # target_link_libraries(uvdar_uav_pose_calculator_node
 #   ${catkin_LIBRARIES}
@@ -246,4 +259,8 @@ target_link_libraries(UVDARBluefoxEmulator
 target_link_libraries(uvdar_led_manager_node
   ${catkin_LIBRARIES}
   )
+
+
+
+
 

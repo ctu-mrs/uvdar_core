@@ -90,6 +90,7 @@ public:
 
     /* Create Gazebo metadata callbacks for each camera //{ */
     /* cals_virtual_points_.reserve(_camera_output_topics.size()); */
+    // subscribes to points which are published in "TransferThread" in uvcam.cc
     for (size_t i = 0; i < _camera_output_topics.size(); ++i) {
         virtual_points_callback_t callback = [image_index=i,this] (const sensor_msgs::PointCloudConstPtr& points_message) { 
           drawPoints(points_message, image_index);

@@ -21,7 +21,7 @@
 
   <arg name="blink_process_rate" default="10"/>
 
-  <arg name="accumulator_length"         default="12"/>
+  <arg name="accumulator_length"         default="18"/>
   <arg name="pitch_steps"         default="16"/>
   <arg name="yaw_steps"         default="16"/>
   <arg name="max_pixel_shift"         default="4"/>
@@ -145,51 +145,51 @@
       <remap from="~imu" to="mavros/imu/data"/>
     </node>
 
-    <!-- <node name="blink_processor" pkg="nodelet" type="nodelet" args="$(arg nodelet) uvdar/UVDARBlinkProcessor $(arg nodelet_manager)" output="screen" respawn="false"> --> 
-    <!-- <!-1- <node name="blink_processor" pkg="nodelet" type="nodelet" args="$(arg nodelet) uvdar/UVDARBlinkProcessor $(arg nodelet_manager)" output="screen" respawn="false" launch-prefix="debug_roslaunch"> -1-> --> 
-    <!--   <param name="uav_name" type = "string" value="$(arg uav_name)"/> -->
-    <!--   <!-1- <param name="debug"		type="bool" value="$(arg debug)"/> -1-> --> 
-    <!--   <param name="debug"		type="bool" value="false"/> --> 
-    <!--   <param name="visual_debug"		type="bool" value="$(arg visual_debug)"/> --> 
-    <!--   <!-1- <param name="gui"             type="bool" value="true"/> -1-> -->
-    <!--   <param name="gui"             type="bool" value="true"/> -->
-    <!--   <param name="publish_visualization"             type="bool" value="false"/> -->
-    <!--   <param name="use_camera_for_visualization"         type="bool" value="false"/> -->
-    <!--   <param name="visualization_rate"         type="double" value="2.0"/> -->
+    <node name="blink_processor" pkg="nodelet" type="nodelet" args="$(arg nodelet) uvdar/UVDARBlinkProcessor $(arg nodelet_manager)" output="screen" respawn="false"> 
+    <!-- <node name="blink_processor" pkg="nodelet" type="nodelet" args="$(arg nodelet) uvdar/UVDARBlinkProcessor $(arg nodelet_manager)" output="screen" respawn="false" launch-prefix="debug_roslaunch"> --> 
+      <param name="uav_name" type = "string" value="$(arg uav_name)"/>
+      <!-- <param name="debug"		type="bool" value="$(arg debug)"/> --> 
+      <param name="debug"		type="bool" value="false"/> 
+      <param name="visual_debug"		type="bool" value="$(arg visual_debug)"/> 
+      <!-- <param name="gui"             type="bool" value="true"/> -->
+      <param name="gui"             type="bool" value="true"/>
+      <param name="publish_visualization"             type="bool" value="false"/>
+      <param name="use_camera_for_visualization"         type="bool" value="true"/>
+      <param name="visualization_rate"         type="double" value="2.0"/>
 
-    <!--   <!-1- <rosparam param="frequencies" subst_value="true"> [$(arg frequency1), $(arg frequency2), $(arg frequency3)] </rosparam> -1-> -->
-    <!--   <rosparam param="signal_ids" subst_value="true"> [$(arg id1), $(arg id2), $(arg id3), $(arg id4), $(arg id5), $(arg id6), $(arg id7), $(arg id8), $(arg id9), $(arg id10), $(arg id11), $(arg id12)] </rosparam> -->
+      <!-- <rosparam param="frequencies" subst_value="true"> [$(arg frequency1), $(arg frequency2), $(arg frequency3)] </rosparam> -->
+      <rosparam param="signal_ids" subst_value="true"> [$(arg id1), $(arg id2), $(arg id3), $(arg id4), $(arg id5), $(arg id6), $(arg id7), $(arg id8), $(arg id9), $(arg id10), $(arg id11), $(arg id12)] </rosparam>
 
-    <!--   <param name="sequence_file"         type="string" value="$(arg sequence_file)"/> -->
+      <param name="sequence_file"         type="string" value="$(arg sequence_file)"/>
 
-    <!--   <param name="blink_process_rate"         type="int" value="$(arg blink_process_rate)"/> -->
+      <param name="blink_process_rate"         type="int" value="$(arg blink_process_rate)"/>
 
-    <!--   <param name="accumulator_length"         type="int" value="$(arg accumulator_length)"/> -->
-    <!--   <param name="pitch_steps"         type="int" value="$(arg pitch_steps)"/> -->
-    <!--   <param name="yaw_steps"         type="int" value="$(arg yaw_steps)"/> -->
-    <!--   <param name="max_pixel_shift"         type="int" value="$(arg max_pixel_shift)"/> -->
-    <!--   <param name="nullify_radius"         type="int" value="5"/> -->
+      <param name="accumulator_length"         type="int" value="$(arg accumulator_length)"/>
+      <param name="pitch_steps"         type="int" value="$(arg pitch_steps)"/>
+      <param name="yaw_steps"         type="int" value="$(arg yaw_steps)"/>
+      <param name="max_pixel_shift"         type="int" value="$(arg max_pixel_shift)"/>
+      <param name="nullify_radius"         type="int" value="5"/>
 
-    <!--   <rosparam param="camera_topics"> ["camera_left", "camera_right", "camera_back"] </rosparam> -->
-    <!--   <rosparam param="points_seen_topics"> ["points_seen_left", "points_seen_right", "points_seen_back"] </rosparam> -->
-    <!--   <rosparam param="blinkers_seen_topics"> ["blinkers_seen_left", "blinkers_seen_right", "blinkers_seen_back"] </rosparam> -->
-    <!--   <rosparam param="estimated_framerate_topics"> ["estimated_framerate_left", "estimated_framerate_right", "estimated_framerate_back"] </rosparam> -->
+      <rosparam param="camera_topics"> ["camera_left", "camera_right", "camera_back"] </rosparam>
+      <rosparam param="points_seen_topics"> ["points_seen_left", "points_seen_right", "points_seen_back"] </rosparam>
+      <rosparam param="blinkers_seen_topics"> ["blinkers_seen_left", "blinkers_seen_right", "blinkers_seen_back"] </rosparam>
+      <rosparam param="estimated_framerate_topics"> ["estimated_framerate_left", "estimated_framerate_right", "estimated_framerate_back"] </rosparam>
 
-    <!--   <remap from="~camera_left" to="/$(arg uav_name)/uvdar_bluefox_left/image_raw"/> -->
-    <!--   <remap from="~camera_right" to="/$(arg uav_name)/uvdar_bluefox_right/image_raw"/> -->
-    <!--   <remap from="~camera_back" to="/$(arg uav_name)/uvdar_bluefox_back/image_raw"/> -->
-    <!--   <remap from="~points_seen_left" to="/$(arg uav_name)/uvdar/points_seen_left"/> -->
-    <!--   <remap from="~points_seen_right" to="/$(arg uav_name)/uvdar/points_seen_right"/> -->
-    <!--   <remap from="~points_seen_back" to="/$(arg uav_name)/uvdar/points_seen_back"/> -->
-    <!--   <remap from="~blinkers_seen_left" to="/$(arg uav_name)/uvdar/blinkers_seen_left"/> -->
-    <!--   <remap from="~blinkers_seen_right" to="/$(arg uav_name)/uvdar/blinkers_seen_right"/> -->
-    <!--   <remap from="~blinkers_seen_back" to="/$(arg uav_name)/uvdar/blinkers_seen_back"/> -->
-    <!--   <remap from="~estimated_framerate_left" to="/$(arg uav_name)/uvdar/estimated_framerate_left"/> -->
-    <!--   <remap from="~estimated_framerate_right" to="/$(arg uav_name)/uvdar/estimated_framerate_right"/> -->
-    <!--   <remap from="~estimated_framerate_back" to="/$(arg uav_name)/uvdar/estimated_framerate_back"/> -->
-    <!--   <remap from="~visualization" to="/$(arg uav_name)/uvdar/blink_visualization/image_raw"/> -->
+      <remap from="~camera_left" to="/$(arg uav_name)/uvdar_bluefox_left/image_raw"/>
+      <remap from="~camera_right" to="/$(arg uav_name)/uvdar_bluefox_right/image_raw"/>
+      <remap from="~camera_back" to="/$(arg uav_name)/uvdar_bluefox_back/image_raw"/>
+      <remap from="~points_seen_left" to="/$(arg uav_name)/uvdar/points_seen_left"/>
+      <remap from="~points_seen_right" to="/$(arg uav_name)/uvdar/points_seen_right"/>
+      <remap from="~points_seen_back" to="/$(arg uav_name)/uvdar/points_seen_back"/>
+      <remap from="~blinkers_seen_left" to="/$(arg uav_name)/uvdar/blinkers_seen_left"/>
+      <remap from="~blinkers_seen_right" to="/$(arg uav_name)/uvdar/blinkers_seen_right"/>
+      <remap from="~blinkers_seen_back" to="/$(arg uav_name)/uvdar/blinkers_seen_back"/>
+      <remap from="~estimated_framerate_left" to="/$(arg uav_name)/uvdar/estimated_framerate_left"/>
+      <remap from="~estimated_framerate_right" to="/$(arg uav_name)/uvdar/estimated_framerate_right"/>
+      <remap from="~estimated_framerate_back" to="/$(arg uav_name)/uvdar/estimated_framerate_back"/>
+      <remap from="~visualization" to="/$(arg uav_name)/uvdar/blink_visualization/image_raw"/>
 
-    <!-- </node> -->
+    </node>
       
     <!-- <!-1- <node name="uvdar_pose_calculator_node" pkg="uvdar_core" type="uvdar_pose_calculator_node" output="screen" launch-prefix="debug_roslaunch"> -1-> --> 
     <!-- <node name="uvdar_pose_calculator_node" pkg="uvdar_core" type="uvdar_pose_calculator_node" output="screen" > --> 
