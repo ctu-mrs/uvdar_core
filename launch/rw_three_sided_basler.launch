@@ -135,8 +135,8 @@
       <arg name="nodelet_back" value="pylon_camera/PylonCameraNodelet" />
       <arg name="nodelet_load_back" value="load $(arg nodelet_back) $(arg nodelet_manager)"/>
 
-    <!-- <node pkg="nodelet" type="nodelet" name="$(arg nodelet_manager)" args="manager" output="screen" launch-prefix="debug_roslaunch"> -->
-    <node pkg="nodelet" type="nodelet" name="$(arg nodelet_manager)" args="manager" output="screen">
+    <node pkg="nodelet" type="nodelet" name="$(arg nodelet_manager)" args="manager" output="screen" launch-prefix="debug_roslaunch">
+    <!-- <node pkg="nodelet" type="nodelet" name="$(arg nodelet_manager)" args="manager" output="screen"> -->
       <param name="num_worker_threads" value="10" />
     </node>
 
@@ -284,8 +284,8 @@
       <!-- <rosparam param="points_seen_topics"> ["points_seen_left", "points_seen_right"] </rosparam> -->
       <!-- <rosparam param="blinkers_seen_topics"> ["blinkers_seen_left", "blinkers_seen_right"] </rosparam> -->
       <!-- <rosparam param="estimated_framerate_topics"> ["estimated_framerate_left", "estimated_framerate_right"] </rosparam> -->
-      <rosparam param="aht_logging_topics"> ["aht_logging_left", "aht_logging_right"] </rosparam>
-      <rosparam param="aht_all_seq_info_topics"> ["aht_all_seq_info_left", "aht_all_seq_info_right"] </rosparam>
+      <rosparam param="aht_logging_topics"> ["aht_logging_left", "aht_logging_right", "aht_logging_back"] </rosparam>
+      <rosparam param="aht_all_seq_info_topics"> ["aht_all_seq_info_left", "aht_all_seq_info_right", "aht_all_seq_info_back"] </rosparam>
 
       <!-- <rosparam param="camera_topics"> ["camera_left", "camera_right", "camera_back"] </rosparam> -->
       <!-- <rosparam param="points_seen_topics"> ["points_seen_left", "points_seen_right", "points_seen_back"] </rosparam> -->
@@ -311,8 +311,10 @@
       <!-- <remap from="~visualization" to="/$(arg uav_name)/uvdar/blink_visualization/image_raw"/> -->
       <remap from="~aht_logging_left" to="/$(arg uav_name)/uvdar/aht_logging_left"/>
       <remap from="~aht_logging_right" to="/$(arg uav_name)/uvdar/aht_logging_right"/>
+      <remap from="~aht_logging_back" to="/$(arg uav_name)/uvdar/aht_logging_back"/>
       <remap from="~aht_all_seq_info_left" to="/$(arg uav_name)/uvdar/aht_all_seq_info_left"/>
       <remap from="~aht_all_seq_info_right" to="/$(arg uav_name)/uvdar/aht_all_seq_info_right"/>
+      <remap from="~aht_all_seq_info_back" to="/$(arg uav_name)/uvdar/aht_all_seq_info_back"/>
     </node>
     <!-- <node name="uvdar_pose_calculator_node" pkg="uvdar_core" type="uvdar_pose_calculator_node" output="screen" > --> 
     <!--     <!-1- <node name="uvdar_pose_calculator_node" pkg="uvdar_core" type="uvdar_pose_calculator_node" launch-prefix="valgrind -/-tool=callgrind -/-callgrind-out-file=/home/viktor/callgrind.out -/-instr-atstart=no -/-collect-atstart=yes"> -1-> --> 
