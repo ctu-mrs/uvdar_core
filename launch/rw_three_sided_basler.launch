@@ -24,7 +24,7 @@
   <arg name="camera_name_back" default="basler_back" />
 
   <arg name="expose_us_left" default="$(env BASLER_UV_LEFT_EXPOSE_US)"/>
-  <arg name="expose_us_right" default="$(env BASLER_UV_RIGHT_EXPOSE_US)"/>
+  UVDAR_BP_Timarg name="expose_us_right" default="$(env BASLER_UV_RIGHT_EXPOSE_US)"/>
   <arg name="expose_us_back" default="$(env BASLER_UV_BACK_EXPOSE_US)"/>
   
   <arg name="camera_config_file" default="$(find uvdar_core)/config/camera_config/basler_grayscale.yaml" />
@@ -194,7 +194,8 @@
       <remap from="~imu" to="mavros/imu/data"/>
     </node>
 
-    <node name="blink_processor" pkg="nodelet" type="nodelet" args="$(arg nodelet) uvdar/UVDARBlinkProcessor $(arg nodelet_manager)" output="screen" launch-prefix="bash -c 'sleep 9; $0 $@'; " respawn="true"> 
+    <node name="blink_processor" pkg="nodelet" type="nodelet" args="$(arg nodelet) uvdar/UVDAR_BP_Tim $(arg nodelet_manager)" output="screen" launch-prefix="bash -c 'sleep 9; $0 $@'; " respawn="true"> 
+    <!-- <node name="blink_processor" pkg="nodelet" type="nodelet" args="$(arg nodelet) uvdar/UVDARBlinkProcessor $(arg nodelet_manager)" output="screen" launch-prefix="bash -c 'sleep 9; $0 $@'; " respawn="true"> --> 
     <!-- <node name="blink_processor" pkg="nodelet" type="nodelet" args="$(arg nodelet) uvdar/UVDARBlinkProcessor $(arg nodelet_manager)" output="screen" respawn="false" launch-prefix="bash -c 'sleep 9; $0 $@'; roslaunch_debug"> --> 
       <param name="uav_name" type = "string" value="$(arg uav_name)"/>
       <!-- <param name="debug"		type="bool" value="$(arg debug)"/> --> 
