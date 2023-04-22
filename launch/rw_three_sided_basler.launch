@@ -24,7 +24,7 @@
   <arg name="camera_name_back" default="basler_back" />
 
   <arg name="expose_us_left" default="$(env BASLER_UV_LEFT_EXPOSE_US)"/>
-  UVDAR_BP_Timarg name="expose_us_right" default="$(env BASLER_UV_RIGHT_EXPOSE_US)"/>
+  <arg name="expose_us_right" default="$(env BASLER_UV_RIGHT_EXPOSE_US)"/>
   <arg name="expose_us_back" default="$(env BASLER_UV_BACK_EXPOSE_US)"/>
   
   <arg name="camera_config_file" default="$(find uvdar_core)/config/camera_config/basler_grayscale.yaml" />
