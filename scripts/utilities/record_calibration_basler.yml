@@ -1,7 +1,7 @@
 name: uvdar_calib_record
 root: ./
 startup_window: termviz
-pre_window: devnum=$BASLER_UV_RIGHT
+pre_window: devnum=$BASLER_UV_BACK
 
 windows:
   - roscore:

@@ -79,10 +79,10 @@
   <arg name="sequence_file" default="$(find uvdar_core)/config/selected.txt"/>
 
 <!-- Params for Tim's BP_Processor-->
-  <arg name="max_px_shift_x" default="2"/>
-  <arg name="max_px_shift_y" default="2"/>
-  <arg name="max_zeros_consecutive" default="2"/>
-  <arg name="max_ones_consecutive" default="2"/>
+  <arg name="max_px_shift_x" default="1"/>
+  <arg name="max_px_shift_y" default="1"/>
+  <arg name="max_zeros_consecutive" default="1"/>
+  <arg name="max_ones_consecutive" default="1"/>
   <arg name="stored_seq_len_factor" default="15"/>
   <arg name="poly_order" default="4"/>
   <arg name="decay_factor" default="0.01"/>
@@ -135,8 +135,8 @@
       <arg name="nodelet_back" value="pylon_camera/PylonCameraNodelet" />
       <arg name="nodelet_load_back" value="load $(arg nodelet_back) $(arg nodelet_manager)"/>
 
-    <node pkg="nodelet" type="nodelet" name="$(arg nodelet_manager)" args="manager" output="screen" launch-prefix="debug_roslaunch">
-    <!-- <node pkg="nodelet" type="nodelet" name="$(arg nodelet_manager)" args="manager" output="screen"> -->
+    <!-- <node pkg="nodelet" type="nodelet" name="$(arg nodelet_manager)" args="manager" output="screen" launch-prefix="debug_roslaunch"> -->
+    <node pkg="nodelet" type="nodelet" name="$(arg nodelet_manager)" args="manager" output="screen">
       <param name="num_worker_threads" value="10" />
     </node>
 

@@ -117,7 +117,7 @@ namespace uvdar{
       cv::Point _max_px_shift_;
       int _max_zeros_consecutive_;
       int _max_ones_consecutive_;
-      int _stored_seq_len_factor_;
+      double _stored_seq_len_factor_;
       int _poly_order_;
       float _decay_factor_; 
       double _conf_probab_percent_;
@@ -206,7 +206,7 @@ namespace uvdar{
     param_loader.loadParam("max_px_shift_y", _max_px_shift_.y, int(2));
     param_loader.loadParam("max_zeros_consecutive", _max_zeros_consecutive_, int(2));
     param_loader.loadParam("max_ones_consecutive", _max_ones_consecutive_, int(2));
-    param_loader.loadParam("stored_seq_len_factor", _stored_seq_len_factor_, int(15));
+    param_loader.loadParam("stored_seq_len_factor", _stored_seq_len_factor_, double(1.5));
     param_loader.loadParam("poly_order", _poly_order_, int(2));
     param_loader.loadParam("decay_factor", _decay_factor_, float(0.1));
     param_loader.loadParam("confidence_probability", _conf_probab_percent_, double(75.0));
@@ -417,6 +417,8 @@ namespace uvdar{
       ROS_ERROR_STREAM("[UVDAR_BP_Tim]: Points arrived out of order!: prev: "<< blink_data_[img_index].last_sample_time << "; curr: " << pts_msg->stamp);
     }
     double dt = (pts_msg->stamp - blink_data_[img_index].last_sample_time).toSec();
+    if (_debug_)
+      ROS_INFO_STREAM("[UVDAR_BP_Tim]: 1.5*exp=" << (1.5/(blink_data_[img_index].framerate_estimate)) <<"");
     if (dt > (1.5/(blink_data_[img_index].framerate_estimate)) ){
       int new_frame_count = (int)(dt*(blink_data_[img_index].framerate_estimate) + 0.5) - 1;
       ROS_ERROR_STREAM("[UVDAR_BP_Tim]: Missing frames! Alternative HT will automatically insert " << new_frame_count << " empty frames!"); 

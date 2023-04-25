@@ -257,6 +257,7 @@ void alternativeHT::cleanPotentialBuffer(){
                 if(!(reverse_it->led_state)){
                     ++cnt;
                     if(cnt > number_zeros_till_seq_deleted){
+                      /* std::cout << "Sit. A" << std::endl; */
                         gen_sequences_.erase(gen_sequences_.begin() + i);
                         break;
                     }
