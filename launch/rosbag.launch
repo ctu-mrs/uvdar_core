@@ -109,8 +109,8 @@
 
 
     
-    <node name="UVDAR_BP_Tim" pkg="nodelet" type="nodelet" args="load uvdar/UVDAR_BP_Tim $(arg nodelet_manager)" output="screen" respawn="false">
-    <!-- <node name="UVDAR_BP_Tim" pkg="nodelet" type="nodelet" args="load uvdar/UVDAR_BP_Tim $(arg nodelet_manager)" output="screen" respawn="false" launch-prefix="debug_roslaunch"> -->
+    <node name="UVDARBlinkProcessor" pkg="nodelet" type="nodelet" args="load uvdar/UVDARBlinkProcessor $(arg nodelet_manager)" output="screen" respawn="false">
+    <!-- <node name="UVDARBlinkProcessor" pkg="nodelet" type="nodelet" args="load uvdar/UVDARBlinkProcessor $(arg nodelet_manager)" output="screen" respawn="false" launch-prefix="debug_roslaunch"> -->
 
       <param name="uav_name" type = "string" value="$(arg uav_name)"/>
       <param name="debug"		type="bool" value="$(arg debug)"/> 
@@ -141,15 +141,15 @@
       <rosparam param="points_seen_topics"> ["points_seen_left"] </rosparam>
       <rosparam param="blinkers_seen_topics"> ["blinkers_seen_back"] </rosparam>
       <rosparam param="estimated_framerate_topics"> ["estimated_framerate_back"] </rosparam>
-      <rosparam param="aht_logging_topics"> ["aht_logging_back"] </rosparam>
-      <rosparam param="aht_all_seq_info_topics"> ["aht_all_seq_info_back"] </rosparam>
+      <rosparam param="omta_logging_topics"> ["omta_logging_back"] </rosparam>
+      <rosparam param="omta_all_seq_info_topics"> ["omta_all_seq_info_back"] </rosparam>
       
 
       <remap from="~camera_left" to="/$(arg uav_name)/uvdar_bluefox/left/image_raw"/>
       <remap from="~points_seen_left" to="/$(arg uav_name)/uvdar/points_seen_left"/>
       <remap from="~blinkers_seen_back" to="/$(arg uav_name)/uvdar/blinkers_seen_back"/>
-      <remap from="~aht_logging_back" to="/$(arg uav_name)/uvdar/aht_logging_back"/>
-      <remap from="~aht_all_seq_info_back" to="/$(arg uav_name)/uvdar/aht_all_seq_info_back"/>
+      <remap from="~omta_logging_back" to="/$(arg uav_name)/uvdar/omta_logging_back"/>
+      <remap from="~omta_all_seq_info_back" to="/$(arg uav_name)/uvdar/omta_all_seq_info_back"/>
 
       <remap from="~estimated_framerate_back" to="/$(arg uav_name)/uvdar/estimated_framerate_back"/>
       <remap from="~visualization" to="/$(arg uav_name)/uvdar/blink_visualization/image_raw"/>
