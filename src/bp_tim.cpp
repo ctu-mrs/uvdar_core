@@ -46,7 +46,7 @@ namespace uvdar{
 
       // functions for visualization
       void initGUI(); 
-      void ProcessThread([[maybe_unused]] const int&);
+      void ProcessThread(const int&);
       void VisualizationThread([[maybe_unused]] const ros::TimerEvent&);
       int generateVisualization(cv::Mat& );
       void callbackImage(const sensor_msgs::ImageConstPtr&, size_t);
@@ -173,7 +173,7 @@ namespace uvdar{
 
 
     parseSequenceFile(_sequence_file);
-    // setupCallbackAndPublisher();
+    setupCallbackAndPublisher();
     
     sun_points_.resize(_points_seen_topics_.size());
     if(!_use_4DHT_){
@@ -452,7 +452,6 @@ namespace uvdar{
     if (!initialized_) return;
 
     blink_data_[img_index].sample_count++;
-
     
     if ((blink_data_[img_index].sample_count % 10) == 0) { //update the estimate of frequency every 10 samples
       blink_data_[img_index].framerate_estimate = 10000000000.0 / (double)((pts_msg->stamp - blink_data_[img_index].last_sample_time_diagnostic).toNSec());
@@ -460,7 +459,11 @@ namespace uvdar{
         ROS_INFO_STREAM("[UVDARBlinkProcessor]: Updating frequency: " << blink_data_[img_index].framerate_estimate << " Hz");
       }
 
-      omta_[img_index]->updateFramerate(blink_data_[img_index].framerate_estimate);
+      if(!_use_4DHT_) omta_[img_index]->updateFramerate(blink_data_[img_index].framerate_estimate);
+      else{
+        ht4dbt_trackers_[img_index]->updateFramerate(blink_data_[img_index].framerate_estimate);
+      }
+
       blink_data_[img_index].sample_count = 0;
 
       blink_data_[img_index].last_sample_time_diagnostic = pts_msg->stamp;
@@ -497,14 +500,16 @@ namespace uvdar{
       for (auto& point : pts_msg->points) {
         points.push_back(cv::Point2d(point.x, point.y));
       }
-      ht4dbt_trackers_[img_index]->insertFrame(points);
+      // ht4dbt_trackers_[img_index]->insertFrame(points); // TODO: Why crashing here???
+
     }
 
     if ((!_use_camera_for_visualization_) || ((!_gui_) && (!_publish_visualization_))){
-      if ( (camera_image_sizes_[img_index].width <= 0 ) || (camera_image_sizes_[img_index].width <= 0 )){
+      if ( (camera_image_sizes_[img_index].width <= 0 ) || (camera_image_sizes_[img_index].height <= 0 )){
         camera_image_sizes_[img_index].width = pts_msg->image_width;
         camera_image_sizes_[img_index].height = pts_msg->image_height;
         if(_use_4DHT_){
+
           ht4dbt_trackers_[img_index]->updateResolution(cv::Size(pts_msg->image_width, pts_msg->image_height));
         }
         if (image_sizes_received_ < (int)(camera_image_sizes_.size())){
@@ -651,7 +656,7 @@ namespace uvdar{
    * @param Image_index Index of the camera producing the image
    */
   /* ProcessThread //{ */
-  void UVDARBlinkProcessor::ProcessThread([[maybe_unused]]const int& image_index) {
+  void UVDARBlinkProcessor::ProcessThread(const int& image_index) {
     if (!initialized_){
       return;
     }
@@ -960,7 +965,7 @@ namespace uvdar{
     }
     if ( (camera_image_sizes_[image_index].width <= 0 ) || (camera_image_sizes_[image_index].width <= 0 )){
       camera_image_sizes_[image_index] = image->image.size();
-      // if(_use_4DHT_)ht4dbt_trackers_[image_index]->updateResolution(image->image.size());
+      if(_use_4DHT_)ht4dbt_trackers_[image_index]->updateResolution(image->image.size());
       if (image_sizes_received_ < (int)(camera_image_sizes_.size())){
         image_sizes_received_++;
       }
