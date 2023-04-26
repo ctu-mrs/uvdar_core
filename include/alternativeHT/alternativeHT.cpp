@@ -250,6 +250,7 @@ void alternativeHT::cleanPotentialBuffer(){
 
 
         int number_zeros_till_seq_deleted = (loaded_params_->max_zeros_consecutive + loaded_params_->allowed_BER_per_seq);
+        int number_ones_till_seq_deleted = (loaded_params_->max_ones_consecutive + loaded_params_->allowed_BER_per_seq);
         if((int)gen_sequences_[i]->size() > number_zeros_till_seq_deleted){
             int cnt = 0;
             for (auto reverse_it = gen_sequences_[i]->rbegin(); 
@@ -257,6 +258,22 @@ void alternativeHT::cleanPotentialBuffer(){
                 if(!(reverse_it->led_state)){
                     ++cnt;
                     if(cnt > number_zeros_till_seq_deleted){
+                      /* std::cout << "Sit. A" << std::endl; */
+                        gen_sequences_.erase(gen_sequences_.begin() + i);
+                        break;
+                    }
+                }else{
+                    cnt = 0;
+                }
+            }
+        }
+        if((int)gen_sequences_[i]->size() > number_ones_till_seq_deleted){
+            int cnt = 0;
+            for (auto reverse_it = gen_sequences_[i]->rbegin(); 
+                reverse_it != gen_sequences_[i]->rend(); ++reverse_it ) {  
+                if((reverse_it->led_state)){
+                    ++cnt;
+                    if(cnt > number_ones_till_seq_deleted){
                       /* std::cout << "Sit. A" << std::endl; */
                         gen_sequences_.erase(gen_sequences_.begin() + i);
                         break;

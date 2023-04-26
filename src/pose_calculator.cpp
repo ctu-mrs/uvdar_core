@@ -50,7 +50,7 @@
 
 /* #define ERROR_THRESHOLD_INITIAL (752.0/M_PI) */
 /* #define ERROR_THRESHOLD_INITIAL sqr(10) */
-#define ERROR_THRESHOLD_INITIAL(img) sqr(_oc_models_.at(img).width/75.0)
+#define ERROR_THRESHOLD_INITIAL(img) sqr(_oc_models_.at(img).width/150.0)
 #define ERROR_THRESHOLD_FITTED(img) sqr(_oc_models_.at(img).width/300.0)
 
 #define SIMILAR_ERRORS_THRESHOLD sqr(1)
@@ -1166,7 +1166,7 @@ namespace uvdar {
           final_mean.first << v_w_s.x(),v_w_s.y(),v_w_s.z();
           final_mean.second = e::Quaterniond(1,0,0,0);
           final_covariance.setIdentity(6,6);
-          final_covariance *= M_PI;//large covariance for angles in radians
+          final_covariance *= 1000;//large covariance for angles in radians
           final_covariance.topLeftCorner(3, 3) = getLongCovariance(v_w_s,(maxdiameter_*1.0),1000.0);
         }
         else {
@@ -1861,7 +1861,7 @@ namespace uvdar {
             }
             using vec6_t = e::Matrix<double, 6, 1>;
             vec6_t gradient = std::numeric_limits<double>::max()*vec6_t::Ones();
-            const double threshold = (double)(observed_points.size())*sqr(QPIX);
+            const double threshold = (double)(observed_points.size())*ERROR_THRESHOLD_FITTED(image_index);
             int iters = 0;
             if (_debug_)
               ROS_INFO_STREAM("[UVDARPoseCalculator]: total error init: " << error_total);
