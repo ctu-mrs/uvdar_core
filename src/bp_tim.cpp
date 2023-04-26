@@ -140,30 +140,18 @@ namespace uvdar{
         ros::Time                     last_sample_time_diagnostic;
         unsigned int                  sample_count = -1;
         double                        framerate_estimate = 72;
-      };
-
-      struct BlinkDataOMTA : BlinkData{
-        std::shared_ptr<std::mutex>   mutex_retrieved_blinkers;
         std::vector<std::pair<seqPointer,int>> retrieved_blinkers;
+        std::vector<std::pair<cv::Point2d,int>>      retrieved_blinkers_4DHT;
+        std::vector<double>           pitch_4DHT;
+        std::vector<double>           yaw_4DHT;
 
-        BlinkDataOMTA(){mutex_retrieved_blinkers = std::make_shared<std::mutex>();}
-        ~BlinkDataOMTA(){mutex_retrieved_blinkers.reset();}
-      };
-
-      struct BlinkData4DHT : BlinkData{
         std::shared_ptr<std::mutex>   mutex_retrieved_blinkers;
-        std::vector<std::pair<cv::Point2d,int>>      retrieved_blinkers;
-        std::vector<double>           pitch;
-        std::vector<double>           yaw;
-
-        BlinkData4DHT(){mutex_retrieved_blinkers = std::make_shared<std::mutex>();}
-        ~BlinkData4DHT(){mutex_retrieved_blinkers.reset();}
+        BlinkData(){mutex_retrieved_blinkers = std::make_shared<std::mutex>();}
+        ~BlinkData(){mutex_retrieved_blinkers.reset();}
       };
-      
-      std::vector<BlinkDataOMTA> blink_data_;
-      std::vector<std::shared_ptr<OMTA>> omta_trackers_;
 
-      std::vector<BlinkData4DHT> blink_data_4DHT_;
+      std::vector<BlinkData> blink_data_;
+      std::vector<std::shared_ptr<OMTA>> omta_trackers_;
       std::vector<std::shared_ptr<HT4DBlinkerTracker>> ht4dbt_trackers_;
   };
       
@@ -185,7 +173,7 @@ namespace uvdar{
 
 
     parseSequenceFile(_sequence_file);
-    setupCallbackAndPublisher();
+    // setupCallbackAndPublisher();
     
     sun_points_.resize(_points_seen_topics_.size());
     if(!_use_4DHT_){
@@ -199,6 +187,7 @@ namespace uvdar{
     }
 
     for (int i = 0; i < (int)_points_seen_topics_.size(); ++i) {
+      blink_data_.push_back(BlinkData());
       mutex_camera_image_.push_back(std::make_shared<std::mutex>());
       camera_image_sizes_.push_back(cv::Size(-1,-1));
     }
@@ -381,7 +370,6 @@ namespace uvdar{
 
       omta_[i]->setDebugFlags(_debug_);
 
-      blink_data_.push_back(BlinkDataOMTA());
     }
     return true;
   }
@@ -396,7 +384,6 @@ namespace uvdar{
       ht4dbt_trackers_.back()->setDebug(_debug_, _visual_debug_);
       ht4dbt_trackers_.back()->setSequences(sequences_);
 
-      blink_data_4DHT_.push_back(BlinkData4DHT());
     }
   }
 
@@ -487,9 +474,9 @@ namespace uvdar{
     double dt = (pts_msg->stamp - blink_data_[img_index].last_sample_time).toSec();
     if (dt > (1.5/(blink_data_[img_index].framerate_estimate)) ){
       int new_frame_count = (int)(dt*(blink_data_[img_index].framerate_estimate) + 0.5) - 1;
-      if(!_use_4DHT_)ROS_ERROR_STREAM("[UVDARBlinkProcessor]: Missing frames! Alternative HT will automatically insert " << new_frame_count << " empty frames!"); 
+      if(!_use_4DHT_)ROS_ERROR_STREAM("[UVDARBlinkProcessor]: Missing frames! OMTA will automatically insert " << new_frame_count << " empty frames!"); 
       else{
-        ROS_ERROR_STREAM("[UVDARBlinkProcessor]: Missing frames! Inserting " << new_frame_count << " empty frames!"); 
+        ROS_ERROR_STREAM("[UVDARBlinkProcessor]: Missing frames! Inserting " << new_frame_count << " empty frames to 4DHT!"); 
         std::vector<cv::Point2i> null_points;
         for (int i = 0; i < new_frame_count; i++){
           ht4dbt_trackers_[img_index]->insertFrame(null_points);
@@ -601,13 +588,12 @@ namespace uvdar{
 
 
       // publish loaded variables every _loaded_var_pub_rate_ seconds
-      double publish_rate_sec = _loaded_var_pub_rate_;
       double diff = ros::Time::now().toSec() - last_publish_omta_logging_.toSec();
-      if( publish_rate_sec < diff){
+      if( _loaded_var_pub_rate_ < diff){
         last_publish_omta_logging_ = ros::Time::now();
 
         omta_logging_msg.stamp = last_publish_omta_logging_;
-        omta_logging_msg.pub_rate = publish_rate_sec; 
+        omta_logging_msg.pub_rate = _loaded_var_pub_rate_; 
         mrs_msgs::Point2DWithFloat max_px_shift;
         omta_logging_msg.frame_tolerance_till_seq_rejected = _frame_tolerance_;
         omta_logging_msg.stored_seq_len_factor = _stored_seq_len_factor_;
@@ -670,6 +656,7 @@ namespace uvdar{
       return;
     }
 
+    // crashes currently 
     if(_use_4DHT_){
       mrs_msgs::ImagePointsWithFloatStamped msg;
 
@@ -677,19 +664,19 @@ namespace uvdar{
         ROS_INFO("Processing accumulated points.");
       }
 
-      ros::Time local_last_sample_time = blink_data_4DHT_[image_index].last_sample_time;
+      ros::Time local_last_sample_time = blink_data_[image_index].last_sample_time;
       {
-        std::scoped_lock lock(*(blink_data_4DHT_[image_index].mutex_retrieved_blinkers));
-        blink_data_4DHT_[image_index].retrieved_blinkers = ht4dbt_trackers_[image_index]->getResults();
-        blink_data_4DHT_[image_index].pitch              = ht4dbt_trackers_[image_index]->getPitch();
-        blink_data_4DHT_[image_index].yaw                = ht4dbt_trackers_[image_index]->getYaw();
+        std::scoped_lock lock(*(blink_data_[image_index].mutex_retrieved_blinkers));
+        blink_data_[image_index].retrieved_blinkers_4DHT = ht4dbt_trackers_[image_index]->getResults();
+        blink_data_[image_index].pitch_4DHT              = ht4dbt_trackers_[image_index]->getPitch();
+        blink_data_[image_index].yaw_4DHT                = ht4dbt_trackers_[image_index]->getYaw();
       }
 
       msg.stamp         = local_last_sample_time;
       msg.image_width   = camera_image_sizes_[image_index].width;
       msg.image_height  = camera_image_sizes_[image_index].height;
 
-      for (auto& blinker : blink_data_4DHT_[image_index].retrieved_blinkers) {
+      for (auto& blinker : blink_data_[image_index].retrieved_blinkers_4DHT) {
         mrs_msgs::Point2DWithFloat point;
         point.x     = blinker.first.x;
         point.y     = blinker.first.y;
@@ -705,7 +692,7 @@ namespace uvdar{
       pub_blinkers_seen_[image_index].publish(msg);
 
       std_msgs::Float32 msgFramerate;
-      msgFramerate.data = blink_data_4DHT_[image_index].framerate_estimate;
+      msgFramerate.data = blink_data_[image_index].framerate_estimate;
       pub_estimated_framerate_[image_index].publish(msgFramerate);
     }
 
@@ -907,23 +894,23 @@ namespace uvdar{
           cv::polylines(output_image, draw_seq, false, seq_colour, 1);
         }
       }else{
-        std::scoped_lock lock(*(blink_data_4DHT_[image_index].mutex_retrieved_blinkers));
-        for (int j = 0; j < (int)(blink_data_4DHT_[image_index].retrieved_blinkers.size()); j++) {
+        std::scoped_lock lock(*(blink_data_[image_index].mutex_retrieved_blinkers));
+        for (int j = 0; j < (int)(blink_data_[image_index].retrieved_blinkers_4DHT.size()); j++) {
           cv::Point center =
             cv::Point(
-                blink_data_4DHT_[image_index].retrieved_blinkers[j].first.x, 
-                blink_data_4DHT_[image_index].retrieved_blinkers[j].first.y 
+                blink_data_[image_index].retrieved_blinkers_4DHT[j].first.x, 
+                blink_data_[image_index].retrieved_blinkers_4DHT[j].first.y 
                 )
             + start_point;
-          int signal_index = blink_data_4DHT_[image_index].retrieved_blinkers[j].second;
+          int signal_index = blink_data_[image_index].retrieved_blinkers_4DHT[j].second;
           if (signal_index >= 0) {
-            std::string signal_text = std::to_string(std::max((int)blink_data_4DHT_[image_index].retrieved_blinkers[j].second, 0));
+            std::string signal_text = std::to_string(std::max((int)blink_data_[image_index].retrieved_blinkers_4DHT[j].second, 0));
             cv::putText(output_image, cv::String(signal_text.c_str()), center + cv::Point(-5, -5), cv::FONT_HERSHEY_SIMPLEX, 0.3, cv::Scalar(255, 255, 255));
             cv::Scalar color = ColorSelector::markerColor(signal_index);
             cv::circle(output_image, center, 5, color);
             double yaw, pitch, len;
-            yaw              = blink_data_4DHT_[image_index].yaw[j];
-            pitch            = blink_data_4DHT_[image_index].pitch[j];
+            yaw              = blink_data_[image_index].yaw_4DHT[j];
+            pitch            = blink_data_[image_index].pitch_4DHT[j];
             len              = cos(pitch);
             cv::Point target = center - (cv::Point(len * cos(yaw) * 20, len * sin(yaw) * 20.0));
             cv::line(output_image, center, target, cv::Scalar(0, 0, 255), 2);
@@ -973,7 +960,7 @@ namespace uvdar{
     }
     if ( (camera_image_sizes_[image_index].width <= 0 ) || (camera_image_sizes_[image_index].width <= 0 )){
       camera_image_sizes_[image_index] = image->image.size();
-      if(_use_4DHT_)ht4dbt_trackers_[image_index]->updateResolution(image->image.size());
+      // if(_use_4DHT_)ht4dbt_trackers_[image_index]->updateResolution(image->image.size());
       if (image_sizes_received_ < (int)(camera_image_sizes_.size())){
         image_sizes_received_++;
       }
