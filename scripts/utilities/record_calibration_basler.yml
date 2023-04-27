@@ -1,7 +1,7 @@
 name: uvdar_calib_record
 root: ./
 startup_window: termviz
-pre_window: devnum=$BASLER_UV_BACK
+pre_window: devnum=$BASLER_UV_RIGHT
 
 windows:
   - roscore:
@@ -16,7 +16,7 @@ windows:
       layout: even-vertical
       panes:
         # - waitForRos; devnum=`cat devnum.txt`; roslaunch bluefox2 single_nodelet.launch aec:=false agc:=false expose_us:=50 camera:=cam device:=${devnum} 
-        - waitForRos;  roslaunch uvdar_core cam_only_basler.launch expose_us_left:=10000 FRAME_RATE:=5 BASLER_ID:=$devnum
+        - waitForRos;  roslaunch uvdar_core cam_only_basler.launch expose_us:=1000 FRAME_RATE:=5 BASLER_ID:=$devnum
   - recording:
       layout: even-vertical
       panes:

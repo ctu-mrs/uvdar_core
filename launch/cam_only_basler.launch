@@ -58,7 +58,7 @@
         <rosparam command="load" file="$(arg camera_config_file)" />
         <param name="camera_frame" value="$(arg uav_name)/$(arg camera_name)_optical"/>
         <param name="frame_rate" type="double" value="$(arg FRAME_RATE)"/>
-        <param name="device_user_id" type="string" value="$(arg BASLER_ID)"/>
+        <param name="device_serial_number" type="string" value="$(arg BASLER_ID)"/>
         <param name="startup_user_set" value="$(arg startup_user_set)"/>
         <param name="enable_status_publisher" value="$(arg enable_status_publisher)"/>
         <param name="enable_current_params_publisher" value="false"/>

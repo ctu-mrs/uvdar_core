@@ -9,6 +9,8 @@
   <arg unless="$(arg standalone)" name="nodelet_manager" value="$(arg uav_name)_uvdar_nodelet_manager"/>
   <arg     if="$(arg standalone)" name="nodelet_manager" value=""/>
 
+  <arg name="trigger_mode" default="false" />
+  <arg name="grabbing_strategy" default="1" />
 
   <arg name="debug" default="false"/>
 
@@ -132,11 +134,13 @@
         <rosparam command="load" file="$(arg camera_config_file)" />
         <param name="camera_frame" value="$(arg uav_name)/$(arg camera_name_left)_optical"/>
         <param name="frame_rate" type="double" value="$(arg FRAME_RATE)"/>
-        <param name="device_user_id" type="string" value="$(arg BASLER_LEFT_ID)"/>
+        <param name="device_serial_number" type="string" value="$(arg BASLER_LEFT_ID)"/>
         <param name="startup_user_set" value="$(arg startup_user_set)"/>
         <param name="enable_status_publisher" value="$(arg enable_status_publisher)"/>
         <param name="enable_current_params_publisher" value="false"/>
         <param name="exposure" type="double" value="$(arg expose_us_left)"/>
+        <param name="trigger_mode" value="$(arg trigger_mode)"/>
+        <param name="grabbing_strategy" value="$(arg grabbing_strategy)"/>
 
       </node>
 
@@ -144,22 +148,26 @@
         <rosparam command="load" file="$(arg camera_config_file)" />
         <param name="camera_frame" value="$(arg uav_name)/$(arg camera_name_right)_optical"/>
         <param name="frame_rate" type="double" value="$(arg FRAME_RATE)"/>
-        <param name="device_user_id" type="string" value="$(arg BASLER_RIGHT_ID)"/>
+        <param name="device_serial_number" type="string" value="$(arg BASLER_RIGHT_ID)"/>
         <param name="startup_user_set" value="$(arg startup_user_set)"/>
         <param name="enable_status_publisher" value="$(arg enable_status_publisher)"/>
         <param name="enable_current_params_publisher" value="false"/>
         <param name="exposure" type="double" value="$(arg expose_us_right)"/>
+        <param name="trigger_mode" value="$(arg trigger_mode)"/>
+        <param name="grabbing_strategy" value="$(arg grabbing_strategy)"/>
       </node>
 
       <node pkg="nodelet" type="nodelet" name="$(arg camera_name_back)" args="$(arg nodelet_load_back)" output="screen" launch-prefix="bash -c 'sleep 7; $0 $@'; " respawn="$(arg respawn)" >
         <rosparam command="load" file="$(arg camera_config_file)" />
         <param name="camera_frame" value="$(arg uav_name)/$(arg camera_name_back)_optical"/>
         <param name="frame_rate" type="double" value="$(arg FRAME_RATE)"/>
-        <param name="device_user_id" type="string" value="$(arg BASLER_BACK_ID)"/>
+        <param name="device_serial_number" type="string" value="$(arg BASLER_BACK_ID)"/>
         <param name="startup_user_set" value="$(arg startup_user_set)"/>
         <param name="enable_status_publisher" value="$(arg enable_status_publisher)"/>
         <param name="enable_current_params_publisher" value="false"/>
         <param name="exposure" type="double" value="$(arg expose_us_back)"/>
+        <param name="trigger_mode" value="$(arg trigger_mode)"/>
+        <param name="grabbing_strategy" value="$(arg grabbing_strategy)"/>
       </node>
 
 
