@@ -134,6 +134,7 @@
       <param name="allowed_BER_per_seq"     type="int"   value="$(arg allowed_BER_per_seq)"/>
       <param name="std_threshold_poly_reg"     type="double"   value="$(arg std_threshold_poly_reg)"/>
       
+      <param name="use_4DHT"     type="bool"   value="false"/>
  
       <param name="sequence_file"         type="string" value="$(arg sequence_file)"/>
 

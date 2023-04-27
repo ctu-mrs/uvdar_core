@@ -135,7 +135,7 @@ add_dependencies(unscented ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED
 add_library(p3p include/p3p/P3p.cpp)
 add_dependencies(p3p ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
-add_library(UVDARBlinkProcessor src/bp_tim.cpp)
+add_library(UVDARBlinkProcessor src/blink_processor.cpp)
 add_dependencies(UVDARBlinkProcessor ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 # add_executable(uvdar_uav_pose_calculator_node src/uav_pose_calculator.cpp)

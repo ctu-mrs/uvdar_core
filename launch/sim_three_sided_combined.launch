@@ -61,6 +61,13 @@
   <arg name="allowed_BER_per_seq" default="0"/>
   <arg name="std_threshold_poly_reg" default="0.5"/>
 
+  <arg name="use_4DHT" default="false"/>
+  <!--4DHT values-->
+  <arg name="accumulator_length"         default="12"/>
+  <arg name="pitch_steps"         default="16"/>
+  <arg name="yaw_steps"         default="16"/>
+  <arg name="max_pixel_shift"         default="4"/>
+
   <arg name="model_file" default="$(find uvdar_core)/config/models/quadrotor_foursided.txt"/>
   <!-- ideal angle: 1.221730476 - pi/2 -->
 
@@ -147,11 +154,11 @@
       <param name="gui"             type="bool" value="$(arg gui)"/>
       
       <!-- Changeable for each nodelet independently. - no arguments! -->
-      <param name="publish_visualization"             type="bool" value="true"/>
+      <param name="publish_visualization"             type="bool" value="false"/>
       <param name="use_camera_for_visualization"         type="bool" value="true"/>
       <param name="visualization_rate"         type="double" value="2"/>
 
-      <param name="use_4DHT"             type="bool" value="true"/>
+      <param name="use_4DHT"             type="bool" value="$(arg use_4DHT)"/>
     
 
       <param name="max_px_shift_x"     type="int"   value="$(arg max_px_shift_x)"/>
@@ -166,6 +173,12 @@
       <param name="allowed_BER_per_seq"     type="int"   value="$(arg allowed_BER_per_seq)"/>
       <param name="std_threshold_poly_reg"     type="double"   value="$(arg std_threshold_poly_reg)"/>
       
+      <param name="accumulator_length"         type="int" value="$(arg accumulator_length)"/>
+      <param name="pitch_steps"         type="int" value="$(arg pitch_steps)"/>
+      <param name="yaw_steps"         type="int" value="$(arg yaw_steps)"/>
+      <param name="max_pixel_shift"         type="int" value="$(arg max_pixel_shift)"/>
+      <param name="nullify_radius"         type="int" value="5"/>
+
  
       <param name="sequence_file"         type="string" value="$(arg sequence_file)"/>
 
