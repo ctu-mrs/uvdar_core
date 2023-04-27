@@ -92,7 +92,7 @@ namespace uvdar {
         sun_points_.resize(_points_seen_topics.size());
         for (size_t i = 0; i < _points_seen_topics.size(); ++i) {
           ht4dbt_trackers_.push_back(
-                std::make_shared<HT4DBlinkerTrackerGPU>(
+                std::make_shared<HT4DBlinkerTrackerCPU>(
                   _accumulator_length_, _pitch_steps_, _yaw_steps_, _max_pixel_shift_, cv::Size(0, 0), _nullify_radius_, _reasonable_radius_
                 )
               );

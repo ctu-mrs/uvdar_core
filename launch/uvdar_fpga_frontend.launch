@@ -160,7 +160,7 @@
 
       <param name="quadrotor" type="bool" value="true"/>
       <param name="beacon" type="bool" value="$(arg beacon)"/>
-      <param name="arm_length" type="double" value="0.245"/>
+      <param name="arm_length" type="double" value="0.212132"/>
 
       <rosparam param="blinkers_seen_topics"> ["blinkers_seen"] </rosparam>
       <rosparam param="estimated_framerate_topics"> ["estimated_framerate"] </rosparam>
