@@ -35,7 +35,7 @@ pre_input="mkdir -p $MAIN_DIR/$PROJECT_NAME"
 # * "new line" after the command    => the command will be called after start
 # * NO "new line" after the command => the command will wait for user's <enter>
 input=(
-  'Rosbag' 'waitForOffboard; rosrun mrs_uav_general record_uvdar_fpga.sh
+  'Rosbag' 'waitForOffboard; rosrun uvdar_core record_uvdar_fpga.sh
 '
   'Nimbro' 'waitForRos; roslaunch mrs_uav_general nimbro.launch
 '
