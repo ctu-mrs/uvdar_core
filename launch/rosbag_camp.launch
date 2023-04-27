@@ -86,8 +86,8 @@
       <remap from="~camera_back_transfer" to="/gazebo/$(arg uav_name)/uvdar_bluefox_back/image_raw"/>
     </node> -->
       
-     <node name="blink_processor_new" pkg="nodelet" type="nodelet" args="$(arg nodelet) uvdar/UVDAR_BP_Tim $(arg nodelet_manager)" output="screen" respawn="true"> 
-    <!-- <node name="blink_processor" pkg="nodelet" type="nodelet" args="$(arg nodelet) uvdar/UVDAR_BP_Tim $(arg nodelet_manager)" output="screen" respawn="true" launch-prefix="roslaunch_debug"> --> 
+     <node name="blink_processor_new" pkg="nodelet" type="nodelet" args="$(arg nodelet) uvdar/UVDARBlinkProcessor $(arg nodelet_manager)" output="screen" respawn="true"> 
+    <!-- <node name="blink_processor" pkg="nodelet" type="nodelet" args="$(arg nodelet) uvdar/UVDARBlinkProcessor $(arg nodelet_manager)" output="screen" respawn="true" launch-prefix="roslaunch_debug"> --> 
       <param name="uav_name" type = "string" value="$(arg uav_name)"/>
       <!-- <param name="debug"		type="bool" value="$(arg debug)"/> --> 
       <param name="debug"		type="bool" value="false"/> 
@@ -111,6 +111,7 @@
       <param name="frame_tolerance"     type="int"   value="$(arg frame_tolerance)"/>
       <param name="allowed_BER_per_seq"     type="int"   value="$(arg allowed_BER_per_seq)"/>
       <param name="std_threshold_poly_reg"     type="double"   value="$(arg std_threshold_poly_reg)"/>
+
 
       <rosparam param="camera_topics"> ["camera_left", "camera_right", "camera_back"] </rosparam>
       <rosparam param="points_seen_topics"> ["points_seen_left", "points_seen_right", "points_seen_back"] </rosparam>

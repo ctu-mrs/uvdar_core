@@ -1,23 +1,23 @@
-#include "alternativeHT.h"
+#include "omta.h"
 
 using namespace uvdar;
 
-alternativeHT::alternativeHT(const loadedParamsForAHT& i_params){
+OMTA::OMTA(const loadedParamsForOMTA& i_params){
 
     *loaded_params_ = i_params;
     extended_search_ = std::make_unique<ExtendedSearch>(loaded_params_->decay_factor, loaded_params_->poly_order);
 }
 
-void alternativeHT::setDebugFlags(bool i_debug){
+void OMTA::setDebugFlags(bool i_debug){
     debug_ = i_debug;
 }
 
-void alternativeHT::updateFramerate(double input) {
+void OMTA::updateFramerate(double input) {
   if (input > 1.0)
     framerate_ = input;
 }
 
-bool alternativeHT::setSequences(std::vector<std::vector<bool>> i_sequences){
+bool OMTA::setSequences(std::vector<std::vector<bool>> i_sequences){
   
     original_sequences_ = i_sequences;
     matcher_ = std::make_unique<SignalMatcher>(original_sequences_, loaded_params_->allowed_BER_per_seq);
@@ -31,7 +31,7 @@ bool alternativeHT::setSequences(std::vector<std::vector<bool>> i_sequences){
     return true;
 }
 
-void alternativeHT::processBuffer(const mrs_msgs::ImagePointsWithFloatStampedConstPtr pts_msg) {
+void OMTA::processBuffer(const mrs_msgs::ImagePointsWithFloatStampedConstPtr pts_msg) {
 
     std::vector<PointState> current_frame;
     for ( auto point_time_stamp : pts_msg->points) {
@@ -46,7 +46,7 @@ void alternativeHT::processBuffer(const mrs_msgs::ImagePointsWithFloatStampedCon
     cleanPotentialBuffer();
 }
 
-void alternativeHT::findClosestPixelAndInsert(std::vector<PointState> & current_frame) {   
+void OMTA::findClosestPixelAndInsert(std::vector<PointState> & current_frame) {   
     
     std::vector<seqPointer> p_gen_seq;
     {
@@ -79,7 +79,7 @@ void alternativeHT::findClosestPixelAndInsert(std::vector<PointState> & current_
     expandedSearch(no_nn, p_gen_seq);
 }
 
-void alternativeHT::expandedSearch(std::vector<PointState>& no_nn_current_frame, std::vector<seqPointer>& sequences_no_insert){
+void OMTA::expandedSearch(std::vector<PointState>& no_nn_current_frame, std::vector<seqPointer>& sequences_no_insert){
     
     std::scoped_lock lock(mutex_gen_sequences_);
 
@@ -150,7 +150,7 @@ void alternativeHT::expandedSearch(std::vector<PointState>& no_nn_current_frame,
     }
 }
 
-bool alternativeHT::checkSequenceValidityWithNewInsert(const seqPointer & seq){
+bool OMTA::checkSequenceValidityWithNewInsert(const seqPointer & seq){
     
     if((int)seq->size() >  loaded_params_->max_ones_consecutive){
         int cnt = 0;
@@ -171,14 +171,14 @@ bool alternativeHT::checkSequenceValidityWithNewInsert(const seqPointer & seq){
 }
 
 
-void alternativeHT::insertPointToSequence(std::vector<PointState> & sequence, const PointState signal){
+void OMTA::insertPointToSequence(std::vector<PointState> & sequence, const PointState signal){
     sequence.push_back(signal);            
     if(sequence.size() > (original_sequences_[0].size()* loaded_params_->stored_seq_len_factor)){
         sequence.erase(sequence.begin());
     }
 }
 
-void alternativeHT::insertVPforSequencesWithNoInsert(seqPointer & seq){
+void OMTA::insertVPforSequencesWithNoInsert(seqPointer & seq){
     PointState pVirtual;
     pVirtual = seq->end()[-1];
     pVirtual.insert_time = ros::Time::now();
@@ -186,7 +186,7 @@ void alternativeHT::insertVPforSequencesWithNoInsert(seqPointer & seq){
     insertPointToSequence(*seq, pVirtual);
 }
 
-PredictionStatistics alternativeHT::selectStatisticsValues(const std::vector<double>& values, const std::vector<double>& time, const double& insert_time, const int& max_pix_shift){
+PredictionStatistics OMTA::selectStatisticsValues(const std::vector<double>& values, const std::vector<double>& time, const double& insert_time, const int& max_pix_shift){
 
     auto weight_vect = extended_search_->calcNormalizedWeightVect(time);
     double w_mean_dependent = extended_search_->calcWeightedMean(values, weight_vect); 
@@ -235,7 +235,7 @@ PredictionStatistics alternativeHT::selectStatisticsValues(const std::vector<dou
 
 }
 
-void alternativeHT::cleanPotentialBuffer(){
+void OMTA::cleanPotentialBuffer(){
 
     double timing_tolerance = loaded_params_->frame_tolerance/60;
     if(framerate_ != 0){
@@ -277,11 +277,11 @@ void alternativeHT::cleanPotentialBuffer(){
     }
 }
 
-std::vector<std::pair<seqPointer, int>> alternativeHT::getResults(){
+std::vector<std::pair<seqPointer, int>> OMTA::getResults(){
 
     std::scoped_lock lock(mutex_gen_sequences_);
     std::vector<std::pair<seqPointer, int>> retrieved_signals;
-    if(debug_) std::cout << "[AHT]: The retrieved signals:{\n";
+    if(debug_) std::cout << "[OMTA]: The retrieved signals:{\n";
     for (auto sequence : gen_sequences_){
         std::vector<bool> led_states;
         std::vector<PointState> return_seq; 
@@ -323,5 +323,5 @@ std::vector<std::pair<seqPointer, int>> alternativeHT::getResults(){
     return retrieved_signals;
 }
 
-alternativeHT::~alternativeHT() {
+OMTA::~OMTA() {
 }

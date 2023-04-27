@@ -80,8 +80,8 @@
 
 
     
-    <node name="UVDAR_BP_Tim" pkg="nodelet" type="nodelet" args="load uvdar/UVDAR_BP_Tim $(arg nodelet_manager)" output="screen" respawn="false">
-    <!-- <node name="UVDAR_BP_Tim" pkg="nodelet" type="nodelet" args="load uvdar/UVDAR_BP_Tim $(arg nodelet_manager)" output="screen" respawn="false" launch-prefix="debug_roslaunch"> -->
+    <node name="UVDARBlinkProcessor" pkg="nodelet" type="nodelet" args="load uvdar/UVDARBlinkProcessor $(arg nodelet_manager)" output="screen" respawn="false">
+    <!-- <node name="UVDARBlinkProcessor" pkg="nodelet" type="nodelet" args="load uvdar/UVDARBlinkProcessor $(arg nodelet_manager)" output="screen" respawn="false" launch-prefix="debug_roslaunch"> -->
 
       <param name="uav_name" type = "string" value="$(arg uav_name)"/>
       <param name="debug"		type="bool" value="$(arg debug)"/> 
@@ -105,6 +105,7 @@
       <param name="allowed_BER_per_seq"     type="int"   value="$(arg allowed_BER_per_seq)"/>
       <param name="std_threshold_poly_reg"     type="double"   value="$(arg std_threshold_poly_reg)"/>
       
+      <param name="use_4DHT"     type="bool"   value="false"/>
  
       <param name="sequence_file"         type="string" value="$(arg sequence_file)"/>
 

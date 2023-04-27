@@ -19,7 +19,7 @@ namespace uvdar
     
     using seqPointer = std::shared_ptr<std::vector<PointState>>;
 
-    struct loadedParamsForAHT{
+    struct loadedParamsForOMTA{
         cv::Point max_px_shift;
         int max_zeros_consecutive;
         int max_ones_consecutive;
@@ -32,13 +32,13 @@ namespace uvdar
         double std_threshold_poly_reg;
     };
 
-    class alternativeHT {
+    class OMTA {
     
     private:
         bool debug_ = false;
         int gc=0; // TODO: Delete only for logging right now
 
-        std::unique_ptr<loadedParamsForAHT> loaded_params_ = std::make_unique<loadedParamsForAHT>();
+        std::unique_ptr<loadedParamsForOMTA> loaded_params_ = std::make_unique<loadedParamsForOMTA>();
 
         double framerate_;
         const double prediction_margin_ = 0.0;
@@ -89,8 +89,8 @@ namespace uvdar
 
     public:
 
-        alternativeHT(const loadedParamsForAHT&);
-        ~alternativeHT();
+        OMTA(const loadedParamsForOMTA&);
+        ~OMTA();
         
         void setDebugFlags(bool);
         void updateFramerate(double);
