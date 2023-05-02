@@ -27,8 +27,10 @@ namespace uvdar{
             int default_poly_order_;
 
             /**
-             * @brief calcuate weighted sum of sqaured residuals 
-             * 
+             * @brief calcuate weighted sum of squared residuals 
+             * @param predictions predictions for each past coordinate
+             * @param values x or y coordinates
+             * @param weights weight vector
              * @return sum_squared_residuals 
              */
             double calcWSSR(const Eigen::VectorXd&, const std::vector<double>&, const std::vector<double>&);
@@ -39,24 +41,31 @@ namespace uvdar{
 
             /**
              * @brief Calculate weighted polynomial regression 
-             * @param value vector 
-             * @param time vector 
-             * @param weight vector
+             * @param coordinate dependent vector 
+             * @param time independent vector 
+             * @param weights weight vector
              * @return PredictionStatistics with Coefficients + predicted values for each data value
              */
             PredictionStatistics polyReg(const std::vector<double>&, const std::vector<double>&, const std::vector<double>&);
 
             /**
-             * @brief calculates weight vector with exponential decay function
+             * @brief calculates normalized weight vector with exponential decay function
              * @param time vector
              * @return weight vector
              */
             std::vector<double> calcNormalizedWeightVect(const std::vector<double>&);
+
+            /**
+             * @brief calculate the weighted mean
+             * @param values x or y coordinates
+             * @param weights weight vector
+             * @return double 
+             */
             double calcWeightedMean(const std::vector<double>&, const std::vector<double>&);
 
             /**
              * @brief calculates the weighted standard deviation
-             * @param values vector
+             * @param values x or y coordinates
              * @param weights vector
              * @param mean double
              * @return weighted standard deviation
@@ -71,6 +80,18 @@ namespace uvdar{
              * @return true/false for succress 
              */
             bool isInsideBB(const cv::Point2d&, const cv::Point2d&, const cv::Point2d&);
+
+            /**
+             * @brief compute the confidence interval by computing the regression accuracy and multiplying with wanted t-quantil percentage
+             * 
+             * @param prediction_vals statistics values 
+             * @param time vector of independent variable
+             * @param values x or y coordinates
+             * @param weighs weight vector
+             * @param wanted_percentage wanted percentage for the t-quantil
+             * @return -1, if not possible to compute CI from poly regression 
+             * @return value, if interval can be computed
+             */
             double confidenceInterval(const PredictionStatistics&, const std::vector<double>&, const std::vector<double>&, const std::vector<double>, const int&);
     };
 } // uvdar

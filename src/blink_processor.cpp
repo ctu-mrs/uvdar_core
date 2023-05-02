@@ -22,7 +22,7 @@
 namespace uvdar{
 
   /**
-   * @brief A nodelet for extracting blinking frequencies and image positions of intermittently appearing image points - alternative approach to the 4DHT
+   * @brief A nodelet for extracting blinking frequencies and image positions of intermittently appearing image points
    */
   class UVDARBlinkProcessor : public nodelet::Nodelet {
     public:
@@ -33,22 +33,101 @@ namespace uvdar{
   
 
     private:
+      /**
+      * @brief Initializer - loads parameters and initializes necessary structures
+      * 
+      */
       virtual void onInit();
+
+      /**
+       * @brief load all dynamic params from launch file
+       * 
+       */
       void loadParams(const bool & );
+      
+      /**
+       * @brief check values/sizes of the loaded params 
+       * 
+       * @return true = sucess; false = problem occured -> shutdown of nodelet 
+       */
       bool checkLoadedParams();
+
+      /**
+      * @brief Loads the file with lines describing useful blinking singals
+      *
+      * @param sequence_file The input file name
+      *
+      * @return Success status
+      */
       bool parseSequenceFile(const std::string &);
+      
+      /**
+       * @brief setup OMTA data structure 
+       * 
+       * @return true if sequences could be set
+       * @return false if sequences couln't be set
+       */
       bool initOMTA();
       void init4DHT();
 
       void setupCallbackAndPublisher();
+
+      /**
+      * @brief Callback to insert new image points to:
+      * - the OMTA and processes+publishes receiving points
+      * - if 4DHT activated: the accumulator of the HT4D process
+      *
+      * @param msg The input message with image points
+      * @param Image_index index of the camera image producing this message
+      */
       void insertPoints(const mrs_msgs::ImagePointsWithFloatStampedConstPtr &, const size_t &);
+
+      /**
+      * @brief Callback to insert points corresponding to pixels with sun to local variable for visualization
+      *
+      * @param msg The input message with image points
+      * @param image_index Index of the camera producing the image
+      */
       void insertSunPoints(const mrs_msgs::ImagePointsWithFloatStampedConstPtr&, const size_t&);
 
-      // functions for visualization
+      /**
+       * @brief setup callbacks,subscribers and threads for optional visualization 
+       * 
+       */
       void setupVisualization(); 
+
+
+      /**
+      * @brief Thread function: 
+      * - 4DHT: processes the accumulated image points and periodically retrieves estimated origin points and frequency estimates of blinking markers
+      * - OMTA: Only used for visualization
+      * 
+      * @param image_index Index of the camera producing the image
+      */
       void ProcessThread(const int&);
+
+      /**
+      * @brief Thread function for optional visualization of the detected blinking markers
+      *
+      * @param te TimerEvent for the timer spinning this thread
+      */
       void VisualizationThread([[maybe_unused]] const ros::TimerEvent&);
+
+      /**
+      * @brief Method for generating annotated image for optional visualization
+      *
+      * @param output_image The generated visualization image
+      *
+      * @return Success status ( 0 - success, 1 - visualization does not need to be generated as the state has not changed, negative - failed, usually due to missing requirements
+      */
       int generateVisualization(cv::Mat& );
+
+      /**
+      * @brief Updates the latest camera image for background in the optional visualization
+      *
+      * @param image_msg The input image message
+      * @param image_index Index of the camera image producing this message
+      */
       void callbackImage(const sensor_msgs::ImageConstPtr&, size_t);
 
       ros::NodeHandle nh_;
@@ -74,7 +153,6 @@ namespace uvdar{
       // visualization variables
       std::vector<ros::Timer> timer_process_;
       ros::Timer timer_visualization_;
-      cv::VideoWriter videoWriter_;
       using image_callback_t = boost::function<void (const sensor_msgs::ImageConstPtr&)>;
       std::vector<image_callback_t> cals_image_;
       std::vector<ros::Subscriber> sub_image_;
@@ -92,7 +170,7 @@ namespace uvdar{
       
       ros::Time last_publish_omta_logging_;
 
-      // loaded Params
+      // dynamic loaded params
       std::string _uav_name_;   
       bool        _debug_;
       bool        _gui_;
@@ -133,7 +211,7 @@ namespace uvdar{
       bool _visual_debug_;
       int _process_rate_;
 
-
+      // for extracting the received sequences from the OMTA/4DHT
       struct BlinkData{
         ros::Time                     last_sample_time;
         ros::Time                     last_sample_time_diagnostic;
@@ -280,7 +358,7 @@ namespace uvdar{
 
     // for OMTA
     if( 100 <= _conf_probab_percent_){
-      ROS_ERROR("[UVDARBlinkProcessor]: Wanted confidence interval size equal or bigger than 100%% is set. A Confidence interval of 100%% is not settable! Returning."); 
+      ROS_ERROR_STREAM("[UVDARBlinkProcessor]: Wanted confidence interval size equal or bigger than 100\% is set. A Confidence interval of 100\% is not settable! Returning."); 
       return false;
     } 
     if(_draw_predict_window_sec_ != 0.0){
@@ -532,6 +610,7 @@ namespace uvdar{
       int valid_signal_cnt = 0 , invalid_signal_cnt = 0;
       for (auto& signal : blink_data_[img_index].retrieved_blinkers) {
         mrs_msgs::Point2DWithFloat point;
+        // take the last/most up-to-date point and publish to pose calculator
         auto last_point = signal.first->end()[-1];
         point.x = last_point.point.x;
         point.y = last_point.point.y;
@@ -581,7 +660,6 @@ namespace uvdar{
         omta_seq_msg.extended_search.push_back(last_point.y_statistics.extended_search);
 
         omta_all_seq_msg.sequences.push_back(omta_seq_msg);
-        // publish for pose calculate
         msg.points.push_back(point);
       }
       msg.stamp         = local_last_sample_time;
@@ -591,6 +669,16 @@ namespace uvdar{
       if(_debug_){
         ROS_INFO("[UVDARBlinkProcessor]: Extracted %d valid signals and %d invalid signals", valid_signal_cnt, invalid_signal_cnt);
       }
+
+      // publish the last point for the pose calculate
+      pub_blinkers_seen_[img_index].publish(msg);
+      // publish whole sequence with infos from omta
+      pub_OMTA_all_seq_info[img_index].publish(omta_all_seq_msg);
+
+      std_msgs::Float32 msg_framerate;
+      msg_framerate.data = blink_data_[img_index].framerate_estimate;
+      pub_estimated_framerate_[img_index].publish(msg_framerate);
+
 
 
       // publish loaded variables every _loaded_var_pub_rate_ seconds
@@ -613,25 +701,10 @@ namespace uvdar{
         omta_logging_msg.max_px_shift = max_px_shift;
         pub_OMTA_logging_[img_index].publish(omta_logging_msg);
       }
-      
-      pub_blinkers_seen_[img_index].publish(msg);
-      pub_OMTA_all_seq_info[img_index].publish(omta_all_seq_msg);
-
-      std_msgs::Float32 msg_framerate;
-      msg_framerate.data = blink_data_[img_index].framerate_estimate;
-      pub_estimated_framerate_[img_index].publish(msg_framerate);
-
     }
     
   } 
 
-  /**
-   * @brief Callback to insert points corresponding to pixels with sun to local variable for visualization
-   *
-   * @param msg The input message with image points
-   * @param image_index Index of the camera producing the image
-   */
-  /* insertSunPoints //{ */
   void UVDARBlinkProcessor::insertSunPoints(const mrs_msgs::ImagePointsWithFloatStampedConstPtr& msg, const size_t & image_index) {
     if (!initialized_) return;
 
@@ -648,21 +721,11 @@ namespace uvdar{
     }
   }
 
-  /**
-   * @brief Thread function: 
-   * - 4DHT: processes the accumulated image points and periodically retrieves estimated origin points and frequency estimates of blinking markers
-   * - OMTA: Only used for visualization
-   * 
-   * @param te TimerEvent for the timer spinning this thread
-   * @param Image_index Index of the camera producing the image
-   */
-  /* ProcessThread //{ */
   void UVDARBlinkProcessor::ProcessThread(const int& image_index) {
     if (!initialized_){
       return;
     }
 
-    // crashes currently 
     if(_use_4DHT_){
       mrs_msgs::ImagePointsWithFloatStamped msg;
 
@@ -948,13 +1011,6 @@ namespace uvdar{
     return 0;
   }
 
-  /**
-   * @brief Updates the latest camera image for background in the optional visualization
-   *
-   * @param image_msg The input image message
-   * @param image_index Index of the camera image producing this message
-   */
-  /* callbackImage //{ */
   void UVDARBlinkProcessor::callbackImage(const sensor_msgs::ImageConstPtr& image_msg, size_t image_index) {
     cv_bridge::CvImageConstPtr image;
     image = cv_bridge::toCvShare(image_msg, sensor_msgs::image_encodings::MONO8);

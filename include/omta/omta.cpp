@@ -170,7 +170,6 @@ bool OMTA::checkSequenceValidityWithNewInsert(const seqPointer & seq){
     return true; 
 }
 
-
 void OMTA::insertPointToSequence(std::vector<PointState> & sequence, const PointState signal){
     sequence.push_back(signal);            
     if(sequence.size() > (original_sequences_[0].size()* loaded_params_->stored_seq_len_factor)){
