@@ -26,7 +26,7 @@
   <arg name="debug" default="false"/>
   <arg name="visual_debug" default="false"/>
   <arg name="publish_visualization" default="false"/>
-  <arg name="visualization_rate" default="2"/>
+  <arg name="visualization_rate" default="15"/>
 
   <arg name="gui" default="true"/>
   <arg name="publish" default="true"/>
@@ -86,8 +86,8 @@
       <remap from="~camera_back_transfer" to="/gazebo/$(arg uav_name)/uvdar_bluefox_back/image_raw"/>
     </node> -->
       
-     <node name="blink_processor_new" pkg="nodelet" type="nodelet" args="$(arg nodelet) uvdar/UVDAR_BP_Tim $(arg nodelet_manager)" output="screen" respawn="true"> 
-    <!-- <node name="blink_processor" pkg="nodelet" type="nodelet" args="$(arg nodelet) uvdar/UVDAR_BP_Tim $(arg nodelet_manager)" output="screen" respawn="true" launch-prefix="roslaunch_debug"> --> 
+     <node name="blink_processor_new" pkg="nodelet" type="nodelet" args="$(arg nodelet) uvdar/UVDARBlinkProcessor $(arg nodelet_manager)" output="screen" respawn="true"> 
+    <!-- <node name="blink_processor" pkg="nodelet" type="nodelet" args="$(arg nodelet) uvdar/UVDARBlinkProcessor $(arg nodelet_manager)" output="screen" respawn="true" launch-prefix="roslaunch_debug"> --> 
       <param name="uav_name" type = "string" value="$(arg uav_name)"/>
       <!-- <param name="debug"		type="bool" value="$(arg debug)"/> --> 
       <param name="debug"		type="bool" value="false"/> 
@@ -112,12 +112,13 @@
       <param name="allowed_BER_per_seq"     type="int"   value="$(arg allowed_BER_per_seq)"/>
       <param name="std_threshold_poly_reg"     type="double"   value="$(arg std_threshold_poly_reg)"/>
 
-      <rosparam param="camera_topics"> ["camera_left", "camera_right"] </rosparam>
-      <rosparam param="points_seen_topics"> ["points_seen_left", "points_seen_right"] </rosparam>
-      <rosparam param="blinkers_seen_topics"> ["blinkers_seen_left", "blinkers_seen_right"] </rosparam>
-      <rosparam param="estimated_framerate_topics"> ["estimated_framerate_left", "estimated_framerate_right"] </rosparam>
-      <rosparam param="aht_logging_topics"> ["aht_logging_left", "aht_logging_right"] </rosparam>
-      <rosparam param="aht_all_seq_info_topics"> ["aht_all_seq_info_left", "aht_all_seq_info_right"] </rosparam>
+
+      <rosparam param="camera_topics"> ["camera_left", "camera_right", "camera_back"] </rosparam>
+      <rosparam param="points_seen_topics"> ["points_seen_left", "points_seen_right", "points_seen_back"] </rosparam>
+      <rosparam param="blinkers_seen_topics"> ["blinkers_seen_left", "blinkers_seen_right", "blinkers_seen_back"] </rosparam>
+      <rosparam param="estimated_framerate_topics"> ["estimated_framerate_left", "estimated_framerate_right", "estimated_framerate_back"] </rosparam>
+      <rosparam param="aht_logging_topics"> ["aht_logging_left", "aht_logging_right", "aht_logging_back" ] </rosparam>
+      <rosparam param="aht_all_seq_info_topics"> ["aht_all_seq_info_left", "aht_all_seq_info_right", "aht_all_seq_info_back"] </rosparam>
 
       <remap from="~camera_left" to="/$(arg uav_name)/uvdar_bluefox/left/image_raw_camp"/>
       <remap from="~camera_right" to="/$(arg uav_name)/uvdar_bluefox/right/image_raw_camp"/>
@@ -125,13 +126,18 @@
       <remap from="~points_seen_right" to="/$(arg uav_name)/uvdar/points_seen_right"/>
       <remap from="~blinkers_seen_left" to="/$(arg uav_name)/uvdar/blinkers_seen_left_camp"/>
       <remap from="~blinkers_seen_right" to="/$(arg uav_name)/uvdar/blinkers_seen_right_camp"/>
+      <remap from="~blinkers_seen_back" to="/$(arg uav_name)/uvdar/blinkers_seen_back_camp"/>
       <remap from="~estimated_framerate_left" to="/$(arg uav_name)/uvdar/estimated_framerate_left_camp"/>
       <remap from="~estimated_framerate_right" to="/$(arg uav_name)/uvdar/estimated_framerate_right_camp"/>
-      <!-- <remap from="~visualization" to="/$(arg uav_name)/uvdar/blink_visualization/image_raw"/> --> <!-- TODO: not publishing video if not commented in-->
+      <remap from="~estimated_framerate_back" to="/$(arg uav_name)/uvdar/estimated_framerate_back_camp"/>
+
+      <remap from="~visualization" to="/$(arg uav_name)/uvdar/blink_visualization/image_raw"/> <!-- TODO: not publishing video if not commented in-->
       <remap from="~aht_logging_left" to="/$(arg uav_name)/uvdar/aht_logging_left_camp"/>
       <remap from="~aht_logging_right" to="/$(arg uav_name)/uvdar/aht_logging_right_camp"/>
+      <remap from="~aht_logging_back" to="/$(arg uav_name)/uvdar/aht_logging_back"/>
       <remap from="~aht_all_seq_info_left" to="/$(arg uav_name)/uvdar/aht_all_seq_info_left_camp"/>
       <remap from="~aht_all_seq_info_right" to="/$(arg uav_name)/uvdar/aht_all_seq_info_right_camp"/>
+      <remap from="~aht_all_seq_info_back" to="/$(arg uav_name)/uvdar/aht_all_seq_info_back"/>
 
     </node>
     

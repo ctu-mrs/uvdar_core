@@ -17,10 +17,3 @@
   <class name="signal_setter/SignalSetter" type="signal_setter::SignalSetter" base_class_type="nodelet::Nodelet">
     <description>Signal setter nodelet</description>
   </class>
-</library>
-<library path="lib/libUVDAR_BP_Tim">
- <class name="uvdar/UVDAR_BP_Tim" type="uvdar::UVDAR_BP_Tim" base_class_type="nodelet::Nodelet">
-   <description>Processes the points published by the detector.</description>
- </class>
-</library>
-

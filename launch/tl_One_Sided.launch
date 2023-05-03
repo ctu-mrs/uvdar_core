@@ -99,8 +99,8 @@
 
 
     
-    <node name="UVDAR_BP_Tim" pkg="nodelet" type="nodelet" args="load uvdar/UVDAR_BP_Tim $(arg nodelet_manager)" output="screen" respawn="false">
-    <!-- <node name="UVDAR_BP_Tim" pkg="nodelet" type="nodelet" args="load uvdar/UVDAR_BP_Tim $(arg nodelet_manager)" output="screen" respawn="false" launch-prefix="debug_roslaunch"> -->
+    <node name="UVDARBlinkProcessor" pkg="nodelet" type="nodelet" args="load uvdar/UVDARBlinkProcessor $(arg nodelet_manager)" output="screen" respawn="false">
+    <!-- <node name="UVDARBlinkProcessor" pkg="nodelet" type="nodelet" args="load uvdar/UVDARBlinkProcessor $(arg nodelet_manager)" output="screen" respawn="false" launch-prefix="debug_roslaunch"> -->
 
       <param name="uav_name" type = "string" value="$(arg uav_name)"/>
       <param name="debug"		type="bool" value="$(arg debug)"/> 
