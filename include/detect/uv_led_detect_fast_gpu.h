@@ -26,6 +26,8 @@ namespace uvdar {
       bool initialized_ = false;
       bool first_ = true;
 
+      bool use_masks = true;
+
       bool                   m_lines_;
       int                    m_accumLength_;
 
@@ -54,6 +56,7 @@ namespace uvdar {
 #define FAST_THRESHOLD_SUN %d
 #define MAX_MARKERS_COUNT %d
 #define MAX_SUN_PTS_COUNT %d
+#define USE_MASKS %s
 
 layout (local_size_x = LOCAL_SIZE_X, local_size_y = LOCAL_SIZE_Y, local_size_z = 1) in;
 
@@ -188,9 +191,11 @@ void main()
     image_size = imageSize(image_in);
     center_pos = ivec2(gl_GlobalInvocationID.xy);
 
-    if (int(imageLoad(mask, center_pos).r) == 0) {
+    if (USE_MASKS)
+      if (int(imageLoad(mask, center_pos).r) == 0)
+      {
         return;
-    }
+      }
 
     center_val = int(imageLoad(image_in, center_pos).r);
     

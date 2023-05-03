@@ -95,7 +95,7 @@ public:
             _debug_,
             _threshold_,
             _threshold_ / 2,
-            210,
+            150,
             _masks_
             ));
       if (!uvdf_.back()){

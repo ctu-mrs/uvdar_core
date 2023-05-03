@@ -8,7 +8,7 @@
   <arg unless="$(arg standalone)" name="nodelet_manager" value="$(arg uav_name)_uvdar_nodelet_manager"/>
   <arg     if="$(arg standalone)" name="nodelet_manager" value=""/>
 
-  <arg name="threshold" default="20"/>
+  <arg name="threshold" default="100"/>
 
   <arg name="left" default="$(optenv BLUEFOX_UV_LEFT)"/>
   <arg name="right" default="$(optenv BLUEFOX_UV_RIGHT)"/>
@@ -131,6 +131,8 @@
 
       <param name="use_masks"         type="bool" value="false"/>
 
+      <param name="publish_sun_points"         type="bool" value="true"/>
+
       <remap from="~camera_left" to="/$(arg uav_name)/uvdar_bluefox_left/image_raw"/>
       <remap from="~camera_right" to="/$(arg uav_name)/uvdar_bluefox_right/image_raw"/>
       <remap from="~camera_back" to="/$(arg uav_name)/uvdar_bluefox_back/image_raw"/>
@@ -151,7 +153,7 @@
       <!-- <param name="debug"		type="bool" value="$(arg debug)"/> --> 
       <param name="debug"		type="bool" value="false"/> 
       <param name="visual_debug"		type="bool" value="$(arg visual_debug)"/> 
-      <!-- <param name="gui"             type="bool" value="true"/> -->
+      <!-- <param name="gui"             type="bool" value="false"/> -->
       <param name="gui"             type="bool" value="true"/>
       <param name="publish_visualization"             type="bool" value="false"/>
       <param name="use_camera_for_visualization"         type="bool" value="true"/>

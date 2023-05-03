@@ -34,10 +34,12 @@ void uvdar::UVDARLedDetectFASTGPU::init() {
         fprintf(stderr, "%.*s", err_str_len, err_str);
         return;
     }
-    
+
+    use_masks = (masks_.size() > 0);
+
     // init compute program
     char* formatted_src;
-    if (asprintf(&formatted_src, fastlike_shader_src, local_size_x, local_size_y, _threshold_, _threshold_diff_, _threshold_sun_, max_markers_count, max_sun_pts_count) < 0)
+    if (asprintf(&formatted_src, fastlike_shader_src, local_size_x, local_size_y, _threshold_, _threshold_diff_, _threshold_sun_, max_markers_count, max_sun_pts_count, (use_masks?"true":"false")) < 0)
     {
         fprintf(stderr, "Failed to format shader source!\r\n");
         compute_lib_error_str(code, err_str, &err_str_len);
@@ -61,11 +63,13 @@ void uvdar::UVDARLedDetectFASTGPU::init() {
         return;
     }
 
-    mask = COMPUTE_LIB_IMAGE2D_NEW("mask", GL_TEXTURE1, image_size.width, image_size.height, GL_R8UI, GL_READ_ONLY, GL_CLAMP_TO_EDGE, GL_LINEAR, GL_RED_INTEGER, GL_UNSIGNED_BYTE);
-    if (compute_lib_image2d_init(&compute_prog, &mask, 0)) {
+    if (use_masks){
+      mask = COMPUTE_LIB_IMAGE2D_NEW("mask", GL_TEXTURE1, image_size.width, image_size.height, GL_R8UI, GL_READ_ONLY, GL_CLAMP_TO_EDGE, GL_LINEAR, GL_RED_INTEGER, GL_UNSIGNED_BYTE);
+      if (compute_lib_image2d_init(&compute_prog, &mask, 0)) {
         fprintf(stderr, "Failed to create image2d '%s'!\r\n", mask.uniform_name);
         compute_lib_error_queue_flush(&compute_inst, stderr);
         return;
+      }
     }
     
     // init SSBOs
@@ -97,9 +101,11 @@ void uvdar::UVDARLedDetectFASTGPU::init() {
         return;
     }
 
-    // dummy clear of mask
-    uint32_t zero = 0;
-    compute_lib_image2d_reset(&compute_prog, &mask, &zero);
+    if (use_masks){
+      // dummy clear of mask
+      uint32_t zero = 255;
+      compute_lib_image2d_reset(&compute_prog, &mask, &zero);
+    }
 
     initialized_ = true;
 }
@@ -116,7 +122,8 @@ uvdar::UVDARLedDetectFASTGPU::~UVDARLedDetectFASTGPU() {
 
     // destroy image2d objects
     compute_lib_image2d_destroy(&compute_prog, &texture_in);
-    compute_lib_image2d_destroy(&compute_prog, &mask);
+    if (use_masks)
+      compute_lib_image2d_destroy(&compute_prog, &mask);
 
     // destroy compute program
     compute_lib_program_destroy(&compute_prog, true);
@@ -128,6 +135,7 @@ uvdar::UVDARLedDetectFASTGPU::~UVDARLedDetectFASTGPU() {
 
 bool uvdar::UVDARLedDetectFASTGPU::processImage(const cv::Mat i_image, std::vector<cv::Point2i>& detected_points, std::vector<cv::Point2i>& sun_points, int mask_id) {
   detected_points = std::vector<cv::Point2i>();
+  sun_points = std::vector<cv::Point2i>();
   image_curr_     = i_image;
 
   if (!initialized_) {
@@ -135,7 +143,7 @@ bool uvdar::UVDARLedDetectFASTGPU::processImage(const cv::Mat i_image, std::vect
     init();
   }
 
-  if (mask_id >= 0) {
+  if (use_masks) {
     if (mask_id >= (int)(masks_.size())) {
       std::cerr << "[UVDARDetectorFASTGPU]: Mask index " << mask_id << " is greater than the current number of loaded masks!" << std::endl;
       return false;
@@ -158,10 +166,10 @@ bool uvdar::UVDARLedDetectFASTGPU::processImage(const cv::Mat i_image, std::vect
   // reset atomic counter buffer objects
   compute_lib_acbo_write_uint_val(&compute_prog, &markers_count_acbo, 0);
   compute_lib_acbo_write_uint_val(&compute_prog, &sun_pts_count_acbo, 0);
-
+  
   // write input image data + mask data to GPU
   compute_lib_image2d_write(&compute_prog, &texture_in, image_curr_.data);
-  if (mask_id >= 0) {
+  if (use_masks) {
     compute_lib_image2d_write(&compute_prog, &mask, masks_[mask_id].data);
   }
 
@@ -180,6 +188,20 @@ bool uvdar::UVDARLedDetectFASTGPU::processImage(const cv::Mat i_image, std::vect
 
   // find centroids of concentrated detected markers
   cpuFindMarkerCentroids(markers, markers_cnt_val, 5, detected_points);
+
+  for (uint32_t i = 0; i < sun_points_cnt_val; i++){
+    sun_points.push_back(cv::Point(sun_pts[i].x,sun_pts[i].y));
+  }
+
+  for (int i = 0; i< sun_points_cnt_val; i++){
+    std::cout << "Sun pt: " << sun_points[i].x << ":" << markers[i].y << std::endl;
+  }
+  for (int i = 0; i< markers_cnt_val; i++){
+    std::cout << "Found: " << markers[i].x << ":" << markers[i].y << std::endl;
+  }
+  for (auto p : detected_points){
+    std::cout << "Refined: " << p << std::endl;
+  }
 
   // filter markers using detected sun points
   for (int i = 0; i < (int)(detected_points.size()); i++) { //iterate over the detected marker points
