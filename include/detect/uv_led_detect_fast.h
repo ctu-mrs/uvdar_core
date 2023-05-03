@@ -9,7 +9,7 @@
 namespace uvdar {
 
   /**
-   * @brief The class for retrieving bright concentrated points from image, expected to represent markers
+   * @brief The interface class for retrieving bright concentrated points from image, expected to represent markers
    */
   class UVDARLedDetectFAST {
     public:
@@ -19,20 +19,37 @@ namespace uvdar {
        *
        * @param i_gui If true, on-line visualization of the detected markers will be provided - DO NOT use this if no monitor is attached, doing so should result in program crash
        * @param i_debug If true, debugging outputs will be sent to the console
-       * @param i_threshold The threshold difference between a bright point and its surroundings used in selecting pixels representing the markers
+       * @param i_threshold The threshold for even considering a pixel for a FAST test
+       * @param i_threshold_diff The threshold difference between a bright point and its surroundings used in selecting pixels representing the markers
+       * @param i_threshold_sun The threshold for even considering a pixel to be a part of the sun
        * @param i_masks Vector of images of the size of the input stream image - pixels of the input images at positions where the mask has the value 0 will be discarded. This is useful for eliminating markers on the body of the observer or for masking out reflective parts of its body 
        */
-      UVDARLedDetectFAST(bool i_gui, bool i_debug, int i_threshold, std::vector<cv::Mat> i_masks);
+      UVDARLedDetectFAST(bool i_gui, bool i_debug, int i_threshold, int i_threshold_diff, int i_threshold_sun, std::vector<cv::Mat> i_masks) : _debug_(i_debug), _gui_(i_gui), _threshold_(i_threshold), _threshold_diff_(i_threshold_diff), _threshold_sun_(i_threshold_sun)
+      {
+          if (_debug_) {
+            std::cout << "[UVDARDetectorFAST]: Threshold: " << _threshold_ << std::endl;
+            std::cout << "[UVDARDetectorFAST]: Threshold for difference: " << _threshold_diff_ << std::endl;
+            std::cout << "[UVDARDetectorFAST]: Threshold for usn: " << _threshold_sun_ << std::endl;
+          }
+          
+          for (auto mask : i_masks) {
+            addMask(mask);
+          }
+      };
 
       /**
        * @brief Adds an image matrix used for masking out portions of the input stream
        *
        * @param i_mask Image of the size of the input stream image - pixels of the input images at positions where the mask has the value 0 will be discarded. This is useful for eliminating markers on the body of the observer or for masking out reflective parts of its body 
        */
-      void addMask(cv::Mat i_mask);
+      void addMask(cv::Mat i_mask)
+      {
+         masks_.push_back(i_mask);
+      }
 
       /**
        * @brief Retrieves bright, concentrated points from the input images
+       *        Must be overriden by inheriting class
        *
        * @param i_image The input image
        * @param detected_points The retrieved bright points
@@ -41,40 +58,16 @@ namespace uvdar {
        *
        * @return 
        */
-      bool processImage(const cv::Mat i_image, std::vector<cv::Point2i>& detected_points, std::vector<cv::Point2i>& sun_points, int mask_id=-1);
-
-    private:
-
-      /**
-       * @brief Resets a helper matrix used for suppression of clustered bright pixels
-       */
-      void clearMarks();
-
-      /**
-       * @brief Initializes points used in FAST-like bright point detection
-       */
-      void initFAST();
-
-      std::vector<std::vector< cv::Point >> fast_points_set_;
-      std::vector<std::vector< cv::Point >> fast_interior_set_;
-      bool initialized_ = false;
-      bool first_ = true;
-
-      bool                   m_lines_;
-      int                    m_accumLength_;
-
-      cv::Mat image_curr_;
-      cv::Mat image_check_;
-      cv::Mat  image_view_;
-      cv::Rect roi_;
-
+      virtual bool processImage(const cv::Mat i_image, std::vector<cv::Point2i>& detected_points, std::vector<cv::Point2i>& sun_points, int mask_id=-1) = 0;
+    
+    protected:
       bool _debug_;
       bool _gui_;
       unsigned char _threshold_;
-      int step_in_period_ = 0;
+      unsigned char _threshold_diff_;
+      unsigned char _threshold_sun_;
 
       std::vector<cv::Mat> masks_;
-
   };
 }
 

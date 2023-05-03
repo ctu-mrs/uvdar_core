@@ -41,13 +41,6 @@
   <arg name="gui" default="true"/>
   <!-- <arg name="gui" default="false"/> -->
 
-  <arg name="trajectoryControl" default="true"/>
-
-  <arg name="followDistance" default="5"/>
-  <arg name="trajCoeff" default="0.8"/>
-  <arg name="yawCoeff" default="0.1"/>
-  <arg name="tailingCoeff" default="1.0"/>
-
   <arg name="publish" default="true"/>
   <arg name="useOdom" default="false"/>
   <arg name="cemeraRotated" default="false"/>
@@ -199,52 +192,53 @@
       <remap from="~visualization" to="/$(arg uav_name)/uvdar/blink_visualization/image_raw"/>
 
     </node>
+
       
-    <!-- <node name="uvdar_pose_calculator_node" pkg="uvdar_core" type="uvdar_pose_calculator_node" output="screen" launch-prefix="debug_roslaunch"> --> 
-    <node name="uvdar_pose_calculator_node" pkg="uvdar_core" type="uvdar_pose_calculator_node" output="screen" > 
-        <!-- <node name="uvdar_pose_calculator_node" pkg="uvdar_core" type="uvdar_pose_calculator_node" launch-prefix="valgrind -/-tool=callgrind -/-callgrind-out-file=/home/viktor/callgrind.out -/-instr-atstart=no -/-collect-atstart=yes"> --> 
-            <!-- <node name="uvdar_pose_calculator_node" pkg="uvdar_core" type="uvdar_pose_calculator_node" launch-prefix="valgrind -/-tool=callgrind -/-callgrind-out-file=/home/viktor/callgrind.out"> --> 
-      <param name="uav_name" type = "string" value="$(arg uav_name)"/>
-      <!-- <param name="debug"		type="bool" value="true"/> --> 
-      <param name="debug"		type="bool" value="false"/> 
-      <!-- <param name="gui"             type="bool" value="false"/> -->
-      <param name="gui"             type="bool" value="false"/>
-      <param name="publish_visualization"             type="bool" value="false"/>
-      <param name="publish_constituents"             type="bool" value="true"/>
-      <!-- <param name="publish_visualization"             type="bool" value="false"/> -->
-      <!-- <param name="frequencies_per_target" type="int" value="1"/> -->
-      <!-- <rosparam param="frequencies" subst_value="true"> [$(arg frequency1), $(arg frequency2), $(arg frequency3)] </rosparam> -->
-      <rosparam param="signal_ids" subst_value="true"> [$(arg id1), $(arg id2), $(arg id3), $(arg id4), $(arg id5), $(arg id6), $(arg id7), $(arg id8), $(arg id9), $(arg id10), $(arg id11), $(arg id12)] </rosparam>
+    <!-- <!-1- <node name="uvdar_pose_calculator_node" pkg="uvdar_core" type="uvdar_pose_calculator_node" output="screen" launch-prefix="debug_roslaunch"> -1-> --> 
+    <!-- <node name="uvdar_pose_calculator_node" pkg="uvdar_core" type="uvdar_pose_calculator_node" output="screen" > --> 
+    <!--     <!-1- <node name="uvdar_pose_calculator_node" pkg="uvdar_core" type="uvdar_pose_calculator_node" launch-prefix="valgrind -/-tool=callgrind -/-callgrind-out-file=/home/viktor/callgrind.out -/-instr-atstart=no -/-collect-atstart=yes"> -1-> --> 
+    <!--         <!-1- <node name="uvdar_pose_calculator_node" pkg="uvdar_core" type="uvdar_pose_calculator_node" launch-prefix="valgrind -/-tool=callgrind -/-callgrind-out-file=/home/viktor/callgrind.out"> -1-> --> 
+    <!--   <param name="uav_name" type = "string" value="$(arg uav_name)"/> -->
+    <!--   <!-1- <param name="debug"		type="bool" value="true"/> -1-> --> 
+    <!--   <param name="debug"		type="bool" value="false"/> --> 
+    <!--   <!-1- <param name="gui"             type="bool" value="false"/> -1-> -->
+    <!--   <param name="gui"             type="bool" value="false"/> -->
+    <!--   <param name="publish_visualization"             type="bool" value="false"/> -->
+    <!--   <param name="publish_constituents"             type="bool" value="true"/> -->
+    <!--   <!-1- <param name="publish_visualization"             type="bool" value="false"/> -1-> -->
+    <!--   <!-1- <param name="frequencies_per_target" type="int" value="1"/> -1-> -->
+    <!--   <!-1- <rosparam param="frequencies" subst_value="true"> [$(arg frequency1), $(arg frequency2), $(arg frequency3)] </rosparam> -1-> -->
+    <!--   <rosparam param="signal_ids" subst_value="true"> [$(arg id1), $(arg id2), $(arg id3), $(arg id4), $(arg id5), $(arg id6), $(arg id7), $(arg id8), $(arg id9), $(arg id10), $(arg id11), $(arg id12)] </rosparam> -->
 
 
-      <param name="profiling" type="bool" value="$(arg profiling)"/>
+    <!--   <param name="profiling" type="bool" value="$(arg profiling)"/> -->
 
-      <param name="quadrotor" type="bool" value="false"/>
-      <param name="custom_model" type="bool" value="true"/>
-      <param name="model_file" type="string" value="$(arg model_file)"/>
-      <param name="beacon" type="bool" value="false"/>
+    <!--   <param name="quadrotor" type="bool" value="false"/> -->
+    <!--   <param name="custom_model" type="bool" value="true"/> -->
+    <!--   <param name="model_file" type="string" value="$(arg model_file)"/> -->
+    <!--   <param name="beacon" type="bool" value="false"/> -->
 
-      <rosparam param="blinkers_seen_topics"> ["blinkers_seen_left", "blinkers_seen_right", "blinkers_seen_back"] </rosparam>
-      <rosparam param="estimated_framerate_topics"> ["estimated_framerate_left", "estimated_framerate_right", "estimated_framerate_back"] </rosparam>
-      <rosparam param="camera_frames" subst_value="true"> ["$(arg uav_name)/uvcam_left", "$(arg uav_name)/uvcam_right", "$(arg uav_name)/uvcam_back"] </rosparam>
+    <!--   <rosparam param="blinkers_seen_topics"> ["blinkers_seen_left", "blinkers_seen_right", "blinkers_seen_back"] </rosparam> -->
+    <!--   <rosparam param="estimated_framerate_topics"> ["estimated_framerate_left", "estimated_framerate_right", "estimated_framerate_back"] </rosparam> -->
+    <!--   <rosparam param="camera_frames" subst_value="true"> ["$(arg uav_name)/uvcam_left", "$(arg uav_name)/uvcam_right", "$(arg uav_name)/uvcam_back"] </rosparam> -->
 
-      <remap from="~blinkers_seen_left" to="/$(arg uav_name)/uvdar/blinkers_seen_left"/>
-      <remap from="~blinkers_seen_right" to="/$(arg uav_name)/uvdar/blinkers_seen_right"/>
-      <remap from="~blinkers_seen_back" to="/$(arg uav_name)/uvdar/blinkers_seen_back"/>
-      <remap from="~estimated_framerate_left" to="/$(arg uav_name)/uvdar/estimated_framerate_left"/>
-      <remap from="~estimated_framerate_right" to="/$(arg uav_name)/uvdar/estimated_framerate_right"/>
-      <remap from="~estimated_framerate_back" to="/$(arg uav_name)/uvdar/estimated_framerate_back"/>
+    <!--   <remap from="~blinkers_seen_left" to="/$(arg uav_name)/uvdar/blinkers_seen_left"/> -->
+    <!--   <remap from="~blinkers_seen_right" to="/$(arg uav_name)/uvdar/blinkers_seen_right"/> -->
+    <!--   <remap from="~blinkers_seen_back" to="/$(arg uav_name)/uvdar/blinkers_seen_back"/> -->
+    <!--   <remap from="~estimated_framerate_left" to="/$(arg uav_name)/uvdar/estimated_framerate_left"/> -->
+    <!--   <remap from="~estimated_framerate_right" to="/$(arg uav_name)/uvdar/estimated_framerate_right"/> -->
+    <!--   <remap from="~estimated_framerate_back" to="/$(arg uav_name)/uvdar/estimated_framerate_back"/> -->
 
-      <rosparam param="calib_files" subst_value="True"> ["default", "default", "default"] </rosparam>
+    <!--   <rosparam param="calib_files" subst_value="True"> ["default", "default", "default"] </rosparam> -->
 
-      <remap from="~constituentPoses1" to="/$(arg uav_name)/uvdar/constituentPosesL"/>
-      <remap from="~constituentPoses2" to="/$(arg uav_name)/uvdar/constituentPosesR"/>
-      <remap from="~constituentPoses3" to="/$(arg uav_name)/uvdar/constituentPosesB"/>
+    <!--   <remap from="~constituentPoses1" to="/$(arg uav_name)/uvdar/constituentPosesL"/> -->
+    <!--   <remap from="~constituentPoses2" to="/$(arg uav_name)/uvdar/constituentPosesR"/> -->
+    <!--   <remap from="~constituentPoses3" to="/$(arg uav_name)/uvdar/constituentPosesB"/> -->
 
-      <remap from="~measuredPoses1" to="/$(arg uav_name)/uvdar/measuredPosesL"/>
-      <remap from="~measuredPoses2" to="/$(arg uav_name)/uvdar/measuredPosesR"/>
-      <remap from="~measuredPoses3" to="/$(arg uav_name)/uvdar/measuredPosesB"/>
-    </node>
+    <!--   <remap from="~measuredPoses1" to="/$(arg uav_name)/uvdar/measuredPosesL"/> -->
+    <!--   <remap from="~measuredPoses2" to="/$(arg uav_name)/uvdar/measuredPosesR"/> -->
+    <!--   <remap from="~measuredPoses3" to="/$(arg uav_name)/uvdar/measuredPosesB"/> -->
+    <!-- </node> -->
   </group>
 
 

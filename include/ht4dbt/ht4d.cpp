@@ -371,16 +371,9 @@ void HT4DBlinkerTracker::generateMasks() {
       }
       int sR = 1;
       for (int j = 0; j < yaw_steps_; j++) { //check for each yaw step in the Hough space resolution to decide if this element of the yaw mask should be added
-        if (radius_box.at< float >(y, x) < (i * max_pixel_shift_)) { // decay - the "yaw" of significantly shifted points should not affect the yaw consensus of the current point
-          bool spread_test=false;
-          for (int k =-sR; k<=sR; k++){ for (int l =-sR; l<=sR; l++){ // expand the yaw layer of the mask by dilation of the center with a square of the radius sR. This is to generate larger overlaps between layers and thus to enforce consensus of close votes
-            if ((((x+l) == center) && ((y+k) == center))){
-              spread_test = true;
-              break;
-            }
-            if (spread_test) break;
-          } }
-          if (spread_test  || (fabs(angDiff(yaw_box.at< float >(y, x), yaw_vals_[j])) < yaw_div_*0.75)) // add elements to the yaw mask if they correspond to the range of "yaw angles" for the current layer
+        if (radius_box.at< float >(y, x) <= (i * max_pixel_shift_)) { // decay - the "yaw" of significantly shifted points should not affect the yaw consensus of the current point
+          bool spread_test = abs(x - center) <= sR && abs(y - center) <= sR; // expand the yaw layer of the mask by dilation of the center with a square of the radius sR. This is to generate larger overlaps between layers and thus to enforce consensus of close votes
+          if (spread_test || (fabs(angDiff(yaw_box.at< float >(y, x), yaw_vals_[j])) < yaw_div_*0.75)) // add elements to the yaw mask if they correspond to the range of "yaw angles" for the current layer
             yaw_col.push_back(j);
         }
       }

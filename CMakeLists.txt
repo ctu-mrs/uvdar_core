@@ -39,6 +39,26 @@ set(Eigen_LIBRARIES ${Eigen_LIBRARIES})
 
 find_package(OpenCV REQUIRED HINTS /usr/local/lib)
 
+set(OpenGL_GL_PREFERENCE "LEGACY")
+find_package(OpenGL REQUIRED)
+
+# find_package(LIBGBM REQUIRED)
+# # pkg_check_modules(PC_LIBGBM gbm)
+
+# find_path(LIBGBM_INCLUDE_DIRS
+#     NAMES gbm.h
+#     HINTS ${PC_LIBGBM_INCLUDE_DIRS} ${PC_LIBGBM_INCUDEDIR}
+# )
+
+find_library(LGBM libgbm.so REQUIRED)
+find_library(LEGL libEGL.so REQUIRED)
+find_library(LGL libGL.so REQUIRED)
+
+include(FindPackageHandleStandardArgs)
+FIND_PACKAGE_HANDLE_STANDARD_ARGS(LIBGBM DEFAULT_MSG LIBGBM_LIBRARIES)
+
+mark_as_advanced(LIBGBM_INCLUDE_DIRS LIBGBM_LIBRARIES)
+
 ###################################
 ## catkin specific configuration ##
 ###################################
@@ -89,6 +109,8 @@ include_directories(
   ${catkin_INCLUDE_DIRS}
   ${OpenCV_INCLUDE_DIRS}
   ${EIGEN3_INCLUDE_DIRS}
+  ${OpenGL_INCLUDE_DIRS}
+  ${LIBGBM_INCLUDE_DIRS}
   )
 
 add_executable(uvdar_rx_node src/uvdar_rx.cpp)
@@ -102,22 +124,26 @@ add_library(ht4dbt include/ht4dbt/ht4d.cpp)
 add_library(alternativeHT include/alternativeHT/alternativeHT.cpp)
 add_library(extendedSearch include/alternativeHT/extended_search.cpp)
 add_library(imu_compensation include/alternativeHT/imu_compensation.cpp)
-add_library(uv_led_detect_fast include/detect/uv_led_detect_fast.cpp)
+add_library(uv_led_detect_fast include/detect/uv_led_detect_fast_cpu.cpp include/detect/uv_led_detect_fast_gpu.cpp)
+
 add_library(frequency_classifier include/frequency_classifier/frequency_classifier.cpp)
 add_library(color_selector include/color_selector/color_selector.cpp)
 # add_library(SignalSetter src/signal_setter.cpp)
+add_library(compute_lib include/compute_lib/compute_lib.c include/compute_lib/queue.c include/compute_lib/gl32_utils.c)
+
+target_link_libraries(compute_lib
+  debug ${OpenGL_LIBRARIES} ${LIBGBM_LIBRARIES} ${catkin_LIBRARIES} ${LGBM} ${LEGL} ${LGL})
 
 target_link_libraries(uvdar_rx_node ${catkin_LIBRARIES})
 target_link_libraries(uvdar_tx_node ${catkin_LIBRARIES})
-target_link_libraries(new_uvdar_rx_node ${catkin_LIBRARIES} ${OpenCV_LIBRARIES}
- ht4dbt)
+target_link_libraries(new_uvdar_rx_node ${catkin_LIBRARIES} ${OpenCV_LIBRARIES} ht4dbt)
 # target_link_libraries(SignalSetter ${catkin_LIBRARIES})
 add_dependencies(new_uvdar_rx_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 add_dependencies(uvdar_rx_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 add_dependencies(uvdar_tx_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 target_link_libraries(uv_led_detect_fast
-  debug ${OpenCV_LIBRARIES} ${catkin_LIBRARIES})
+  debug ${OpenCV_LIBRARIES} ${catkin_LIBRARIES} compute_lib)
 
 target_link_libraries(frequency_classifier
   debug ${OpenCV_LIBRARIES} ${catkin_LIBRARIES})
@@ -137,6 +163,9 @@ add_dependencies(p3p ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGE
 add_library(UVDARBlinkProcessor src/blink_processor.cpp)
 add_dependencies(UVDARBlinkProcessor ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
+# add_library(ROSTOPIC_HZ src/nodelet_rostopic_hz.cpp)
+# add_dependencies(ROSTOPIC_HZ ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+
 # add_executable(uvdar_uav_pose_calculator_node src/uav_pose_calculator.cpp)
 # add_dependencies(uvdar_uav_pose_calculator_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
@@ -149,8 +178,6 @@ add_dependencies(uvdar_filter_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_
 add_library(UVDARBluefoxEmulator src/bluefox_emulator.cpp)
 add_dependencies(UVDARBluefoxEmulator ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
-add_executable(uvdar_mask_generator_node src/mask_generator.cpp)
-add_dependencies(uvdar_mask_generator_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 # add_executable(uvdar_frequency_setter_node src/frequency_setter.cpp)
 # add_dependencies(uvdar_frequency_setter_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
@@ -167,6 +194,7 @@ target_link_libraries(UVDARDetector
   ${catkin_LIBRARIES}
   ${OpenCV_LIBRARIES}
   uv_led_detect_fast
+  compute_lib
   )
 
 target_link_libraries(UVDARBlinkProcessor
@@ -177,6 +205,7 @@ target_link_libraries(UVDARBlinkProcessor
   color_selector
   )
 
+
   target_link_libraries(UVDAR_BP_Tim 
   ${catkin_LIBRARIES} 
   ${OpenCV_LIBRARIES}
@@ -186,6 +215,7 @@ target_link_libraries(UVDARBlinkProcessor
   imu_compensation
   color_selector
   )
+
 
 # target_link_libraries(uvdar_uav_pose_calculator_node
 #   ${catkin_LIBRARIES}
@@ -222,11 +252,6 @@ target_link_libraries(UVDARBluefoxEmulator
   OCamCalib
   )
 
-target_link_libraries(uvdar_mask_generator_node
-  ${catkin_LIBRARIES}
-  ${OpenCV_LIBRARIES}
-  ${EIGEN3_LIBRARIES}
-  )
 
 # target_link_libraries(uvdar_frequency_setter_node
 #   ${catkin_LIBRARIES}
