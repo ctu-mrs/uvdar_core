@@ -56,11 +56,11 @@ namespace uvdar {
 #define FAST_THRESHOLD_SUN %d
 #define MAX_MARKERS_COUNT %d
 #define MAX_SUN_PTS_COUNT %d
-#define USE_MASKS %s
 
 layout (local_size_x = LOCAL_SIZE_X, local_size_y = LOCAL_SIZE_Y, local_size_z = 1) in;
 
 layout(rgba8ui, binding = 0) readonly uniform highp uimage2D image_in;
+
 layout(rgba8ui, binding = 1) readonly uniform highp uimage2D mask;
 
 layout(binding = 2, offset = 0) uniform atomic_uint sun_pts_count;
@@ -166,12 +166,15 @@ int run_fast(int radius)
 
     bresenham_circle_init(radius);
     pos = bresenham_circle_next_pt();
+
     while (pos.x >= 0 && pos.x < image_size.x && pos.y >= 0 && pos.y < image_size.y) {
         val = int(imageLoad(image_in, pos).r);
         if (val > boundary_max) { boundary_max = val; }
         if (val < boundary_min) { boundary_min = val; }
         pos = bresenham_circle_next_pt();
     }
+    if (!((pos.x == -1) && (pos.y == -1)))
+      return FAST_RESULT_NONE;
     
     if ((center_val - boundary_max) >= FAST_THRESHOLD_DIFF) {
         return FAST_RESULT_MARKER;
@@ -191,13 +194,7 @@ void main()
     image_size = imageSize(image_in);
     center_pos = ivec2(gl_GlobalInvocationID.xy);
 
-    if (USE_MASKS)
-      if (int(imageLoad(mask, center_pos).r) == 0)
-      {
-        return;
-      }
-
-    center_val = int(imageLoad(image_in, center_pos).r);
+    center_val = int((imageLoad(image_in, center_pos).r) & (imageLoad(mask, center_pos).r));
     
     if (center_val >= FAST_THRESHOLD) {
         switch (run_fast(3)) {

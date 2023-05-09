@@ -8,7 +8,7 @@
   <arg unless="$(arg standalone)" name="nodelet_manager" value="$(arg uav_name)_uvdar_nodelet_manager"/>
   <arg     if="$(arg standalone)" name="nodelet_manager" value=""/>
 
-  <arg name="threshold" default="100"/>
+  <arg name="threshold" default="50"/>
 
   <arg name="left" default="$(optenv BLUEFOX_UV_LEFT)"/>
   <arg name="right" default="$(optenv BLUEFOX_UV_RIGHT)"/>
@@ -129,7 +129,9 @@
       <rosparam param="camera_topics"> ["camera_left", "camera_right", "camera_back"] </rosparam>
       <rosparam param="points_seen_topics"> ["points_seen_left", "points_seen_right", "points_seen_back"] </rosparam>
 
-      <param name="use_masks"         type="bool" value="false"/>
+      <!-- <param name="use_masks"         type="bool" value="false"/> -->
+      <param name="use_masks"         type="bool" value="true"/>
+      <rosparam param="mask_file_names" subst_value="True"> ["$(arg calibrations_folder)/masks/blank_bluefox.png", "$(arg calibrations_folder)/masks/blank_bluefox.png", "$(arg calibrations_folder)/masks/blank_bluefox.png"] </rosparam>
 
       <param name="publish_sun_points"         type="bool" value="true"/>
 

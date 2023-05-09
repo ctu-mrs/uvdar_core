@@ -237,6 +237,7 @@ private:
         ROS_ERROR_STREAM("Failed to extract markers from the image!");
         return;
       }
+      /* ROS_INFO_STREAM("Cam" << image_index << ". There are " << detected_points_[image_index].size() << " detected points."); */
 
       if (sun_points_[image_index].size() > 30){
         ROS_ERROR_STREAM("There are " << sun_points_[image_index].size() << " detected potential sun points! Check your exposure!");

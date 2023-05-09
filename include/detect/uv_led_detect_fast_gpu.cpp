@@ -35,11 +35,9 @@ void uvdar::UVDARLedDetectFASTGPU::init() {
         return;
     }
 
-    use_masks = (masks_.size() > 0);
-
     // init compute program
     char* formatted_src;
-    if (asprintf(&formatted_src, fastlike_shader_src, local_size_x, local_size_y, _threshold_, _threshold_diff_, _threshold_sun_, max_markers_count, max_sun_pts_count, (use_masks?"true":"false")) < 0)
+    if (asprintf(&formatted_src, fastlike_shader_src, local_size_x, local_size_y, _threshold_, _threshold_diff_, _threshold_sun_, max_markers_count, max_sun_pts_count) < 0)
     {
         fprintf(stderr, "Failed to format shader source!\r\n");
         compute_lib_error_str(code, err_str, &err_str_len);
@@ -63,13 +61,11 @@ void uvdar::UVDARLedDetectFASTGPU::init() {
         return;
     }
 
-    if (use_masks){
-      mask = COMPUTE_LIB_IMAGE2D_NEW("mask", GL_TEXTURE1, image_size.width, image_size.height, GL_R8UI, GL_READ_ONLY, GL_CLAMP_TO_EDGE, GL_LINEAR, GL_RED_INTEGER, GL_UNSIGNED_BYTE);
-      if (compute_lib_image2d_init(&compute_prog, &mask, 0)) {
-        fprintf(stderr, "Failed to create image2d '%s'!\r\n", mask.uniform_name);
-        compute_lib_error_queue_flush(&compute_inst, stderr);
-        return;
-      }
+    mask = COMPUTE_LIB_IMAGE2D_NEW("mask", GL_TEXTURE1, image_size.width, image_size.height, GL_R8UI, GL_READ_ONLY, GL_CLAMP_TO_EDGE, GL_LINEAR, GL_RED_INTEGER, GL_UNSIGNED_BYTE);
+    if (compute_lib_image2d_init(&compute_prog, &mask, 0)) {
+      fprintf(stderr, "Failed to create image2d '%s'!\r\n", mask.uniform_name);
+      compute_lib_error_queue_flush(&compute_inst, stderr);
+      return;
     }
     
     // init SSBOs
@@ -101,11 +97,9 @@ void uvdar::UVDARLedDetectFASTGPU::init() {
         return;
     }
 
-    if (use_masks){
-      // dummy clear of mask
-      uint32_t zero = 255;
-      compute_lib_image2d_reset(&compute_prog, &mask, &zero);
-    }
+    // dummy clear of mask
+    uint32_t zero = 255;
+    compute_lib_image2d_reset(&compute_prog, &mask, &zero);
 
     initialized_ = true;
 }
@@ -122,8 +116,7 @@ uvdar::UVDARLedDetectFASTGPU::~UVDARLedDetectFASTGPU() {
 
     // destroy image2d objects
     compute_lib_image2d_destroy(&compute_prog, &texture_in);
-    if (use_masks)
-      compute_lib_image2d_destroy(&compute_prog, &mask);
+    compute_lib_image2d_destroy(&compute_prog, &mask);
 
     // destroy compute program
     compute_lib_program_destroy(&compute_prog, true);
@@ -143,11 +136,12 @@ bool uvdar::UVDARLedDetectFASTGPU::processImage(const cv::Mat i_image, std::vect
     init();
   }
 
-  if (use_masks) {
-    if (mask_id >= (int)(masks_.size())) {
-      std::cerr << "[UVDARDetectorFASTGPU]: Mask index " << mask_id << " is greater than the current number of loaded masks!" << std::endl;
-      return false;
-    }
+  if (mask_id >= (int)(masks_.size())) {
+    std::cerr << "[UVDARDetectorFASTGPU]: Mask index " << mask_id << " is greater than the current number of loaded masks!" << std::endl;
+    return false;
+  }
+
+  if (mask_id >= 0){
     if (image_curr_.size() != masks_[mask_id].size()) {
       std::cerr << "[UVDARDetectorFASTGPU]: The size of the selected mask does not match the current image!" << std::endl;
       return false;
@@ -169,9 +163,7 @@ bool uvdar::UVDARLedDetectFASTGPU::processImage(const cv::Mat i_image, std::vect
   
   // write input image data + mask data to GPU
   compute_lib_image2d_write(&compute_prog, &texture_in, image_curr_.data);
-  if (use_masks) {
-    compute_lib_image2d_write(&compute_prog, &mask, masks_[mask_id].data);
-  }
+  compute_lib_image2d_write(&compute_prog, &mask, (mask_id>=0)?masks_[mask_id].data:nullptr);
 
   // dispatch compute shader
   compute_lib_program_dispatch(&compute_prog, image_size.width / local_size_x, image_size.height / local_size_y, 1);
@@ -193,9 +185,9 @@ bool uvdar::UVDARLedDetectFASTGPU::processImage(const cv::Mat i_image, std::vect
     sun_points.push_back(cv::Point(sun_pts[i].x,sun_pts[i].y));
   }
 
-  for (int i = 0; i< sun_points_cnt_val; i++){
-    std::cout << "Sun pt: " << sun_points[i].x << ":" << markers[i].y << std::endl;
-  }
+  /* for (int i = 0; i< sun_points_cnt_val; i++){ */
+  /*   std::cout << "Sun pt: " << sun_points[i].x << ":" << sun_points[i].y << std::endl; */
+  /* } */
   for (int i = 0; i< markers_cnt_val; i++){
     std::cout << "Found: " << markers[i].x << ":" << markers[i].y << std::endl;
   }
