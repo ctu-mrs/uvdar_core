@@ -44,6 +44,7 @@ This package contains the core signal processing and pose estimation software co
 ## Installation
 Install the dependencies.
 Clone this repository into a ROS workspace as a package.
+Run [`install/install.sh`](install/install.sh)
 Build the package using catkin tools (e.g. `catkin build uvdar_core`)
 
 ## Testing
@@ -56,7 +57,7 @@ Note, that the script slows down the simulation below real-time. This is necessa
 
 ## Node description
 The package comprises multiple ROS nodes (N) and nodelets (n):
-  * [UVDARDetector](src/detector.cpp) - n - detects bright points from the UV camera image. These are used as candidates for UV LED markers
+  * [UVDARDetector](src/detector.cpp) - n - detects bright points from the UV camera image. These are used as candidates for UV LED markers. Current implementation uses GPU acceleration.
   * [UVDARBlinkProcessor](src/blink_processor.cpp) - n - Extracts blinking signals and image positions of the markers detected previously
   * [UVDARPoseCalculator](src/uav_pose_calculator.cpp) - N - Calculates approximate pose and error covariances of the MAVs carrying the UV LED markers. Note, that this is an example for the specific layouts on quadrotors and hexarotors we use. If you need a different layout, you will also need to write your custom pose calculation
   * [UVDARKalman](src/filter.cpp) - N - Filters out sets of detected poses with covariances based on positions or the included identities. This filtering occurs in a selected coordinate frame
