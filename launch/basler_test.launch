@@ -26,7 +26,6 @@
       <arg name="respawn" default="false" />
       <arg name="startup_user_set" default="CurrentSetting" />
       <arg name="enable_status_publisher" default="true" />
-      <arg name="enable_current_params_publisher" default="false" />
 
       <arg name="camera_name_left" default="basler_left" />
       <arg name="camera_name_right" default="basler_right" />

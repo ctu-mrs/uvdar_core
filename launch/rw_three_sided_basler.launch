@@ -95,7 +95,6 @@
   <!-- Model settings: -->
 
   <arg name="use_masks" default="true"/>
-  <!-- <arg name="use_masks" default="false"/> -->
   <arg name="model_file" default="$(find uvdar_core)/config/models/quadrotor_foursided.txt"/>
   <arg name="beacon" default="false"/>
 
@@ -135,8 +134,8 @@
       <arg name="nodelet_back" value="pylon_camera/PylonCameraNodelet" />
       <arg name="nodelet_load_back" value="load $(arg nodelet_back) $(arg nodelet_manager)"/>
 
-    <node pkg="nodelet" type="nodelet" name="$(arg nodelet_manager)" args="manager" output="screen" launch-prefix="debug_roslaunch">
-    <!-- <node pkg="nodelet" type="nodelet" name="$(arg nodelet_manager)" args="manager" output="screen"> -->
+    <!-- <node pkg="nodelet" type="nodelet" name="$(arg nodelet_manager)" args="manager" output="screen" launch-prefix="debug_roslaunch"> -->
+    <node pkg="nodelet" type="nodelet" name="$(arg nodelet_manager)" args="manager" output="screen">
       <param name="num_worker_threads" value="10" />
     </node>
 
@@ -192,9 +191,7 @@
       <rosparam param="mask_file_names" subst_value="True"> ["$(arg calibrations_folder)/masks/$(arg mrs_id)_$(arg BASLER_LEFT_ID).png", "$(arg calibrations_folder)/masks/$(arg mrs_id)_$(arg BASLER_RIGHT_ID).png", "$(arg calibrations_folder)/masks/$(arg mrs_id)_$(arg BASLER_BACK_ID).png"] </rosparam>
 
       <rosparam param="camera_topics"> ["camera_left", "camera_right", "camera_back"] </rosparam>
-      <!-- <rosparam param="camera_topics"> ["camera_left"] </rosparam> -->
       <rosparam param="points_seen_topics"> ["points_seen_left", "points_seen_right", "points_seen_back"] </rosparam>
-      <!-- <rosparam param="points_seen_topics"> ["points_seen_left"] </rosparam> -->
 
       <remap from="~camera_left" to="/$(arg uav_name)/basler_left/image_raw"/>
       <remap from="~camera_right" to="/$(arg uav_name)/basler_right/image_raw"/>
