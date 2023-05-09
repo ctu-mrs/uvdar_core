@@ -42,10 +42,10 @@ This package contains the core signal processing and pose estimation software co
   * [uvdar_gazebo_plugin](https://github.com/ctu-mrs/uvdar_gazebo_plugin) - Emulation library that produces meta-data that is used for generation of synthetic UV LED image stream in simulation
 
 ## Installation
-Install the dependencies.
-Clone this repository into a ROS workspace as a package.
-Run [`install/install.sh`](install/install.sh)
-Build the package using catkin tools (e.g. `catkin build uvdar_core`)
+* Install the dependencies.
+* Clone this repository into a ROS workspace as a package.
+* Run [`install/install.sh`](install/install.sh)
+* Build the package using catkin tools (e.g. `catkin build uvdar_core`)
 
 ## Testing
 In order to test the system in simulation, install all software dependencies including those designated for testing in simulation (Above) and run this script in the [scripts](scripts/) folder:
