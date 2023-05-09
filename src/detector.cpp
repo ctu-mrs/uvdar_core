@@ -1,5 +1,5 @@
 #define camera_delay 0.50
-#define MAX_POINTS_PER_IMAGE 30
+#define MAX_POINTS_PER_IMAGE 100
 
 #include <ros/ros.h>
 #include <ros/package.h>
@@ -17,7 +17,8 @@
 /* #include <experimental/filesystem> */
 #include <mutex>
 
-#include "detect/uv_led_detect_fast.h"
+#include "detect/uv_led_detect_fast_cpu.h"
+#include "detect/uv_led_detect_fast_gpu.h"
 
 namespace enc = sensor_msgs::image_encodings;
 
@@ -89,10 +90,12 @@ public:
       mutex_camera_image_.push_back(std::make_unique<std::mutex>());
 
       ROS_INFO("[UVDARDetector]: Initializing FAST-based marker detection...");
-      uvdf_.push_back(std::make_unique<UVDARLedDetectFAST>(
+      uvdf_.push_back(std::make_unique<UVDARLedDetectFASTGPU>(
             _gui_,
             _debug_,
             _threshold_,
+            _threshold_ / 2,
+            150,
             _masks_
             ));
       if (!uvdf_.back()){
@@ -234,6 +237,7 @@ private:
         ROS_ERROR_STREAM("Failed to extract markers from the image!");
         return;
       }
+      /* ROS_INFO_STREAM("Cam" << image_index << ". There are " << detected_points_[image_index].size() << " detected points."); */
 
       if (sun_points_[image_index].size() > 30){
         ROS_ERROR_STREAM("There are " << sun_points_[image_index].size() << " detected potential sun points! Check your exposure!");

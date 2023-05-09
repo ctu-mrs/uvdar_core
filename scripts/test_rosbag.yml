@@ -1,0 +1,27 @@
+name: simulation
+root: ./
+startup_window: launch
+windows:
+  - build:
+      layout: even-vertical
+      panes:
+        - catkin build uvdar_core
+  - launch:
+      layout: even-vertical
+      panes:
+        - sleep 2; UAV_NAME=uav36; roslaunch uvdar_core rosbag.launch 
+        #publish_visualization:=false max_zeros_consecutive:=3 max_ones_consecutive:=3 allowed_BER_per_seq:=1 gui:=true
+  - rosbag:
+      layout: even-vertical
+      panes:
+        # - 'waitForRos; cd ~/basler_tests/latest; rosbag play --clock _2023-04-26-15-32-46.bag'
+        # - waitForCompile; cd ~/uvdar_rosbag/tracking/uav7/22_2021_04_27_09_11_19_L12/ ; rosbag play --clock -s 30 _2021-04-27-09-11-56.bag
+  # - trajectory:
+  #     layout: even-vertical
+  #     panes:
+  #       - waitForRos; waitForOffboard; roslaunch uvdar_core load_trajectory.launch file:="observer_still.txt" 
+  # - rqt_image_view:
+  #     layout: even-vertical
+  #     panes:
+  #       - waitForCompile; roscore;
+  #       - waitForRos; rqt_image_view

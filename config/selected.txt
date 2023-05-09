@@ -1,1 +1,1 @@
-./blinking_sequences/TBS-L14-P0.500000-HD3-NO3-NZ3-N21.txt
+blinking_sequences/manchesterPropeties.txt
