@@ -188,12 +188,12 @@ bool uvdar::UVDARLedDetectFASTGPU::processImage(const cv::Mat i_image, std::vect
   /* for (int i = 0; i< sun_points_cnt_val; i++){ */
   /*   std::cout << "Sun pt: " << sun_points[i].x << ":" << sun_points[i].y << std::endl; */
   /* } */
-  for (int i = 0; i< markers_cnt_val; i++){
-    std::cout << "Found: " << markers[i].x << ":" << markers[i].y << std::endl;
-  }
-  for (auto p : detected_points){
-    std::cout << "Refined: " << p << std::endl;
-  }
+  /* for (int i = 0; i< markers_cnt_val; i++){ */
+  /*   std::cout << "Found: " << markers[i].x << ":" << markers[i].y << std::endl; */
+  /* } */
+  /* for (auto p : detected_points){ */
+  /*   std::cout << "Refined: " << p << std::endl; */
+  /* } */
 
   // filter markers using detected sun points
   for (int i = 0; i < (int)(detected_points.size()); i++) { //iterate over the detected marker points
