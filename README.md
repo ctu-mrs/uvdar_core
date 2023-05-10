@@ -63,7 +63,6 @@ The package comprises multiple ROS nodes (N) and nodelets (n):
   * [UVDARKalman](src/filter.cpp) - N - Filters out sets of detected poses with covariances based on positions or the included identities. This filtering occurs in a selected coordinate frame
 
   * [UVDARBluefoxEmulator](src/bluefox_emulator.cpp)  - n - Generates an image stream similar to the output of our Bluefox cameras with UV bandpass filters (above). This image is currently rudimentary, with background of a constant shade of grey and white circles where the markers appeared. The function of this node depends on our [uvdar_gazebo_plugin](https://github.com/ctu-mrs/uvdar_gazebo_plugin), with which it needs to communicate
-  * [MaskGenerator](src/mask_generator.cpp) - N - Generates masks for specific camearas on specific MAVs. This is necessary to suppress detections of marers on the given observer, as well as reflection from e.g. its metallic surfaces in front of the camera. The masks can be also generated manually.
   * [LedManager](src/led_manager.cpp) - N - Sends commands to our controller boards that set the signals of the blinking UV LEDs on the current MAV using the Baca Protocol. You can command this node using ROS services. This is loaded using [led_manager.launch](launch/led_manager.launch).
 
 ## Releavant papers
