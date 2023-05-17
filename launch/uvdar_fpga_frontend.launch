@@ -1,0 +1,181 @@
+<launch>
+  <arg name="uav_name" default="$(optenv UAV_NAME uav2)"/>
+
+  <arg name="standalone" default="false"/>
+
+  <arg unless="$(arg standalone)" name="nodelet" value="load"/>
+  <arg     if="$(arg standalone)" name="nodelet" value="standalone"/>
+  <arg unless="$(arg standalone)" name="nodelet_manager" value="$(arg uav_name)_uvdar_nodelet_manager"/>
+  <arg     if="$(arg standalone)" name="nodelet_manager" value=""/>
+
+
+  <arg name="calibrations_folder" default="$(find mrs_uav_general)/config/uvdar_calibrations"/>
+
+  <arg name="camera_rate" default="60"/>
+  <arg name="fps" default="$(arg camera_rate)"/>
+  <arg name="idpf" default="0"/>
+  <arg name="aec" default="false"/>
+  <arg name="agc" default="false"/>
+  <arg name="gain_db" default="0.0"/>
+  <arg name="cbm" default="0"/>
+  <arg name="ctm" default="1"/>
+  <arg name="dcfm" default="0"/>
+  <arg name="hdr" default="false"/>
+  <arg name="wbp" default="-1"/>
+  <arg name="request" default="0"/>
+  <arg name="mm" default="0"/>
+  <arg name="jpeg_quality" default="90"/>
+
+  <arg name="blink_process_rate" default="10"/>
+
+  <arg name="accumulator_length"         default="14"/>
+  <arg name="pitch_steps"         default="16"/>
+  <arg name="yaw_steps"         default="16"/>
+  <arg name="max_pixel_shift"         default="4"/>
+
+  <arg name="filterDistLength"         default="10"/>
+  <arg name="filterOrientationLength"         default="10"/>
+
+  <!-- Node Settings -->
+  <arg name="output" default="screen"/>
+  <arg name="proc" default="false"/>
+  <arg name="view" default="false"/>
+  <arg name="calib" default="false"/>
+
+  <arg name="debug" default="false"/>
+  <arg name="visual_debug" default="false"/>
+  <!-- <arg name="gui" default="true"/> -->
+  <arg name="gui" default="false"/>
+  <arg name="publish_visualization" default="true"/>
+  <arg name="visualization_rate" default="2"/>
+
+  <arg name="publish" default="true"/>
+  <arg name="useOdom" default="false"/>
+  <arg name="cemeraRotated" default="false"/>
+  <arg name="FromVideo" default="false"/>
+  <arg name="VideoNumber" default="9"/>
+  <arg name="cellSize" default="64"/>
+  <arg name="cellOverlay" default="16"/>
+  <arg name="camNum" default="0"/>
+  <arg name="Delay" default="100"/>
+  <arg name="TimeScale" default="1.0"/>
+
+  <arg name="mrs_id" default="$(optenv MRS_ID)"/>
+
+  <arg name="beacon" default="false"/>
+
+  <arg name="id1" value="0"/>
+  <arg name="id2" value="1"/>
+  <arg name="id3" value="2"/>
+  <arg name="id4" value="3"/>
+  <arg name="id5" value="4"/>
+  <arg name="id6" value="5"/>
+  <arg name="id7" value="6"/>
+  <arg name="id8" value="7"/>
+  <arg name="id9" value="8"/>
+  <arg name="id10" value="9"/>
+  <arg name="id11" value="10"/>
+  <arg name="id12" value="11"/>
+  <arg name="id13" value="12"/>
+  <arg name="id14" value="13"/>
+  <arg name="id15" value="14"/>
+  <arg name="id16" value="15"/>
+  <arg name="id17" value="16"/>
+  <arg name="id18" value="17"/>
+  <arg name="id19" value="18"/>
+  <arg name="id20" value="19"/>
+  <arg name="id21" value="20"/>
+
+  <arg name="sequence_file" default="$(find uvdar_core)/config/blinking_sequences/TBS-L14-P0.500000-HD3-NO3-NZ3-N21.txt"/>
+    .txt"/>
+
+  <arg name="use_masks" default="false"/>
+
+  <node
+    name="uvcam_tf_$(arg uav_name)"
+    pkg="tf2_ros"
+    type="static_transform_publisher"
+    args="0.03  0.10 0.06 -0.3490658504 0.0 -1.57079632679 $(arg uav_name)/fcu $(arg uav_name)/uvcam"/>
+
+
+      <!-- <origin xyz="0.108 0 0.085" rpy="1.57079632679 4.71238898038 1.57079632679" /> -->
+  <!--Usage: static_transform_publisher x y z yaw pitch roll frame_id child_frame_id  period(milliseconds)-->
+<!-- OR -->
+  <group ns="$(arg uav_name)">
+  
+    <!-- <node pkg="nodelet" type="nodelet" name="$(arg uav_name)_uvdar_nodelet_manager" args="manager" output="screen" launch-prefix="debug_roslaunch"> -->
+    <node pkg="nodelet" type="nodelet" name="$(arg uav_name)_uvdar_nodelet_manager" args="manager" output="screen">
+      <param name="num_worker_threads" value="8" />
+    </node>
+
+
+
+    <node name="blink_processor" pkg="nodelet" type="nodelet" args="$(arg nodelet) uvdar/UVDARBlinkProcessor $(arg nodelet_manager)" output="screen" respawn="true"> 
+    <!-- <node name="blink_processor" pkg="nodelet" type="nodelet" args="$(arg nodelet) uvdar/UVDARBlinkProcessor $(arg nodelet_manager)" output="screen" respawn="true" launch-prefix="roslaunch_debug"> --> 
+      <param name="uav_name" type = "string" value="$(arg uav_name)"/>
+      <!-- <param name="debug"		type="bool" value="$(arg debug)"/> --> 
+      <param name="debug"		type="bool" value="false"/> 
+      <param name="visual_debug"		type="bool" value="$(arg visual_debug)"/> 
+      <param name="gui"             type="bool" value="$(arg gui)"/>
+      <param name="publish_visualization"         type="bool" value="$(arg publish_visualization)"/>
+      <param name="use_camera_for_visualization"         type="bool" value="true"/>
+      <param name="visualization_rate"         type="int" value="$(arg visualization_rate)"/>
+      <!-- <rosparam param="frequencies" subst_value="true"> [$(arg frequency1), $(arg frequency2), $(arg frequency3), $(arg frequency4)] </rosparam> -->
+      <rosparam param="signal_ids" subst_value="true"> [$(arg id1), $(arg id2), $(arg id3), $(arg id4), $(arg id5), $(arg id6), $(arg id7), $(arg id8), $(arg id9), $(arg id10), $(arg id11), $(arg id12), $(arg id13), $(arg id14), $(arg id15), $(arg id16), $(arg id17), $(arg id18), $(arg id19), $(arg id20), $(arg id21)] </rosparam>
+      <param name="sequence_file"         type="string" value="$(arg sequence_file)"/>
+
+      <param name="blink_process_rate"         type="int" value="$(arg blink_process_rate)"/>
+
+      <param name="accumulator_length"         type="int" value="$(arg accumulator_length)"/>
+      <param name="pitch_steps"         type="int" value="$(arg pitch_steps)"/>
+      <param name="yaw_steps"         type="int" value="$(arg yaw_steps)"/>
+      <param name="max_pixel_shift"         type="int" value="$(arg max_pixel_shift)"/>
+      <param name="nullify_radius"         type="int" value="5"/>
+
+      <rosparam param="camera_topics"> ["camera"] </rosparam>
+      <rosparam param="points_seen_topics"> ["points_seen"] </rosparam>
+      <rosparam param="blinkers_seen_topics"> ["blinkers_seen"] </rosparam>
+      <rosparam param="estimated_framerate_topics"> ["estimated_framerate"] </rosparam>
+
+      <remap from="~camera" to="/uvdar_fpga/camera_node/frames"/>
+      <remap from="~points_seen" to="/uvdar_fpga/detector_node/markers"/>
+      <remap from="~blinkers_seen" to="/$(arg uav_name)/uvdar/blinkers_seen"/>
+      <remap from="~estimated_framerate" to="/$(arg uav_name)/uvdar/estimated_framerate"/>
+      <!-- <remap from="~visualization" to="/$(arg uav_name)/uvdar/blink_visualization/image_raw"/> -->
+
+    </node>
+      
+    <node name="uvdar_pose_calculator_node" pkg="uvdar_core" type="uvdar_pose_calculator_node" output="screen" > 
+        <!-- <node name="uvdar_pose_calculator_node" pkg="uvdar_core" type="uvdar_pose_calculator_node" launch-prefix="valgrind -/-tool=callgrind -/-callgrind-out-file=/home/viktor/callgrind.out -/-instr-atstart=no -/-collect-atstart=yes"> --> 
+            <!-- <node name="uvdar_pose_calculator_node" pkg="uvdar_core" type="uvdar_pose_calculator_node" launch-prefix="valgrind -/-tool=callgrind -/-callgrind-out-file=/home/viktor/callgrind.out"> --> 
+      <param name="uav_name" type = "string" value="$(arg uav_name)"/>
+      <param name="debug"		type="bool" value="false"/> 
+      <!-- <param name="debug"		type="bool" value="false"/> --> 
+      <!-- <param name="gui"             type="bool" value="false"/> -->
+      <param name="gui"             type="bool" value="false"/>
+      <param name="publish_visualization"             type="bool" value="false"/>
+      <param name="publish_constituents"             type="bool" value="true"/>
+      <!-- <param name="publish_visualization"             type="bool" value="false"/> -->
+      <rosparam param="signal_ids" subst_value="true"> [$(arg id1), $(arg id2), $(arg id3), $(arg id4), $(arg id5), $(arg id6), $(arg id7), $(arg id8), $(arg id9), $(arg id10), $(arg id11), $(arg id12), $(arg id13), $(arg id14), $(arg id15), $(arg id16), $(arg id17), $(arg id18), $(arg id19), $(arg id20), $(arg id21)] </rosparam>
+
+      <param name="quadrotor" type="bool" value="true"/>
+      <param name="beacon" type="bool" value="$(arg beacon)"/>
+      <param name="arm_length" type="double" value="0.212132"/>
+
+      <rosparam param="blinkers_seen_topics"> ["blinkers_seen"] </rosparam>
+      <rosparam param="estimated_framerate_topics"> ["estimated_framerate"] </rosparam>
+      <rosparam param="camera_frames" subst_value="true"> ["$(arg uav_name)/uvcam"] </rosparam>
+
+      <remap from="~blinkers_seen" to="/$(arg uav_name)/uvdar/blinkers_seen"/>
+      <remap from="~estimated_framerate" to="/$(arg uav_name)/uvdar/estimated_framerate"/>
+
+      <rosparam param="calib_files" subst_value="true"> ["$(arg calibrations_folder)/camera_calibrations/calib_results_bf_uv_fe.txt"] </rosparam>
+
+      <remap from="~constituentPoses1" to="/$(arg uav_name)/uvdar/constituentPoses"/>
+
+      <remap from="~measuredPoses1" to="/$(arg uav_name)/uvdar/measuredPoses"/>
+    </node>
+  </group>
+
+
+</launch>

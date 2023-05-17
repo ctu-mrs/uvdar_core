@@ -1,5 +1,5 @@
 #define camera_delay 0.50
-#define MAX_POINTS_PER_IMAGE 100
+#define MAX_POINTS_PER_IMAGE 200
 
 #include <ros/ros.h>
 #include <ros/package.h>

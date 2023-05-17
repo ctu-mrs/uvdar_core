@@ -1036,5 +1036,4 @@ namespace uvdar{
 }// namespace uvdar
 
 #include <pluginlib/class_list_macros.h>
-PLUGINLIB_EXPORT_CLASS(uvdar::UVDARBlinkProcessor, nodelet::Nodelet);
-
+PLUGINLIB_EXPORT_CLASS(uvdar::UVDARBlinkProcessor, nodelet::Nodelet)

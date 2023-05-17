@@ -1,0 +1,74 @@
+<launch>
+  <arg name="uav_name" default="$(env UAV_NAME)"/>
+  <arg name="mrs_id" default="$(env MRS_ID)"/>
+
+  <arg name="standalone" default="false"/>
+
+  <arg unless="$(arg standalone)" name="nodelet" value="load"/>
+  <arg     if="$(arg standalone)" name="nodelet" value="standalone"/>
+  <arg unless="$(arg standalone)" name="nodelet_manager" value="$(arg uav_name)_uvdar_nodelet_manager"/>
+  <arg     if="$(arg standalone)" name="nodelet_manager" value=""/>
+
+
+  <arg name="debug" default="false"/>
+
+  <!-- Basler camera settings: -->
+
+  <arg name="BASLER_ID" default="$(env BASLER_UV_LEFT)" />
+  <!-- <arg name="BASLER_RIGHT_ID" default="$(env BASLER_UV_RIGHT)" /> -->
+  <!-- <arg name="BASLER_BACK_ID" default="$(env BASLER_UV_BACK)" /> -->
+
+
+  <arg name="camera_name" default="basler" />
+  <!-- <arg name="camera_name_right" default="basler_right" /> -->
+  <!-- <arg name="camera_name_back" default="basler_back" /> -->
+
+  <!-- <arg name="expose_us" default="$(env BASLER_UV_LEFT_EXPOSE_US)"/> -->
+  <arg name="expose_us" default="1"/>
+  <!-- <arg name="expose_us_right" default="$(env BASLER_UV_RIGHT_EXPOSE_US)"/> -->
+  <!-- <arg name="expose_us_back" default="$(env BASLER_UV_BACK_EXPOSE_US)"/> -->
+  
+  <arg name="camera_config_file" default="$(find uvdar_core)/config/camera_config/basler_grayscale.yaml" />
+
+  <arg name="calibrations_folder" default="$(find mrs_uav_general)/config/uvdar_calibrations"/>
+
+  <arg name="FRAME_RATE" default="5" />
+
+
+
+
+<!-- OR -->
+  <group ns="$(arg uav_name)">
+  
+      <arg name="respawn" default="false" />
+      <arg name="startup_user_set" default="CurrentSetting" />
+      <arg name="enable_status_publisher" default="true" />
+      
+      <arg name="nodelet_cam" value="pylon_camera/PylonCameraNodelet" />
+      <arg name="nodelet_load_cam" value="load $(arg nodelet_cam) $(arg nodelet_manager)"/>
+
+
+    <!-- <node pkg="nodelet" type="nodelet" name="$(arg nodelet_manager)" args="manager" output="screen" launch-prefix="debug_roslaunch"> -->
+    <node pkg="nodelet" type="nodelet" name="$(arg nodelet_manager)" args="manager" output="screen">
+      <param name="num_worker_threads" value="10" />
+    </node>
+
+
+      <node pkg="nodelet" type="nodelet" name="$(arg camera_name)" args="$(arg nodelet_load_cam)" output="screen" launch-prefix="bash -c 'sleep 5; $0 $@'; " respawn="$(arg respawn)" >
+        <rosparam command="load" file="$(arg camera_config_file)" />
+        <param name="camera_frame" value="$(arg uav_name)/$(arg camera_name)_optical"/>
+        <param name="frame_rate" type="double" value="$(arg FRAME_RATE)"/>
+        <param name="device_serial_number" type="string" value="$(arg BASLER_ID)"/>
+        <param name="startup_user_set" value="$(arg startup_user_set)"/>
+        <param name="enable_status_publisher" value="$(arg enable_status_publisher)"/>
+        <param name="enable_current_params_publisher" value="false"/>
+        <param name="exposure" type="double" value="$(arg expose_us)"/>
+
+        <remap from="~/image_raw" to="/cam/image_raw" />
+
+      </node>
+
+  </group>
+
+
+</launch>

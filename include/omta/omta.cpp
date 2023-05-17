@@ -25,7 +25,7 @@ bool OMTA::setSequences(std::vector<std::vector<bool>> i_sequences){
         return false;
 
     if((int)original_sequences_[0].size() < loaded_params_->max_zeros_consecutive){
-        ROS_ERROR("[Alternative_HT]: The wanted number of consecutive zeros is higher than the sequence length! Sequence cannot be set. Returning..");
+        ROS_ERROR("[OMTA]: The wanted number of consecutive zeros is higher than the sequence length! Sequence cannot be set. Returning..");
         return false;
     }
     return true;
@@ -118,7 +118,7 @@ void OMTA::expandedSearch(std::vector<PointState>& no_nn_current_frame, std::vec
             cv::Point2d bb_right_bottom = cv::Point2d( (x_predicted + x_conf), (y_predicted + y_conf) );
             
             if(debug_){
-                std::cout << "[Alternative_HT]: Predicted Point: x = " << x_predicted << " y = " << y_predicted << " Prediction Interval: x = " << x_conf << " y = " << y_conf << " seq_size" << x.size();
+                std::cout << "[OMTA]: Predicted Point: x = " << x_predicted << " y = " << y_predicted << " Prediction Interval: x = " << x_conf << " y = " << y_conf << " seq_size" << x.size();
                 std::cout << "\n";
             }
 
@@ -249,6 +249,7 @@ void OMTA::cleanPotentialBuffer(){
 
 
         int number_zeros_till_seq_deleted = (loaded_params_->max_zeros_consecutive + loaded_params_->allowed_BER_per_seq);
+        int number_ones_till_seq_deleted = (loaded_params_->max_ones_consecutive + loaded_params_->allowed_BER_per_seq);
         if((int)gen_sequences_[i]->size() > number_zeros_till_seq_deleted){
             int cnt = 0;
             for (auto reverse_it = gen_sequences_[i]->rbegin(); 
@@ -256,6 +257,23 @@ void OMTA::cleanPotentialBuffer(){
                 if(!(reverse_it->led_state)){
                     ++cnt;
                     if(cnt > number_zeros_till_seq_deleted){
+                      /* std::cout << "Sit. A" << std::endl; */
+                        gen_sequences_.erase(gen_sequences_.begin() + i);
+                        break;
+                    }
+                }else{
+                    cnt = 0;
+                }
+            }
+        }
+        if((int)gen_sequences_[i]->size() > number_ones_till_seq_deleted){
+            int cnt = 0;
+            for (auto reverse_it = gen_sequences_[i]->rbegin(); 
+                reverse_it != gen_sequences_[i]->rend(); ++reverse_it ) {  
+                if((reverse_it->led_state)){
+                    ++cnt;
+                    if(cnt > number_ones_till_seq_deleted){
+                      /* std::cout << "Sit. A" << std::endl; */
                         gen_sequences_.erase(gen_sequences_.begin() + i);
                         break;
                     }
