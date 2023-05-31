@@ -111,9 +111,14 @@ void OMTA::expandedSearch(std::vector<PointState>& no_nn_current_frame, std::vec
             last_point.y_statistics = y_predictions;
             double x_predicted = last_point.x_statistics.predicted_coordinate;
             double y_predicted = last_point.y_statistics.predicted_coordinate;
-            
+
+            // todo: make upper limit settable, e.g. when only UAV is expected, value can set higher, than for swarming applications 
+            last_point.x_statistics.confidence_interval = ( last_point.x_statistics.confidence_interval > 20.0 ) ? 20.0 : last_point.x_statistics.confidence_interval;
+            last_point.y_statistics.confidence_interval = ( last_point.y_statistics.confidence_interval > 20.0 ) ? 20.0 : last_point.y_statistics.confidence_interval;
+
             double x_conf = last_point.x_statistics.confidence_interval;
-            double y_conf = last_point.y_statistics.confidence_interval;      
+            double y_conf = last_point.y_statistics.confidence_interval;     
+             
             cv::Point2d bb_left_top = cv::Point2d( (x_predicted - x_conf), (y_predicted - y_conf) );
             cv::Point2d bb_right_bottom = cv::Point2d( (x_predicted + x_conf), (y_predicted + y_conf) );
             
@@ -140,8 +145,9 @@ void OMTA::expandedSearch(std::vector<PointState>& no_nn_current_frame, std::vec
     // for the points, still no NN found start new sequence
     for(auto point : no_nn_current_frame){
         std::vector<PointState> vect;
-        vect.push_back(point);
-        gen_sequences_.push_back(std::make_shared<std::vector<PointState>>(vect));
+        vect.reserve(loaded_params_->stored_seq_len_factor*original_sequences_[0].size());
+        vect.emplace_back(point);
+        gen_sequences_.emplace_back(std::make_shared<std::vector<PointState>>(vect));
     }
 
     // for sequences where still no insert happend
@@ -188,36 +194,39 @@ void OMTA::insertVPforSequencesWithNoInsert(seqPointer & seq){
 PredictionStatistics OMTA::selectStatisticsValues(const std::vector<double>& values, const std::vector<double>& time, const double& insert_time, const int& max_pix_shift){
 
     auto weight_vect = extended_search_->calcNormalizedWeightVect(time);
-    double w_mean_dependent = extended_search_->calcWeightedMean(values, weight_vect); 
-    double w_mean_independent = extended_search_->calcWeightedMean(time, weight_vect); 
-    auto std = extended_search_->calcWSTD(values, weight_vect, w_mean_dependent); 
-
-    bool conf_interval_bool = false, poly_reg_computed = false;
-
+    
     PredictionStatistics statistics;
-    if(values.size() > 1 && std > loaded_params_->std_threshold_poly_reg){
-        statistics = extended_search_->polyReg(values, time, weight_vect);
-        auto coeff = statistics.coeff;
+    statistics.mean_dependent = extended_search_->calcWeightedMean(values, weight_vect); 
+    statistics.mean_independent = extended_search_->calcWeightedMean(time, weight_vect); 
+    statistics.time_pred = insert_time;
+    statistics.poly_reg_computed = false;
+
+    auto std = extended_search_->calcWSTD(values, weight_vect, statistics.mean_dependent); 
+
+    bool conf_interval_bool = false;
+
+    // std::cout << "here" << values.size() << " " << loaded_params_->poly_order << " std " << std << "\n";
+    if((int)values.size() >= loaded_params_->poly_order  && std > loaded_params_->std_threshold_poly_reg){
+    // if((int)values.size() >= loaded_params_->poly_order ){
+        
+        auto [coeff, predicted_vals_past] = extended_search_->polyReg(values, time, weight_vect);
+        statistics.coeff = coeff;
+        statistics.predicted_vals_past = predicted_vals_past;
+
         bool all_coeff_zero = std::all_of(coeff.begin(), coeff.end(), [](double coeff){return coeff == 0.0;});
         if(!all_coeff_zero){ 
             for(int i = 0; i < (int)coeff.size(); ++i){
                 statistics.predicted_coordinate += coeff[i]*pow(insert_time, i);
             }
-            statistics.predicted_coordinate = statistics.predicted_coordinate;
-            poly_reg_computed = true;
             statistics.poly_reg_computed = true;
-        }else{
-            poly_reg_computed = false;
         }
-        statistics.mean_dependent = w_mean_dependent;
-        statistics.mean_independent = w_mean_independent; 
+
         statistics.confidence_interval = extended_search_->confidenceInterval(statistics, time, values, weight_vect, loaded_params_->conf_probab_percent);
         conf_interval_bool = (statistics.confidence_interval == -1.0) ? false : true; 
     }
     
-    if(!poly_reg_computed){
-        statistics.predicted_coordinate = w_mean_dependent;
-        statistics.poly_reg_computed = false; 
+    if(!statistics.poly_reg_computed){
+        statistics.predicted_coordinate = statistics.mean_dependent;
     }
     
     /*  if the confidence interval is not computed and the std is smaller than the 
@@ -226,9 +235,6 @@ PredictionStatistics OMTA::selectStatisticsValues(const std::vector<double>& val
     */
     statistics.confidence_interval = ( !conf_interval_bool && (std < max_pix_shift)) ? max_pix_shift : std*2;
 
-    statistics.mean_dependent = w_mean_dependent;
-    statistics.mean_independent = w_mean_independent; 
-    statistics.time_pred = insert_time;
     statistics.extended_search = true;
     return statistics;
 
