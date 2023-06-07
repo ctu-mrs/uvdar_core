@@ -2,6 +2,7 @@ time stamp
 int8 pub_rate  
 int8 frame_tolerance_till_seq_rejected
 int8 stored_seq_len_factor 
+int8 max_buffer_length
 int8 default_poly_order
 int8 max_zeros_consecutive
 int8 max_ones_consecutive

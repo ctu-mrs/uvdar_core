@@ -192,6 +192,7 @@ namespace uvdar{
       int _max_zeros_consecutive_;
       int _max_ones_consecutive_;
       int _stored_seq_len_factor_;
+      int _max_buffer_length_;
       int _poly_order_;
       float _decay_factor_; 
       double _conf_probab_percent_;
@@ -200,6 +201,7 @@ namespace uvdar{
       double _std_threshold_poly_reg_;
       int _loaded_var_pub_rate_; 
       double _draw_predict_window_sec_;
+
 
       // params for 4DHT
       int _accumulator_length_;
@@ -309,6 +311,7 @@ namespace uvdar{
     param_loader.loadParam("max_zeros_consecutive", _max_zeros_consecutive_, int(2));
     param_loader.loadParam("max_ones_consecutive", _max_ones_consecutive_, int(2));
     param_loader.loadParam("stored_seq_len_factor", _stored_seq_len_factor_, int(15));
+    param_loader.loadParam("max_buffer_length", _max_buffer_length_, int(1000));
     param_loader.loadParam("poly_order", _poly_order_, int(2));
     param_loader.loadParam("decay_factor", _decay_factor_, float(0.1));
     param_loader.loadParam("confidence_probability", _conf_probab_percent_, double(75.0));
@@ -431,6 +434,7 @@ namespace uvdar{
     params_omta.max_zeros_consecutive = _max_zeros_consecutive_;
     params_omta.max_ones_consecutive = _max_ones_consecutive_;
     params_omta.stored_seq_len_factor = _stored_seq_len_factor_;
+    params_omta.max_buffer_length = _max_buffer_length_;
     params_omta.poly_order = _poly_order_;
     params_omta.decay_factor = _decay_factor_;
     params_omta.conf_probab_percent = _conf_probab_percent_;
@@ -691,6 +695,7 @@ namespace uvdar{
         mrs_msgs::Point2DWithFloat max_px_shift;
         omta_logging_msg.frame_tolerance_till_seq_rejected = _frame_tolerance_;
         omta_logging_msg.stored_seq_len_factor = _stored_seq_len_factor_;
+        omta_logging_msg.max_buffer_length = _max_buffer_length_;
         omta_logging_msg.default_poly_order = _poly_order_;
         omta_logging_msg.max_zeros_consecutive = _max_zeros_consecutive_;
         omta_logging_msg.max_ones_consecutive = _max_ones_consecutive_;

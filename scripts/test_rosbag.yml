@@ -14,7 +14,7 @@ windows:
   - rosbag:
       layout: even-vertical
       panes:
-        # - 'waitForRos; cd ~/basler_tests/latest; rosbag play --clock _2023-04-26-15-32-46.bag'
+        - 'waitForRos; cd ~/basler_tests/latest; rosbag play --clock _2023-04-26-15-32-46.bag'
         # - waitForCompile; cd ~/uvdar_rosbag/tracking/uav7/22_2021_04_27_09_11_19_L12/ ; rosbag play --clock -s 30 _2021-04-27-09-11-56.bag
   # - trajectory:
   #     layout: even-vertical

@@ -25,7 +25,7 @@ bool OMTA::setSequences(std::vector<std::vector<bool>> i_sequences){
         return false;
 
     if((int)original_sequences_[0].size() < loaded_params_->max_zeros_consecutive){
-        ROS_ERROR("[Alternative_HT]: The wanted number of consecutive zeros is higher than the sequence length! Sequence cannot be set. Returning..");
+        ROS_ERROR("[OMTA]: The wanted number of consecutive zeros is higher than the sequence length! Sequence cannot be set. Returning..");
         return false;
     }
     return true;
@@ -123,7 +123,7 @@ void OMTA::expandedSearch(std::vector<PointState>& no_nn_current_frame, std::vec
             cv::Point2d bb_right_bottom = cv::Point2d( (x_predicted + x_conf), (y_predicted + y_conf) );
             
             if(debug_){
-                std::cout << "[Alternative_HT]: Predicted Point: x = " << x_predicted << " y = " << y_predicted << " Prediction Interval: x = " << x_conf << " y = " << y_conf << " seq_size" << x.size();
+                std::cout << "[OMTA]: Predicted Point: x = " << x_predicted << " y = " << y_predicted << " Prediction Interval: x = " << x_conf << " y = " << y_conf << " seq_size" << x.size();
                 std::cout << "\n";
             }
 
@@ -142,8 +142,13 @@ void OMTA::expandedSearch(std::vector<PointState>& no_nn_current_frame, std::vec
         }
     }
 
+    if(loaded_params_->max_buffer_length < (int)gen_sequences_.size()){
+        ROS_ERROR("[OMTA]: The maximal excepted buffer length of %d is reached! %d points will be discarded. Please consider to set the parameter _max_buffer_length_ higher, if this effect is not wanted", loaded_params_->max_buffer_length, (int)no_nn_current_frame.size());
+    }
+
     // for the points, still no NN found start new sequence
     for(auto point : no_nn_current_frame){
+
         std::vector<PointState> vect;
         vect.reserve(loaded_params_->stored_seq_len_factor*original_sequences_[0].size());
         vect.emplace_back(point);
