@@ -49,18 +49,17 @@
 
   <arg name="sequence_file" default="$(find uvdar_core)/config/selected.txt"/>
 
-  <arg name="max_px_shift_x" default="2"/>
-  <arg name="max_px_shift_y" default="2"/>
-  <arg name="max_zeros_consecutive" default="3"/>
-  <arg name="max_ones_consecutive" default="3"/>
-  <arg name="stored_seq_len_factor" default="15"/>
-  <arg name="max_buffer_length" default="1000"/>
-  <arg name="poly_order" default="4"/>
-  <arg name="decay_factor" default="0.1"/>
+  <arg name="max_px_shift_y" default="3"/>
+  <arg name="max_px_shift_x" default="3"/>
+  <arg name="max_zeros_consecutive" default="2"/>
+  <arg name="max_ones_consecutive" default="2"/>
+  <arg name="stored_seq_len_factor" default="3"/>
+  <arg name="max_buffer_length" default="5000"/>
+  <arg name="poly_order" default="3"/>
+  <arg name="decay_factor" default="0.5"/>
   <arg name="confidence_probability" default="95.0"/>
-  <arg name="frame_tolerance" default="5"/>
   <arg name="allowed_BER_per_seq" default="0"/>
-  <arg name="std_threshold_poly_reg" default="0.5"/>
+  <arg name="std_threshold_poly_reg" default="0.3"/>
 
   <arg name="use_4DHT" default="false"/>
   <!--4DHT values-->
@@ -171,7 +170,6 @@
       <param name="poly_order"              type="int"    value="$(arg poly_order)"/>
       <param name="decay_factor"            type="double" value="$(arg decay_factor)"/>    
       <param name="confidence_probability"  type="double" value="$(arg confidence_probability)"/>
-      <param name="frame_tolerance"         type="int"    value="$(arg frame_tolerance)"/>
       <param name="allowed_BER_per_seq"     type="int"    value="$(arg allowed_BER_per_seq)"/>
       <param name="std_threshold_poly_reg"  type="double" value="$(arg std_threshold_poly_reg)"/>
       

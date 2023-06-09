@@ -247,11 +247,6 @@ PredictionStatistics OMTA::selectStatisticsValues(const std::vector<double>& val
 
 void OMTA::cleanPotentialBuffer(){
 
-    double timing_tolerance = loaded_params_->frame_tolerance/60;
-    if(framerate_ != 0){
-        timing_tolerance = (1/framerate_) * loaded_params_->frame_tolerance; 
-    }
-
     std::scoped_lock lock(mutex_gen_sequences_);
     for(int i = 0; i < (int)gen_sequences_.size(); ++i){
         if(gen_sequences_[i]->empty()){
@@ -274,15 +269,6 @@ void OMTA::cleanPotentialBuffer(){
                     cnt = 0;
                 }
             }
-        }
-
-
-        // works but eventually not useful in that current implementation
-        double insert_time = gen_sequences_[i]->end()[-1].insert_time.toSec(); 
-        double diff_last_insert = std::abs(insert_time - ros::Time::now().toSec());
-        if (diff_last_insert > timing_tolerance){ 
-            gen_sequences_.erase(gen_sequences_.begin()+i);
-            continue;
         }
     }
 }
