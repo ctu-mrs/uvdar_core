@@ -43,7 +43,6 @@
   <arg name="poly_order" default="4"/>
   <arg name="decay_factor" default="0.01"/>
   <arg name="confidence_probability" default="95.0"/>
-  <arg name="frame_tolerance" default="5"/>
   <arg name="allowed_BER_per_seq" default="0"/>
   <arg name="std_threshold_poly_reg" default="1"/>
 
@@ -251,7 +250,6 @@
       <param name="poly_order" type="int" value="$(arg poly_order)"/>
       <param name="decay_factor"         type="double" value="$(arg decay_factor)"/>    
       <param name="confidence_probability"         type="double" value="$(arg confidence_probability)"/>
-      <param name="frame_tolerance"     type="int"   value="$(arg frame_tolerance)"/>
       <param name="allowed_BER_per_seq"     type="int"   value="$(arg allowed_BER_per_seq)"/>
       <param name="std_threshold_poly_reg"     type="double"   value="$(arg std_threshold_poly_reg)"/>
 
