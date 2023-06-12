@@ -198,7 +198,6 @@ namespace uvdar{
       int _poly_order_;
       float _decay_factor_; 
       double _conf_probab_percent_;
-      int _frame_tolerance_;
       int _allowed_BER_per_seq_;
       double _std_threshold_poly_reg_;
       int _loaded_var_pub_rate_; 
@@ -317,7 +316,6 @@ namespace uvdar{
     param_loader.loadParam("poly_order", _poly_order_, int(2));
     param_loader.loadParam("decay_factor", _decay_factor_, float(0.1));
     param_loader.loadParam("confidence_probability", _conf_probab_percent_, double(75.0));
-    param_loader.loadParam("frame_tolerance", _frame_tolerance_, int(5));
     param_loader.loadParam("allowed_BER_per_seq", _allowed_BER_per_seq_, int(0));
     param_loader.loadParam("std_threshold_poly_reg", _std_threshold_poly_reg_, double(0.5));
     param_loader.loadParam("loaded_var_pub_rate", _loaded_var_pub_rate_, int(20));
@@ -440,7 +438,6 @@ namespace uvdar{
     params_omta.poly_order = _poly_order_;
     params_omta.decay_factor = _decay_factor_;
     params_omta.conf_probab_percent = _conf_probab_percent_;
-    params_omta.frame_tolerance = _frame_tolerance_;
     params_omta.allowed_BER_per_seq = _allowed_BER_per_seq_;
     params_omta.std_threshold_poly_reg = _std_threshold_poly_reg_;
     
@@ -695,7 +692,6 @@ namespace uvdar{
         omta_logging_msg.stamp = last_publish_omta_logging_;
         omta_logging_msg.pub_rate = _loaded_var_pub_rate_; 
         mrs_msgs::Point2DWithFloat max_px_shift;
-        omta_logging_msg.frame_tolerance_till_seq_rejected = _frame_tolerance_;
         omta_logging_msg.stored_seq_len_factor = _stored_seq_len_factor_;
         omta_logging_msg.max_buffer_length = _max_buffer_length_;
         omta_logging_msg.default_poly_order = _poly_order_;

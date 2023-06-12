@@ -1,5 +1,5 @@
 <launch>
-  <arg name="uav_name" default="$(optenv UAV_NAME uav2)"/>
+  <arg name="uav_name" default="$(optenv UAV_NAME uav7)"/>
 
   <arg name="standalone" default="false"/>
 
@@ -10,14 +10,10 @@
 
   <arg name="threshold" default="100"/>
 
-  <arg name="left" default="$(optenv BLUEFOX_UV_LEFT)"/>
-  <arg name="right" default="$(optenv BLUEFOX_UV_RIGHT)"/>
-  <arg name="left_camera_name" default="mv_$(arg left)"/>
-  <arg name="right_camera_name" default="mv_$(arg right)"/>
-  <arg name="expose_us_left" default="$(optenv BLUEFOX_UV_LEFT_EXPOSE_US)"/>
-  <arg name="expose_us_right" default="$(optenv BLUEFOX_UV_RIGHT_EXPOSE_US)"/>
-
   <arg name="calibrations_folder" default="$(find mrs_uav_general)/config/uvdar_calibrations"/>
+  
+  <param name="use_sim_time" value="true"/>
+
 
 
   <!-- Node Settings -->
@@ -49,17 +45,16 @@
 
   <arg name="sequence_file" default="$(find uvdar_core)/config/selected.txt"/>
 
-  <arg name="max_px_shift_y" default="3"/>
-  <arg name="max_px_shift_x" default="3"/>
-  <arg name="max_zeros_consecutive" default="2"/>
-  <arg name="max_ones_consecutive" default="2"/>
-  <arg name="stored_seq_len_factor" default="3"/>
-  <arg name="max_buffer_length" default="5000"/>
-  <arg name="poly_order" default="3"/>
-  <arg name="decay_factor" default="0.5"/>
+  <arg name="max_px_shift_x" default="2"/>
+  <arg name="max_px_shift_y" default="2"/>
+  <arg name="max_zeros_consecutive" default="3"/>
+  <arg name="max_ones_consecutive" default="3"/>
+  <arg name="stored_seq_len_factor" default="15"/>
+  <arg name="poly_order" default="4"/>
+  <arg name="decay_factor" default="0.1"/>
   <arg name="confidence_probability" default="95.0"/>
   <arg name="allowed_BER_per_seq" default="0"/>
-  <arg name="std_threshold_poly_reg" default="0.3"/>
+  <arg name="std_threshold_poly_reg" default="0.5"/>
 
   <arg name="use_4DHT" default="false"/>
   <!--4DHT values-->
@@ -68,7 +63,8 @@
   <arg name="yaw_steps"         default="16"/>
   <arg name="max_pixel_shift"         default="4"/>
 
-  <arg name="model_file" default="$(find uvdar_core)/config/models/quadrotor_foursided.txt"/>
+
+  <arg name="model_file" default="$(find uvdar_core)/config/models/quadrotor.txt"/>
   <!-- ideal angle: 1.221730476 - pi/2 -->
 
       <!-- <origin xyz="0.108 0 0.085" rpy="1.57079632679 4.71238898038 1.57079632679" /> -->
@@ -76,39 +72,17 @@
 <!-- OR -->
   <group ns="$(arg uav_name)">
 
-  <node
-    name="uvcam_left_tf_$(arg uav_name)"
-    pkg="tf2_ros"
-    type="static_transform_publisher"
-    args="0.03  0.10 0.06 -0.3490658504 0.0 -1.57079632679 $(arg uav_name)/fcu $(arg uav_name)/uvcam_left"/>
-
-  <node
-    name="uvcam_right_tf_$(arg uav_name)"
-    pkg="tf2_ros"
-    type="static_transform_publisher"
-    args="0.03 -0.10 0.06 -2.792526803 0.0 -1.57079632679 $(arg uav_name)/fcu $(arg uav_name)/uvcam_right"/>
-
-  <node
-    name="uvcam_back_tf_$(arg uav_name)"
-    pkg="tf2_ros"
-    type="static_transform_publisher"
-    args="-0.10 0.0 -0.02 0.0 1.57079632679 3.14159265 $(arg uav_name)/fcu $(arg uav_name)/uvcam_back"/>
-
     <node pkg="nodelet" type="nodelet" name="$(arg uav_name)_uvdar_nodelet_manager" args="manager" output="screen" >
     <!-- <node pkg="nodelet" type="nodelet" name="$(arg uav_name)_uvdar_nodelet_manager" args="manager" output="screen" launch-prefix="debug_roslaunch"> -->
       <param name="num_worker_threads" value="8" />
     </node>
 
-    <node name="bluefox_emulator" pkg="nodelet" type="nodelet" args="$(arg nodelet) uvdar/UVDARBluefoxEmulator $(arg nodelet_manager)" output="screen" respawn="false" launch-prefix="bash -c 'sleep 5; $0 $@'">
-      <rosparam param="camera_output_topics"> ["camera_left", "camera_right", "camera_back"] </rosparam>
-      <rosparam param="calib_files"> ["default", "default", "default"] </rosparam>
-      <remap from="~camera_left" to="/$(arg uav_name)/uvdar_bluefox_left/image_raw"/>
-      <remap from="~camera_right" to="/$(arg uav_name)/uvdar_bluefox_right/image_raw"/>
+    <!-- <node name="bluefox_emulator" pkg="nodelet" type="nodelet" args="$(arg nodelet) uvdar/UVDARBluefoxEmulator $(arg nodelet_manager)" output="screen" respawn="false" launch-prefix="bash -c 'sleep 5; $0 $@'">
+      <rosparam param="camera_output_topics"> ["camera_back"] </rosparam>
+      <rosparam param="calib_files"> ["default"] </rosparam>
       <remap from="~camera_back" to="/$(arg uav_name)/uvdar_bluefox_back/image_raw"/>
-      <remap from="~camera_left_transfer" to="/gazebo/$(arg uav_name)/uvdar_bluefox_left/image_raw"/>
-      <remap from="~camera_right_transfer" to="/gazebo/$(arg uav_name)/uvdar_bluefox_right/image_raw"/>
       <remap from="~camera_back_transfer" to="/gazebo/$(arg uav_name)/uvdar_bluefox_back/image_raw"/>
-    </node>
+    </node> -->
 
     <node name="uv_detect" pkg="nodelet" type="nodelet" args="$(arg nodelet) uvdar/UVDARDetector $(arg nodelet_manager)" output="screen" respawn="false"> 
     <!-- <node name="uv_detect" pkg="nodelet" type="nodelet" args="$(arg nodelet) uvdar/UVDARDetector $(arg nodelet_manager)" output="screen" respawn="true" launch-prefix="debug_roslaunch"> --> 
@@ -125,24 +99,22 @@
       <param name="justReport" type="bool" value="true"/>
       <param name="threshold" type="int" value="$(arg threshold)"/>
 
-      <rosparam param="camera_topics"> ["camera_left", "camera_right", "camera_back"] </rosparam>
-      <rosparam param="points_seen_topics"> ["points_seen_left", "points_seen_right", "points_seen_back"] </rosparam>
+      <!-- <rosparam param="camera_topics"> ["uav6/uvdar_bluefox/left/image_raw"] </rosparam> -->
+      <rosparam param="camera_topics"> ["camera_left"] </rosparam>
+      <rosparam param="points_seen_topics"> ["points_seen_left"] </rosparam>
 
       <param name="use_masks"         type="bool" value="false"/>
 
-      <remap from="~camera_left" to="/$(arg uav_name)/uvdar_bluefox_left/image_raw"/>
-      <remap from="~camera_right" to="/$(arg uav_name)/uvdar_bluefox_right/image_raw"/>
-      <remap from="~camera_back" to="/$(arg uav_name)/uvdar_bluefox_back/image_raw"/>
+      <remap from="~camera_left" to="/$(arg uav_name)/uvdar_bluefox/left/image_raw"/>
       <remap from="~points_seen_left" to="/$(arg uav_name)/uvdar/points_seen_left"/>
-      <remap from="~points_seen_right" to="/$(arg uav_name)/uvdar/points_seen_right"/>
-      <remap from="~points_seen_back" to="/$(arg uav_name)/uvdar/points_seen_back"/>
       <remap from="~points_seen_left/sun" to="/$(arg uav_name)/uvdar/points_seen_left/sun"/>
-      <remap from="~points_seen_right/sun" to="/$(arg uav_name)/uvdar/points_seen_right/sun"/>
-      <remap from="~points_seen_back/sun" to="/$(arg uav_name)/uvdar/points_seen_back/sun"/>
 
       <remap from="~odometry" to="/$(arg uav_name)/mrs_odometry/new_odom"/>
       <remap from="~imu" to="mavros/imu/data"/>
     </node>
+
+
+  
 
 
     
@@ -161,60 +133,51 @@
       <param name="use_4DHT"             type="bool" value="$(arg use_4DHT)"/>
     
 
-      <param name="max_px_shift_x"          type="int"    value="$(arg max_px_shift_x)"/>
-      <param name="max_px_shift_y"          type="int"    value="$(arg max_px_shift_y)"/>
-      <param name="max_zeros_consecutive"   type="int"    value="$(arg max_zeros_consecutive)"/>
-      <param name="max_ones_consecutive"    type="int"    value="$(arg max_ones_consecutive)"/>
-      <param name="stored_seq_len_factor"   type="int"    value="$(arg stored_seq_len_factor)"/>  
-      <param name="max_buffer_length"       type="int"    value="$(arg max_buffer_length)"/>  
-      <param name="poly_order"              type="int"    value="$(arg poly_order)"/>
-      <param name="decay_factor"            type="double" value="$(arg decay_factor)"/>    
-      <param name="confidence_probability"  type="double" value="$(arg confidence_probability)"/>
-      <param name="allowed_BER_per_seq"     type="int"    value="$(arg allowed_BER_per_seq)"/>
-      <param name="std_threshold_poly_reg"  type="double" value="$(arg std_threshold_poly_reg)"/>
+      <param name="max_px_shift_x"     type="int"   value="$(arg max_px_shift_x)"/>
+      <param name="max_px_shift_y"     type="int"   value="$(arg max_px_shift_y)"/>
+      <param name="max_zeros_consecutive"     type="int"   value="$(arg max_zeros_consecutive)"/>
+      <param name="max_ones_consecutive"     type="int"   value="$(arg max_ones_consecutive)"/>
+      <param name="stored_seq_len_factor"         type="int" value="$(arg stored_seq_len_factor)"/>    
+      <param name="poly_order" type="int" value="$(arg poly_order)"/>
+      <param name="decay_factor"         type="double" value="$(arg decay_factor)"/>    
+      <param name="confidence_probability"         type="double" value="$(arg confidence_probability)"/>
+      <param name="allowed_BER_per_seq"     type="int"   value="$(arg allowed_BER_per_seq)"/>
+      <param name="std_threshold_poly_reg"     type="double"   value="$(arg std_threshold_poly_reg)"/>
       
-      <param name="accumulator_length"      type="int"    value="$(arg accumulator_length)"/>
-      <param name="pitch_steps"             type="int"    value="$(arg pitch_steps)"/>
-      <param name="yaw_steps"               type="int"    value="$(arg yaw_steps)"/>
-      <param name="max_pixel_shift"         type="int"    value="$(arg max_pixel_shift)"/>
-      <param name="nullify_radius"          type="int"    value="5"/>
+      <param name="accumulator_length"         type="int" value="$(arg accumulator_length)"/>
+      <param name="pitch_steps"         type="int" value="$(arg pitch_steps)"/>
+      <param name="yaw_steps"         type="int" value="$(arg yaw_steps)"/>
+      <param name="max_pixel_shift"         type="int" value="$(arg max_pixel_shift)"/>
+      <param name="nullify_radius"         type="int" value="5"/>
 
  
       <param name="sequence_file"         type="string" value="$(arg sequence_file)"/>
 
-      <rosparam param="camera_topics"> ["camera_left", "camera_right", "camera_back"] </rosparam>
-      <rosparam param="points_seen_topics"> ["points_seen_left", "points_seen_right", "points_seen_back"] </rosparam>
-      <rosparam param="blinkers_seen_topics"> ["blinkers_seen_left", "blinkers_seen_right", "blinkers_seen_back"] </rosparam>
-      <rosparam param="estimated_framerate_topics"> ["estimated_framerate_left", "estimated_framerate_right", "estimated_framerate_back"] </rosparam>
-      <rosparam param="omta_logging_topics"> ["omta_logging_left", "omta_logging_right", "omta_logging_back"] </rosparam>
-      <rosparam param="omta_all_seq_info_topics"> ["omta_all_seq_info_left", "omta_all_seq_info_right", "omta_all_seq_info_back"] </rosparam>
+      <rosparam param="camera_topics"> ["camera_left"] </rosparam>
+      <rosparam param="points_seen_topics"> ["points_seen_left"] </rosparam>
+      <rosparam param="blinkers_seen_topics"> ["blinkers_seen_back"] </rosparam>
+      <rosparam param="estimated_framerate_topics"> ["estimated_framerate_back"] </rosparam>
+      <rosparam param="omta_logging_topics"> ["omta_logging_back"] </rosparam>
+      <rosparam param="omta_all_seq_info_topics"> ["omta_all_seq_info_back"] </rosparam>
+      
 
-
-
-      <remap from="~camera_left" to="/$(arg uav_name)/uvdar_bluefox_left/image_raw"/> -
-      <remap from="~camera_right" to="/$(arg uav_name)/uvdar_bluefox_right/image_raw"/>
-      <remap from="~camera_back" to="/$(arg uav_name)/uvdar_bluefox_back/image_raw"/>
+      <remap from="~camera_left" to="/$(arg uav_name)/uvdar_bluefox/left/image_raw"/>
       <remap from="~points_seen_left" to="/$(arg uav_name)/uvdar/points_seen_left"/>
-      <remap from="~points_seen_right" to="/$(arg uav_name)/uvdar/points_seen_right"/>
-      <remap from="~points_seen_back" to="/$(arg uav_name)/uvdar/points_seen_back"/>
-      <remap from="~blinkers_seen_left" to="/$(arg uav_name)/uvdar/blinkers_seen_left"/>
-      <remap from="~blinkers_seen_right" to="/$(arg uav_name)/uvdar/blinkers_seen_right"/>
       <remap from="~blinkers_seen_back" to="/$(arg uav_name)/uvdar/blinkers_seen_back"/>
-      <remap from="~estimated_framerate_left" to="/$(arg uav_name)/uvdar/estimated_framerate_left"/>
-      <remap from="~estimated_framerate_right" to="/$(arg uav_name)/uvdar/estimated_framerate_right"/>
-      <remap from="~estimated_framerate_back" to="/$(arg uav_name)/uvdar/estimated_framerate_back"/>
-      <remap from="~omta_logging_left" to="/$(arg uav_name)/uvdar/omta_logging_left"/>
-      <remap from="~omta_logging_right" to="/$(arg uav_name)/uvdar/omta_logging_right"/>
       <remap from="~omta_logging_back" to="/$(arg uav_name)/uvdar/omta_logging_back"/>
-      <remap from="~omta_all_seq_info_left" to="/$(arg uav_name)/uvdar/omta_all_seq_info_left"/>
-      <remap from="~omta_all_seq_info_right" to="/$(arg uav_name)/uvdar/omta_all_seq_info_right"/>
       <remap from="~omta_all_seq_info_back" to="/$(arg uav_name)/uvdar/omta_all_seq_info_back"/>
 
+      <remap from="~estimated_framerate_back" to="/$(arg uav_name)/uvdar/estimated_framerate_back"/>
       <remap from="~visualization" to="/$(arg uav_name)/uvdar/blink_visualization/image_raw"/>
 
     </node>
-      <!-- <node name="uvdar_pose_calculator_node" pkg="uvdar_core" type="uvdar_pose_calculator_node" output="screen" launch-prefix="debug_roslaunch"> --> 
-    <node name="uvdar_pose_calculator_node" pkg="uvdar_core" type="uvdar_pose_calculator_node" output="screen" > 
+
+
+
+      
+     <node name="uvdar_pose_calculator_node" pkg="uvdar_core" type="uvdar_pose_calculator_node" output="screen">
+    <!-- launch-prefix="debug_roslaunch"> -->
+    <!-- <node name="uvdar_pose_calculator_node" pkg="uvdar_core" type="uvdar_pose_calculator_node" output="screen" > --> 
         <!-- <node name="uvdar_pose_calculator_node" pkg="uvdar_core" type="uvdar_pose_calculator_node" launch-prefix="valgrind -/-tool=callgrind -/-callgrind-out-file=/home/viktor/callgrind.out -/-instr-atstart=no -/-collect-atstart=yes"> --> 
             <!-- <node name="uvdar_pose_calculator_node" pkg="uvdar_core" type="uvdar_pose_calculator_node" launch-prefix="valgrind -/-tool=callgrind -/-callgrind-out-file=/home/viktor/callgrind.out"> --> 
       <param name="uav_name" type = "string" value="$(arg uav_name)"/>
@@ -237,15 +200,11 @@
       <param name="model_file" type="string" value="$(arg model_file)"/>
       <param name="beacon" type="bool" value="false"/>
 
-      <rosparam param="blinkers_seen_topics"> ["blinkers_seen_left", "blinkers_seen_right", "blinkers_seen_back"] </rosparam>
-      <rosparam param="estimated_framerate_topics"> ["estimated_framerate_left", "estimated_framerate_right", "estimated_framerate_back"] </rosparam>
-      <rosparam param="camera_frames" subst_value="true"> ["$(arg uav_name)/uvcam_left", "$(arg uav_name)/uvcam_right", "$(arg uav_name)/uvcam_back"] </rosparam>
+      <rosparam param="blinkers_seen_topics"> ["blinkers_seen_back"] </rosparam>
+      <rosparam param="estimated_framerate_topics"> ["estimated_framerate_back"] </rosparam>
+      <rosparam param="camera_frames" subst_value="true"> ["$(arg uav_name)/uvcam_back"] </rosparam>
 
-      <remap from="~blinkers_seen_left" to="/$(arg uav_name)/uvdar/blinkers_seen_left"/>
-      <remap from="~blinkers_seen_right" to="/$(arg uav_name)/uvdar/blinkers_seen_right"/>
       <remap from="~blinkers_seen_back" to="/$(arg uav_name)/uvdar/blinkers_seen_back"/>
-      <remap from="~estimated_framerate_left" to="/$(arg uav_name)/uvdar/estimated_framerate_left"/>
-      <remap from="~estimated_framerate_right" to="/$(arg uav_name)/uvdar/estimated_framerate_right"/>
       <remap from="~estimated_framerate_back" to="/$(arg uav_name)/uvdar/estimated_framerate_back"/>
 
       <rosparam param="calib_files" subst_value="True"> ["default", "default", "default"] </rosparam>

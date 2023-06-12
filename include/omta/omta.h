@@ -29,7 +29,6 @@ namespace uvdar
         int poly_order;
         double decay_factor;
         double conf_probab_percent;
-        int frame_tolerance;
         int allowed_BER_per_seq;
         double std_threshold_poly_reg;
     };
