@@ -201,7 +201,6 @@ namespace uvdar{
       int _loaded_var_pub_rate_; 
       double _draw_predict_window_sec_;
 
-
       // params for 4DHT
       int _accumulator_length_;
       int _pitch_steps_;
@@ -875,7 +874,7 @@ namespace uvdar{
           
             double computed_time = curr_time;
   
-            double step_size_sec = 0.02;
+            double step_size_sec = 0.01;
             int point_size = _draw_predict_window_sec_/step_size_sec;
 
             // drawing of the prediction for "_draw_predict_window_sec_" length 
@@ -925,12 +924,12 @@ namespace uvdar{
           }else{
             cv::circle(output_image, center, 2, cv::Scalar(160,160,160));
           }
-  
+
           if(x_poly_reg_computed || y_poly_reg_computed){
             cv::Point center_predict;
             center_predict = cv::Point(std::round(predicted.x), std::round(predicted.y)) + start_point; 
   
-            cv::circle(output_image, center_predict, 1, predict_colour);
+            cv::circle(output_image, center_predict, 2, predict_colour);
             if(confidence_interval.x >= 1 && confidence_interval.y >= 1) {
               // convert to cv::Point
               cv::Point confidence_interval_int;
