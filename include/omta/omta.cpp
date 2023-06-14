@@ -5,7 +5,7 @@ using namespace uvdar;
 OMTA::OMTA(const loadedParamsForOMTA& i_params){
 
     *loaded_params_ = i_params;
-    extended_search_ = std::make_unique<ExtendedSearch>(loaded_params_->decay_factor, loaded_params_->poly_order);
+    extended_search_ = std::make_unique<ExtendedSearch>(loaded_params_->decay_factor);
 }
 
 void OMTA::setDebugFlags(bool i_debug){
@@ -41,7 +41,7 @@ void OMTA::processBuffer(const mrs_msgs::ImagePointsWithFloatStampedConstPtr pts
         p.insert_time = pts_msg->stamp;
         current_frame.push_back(p);
     }
-
+    
     findClosestPixelAndInsert(current_frame);
     cleanPotentialBuffer();
 }
@@ -80,21 +80,23 @@ void OMTA::findClosestPixelAndInsert(std::vector<PointState> & current_frame) {
 }
 
 void OMTA::expandedSearch(std::vector<PointState>& no_nn_current_frame, std::vector<seqPointer>& sequences_no_insert){
-    
     std::scoped_lock lock(mutex_gen_sequences_);
 
     if((int)no_nn_current_frame.size() != 0){
         double insert_time = no_nn_current_frame[0].insert_time.toSec() + prediction_margin_;
         // std::vector<SeqWithTrajectory> sequences;
-        for(int k = 0; k < (int)sequences_no_insert.size(); ++k){
+        // for(int k = 0; k < (int)sequences_no_insert.size(); ++k){
+        for(auto it_seq = sequences_no_insert.begin();  it_seq != sequences_no_insert.end();){
+
+            if((*it_seq)->size() == 0)continue;
             
-            if(!checkSequenceValidityWithNewInsert(sequences_no_insert[k])){
+            if(!checkSequenceValidityWithNewInsert(*it_seq)){
                 continue;
             }
 
-            std::vector<double> x,y,time;
 
-            for(const auto point : *sequences_no_insert[k]){
+            std::vector<double> x,y,time;
+            for(const auto point : **it_seq){
                 if(point.led_state){
                     x.push_back(point.point.x);
                     y.push_back(point.point.y);
@@ -102,9 +104,7 @@ void OMTA::expandedSearch(std::vector<PointState>& no_nn_current_frame, std::vec
                 }
             }
 
-            if(sequences_no_insert[k]->size() == 0)continue;
-
-            PointState& last_point = sequences_no_insert[k]->end()[-1]; 
+            PointState& last_point = (*it_seq)->end()[-1]; 
             PredictionStatistics x_predictions = selectStatisticsValues(x, time, insert_time, loaded_params_->max_px_shift.x);
             PredictionStatistics y_predictions = selectStatisticsValues(y, time, insert_time, loaded_params_->max_px_shift.y);
             last_point.x_statistics = x_predictions;
@@ -112,53 +112,71 @@ void OMTA::expandedSearch(std::vector<PointState>& no_nn_current_frame, std::vec
             double x_predicted = last_point.x_statistics.predicted_coordinate;
             double y_predicted = last_point.y_statistics.predicted_coordinate;
 
-            // todo: make upper limit settable, e.g. when only UAV is expected, value can set higher, than for swarming applications 
-            last_point.x_statistics.confidence_interval = ( last_point.x_statistics.confidence_interval > 20.0 ) ? 20.0 : last_point.x_statistics.confidence_interval;
-            last_point.y_statistics.confidence_interval = ( last_point.y_statistics.confidence_interval > 20.0 ) ? 20.0 : last_point.y_statistics.confidence_interval;
+            // TODO: make upper limit settable, e.g. if only one UAV is expected, value can be set higher. for swarming applications 
+            last_point.x_statistics.confidence_interval = ( last_point.x_statistics.confidence_interval > 10.0 ) ? 10.0 : last_point.x_statistics.confidence_interval;
+            last_point.y_statistics.confidence_interval = ( last_point.y_statistics.confidence_interval > 10.0 ) ? 10.0 : last_point.y_statistics.confidence_interval;
+
+            last_point.x_statistics.confidence_interval = ( last_point.x_statistics.confidence_interval < 3.0 ) ? 3.0 : last_point.x_statistics.confidence_interval;
+            last_point.y_statistics.confidence_interval = ( last_point.y_statistics.confidence_interval < 3.0 ) ? 3.0 : last_point.y_statistics.confidence_interval;
 
             double x_conf = last_point.x_statistics.confidence_interval;
-            double y_conf = last_point.y_statistics.confidence_interval;     
+            double y_conf = last_point.y_statistics.confidence_interval; 
              
             cv::Point2d bb_left_top = cv::Point2d( (x_predicted - x_conf), (y_predicted - y_conf) );
             cv::Point2d bb_right_bottom = cv::Point2d( (x_predicted + x_conf), (y_predicted + y_conf) );
             
             if(debug_){
-                std::cout << "[OMTA]: Predicted Point: x = " << x_predicted << " y = " << y_predicted << " Prediction Interval: x = " << x_conf << " y = " << y_conf << " seq_size" << x.size();
+                std::cout << "[OMTA]: Predicted Point: x = " << x_predicted << " y = " << y_predicted << " Prediction Interval: x = " << x_conf << " y = " << y_conf << " seq_size " << x.size();
                 std::cout << "\n";
             }
 
+            bool deleted = false;
             for(auto it_frame = no_nn_current_frame.begin(); it_frame != no_nn_current_frame.end();){
                 if(extended_search_->isInsideBB(it_frame->point, bb_left_top, bb_right_bottom)){
                     it_frame->x_statistics = last_point.x_statistics;
                     it_frame->y_statistics = last_point.y_statistics;
-                    insertPointToSequence(*sequences_no_insert[k], *it_frame);
+                    insertPointToSequence(*(*it_seq), *it_frame);
                     it_frame = no_nn_current_frame.erase(it_frame);
-                    sequences_no_insert.erase(sequences_no_insert.begin()+k); 
+                    it_seq = sequences_no_insert.erase(it_seq); 
+                    deleted = true;
                     break;
                 }else{   
                     ++it_frame;
                 }
             }
+            if(!deleted){
+                ++it_seq;
+            }
         }
     }
 
-    if(loaded_params_->max_buffer_length < (int)gen_sequences_.size()){
-        ROS_ERROR("[OMTA]: The maximal excepted buffer length of %d is reached! %d points will be discarded. Please consider to set the parameter _max_buffer_length_ higher, if this effect is not wanted", loaded_params_->max_buffer_length, (int)no_nn_current_frame.size());
+
+    // for sequences with no newly inserted point, add virtual point
+    for(auto seq : sequences_no_insert){
+        insertVPforSequencesWithNoInsert(seq);
     }
 
-    // for the points, still no NN found start new sequence
-    for(auto point : no_nn_current_frame){
 
+    // delete the sequences that are over the max_buffer_length. Elements are deleted from the back of sequence vector
+    if(loaded_params_->max_buffer_length < (int)gen_sequences_.size()){
+        ROS_ERROR("[OMTA]: The maximal excepted buffer length of %d is reached! %d points will be discarded. Please consider to set the parameter \"_max_buffer_length_\" higher, if the memory has the capacity.", loaded_params_->max_buffer_length, (int)no_nn_current_frame.size());
+
+        int diff = (int)gen_sequences_.size() - loaded_params_->max_buffer_length;
+        for(int i = 0; i < diff; ++i){
+            gen_sequences_.erase(gen_sequences_.end() - 1); 
+        }
+        return;
+    }
+
+    // for the points, still no NN found -> start new sequence
+    for(auto point : no_nn_current_frame){
         std::vector<PointState> vect;
         vect.reserve(loaded_params_->stored_seq_len_factor*original_sequences_[0].size());
         vect.emplace_back(point);
         gen_sequences_.emplace_back(std::make_shared<std::vector<PointState>>(vect));
     }
+    
 
-    // for sequences where still no insert happend
-    for(auto seq : sequences_no_insert){
-        insertVPforSequencesWithNoInsert(seq);
-    }
 }
 
 bool OMTA::checkSequenceValidityWithNewInsert(const seqPointer & seq){
@@ -168,7 +186,7 @@ bool OMTA::checkSequenceValidityWithNewInsert(const seqPointer & seq){
         for(int i = 0; i < loaded_params_->max_ones_consecutive; ++i){
             if(seq->end()[-(i+1)].led_state == true) ++cnt; 
         }
-        if(cnt >=  loaded_params_->max_ones_consecutive) return false; 
+        if(cnt >  loaded_params_->max_ones_consecutive) return false; 
     }
 
     if((int)seq->size() > loaded_params_->max_zeros_consecutive){
@@ -176,7 +194,7 @@ bool OMTA::checkSequenceValidityWithNewInsert(const seqPointer & seq){
         for(int i = 0; i < loaded_params_->max_zeros_consecutive; ++i){
              if(!(seq->end()[-(i+1)].led_state)) ++cnt;
         }
-        if(cnt >= loaded_params_->max_ones_consecutive) return false;
+        if(cnt > loaded_params_->max_zeros_consecutive) return false;
     }
     return true; 
 }
@@ -210,11 +228,16 @@ PredictionStatistics OMTA::selectStatisticsValues(const std::vector<double>& val
 
     bool conf_interval_bool = false;
 
-    // std::cout << "here" << values.size() << " " << loaded_params_->poly_order << " std " << std << "\n";
-    if((int)values.size() >= loaded_params_->poly_order  && std > loaded_params_->std_threshold_poly_reg){
-    // if((int)values.size() >= loaded_params_->poly_order ){
+
+    int poly_order = loaded_params_->poly_order;
+
+    if((int)values.size() < poly_order && values.size() > 0){
+        poly_order = values.size();
+    }
+
+    if((int)values.size() > 1){
         
-        auto [coeff, predicted_vals_past] = extended_search_->polyReg(values, time, weight_vect);
+        auto [coeff, predicted_vals_past] = extended_search_->polyReg(values, time, weight_vect, poly_order);
         statistics.coeff = coeff;
         statistics.predicted_vals_past = predicted_vals_past;
 
@@ -232,14 +255,16 @@ PredictionStatistics OMTA::selectStatisticsValues(const std::vector<double>& val
     
     if(!statistics.poly_reg_computed){
         statistics.predicted_coordinate = statistics.mean_dependent;
-    }
-    
+    }    
+
     /*  if the confidence interval is not computed and the std is smaller than the 
         expected max_pix_shift set to max_px_shift. Otherwise set the confidence_interval 
         to two standard deviations, which is equivalent to a 95% confidence interval around the mean 
     */
-    statistics.confidence_interval = ( !conf_interval_bool && (std < max_pix_shift)) ? max_pix_shift : std*2;
-
+    if(!conf_interval_bool){
+        statistics.confidence_interval = (std < max_pix_shift) ? max_pix_shift : std*2;
+    }
+    
     statistics.extended_search = true;
     return statistics;
 
@@ -248,46 +273,27 @@ PredictionStatistics OMTA::selectStatisticsValues(const std::vector<double>& val
 void OMTA::cleanPotentialBuffer(){
 
     std::scoped_lock lock(mutex_gen_sequences_);
-    for(int i = 0; i < (int)gen_sequences_.size(); ++i){
-        if(gen_sequences_[i]->empty()){
-            continue;
-        }
-
-
+    for( auto it_seq = gen_sequences_.begin(); it_seq != gen_sequences_.end();){
+        bool deleted = false;
         int number_zeros_till_seq_deleted = (loaded_params_->max_zeros_consecutive + loaded_params_->allowed_BER_per_seq);
-        int number_ones_till_seq_deleted = (loaded_params_->max_ones_consecutive + loaded_params_->allowed_BER_per_seq);
-        if((int)gen_sequences_[i]->size() > number_zeros_till_seq_deleted){
+        if((int)((*it_seq)->size()) > number_zeros_till_seq_deleted){
             int cnt = 0;
-            for (auto reverse_it = gen_sequences_[i]->rbegin(); 
-                reverse_it != gen_sequences_[i]->rend(); ++reverse_it ) {  
-                if(!(reverse_it->led_state)){
-                    ++cnt;
-                    if(cnt > number_zeros_till_seq_deleted){
-                      /* std::cout << "Sit. A" << std::endl; */
-                        gen_sequences_.erase(gen_sequences_.begin() + i);
+            for(auto it_seq_element : *(*it_seq)){
+                if(!it_seq_element.led_state){
+                    cnt++;
+                    if(cnt > number_zeros_till_seq_deleted)
                         break;
-                    }
                 }else{
                     cnt = 0;
                 }
             }
-        }
-        if((int)gen_sequences_[i]->size() > number_ones_till_seq_deleted){
-            int cnt = 0;
-            for (auto reverse_it = gen_sequences_[i]->rbegin(); 
-                reverse_it != gen_sequences_[i]->rend(); ++reverse_it ) {  
-                if((reverse_it->led_state)){
-                    ++cnt;
-                    if(cnt > number_ones_till_seq_deleted){
-                      /* std::cout << "Sit. A" << std::endl; */
-                        gen_sequences_.erase(gen_sequences_.begin() + i);
-                        break;
-                    }
-                }else{
-                    cnt = 0;
-                }
+            if(cnt > number_zeros_till_seq_deleted){
+                deleted = true;
+                it_seq = gen_sequences_.erase(it_seq);
+                continue;
             }
         }
+        if(!deleted)++it_seq;
     }
 }
 
@@ -325,10 +331,6 @@ std::vector<std::pair<seqPointer, int>> OMTA::getResults(){
         }
 
         int id = matcher_->matchSignalWithCrossCorr(led_states);
-        if(id >= 0 ){ 
-            // gc++;
-            // std::cout << "gc " << gc << "\n";
-        } 
         auto sequence_copy = sequence; 
         retrieved_signals.push_back(std::make_pair(sequence_copy, id));
     }

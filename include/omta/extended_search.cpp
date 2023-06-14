@@ -3,36 +3,28 @@
 namespace uvdar
 {
 
-    ExtendedSearch::ExtendedSearch(double decay_factor, int poly_order)
+    ExtendedSearch::ExtendedSearch(double decay_factor)
     {
         decay_factor_ = decay_factor;
-        default_poly_order_ = poly_order;
     }
 
     ExtendedSearch::~ExtendedSearch()
     {
     }
 
-    std::tuple<std::vector<double>, Eigen::VectorXd> ExtendedSearch::polyReg(const std::vector<double> &coordinate, const std::vector<double> &time, const std::vector<double> &weights)
+    std::tuple<std::vector<double>, Eigen::VectorXd> ExtendedSearch::polyReg(const std::vector<double> &coordinate, const std::vector<double> &time, const std::vector<double> &weights, const int & poly_order)
     {
-
-        int order = default_poly_order_;
-        int threshold_order = 2;
-        if (coordinate.size() < 10 && threshold_order < order)
-        {
-            order = threshold_order;
-        }
-        Eigen::MatrixXd design_mat(time.size(), order + 1);
+        Eigen::MatrixXd design_mat(time.size(), poly_order + 1);
         Eigen::VectorXd pixel_vect = Eigen::VectorXd::Map(&coordinate.front(), coordinate.size());
         Eigen::VectorXd weight_vect = Eigen::VectorXd::Map(&weights.front(), weights.size());
-        Eigen::VectorXd result(order + 1);
+        Eigen::VectorXd result(poly_order + 1);
 
         Eigen::MatrixXd weight_mat = weight_vect.asDiagonal();
 
         // fill the Design matrix
         for (int i = 0; i < (int)time.size(); ++i)
         {
-            for (int j = 0; j < order + 1; ++j)
+            for (int j = 0; j < poly_order + 1; ++j)
             {
                 if (j == 0)
                     design_mat(i, j) = 1;
