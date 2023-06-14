@@ -24,7 +24,6 @@ namespace uvdar{
         
         private: 
             double decay_factor_;
-            int default_poly_order_;
 
             /**
              * @brief calcuate weighted sum of squared residuals 
@@ -36,7 +35,7 @@ namespace uvdar{
             double calcWSSR(const Eigen::VectorXd&, const std::vector<double>&, const std::vector<double>&);
 
         public:
-            ExtendedSearch(double, int);
+            ExtendedSearch(double);
             ~ExtendedSearch();
 
             /**
@@ -46,7 +45,7 @@ namespace uvdar{
              * @param weights weight vector
              * @return regression coefficients + predicted values for each data value
              */
-            std::tuple<std::vector<double>, Eigen::VectorXd> polyReg(const std::vector<double>&, const std::vector<double>&, const std::vector<double>&);
+            std::tuple<std::vector<double>, Eigen::VectorXd> polyReg(const std::vector<double>&, const std::vector<double>&, const std::vector<double>&, const int &);
 
             /**
              * @brief calculates normalized weight vector with exponential decay function
