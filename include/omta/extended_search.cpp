@@ -73,7 +73,7 @@ namespace uvdar
 
     double ExtendedSearch::calcWeightedMean(const std::vector<double> &values, const std::vector<double> &weights)
     {
-        if (weights.size() != values.size())
+        if (weights.size() != values.size()) // guarantee stand alone functionality
             return -1;
 
         double weighted_sum = 0.0;
@@ -83,25 +83,8 @@ namespace uvdar
             weighted_sum += (values[i] * weights[i]);
         }
 
-        double w_mean = weighted_sum;
+        double w_mean = weighted_sum; // due to normalized weights
         return w_mean;
-    }
-
-    double ExtendedSearch::calcWSTD(const std::vector<double> &values, const std::vector<double> &weights, const double &mean)
-    {
-
-        double ss = 0.0;
-        int n = (int)values.size();
-        for (int i = 0; i < n; ++i)
-        {
-            ss += (weights[i] * pow(values[i] - mean, 2));
-        }
-
-        if (n == 1)
-            return -1.0;
-
-        double w_std = sqrt(ss / (n - 1));
-        return w_std;
     }
 
     double ExtendedSearch::calcWSSR(const Eigen::VectorXd &predictions, const std::vector<double> &values, const std::vector<double> &weights)
@@ -124,7 +107,7 @@ namespace uvdar
         const int dof = n - (int)prediction_vals.coeff.size();
 
         // earlier caught - here to guarantee standalone functionality 
-        if (prediction_vals.mean_independent == -1.0 || prediction_vals.mean_dependent == -1.0 || dof <= 0)
+        if (prediction_vals.mean_independent == -1.0 || dof <= 0)
         {
             return -1;
         }

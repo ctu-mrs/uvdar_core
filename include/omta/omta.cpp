@@ -105,19 +105,23 @@ void OMTA::expandedSearch(std::vector<PointState>& no_nn_current_frame, std::vec
             }
 
             PointState& last_point = (*it_seq)->end()[-1]; 
-            PredictionStatistics x_predictions = selectStatisticsValues(x, time, insert_time, loaded_params_->max_px_shift.x);
-            PredictionStatistics y_predictions = selectStatisticsValues(y, time, insert_time, loaded_params_->max_px_shift.y);
+            PredictionStatistics x_predictions = selectStatisticsValues(x, time, insert_time);
+            PredictionStatistics y_predictions = selectStatisticsValues(y, time, insert_time);
+            if( !x_predictions.poly_reg_computed || !y_predictions.poly_reg_computed){
+                ++it_seq;
+                continue;
+            }
             last_point.x_statistics = x_predictions;
             last_point.y_statistics = y_predictions;
             double x_predicted = last_point.x_statistics.predicted_coordinate;
             double y_predicted = last_point.y_statistics.predicted_coordinate;
 
             // TODO: make upper limit settable, e.g. if only one UAV is expected, value can be set higher. for swarming applications 
-            last_point.x_statistics.confidence_interval = ( last_point.x_statistics.confidence_interval > 10.0 ) ? 10.0 : last_point.x_statistics.confidence_interval;
-            last_point.y_statistics.confidence_interval = ( last_point.y_statistics.confidence_interval > 10.0 ) ? 10.0 : last_point.y_statistics.confidence_interval;
+            last_point.x_statistics.confidence_interval = ( last_point.x_statistics.confidence_interval > (loaded_params_->max_px_shift.x * 4) ) ? (loaded_params_->max_px_shift.x * 4) : last_point.x_statistics.confidence_interval;
+            last_point.y_statistics.confidence_interval = ( last_point.y_statistics.confidence_interval > (loaded_params_->max_px_shift.y * 4) ) ? (loaded_params_->max_px_shift.y * 4) : last_point.y_statistics.confidence_interval;
 
-            last_point.x_statistics.confidence_interval = ( last_point.x_statistics.confidence_interval < 3.0 ) ? 3.0 : last_point.x_statistics.confidence_interval;
-            last_point.y_statistics.confidence_interval = ( last_point.y_statistics.confidence_interval < 3.0 ) ? 3.0 : last_point.y_statistics.confidence_interval;
+            last_point.x_statistics.confidence_interval = ( last_point.x_statistics.confidence_interval < (loaded_params_->max_px_shift.x)) ? (loaded_params_->max_px_shift.x) : last_point.x_statistics.confidence_interval;
+            last_point.y_statistics.confidence_interval = ( last_point.y_statistics.confidence_interval < (loaded_params_->max_px_shift.x)) ? (loaded_params_->max_px_shift.x) : last_point.y_statistics.confidence_interval;
 
             double x_conf = last_point.x_statistics.confidence_interval;
             double y_conf = last_point.y_statistics.confidence_interval; 
@@ -214,29 +218,22 @@ void OMTA::insertVPforSequencesWithNoInsert(seqPointer & seq){
     insertPointToSequence(*seq, pVirtual);
 }
 
-PredictionStatistics OMTA::selectStatisticsValues(const std::vector<double>& values, const std::vector<double>& time, const double& insert_time, const int& max_pix_shift){
+PredictionStatistics OMTA::selectStatisticsValues(const std::vector<double>& values, const std::vector<double>& time, const double& insert_time){
 
     auto weight_vect = extended_search_->calcNormalizedWeightVect(time);
     
     PredictionStatistics statistics;
-    statistics.mean_dependent = extended_search_->calcWeightedMean(values, weight_vect); 
     statistics.mean_independent = extended_search_->calcWeightedMean(time, weight_vect); 
     statistics.time_pred = insert_time;
     statistics.poly_reg_computed = false;
-
-    auto std = extended_search_->calcWSTD(values, weight_vect, statistics.mean_dependent); 
-
-    bool conf_interval_bool = false;
-
-
     int poly_order = loaded_params_->poly_order;
 
     if((int)values.size() < poly_order && values.size() > 0){
-        poly_order = values.size();
+        poly_order = values.size() - 1; // -1, since otherwise the confidence interval cannot be computed  
     }
 
     if((int)values.size() > 1){
-        
+
         auto [coeff, predicted_vals_past] = extended_search_->polyReg(values, time, weight_vect, poly_order);
         statistics.coeff = coeff;
         statistics.predicted_vals_past = predicted_vals_past;
@@ -246,28 +243,14 @@ PredictionStatistics OMTA::selectStatisticsValues(const std::vector<double>& val
             for(int i = 0; i < (int)coeff.size(); ++i){
                 statistics.predicted_coordinate += coeff[i]*pow(insert_time, i);
             }
-            statistics.poly_reg_computed = true;
         }
 
         statistics.confidence_interval = extended_search_->confidenceInterval(statistics, time, values, weight_vect, loaded_params_->conf_probab_percent);
-        conf_interval_bool = (statistics.confidence_interval == -1.0) ? false : true; 
+        statistics.poly_reg_computed = true;
     }
-    
-    if(!statistics.poly_reg_computed){
-        statistics.predicted_coordinate = statistics.mean_dependent;
-    }    
-
-    /*  if the confidence interval is not computed and the std is smaller than the 
-        expected max_pix_shift set to max_px_shift. Otherwise set the confidence_interval 
-        to two standard deviations, which is equivalent to a 95% confidence interval around the mean 
-    */
-    if(!conf_interval_bool){
-        statistics.confidence_interval = (std < max_pix_shift) ? max_pix_shift : std*2;
-    }
-    
+        
     statistics.extended_search = true;
     return statistics;
-
 }
 
 void OMTA::cleanPotentialBuffer(){
