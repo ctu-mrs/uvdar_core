@@ -229,7 +229,7 @@ PredictionStatistics OMTA::selectStatisticsValues(const std::vector<double>& val
     int poly_order = loaded_params_->poly_order;
 
     if((int)values.size() < poly_order && values.size() > 0){
-        poly_order = values.size() - 1; // -1, since otherwise the confidence interval cannot be computed  
+        poly_order = values.size()
     }
 
     if((int)values.size() > 1){
