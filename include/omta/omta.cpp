@@ -116,7 +116,6 @@ void OMTA::expandedSearch(std::vector<PointState>& no_nn_current_frame, std::vec
             double x_predicted = last_point.x_statistics.predicted_coordinate;
             double y_predicted = last_point.y_statistics.predicted_coordinate;
 
-            // TODO: make upper limit settable, e.g. if only one UAV is expected, value can be set higher. for swarming applications 
             last_point.x_statistics.confidence_interval = ( last_point.x_statistics.confidence_interval > (loaded_params_->max_px_shift.x * 4) ) ? (loaded_params_->max_px_shift.x * 4) : last_point.x_statistics.confidence_interval;
             last_point.y_statistics.confidence_interval = ( last_point.y_statistics.confidence_interval > (loaded_params_->max_px_shift.y * 4) ) ? (loaded_params_->max_px_shift.y * 4) : last_point.y_statistics.confidence_interval;
 
@@ -229,7 +228,7 @@ PredictionStatistics OMTA::selectStatisticsValues(const std::vector<double>& val
     int poly_order = loaded_params_->poly_order;
 
     if((int)values.size() < poly_order && values.size() > 0){
-        poly_order = values.size()
+        poly_order = values.size();
     }
 
     if((int)values.size() > 1){

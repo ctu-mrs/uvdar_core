@@ -19,7 +19,10 @@ namespace uvdar
         Eigen::VectorXd weight_vect = Eigen::VectorXd::Map(&weights.front(), weights.size());
         Eigen::VectorXd result(poly_order + 1);
 
-        Eigen::MatrixXd weight_mat = weight_vect.asDiagonal();
+
+        Eigen::MatrixXd weight_mat = (weight_vect.asDiagonal());
+        weight_mat = weight_mat.cwiseSqrt();
+
 
         // fill the Design matrix
         for (int i = 0; i < (int)time.size(); ++i)
@@ -62,7 +65,7 @@ namespace uvdar
             weights.push_back(weight);
         }
 
-        // normalize to sum up to 1
+        // normalize to sum up to 1 and use the square root of the weight
         for (auto &weight : weights)
         {
             weight /= sum_weights;
