@@ -301,11 +301,11 @@
       <remap from="~omta_all_seq_info_back" to="/$(arg uav_name)/uvdar/omta_all_seq_info_back"/>
     </node>
 
-    <node name="blinkers_left" type="throttle" pkg="topic_tools"
+    <node name="throttle_blinkers_left" type="throttle" pkg="topic_tools"
       args="messages /$(arg uav_name)/uvdar/blinkers_seen_left $(arg blink_throttle_rate) /$(arg uav_name)/uvdar/blinkers_seen_left/throttled" />
-    <node name="blinkers_right" type="throttle" pkg="topic_tools"
+    <node name="throttle_blinkers_right" type="throttle" pkg="topic_tools"
       args="messages /$(arg uav_name)/uvdar/blinkers_seen_right $(arg blink_throttle_rate) /$(arg uav_name)/uvdar/blinkers_seen_right/throttled" />
-    <node name="blinkers_back" type="throttle" pkg="topic_tools"
+    <node name="throttle_blinkers_back" type="throttle" pkg="topic_tools"
       args="messages /$(arg uav_name)/uvdar/blinkers_seen_back $(arg blink_throttle_rate) /$(arg uav_name)/uvdar/blinkers_seen_back/throttled" />
       
     <node name="uvdar_pose_calculator_node" pkg="uvdar_core" type="uvdar_pose_calculator_node" output="screen" > 
