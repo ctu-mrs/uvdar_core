@@ -706,7 +706,7 @@ namespace uvdar {
         }
 
         if (!tf_fcu_to_cam[image_index]){
-          ROS_INFO_THROTTLE(1.0,"[UVDARPoseCalculator]: Camera TF not yet obatined. Attempting to retrieve it...");
+          ROS_INFO_THROTTLE(1.0,"[UVDARPoseCalculator]: Camera TF not yet obtained. Attempting to retrieve it...");
           {
             std::scoped_lock lock(transformer_mutex);
             tf_fcu_to_cam[image_index] = transformer_.getTransform(_uav_name_+"/fcu", _camera_frames_[image_index], msg->stamp);
