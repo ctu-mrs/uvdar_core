@@ -102,6 +102,8 @@
 
   <arg name="use_masks" default="true"/>
 
+  <arg name="blink_throttle_rate" default="5"/>
+
   <node
     name="uvcam_left_tf_$(arg uav_name)"
     pkg="tf2_ros"
