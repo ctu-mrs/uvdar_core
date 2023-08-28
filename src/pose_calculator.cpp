@@ -1178,7 +1178,7 @@ namespace uvdar {
           /* elapsedTime.push_back({currDepthIndent() + ,std::chrono::duration_cast<std::chrono::microseconds>(rough_init - start).count()}); */
           profiler.addValueSince("Rough initialization", start);
 
-          auto [hypotheses, errors] = getViableInitialHyptheses(model_, points, furthest_position, target, image_index);
+          auto [hypotheses, errors] = getViableInitialHyptheses(model_, points, furthest_position, target, image_index,0.5);
 
           int initial_hypothesis_count = (int)(hypotheses.size());
 
