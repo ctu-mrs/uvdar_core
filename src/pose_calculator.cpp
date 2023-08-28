@@ -50,8 +50,8 @@
 
 /* #define ERROR_THRESHOLD_INITIAL (752.0/M_PI) */
 /* #define ERROR_THRESHOLD_INITIAL sqr(10) */
-#define ERROR_THRESHOLD_INITIAL(img) sqr(_oc_models_.at(img).width/150.0)
-#define ERROR_THRESHOLD_FITTED(img) sqr(_oc_models_.at(img).width/300.0)
+#define ERROR_THRESHOLD_INITIAL(img) sqr(_oc_models_.at(img).width/100.0)
+#define ERROR_THRESHOLD_FITTED(img) sqr(_oc_models_.at(img).width/200.0)
 
 #define SIMILAR_ERRORS_THRESHOLD sqr(1)
 
