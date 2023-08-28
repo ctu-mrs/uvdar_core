@@ -145,8 +145,10 @@
       <rosparam param="estimated_framerate_topics"> ["estimated_framerate_left", "estimated_framerate_right"] </rosparam>
       <rosparam param="camera_frames" subst_value="true"> ["$(arg uav_name)/uvcam_left", "$(arg uav_name)/uvcam_right"] </rosparam>
 
-      <remap from="~blinkers_seen_left" to="/$(arg uav_name)/uvdar/blinkers_seen_left/throttled"/>
-      <remap from="~blinkers_seen_right" to="/$(arg uav_name)/uvdar/blinkers_seen_right/throttled"/>
+      <remap from="~blinkers_seen_left" to="/$(arg uav_name)/uvdar/blinkers_seen_left"/>
+      <remap from="~blinkers_seen_right" to="/$(arg uav_name)/uvdar/blinkers_seen_right"/>
+      <!-- <remap from="~blinkers_seen_left" to="/$(arg uav_name)/uvdar/blinkers_seen_left/throttled"/> -->
+      <!-- <remap from="~blinkers_seen_right" to="/$(arg uav_name)/uvdar/blinkers_seen_right/throttled"/> -->
       <remap from="~estimated_framerate_left" to="/$(arg uav_name)/uvdar/estimated_framerate_left"/>
       <remap from="~estimated_framerate_right" to="/$(arg uav_name)/uvdar/estimated_framerate_right"/>
 
