@@ -302,11 +302,11 @@
     </node>
 
     <node name="blinkers_left" type="throttle" pkg="topic_tools"
-      args="messages /$(arg UAV_NAME)/uvdar/blinkers_seen_left $(arg blink_throttle_rate) /$(arg UAV_NAME)/uvdar/blinkers_seen_left/throttled" />
+      args="messages /$(arg uav_name)/uvdar/blinkers_seen_left $(arg blink_throttle_rate) /$(arg uav_name)/uvdar/blinkers_seen_left/throttled" />
     <node name="blinkers_right" type="throttle" pkg="topic_tools"
-      args="messages /$(arg UAV_NAME)/uvdar/blinkers_seen_right $(arg blink_throttle_rate) /$(arg UAV_NAME)/uvdar/blinkers_seen_right/throttled" />
+      args="messages /$(arg uav_name)/uvdar/blinkers_seen_right $(arg blink_throttle_rate) /$(arg uav_name)/uvdar/blinkers_seen_right/throttled" />
     <node name="blinkers_back" type="throttle" pkg="topic_tools"
-      args="messages /$(arg UAV_NAME)/uvdar/blinkers_seen_back $(arg blink_throttle_rate) /$(arg UAV_NAME)/uvdar/blinkers_seen_back/throttled" />
+      args="messages /$(arg uav_name)/uvdar/blinkers_seen_back $(arg blink_throttle_rate) /$(arg uav_name)/uvdar/blinkers_seen_back/throttled" />
       
     <node name="uvdar_pose_calculator_node" pkg="uvdar_core" type="uvdar_pose_calculator_node" output="screen" > 
         <!-- <node name="uvdar_pose_calculator_node" pkg="uvdar_core" type="uvdar_pose_calculator_node" launch-prefix="valgrind -/-tool=callgrind -/-callgrind-out-file=/home/viktor/callgrind.out -/-instr-atstart=no -/-collect-atstart=yes"> --> 
