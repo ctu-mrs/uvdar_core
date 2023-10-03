@@ -99,7 +99,7 @@
 
   <arg name="use_masks" default="true"/>
 
-  <arg name="blink_throttle_rate" default="10"/>
+  <arg name="blink_throttle_rate" default="5"/>
     
   <node
     name="uvcam_left_tf_$(arg uav_name)"
@@ -125,9 +125,9 @@
     </node>
 
     <node name="blinkers_left" type="throttle" pkg="topic_tools"
-      args="messages /$(arg UAV_NAME)/uvdar/blinkers_seen_left $(arg blink_throttle_rate) /$(arg UAV_NAME)/uvdar/blinkers_seen_left_n/throttled" />
+      args="messages /$(arg uav_name)/uvdar/blinkers_seen_left $(arg blink_throttle_rate) /$(arg uav_name)/uvdar/blinkers_seen_left_n/throttled" />
     <node name="blinkers_right" type="throttle" pkg="topic_tools"
-      args="messages /$(arg UAV_NAME)/uvdar/blinkers_seen_right $(arg blink_throttle_rate) /$(arg UAV_NAME)/uvdar/blinkers_seen_right_n/throttled" />
+      args="messages /$(arg uav_name)/uvdar/blinkers_seen_right $(arg blink_throttle_rate) /$(arg uav_name)/uvdar/blinkers_seen_right_n/throttled" />
 
     <node name="uvdar_pose_calculator_node" pkg="uvdar_core" type="uvdar_pose_calculator_node" output="screen" > 
         <!-- <node name="uvdar_pose_calculator_node" pkg="uvdar_core" type="uvdar_pose_calculator_node" launch-prefix="valgrind -/-tool=callgrind -/-callgrind-out-file=/home/viktor/callgrind.out -/-instr-atstart=no -/-collect-atstart=yes"> --> 
@@ -151,12 +151,12 @@
       <rosparam param="estimated_framerate_topics"> ["estimated_framerate_left", "estimated_framerate_right"] </rosparam>
       <rosparam param="camera_frames" subst_value="true"> ["$(arg uav_name)/uvcam_left", "$(arg uav_name)/uvcam_right"] </rosparam>
 
-      <remap from="~blinkers_seen_left" to="/$(arg uav_name)/uvdar/blinkers_seen_left"/>
-      <remap from="~blinkers_seen_right" to="/$(arg uav_name)/uvdar/blinkers_seen_right"/>
+      <!-- <remap from="~blinkers_seen_left" to="/$(arg uav_name)/uvdar/blinkers_seen_left"/> -->
+      <!-- <remap from="~blinkers_seen_right" to="/$(arg uav_name)/uvdar/blinkers_seen_right"/> -->
       <remap from="~blinkers_seen_left" to="/$(arg uav_name)/uvdar/blinkers_seen_left_n/throttled"/>
       <remap from="~blinkers_seen_right" to="/$(arg uav_name)/uvdar/blinkers_seen_right_n/throttled"/>
-      <!-- <remap from="~estimated_framerate_left" to="/$(arg uav_name)/uvdar/estimated_framerate_left"/> -->
-      <!-- <remap from="~estimated_framerate_right" to="/$(arg uav_name)/uvdar/estimated_framerate_right"/> -->
+      <remap from="~estimated_framerate_left" to="/$(arg uav_name)/uvdar/estimated_framerate_left"/>
+      <remap from="~estimated_framerate_right" to="/$(arg uav_name)/uvdar/estimated_framerate_right"/>
 
       <rosparam param="calib_files" subst_value="true"> ["$(arg calibrations_folder)/camera_calibrations/calib_results_bf_uv_$(arg left).txt", "$(arg calibrations_folder)/camera_calibrations/calib_results_bf_uv_$(arg right).txt"] </rosparam>
 
