@@ -17,7 +17,8 @@
 /* #include <experimental/filesystem> */
 #include <mutex>
 
-#include "detect/uv_led_detect_fast.h"
+#include "detect/uv_led_detect_fast_cpu.h"
+#include "detect/uv_led_detect_fast_gpu.h"
 
 namespace enc = sensor_msgs::image_encodings;
 
@@ -89,10 +90,12 @@ public:
       mutex_camera_image_.push_back(std::make_unique<std::mutex>());
 
       ROS_INFO("[UVDARDetector]: Initializing FAST-based marker detection...");
-      uvdf_.push_back(std::make_unique<UVDARLedDetectFAST>(
+      uvdf_.push_back(std::make_unique<UVDARLedDetectFASTGPU>(
             _gui_,
             _debug_,
             _threshold_,
+            _threshold_ / 2,
+            210,
             _masks_
             ));
       if (!uvdf_.back()){

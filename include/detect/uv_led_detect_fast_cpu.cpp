@@ -1,4 +1,3 @@
-#include "uv_led_detect_fast.h"
 #include <dirent.h>
 #include <algorithm>
 #include <iostream>
@@ -7,38 +6,26 @@
 #include <utility>
 #include <vector>
 
+#include "uv_led_detect_fast_cpu.h"
+
 //addressing indices this way is noticeably faster than the "propper" way with .at method - numerous unnecessary checks are skipped. This of course means that we have to do necessary checks ourselves
 #define index2d(X, Y) (image_curr_.cols * (Y) + (X))
 
-uvdar::UVDARLedDetectFAST::UVDARLedDetectFAST(bool i_gui, bool i_debug, int i_threshold, std::vector<cv::Mat> i_masks) {
-  _debug_     = i_debug;
-  _gui_       = i_gui;
-  _threshold_ = i_threshold;
-
-  if (_debug_)
-    std::cout << "[UVDARDetectorFAST]: Threshold: " << _threshold_ << std::endl;
+uvdar::UVDARLedDetectFASTCPU::UVDARLedDetectFASTCPU(bool i_gui, bool i_debug, int i_threshold, int i_threshold_diff, int i_threshold_sun, std::vector<cv::Mat> i_masks) : UVDARLedDetectFAST(i_gui, i_debug, i_threshold, i_threshold_diff, i_threshold_sun, i_masks) {
   initFAST();
-  for (auto mask : i_masks) {
-    addMask(mask);
-  }
-  return;
 }
 
-void uvdar::UVDARLedDetectFAST::addMask(cv::Mat i_mask) {
-  masks_.push_back(i_mask);
-}
-
-bool uvdar::UVDARLedDetectFAST::processImage(const cv::Mat i_image, std::vector<cv::Point2i>& detected_points, std::vector<cv::Point2i>& sun_points, int mask_id) {
+bool uvdar::UVDARLedDetectFASTCPU::processImage(const cv::Mat i_image, std::vector<cv::Point2i>& detected_points, std::vector<cv::Point2i>& sun_points, int mask_id) {
   detected_points = std::vector<cv::Point2i>();
   image_curr_     = i_image;
 
   if (mask_id >= 0) {
     if (mask_id >= (int)(masks_.size())) {
-      std::cerr << "[UVDARDetectorFAST]: Mask index " << mask_id << " is greater than the current number of loaded masks!" << std::endl;
+      std::cerr << "[UVDARDetectorFASTCPU]: Mask index " << mask_id << " is greater than the current number of loaded masks!" << std::endl;
       return false;
     }
     if (image_curr_.size() != masks_[mask_id].size()) {
-      std::cerr << "[UVDARDetectorFAST]: The size of the selected mask does not match the current image!" << std::endl;
+      std::cerr << "[UVDARDetectorFASTCPU]: The size of the selected mask does not match the current image!" << std::endl;
       return false;
     }
   }
@@ -73,7 +60,7 @@ bool uvdar::UVDARLedDetectFAST::processImage(const cv::Mat i_image, std::vector<
     if (image_check_.data[index2d(i, j)] == 0) { // skip over marked points (suppresses clustered bright pixels)
       if (image_curr_.data[index2d(i, j)] > _threshold_) { //if the point is bright
         int sun_test_points = -1;
-        if (image_curr_.data[index2d(i, j)] > (210)) { //if the point is "very bright" it might be a part of the image of directly observed sun
+        if (image_curr_.data[index2d(i, j)] > _threshold_sun_) { //if the point is "very bright" it might be a part of the image of directly observed sun
           sun_point_potential = true;
         }
 
@@ -107,7 +94,7 @@ bool uvdar::UVDARLedDetectFAST::processImage(const cv::Mat i_image, std::vector<
               break;
             }
 
-            if ((image_curr_.data[index2d(i, j)] - image_curr_.data[index2d(x, y)]) < (_threshold_ / 2)) { //if the difference between the current point and a surrounding point is smaller than desired
+            if ((image_curr_.data[index2d(i, j)] - image_curr_.data[index2d(x, y)]) < _threshold_diff_) { //if the difference between the current point and a surrounding point is smaller than desired
               /* if (n>0){ */
               /*     std::cout << "HERE B: broken at fast point " << m << " by: " << (int)(image_curr_.data[index2d(i, j)] - image_curr_.data[index2d(x, y)]) << std::endl; */
               /* } */
@@ -215,7 +202,7 @@ bool uvdar::UVDARLedDetectFAST::processImage(const cv::Mat i_image, std::vector<
   return true;
 }
 
-void uvdar::UVDARLedDetectFAST::clearMarks() {
+void uvdar::UVDARLedDetectFASTCPU::clearMarks() {
   for (int j = 0; j < image_curr_.rows; j++) {
     for (int i = 0; i < image_curr_.cols; i++) {
       if (image_check_.at<unsigned char>(j, i) == 255) {
@@ -226,7 +213,7 @@ void uvdar::UVDARLedDetectFAST::clearMarks() {
 }
 
 
-void uvdar::UVDARLedDetectFAST::initFAST() {
+void uvdar::UVDARLedDetectFASTCPU::initFAST() {
   std::vector<cv::Point> fast_points;
 
   fast_points.push_back(cv::Point(0, -3));

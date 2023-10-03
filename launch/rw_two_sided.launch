@@ -57,13 +57,6 @@
   <arg name="publish_visualization" default="true"/>
   <arg name="visualization_rate" default="2"/>
 
-  <arg name="trajectoryControl" default="true"/>
-
-  <arg name="followDistance" default="5"/>
-  <arg name="trajCoeff" default="0.8"/>
-  <arg name="yawCoeff" default="0.1"/>
-  <arg name="tailingCoeff" default="1.0"/>
-
   <arg name="publish" default="true"/>
   <arg name="useOdom" default="false"/>
   <arg name="cemeraRotated" default="false"/>

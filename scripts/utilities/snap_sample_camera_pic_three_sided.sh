@@ -14,7 +14,7 @@ cd $MY_PATH
 rm .tmuxinator.yml
 
 # link the session file to .tmuxinator.yml
-ln snap_sample_camera_pic.yml .tmuxinator.yml
+ln snap_sample_camera_pic_three_sided.yml .tmuxinator.yml
 
 # start tmuxinator
 tmuxinator

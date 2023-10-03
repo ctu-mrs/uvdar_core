@@ -41,13 +41,6 @@
   <arg name="gui" default="true"/>
   <!-- <arg name="gui" default="false"/> -->
 
-  <arg name="trajectoryControl" default="true"/>
-
-  <arg name="followDistance" default="5"/>
-  <arg name="trajCoeff" default="0.8"/>
-  <arg name="yawCoeff" default="0.1"/>
-  <arg name="tailingCoeff" default="1.0"/>
-
   <arg name="publish" default="true"/>
   <arg name="useOdom" default="false"/>
   <arg name="cemeraRotated" default="false"/>
@@ -197,7 +190,8 @@
       <remap from="~visualization" to="/$(arg uav_name)/uvdar/blink_visualization/image_raw"/>
 
     </node>
-      
+
+
     <!-- <node name="uvdar_pose_calculator_node" pkg="uvdar_core" type="uvdar_pose_calculator_node" output="screen" launch-prefix="debug_roslaunch"> --> 
     <node name="uvdar_pose_calculator_node" pkg="uvdar_core" type="uvdar_pose_calculator_node" output="screen" > 
         <!-- <node name="uvdar_pose_calculator_node" pkg="uvdar_core" type="uvdar_pose_calculator_node" launch-prefix="valgrind -/-tool=callgrind -/-callgrind-out-file=/home/viktor/callgrind.out -/-instr-atstart=no -/-collect-atstart=yes"> --> 
@@ -243,6 +237,7 @@
       <remap from="~measuredPoses2" to="/$(arg uav_name)/uvdar/measuredPosesR"/>
       <remap from="~measuredPoses3" to="/$(arg uav_name)/uvdar/measuredPosesB"/>
     </node>
+
   </group>
 
 

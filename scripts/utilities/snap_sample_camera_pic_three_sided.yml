@@ -10,7 +10,7 @@ windows:
   - bluefox:
       layout: even-vertical
       panes:
-        - waitForRos; roslaunch uvdar_core rw_three_sided.launch aec:=false agc:=true use_masks:=false
+        - waitForRos; roslaunch uvdar_core camera_only_three_sided.launch aec:=false agc:=true use_masks:=false
         - waitForRos; sleep 12; rosrun dynamic_reconfigure dynparam set ${UAV_NAME}/uvdar_bluefox_left expose_upper_limit_us 100000; sleep 2; rosrun dynamic_reconfigure dynparam set ${UAV_NAME}/uvdar_bluefox_left expose_us 100000
         - waitForRos; sleep 17; rosrun dynamic_reconfigure dynparam set ${UAV_NAME}/uvdar_bluefox_right expose_upper_limit_us 100000; sleep 2; rosrun dynamic_reconfigure dynparam set ${UAV_NAME}/uvdar_bluefox_right expose_us 100000
         - waitForRos; sleep 22; rosrun dynamic_reconfigure dynparam set ${UAV_NAME}/uvdar_bluefox_back expose_upper_limit_us 100000; sleep 2; rosrun dynamic_reconfigure dynparam set ${UAV_NAME}/uvdar_bluefox_back expose_us 100000

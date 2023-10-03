@@ -10,9 +10,9 @@
 
   <arg name="threshold" default="50"/>
 
-  <arg name="right" default="$(optenv BLUEFOX_UV_RIGHT)"/>
+  <arg name="right" default="$(env BLUEFOX_UV_RIGHT)"/>
   <arg name="right_camera_name" default="mv_$(arg right)"/>
-  <arg name="expose_us_right" default="$(optenv BLUEFOX_UV_RIGHT_EXPOSE_US)"/>
+  <arg name="expose_us_right" default="$(env BLUEFOX_UV_RIGHT_EXPOSE_US)"/>
 
   <arg name="calibrations_folder" default="$(find mrs_uav_general)/config/uvdar_calibrations"/>
 
