@@ -1,0 +1,7 @@
+<launch>
+  <node
+    name="uvcam_left_tf_$(arg uav_name)"
+    pkg="tf2_ros"
+    type="static_transform_publisher"
+    args="0.04 0.11 0.06 -0.3490658504 0.0 -1.57079632679 $(arg uav_name)/fcu $(arg uav_name)/uvcam_left"/>
+</launch>
