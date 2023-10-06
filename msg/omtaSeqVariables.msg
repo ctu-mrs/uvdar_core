@@ -2,8 +2,8 @@ time inserted_time
 int8 signal_id
 bool[] extended_search
 bool[] poly_reg_computed
-mrs_msgs/Point2DWithFloat predicted_point
-mrs_msgs/Point2DWithFloat confidence_interval
+uvdar_core/Point2DWithFloat predicted_point
+uvdar_core/Point2DWithFloat confidence_interval
 float32[] x_coeff_reg
 float32[] y_coeff_reg
 uvdar_core/omtaSeqPoint[] sequence

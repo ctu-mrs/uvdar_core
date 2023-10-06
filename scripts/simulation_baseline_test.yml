@@ -65,7 +65,7 @@ windows:
   - uv_observer:
       layout: even-vertical
       panes:
-        - waitForCompile; gz world --pause=0; sleep 6;  export UAV_NAME=uav1; waitForControl; roslaunch uvdar_core sim_three_sided.launch
+        - waitForCompile; gz world --pause=0; sleep 6;  export UAV_NAME=uav1; waitForControl; roslaunch uvdar_core sim_three_sided_combined.launch
         # - waitForCompile; gz world --pause=0; sleep 6;  export UAV_NAME=uav1; waitForControl; roslaunch uvdar_core multi_frequency_test.launch
   - kalman_filter:
       layout: even-vertical

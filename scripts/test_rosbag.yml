@@ -1,21 +1,43 @@
 name: simulation
 root: ./
 startup_window: launch
+pre_window: UAV_NAME=uav39
 windows:
-  - build:
+  - core:
       layout: even-vertical
       panes:
-        - catkin build uvdar_core
+        - roscore
   - launch:
       layout: even-vertical
       panes:
-        - sleep 2; UAV_NAME=uav36; roslaunch uvdar_core rosbag.launch 
+        - waitForRos; roslaunch uvdar_core rosbag_camp.launch uav_name:=uav39 use_4DHT:=true
+  # - kf:
+      # layout: even-vertical
+      # panes:
+        # -  waitForRos; roslaunch uvdar_core uvdar_kf.launch UAV_NAME:=uav39
         #publish_visualization:=false max_zeros_consecutive:=3 max_ones_consecutive:=3 allowed_BER_per_seq:=1 gui:=true
-  - rosbag:
+  - record:
       layout: even-vertical
       panes:
-        # - 'waitForRos; cd ~/basler_tests/latest; rosbag play --clock _2023-04-26-15-32-46.bag'
-        # - waitForCompile; cd ~/uvdar_rosbag/tracking/uav7/22_2021_04_27_09_11_19_L12/ ; rosbag play --clock -s 30 _2021-04-27-09-11-56.bag
+        # - rosbag record -O rosbags/first/omta_38.bag -e "(.*)_camp"
+        # - rosbag record -O rosbags/first/omta_39.bag -e "(.*)_camp"
+        # - rosbag record -O rosbags/first/4dht_38.bag -e "(.*)_camp"
+        - rosbag record -O rosbags/first/4dht_39.bag -e "(.*)_camp"
+        # - rosbag record -O rosbags/second/omta_1.bag -e "(.*)_camp"
+        # - rosbag record -O rosbags/second/omta_2.bag -e "(.*)_camp"
+        # - rosbag record -O rosbags/third/omta.bag -e "(.*)_camp"
+  - play:
+      layout: even-vertical
+      panes:
+        # - waitForRos; rosbag play --clock ~/experiments/19_04/demo_first/rx1/all_three/rx1.bag
+        # - waitForRos; sleep 3; rosbag play --clock ~/experiments/20_04/two_tx/two_tx/rx/occlusion_1/rx.bag
+        # - waitForRos; sleep 3; rosbag play --clock ~/experiments/20_04/two_tx/two_tx/rx/occlusion_2/rx.bag
+        # - waitForRos; rosbag play --clock ~/experiments/20_04/tumult/tumult/rx/rx.bag
+        - waitForRos; sleep 3; rosbag play --clock ~/experiments/19_04/demo_first/rx2/all_three/rx2.bag
+        # - waitForRos; sleep 3; rosbag play --clock ~/experiments/19_04/demo_first/rx1/all_three/rx1.bag
+
+
+ # - waitForCompile; cd ~/uvdar_rosbag/tracking/uav7/22_2021_04_27_09_11_19_L12/ ; rosbag play --clock -s 30 _2021-04-27-09-11-56.bag
   # - trajectory:
   #     layout: even-vertical
   #     panes:

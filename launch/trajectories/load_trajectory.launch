@@ -8,8 +8,8 @@
   <arg name="dt"  default="0.2"/>
 
 	<group ns="$(arg uav_name)">
-		<node name="trajectory_loader" pkg="trajectory_loader" type="trajectory_loader" output="screen" >
-      <rosparam file="$(find trajectory_loader)/config/defaults.yaml" />
+		<node name="trajectory_loader" pkg="mrs_uav_trajectory_loader" type="trajectory_loader" output="screen" >
+      <rosparam file="$(find mrs_uav_trajectory_loader)/config/defaults.yaml" />
 		  <param name="uav_name" type="string" value="$(arg uav_name)" />	
       <param name="mode" type="string" value="$(arg mode)" />
       

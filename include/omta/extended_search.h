@@ -9,7 +9,7 @@
 namespace uvdar{
 
     struct PredictionStatistics{
-        double time_pred;
+        double time_pred = -1;
         bool poly_reg_computed = false;
         bool extended_search = false;
         std::vector<double> coeff;
@@ -24,7 +24,6 @@ namespace uvdar{
         
         private: 
             double decay_factor_;
-            int default_poly_order_;
 
             /**
              * @brief calcuate weighted sum of squared residuals 
@@ -36,7 +35,7 @@ namespace uvdar{
             double calcWSSR(const Eigen::VectorXd&, const std::vector<double>&, const std::vector<double>&);
 
         public:
-            ExtendedSearch(double, int);
+            ExtendedSearch(double);
             ~ExtendedSearch();
 
             /**
@@ -44,9 +43,9 @@ namespace uvdar{
              * @param coordinate dependent vector 
              * @param time independent vector 
              * @param weights weight vector
-             * @return PredictionStatistics with Coefficients + predicted values for each data value
+             * @return regression coefficients + predicted values for each data value
              */
-            PredictionStatistics polyReg(const std::vector<double>&, const std::vector<double>&, const std::vector<double>&);
+            std::tuple<std::vector<double>, Eigen::VectorXd> polyReg(const std::vector<double>&, const std::vector<double>&, const std::vector<double>&, const int &);
 
             /**
              * @brief calculates normalized weight vector with exponential decay function
@@ -62,15 +61,6 @@ namespace uvdar{
              * @return double 
              */
             double calcWeightedMean(const std::vector<double>&, const std::vector<double>&);
-
-            /**
-             * @brief calculates the weighted standard deviation
-             * @param values x or y coordinates
-             * @param weights vector
-             * @param mean double
-             * @return weighted standard deviation
-             */
-            double calcWSTD(const std::vector<double>&, const std::vector<double>&, const double&);
 
             /**
              * @brief check if point lies within box 

@@ -17,7 +17,7 @@
   <arg name="expose_us_left" default="$(optenv BLUEFOX_UV_LEFT_EXPOSE_US)"/>
   <arg name="expose_us_right" default="$(optenv BLUEFOX_UV_RIGHT_EXPOSE_US)"/>
 
-  <arg name="calibrations_folder" default="$(find mrs_uav_general)/config/uvdar_calibrations"/>
+  <arg name="calibrations_folder" default="$(find mrs_uav_deployment)/config/uvdar_calibrations"/>
 
 
   <!-- Node Settings -->
@@ -49,21 +49,21 @@
 
   <arg name="sequence_file" default="$(find uvdar_core)/config/selected.txt"/>
 
-  <arg name="max_px_shift_x" default="2"/>
-  <arg name="max_px_shift_y" default="2"/>
-  <arg name="max_zeros_consecutive" default="3"/>
-  <arg name="max_ones_consecutive" default="3"/>
-  <arg name="stored_seq_len_factor" default="15"/>
-  <arg name="poly_order" default="4"/>
+  <arg name="max_px_shift_y" default="3"/>
+  <arg name="max_px_shift_x" default="3"/>
+  <arg name="max_zeros_consecutive" default="2"/>
+  <arg name="max_ones_consecutive" default="2"/>
+  <arg name="stored_seq_len_factor" default="1"/>
+  <arg name="max_buffer_length" default="5000"/>
+  <arg name="poly_order" default="2"/>
   <arg name="decay_factor" default="0.1"/>
   <arg name="confidence_probability" default="95.0"/>
-  <arg name="frame_tolerance" default="5"/>
   <arg name="allowed_BER_per_seq" default="0"/>
-  <arg name="std_threshold_poly_reg" default="0.5"/>
+  <arg name="std_threshold_poly_reg" default="0.3"/>
 
   <arg name="use_4DHT" default="false"/>
   <!--4DHT values-->
-  <arg name="accumulator_length"         default="12"/>
+  <arg name="accumulator_length"         default="18"/>
   <arg name="pitch_steps"         default="16"/>
   <arg name="yaw_steps"         default="16"/>
   <arg name="max_pixel_shift"         default="4"/>
@@ -161,23 +161,23 @@
       <param name="use_4DHT"             type="bool" value="$(arg use_4DHT)"/>
     
 
-      <param name="max_px_shift_x"     type="int"   value="$(arg max_px_shift_x)"/>
-      <param name="max_px_shift_y"     type="int"   value="$(arg max_px_shift_y)"/>
-      <param name="max_zeros_consecutive"     type="int"   value="$(arg max_zeros_consecutive)"/>
-      <param name="max_ones_consecutive"     type="int"   value="$(arg max_ones_consecutive)"/>
-      <param name="stored_seq_len_factor"         type="int" value="$(arg stored_seq_len_factor)"/>    
-      <param name="poly_order" type="int" value="$(arg poly_order)"/>
-      <param name="decay_factor"         type="double" value="$(arg decay_factor)"/>    
-      <param name="confidence_probability"         type="double" value="$(arg confidence_probability)"/>
-      <param name="frame_tolerance"     type="int"   value="$(arg frame_tolerance)"/>
-      <param name="allowed_BER_per_seq"     type="int"   value="$(arg allowed_BER_per_seq)"/>
-      <param name="std_threshold_poly_reg"     type="double"   value="$(arg std_threshold_poly_reg)"/>
+      <param name="max_px_shift_x"          type="int"    value="$(arg max_px_shift_x)"/>
+      <param name="max_px_shift_y"          type="int"    value="$(arg max_px_shift_y)"/>
+      <param name="max_zeros_consecutive"   type="int"    value="$(arg max_zeros_consecutive)"/>
+      <param name="max_ones_consecutive"    type="int"    value="$(arg max_ones_consecutive)"/>
+      <param name="stored_seq_len_factor"   type="int"    value="$(arg stored_seq_len_factor)"/>  
+      <param name="max_buffer_length"       type="int"    value="$(arg max_buffer_length)"/>  
+      <param name="poly_order"              type="int"    value="$(arg poly_order)"/>
+      <param name="decay_factor"            type="double" value="$(arg decay_factor)"/>    
+      <param name="confidence_probability"  type="double" value="$(arg confidence_probability)"/>
+      <param name="allowed_BER_per_seq"     type="int"    value="$(arg allowed_BER_per_seq)"/>
+      <param name="std_threshold_poly_reg"  type="double" value="$(arg std_threshold_poly_reg)"/>
       
-      <param name="accumulator_length"         type="int" value="$(arg accumulator_length)"/>
-      <param name="pitch_steps"         type="int" value="$(arg pitch_steps)"/>
-      <param name="yaw_steps"         type="int" value="$(arg yaw_steps)"/>
-      <param name="max_pixel_shift"         type="int" value="$(arg max_pixel_shift)"/>
-      <param name="nullify_radius"         type="int" value="5"/>
+      <param name="accumulator_length"      type="int"    value="$(arg accumulator_length)"/>
+      <param name="pitch_steps"             type="int"    value="$(arg pitch_steps)"/>
+      <param name="yaw_steps"               type="int"    value="$(arg yaw_steps)"/>
+      <param name="max_pixel_shift"         type="int"    value="$(arg max_pixel_shift)"/>
+      <param name="nullify_radius"          type="int"    value="5"/>
 
  
       <param name="sequence_file"         type="string" value="$(arg sequence_file)"/>

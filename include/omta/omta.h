@@ -1,7 +1,7 @@
 #pragma once
 
 #include "extended_search.h"
-#include <mrs_msgs/ImagePointsWithFloatStamped.h>
+#include <uvdar_core/ImagePointsWithFloatStamped.h>
 #include "signal_matcher/signal_matcher.h"
 
 namespace uvdar
@@ -25,10 +25,10 @@ namespace uvdar
         int max_zeros_consecutive;
         int max_ones_consecutive;
         int stored_seq_len_factor; // the multiplication factor how long the sequence should be for calculating the trajectory   
+        int max_buffer_length; // number of accepted sequences in the buffer
         int poly_order;
         double decay_factor;
         double conf_probab_percent;
-        int frame_tolerance;
         int allowed_BER_per_seq;
         double std_threshold_poly_reg;
     };
@@ -89,10 +89,9 @@ namespace uvdar
          * @param values x or y coordinate
          * @param time insert time of the x or y coordinate
          * @param insert_time the current time stamp for which the next pixel should be inserted
-         * @param  max_pix_shift the max_pix_shift loaded from the launch file
          * @return PredictionStatistics 
          */
-        PredictionStatistics selectStatisticsValues(const std::vector<double>&, const std::vector<double>&, const double&, const int &);
+        PredictionStatistics selectStatisticsValues(const std::vector<double>&, const std::vector<double>&, const double&);
 
         /**
          * @brief checks all sequences if one violates the current sequence settings or if the time since a new inserted bit is too long ago
@@ -119,7 +118,7 @@ namespace uvdar
          * @brief called by blink processor - inserts point to custom data structure + calls findClosestPixelAndInsert() and cleanPotentialBuffer()
          * @param points in mrs_msgs format
          */
-        void processBuffer(const mrs_msgs::ImagePointsWithFloatStampedConstPtr);
+        void processBuffer(const uvdar_core::ImagePointsWithFloatStampedConstPtr);
 
         /**
         * @brief compares the original sequences with the extracted ones.
