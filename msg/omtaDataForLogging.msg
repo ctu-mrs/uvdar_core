@@ -7,4 +7,4 @@ int8 max_zeros_consecutive
 int8 max_ones_consecutive
 float32 confidence_probab_t_dist
 float32 decay_factor_weight_func
-mrs_msgs/Point2DWithFloat max_px_shift
+uvdar_core/Point2DWithFloat max_px_shift

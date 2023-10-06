@@ -1,6 +1,6 @@
 #include <ros/ros.h>
 #include <ros/package.h>
-#include <mrs_msgs/BacaProtocol.h>
+#include <mrs_modules_msgs/BacaProtocol.h>
 #include <mrs_msgs/SetInt.h>
 #include <mrs_msgs/Float64Srv.h>
 #include <std_srvs/Trigger.h>
@@ -51,7 +51,7 @@ namespace uvdar {
       SequenceSetter(ros::NodeHandle nh){
 
 
-        baca_protocol_publisher = nh.advertise<mrs_msgs::BacaProtocol>("baca_protocol_out", 1);
+        baca_protocol_publisher = nh.advertise<mrs_modules_msgs::BacaProtocol>("baca_protocol_out", 1);
 
         mrs_lib::ParamLoader param_loader(nh, "UVDARLedManager");
 
@@ -105,7 +105,7 @@ namespace uvdar {
 
         unsigned char state = (req.data?0x01:0x00);
 
-        mrs_msgs::BacaProtocol serial_msg;
+        mrs_modules_msgs::BacaProtocol serial_msg;
         serial_msg.stamp = ros::Time::now();
 
         serial_msg.payload.push_back(0x90); //set frequency
@@ -140,7 +140,7 @@ namespace uvdar {
 
         unsigned char int_frequency = (unsigned char)(req.value);
 
-        mrs_msgs::BacaProtocol serial_msg;
+        mrs_modules_msgs::BacaProtocol serial_msg;
         serial_msg.stamp = ros::Time::now();
 
         serial_msg.payload.push_back(0x96); //set frequency
@@ -171,7 +171,7 @@ namespace uvdar {
 
         ROS_INFO_STREAM("[UVDARLedManager]: Loading sequences into the LED driver");
 
-        mrs_msgs::BacaProtocol serial_msg;
+        mrs_modules_msgs::BacaProtocol serial_msg;
         serial_msg.stamp = ros::Time::now();
 
         unsigned char sequence_length = (unsigned char)(sequences_[0].size());
@@ -222,7 +222,7 @@ namespace uvdar {
 
         ROS_INFO_STREAM("[UVDARLedManager]: Loading sequence " << index << " into the LED driver");
 
-        mrs_msgs::BacaProtocol serial_msg;
+        mrs_modules_msgs::BacaProtocol serial_msg;
         serial_msg.stamp = ros::Time::now();
 
         serial_msg.payload.clear();
@@ -268,7 +268,7 @@ namespace uvdar {
         }
 
         if (UVDAR_CLASSIC) {
-          mrs_msgs::BacaProtocol serial_msg;
+          mrs_modules_msgs::BacaProtocol serial_msg;
           serial_msg.stamp = ros::Time::now();
 
           serial_msg.payload.push_back(0x98); //select sequence index
@@ -287,7 +287,7 @@ namespace uvdar {
           return true;
         }
         else {
-          mrs_msgs::BacaProtocol serial_msg;
+          mrs_modules_msgs::BacaProtocol serial_msg;
           serial_msg.stamp = ros::Time::now();
 
           serial_msg.payload.push_back(0x98); //select sequence index
@@ -350,7 +350,7 @@ namespace uvdar {
         }
 
 
-        mrs_msgs::BacaProtocol serial_msg;
+        mrs_modules_msgs::BacaProtocol serial_msg;
         serial_msg.stamp = ros::Time::now();
 
         res.message="Selecting sequences to [ ";
@@ -465,7 +465,7 @@ namespace uvdar {
 
           unsigned char index = (unsigned char)(req.value); //0 - tracking mode; 1 - communication mode
 
-          mrs_msgs::BacaProtocol serial_msg;
+          mrs_modules_msgs::BacaProtocol serial_msg;
           serial_msg.stamp = ros::Time::now();
 
           serial_msg.payload.push_back(0xF0); //select sequence index
@@ -510,7 +510,7 @@ namespace uvdar {
 
           auto data_frame = req.data_frame;
 
-          mrs_msgs::BacaProtocol serial_msg;
+          mrs_modules_msgs::BacaProtocol serial_msg;
 
           res.message = "Sending message";
 

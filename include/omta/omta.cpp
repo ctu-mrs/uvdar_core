@@ -31,7 +31,7 @@ bool OMTA::setSequences(std::vector<std::vector<bool>> i_sequences){
     return true;
 }
 
-void OMTA::processBuffer(const mrs_msgs::ImagePointsWithFloatStampedConstPtr pts_msg) {
+void OMTA::processBuffer(const uvdar_core::ImagePointsWithFloatStampedConstPtr pts_msg) {
 
     std::vector<PointState> current_frame;
     for ( auto point_time_stamp : pts_msg->points) {
@@ -116,8 +116,8 @@ void OMTA::expandedSearch(std::vector<PointState>& no_nn_current_frame, std::vec
             double x_predicted = last_point.x_statistics.predicted_coordinate;
             double y_predicted = last_point.y_statistics.predicted_coordinate;
 
-            last_point.x_statistics.confidence_interval = ( last_point.x_statistics.confidence_interval > (loaded_params_->max_px_shift.x * 4) ) ? (loaded_params_->max_px_shift.x * 4) : last_point.x_statistics.confidence_interval;
-            last_point.y_statistics.confidence_interval = ( last_point.y_statistics.confidence_interval > (loaded_params_->max_px_shift.y * 4) ) ? (loaded_params_->max_px_shift.y * 4) : last_point.y_statistics.confidence_interval;
+            last_point.x_statistics.confidence_interval = ( last_point.x_statistics.confidence_interval > (loaded_params_->max_px_shift.x * 2) ) ? (loaded_params_->max_px_shift.x * 2) : last_point.x_statistics.confidence_interval;
+            last_point.y_statistics.confidence_interval = ( last_point.y_statistics.confidence_interval > (loaded_params_->max_px_shift.y * 2) ) ? (loaded_params_->max_px_shift.y * 2) : last_point.y_statistics.confidence_interval;
 
             last_point.x_statistics.confidence_interval = ( last_point.x_statistics.confidence_interval < (loaded_params_->max_px_shift.x)) ? (loaded_params_->max_px_shift.x) : last_point.x_statistics.confidence_interval;
             last_point.y_statistics.confidence_interval = ( last_point.y_statistics.confidence_interval < (loaded_params_->max_px_shift.x)) ? (loaded_params_->max_px_shift.x) : last_point.y_statistics.confidence_interval;

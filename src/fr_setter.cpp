@@ -4,7 +4,7 @@
 #include <mrs_msgs/SetInt.h>
 #include <string>
 #include <cmath>
-#include <mrs_msgs/BacaProtocol.h>
+#include <mrs_modules_msgs/BacaProtocol.h>
 #include <uvdar_core/SetLedState.h>
 
 namespace fr_setter
@@ -25,7 +25,7 @@ public:
 
     param_loader.loadParam("uav_name", uav_name);
     service_set_fr          = nh.advertiseService("set_frequency", &FrSetter::FrequencySetterCallback, this);
-    baca_protocol_publisher = nh.advertise<mrs_msgs::BacaProtocol>("baca_protocol_out", 1);
+    baca_protocol_publisher = nh.advertise<mrs_modules_msgs::BacaProtocol>("baca_protocol_out", 1);
 
     for (int i = 0; i < 8; i++) {
       clients_set_fr.push_back(nh.serviceClient<mrs_msgs::SetInt>("/gazebo/ledFrequencySetter/" + uav_name + "_uvled_" + std::to_string(i + 1) + "_lens_link"));
@@ -36,7 +36,7 @@ public:
 
 private:
   bool FrequencySetterCallback(uvdar_core::SetLedState::Request& req, uvdar_core::SetLedState::Response& res) {
-    mrs_msgs::BacaProtocol serial_msg;
+    mrs_modules_msgs::BacaProtocol serial_msg;
     serial_msg.stamp = ros::Time::now();
         
     mrs_msgs::SetInt led_state;

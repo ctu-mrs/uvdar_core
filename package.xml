@@ -23,6 +23,7 @@
   <depend>sensor_msgs</depend>
   <depend>opencv</depend>
   <depend>mrs_msgs</depend>
+  <depend>mrs_modules_msgs</depend>
   <depend>mrs_lib</depend>
   <depend>mrs_general</depend>
   <depend>mrs_uav_manager</depend>
