@@ -153,7 +153,7 @@ add_dependencies(new_uvdar_rx_node
   ${catkin_EXPORTED_TARGETS}
   )
 
-## | ------------------------ OCamCalub ----------------------- |
+## | ------------------------ OCamCalib ----------------------- |
 
 add_library(UvdarCore_OCamCalib
   include/OCamCalib/ocam_functions.cpp
