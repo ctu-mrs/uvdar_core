@@ -49,6 +49,7 @@
 
   <arg name="sequence_file" default="$(find uvdar_core)/config/selected.txt"/>
 
+  <!--OMT values-->
   <arg name="max_px_shift_y" default="3"/>
   <arg name="max_px_shift_x" default="3"/>
   <arg name="max_zeros_consecutive" default="2"/>

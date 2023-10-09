@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import math
 import numpy as np
 
@@ -27,7 +29,13 @@ def writeCircle(name, radius, center_point, heading, data_points, ccw):
           if(y_computed < 0.01 and y_computed > -0.01):
                y_computed = 0.0 
 
-          file.write(str(x)[0:5] +" "+str(y_computed)[0:5]+" "+str(z_computed)[0:5]+" "+str(heading)[0:5]+"\n")
+          x_val_print = np.format_float_positional(x, trim='-') 
+          y_val_print = np.format_float_positional(y_computed, trim='-') 
+          z_val_print = np.format_float_positional(z_computed, trim='-') 
+          heading_val_print = np.format_float_positional(heading, trim='-') 
+
+          file.write(str(x_val_print)[0:5]+" "+str(y_val_print)[0:5]+" "+str(z_val_print)[0:5]+" "+str(heading_val_print)[0:5]+"\n")
+
 
      file.close()
 
@@ -55,9 +63,14 @@ def writeEight(name, radius, center_point, heading, data_points, ccw):
           if(y_computed < 0.01 and y_computed > -0.01):
                y_computed = 0.0 
 
-          file.write(str(x)[0:5] +" "+str(y_computed)[0:5]+" "+str(z_computed)[0:5]+" "+str(heading)[0:5]+"\n")
+          x_val_print = np.format_float_positional(x, trim='-') 
+          y_val_print = np.format_float_positional(y_computed, trim='-') 
+          z_val_print = np.format_float_positional(z_computed, trim='-') 
+          heading_val_print = np.format_float_positional(heading, trim='-') 
 
-     
+          file.write(str(x_val_print)[0:5]+" "+str(y_val_print)[0:5]+" "+str(z_val_print)[0:5]+" "+str(heading_val_print)[0:5]+"\n")
+
+
      ## for the other direction 
      ccw = ccw * -1.0
      angle_discretization = (2*math.pi) / float(data_points) * float(ccw)
@@ -76,7 +89,12 @@ def writeEight(name, radius, center_point, heading, data_points, ccw):
           if(y_computed < 0.01 and y_computed > -0.01):
                y_computed = 0.0 
 
-          file.write(str(x)[0:5] +" "+str(y_computed)[0:5]+" "+str(z_computed)[0:5]+" "+str(heading)[0:5]+"\n")
+          x_val_print = np.format_float_positional(x, trim='-') 
+          y_val_print = np.format_float_positional(y_computed, trim='-') 
+          z_val_print = np.format_float_positional(z_computed, trim='-') 
+          heading_val_print = np.format_float_positional(heading, trim='-') 
+
+          file.write(str(x_val_print)[0:5]+" "+str(y_val_print)[0:5]+" "+str(z_val_print)[0:5]+" "+str(heading_val_print)[0:5]+"\n")
 
 
      file.close()
@@ -106,26 +124,31 @@ def writeLine( name, start_point, end_point, line, number_data_pts, heading, x_r
      else:
           discretization_angle = 0.0
      x_val = start_point[0]
-     x_val = start_point[0] + x_discretization
      y_val = start_point[1] + discretization
 
+     
 
      for val in range(number_data_pts):
           y_val = y_val + discretization
-          z = line[0] * y_val + line[1]
+          z_val = line[0] * y_val + line[1]
           x_val = x_val + x_discretization
-          
 
-          if(x_val < 0.001 and x_val > -0.001):
+
+          if(x_val < 0.01 and x_val > -0.01):
                start_point[0] = 0.0
-          if(z < 0.001 and z > -0.001):
+          if(z_val < 0.01 and z_val > -0.01):
                z = 0.0
-          if(y_val < 0.001 and y_val > -0.001):
+          if(y_val < 0.01 and y_val > -0.01):
                y_val = 0.0 
           
           heading = heading + discretization_angle
 
-          file.write(str(x_val)[0:5]+" "+str(y_val)[0:5]+" "+str(z)[0:5]+" "+str(heading)[0:5]+"\n")
+          y_val_print = np.format_float_positional(y_val, trim='-') 
+          x_val_print = np.format_float_positional(x_val, trim='-') 
+          z_val_print = np.format_float_positional(z_val, trim='-') 
+          heading_val_print = np.format_float_positional(heading, trim='-') 
+
+          file.write(str(x_val_print)[0:5]+" "+str(y_val_print)[0:5]+" "+str(z_val_print)[0:5]+" "+str(heading_val_print)[0:5]+"\n")
      
      file.close()
 
@@ -159,8 +182,8 @@ def main():
      line_tx1_name = tx1_directory + "line.txt" 
      file = open(line_tx1_name, 'w')
 
-     tx1_start = np.array([4.0, 4.0, 4.0, 0.0]) + world_offset
-     tx1_end   = np.array([5.0, -4.0, 6.0, 0.0]) + world_offset
+     tx1_start = np.array([4.0, 4.0, 3.0, 0.0]) + world_offset
+     tx1_end   = np.array([5.0, -4.0, 5.0, 0.0]) + world_offset
 
      tx1_line = computeLine(start_point=[tx1_start[1], tx1_start[2]], end_point=[tx1_end[1], tx1_end[2]] )
 
@@ -179,7 +202,7 @@ def main():
      tx1_left_up = np.array([4.0, 2.5, 5.5, 0.0] )+ world_offset
      tx1_right_down = np.array([4.0, -2.0, 3.0, 0.0]) + world_offset
      writeStar(name=tx1_directory + "star.txt",start_point=tx1_start_point,second=tx1_left_down,third=tx1_right_up,fourth=tx1_left_up,fifth=tx1_right_down, heading=0.0, data_pts_per_line=15)
-
+#
 # TX2 #
      tx2_directory = "trajectory_files/tx2/"
 #### Line   
@@ -197,7 +220,7 @@ def main():
 ## center point for circle motions 
      tx2_center_point = np.array([8.0, 0.0, 4.0, 0.0]) + world_offset
 #### Circle 
-     writeCircle(name= tx2_directory + "circle.txt" , radius=1.6, center_point=tx2_center_point, heading=tx2_start[3], data_points=60, ccw=1)
+     writeCircle(name= tx2_directory + "circle.txt" , radius=1.6, center_point=tx2_center_point, heading=tx2_start[3], data_points=40, ccw=1)
 #### Eight
      writeEight(name= tx2_directory + "eight.txt", radius=1.6, center_point=tx2_center_point, heading=tx2_start[3], data_points=50, ccw=1)
 #### Star 
@@ -212,7 +235,7 @@ def main():
 # RX #
      rx_directory = "trajectory_files/rx/"
 #### Horizontal Line
-     line_rx_name = rx_directory + "line.txt" 
+     line_rx_name = rx_directory + "horizontal_line.txt" 
      file = open(line_rx_name, 'w')
 
      rx_start = np.array([1.5, 4.0, 4.0, 1.223] ) + world_offset
@@ -220,22 +243,20 @@ def main():
 
      rx_line = computeLine(start_point=[rx_start[1], rx_start[2]], end_point=[rx_end[1], rx_end[2]] )
 
-     writeLine(name=line_rx_name, start_point=rx_start, end_point=rx_end, line=rx_line, number_data_pts=30, heading=rx_start[3], x_rel_dist_change=-1.5, angle_change=False)
-     writeLine(name=line_rx_name, start_point=rx_end, end_point=rx_start, line=rx_line, number_data_pts=30, heading=rx_start[3], x_rel_dist_change=1.5, angle_change=False)
+     writeLine(name=line_rx_name, start_point=rx_start, end_point=rx_end, line=rx_line, number_data_pts=30, heading=rx_start[3], x_rel_dist_change=-3, angle_change=False)
+     writeLine(name=line_rx_name, start_point=rx_end, end_point=rx_start, line=rx_line, number_data_pts=30, heading=rx_start[3], x_rel_dist_change=3, angle_change=False)
 
 #### Pitch Line
      pitch_line_rx_name = rx_directory + "pitch_line.txt" 
      file = open(pitch_line_rx_name, 'w')
 
-     pitch_rx_start = np.array([0, 0.0, 4.0, 1.223] ) + world_offset
-     pitch_rx_end =   np.array([-4, 0.0, 4.0, 1.223])  + world_offset
+     pitch_rx_start = np.array([0.0, 0.0, 4.0, 1.223] ) + world_offset
+     pitch_rx_end =   np.array([-4.0, 0.0, 4.0, 1.223])  + world_offset
 
-     rx_pitch_line = computeLine(start_point=[pitch_rx_start[1], pitch_rx_start[2]], end_point=[pitch_rx_end[1], pitch_rx_end[2]] )
-     rx_pitch_line = computeLine(start_point=[pitch_rx_start[1], pitch_rx_start[2]], end_point=[pitch_rx_end[1], pitch_rx_end[2]] )
+     rx_pitch_line = computeLine(start_point=[pitch_rx_start[2], pitch_rx_start[0]], end_point=[pitch_rx_end[2], pitch_rx_end[0]] )
 
-
-     writeLine(name=pitch_line_rx_name, start_point=pitch_rx_start, end_point=pitch_rx_end, line=rx_pitch_line, number_data_pts=30, heading=pitch_rx_start[3], x_rel_dist_change=0.0, angle_change=False)
-     writeLine(name=pitch_line_rx_name, start_point=pitch_rx_end, end_point=pitch_rx_start, line=rx_pitch_line, number_data_pts=30, heading=pitch_rx_start[3], x_rel_dist_change=0.0, angle_change=False)
+     writeLine(name=pitch_line_rx_name, start_point=pitch_rx_start, end_point=pitch_rx_end, line=rx_pitch_line, number_data_pts=30, heading=pitch_rx_start[3], x_rel_dist_change=-4.0, angle_change=False)
+     writeLine(name=pitch_line_rx_name, start_point=pitch_rx_end, end_point=pitch_rx_start, line=rx_pitch_line, number_data_pts=30, heading=pitch_rx_start[3], x_rel_dist_change=4.0, angle_change=False)
 
 ### RX Rotation 
      rx_rotation_name = rx_directory + "rotation.txt" 
