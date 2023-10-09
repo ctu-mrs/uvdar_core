@@ -51,7 +51,10 @@ input=(
 '
   'uvdar_observer' 'waitForTime; sleep 5; roslaunch uvdar_core rw_three_sided_combined.launch
 '
-  'Trajectory' 'history -s rosservice call /'"$UAV_NAME"'/control_manager/start_trajectory_tracking; history -s rosservice call /'"$UAV_NAME"'/control_manager/goto_trajectory_start; history -s roslaunch uvdar_core load_trajectory.launch file:="rx/hover.txt" loop:=true'
+  'Trajectory' 'history -s rosservice call /'"$UAV_NAME"'/control_manager/start_trajectory_tracking; history -s rosservice call /'"$UAV_NAME"'/control_manager/goto_trajectory_start; history -s roslaunch uvdar_core load_trajectory.launch file:="rx/hover.txt" loop:=true
+'
+  'Stop Trajectory' 'history -s rosservice call /'"$UAV_NAME"'/control_manager/stop_trajectory_tracking;
+'
 # do NOT modify the command list below
   'EstimDiag' 'waitForHw; rostopic echo /'"$UAV_NAME"'/estimation_manager/diagnostics
 '

@@ -253,10 +253,11 @@ def main():
      pitch_rx_start = np.array([0.0, 0.0, 4.0, 1.223] ) + world_offset
      pitch_rx_end =   np.array([-4.0, 0.0, 4.0, 1.223])  + world_offset
 
-     rx_pitch_line = computeLine(start_point=[pitch_rx_start[2], pitch_rx_start[0]], end_point=[pitch_rx_end[2], pitch_rx_end[0]] )
+     # stupid hack to overcome line computation 
+     rx_pitch_line = [0.0, pitch_rx_start[2]]
 
-     writeLine(name=pitch_line_rx_name, start_point=pitch_rx_start, end_point=pitch_rx_end, line=rx_pitch_line, number_data_pts=30, heading=pitch_rx_start[3], x_rel_dist_change=-4.0, angle_change=False)
-     writeLine(name=pitch_line_rx_name, start_point=pitch_rx_end, end_point=pitch_rx_start, line=rx_pitch_line, number_data_pts=30, heading=pitch_rx_start[3], x_rel_dist_change=4.0, angle_change=False)
+     writeLine(name=pitch_line_rx_name, start_point=pitch_rx_start, end_point=pitch_rx_end, line=rx_pitch_line, number_data_pts=20, heading=pitch_rx_start[3], x_rel_dist_change=-4.0, angle_change=False)
+     writeLine(name=pitch_line_rx_name, start_point=pitch_rx_end, end_point=pitch_rx_start, line=rx_pitch_line, number_data_pts=20, heading=pitch_rx_start[3], x_rel_dist_change=4.0, angle_change=False)
 
 ### RX Rotation 
      rx_rotation_name = rx_directory + "rotation.txt" 

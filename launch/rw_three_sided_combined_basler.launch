@@ -242,7 +242,6 @@
       <param name="decay_factor"            type="double" value="$(arg decay_factor)"/>    
       <param name="confidence_probability"  type="double" value="$(arg confidence_probability)"/>
       <param name="allowed_BER_per_seq"     type="int"    value="$(arg allowed_BER_per_seq)"/>
-      <param name="std_threshold_poly_reg"  type="double" value="$(arg std_threshold_poly_reg)"/>
       
       <param name="accumulator_length"      type="int"    value="$(arg accumulator_length)"/>
       <param name="pitch_steps"             type="int"    value="$(arg pitch_steps)"/>
@@ -256,7 +255,6 @@
       <rosparam param="estimated_framerate_topics"> ["estimated_framerate_left", "estimated_framerate_right", "estimated_framerate_back"] </rosparam>
       <rosparam param="omta_logging_topics"> ["omta_logging_left", "omta_logging_right", "omta_logging_back"] </rosparam>
       <rosparam param="omta_all_seq_info_topics"> ["omta_all_seq_info_left", "omta_all_seq_info_right", "omta_all_seq_info_back"] </rosparam>
-
 
       <remap from="~camera_left" to="/$(arg uav_name)/basler_left/image_raw"/>
       <remap from="~camera_right" to="/$(arg uav_name)/basler_right/image_raw"/>
