@@ -199,7 +199,6 @@ namespace uvdar{
       float _decay_factor_; 
       double _conf_probab_percent_;
       int _allowed_BER_per_seq_;
-      double _std_threshold_poly_reg_;
       int _loaded_var_pub_rate_; 
       double _draw_predict_window_sec_;
 
@@ -316,7 +315,6 @@ namespace uvdar{
     param_loader.loadParam("decay_factor", _decay_factor_, float(0.1));
     param_loader.loadParam("confidence_probability", _conf_probab_percent_, double(75.0));
     param_loader.loadParam("allowed_BER_per_seq", _allowed_BER_per_seq_, int(0));
-    param_loader.loadParam("std_threshold_poly_reg", _std_threshold_poly_reg_, double(0.5));
     param_loader.loadParam("loaded_var_pub_rate", _loaded_var_pub_rate_, int(20));
     param_loader.loadParam("draw_predict_window_sec", _draw_predict_window_sec_, double(0.3));
       
@@ -438,7 +436,6 @@ namespace uvdar{
     params_omta.decay_factor = _decay_factor_;
     params_omta.conf_probab_percent = _conf_probab_percent_;
     params_omta.allowed_BER_per_seq = _allowed_BER_per_seq_;
-    params_omta.std_threshold_poly_reg = _std_threshold_poly_reg_;
     
     sun_points_.resize(_points_seen_topics_.size());
 

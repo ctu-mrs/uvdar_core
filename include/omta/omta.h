@@ -30,7 +30,6 @@ namespace uvdar
         double decay_factor;
         double conf_probab_percent;
         int allowed_BER_per_seq;
-        double std_threshold_poly_reg;
     };
 
     class OMTA {

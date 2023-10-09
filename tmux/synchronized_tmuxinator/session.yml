@@ -10,11 +10,6 @@ windows:
       layout: tiled
       synchronize: after
       panes:
-        - ssh uav1
-        - ssh uav2
-        - ssh uav3
-        - ssh uav4
-        - ssh uav5
-        - ssh uav9
-        - ssh uav13
-        - ssh uav21
+        - ssh uav37
+        - ssh uav41
+        - ssh uav42
