@@ -4,7 +4,7 @@ import math
 import numpy as np
 
 # world frame offset
-world_offset = np.array([0.0, 0.0, 0.0, 0.0])
+world_offset = np.array([-37.0, -22.0, 0.0, 0.0])
 
 def writeCircle(name, radius, center_point, heading, data_points, ccw):
      
@@ -189,10 +189,12 @@ def main():
 
      writeLine(name=line_tx1_name, start_point=tx1_start, end_point=tx1_end, line=tx1_line, number_data_pts=30, heading=tx1_start[3], x_rel_dist_change= 1.0, angle_change=False)
      writeLine(name=line_tx1_name, start_point=tx1_end, end_point=tx1_start, line=tx1_line, number_data_pts=30, heading=tx1_start[3], x_rel_dist_change= -1.0, angle_change=False)
+     file.close()
+
 ## center point for circle motions 
      tx1_center_point = np.array([4.0, 0.0, 4.0, 0.0]) + world_offset
 #### Circle 
-     writeCircle(name= tx1_directory + "circle.txt" , radius=1.3, center_point=tx1_center_point, heading=tx1_center_point[3], data_points=60, ccw=1)
+     writeCircle(name= tx1_directory + "circle.txt" , radius=0.75, center_point=tx1_center_point, heading=tx1_center_point[3], data_points=60, ccw=1)
 #### Eight
      writeEight(name= tx1_directory  + "eight.txt", radius=1.3, center_point=tx1_center_point, heading=tx1_center_point[3], data_points=50, ccw=1)
 ### Star
@@ -216,11 +218,12 @@ def main():
 
      writeLine(name=line_tx2_name, start_point=tx2_start, end_point=tx2_end, line=tx2_line, number_data_pts=30, heading=tx2_start[3], x_rel_dist_change=1.0, angle_change=False)
      writeLine(name=line_tx2_name, start_point=tx2_end, end_point=tx2_start, line=tx2_line, number_data_pts=30, heading=tx2_start[3], x_rel_dist_change=-1.0, angle_change=False)
+     file.close()
 
 ## center point for circle motions 
      tx2_center_point = np.array([8.0, 0.0, 4.0, 0.0]) + world_offset
 #### Circle 
-     writeCircle(name= tx2_directory + "circle.txt" , radius=1.6, center_point=tx2_center_point, heading=tx2_start[3], data_points=40, ccw=1)
+     writeCircle(name= tx2_directory + "circle.txt" , radius=1.6, center_point=tx2_center_point, heading=tx2_start[3], data_points=30, ccw=1)
 #### Eight
      writeEight(name= tx2_directory + "eight.txt", radius=1.6, center_point=tx2_center_point, heading=tx2_start[3], data_points=50, ccw=1)
 #### Star 
@@ -230,7 +233,6 @@ def main():
      tx2_left_up = np.array([8.0, 2.5, 5.5, 0.0] )+ world_offset
      tx2_right_down = np.array([8.0, -2.0, 3.0, 0.0]) + world_offset
      writeStar(name=tx2_directory + "star.txt",start_point=tx2_start_point,second=tx2_left_down,third=tx2_right_up,fourth=tx2_left_up,fifth=tx2_right_down, heading=0.0, data_pts_per_line=15)
-
 
 # RX #
      rx_directory = "trajectory_files/rx/"
@@ -245,6 +247,7 @@ def main():
 
      writeLine(name=line_rx_name, start_point=rx_start, end_point=rx_end, line=rx_line, number_data_pts=30, heading=rx_start[3], x_rel_dist_change=-3, angle_change=False)
      writeLine(name=line_rx_name, start_point=rx_end, end_point=rx_start, line=rx_line, number_data_pts=30, heading=rx_start[3], x_rel_dist_change=3, angle_change=False)
+     file.close()
 
 #### Pitch Line
      pitch_line_rx_name = rx_directory + "pitch_line.txt" 
@@ -258,6 +261,7 @@ def main():
 
      writeLine(name=pitch_line_rx_name, start_point=pitch_rx_start, end_point=pitch_rx_end, line=rx_pitch_line, number_data_pts=20, heading=pitch_rx_start[3], x_rel_dist_change=-4.0, angle_change=False)
      writeLine(name=pitch_line_rx_name, start_point=pitch_rx_end, end_point=pitch_rx_start, line=rx_pitch_line, number_data_pts=20, heading=pitch_rx_start[3], x_rel_dist_change=4.0, angle_change=False)
+     file.close()
 
 ### RX Rotation 
      rx_rotation_name = rx_directory + "rotation.txt" 
@@ -268,6 +272,12 @@ def main():
      
      writeLine(name=rx_rotation_name, start_point=rx_start_rot, end_point=rx_start_rot, line=rx_line_rot, number_data_pts=8, heading=rx_start_rot[3], x_rel_dist_change=0.0, angle_change=True)
 
+###
+     rx_hover_name = rx_directory + "hover.txt" 
+     file = open(rx_hover_name, 'w')
+     z_height = world_offset[2] + 4.0 # meter
+     file.write(str(world_offset[0])[0:5]+" "+str(world_offset[1])[0:5]+" "+str(z_height)[0:5]+" "+str(world_offset[3])[0:5])
+     file.close()
 
 if __name__ == "__main__":
     main()
