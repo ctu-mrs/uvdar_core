@@ -682,7 +682,9 @@ namespace uvdar{
 
       // publish loaded variables every _loaded_var_pub_rate_ seconds
       double diff = ros::Time::now().toSec() - last_publish_omta_logging_.toSec();
-      if( _loaded_var_pub_rate_ < diff){
+      if( _loaded_var_pub_rate_ < diff ) {
+
+        if ( ( _loaded_var_pub_rate_ + 0.1 ) <= diff ) 
         last_publish_omta_logging_ = ros::Time::now();
 
         omta_logging_msg.stamp = last_publish_omta_logging_;
