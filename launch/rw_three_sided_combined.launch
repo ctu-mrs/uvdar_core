@@ -44,10 +44,10 @@
   <arg name="max_px_shift_x" default="3"/>
   <arg name="max_zeros_consecutive" default="2"/>
   <arg name="max_ones_consecutive" default="2"/>
-  <arg name="stored_seq_len_factor" default="1"/>
+  <arg name="stored_seq_len_factor" default="3"/>
   <arg name="max_buffer_length" default="5000"/>
-  <arg name="poly_order" default="2"/>
-  <arg name="decay_factor" default="0.1"/>
+  <arg name="poly_order" default="3"/>
+  <arg name="decay_factor" default="0.2"/>
   <arg name="confidence_probability" default="95.0"/>
   <arg name="allowed_BER_per_seq" default="0"/>
 
