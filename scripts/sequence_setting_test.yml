@@ -14,17 +14,17 @@ windows:
   - status:
       layout: even-vertical
       panes:
-        - export UAV_NAME=uav1; waitForRos; waitForSimulation; roslaunch mrs_uav_status status.launch
-        - export UAV_NAME=uav2; waitForRos; waitForSimulation; roslaunch mrs_uav_status status.launch
+        - export UAV_NAME=uav1; waitForRos; waitForGazebo; roslaunch mrs_uav_status status.launch
+        - export UAV_NAME=uav2; waitForRos; waitForGazebo; roslaunch mrs_uav_status status.launch
   - spawn:
       layout: even-vertical
       panes:
-        - waitForSimulation; rosservice call /mrs_drone_spawner/spawn  "1 $UAV_TYPE --pos-file $(rospack find uvdar_core)/scripts/position1.csv --enable-rangefinder --enable-ground-truth --enable-dual-uv-cameras --enable-back-uv-camera --uvcam_calib_file \"$(rospack find uvdar_core)/include/OCamCalib/config/calib_results_bf_uv_fe.txt\""
-        - waitForSimulation; sleep 12; rosservice call /mrs_drone_spawner/spawn  "2 $UAV_TYPE --pos-file $(rospack find uvdar_core)/scripts/position2.csv --enable-rangefinder --enable-ground-truth --enable-uv-leds --uvled_s_first 4"
+        - waitForGazebo; rosservice call /mrs_drone_spawner/spawn  "1 $UAV_TYPE --pos-file $(rospack find uvdar_core)/scripts/position1.csv --enable-rangefinder --enable-ground-truth --enable-dual-uv-cameras --enable-back-uv-camera --uvcam_calib_file \"$(rospack find uvdar_core)/include/OCamCalib/config/calib_results_bf_uv_fe.txt\""
+        - waitForGazebo; sleep 12; rosservice call /mrs_drone_spawner/spawn  "2 $UAV_TYPE --pos-file $(rospack find uvdar_core)/scripts/position2.csv --enable-rangefinder --enable-ground-truth --enable-uv-leds --uvled_s_first 4"
   - sq_setter:
       layout: even-vertical
       panes:
-        - export UAV_NAME=uav2; waitForSimulation; roslaunch uvdar_core led_manager.launch
+        - export UAV_NAME=uav2; waitForGazebo; roslaunch uvdar_core led_manager.launch
         - 'history -s rosservice call /uav2/uvdar_led_manager_node/quick_start 5'
         - 'history -s rosservice call /uav2/uvdar_led_manager_node/set_frequency 10'
         - 'history -s rosservice call /uav2/uvdar_led_manager_node/select_sequences \"value: \[10, 3, 5\]\"'
@@ -36,8 +36,8 @@ windows:
   # - autostart:
   #     layout: even-vertical
   #     panes:
-  #       - export UAV_NAME=uav1; waitForSimulation; roslaunch mrs_uav_general automatic_start.launch
-  #       - export UAV_NAME=uav2; waitForSimulation; roslaunch mrs_uav_general automatic_start.launch
+  #       - export UAV_NAME=uav1; waitForGazebo; roslaunch mrs_uav_general automatic_start.launch
+  #       - export UAV_NAME=uav2; waitForGazebo; roslaunch mrs_uav_general automatic_start.launch
   # - takeoff:
   #     layout: even-vertical
   #     panes:
@@ -56,17 +56,17 @@ windows:
   - uv_observer:
       layout: even-vertical
       panes:
-        - export UAV_NAME=uav1; waitForSimulation; sleep 4; gz world --pause=0; sleep 6; roslaunch difec_ron sim_three_sided.launch gui:=false
-        - export UAV_NAME=uav2; waitForSimulation; sleep 4; gz world --pause=0; sleep 6; roslaunch difec_ron sim_three_sided.launch gui:=false
+        - export UAV_NAME=uav1; waitForGazebo; sleep 4; gz world --pause=0; sleep 6; roslaunch difec_ron sim_three_sided.launch gui:=false
+        - export UAV_NAME=uav2; waitForGazebo; sleep 4; gz world --pause=0; sleep 6; roslaunch difec_ron sim_three_sided.launch gui:=false
   - kalman_filter:
       layout: even-vertical
       panes:
-        - export UAV_NAME=uav1; waitForSimulation; roslaunch uvdar_core uvdar_kalman.launch use_three_cameras:=true output_frame:=$UAV_NAME/stable_origin
-        - export UAV_NAME=uav2; waitForSimulation; roslaunch uvdar_core uvdar_kalman.launch use_three_cameras:=true output_frame:=$UAV_NAME/stable_origin
+        - export UAV_NAME=uav1; waitForGazebo; roslaunch uvdar_core uvdar_kalman.launch use_three_cameras:=true output_frame:=$UAV_NAME/stable_origin
+        - export UAV_NAME=uav2; waitForGazebo; roslaunch uvdar_core uvdar_kalman.launch use_three_cameras:=true output_frame:=$UAV_NAME/stable_origin
   # - slow_down:
   #     layout: even-vertical
   #     panes:
-  #       - waitForSimulation; sleep 20; gz physics -u 50
+  #       - waitForGazebo; sleep 20; gz physics -u 50
   # - goto:
   #     layout: even-vertical
   #     panes:
