@@ -21,8 +21,6 @@ windows:
       layout: even-vertical
       panes:
         - waitForSimulation; rosservice call /mrs_drone_spawner/spawn  "1 $UAV_TYPE --pos-file $(rospack find uvdar_core)/scripts/position1.csv --enable-rangefinder --enable-ground-truth --enable-dual-uv-cameras --enable-back-uv-camera --uvcam_calib_file \"$(rospack find uvdar_core)/include/OCamCalib/config/calib_results_bf_uv_fe.txt\""
-        # - waitForSimulation; sleep 12; rosservice call /mrs_drone_spawner/spawn  "2 $UAV_TYPE --pos-file $(rospack find uvdar_core)/scripts/position2.csv --enable-rangefinder --enable-ground-truth --enable-uv-leds --uvled_s 0 1 2 3"
-        # - waitForSimulation; sleep 18; rosservice call /mrs_drone_spawner/spawn  "3 $UAV_TYPE --pos-file $(rospack find uvdar_core)/scripts/position3.csv --enable-rangefinder --enable-ground-truth --enable-uv-leds --uvled_s 4 5 6 7"
         - waitForSimulation; sleep 24; rosservice call /mrs_drone_spawner/spawn  "4 $UAV_TYPE --pos-file $(rospack find uvdar_core)/scripts/position4.csv --enable-rangefinder --enable-ground-truth --enable-uv-leds --uvled_s 8 9 10 11"
   - sq_setter:
       layout: even-vertical

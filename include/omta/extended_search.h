@@ -63,15 +63,6 @@ namespace uvdar{
             double calcWeightedMean(const std::vector<double>&, const std::vector<double>&);
 
             /**
-             * @brief calculates the weighted standard deviation
-             * @param values x or y coordinates
-             * @param weights vector
-             * @param mean double
-             * @return weighted standard deviation
-             */
-            double calcWSTD(const std::vector<double>&, const std::vector<double>&, const double&);
-
-            /**
              * @brief check if point lies within box 
              * @param query_point 
              * @param left_top 

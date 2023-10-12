@@ -202,11 +202,12 @@ target_link_libraries(UVDARBlinkProcessor
   ht4dbt
   frequency_classifier
   omta
-  extendedSearch
   color_selector
   )
 
-  # target_link_libraries(uvdar_uav_pose_calculator_node
+
+# target_link_libraries(uvdar_uav_pose_calculator_node
+
 #   ${catkin_LIBRARIES}
 #   ${OpenCV_LIBRARIES}
 #   ${EIGEN3_LIBRARIES}

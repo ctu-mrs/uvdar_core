@@ -89,10 +89,9 @@ namespace uvdar
          * @param values x or y coordinate
          * @param time insert time of the x or y coordinate
          * @param insert_time the current time stamp for which the next pixel should be inserted
-         * @param  max_pix_shift the max_pix_shift loaded from the launch file
          * @return PredictionStatistics 
          */
-        PredictionStatistics selectStatisticsValues(const std::vector<double>&, const std::vector<double>&, const double&, const int &);
+        PredictionStatistics selectStatisticsValues(const std::vector<double>&, const std::vector<double>&, const double&);
 
         /**
          * @brief checks all sequences if one violates the current sequence settings or if the time since a new inserted bit is too long ago
