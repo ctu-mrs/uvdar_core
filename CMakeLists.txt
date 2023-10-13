@@ -42,6 +42,7 @@ set(LIBRARIES
   UvdarCore_p3p
   UvdarCore_UVDARBlinkProcessor
   UvdarCore_UVDARBluefoxEmulator
+  UvdarCore_compute_lib
   )
 
 set(EXECUTABLES
@@ -62,6 +63,26 @@ set(Eigen_INCLUDE_DIRS ${EIGEN3_INCLUDE_DIRS})
 set(Eigen_LIBRARIES ${Eigen_LIBRARIES})
 
 find_package(OpenCV REQUIRED HINTS /usr/local/lib)
+
+set(OpenGL_GL_PREFERENCE "LEGACY")
+find_package(OpenGL REQUIRED)
+
+# find_package(LIBGBM REQUIRED)
+# # pkg_check_modules(PC_LIBGBM gbm)
+
+# find_path(LIBGBM_INCLUDE_DIRS
+#     NAMES gbm.h
+#     HINTS ${PC_LIBGBM_INCLUDE_DIRS} ${PC_LIBGBM_INCUDEDIR}
+# )
+
+find_library(LGBM libgbm.so REQUIRED)
+find_library(LEGL libEGL.so REQUIRED)
+find_library(LGL libGL.so REQUIRED)
+
+include(FindPackageHandleStandardArgs)
+FIND_PACKAGE_HANDLE_STANDARD_ARGS(LIBGBM DEFAULT_MSG LIBGBM_LIBRARIES)
+
+mark_as_advanced(LIBGBM_INCLUDE_DIRS LIBGBM_LIBRARIES)
 
 add_service_files(
   FILES
@@ -104,6 +125,8 @@ include_directories(
   ${catkin_INCLUDE_DIRS}
   ${OpenCV_INCLUDE_DIRS}
   ${EIGEN3_INCLUDE_DIRS}
+  ${OpenGL_INCLUDE_DIRS}
+  ${LIBGBM_INCLUDE_DIRS}
   )
 
 ## | ---------------------- uvdar rx node --------------------- |
@@ -267,6 +290,29 @@ target_link_libraries(UvdarCore_color_selector
   debug
   ${OpenCV_LIBRARIES}
   ${catkin_LIBRARIES}
+  )
+
+## | --------------------- compute lib --------------------- |
+
+add_library(UvdarCore_compute_lib
+  include/compute_lib/compute_lib.c 
+  include/compute_lib/queue.c 
+  include/compute_lib/gl32_utils.c
+  )
+
+add_dependencies(UvdarCore_compute_lib
+  ${${PROJECT_NAME}_EXPORTED_TARGETS}
+  ${catkin_EXPORTED_TARGETS}
+  )
+
+target_link_libraries(UvdarCore_compute_lib
+  debug 
+  ${OpenGL_LIBRARIES} 
+  ${LIBGBM_LIBRARIES} 
+  ${catkin_LIBRARIES} 
+  ${LGBM} 
+  ${LEGL} 
+  ${LGL}
   )
 
 ## | --------------------- uvdar detector --------------------- |
