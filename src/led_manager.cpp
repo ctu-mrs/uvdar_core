@@ -138,13 +138,14 @@ namespace uvdar {
         }
           
 
-        unsigned char int_frequency = (unsigned char)(req.value);
+        unsigned short int_frequency = (unsigned short)(req.value);
 
         mrs_modules_msgs::BacaProtocol serial_msg;
         serial_msg.stamp = ros::Time::now();
 
         serial_msg.payload.push_back(0x96); //set frequency
-        serial_msg.payload.push_back(int_frequency); //# Hz
+        serial_msg.payload.push_back((unsigned char)int_frequency>>8); //# Hz
+        serial_msg.payload.push_back((unsigned char)int_frequency%256); //# Hz
         baca_protocol_publisher.publish(serial_msg);
 
         res.message = std::string("Setting the frequency to "+std::to_string((int)(int_frequency))+" Hz").c_str();
