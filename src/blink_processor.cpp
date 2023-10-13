@@ -6,7 +6,7 @@
 /* #include <ht4dbt/ht4d_gpu.h> */
 #include <omta/omta.h>
 #include <color_selector/color_selector.h>
-#include <mrs_msgs/ImagePointsWithFloatStamped.h>
+#include <uvdar_core/ImagePointsWithFloatStamped.h>
 #include <std_msgs/Float32.h>
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
@@ -82,7 +82,7 @@ namespace uvdar{
       * @param msg The input message with image points
       * @param Image_index index of the camera image producing this message
       */
-      void insertPoints(const mrs_msgs::ImagePointsWithFloatStampedConstPtr &, const size_t &);
+      void insertPoints(const uvdar_core::ImagePointsWithFloatStampedConstPtr &, const size_t &);
 
       /**
       * @brief Callback to insert points corresponding to pixels with sun to local variable for visualization
@@ -90,7 +90,7 @@ namespace uvdar{
       * @param msg The input message with image points
       * @param image_index Index of the camera producing the image
       */
-      void insertSunPoints(const mrs_msgs::ImagePointsWithFloatStampedConstPtr&, const size_t&);
+      void insertSunPoints(const uvdar_core::ImagePointsWithFloatStampedConstPtr&, const size_t&);
 
       /**
        * @brief setup callbacks,subscribers and threads for optional visualization 
@@ -145,7 +145,7 @@ namespace uvdar{
       std::vector<ros::Publisher> pub_OMTA_all_seq_info;
       std::vector<ros::Publisher> pub_estimated_framerate_;
 
-      using points_seen_callback_t = boost::function<void (const mrs_msgs::ImagePointsWithFloatStampedConstPtr&)>;
+      using points_seen_callback_t = boost::function<void (const uvdar_core::ImagePointsWithFloatStampedConstPtr&)>;
       std::vector<points_seen_callback_t> cals_points_seen_;
       std::vector<points_seen_callback_t> cals_sun_points_;
       std::vector<ros::Subscriber> sub_points_seen_;
@@ -471,13 +471,13 @@ namespace uvdar{
     for (size_t i = 0; i < _points_seen_topics_.size(); ++i){
 
       // Subscribe to corresponding topics
-      points_seen_callback_t callback = [image_index = i, this](const mrs_msgs::ImagePointsWithFloatStampedConstPtr &points_msg){
+      points_seen_callback_t callback = [image_index = i, this](const uvdar_core::ImagePointsWithFloatStampedConstPtr &points_msg){
         insertPoints(points_msg, image_index);
       };
       cals_points_seen_.push_back(callback);
       sub_points_seen_.push_back(nh_.subscribe(_points_seen_topics_[i], 1, cals_points_seen_[i]));
       
-      points_seen_callback_t sun_callback = [image_index=i,this] (const mrs_msgs::ImagePointsWithFloatStampedConstPtr& sun_points_msg){
+      points_seen_callback_t sun_callback = [image_index=i,this] (const uvdar_core::ImagePointsWithFloatStampedConstPtr& sun_points_msg){
         insertSunPoints(sun_points_msg, image_index);
       };
       cals_sun_points_.push_back(callback);
@@ -485,7 +485,7 @@ namespace uvdar{
     } 
 
     for (size_t i = 0; i < _blinkers_seen_topics_.size(); ++i) {
-      pub_blinkers_seen_.push_back(nh_.advertise<mrs_msgs::ImagePointsWithFloatStamped>(_blinkers_seen_topics_[i], 1));
+      pub_blinkers_seen_.push_back(nh_.advertise<uvdar_core::ImagePointsWithFloatStamped>(_blinkers_seen_topics_[i], 1));
       pub_estimated_framerate_.push_back(nh_.advertise<std_msgs::Float32>(_estimated_framerate_topics_[i], 1));
       if(!_use_4DHT_){
         pub_OMTA_logging_.push_back(nh_.advertise<uvdar_core::omtaDataForLogging>(_omta_logging_topics_[i], 1));
@@ -528,7 +528,7 @@ namespace uvdar{
   }
 
 
-  void UVDARBlinkProcessor::insertPoints(const mrs_msgs::ImagePointsWithFloatStampedConstPtr &pts_msg, const size_t & img_index) {
+  void UVDARBlinkProcessor::insertPoints(const uvdar_core::ImagePointsWithFloatStampedConstPtr &pts_msg, const size_t & img_index) {
     if (!initialized_) return;
 
     blink_data_[img_index].sample_count++;
@@ -601,7 +601,7 @@ namespace uvdar{
 
     if(_use_4DHT_) return;
     
-    mrs_msgs::ImagePointsWithFloatStamped msg;
+    uvdar_core::ImagePointsWithFloatStamped msg;
     uvdar_core::omtaDataForLogging omta_logging_msg;
     uvdar_core::omtaAllSequences omta_all_seq_msg;
     ros::Time local_last_sample_time = blink_data_[img_index].last_sample_time;
@@ -611,7 +611,7 @@ namespace uvdar{
 
       int valid_signal_cnt = 0 , invalid_signal_cnt = 0;
       for (auto& signal : blink_data_[img_index].retrieved_blinkers) {
-        mrs_msgs::Point2DWithFloat point;
+        uvdar_core::Point2DWithFloat point;
         // take the last/most up-to-date point and publish to pose calculator
         auto last_point = signal.first->end()[-1];
         point.x = last_point.point.x;
@@ -646,7 +646,7 @@ namespace uvdar{
 
         for(auto point_state : *signal.first){
           uvdar_core::omtaSeqPoint ps_msg;
-          mrs_msgs::Point2DWithFloat p;
+          uvdar_core::Point2DWithFloat p;
           p.x = point_state.point.x;
           p.y = point_state.point.y;
           p.value = point_state.led_state;
@@ -690,7 +690,7 @@ namespace uvdar{
 
         omta_logging_msg.stamp = last_publish_omta_logging_;
         omta_logging_msg.pub_rate = _loaded_var_pub_rate_; 
-        mrs_msgs::Point2DWithFloat max_px_shift;
+        uvdar_core::Point2DWithFloat max_px_shift;
         omta_logging_msg.stored_seq_len_factor = _stored_seq_len_factor_;
         omta_logging_msg.max_buffer_length = _max_buffer_length_;
         omta_logging_msg.default_poly_order = _poly_order_;
@@ -707,7 +707,7 @@ namespace uvdar{
     
   } 
 
-  void UVDARBlinkProcessor::insertSunPoints(const mrs_msgs::ImagePointsWithFloatStampedConstPtr& msg, const size_t & image_index) {
+  void UVDARBlinkProcessor::insertSunPoints(const uvdar_core::ImagePointsWithFloatStampedConstPtr& msg, const size_t & image_index) {
     if (!initialized_) return;
 
     /* int                      countSeen; */
@@ -729,7 +729,7 @@ namespace uvdar{
     }
 
     if(_use_4DHT_){
-      mrs_msgs::ImagePointsWithFloatStamped msg;
+      uvdar_core::ImagePointsWithFloatStamped msg;
 
       if (_debug_){
         ROS_INFO("Processing accumulated points.");
@@ -748,7 +748,7 @@ namespace uvdar{
       msg.image_height  = camera_image_sizes_[image_index].height;
 
       for (auto& blinker : blink_data_[image_index].retrieved_blinkers_4DHT) {
-        mrs_msgs::Point2DWithFloat point;
+        uvdar_core::Point2DWithFloat point;
         point.x     = blinker.first.x;
         point.y     = blinker.first.y;
         if ( 0 <= blinker.second && blinker.second <= (int)sequences_.size()){

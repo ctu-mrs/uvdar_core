@@ -10,7 +10,7 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/imgcodecs/imgcodecs.hpp>
-#include <mrs_msgs/ImagePointsWithFloatStamped.h>
+#include <uvdar_core/ImagePointsWithFloatStamped.h>
 #include <mrs_lib/image_publisher.h>
 #include <mrs_lib/param_loader.h>
 #include <boost/filesystem/operations.hpp>
@@ -125,10 +125,10 @@ public:
 
     // Create the publishers
     for (size_t i = 0; i < _points_seen_topics.size(); ++i) {
-      pub_candidate_points_.push_back(nh_.advertise<mrs_msgs::ImagePointsWithFloatStamped>(_points_seen_topics[i], 1));
+      pub_candidate_points_.push_back(nh_.advertise<uvdar_core::ImagePointsWithFloatStamped>(_points_seen_topics[i], 1));
 
       if (_publish_sun_points_){
-        pub_sun_points_.push_back(nh_.advertise<mrs_msgs::ImagePointsWithFloatStamped>(_points_seen_topics[i]+"/sun", 1));
+        pub_sun_points_.push_back(nh_.advertise<uvdar_core::ImagePointsWithFloatStamped>(_points_seen_topics[i]+"/sun", 1));
       }
     }
 
@@ -254,12 +254,12 @@ private:
     {
       std::scoped_lock lock(mutex_pub_);
       if (_publish_sun_points_){
-        mrs_msgs::ImagePointsWithFloatStamped msg_sun;
+        uvdar_core::ImagePointsWithFloatStamped msg_sun;
         msg_sun.stamp = image->header.stamp;
         msg_sun.image_width = image->image.cols;
         msg_sun.image_height = image->image.rows;
         for (auto& sun_point : sun_points_[image_index]) {
-          mrs_msgs::Point2DWithFloat point;
+          uvdar_core::Point2DWithFloat point;
           point.x = sun_point.x;
           point.y = sun_point.y;
           msg_sun.points.push_back(point);
@@ -267,12 +267,12 @@ private:
         pub_sun_points_[image_index].publish(msg_sun);
       }
 
-      mrs_msgs::ImagePointsWithFloatStamped msg_detected;
+      uvdar_core::ImagePointsWithFloatStamped msg_detected;
       msg_detected.stamp = image->header.stamp;
       msg_detected.image_width = image->image.cols;
       msg_detected.image_height = image->image.rows;
       for (auto& detected_point : detected_points_[image_index]) {
-        mrs_msgs::Point2DWithFloat point;
+        uvdar_core::Point2DWithFloat point;
         point.x = detected_point.x;
         point.y = detected_point.y;
         msg_detected.points.push_back(point);

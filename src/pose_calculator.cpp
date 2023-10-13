@@ -14,7 +14,7 @@
 #include <mrs_lib/transformer.h>
 #include <mrs_lib/image_publisher.h>
 #include <std_msgs/Float32.h>
-#include <mrs_msgs/ImagePointsWithFloatStamped.h>
+#include <uvdar_core/ImagePointsWithFloatStamped.h>
 
 #include <Eigen/Dense>
 #include <Eigen/Geometry>
@@ -439,7 +439,7 @@ namespace uvdar {
 
         separated_points_.resize(_blinkers_seen_topics.size());
         for (size_t i = 0; i < _blinkers_seen_topics.size(); ++i) {
-          blinkers_seen_callback_t callback = [image_index=i,this] (const mrs_msgs::ImagePointsWithFloatStampedConstPtr& pointsMessage) { 
+          blinkers_seen_callback_t callback = [image_index=i,this] (const uvdar_core::ImagePointsWithFloatStampedConstPtr& pointsMessage) { 
             ProcessPoints(pointsMessage, image_index);
           };
           ROS_INFO_STREAM("[UVDARPoseCalculator]: Subscribing to " << _blinkers_seen_topics[i]);
@@ -686,7 +686,7 @@ namespace uvdar {
        * @param image_index The index of the current camera used to generate the input message
        */
       /* ProcessPoints //{ */
-      void ProcessPoints(const mrs_msgs::ImagePointsWithFloatStampedConstPtr& msg, size_t image_index) {
+      void ProcessPoints(const uvdar_core::ImagePointsWithFloatStampedConstPtr& msg, size_t image_index) {
         if (!initialized_){
           return;
         }
@@ -3298,7 +3298,7 @@ namespace uvdar {
         Profiler profiler;
 
 
-        using blinkers_seen_callback_t = boost::function<void (const mrs_msgs::ImagePointsWithFloatStampedConstPtr& msg)>;
+        using blinkers_seen_callback_t = boost::function<void (const uvdar_core::ImagePointsWithFloatStampedConstPtr& msg)>;
         std::vector<ros::Subscriber> sub_blinkers_seen_;
         ros::Time last_blink_time_;
 

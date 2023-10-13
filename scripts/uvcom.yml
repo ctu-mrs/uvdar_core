@@ -20,8 +20,8 @@ windows:
   - spawn:
       layout: tiled
       panes:
-        - waitForSimulation; sleep 1; rosservice call /mrs_drone_spawner/spawn "1 $UAV_TYPE --pos -19 15 0.5 3.14 --enable-ground-truth --enable-rangefinder --enable-dual-uv-cameras --uvcam_calib_file \"$(rospack find uvdar_core)/include/OCamCalib/config/calib_results_bf_uv_fe.txt\" --enable-uv-leds --uvled_s_l 0 --uvled_s_r 0"
-        - waitForSimulation; sleep 1; rosservice call /mrs_drone_spawner/spawn "2 $UAV_TYPE --pos -27 15 0.5 0.0 --enable-ground-truth --enable-rangefinder --enable-dual-uv-cameras --uvcam_calib_file \"$(rospack find uvdar_core)/include/OCamCalib/config/calib_results_bf_uv_fe.txt\" --enable-uv-leds --uvled_s_l 1 --uvled_s_r 1"
+        - waitForGazebo; sleep 1; rosservice call /mrs_drone_spawner/spawn "1 $UAV_TYPE --pos -19 15 0.5 3.14 --enable-ground-truth --enable-rangefinder --enable-dual-uv-cameras --uvcam_calib_file \"$(rospack find uvdar_core)/include/OCamCalib/config/calib_results_bf_uv_fe.txt\" --enable-uv-leds --uvled_s_l 0 --uvled_s_r 0"
+        - waitForGazebo; sleep 1; rosservice call /mrs_drone_spawner/spawn "2 $UAV_TYPE --pos -27 15 0.5 0.0 --enable-ground-truth --enable-rangefinder --enable-dual-uv-cameras --uvcam_calib_file \"$(rospack find uvdar_core)/include/OCamCalib/config/calib_results_bf_uv_fe.txt\" --enable-uv-leds --uvled_s_l 1 --uvled_s_r 1"
   - control:
       layout: tiled
       panes:
@@ -30,8 +30,8 @@ windows:
   - autostart:
       layout: even-vertical
       panes:
-        - export UAV_NAME=uav1; waitForSimulation; sleep 1; roslaunch mrs_uav_general automatic_start.launch
-        - export UAV_NAME=uav2; waitForSimulation; sleep 1; roslaunch mrs_uav_general automatic_start.launch
+        - export UAV_NAME=uav1; waitForGazebo; sleep 1; roslaunch mrs_uav_general automatic_start.launch
+        - export UAV_NAME=uav2; waitForGazebo; sleep 1; roslaunch mrs_uav_general automatic_start.launch
   - takeoff:
       layout: tiled
       panes:
@@ -78,9 +78,9 @@ windows:
   - slow_down:
       layout: even-vertical
       panes:
-        - waitForSimulation; waitForRos; sleep 25; gz physics -u 25
-        - waitForSimulation; waitForRos; sleep 40; gz physics -u 25
-        - waitForSimulation; waitForRos; sleep 55; gz physics -u 25
+        - waitForGazebo; waitForRos; sleep 25; gz physics -u 25
+        - waitForGazebo; waitForRos; sleep 40; gz physics -u 25
+        - waitForGazebo; waitForRos; sleep 55; gz physics -u 25
   - layout:
       layout: tiled
       panes:

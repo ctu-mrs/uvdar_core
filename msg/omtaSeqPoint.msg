@@ -1,2 +1,2 @@
 time insert_time
-mrs_msgs/Point2DWithFloat point
+uvdar_core/Point2DWithFloat point

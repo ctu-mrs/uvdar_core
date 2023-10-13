@@ -19,6 +19,7 @@ find_package(catkin REQUIRED COMPONENTS
   sensor_msgs
   std_msgs
   mrs_msgs
+  mrs_modules_msgs
   mrs_lib
   tf2
   tf2_ros
@@ -86,6 +87,9 @@ add_message_files(DIRECTORY msg FILES
    omtaSeqVariables.msg
    omtaAllSequences.msg
    omtaSeqPoint.msg
+   ImagePointsWithFloatStamped.msg
+   Point2DWithFloat.msg
+   Int32MultiArrayStamped.msg
   )
 
 generate_messages(DEPENDENCIES
@@ -97,7 +101,7 @@ generate_messages(DEPENDENCIES
 
 catkin_package(
  INCLUDE_DIRS include
-  CATKIN_DEPENDS cv_bridge image_transport roscpp sensor_msgs std_msgs message_runtime mrs_msgs message_generation
+  CATKIN_DEPENDS cv_bridge image_transport roscpp sensor_msgs std_msgs message_runtime mrs_msgs mrs_modules_msgs message_generation
   DEPENDS Eigen
   LIBRARIES OCamCalib unscented
 )
@@ -249,8 +253,3 @@ target_link_libraries(UVDARBluefoxEmulator
 target_link_libraries(uvdar_led_manager_node
   ${catkin_LIBRARIES}
   )
-
-
-
-
-
