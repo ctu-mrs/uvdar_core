@@ -64,7 +64,7 @@ windows:
   - kalman_filter:
       layout: even-vertical
       panes:
-        - export UAV_NAME=uav1; waitForControl; roslaunch uvdar_core uvdar_kalman.launch output_frame:=$UAV_NAME/stable_origin use_three_cameras:=true
+        - export UAV_NAME=uav1; waitForControl; roslaunch uvdar_core uvdar_kalman.launch output_frame:=$UAV_NAME/world_origin use_three_cameras:=true
   - slow_down:
       layout: even-vertical
       panes:
