@@ -23,6 +23,9 @@ Panels:
         - /measured - R1/Covariance1/Position1
         - /measured - B1/Covariance1
         - /measured - B1/Covariance1/Position1
+        - /measured1/Covariance1
+        - /measured1/Covariance1/Position1
+        - /constituents1/Covariance1
         - /constituents - R1/Covariance1
         - /constituents - R1/Covariance1/Position1
         - /p_c1/21/Namespaces1
@@ -347,7 +350,7 @@ Visualization Manager:
           Scale: 1
           Value: true
         Value: true
-      Enabled: true
+      Enabled: false
       Head Length: 0.30000001192092896
       Head Radius: 0.10000000149011612
       Name: measured - B
@@ -356,6 +359,37 @@ Visualization Manager:
       Shaft Radius: 0.05000000074505806
       Shape: Arrow
       Topic: /uav1/uvdar/measuredPosesB
+      Unreliable: false
+      Value: false
+    - Alpha: 1
+      Axes Length: 1
+      Axes Radius: 0.10000000149011612
+      Class: mrs_rviz_plugins/PoseWithCovarianceArray
+      Color: 255; 25; 0
+      Covariance:
+        Orientation:
+          Alpha: 0.30000001192092896
+          Color: 255; 255; 127
+          Color Style: Unique
+          Frame: Local
+          Offset: 1
+          Scale: 1
+          Value: false
+        Position:
+          Alpha: 0.30000001192092896
+          Color: 0; 255; 0
+          Scale: 1
+          Value: true
+        Value: true
+      Enabled: true
+      Head Length: 0.30000001192092896
+      Head Radius: 0.10000000149011612
+      Name: measured
+      Queue Size: 10
+      Shaft Length: 1
+      Shaft Radius: 0.05000000074505806
+      Shape: Axes
+      Topic: /uav1/uvdar/measuredPoses
       Unreliable: false
       Value: true
     - Alpha: 1
@@ -381,12 +415,12 @@ Visualization Manager:
       Enabled: true
       Head Length: 0.30000001192092896
       Head Radius: 0.10000000149011612
-      Name: Constituents
+      Name: constituents
       Queue Size: 10
       Shaft Length: 1
       Shaft Radius: 0.05000000074505806
       Shape: Arrow
-      Topic: /uav1/uvdar_pose_calculator_node/constituentHypoPoses
+      Topic: /uav1/uvdar/constituentHypotheses
       Unreliable: false
       Value: true
     - Alpha: 1
@@ -554,7 +588,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 9.335250854492188
+      Distance: 11.42223072052002
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -562,17 +596,17 @@ Visualization Manager:
         Value: false
       Field of View: 0.7853981852531433
       Focal Point:
-        X: 1.9627256393432617
-        Y: -1.1111918687820435
-        Z: 0.8958372473716736
+        X: 2.8265743255615234
+        Y: 1.3110697269439697
+        Z: -0.05325833708047867
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.47479742765426636
+      Pitch: 0.1147967129945755
       Target Frame: uav1/fcu
-      Yaw: 4.420003414154053
+      Yaw: 3.9199304580688477
     Saved: ~
 Window Geometry:
   Displays:
