@@ -225,8 +225,8 @@
       args="messages /$(arg uav_name)/uvdar/blinkers_seen_back $(arg blink_throttle_rate) /$(arg uav_name)/uvdar/blinkers_seen_back/throttled" />
       
     
-      <!-- <node name="uvdar_pose_calculator_node" pkg="uvdar_core" type="uvdar_pose_calculator_node" output="screen" launch-prefix="debug_roslaunch"> --> 
-    <node name="uvdar_pose_calculator_node" pkg="uvdar_core" type="uvdar_pose_calculator_node" output="screen" > 
+      <node name="uvdar_pose_calculator_node" pkg="uvdar_core" type="uvdar_pose_calculator_node" output="screen" launch-prefix="debug_roslaunch"> 
+    <!-- <node name="uvdar_pose_calculator_node" pkg="uvdar_core" type="uvdar_pose_calculator_node" output="screen" > --> 
         <!-- <node name="uvdar_pose_calculator_node" pkg="uvdar_core" type="uvdar_pose_calculator_node" launch-prefix="valgrind -/-tool=callgrind -/-callgrind-out-file=/home/viktor/callgrind.out -/-instr-atstart=no -/-collect-atstart=yes"> --> 
             <!-- <node name="uvdar_pose_calculator_node" pkg="uvdar_core" type="uvdar_pose_calculator_node" launch-prefix="valgrind -/-tool=callgrind -/-callgrind-out-file=/home/viktor/callgrind.out"> --> 
       <param name="uav_name" type = "string" value="$(arg uav_name)"/>
@@ -262,13 +262,16 @@
 
       <rosparam param="calib_files" subst_value="True"> ["default", "default", "default"] </rosparam>
 
-      <remap from="~constituentPoses1" to="/$(arg uav_name)/uvdar/constituentPosesL"/>
-      <remap from="~constituentPoses2" to="/$(arg uav_name)/uvdar/constituentPosesR"/>
-      <remap from="~constituentPoses3" to="/$(arg uav_name)/uvdar/constituentPosesB"/>
+      <remap from="~constituentHypotheses" to="/$(arg uav_name)/uvdar/constituentHypotheses"/>
+      <remap from="~measuredPoses" to="/$(arg uav_name)/uvdar/measuredPoses"/>
 
-      <remap from="~measuredPoses1" to="/$(arg uav_name)/uvdar/measuredPosesL"/>
-      <remap from="~measuredPoses2" to="/$(arg uav_name)/uvdar/measuredPosesR"/>
-      <remap from="~measuredPoses3" to="/$(arg uav_name)/uvdar/measuredPosesB"/>
+      <!-- <remap from="~constituentPoses1" to="/$(arg uav_name)/uvdar/constituentPosesL"/> -->
+      <!-- <remap from="~constituentPoses2" to="/$(arg uav_name)/uvdar/constituentPosesR"/> -->
+      <!-- <remap from="~constituentPoses3" to="/$(arg uav_name)/uvdar/constituentPosesB"/> -->
+
+      <!-- <remap from="~measuredPoses1" to="/$(arg uav_name)/uvdar/measuredPosesL"/> -->
+      <!-- <remap from="~measuredPoses2" to="/$(arg uav_name)/uvdar/measuredPosesR"/> -->
+      <!-- <remap from="~measuredPoses3" to="/$(arg uav_name)/uvdar/measuredPosesB"/> -->
     </node>
   </group>
 
