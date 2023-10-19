@@ -23,7 +23,6 @@ Panels:
         - /measured - R1/Covariance1/Position1
         - /measured - B1/Covariance1
         - /measured - B1/Covariance1/Position1
-        - /measured1
         - /measured1/Covariance1
         - /measured1/Covariance1/Position1
         - /constituents1/Covariance1
@@ -375,7 +374,7 @@ Visualization Manager:
           Frame: Local
           Offset: 1
           Scale: 1
-          Value: true
+          Value: false
         Position:
           Alpha: 0.30000001192092896
           Color: 0; 255; 0
@@ -605,9 +604,9 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.5547972321510315
+      Pitch: 1.0347970724105835
       Target Frame: uav1/fcu
-      Yaw: 2.224928855895996
+      Yaw: 3.764930009841919
     Saved: ~
 Window Geometry:
   Displays:
