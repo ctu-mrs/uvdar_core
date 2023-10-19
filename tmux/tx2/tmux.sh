@@ -49,6 +49,8 @@ input=(
 '
   'AutoStart' 'waitForHw; roslaunch mrs_uav_autostart automatic_start.launch
 '
+  'RTK' 'waitForHw; roslaunch mrs_serial rtk.launch
+'
   'led_manager' 'waitForRos; roslaunch uvdar_core led_manager.launch
 '
   'Trajectory' 'history -s rosservice call /'"$UAV_NAME"'/control_manager/start_trajectory_tracking; history -s rosservice call /'"$UAV_NAME"'/control_manager/goto_trajectory_start; history -s roslaunch uvdar_core load_trajectory.launch file:="tx2/line.txt" loop:=true

@@ -17,13 +17,13 @@ exclude=(
 # or just a CRASH.
 
 # Every topic containing "compressed"
-# '(.*)compressed(.*)'
+'(.*)compressed(.*)'
 # Every topic containing "image_raw"
-# '(.*)image_raw(.*)'
+'(.*)image_raw(.*)'
 # Every topic containing "theora"
-# '(.*)theora(.*)'
+'(.*)theora(.*)'
 # Every topic containing "h264"
-# '(.*)h264(.*)'
+'(.*)h264(.*)'
 
 )
 

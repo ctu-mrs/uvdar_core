@@ -49,6 +49,8 @@ input=(
 '
   'AutoStart' 'waitForHw; roslaunch mrs_uav_autostart automatic_start.launch
 '
+  'RTK' 'waitForHw; roslaunch mrs_serial rtk.launch
+'
   'uvdar_observer' 'waitForTime; sleep 5; roslaunch uvdar_core rw_three_sided_combined.launch
 '
   'Trajectory' 'history -s rosservice call /'"$UAV_NAME"'/control_manager/start_trajectory_tracking; history -s rosservice call /'"$UAV_NAME"'/control_manager/goto_trajectory_start; history -s roslaunch uvdar_core load_trajectory.launch file:="rx/hover.txt" loop:=true

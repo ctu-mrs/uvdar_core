@@ -47,6 +47,8 @@ input=(
 '
   'Core' 'waitForTime; roslaunch mrs_uav_core core.launch platform_config:=`rospack find mrs_uav_deployment`/config/mrs_uav_system/$UAV_TYPE.yaml world_config:=`rospack find mrs_uav_deployment`/config/worlds/world_$WORLD_NAME.yaml custom_config:=./config/custom_config.yaml network_config:=./config/network_config.yaml
 '
+  'RTK' 'waitForHw; roslaunch mrs_serial rtk.launch
+'
   'AutoStart' 'waitForHw; roslaunch mrs_uav_autostart automatic_start.launch
 '
   'led_manager' 'waitForRos; roslaunch uvdar_core led_manager.launch
