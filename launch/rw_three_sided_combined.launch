@@ -263,6 +263,8 @@
 
       <param name="blink_process_rate"         type="int" value="$(arg blink_process_rate)"/>
 
+      <param name="use_4DHT"                type="bool" value="$(arg use_4DHT)"/>
+
       <param name="max_px_shift_x"          type="int"    value="$(arg max_px_shift_x)"/>
       <param name="max_px_shift_y"          type="int"    value="$(arg max_px_shift_y)"/>
       <param name="max_zeros_consecutive"   type="int"    value="$(arg max_zeros_consecutive)"/>
