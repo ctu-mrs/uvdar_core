@@ -21,6 +21,10 @@
 #include <atomic>
 #include <fstream>
 
+
+#include <chrono>
+using namespace std::chrono;
+
 namespace uvdar{
 
   /**
@@ -573,13 +577,24 @@ namespace uvdar{
     }
 
     if(!_use_4DHT_){
+      auto start = high_resolution_clock::now();
       omta_[img_index]->processBuffer(pts_msg);
+      auto stop = high_resolution_clock::now();
+      auto duration = duration_cast<microseconds>(stop - start);
+      std::cout << "image index " << img_index << "\t"<< duration.count() << std::endl;
+
+
     }else{
       std::vector<cv::Point2i> points;
       for (auto& point : pts_msg->points) {
         points.push_back(cv::Point2d(point.x, point.y));
       }
+      auto start = high_resolution_clock::now();
       ht4dbt_trackers_[img_index]->insertFrame(points);
+      auto stop = high_resolution_clock::now();
+      auto duration = duration_cast<microseconds>(stop - start);
+      std::cout << "INSERT - image index " << img_index << "\t"<< duration.count() << std::endl;
+
     }
 
     if ((!_use_camera_for_visualization_) || ((!_gui_) && (!_publish_visualization_))){
@@ -736,10 +751,17 @@ namespace uvdar{
 
       ros::Time local_last_sample_time = blink_data_[image_index].last_sample_time;
       {
+
         std::scoped_lock lock(*(blink_data_[image_index].mutex_retrieved_blinkers));
+        auto start = high_resolution_clock::now();
+
         blink_data_[image_index].retrieved_blinkers_4DHT = ht4dbt_trackers_[image_index]->getResults();
         blink_data_[image_index].pitch_4DHT              = ht4dbt_trackers_[image_index]->getPitch();
         blink_data_[image_index].yaw_4DHT                = ht4dbt_trackers_[image_index]->getYaw();
+        auto stop = high_resolution_clock::now();
+        auto duration = duration_cast<microseconds>(stop - start);
+        std::cout << "image index " << image_index << "\t"<< duration.count() << std::endl;
+
       }
 
       msg.stamp         = local_last_sample_time;
