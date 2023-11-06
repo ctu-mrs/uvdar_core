@@ -75,11 +75,7 @@ windows:
   - slow_down:
       layout: even-vertical
       panes:
-<<<<<<< HEAD
-        - waitForSimulation; waitForRos; sleep 10; gz physics -u 80
-=======
         - waitForGazebo; waitForRos; sleep 30; gz physics -u 80
->>>>>>> new_system
   - goto:
       layout: even-vertical
       panes:

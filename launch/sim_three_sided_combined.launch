@@ -188,6 +188,11 @@
       <rosparam param="omta_logging_topics"> ["omta_logging_left", "omta_logging_right", "omta_logging_back"] </rosparam>
       <rosparam param="omta_all_seq_info_topics"> ["omta_all_seq_info_left", "omta_all_seq_info_right", "omta_all_seq_info_back"] </rosparam>
 
+      <rosparam param="omta_fill_results"> ["omta_fill_results_left", "omta_fill_results_right", "omta_fill_results_back"] </rosparam>
+      <rosparam param="omta_runtime_results"> ["omta_runtime_results_left", "omta_runtime_results_right", "omta_runtime_results_back"] </rosparam>
+
+      <rosparam param="4dht_fill_results"> ["4dht_fill_results_left", "4dht_fill_results_right", "4dht_fill_results_back"] </rosparam>
+      <rosparam param="4dht_runtime_results"> ["4dht_runtime_results_left", "4dht_runtime_results_right", "4dht_runtime_results_back"] </rosparam>
 
 
       <remap from="~camera_left" to="/$(arg uav_name)/uvdar_bluefox_left/image_raw"/> -
@@ -208,6 +213,23 @@
       <remap from="~omta_all_seq_info_left" to="/$(arg uav_name)/uvdar/omta_all_seq_info_left"/>
       <remap from="~omta_all_seq_info_right" to="/$(arg uav_name)/uvdar/omta_all_seq_info_right"/>
       <remap from="~omta_all_seq_info_back" to="/$(arg uav_name)/uvdar/omta_all_seq_info_back"/>
+
+      <remap from="~omta_fill_results_left" to="/$(arg uav_name)/uvdar/omta_fill_results_left"/>
+      <remap from="~omta_fill_results_right" to="/$(arg uav_name)/uvdar/omta_fill_results_right"/>
+      <remap from="~omta_fill_results_back" to="/$(arg uav_name)/uvdar/omta_fill_results_back"/>
+
+      <remap from="~omta_runtime_results_left" to="/$(arg uav_name)/uvdar/omta_runtime_results_left"/>
+      <remap from="~omta_runtime_results_right" to="/$(arg uav_name)/uvdar/omta_runtime_results_right"/>
+      <remap from="~omta_runtime_results_back" to="/$(arg uav_name)/uvdar/omta_runtime_results_back"/>
+
+      <remap from="~4dht_fill_results_left" to="/$(arg uav_name)/uvdar/4dht_fill_results_left"/>
+      <remap from="~4dht_fill_results_right" to="/$(arg uav_name)/uvdar/4dht_fill_results_right"/>
+      <remap from="~4dht_fill_results_back" to="/$(arg uav_name)/uvdar/4dht_fill_results_back"/>
+
+      <remap from="~4dht_runtime_results_left" to="/$(arg uav_name)/uvdar/4dht_runtime_results_left"/>
+      <remap from="~4dht_runtime_results_right" to="/$(arg uav_name)/uvdar/4dht_runtime_results_right"/>
+      <remap from="~4dht_runtime_results_back" to="/$(arg uav_name)/uvdar/4dht_runtime_results_back"/>
+
 
       <remap from="~visualization" to="/$(arg uav_name)/uvdar/blink_visualization/image_raw"/>
 
