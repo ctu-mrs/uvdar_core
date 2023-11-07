@@ -196,10 +196,10 @@ namespace uvdar{
       std::vector<std::string> _omta_logging_topics_;
       std::vector<std::string> _omta_all_seq_info_topics;
       
-      std::vector<std::string> _omta_fill_results_;
-      std::vector<std::string> _omta_runtime_results_;
-      std::vector<std::string> _4dht_fill_results_;
-      std::vector<std::string> _4dht_runtime_results_;
+      std::vector<std::string> _runtime_omta_fill_;
+      std::vector<std::string> _runtime_omta_result_;
+      std::vector<std::string> _runtime_4dht_fill_;
+      std::vector<std::string> _runtime_4dht_result_;
 
       bool _manchester_code_;
       bool _use_4DHT_;
@@ -316,11 +316,11 @@ namespace uvdar{
     nh_.param("omta_logging_topics", _omta_logging_topics_, _omta_logging_topics_);
     nh_.param("omta_all_seq_info_topics", _omta_all_seq_info_topics, _omta_all_seq_info_topics);
 
-    nh_.param("omta_fill_results", _omta_fill_results_, _omta_fill_results_);
-    nh_.param("omta_runtime_results", _omta_runtime_results_, _omta_runtime_results_);
+    nh_.param("runtime_omta_fill", _runtime_omta_fill_, _runtime_omta_fill_);
+    nh_.param("runtime_omta_results", _runtime_omta_result_, _runtime_omta_result_);
     
-    nh_.param("4dht_fill_results", _4dht_fill_results_, _4dht_fill_results_);
-    nh_.param("4dht_runtime_results", _4dht_runtime_results_, _4dht_runtime_results_);
+    nh_.param("runtime_4dht_fill", _runtime_4dht_fill_, _runtime_4dht_fill_);
+    nh_.param("runtime_4dht_results", _runtime_4dht_result_, _runtime_4dht_result_);
 
 
 
@@ -512,12 +512,12 @@ namespace uvdar{
         pub_OMTA_logging_.push_back(nh_.advertise<uvdar_core::omtaDataForLogging>(_omta_logging_topics_[i], 1));
         pub_OMTA_all_seq_info.push_back(nh_.advertise<uvdar_core::omtaAllSequences>(_omta_all_seq_info_topics[i], 1));
 
-        pub_omta_fill_.push_back(nh_.advertise<std_msgs::Float32>(_omta_fill_results_[i], 1));
-        pub_omta_result_.push_back(nh_.advertise<std_msgs::Float32>(_omta_runtime_results_[i], 1));
+        pub_omta_fill_.push_back(nh_.advertise<std_msgs::Float32>(_runtime_omta_fill_[i], 1));
+        pub_omta_result_.push_back(nh_.advertise<std_msgs::Float32>(_runtime_omta_result_[i], 1));
 
       }else{
-        pub_4dht_fill_.push_back(nh_.advertise<std_msgs::Float32>(_4dht_fill_results_[i], 1));
-        pub_4dht_result_.push_back(nh_.advertise<std_msgs::Float32>(_4dht_runtime_results_[i], 1));
+        pub_4dht_fill_.push_back(nh_.advertise<std_msgs::Float32>(_runtime_4dht_fill_[i], 1));
+        pub_4dht_result_.push_back(nh_.advertise<std_msgs::Float32>(_runtime_4dht_result_[i], 1));
 
       }
     }
@@ -609,7 +609,6 @@ namespace uvdar{
       omta_[img_index]->processBuffer(pts_msg);
       auto stop = high_resolution_clock::now();
       auto duration = duration_cast<microseconds>(stop - start);
-      std::cout << "image index " << img_index << "\t"<< duration.count() << std::endl;
       std_msgs::Float32 msg_duration;
       msg_duration.data = duration.count();
       pub_omta_fill_[img_index].publish(msg_duration);
@@ -626,7 +625,7 @@ namespace uvdar{
       auto duration = duration_cast<microseconds>(stop - start);
       std_msgs::Float32 msg_duration;
       msg_duration.data = duration.count();
-      // pub_4dht_fill_[img_index].publish(msg_duration);
+      pub_4dht_fill_[img_index].publish(msg_duration);
     }
 
     if ((!_use_camera_for_visualization_) || ((!_gui_) && (!_publish_visualization_))){
@@ -802,7 +801,7 @@ namespace uvdar{
           auto duration = duration_cast<microseconds>(stop - start);
           std_msgs::Float32 msg_duration;
           msg_duration.data = duration.count();
-          // pub_4dht_result_[image_index].publish(msg_duration);
+          pub_4dht_result_[image_index].publish(msg_duration);
 
 
 
