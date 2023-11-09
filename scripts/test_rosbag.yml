@@ -10,7 +10,7 @@ windows:
   - launch:
       layout: even-vertical
       panes:
-        - waitForRos; roslaunch uvdar_core rosbag_camp.launch uav_name:=uav38 use_4DHT:=true
+        - waitForRos; roslaunch uvdar_core rosbag_camp_modified.launch uav_name:=uav1 use_4DHT:=true
   - record:
       layout: even-vertical
       panes:
@@ -19,9 +19,10 @@ windows:
         # - rosbag record -a -O ~/rosbags/rerun/4dht_october_new_same_ds.bag
 
         # - rosbag record -O ~/rosbags/rerun/omta_occl2_38_new.bag -e "(.*)_camp"
-        - rosbag record -O ~/rosbags/rerun/4dht_occl2_38_new.bag -e "(.*)_camp"
+        # - rosbag record -O ~/rosbags/rerun/4dht_occl2_38_new.bag -e "(.*)_camp"
         # - rosbag record -a -O ~/rosbags/rerun/4dht_occl2_38.bag
         # - rosbag record -O ~/rosbags/rerun/normal.bag -e "(.*)_camp"
+        - rosbag record -O ~/rosbags/rerun/4dht_sim_new.bag -e "(.*)uvdar(.*)"
 
 
 
@@ -29,5 +30,7 @@ windows:
       layout: even-vertical
       panes:
         # - waitForRos; sleep 3; rosbag play --clock  ~/october_camp/tim_tx1/2_2023_10_19_15_12_58_omta_line_eight_star/_2023-10-19-15-16-24.bag
-        - waitForRos; sleep 3; rosbag play --clock ~/experiments/20_04/two_tx/two_tx/rx/occlusion_2/rx.bag
+        # - waitForRos; sleep 3; rosbag play --clock ~/experiments/20_04/two_tx/two_tx/rx/occlusion_2/rx.bag
+        # - waitForRos; sleep 3; rosbag play --clock ~/rosbags/rerun/omta_sim.bag
+        - waitForRos; sleep 3; rosbag play --clock ~/rosbags/rerun/4dht_sim.bag
         # - waitForRos; sleep 3; rosbag play --clock ~/october_camp/tim_tx1/5_2023_10_19_15_33_14_4dht/_2023-10-19-15-33-58.bag
