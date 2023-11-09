@@ -95,4 +95,4 @@ windows:
   - record:
       layout: tiled
       panes: 
-        - rosbag record -O ~/rosbags/rerun/omt_sim_new.bag -e "(.*)uvdar(.*)"
+        - history -s rosbag record -O ~/rosbags/rerun/omt_sim_new.bag -e "(.*)uvdar(.*)"
