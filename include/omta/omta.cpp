@@ -286,19 +286,15 @@ std::vector<std::pair<seqPointer, int>> OMTA::getResults(){
     if(debug_) std::cout << "[OMTA]: The retrieved signals:{\n";
     for (auto sequence : gen_sequences_){
         std::vector<bool> led_states;
-        std::vector<PointState> return_seq; 
-        for(auto p : *sequence){
-            return_seq.push_back(p);
-        }
 
         std::vector<PointState> selected;
-        if ((int)return_seq.size() > (int)original_sequences_[0].size()){
-            int diff = (int)return_seq.size() - (int)original_sequences_[0].size();
-            for(int i = diff; i < (int)return_seq.size(); ++i){
-                selected.push_back(return_seq[i]);
+        if ((int)(*sequence).size() > (int)original_sequences_[0].size()){
+            int diff = (int)(*sequence).size() - (int)original_sequences_[0].size();
+            for(int i = diff; i < (int)(*sequence).size(); ++i){
+                selected.push_back((*sequence)[i]);
             }
         }else{
-            selected = return_seq;
+            selected = *sequence;
         }
         for (auto point : selected){
             led_states.push_back(point.led_state);        
