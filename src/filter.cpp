@@ -591,7 +591,7 @@ namespace uvdar {
           filter_local.filter_state = filter->correct(filter_local.filter_state, measurement.x, P_local);
         }
         catch ([[maybe_unused]] std::exception& e) {
-          ROS_ERROR_STREAM("[UVDARKalman]: Attempted to correct with bad covariance (match_level_pos = " << match_level_pos << "). Will replace with big, but manabeable one.");
+          ROS_ERROR_STREAM("[UVDARKalman]: Attempted to correct with bad covariance (match_level_pos = " << match_level_pos << "). Will replace with big, but manageable one.");
           /* P_local = e::MatrixXd(6,6); */
           P_local.setIdentity();
           P_local *= 10000;
@@ -687,8 +687,11 @@ namespace uvdar {
           auto N_v = ((-0.5)*( (d0.transpose()*(si0).inverse()*d0) + (d1.transpose()*(si1).inverse()*d1) ));
           N=(1.0/pow((2*M_PI),k)*sqrt((si0).determinant()*(si1).determinant()))*exp(N_v(0));
         }
-        if (isnan(N))
+        if (isnan(N)){
           ROS_INFO("[UVDARKalman]: Joint Gaussian value came out NaN");
+          ROS_INFO_STREAM("[UVDARKalman]: Sigma 1: " << std::endl << si0);
+          ROS_INFO_STREAM("[UVDARKalman]: Sigma 2: " << std::endl << si1);
+        }
 
         return N;
       }
