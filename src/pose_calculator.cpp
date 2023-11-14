@@ -64,7 +64,7 @@
 #define MAX_HYPOTHESIS_COUNT 40
 #define INITIAL_HYPOTHESIS_COUNT 10
 
-#define MAX_HYPOTHESIS_AGE 0.5
+#define MAX_HYPOTHESIS_AGE 1.5
 
 #define MAX_INIT_ITERATIONS 10000
 
@@ -1503,7 +1503,7 @@ namespace uvdar {
           for (int i = 0; i < count; i++){
             int parent_index = rand() % (int)(hypotheses.size());
             if (hypotheses[parent_index].flag == verified){
-              auto new_mutations = generateMutations(hypotheses[parent_index], 1, time);
+              auto new_mutations = generateMutations(hypotheses[parent_index], 2, time);
               mutations.insert(mutations.end(),new_mutations.begin(),new_mutations.end());
             }
             else{
