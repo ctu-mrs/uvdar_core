@@ -1,0 +1,31 @@
+mrs_uav_managers:
+
+  estimation_manager:
+
+    # loaded state estimator plugins
+    # available in mrs_uav_state_estimators: gps_garmin, gps_baro, rtk, aloam, ground_truth, dummy
+    state_estimators: [
+    # "gps_baro",
+    "gps_garmin",
+    "rtk",
+    # "aloam",
+    # "ground_truth",
+    # "dummy"
+    ]
+
+    initial_state_estimator: "rtk" # will be used as the first state estimator
+    agl_height_estimator: "garmin_agl" # only slightly filtered height for checking min height (not used in control feedback)
+
+mrs_uav_trackers:
+
+  mpc_tracker:
+
+    # mrs collision avoidance
+    collision_avoidance:
+
+      enabled:           true # disabling this will stop this UAV to react to others, but it will still transmit data to others
+      enabled_passively: true # disabling this will stop this uav to even transmit its data to others (only if enabled: false)
+      radius: 0.5 # [m]
+      correction: 0.3 # [m]
+
+

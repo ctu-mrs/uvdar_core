@@ -35,7 +35,7 @@ binning_y: 1
 #  The desired publisher frame rate if listening to the topics.
 #  This parameter can only be set once at startup
 #  Calling the GrabImages-Action can result in a higher framerate
-frame_rate: 5.0
+# frame_rate: 5.0
 
 #  Mode of camera's shutter.
 #  The supported modes are "rolling", "global" and "global_reset"
@@ -121,6 +121,9 @@ auto_exposure_upper_limit: 20000.0
 #  For cameras used on a RaspberryPI this value should be set to 11772.
 # gige:
 #  inter_pkg_delay: 1000
+#
+grab_strategy: 1
+trigger_mode: false
 
 grab_strategy: 1
 trigger_mode: false

@@ -1,20 +1,4 @@
 #include "ht4d.h"
-#include "opencv2/highgui/highgui.hpp"
-#include <iostream>
-
-#define WEIGHT_FACTOR 0.0 // we prioritize blinking signal retrieval to origin point position accuracy - the paper is outdated in this respect
-
-#define USE_VISIBLE_ORIGINS true // if there is a visible marker in the latest time, prefer its position to what is estimated by the HT
-
-#define SMALLER_FAST false // find Hough peaks by neighborhood of radius of 4 pixels
-
-#define CONSTANT_NEWER false // defines whether (if inputs are weighted in favor of the most recent) a number of newest inputs should retain equal weight
-
-#define index2d(X, Y) (im_res_.width * (Y) + (X))
-#define index3d(X, Y, Z) (im_area_ * (Z) + im_res_.width * (Y) + (X))
-#define indexYP(X, Y) (pitch_steps_ * (Y) + (X))
-#define getPitchIndex(X) ((X) % pitch_steps_)
-#define getYawIndex(X) ((X) / pitch_steps_)
 
 
 using namespace uvdar;
@@ -113,26 +97,20 @@ HT4DBlinkerTracker::HT4DBlinkerTracker(
       cot_set_max_.push_back(step_div_*(pitch_steps_-(i-0.5)));
   }
 
-
   yaw_div_ = (2.0 * M_PI) / yaw_steps_;
   for (int i = 0; i < yaw_steps_; i++) {
     yaw_vals_.push_back((i)*yaw_div_);
     sin_set_.push_back(sin(yaw_vals_[i]));
     cos_set_.push_back(cos(yaw_vals_[i]));
   }
+  accumulator_.push_back(std::vector< cv::Point2i >());
+  accumulator_local_copy_.push_back(std::vector< cv::Point2i >());
 
-  hough_space_ = new unsigned int[im_area_ * pitch_steps_ * yaw_steps_];
-  resetToZero(hough_space_, im_area_ * pitch_steps_ * yaw_steps_);
   hough_space_maxima_ = new unsigned int[im_area_];
   index_matrix_           = cv::Mat(im_res_, CV_8UC1, cv::Scalar(0));
   touched_matrix_ = new unsigned char[im_area_];
   resetToZero(touched_matrix_, im_area_);
-
-  accumulator_.push_back(std::vector< cv::Point2i >());
-  accumulator_local_copy_.push_back(std::vector< cv::Point2i >());
-
-  generateMasks();
-
+  
   initFast();
 
   curr_batch_processed_ = false;
@@ -141,11 +119,20 @@ HT4DBlinkerTracker::HT4DBlinkerTracker(
   return;
 }
 
+HT4DBlinkerTracker::~HT4DBlinkerTracker() {
+  delete[] hough_space_maxima_;
+  delete[] touched_matrix_;
+}
 
-template < typename T >
-void HT4DBlinkerTracker::resetToZero(T *__restrict__ input, int steps) {
+void HT4DBlinkerTracker::resetToZero(unsigned int *input, int steps) {
   for (int i = 0; i < steps; i++) {
-    input[i] = (T)(0);
+    input[i] = (unsigned int)(0);
+  }
+}
+
+void HT4DBlinkerTracker::resetToZero(unsigned char *input, int steps) {
+  for (int i = 0; i < steps; i++) {
+    input[i] = (unsigned char)(0);
   }
 }
 
@@ -164,7 +151,7 @@ void HT4DBlinkerTracker::updateFramerate(double input) {
     framerate_ = input;
 }
 
-void HT4DBlinkerTracker::updateResolution(cv::Size i_size){
+void HT4DBlinkerTracker::updateInterfaceResolution(cv::Size i_size){
   if (debug_){
     std::cout << "Setting resolution to " << i_size << std::endl;
   }
@@ -173,26 +160,16 @@ void HT4DBlinkerTracker::updateResolution(cv::Size i_size){
   im_area_           = im_res_.width * im_res_.height;
   im_rect_           = cv::Rect(cv::Point(0, 0), im_res_);
 
-  delete[] hough_space_;
-  hough_space_ = new unsigned int[im_area_ * pitch_steps_ * yaw_steps_];
-  resetToZero(hough_space_, im_area_ * pitch_steps_ * yaw_steps_);
+  accumulator_.clear();
+  curr_batch_processed_ = false;
+
   delete[] hough_space_maxima_;
   hough_space_maxima_ = new unsigned int[im_area_];
   index_matrix_           = cv::Mat(im_res_, CV_8UC1, cv::Scalar(0));
   delete[] touched_matrix_;
   touched_matrix_ = new unsigned char[im_area_];
   resetToZero(touched_matrix_, im_area_);
-  accumulator_.clear();
-  curr_batch_processed_ = false;
 }
-
-HT4DBlinkerTracker::~HT4DBlinkerTracker() {
-  delete[] hough_space_;
-  delete[] hough_space_maxima_;
-  delete[] touched_matrix_;
-  return;
-}
-
 
 void HT4DBlinkerTracker::insertFrame(std::vector< cv::Point > new_points) {
   std::scoped_lock lock(mutex_accumulator_);
@@ -231,96 +208,6 @@ std::vector<double> HT4DBlinkerTracker::getPitch() {
   return pitch_averages_;
 }
 
-std::vector< std::pair<cv::Point2d,int> > HT4DBlinkerTracker::getResults() {
-  if ((im_res_.width <= 0) || (im_res_.height <= 0)){
-    if (debug_){
-      std::cout << "Resolution was not yet set..." << std::endl;
-    }
-    /* std::cout << "CHYBA 111"; */
-    /* std::cout << std::endl; */
-    return std::vector<std::pair<cv::Point2d,int>>();
-  }
-
-  accumulator_local_copy_.clear();
-  pts_per_layer_local_copy_.clear();
-  int points_total_count = 0;
-  {
-    std::scoped_lock lock(mutex_accumulator_);
-    for (int i = 0; i < (int)(accumulator_.size()); i++) {
-      accumulator_local_copy_.push_back(std::vector< cv::Point2i >());
-      for (int j = 0; j < (int)(accumulator_[i].size()); j++) {
-        accumulator_local_copy_[i].push_back(accumulator_[i][j]);
-      }
-      pts_per_layer_local_copy_.push_back(pts_per_layer_[i]);
-      points_total_count +=pts_per_layer_[i];
-    }
-  }
-  if (pts_per_layer_local_copy_.empty()){
-    /* std::cout << "CHYBA 222"; */
-    /* std::cout << std::endl; */
-    return std::vector<std::pair<cv::Point2d,int>>();
-  }
-
-  expected_matches_ = *std::max_element(pts_per_layer_local_copy_.begin(), pts_per_layer_local_copy_.end()) - pts_per_layer_local_copy_[0];
-  /* expected_matches_ = floor(2*((float)(points_total_count))/(float)(accumulator_local_copy_.size())) - pts_per_layer_local_copy_[0]; */
-  if (debug_){
-    std::cout << "Exp. Matches: " << expected_matches_ << std::endl;
-    std::cout << "Visible Matches: " << pts_per_layer_local_copy_[0] << std::endl;
-  }
-
-  projectAccumulatorToHT();
-
-  std::vector< cv::Point > origin_pts = nullifyKnown();
-  std::vector< cv::Point > origin_pts_out = accumulator_local_copy_[0];
-  if (debug_)
-    std::cout << "Orig. pt. count: " << origin_pts.size() << std::endl;
-
-  std::vector< cv::Point > houghOrigins = findHoughPeaks(expected_matches_);
-  if (debug_){
-    std::cout << "Hough peaks count: " << houghOrigins.size() <<  std::endl;
-  }
-  origin_pts.insert(origin_pts.end(), houghOrigins.begin(), houghOrigins.end());
-  origin_pts_out.insert(origin_pts_out.end(), houghOrigins.begin(), houghOrigins.end());
-  std::vector< std::pair<cv::Point2d,int> > result;
-
-  pitch_averages_.clear();
-  yaw_averages_.clear();
-  signals_.clear();
-
-  if (debug_)
-    std::cout << "Orig. pt. count: " << origin_pts.size() << std::endl;
-  for (int i = 0; i < (int)(origin_pts.size()); i++) {
-    if (debug_)
-      std::cout << "Curr. orig. pt: " << origin_pts[i] << std::endl;
-    std::vector<bool> blink_signal;
-    int signal_id;
-    double yawAvg, pitchAvg;
-    signal_id = retrieveSignalID(origin_pts[i], yawAvg, pitchAvg, blink_signal);
-    result.push_back(std::pair<cv::Point2d,int>(cv::Point2d(origin_pts_out[i].x, origin_pts_out[i].y), signal_id));
-    signals_.push_back(blink_signal);
-
-  if (debug_){
-    std::cout << "Retrieved signal: " << std::endl;
-    for (int i = 0; i < (int)(blink_signal.size()); i++) {
-      std::cout << (int)(blink_signal[i]) << ",";
-    }
-    std::cout << std::endl;
-  }
-
-    yaw_averages_.push_back(yawAvg);
-    pitch_averages_.push_back(pitchAvg);
-  }
-  /* if (debug_){ */
-  if (false){
-    std::cout << "Differences from the detected: [" << std::endl;
-    for (int op = 0; op < (int)(origin_pts.size()); op++){
-      std::cout << origin_pts[op] - origin_pts_out[op] << std::endl;
-    }
-    std::cout << "]" << std::endl;
-  }
-  curr_batch_processed_ = true;
-  return result;
-}
 
 //changing the approach - origin point estimate stays on the active markers, but for frequency estimate we will use local maximum
 std::vector<cv::Point> HT4DBlinkerTracker::nullifyKnown() {
@@ -345,135 +232,6 @@ std::vector<cv::Point> HT4DBlinkerTracker::nullifyKnown() {
   return maxima;
 }
 
-void HT4DBlinkerTracker::generateMasks() {
-  int     center = mask_width_ / 2;
-  cv::Mat radius_box(mask_width_, mask_width_, CV_32F); //matrix with values corresponding to distance of each element from the center
-  cv::Mat yaw_box(mask_width_, mask_width_, CV_32F);    //matrix with valuex corresponding to the polar angle of each element
-  for (int x = 0; x < mask_width_; x++) {
-    for (int y = 0; y < mask_width_; y++) {
-      radius_box.at< float >(y, x) = sqrt((x - center) * (x - center) + (y - center) * (y - center));
-      yaw_box.at< float >(y, x)    = atan2((y - center), (x - center));
-    }
-  }
-  radius_box.at<float>(center,center)=1;
-
-  std::vector< int > yaw_col, pitch_col; // arrays corresponding to a single column of masks in the Hough spaces of X-Y-Yaw and X-Y-Pitch. These will be permutated to form masks for 4D Hough space of X-Y-Yaw-Pitch
-  for (int i = 0; i < mem_steps_; i++) { // iterate over the length of the accumulator
-    hybrid_masks_.push_back(std::vector< cv::Point3i >()); // each "age" of a point in terms of image frames to the past has its own mask (set of positions which are incremented in the Hough voting). When applied, these are merely shifted to the corresponding X-Y position of each input point
-    for (int x = 0; x < mask_width_; x++) { for (int y = 0; y < mask_width_; y++) { //iterate over X-Y positions of the maximum allowed size of the masks - each column of the 4D mask will be generted separately
-      pitch_col.clear();
-      yaw_col.clear();
-      for (int j = 0; j < pitch_steps_; j++) { //check for each pitch step in the Hough space resolution to decide if this element of the pitch mask should be added
-        double r_center = (1.0 / tan(pitch_vals_[j])) * i;
-        if ((ceil(radius_box.at< float >(y, x)) >= (r_center-1)) && (floor(radius_box.at< float >(y, x)) <= (r_center+1))) { //add element to the pitch mask if they correspond to the range of "pitch angles" for the current layer. Adds overlaps in "layers" (input point ages) are enforced, to ensure that close votes have some consensus
-          pitch_col.push_back(j);
-        }
-      }
-      int sR = 1;
-      for (int j = 0; j < yaw_steps_; j++) { //check for each yaw step in the Hough space resolution to decide if this element of the yaw mask should be added
-        if (radius_box.at< float >(y, x) <= (i * max_pixel_shift_)) { // decay - the "yaw" of significantly shifted points should not affect the yaw consensus of the current point
-          bool spread_test = abs(x - center) <= sR && abs(y - center) <= sR; // expand the yaw layer of the mask by dilation of the center with a square of the radius sR. This is to generate larger overlaps between layers and thus to enforce consensus of close votes
-          if (spread_test || (fabs(angDiff(yaw_box.at< float >(y, x), yaw_vals_[j])) < yaw_div_*0.75)) // add elements to the yaw mask if they correspond to the range of "yaw angles" for the current layer
-            yaw_col.push_back(j);
-        }
-      }
-
-      //permutate the 3D masks to generate 4D masks
-      for (auto& yp : yaw_col){ for (auto& pp : pitch_col){
-        hybrid_masks_[i].push_back(cv::Point3i(x-center,y-center,indexYP(pp,yp))); //add new element to the mask for the 4D X-Y-Yaw-Pitch mask, corresponding to every pair of element from the "pitch and yaw masks"
-      } }
-
-    } }
-  }
-  return;
-}
-
-void HT4DBlinkerTracker::applyMasks( double i_weight_factor,bool i_constant_newer,int i_break_point) {
-  int x, y, z;
-  for (int t = 0; t < std::min((int)(accumulator_local_copy_.size()), mem_steps_); t++) { //iterate over the accumulator frames
-    for (int j = 0; j < (int)(accumulator_local_copy_[t].size()); j++) { //iterate over the points in the current accumulator frame
-      for (int m = 0; m < (int)(hybrid_masks_[t].size()); m++) { //iterate over the elements of the Hough space mask for the current frame "age"
-        x = hybrid_masks_[t][m].x + accumulator_local_copy_[t][j].x;  // the absolute X coorinate of the mask element
-        y = hybrid_masks_[t][m].y + accumulator_local_copy_[t][j].y;  // the absolute Y coorinate of the mask element
-        z = hybrid_masks_[t][m].z;                                    // the permutated index representing a combination of Pitch and Yaw steps in the 4D Hough space
-
-        //check for border breach
-        if (x < 0)
-          continue;
-        if (y < 0)
-          continue;
-        if (x >= im_res_.width)
-          continue;
-        if (y >= im_res_.height)
-          continue;
-
-        if (i_weight_factor < 0.001)
-          hough_space_[index3d(x, y, z)]++; //merely increment the element
-        else
-          hough_space_[index3d(x, y, z)] += ((i_weight_factor * (i_constant_newer?std::min((mem_steps_ - t),mem_steps_-i_break_point):std::max((mem_steps_ - t),mem_steps_-i_break_point)) + mem_steps_) * scaling_factor_); //increase element value with weighting
-        touched_matrix_[index2d(x, y)] = 255; //mark X-Y elements in the helper matrix for faster nullification before next processing iteration
-      }
-    }
-  }
-}
-
-void HT4DBlinkerTracker::flattenTo2D() {
-  int thickness = yaw_steps_*pitch_steps_;
-  unsigned int temp_pos;
-  unsigned int temp_max;
-  unsigned int index;
-  for (int y = 0; y < im_res_.height; y++) { for (int x = 0; x < im_res_.width; x++) { //iterate over the X-Y image coordinates
-    if (touched_matrix_[index2d(x, y)] == 0) //save time on coordinates where no mask element has been applied
-      continue;
-
-    temp_max = 0;
-    temp_pos = 0;
-    index = index3d(x, y, 0);
-    for (int j = 0; j < thickness; j++) { //iterate over the joined Yaw-Pitch dimension of the Hough space
-      if (hough_space_[index] > temp_max) { //find maximum value and index in the given X-Y position
-        temp_max = hough_space_[index];
-        temp_pos = j;
-      }
-      index+=im_area_;
-    }
-
-    hough_space_maxima_[index2d(x, y)]      = temp_max; //assign the maximum value to this 2D matrix 
-    index_matrix_.at< unsigned char >(y, x) = temp_pos; //assign the index of the maximum to this 2D matrix 
-  } }
-}
-
-void HT4DBlinkerTracker::cleanTouched() {
-  unsigned int index;
-  for (int i = 0; i < im_res_.height; i++) {
-    for (int j = 0; j < im_res_.width; j++) {
-      if (touched_matrix_[index2d(j, i)] == 255) {
-        index = index3d(j, i, 0);
-        for (int k = 0; k < total_steps_; k++) {
-          if (hough_space_[index] != 0)
-            hough_space_[index] = 0;
-          index+=im_area_;
-        }
-
-        hough_space_maxima_[index2d(j, i)] = 0;
-        touched_matrix_[index2d(j, i)] = 0;
-      }
-    }
-  }
-}
-
-void HT4DBlinkerTracker::projectAccumulatorToHT() {
-  cleanTouched();
-  applyMasks( WEIGHT_FACTOR, CONSTANT_NEWER, 0);
-  flattenTo2D();
-
-  if (vis_debug_) {
-    cv::Mat viewer_A = getCvMat(hough_space_maxima_,hough_thresh_*4);
-    cv::Mat viewer_B = index_matrix_*(255.0/(double)(pitch_steps_*yaw_steps_));
-
-    cv::hconcat(viewer_A, viewer_B, visualization_);
-  }
-  return;
-}
 
 std::vector< cv::Point > HT4DBlinkerTracker::findHoughPeaks(int peak_count) {
   std::vector< cv::Point > peaks;
@@ -567,7 +325,6 @@ cv::Point HT4DBlinkerTracker::findHoughPeakLocal(cv::Point expected_pos) {
     std::cout << "Finding for visible: Scaling factor: " << scaling_factor_ << " Thresh: " << hough_thresh_ << " Curr. Peak: " << hough_space_maxima_[index2d(curr_max_pos.x,curr_max_pos.y)] << std::endl;
   return curr_max_pos;
 }
-
 
 int HT4DBlinkerTracker::retrieveSignalID(cv::Point origin_point, double &avg_yaw, double &avg_pitch, std::vector<bool> &blink_signal) {
   blink_signal = retrieveSignalSequence(origin_point, avg_yaw, avg_pitch);
@@ -712,6 +469,7 @@ cv::Mat HT4DBlinkerTracker::getVisualization(){
   return visualization_;
 }
 
+
 bool HT4DBlinkerTracker::miniFast(int x, int y, unsigned int thresh) {
   int border = (SMALLER_FAST?3:4);
 
@@ -794,3 +552,98 @@ void HT4DBlinkerTracker::initFast() {
 
   }
 }
+
+bool HT4DBlinkerTracker::getResultsStart() {
+  if ((im_res_.width <= 0) || (im_res_.height <= 0)){
+    if (debug_){
+      std::cout << "Resolution was not yet set..." << std::endl;
+    }
+    return false;
+  }
+
+  accumulator_local_copy_.clear();
+  pts_per_layer_local_copy_.clear();
+  int points_total_count = 0;
+  {
+    std::scoped_lock lock(mutex_accumulator_);
+    for (int i = 0; i < (int)(accumulator_.size()); i++) {
+      accumulator_local_copy_.push_back(std::vector< cv::Point2i >());
+      for (int j = 0; j < (int)(accumulator_[i].size()); j++) {
+        accumulator_local_copy_[i].push_back(accumulator_[i][j]);
+      }
+      pts_per_layer_local_copy_.push_back(pts_per_layer_[i]);
+      points_total_count +=pts_per_layer_[i];
+    }
+  }
+  if (pts_per_layer_local_copy_.empty()){
+    return false;
+  }
+
+  expected_matches_ = *std::max_element(pts_per_layer_local_copy_.begin(), pts_per_layer_local_copy_.end()) - pts_per_layer_local_copy_[0];
+  if (debug_){
+    std::cout << "Exp. Matches: " << expected_matches_ << std::endl;
+    std::cout << "Visible Matches: " << pts_per_layer_local_copy_[0] << std::endl;
+  }
+  return true;
+}
+
+std::vector< std::pair<cv::Point2d,int> > HT4DBlinkerTracker::getResultsEnd() {
+  if (vis_debug_) {
+    cv::Mat viewer_A = getCvMat(hough_space_maxima_,hough_thresh_*4);
+    cv::Mat viewer_B = index_matrix_*(255.0/(double)(pitch_steps_*yaw_steps_));
+
+    cv::hconcat(viewer_A, viewer_B, visualization_);
+  }
+
+  std::vector< cv::Point > origin_pts = nullifyKnown();
+  std::vector< cv::Point > origin_pts_out = accumulator_local_copy_[0];
+  if (debug_)
+    std::cout << "Orig. pt. count: " << origin_pts.size() << std::endl;
+
+  std::vector< cv::Point > houghOrigins = findHoughPeaks(expected_matches_);
+  if (debug_){
+    std::cout << "Hough peaks count: " << houghOrigins.size() <<  std::endl;
+  }
+  origin_pts.insert(origin_pts.end(), houghOrigins.begin(), houghOrigins.end());
+  origin_pts_out.insert(origin_pts_out.end(), houghOrigins.begin(), houghOrigins.end());
+  std::vector< std::pair<cv::Point2d,int> > result;
+
+  pitch_averages_.clear();
+  yaw_averages_.clear();
+  signals_.clear();
+
+  if (debug_)
+    std::cout << "Orig. pt. count: " << origin_pts.size() << std::endl;
+  for (int i = 0; i < (int)(origin_pts.size()); i++) {
+    if (debug_)
+      std::cout << "Curr. orig. pt: " << origin_pts[i] << std::endl;
+    std::vector<bool> blink_signal;
+    int signal_id;
+    double yawAvg, pitchAvg;
+    signal_id = retrieveSignalID(origin_pts[i], yawAvg, pitchAvg, blink_signal);
+    result.push_back(std::pair<cv::Point2d,int>(cv::Point2d(origin_pts_out[i].x, origin_pts_out[i].y), signal_id));
+    signals_.push_back(blink_signal);
+
+  if (debug_){
+    std::cout << "Retrieved signal: " << std::endl;
+    for (int i = 0; i < (int)(blink_signal.size()); i++) {
+      std::cout << (int)(blink_signal[i]) << ",";
+    }
+    std::cout << std::endl;
+  }
+
+    yaw_averages_.push_back(yawAvg);
+    pitch_averages_.push_back(pitchAvg);
+  }
+  /* if (debug_){ */
+  if (false){
+    std::cout << "Differences from the detected: [" << std::endl;
+    for (int op = 0; op < (int)(origin_pts.size()); op++){
+      std::cout << origin_pts[op] - origin_pts_out[op] << std::endl;
+    }
+    std::cout << "]" << std::endl;
+  }
+  curr_batch_processed_ = true;
+  return result;
+}
+

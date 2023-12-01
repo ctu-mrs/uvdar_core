@@ -1,0 +1,44 @@
+mrs_uav_managers:
+
+  estimation_manager:
+
+    # loaded state estimator plugins
+    state_estimators: [
+      "gps_garmin",
+      "gps_baro",
+      "ground_truth",
+    ]
+
+    initial_state_estimator: "gps_baro" # will be used as the first state estimator
+    agl_height_estimator: "garmin_agl" # only slightly filtered height for checking min height (not used in control feedback)
+
+  uav_manager:
+
+    takeoff:
+
+      during_takeoff:
+        controller: "MpcController"
+        tracker: "LandoffTracker"
+
+      after_takeoff:
+        controller: "MpcController"
+        # controller: "Se3Controller"
+        tracker: "MpcTracker"
+<<<<<<< HEAD:scripts/two_drones/config/custom_config.yaml
+
+
+mrs_uav_trackers:
+
+  mpc_tracker:
+
+    # mrs collision avoidance
+    collision_avoidance:
+
+      enabled:           true # disabling this will stop this UAV to react to others, but it will still transmit data to others
+      enabled_passively: true # disabling this will stop this uav to even transmit its data to others (only if enabled: false)
+      radius: 0.5 # [m]
+      correction: 0.3 # [m]
+
+
+=======
+>>>>>>> new_system:scripts/config/custom_config.yaml

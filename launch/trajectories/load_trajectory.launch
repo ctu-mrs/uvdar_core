@@ -1,0 +1,24 @@
+<launch>
+
+  <arg name="uav_name" default="$(optenv UAV_NAME uav)"/>
+  <arg name="mode" default="load"/>
+  <arg name="path" default="$(find uvdar_core)/config/trajectory/trajectory_files"/>
+  <arg name="file" default="-1"/>
+  <arg name="loop" default="false"/>
+  <arg name="dt"  default="0.2"/>
+
+	<group ns="$(arg uav_name)">
+		<node name="trajectory_loader" pkg="mrs_uav_trajectory_loader" type="trajectory_loader" output="screen" >
+      <rosparam file="$(find mrs_uav_trajectory_loader)/config/defaults.yaml" />
+		  <param name="uav_name" type="string" value="$(arg uav_name)" />	
+      <param name="mode" type="string" value="$(arg mode)" />
+      
+      <param name="trajectory/dynamic_uav_name" type="bool" value="true" />
+      <param name="trajectory/loop" type="bool" value="$(arg loop)" />	
+      <param name="trajectory/dt" type="double" value="$(arg dt)" />
+      <param name="trajectory/base_path" type="string" value="$(arg path)" />	
+      <param name="trajectory/filename" type="string" value="$(arg file)" />
+    </node>
+	</group>
+
+</launch>

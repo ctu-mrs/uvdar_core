@@ -10,6 +10,7 @@
   <arg name="physics" default="ode"/>
   <arg name="verbose" default="true"/>
   <arg name="world_name" default="$(find mrs_gazebo_common_resources)/worlds/grass_plane.world"/> 
+  <arg name="reset" default="true" />
 
   <!-- set use_sim_time flag -->
   <group if="$(arg use_sim_time)">
@@ -38,16 +39,20 @@
 <!--
   <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" respawn="false" output="screen"/>
 -->
+  <!-- kill previous sessions of mavros, px4 and gazebo -->
+  <group if="$(arg reset)">
+    <node pkg="mrs_uav_gazebo_simulation" type="kill_previous_session.sh" name="kill_previous_session" output="screen" />
+  </group>
 
-  <include file="$(find mrs_simulation)/launch/mrs_drone_spawner.launch" />
+  <include file="$(find mrs_uav_gazebo_simulation)/launch/mrs_drone_spawner.launch" />
 
-  <!-- start gazebo server-->
-  <node name="gazebo" pkg="gazebo_ros" type="$(arg script_type)" respawn="false" output="screen"
-    args="$(arg command_arg1) $(arg command_arg2) $(arg command_arg3) -e $(arg physics) $(arg extra_gazebo_args) $(arg world_name)" />
+  <!-- start gazebo server -->
+  <node name="gazebo" pkg="gazebo_ros" type="$(arg script_type)" respawn="false" output="screen" 
+    args="$(arg command_arg1) $(arg command_arg2) $(arg command_arg3) -e $(arg physics) $(arg extra_gazebo_args) $(arg world_name)"  launch-prefix="nvidiaRun.sh"/> 
 
   <!-- start gazebo client -->
   <group if="$(arg gui)">
-    <node name="gazebo_gui" pkg="gazebo_ros" type="gzclient" respawn="false" output="screen" launch-prefix="env __NV_PRIME_RENDER_OFFLOAD=1 __GLX_VENDOR_LIBRARY_NAME=nvidia"/>
+    <node name="gazebo_gui" pkg="gazebo_ros" type="gzclient" respawn="false" output="screen" launch-prefix="nvidiaRun.sh"/>
   </group>
 </launch>
 

@@ -1,0 +1,15 @@
+# do not modify these
+root: ./
+name: synchro
+socket_name: mrs
+attach: false
+# you can modify these
+tmux_options: -f ./tmux.conf
+windows:
+  - gazebo:
+      layout: tiled
+      synchronize: after
+      panes:
+        - ssh uav37
+        - ssh uav41
+        - ssh uav42

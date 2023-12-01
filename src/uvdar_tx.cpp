@@ -1,7 +1,7 @@
 #include <ros/ros.h>
 #include <ros/package.h>
 #include <mrs_lib/param_loader.h>
-#include <mrs_msgs/ImagePointsWithFloatStamped.h>
+#include <uvdar_core/ImagePointsWithFloatStamped.h>
 /* #include <uvdar_gazebo_plugin/LedInfo.h> */
 #include <uvdar_core/USM.h>
 #include <mrs_msgs/String.h>

@@ -1,0 +1,98 @@
+# do not modify these
+root: ./
+name: simulation
+socket_name: mrs
+attach: false
+tmux_options: -f /etc/ctu-mrs/tmux.conf
+# you can modify these
+pre_window: export UAV_NAME=uav1; export RUN_TYPE=simulation; export UAV_TYPE=x500
+startup_window: status
+windows:
+  - roscore:
+      layout: tiled
+      panes:
+        - roscore
+  - gazebo:
+      layout: tiled
+      panes:
+        - waitForRos; roslaunch mrs_uav_gazebo_simulation simulation.launch world_name:=grass_plane gui:=true
+  - status:
+      layout: tiled
+      panes:
+        - export UAV_NAME=uav1; waitForHw; roslaunch mrs_uav_status status.launch
+        # - export UAV_NAME=uav2; waitForHw; roslaunch mrs_uav_status status.launch
+        # - export UAV_NAME=uav3; waitForHw; roslaunch mrs_uav_status status.launch
+  - spawn:
+      layout: tiled
+      panes:
+        - waitForGazebo; rosservice call /mrs_drone_spawner/spawn  "1 $UAV_TYPE --pos-file $(rospack find uvdar_core)/scripts/position1.csv --enable-rangefinder --enable-ground-truth --enable-dual-uv-cameras --enable-back-uv-camera --uvcam_calib_file \"$(rospack find uvdar_core)/include/OCamCalib/config/calib_results_bf_uv_fe.txt\""
+        - waitForGazebo; sleep 5; rosservice call /mrs_drone_spawner/spawn  "2 $UAV_TYPE --pos-file $(rospack find uvdar_core)/scripts/position2.csv --enable-rangefinder --enable-ground-truth --enable-uv-leds --uvled_s 0 1 2 3"
+        - waitForGazebo; sleep 10; rosservice call /mrs_drone_spawner/spawn  "3 $UAV_TYPE --pos-file $(rospack find uvdar_core)/scripts/position3.csv --enable-rangefinder --enable-ground-truth --enable-uv-leds --uvled_s 4 5 6 7"
+        - waitForGazebo; sleep 15; rosservice call /mrs_drone_spawner/spawn  "4 $UAV_TYPE --pos-file $(rospack find uvdar_core)/scripts/position4.csv --enable-rangefinder --enable-ground-truth --enable-uv-leds --uvled_s 8 9 10 11"
+        - waitForGazebo; sleep 20; rosservice call /mrs_drone_spawner/spawn  "5 $UAV_TYPE --pos-file $(rospack find uvdar_core)/scripts/position5.csv --enable-rangefinder --enable-ground-truth --enable-uv-leds --uvled_s 12 13 14 15"
+        - waitForGazebo; sleep 25; rosservice call /mrs_drone_spawner/spawn  "6 $UAV_TYPE --pos-file $(rospack find uvdar_core)/scripts/position6.csv --enable-rangefinder --enable-ground-truth --enable-uv-leds --uvled_s 16 17 18 19"
+        - waitForGazebo; sleep 30; rosservice call /mrs_drone_spawner/spawn  "7 $UAV_TYPE --pos-file $(rospack find uvdar_core)/scripts/position7.csv --enable-rangefinder --enable-ground-truth --enable-uv-leds --uvled_s 20 21 22 23"
+        - waitForGazebo; sleep 35; rosservice call /mrs_drone_spawner/spawn  "8 $UAV_TYPE --pos-file $(rospack find uvdar_core)/scripts/position8.csv --enable-rangefinder --enable-ground-truth --enable-uv-leds --uvled_s 24 25 26 27"
+  - hw_api:
+      layout: tiled
+      panes:
+        - export UAV_NAME=uav1; waitForTime; roslaunch mrs_uav_px4_api api.launch
+        - export UAV_NAME=uav2; waitForTime; roslaunch mrs_uav_px4_api api.launch
+        - export UAV_NAME=uav3; waitForTime; roslaunch mrs_uav_px4_api api.launch
+        - export UAV_NAME=uav6; waitForTime; roslaunch mrs_uav_px4_api api.launch
+  - core:
+      layout: tiled
+      panes:
+        - export UAV_NAME=uav1; waitForHw; roslaunch mrs_uav_core core.launch
+          platform_config:=`rospack find mrs_uav_gazebo_simulation`/config/mrs_uav_system/$UAV_TYPE.yaml
+          custom_config:=../config/custom_config.yaml
+          world_config:=../config/world_config.yaml                   
+          network_config:=../config/network_config.yaml
+        - export UAV_NAME=uav2; waitForHw; roslaunch mrs_uav_core core.launch
+          platform_config:=`rospack find mrs_uav_gazebo_simulation`/config/mrs_uav_system/$UAV_TYPE.yaml
+          custom_config:=../config/custom_config.yaml
+          world_config:=../config/world_config.yaml
+          network_config:=../config/network_config.yaml
+        - export UAV_NAME=uav3; waitForHw; roslaunch mrs_uav_core core.launch
+          platform_config:=`rospack find mrs_uav_gazebo_simulation`/config/mrs_uav_system/$UAV_TYPE.yaml
+          custom_config:=../config/custom_config.yaml
+          world_config:=../config/world_config.yaml
+          network_config:=../config/network_config.yaml
+        - export UAV_NAME=uav6; waitForHw; roslaunch mrs_uav_core core.launch
+          platform_config:=`rospack find mrs_uav_gazebo_simulation`/config/mrs_uav_system/$UAV_TYPE.yaml
+          custom_config:=../config/custom_config.yaml
+          world_config:=../config/world_config.yaml
+          network_config:=../config/network_config.yaml
+  - takeoff:
+      layout: tiled
+      panes:
+        - export UAV_NAME=uav1; waitForHw; roslaunch mrs_uav_autostart automatic_start.launch
+        - 'waitForControl; export UAV_NAME=uav1; rosservice call /$UAV_NAME/hw_api/arming 1; sleep 7; rosservice call /$UAV_NAME/hw_api/offboard'
+        - export UAV_NAME=uav2; waitForHw; roslaunch mrs_uav_autostart automatic_start.launch
+        - 'waitForControl; export UAV_NAME=uav2; rosservice call /uav2/hw_api/arming 1; sleep 7; rosservice call /uav2/hw_api/offboard'
+        - export UAV_NAME=uav3; waitForHw; roslaunch mrs_uav_autostart automatic_start.launch
+        - 'waitForControl; export UAV_NAME=uav3; rosservice call /uav3/hw_api/arming 1; sleep 7; rosservice call /uav3/hw_api/offboard'
+        - export UAV_NAME=uav6; waitForHw; roslaunch mrs_uav_autostart automatic_start.launch
+        - 'waitForControl; export UAV_NAME=uav6; rosservice call /uav6/hw_api/arming 1; sleep 7; rosservice call /uav6/hw_api/offboard'
+  - uv_observer:
+        layout: even-vertical
+        panes:
+        - waitForCompile; gz world --pause=0; sleep 120;  export UAV_NAME=uav1; waitForControl; roslaunch uvdar_core sim_three_sided_combined.launch use_4DHT:=true
+  - slow_down:
+      layout: even-vertical
+      panes:
+        - waitForGazebo; waitForRos; sleep 45; gz physics -u 60
+  # - trajectories:
+  #     layout: tiled
+  #     panes:
+  #       - export UAV_NAME=uav1; history -s rosservice call /'"$UAV_NAME"'/control_manager/start_trajectory_tracking; history -s rosservice call /'"$UAV_NAME"'/control_manager/goto_trajectory_start; history -s roslaunch uvdar_core load_trajectory.launch file:="tx1/line.txt" loop:=true
+  #       - export UAV_NAME=uav2; history -s rosservice call /'"$UAV_NAME"'/control_manager/start_trajectory_tracking; history -s rosservice call /'"$UAV_NAME"'/control_manager/goto_trajectory_start; history -s roslaunch uvdar_core load_trajectory.launch file:="tx2/line.txt" loop:=true
+        # - export UAV_NAME=uav3; history -s rosservice call /'"$UAV_NAME"'/control_manager/start_trajectory_tracking; history -s rosservice call /'"$UAV_NAME"'/control_manager/goto_trajectory_start; history -s roslaunch uvdar_core load_trajectory.launch file:="two_tx/tx2_fly_by.txt" loop:=true
+  - layout:
+      layout: tiled
+      panes:
+        - waitForControl; sleep 3; ~/.i3/layout_manager.sh ./layout.json
+  # - record:
+  #     layout: tiled
+  #     panes: 
+  #       - history -s rosbag record -O ~/rosbags/rerun/4dht_sim_new.bag -e "(.*)uvdar(.*)"

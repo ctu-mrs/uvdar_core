@@ -1,5 +1,5 @@
 <launch>
-  <arg name="uav_name" default="uav7"/>
+  <arg name="uav_name" default="$(optenv UAV_NAME uav7)"/>
 
   <arg name="standalone" default="false"/>
 
@@ -10,7 +10,7 @@
 
   <arg name="threshold" default="100"/>
 
-  <arg name="calibrations_folder" default="$(find mrs_uav_general)/config/uvdar_calibrations"/>
+  <arg name="calibrations_folder" default="$(find mrs_uav_deployment)/config/uvdar_calibrations"/>
   
   <param name="use_sim_time" value="true"/>
 
@@ -44,19 +44,24 @@
   <arg name="beacon" default="false"/>
 
   <arg name="sequence_file" default="$(find uvdar_core)/config/selected.txt"/>
-  <arg name="imu_compensation" default="false"/>
 
+  <arg name="max_px_shift_x" default="2"/>
+  <arg name="max_px_shift_y" default="2"/>
+  <arg name="max_zeros_consecutive" default="3"/>
+  <arg name="max_ones_consecutive" default="3"/>
+  <arg name="stored_seq_len_factor" default="15"/>
   <arg name="poly_order" default="4"/>
-  <arg name="decay_factor" default="0.5"/>
-  <arg name="stored_seq_len_factor" default="30"/>
-  <arg name="confidence_probability" default="90.0"/>
-  <arg name="frame_tolerance" default="5"/>
-  <arg name="max_pixel_shift_x" default="2"/>
-  <arg name="max_pixel_shift_y" default="2"/>
-  <arg name="max_zeros_consecutive" default="2"/>
-  <arg name="max_ones_consecutive" default="2"/>
-  <arg name="threshold_values_len_for_poly_reg" default="0"/>
-  <arg name="allowed_BER_per_seq" default="1"/>
+  <arg name="decay_factor" default="0.1"/>
+  <arg name="confidence_probability" default="95.0"/>
+  <arg name="allowed_BER_per_seq" default="0"/>
+
+  <arg name="use_4DHT" default="false"/>
+  <!--4DHT values-->
+  <arg name="accumulator_length"         default="12"/>
+  <arg name="pitch_steps"         default="16"/>
+  <arg name="yaw_steps"         default="16"/>
+  <arg name="max_pixel_shift"         default="4"/>
+
 
   <arg name="model_file" default="$(find uvdar_core)/config/models/quadrotor.txt"/>
   <!-- ideal angle: 1.221730476 - pi/2 -->
@@ -93,7 +98,8 @@
       <param name="justReport" type="bool" value="true"/>
       <param name="threshold" type="int" value="$(arg threshold)"/>
 
-      <rosparam param="camera_topics"> ["/uav7/uvdar_bluefox/left/image_raw"] </rosparam>
+      <!-- <rosparam param="camera_topics"> ["uav6/uvdar_bluefox/left/image_raw"] </rosparam> -->
+      <rosparam param="camera_topics"> ["camera_left"] </rosparam>
       <rosparam param="points_seen_topics"> ["points_seen_left"] </rosparam>
 
       <param name="use_masks"         type="bool" value="false"/>
@@ -107,52 +113,65 @@
     </node>
 
 
+  
+
+
     
-    <node name="UVDAR_BP_Tim" pkg="nodelet" type="nodelet" args="load uvdar/UVDAR_BP_Tim $(arg nodelet_manager)" output="screen" respawn="false">
-    <!-- <node name="UVDAR_BP_Tim" pkg="nodelet" type="nodelet" args="load uvdar/UVDAR_BP_Tim $(arg nodelet_manager)" output="screen" respawn="false" launch-prefix="debug_roslaunch"> -->
+    <node name="blink_processor" pkg="nodelet" type="nodelet" args="load uvdar/UVDARBlinkProcessor $(arg nodelet_manager)" output="screen" respawn="false">
+    <!-- <node name="UVDARBlinkProcessor" pkg="nodelet" type="nodelet" args="load uvdar/UVDARBlinkProcessor $(arg nodelet_manager)" output="screen" respawn="false" launch-prefix="debug_roslaunch"> -->
 
       <param name="uav_name" type = "string" value="$(arg uav_name)"/>
       <param name="debug"		type="bool" value="$(arg debug)"/> 
-      <param name="visual_debug"		type="bool" value="$(arg visual_debug)"/> 
       <param name="gui"             type="bool" value="$(arg gui)"/>
       
       <!-- Changeable for each nodelet independently. - no arguments! -->
       <param name="publish_visualization"             type="bool" value="false"/>
-      <param name="use_camera_for_visualization"         type="bool" value="false"/>
-      <param name="visualization_rate"         type="double" value="15.0"/>
-      
-      <param name="poly_order" type="int" value="$(arg poly_order)"/>
-      <param name="decay_factor"         type="double" value="$(arg decay_factor)"/>    
-      <param name="stored_seq_len_factor"         type="int" value="$(arg stored_seq_len_factor)"/>    
-      <param name="confidence_probability"         type="double" value="$(arg confidence_probability)"/>
+      <param name="use_camera_for_visualization"         type="bool" value="true"/>
+      <param name="visualization_rate"         type="double" value="2"/>
 
-      <param name="frame_tolerance"     type="int"   value="$(arg frame_tolerance)"/>
-      <param name="max_pixel_shift_x"     type="int"   value="$(arg max_pixel_shift_x)"/>
-      <param name="max_pixel_shift_y"     type="int"   value="$(arg max_pixel_shift_y)"/>
+      <param name="use_4DHT"             type="bool" value="$(arg use_4DHT)"/>
+    
+
+      <param name="max_px_shift_x"     type="int"   value="$(arg max_px_shift_x)"/>
+      <param name="max_px_shift_y"     type="int"   value="$(arg max_px_shift_y)"/>
       <param name="max_zeros_consecutive"     type="int"   value="$(arg max_zeros_consecutive)"/>
       <param name="max_ones_consecutive"     type="int"   value="$(arg max_ones_consecutive)"/>
-      <param name="threshold_values_len_for_poly_reg"     type="int"   value="$(arg threshold_values_len_for_poly_reg)"/>
+      <param name="stored_seq_len_factor"         type="int" value="$(arg stored_seq_len_factor)"/>    
+      <param name="poly_order" type="int" value="$(arg poly_order)"/>
+      <param name="decay_factor"         type="double" value="$(arg decay_factor)"/>    
+      <param name="confidence_probability"         type="double" value="$(arg confidence_probability)"/>
       <param name="allowed_BER_per_seq"     type="int"   value="$(arg allowed_BER_per_seq)"/>
+      
+      <param name="accumulator_length"         type="int" value="$(arg accumulator_length)"/>
+      <param name="pitch_steps"         type="int" value="$(arg pitch_steps)"/>
+      <param name="yaw_steps"         type="int" value="$(arg yaw_steps)"/>
+      <param name="max_pixel_shift"         type="int" value="$(arg max_pixel_shift)"/>
+      <param name="nullify_radius"         type="int" value="5"/>
 
+ 
       <param name="sequence_file"         type="string" value="$(arg sequence_file)"/>
-      <param name="imu_compensation"     type="bool"   value="$(arg imu_compensation)"/>
-      <param name="imu_topic" type="string" value="/$(arg uav_name)/odometry/odom_main"/>
 
-      <rosparam param="camera_topics"> ["/uav7/uvdar_bluefox/left/image_raw"] </rosparam>
+      <rosparam param="camera_topics"> ["camera_left"] </rosparam>
       <rosparam param="points_seen_topics"> ["points_seen_left"] </rosparam>
       <rosparam param="blinkers_seen_topics"> ["blinkers_seen_back"] </rosparam>
       <rosparam param="estimated_framerate_topics"> ["estimated_framerate_back"] </rosparam>
-      <rosparam param="aht_logging_topics"> ["aht_logging_back"] </rosparam>
+      <rosparam param="omta_logging_topics"> ["omta_logging_back"] </rosparam>
+      <rosparam param="omta_all_seq_info_topics"> ["omta_all_seq_info_back"] </rosparam>
+      
 
       <remap from="~camera_left" to="/$(arg uav_name)/uvdar_bluefox/left/image_raw"/>
       <remap from="~points_seen_left" to="/$(arg uav_name)/uvdar/points_seen_left"/>
       <remap from="~blinkers_seen_back" to="/$(arg uav_name)/uvdar/blinkers_seen_back"/>
-      <remap from="~aht_logging_back" to="/$(arg uav_name)/uvdar/aht_logging_back"/>
+      <remap from="~omta_logging_back" to="/$(arg uav_name)/uvdar/omta_logging_back"/>
+      <remap from="~omta_all_seq_info_back" to="/$(arg uav_name)/uvdar/omta_all_seq_info_back"/>
 
       <remap from="~estimated_framerate_back" to="/$(arg uav_name)/uvdar/estimated_framerate_back"/>
       <remap from="~visualization" to="/$(arg uav_name)/uvdar/blink_visualization/image_raw"/>
 
     </node>
+
+
+
       
      <node name="uvdar_pose_calculator_node" pkg="uvdar_core" type="uvdar_pose_calculator_node" output="screen">
     <!-- launch-prefix="debug_roslaunch"> -->

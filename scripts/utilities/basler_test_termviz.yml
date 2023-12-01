@@ -1,0 +1,85 @@
+---
+fixed_frame: default
+robot_frame: default
+image_topics:
+  - topic: /uav37/basler_left/image_raw
+    rotation: 0
+map_topics:
+  - topic: map
+    color:
+      r: 255
+      g: 255
+      b: 255
+    threshold: 1
+laser_topics:
+  - topic: scan
+    color:
+      r: 200
+      g: 0
+      b: 0
+marker_topics:
+  - topic: marker
+marker_array_topics:
+  - topic: marker_array
+path_topics:
+  - topic: path
+    style: line
+    color:
+      r: 0
+      g: 0
+      b: 255
+    length: 0.2
+pointcloud2_topics:
+  - topic: pointcloud2
+    use_rgb: false
+pose_array_topics:
+  - topic: pose_array
+    style: arrow
+    color:
+      r: 255
+      g: 0
+      b: 0
+    length: 0.2
+pose_stamped_topics:
+  - topic: pose_stamped
+    style: axis
+    color:
+      r: 255
+      g: 0
+      b: 0
+    length: 0.2
+send_pose_topics:
+  - topic: initialpose
+    msg_type: PoseWithCovarianceStamped
+  
+target_framerate: 30
+axis_length: 0.5
+visible_area:
+  - -5.0
+  - 5.0
+  - -5.0
+  - 5.0
+zoom_factor: 0.1
+key_mapping:
+  Decrement step: j
+  Show help: h
+  Confirm: Enter
+  Cancel: Esc
+  Switch to mode 2: t
+  Right: d
+  Zoom in: "="
+  Zoom out: "-"
+  Previous: b
+  Clockwise rotation: e
+  Down: s
+  Increment step: k
+  Up: w
+  Left: a
+  Next: n
+  Counter-clockwise rotation: q
+  Switch to mode 3: i
+teleop:
+  default_increment: 0.1
+  increment_step: 0.1
+  cmd_vel_topic: cmd_vel
+  publish_cmd_vel_when_idle: true

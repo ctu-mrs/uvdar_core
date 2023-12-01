@@ -19,6 +19,7 @@ find_package(catkin REQUIRED COMPONENTS
   sensor_msgs
   std_msgs
   mrs_msgs
+  mrs_modules_msgs
   mrs_lib
   tf2
   tf2_ros
@@ -82,8 +83,13 @@ add_message_files(DIRECTORY msg FILES
    USM.msg
    RecMsg.msg
    DefaultMsg.msg
-   AhtDataForLogging.msg
-   AhtVariables.msg
+   omtaDataForLogging.msg
+   omtaSeqVariables.msg
+   omtaAllSequences.msg
+   omtaSeqPoint.msg
+   ImagePointsWithFloatStamped.msg
+   Point2DWithFloat.msg
+   Int32MultiArrayStamped.msg
   )
 
 generate_messages(DEPENDENCIES
@@ -95,7 +101,7 @@ generate_messages(DEPENDENCIES
 
 catkin_package(
  INCLUDE_DIRS include
-  CATKIN_DEPENDS cv_bridge image_transport roscpp sensor_msgs std_msgs message_runtime mrs_msgs message_generation
+  CATKIN_DEPENDS cv_bridge image_transport roscpp sensor_msgs std_msgs message_runtime mrs_msgs mrs_modules_msgs message_generation
   DEPENDS Eigen
   LIBRARIES OCamCalib unscented
 )
@@ -115,17 +121,15 @@ include_directories(
 
 add_executable(uvdar_rx_node src/uvdar_rx.cpp)
 add_executable(uvdar_tx_node src/uvdar_tx.cpp)
-add_executable(new_uvdar_rx_node src/new_uvdar_rx.cpp)
+# add_executable(new_uvdar_rx_node src/new_uvdar_rx.cpp)
 
 add_library(OCamCalib include/OCamCalib/ocam_functions.cpp )
 target_compile_options(OCamCalib PRIVATE -Wno-unused-variable -Wno-unused-result)
 
-add_library(ht4dbt include/ht4dbt/ht4d.cpp)
-add_library(alternativeHT include/alternativeHT/alternativeHT.cpp)
-add_library(extendedSearch include/alternativeHT/extended_search.cpp)
-add_library(imu_compensation include/alternativeHT/imu_compensation.cpp)
+add_library(ht4dbt include/ht4dbt/ht4d.cpp include/ht4dbt/ht4d_cpu.cpp include/ht4dbt/ht4d_gpu.cpp)
+add_library(omta include/omta/omta.cpp)
+add_library(extendedSearch include/omta/extended_search.cpp)
 add_library(uv_led_detect_fast include/detect/uv_led_detect_fast_cpu.cpp include/detect/uv_led_detect_fast_gpu.cpp)
-
 add_library(frequency_classifier include/frequency_classifier/frequency_classifier.cpp)
 add_library(color_selector include/color_selector/color_selector.cpp)
 # add_library(SignalSetter src/signal_setter.cpp)
@@ -136,11 +140,13 @@ target_link_libraries(compute_lib
 
 target_link_libraries(uvdar_rx_node ${catkin_LIBRARIES})
 target_link_libraries(uvdar_tx_node ${catkin_LIBRARIES})
-target_link_libraries(new_uvdar_rx_node ${catkin_LIBRARIES} ${OpenCV_LIBRARIES} ht4dbt)
+# target_link_libraries(new_uvdar_rx_node ${catkin_LIBRARIES} ${OpenCV_LIBRARIES} ht4dbt)
 # target_link_libraries(SignalSetter ${catkin_LIBRARIES})
-add_dependencies(new_uvdar_rx_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+# add_dependencies(new_uvdar_rx_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 add_dependencies(uvdar_rx_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 add_dependencies(uvdar_tx_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+
+target_link_libraries(ht4dbt compute_lib)
 
 target_link_libraries(uv_led_detect_fast
   debug ${OpenCV_LIBRARIES} ${catkin_LIBRARIES} compute_lib)
@@ -185,9 +191,6 @@ add_dependencies(UVDARBluefoxEmulator ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catk
 add_executable(uvdar_led_manager_node src/led_manager.cpp)
 add_dependencies(uvdar_led_manager_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
-add_library(UVDAR_BP_Tim src/bp_tim.cpp)
-add_dependencies(UVDAR_BP_Tim ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-
 add_custom_target(headers SOURCES ${HEADER_FILES} ${LAUNCHER_FILES} ${YAML_FILES})
 
 target_link_libraries(UVDARDetector
@@ -202,22 +205,12 @@ target_link_libraries(UVDARBlinkProcessor
   ${OpenCV_LIBRARIES}
   ht4dbt
   frequency_classifier
-  color_selector
-  )
-
-
-  target_link_libraries(UVDAR_BP_Tim 
-  ${catkin_LIBRARIES} 
-  ${OpenCV_LIBRARIES}
-  ${EIGEN3_LIBRARIES}
-  alternativeHT
+  omta
   extendedSearch
-  imu_compensation
   color_selector
   )
 
-
-# target_link_libraries(uvdar_uav_pose_calculator_node
+  # target_link_libraries(uvdar_uav_pose_calculator_node
 #   ${catkin_LIBRARIES}
 #   ${OpenCV_LIBRARIES}
 #   ${EIGEN3_LIBRARIES}
@@ -259,8 +252,3 @@ target_link_libraries(UVDARBluefoxEmulator
 target_link_libraries(uvdar_led_manager_node
   ${catkin_LIBRARIES}
   )
-
-
-
-
-
