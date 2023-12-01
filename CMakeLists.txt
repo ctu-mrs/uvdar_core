@@ -83,10 +83,10 @@ add_message_files(DIRECTORY msg FILES
    USM.msg
    RecMsg.msg
    DefaultMsg.msg
-   omtaDataForLogging.msg
-   omtaSeqVariables.msg
-   omtaAllSequences.msg
-   omtaSeqPoint.msg
+   amiDataForLogging.msg
+   amiSeqVariables.msg
+   amiAllSequences.msg
+   amiSeqPoint.msg
    ImagePointsWithFloatStamped.msg
    Point2DWithFloat.msg
    Int32MultiArrayStamped.msg
@@ -127,8 +127,8 @@ add_library(OCamCalib include/OCamCalib/ocam_functions.cpp )
 target_compile_options(OCamCalib PRIVATE -Wno-unused-variable -Wno-unused-result)
 
 add_library(ht4dbt include/ht4dbt/ht4d.cpp include/ht4dbt/ht4d_cpu.cpp include/ht4dbt/ht4d_gpu.cpp)
-add_library(omta include/omta/omta.cpp)
-add_library(extendedSearch include/omta/extended_search.cpp)
+add_library(ami include/ami/ami.cpp)
+add_library(ami_extendedSearch include/ami/ami_extended_search.cpp)
 add_library(uv_led_detect_fast include/detect/uv_led_detect_fast_cpu.cpp include/detect/uv_led_detect_fast_gpu.cpp)
 add_library(frequency_classifier include/frequency_classifier/frequency_classifier.cpp)
 add_library(color_selector include/color_selector/color_selector.cpp)
@@ -205,8 +205,8 @@ target_link_libraries(UVDARBlinkProcessor
   ${OpenCV_LIBRARIES}
   ht4dbt
   frequency_classifier
-  omta
-  extendedSearch
+  ami
+  ami_extendedSearch
   color_selector
   )
 

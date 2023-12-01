@@ -139,11 +139,11 @@
       <rosparam param="points_seen_topics"> ["points_seen_left", "points_seen_right"] </rosparam>
       <rosparam param="blinkers_seen_topics"> ["blinkers_seen_left", "blinkers_seen_right"] </rosparam>
       <rosparam param="estimated_framerate_topics"> ["estimated_framerate_left", "estimated_framerate_right"] </rosparam>
-      <rosparam param="omta_logging_topics"> ["omta_logging_left", "omta_logging_right"] </rosparam>
-      <rosparam param="omta_all_seq_info_topics"> ["omta_all_seq_info_left","omta_all_seq_info_right"] </rosparam>
+      <rosparam param="ami_logging_topics"> ["ami_logging_left", "ami_logging_right"] </rosparam>
+      <rosparam param="ami_all_seq_info_topics"> ["ami_all_seq_info_left","ami_all_seq_info_right"] </rosparam>
      
-      <rosparam param="runtime_omta_fill"> ["runtime_omta_fill_left", "runtime_omta_fill_right", "runtime_omta_fill_back"] </rosparam>
-      <rosparam param="runtime_omta_results"> ["runtime_omta_results_left", "runtime_omta_results_right", "runtime_omta_results_back"] </rosparam>
+      <rosparam param="runtime_ami_fill"> ["runtime_ami_fill_left", "runtime_ami_fill_right", "runtime_ami_fill_back"] </rosparam>
+      <rosparam param="runtime_ami_results"> ["runtime_ami_results_left", "runtime_ami_results_right", "runtime_ami_results_back"] </rosparam>
 
       <rosparam param="runtime_4dht_fill"> ["runtime_4dht_fill_left", "runtime_4dht_fill_right", "runtime_4dht_fill_back"] </rosparam>
       <rosparam param="runtime_4dht_results"> ["runtime_4dht_results_left", "runtime_4dht_results_right", "runtime_4dht_results_back"] </rosparam>
@@ -163,19 +163,19 @@
       <remap from="/debug_topics/$(arg uav_name)/blink_processor/uvdar_blink_visualization" to="/debug_topics/$(arg uav_name)/blink_processor/uvdar_blink_visualization_camp"/> 
 
       <remap from="~visualization" to="/$(arg uav_name)/uvdar/blink_visualization/image_raw_camp"/> <!-- TODO: not publishing video if not commented in-->
-      <remap from="~omta_logging_left" to="/$(arg uav_name)/uvdar/omta_logging_left_camp"/>
-      <remap from="~omta_logging_right" to="/$(arg uav_name)/uvdar/omta_logging_right_camp"/>
-      <remap from="~omta_all_seq_info_left" to="/$(arg uav_name)/uvdar/omta_all_seq_info_left_camp"/>
-      <remap from="~omta_all_seq_info_right" to="/$(arg uav_name)/uvdar/omta_all_seq_info_right_camp"/>
-      <remap from="~omta_all_seq_info_back" to="/$(arg uav_name)/uvdar/omta_all_seq_info_back"/>
+      <remap from="~ami_logging_left" to="/$(arg uav_name)/uvdar/ami_logging_left_camp"/>
+      <remap from="~ami_logging_right" to="/$(arg uav_name)/uvdar/ami_logging_right_camp"/>
+      <remap from="~ami_all_seq_info_left" to="/$(arg uav_name)/uvdar/ami_all_seq_info_left_camp"/>
+      <remap from="~ami_all_seq_info_right" to="/$(arg uav_name)/uvdar/ami_all_seq_info_right_camp"/>
+      <remap from="~ami_all_seq_info_back" to="/$(arg uav_name)/uvdar/ami_all_seq_info_back"/>
 
-      <remap from="~runtime_omta_fill_left" to="/$(arg uav_name)/uvdar/runtime_omta_fill_left_camp"/>
-      <remap from="~runtime_omta_fill_right" to="/$(arg uav_name)/uvdar/runtime_omta_fill_right_camp"/>
-      <remap from="~runtime_omta_fill_back" to="/$(arg uav_name)/uvdar/runtime_omta_fill_back_camp"/>
+      <remap from="~runtime_ami_fill_left" to="/$(arg uav_name)/uvdar/runtime_ami_fill_left_camp"/>
+      <remap from="~runtime_ami_fill_right" to="/$(arg uav_name)/uvdar/runtime_ami_fill_right_camp"/>
+      <remap from="~runtime_ami_fill_back" to="/$(arg uav_name)/uvdar/runtime_ami_fill_back_camp"/>
 
-      <remap from="~runtime_omta_results_left" to="/$(arg uav_name)/uvdar/runtime_omta_results_left_camp"/>
-      <remap from="~runtime_omta_results_right" to="/$(arg uav_name)/uvdar/runtime_omta_results_right_camp"/>
-      <remap from="~runtime_omta_results_back" to="/$(arg uav_name)/uvdar/runtime_omta_results_back_camp"/>
+      <remap from="~runtime_ami_results_left" to="/$(arg uav_name)/uvdar/runtime_ami_results_left_camp"/>
+      <remap from="~runtime_ami_results_right" to="/$(arg uav_name)/uvdar/runtime_ami_results_right_camp"/>
+      <remap from="~runtime_ami_results_back" to="/$(arg uav_name)/uvdar/runtime_ami_results_back_camp"/>
 
       <remap from="~runtime_4dht_fill_left" to="/$(arg uav_name)/uvdar/runtime_4dht_fill_left_camp"/>
       <remap from="~runtime_4dht_fill_right" to="/$(arg uav_name)/uvdar/runtime_4dht_fill_right_camp"/>
