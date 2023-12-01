@@ -1,3 +1,4 @@
 [submodule "include/ami"]
 	path = include/ami
 	url = https://github.com/TimLakemann/ami.git
+	branch = master
