@@ -646,7 +646,7 @@ namespace uvdar{
     
     uvdar_core::ImagePointsWithFloatStamped msg;
     uvdar_core::AMIDataForLogging ami_logging_msg;
-    uvdar_core::AMIAllSequences AMI_all_seq_msg;
+    uvdar_core::AMIAllSequences ami_all_seq_msg;
     ros::Time local_last_sample_time = blink_data_[img_index].last_sample_time;
     {
       std::scoped_lock lock(*(blink_data_[img_index].mutex_retrieved_blinkers));
@@ -712,7 +712,7 @@ namespace uvdar{
         ami_seq_msg.extended_search.push_back(last_point.x_statistics.extended_search);
         ami_seq_msg.extended_search.push_back(last_point.y_statistics.extended_search);
 
-        AMI_all_seq_msg.sequences.push_back(ami_seq_msg);
+        ami_all_seq_msg.sequences.push_back(ami_seq_msg);
         msg.points.push_back(point);
       }
       msg.stamp         = local_last_sample_time;
@@ -726,7 +726,7 @@ namespace uvdar{
       // publish the last point for the pose calculate
       pub_blinkers_seen_[img_index].publish(msg);
       // publish whole sequence with infos from AMI
-      pub_AMI_all_seq_info[img_index].publish(AMI_all_seq_msg);
+      pub_AMI_all_seq_info[img_index].publish(ami_all_seq_msg);
 
       std_msgs::Float32 msg_framerate;
       msg_framerate.data = blink_data_[img_index].framerate_estimate;
