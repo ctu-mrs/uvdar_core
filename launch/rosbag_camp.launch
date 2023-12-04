@@ -59,6 +59,8 @@
   <arg name="confidence_probability" default="95.0"/>
   <arg name="allowed_BER_per_seq" default="0"/>
 
+  <arg name="pub_tracking_stats" default="true"/>
+  <arg name="draw_predict_window_sec" default="0.0"/>
   <arg name="use_4DHT" default="false"/>
   <!--4DHT values-->
   <arg name="accumulator_length"         default="18"/>
@@ -112,6 +114,8 @@
       <param name="use_camera_for_visualization"         type="bool" value="false"/>
       <param name="visualization_rate"         type="double" value="2"/>
 
+      <param name="pub_tracking_stats"      type="bool" value="$(arg pub_tracking_stats)"/>
+      <param name="draw_predict_window_sec"  type="double" value="$(arg draw_predict_window_sec)"/>
       <param name="use_4DHT"             type="bool" value="$(arg use_4DHT)"/>
     
 
