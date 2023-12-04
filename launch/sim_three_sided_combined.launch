@@ -49,7 +49,7 @@
 
   <arg name="sequence_file" default="$(find uvdar_core)/config/selected.txt"/>
 
-  <!--OMT values-->
+  <!--AMI values-->
   <arg name="max_px_shift_y" default="3"/>
   <arg name="max_px_shift_x" default="3"/>
   <arg name="max_zeros_consecutive" default="2"/>
@@ -188,8 +188,8 @@
       <rosparam param="ami_logging_topics"> ["ami_logging_left", "ami_logging_right", "ami_logging_back"] </rosparam>
       <rosparam param="ami_all_seq_info_topics"> ["ami_all_seq_info_left", "ami_all_seq_info_right", "ami_all_seq_info_back"] </rosparam>
 
-      <rosparam param="runtime_ami_fill"> ["runtime_ami_fill_left", "runtime_ami_fill_right", "runtime_ami_fill_back"] </rosparam>
-      <rosparam param="runtime_ami_results"> ["runtime_ami_results_left", "runtime_ami_results_right", "runtime_ami_results_back"] </rosparam>
+      <rosparam param="runtime_AMI_fill"> ["runtime_AMI_fill_left", "runtime_AMI_fill_right", "runtime_AMI_fill_back"] </rosparam>
+      <rosparam param="runtime_AMI_results"> ["runtime_AMI_results_left", "runtime_AMI_results_right", "runtime_AMI_results_back"] </rosparam>
 
       <rosparam param="runtime_4dht_fill"> ["runtime_4dht_fill_left", "runtime_4dht_fill_right", "runtime_4dht_fill_back"] </rosparam>
       <rosparam param="runtime_4dht_results"> ["runtime_4dht_results_left", "runtime_4dht_results_right", "runtime_4dht_results_back"] </rosparam>
@@ -214,13 +214,13 @@
       <remap from="~ami_all_seq_info_right" to="/$(arg uav_name)/uvdar/ami_all_seq_info_right"/>
       <remap from="~ami_all_seq_info_back" to="/$(arg uav_name)/uvdar/ami_all_seq_info_back"/>
 
-      <remap from="~runtime_ami_fill_left" to="/$(arg uav_name)/uvdar/runtime_ami_fill_left"/>
-      <remap from="~runtime_ami_fill_right" to="/$(arg uav_name)/uvdar/runtime_ami_fill_right"/>
-      <remap from="~runtime_ami_fill_back" to="/$(arg uav_name)/uvdar/runtime_ami_fill_back"/>
+      <remap from="~runtime_AMI_fill_left" to="/$(arg uav_name)/uvdar/runtime_AMI_fill_left"/>
+      <remap from="~runtime_AMI_fill_right" to="/$(arg uav_name)/uvdar/runtime_AMI_fill_right"/>
+      <remap from="~runtime_AMI_fill_back" to="/$(arg uav_name)/uvdar/runtime_AMI_fill_back"/>
 
-      <remap from="~runtime_ami_results_left" to="/$(arg uav_name)/uvdar/runtime_ami_results_left"/>
-      <remap from="~runtime_ami_results_right" to="/$(arg uav_name)/uvdar/runtime_ami_results_right"/>
-      <remap from="~runtime_ami_results_back" to="/$(arg uav_name)/uvdar/runtime_ami_results_back"/>
+      <remap from="~runtime_AMI_results_left" to="/$(arg uav_name)/uvdar/runtime_AMI_results_left"/>
+      <remap from="~runtime_AMI_results_right" to="/$(arg uav_name)/uvdar/runtime_AMI_results_right"/>
+      <remap from="~runtime_AMI_results_back" to="/$(arg uav_name)/uvdar/runtime_AMI_results_back"/>
 
       <remap from="~runtime_4dht_fill_left" to="/$(arg uav_name)/uvdar/runtime_4dht_fill_left"/>
       <remap from="~runtime_4dht_fill_right" to="/$(arg uav_name)/uvdar/runtime_4dht_fill_right"/>

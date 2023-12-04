@@ -12,10 +12,10 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <mrs_lib/param_loader.h>
 #include <mrs_lib/image_publisher.h>
-#include <uvdar_core/amiDataForLogging.h>
-#include <uvdar_core/amiSeqVariables.h>
-#include <uvdar_core/amiAllSequences.h>
-#include <uvdar_core/amiSeqPoint.h>
+#include <uvdar_core/AMIDataForLogging.h>
+#include <uvdar_core/AMISeqVariables.h>
+#include <uvdar_core/AMIAllSequences.h>
+#include <uvdar_core/AMISeqPoint.h>
 #include <mutex>
 #include <thread>
 #include <atomic>
@@ -68,19 +68,19 @@ namespace uvdar{
       bool parseSequenceFile(const std::string &);
       
       /**
-       * @brief setup ami data structure 
+       * @brief setup AMI data structure 
        * 
        * @return true if sequences could be set
        * @return false if sequences couln't be set
        */
-      bool initami();
+      bool initAMI();
       void init4DHT();
 
       void setupCallbackAndPublisher();
 
       /**
       * @brief Callback to insert new image points to:
-      * - the ami and processes+publishes receiving points
+      * - the AMI and processes+publishes receiving points
       * - if 4DHT activated: the accumulator of the HT4D process
       *
       * @param msg The input message with image points
@@ -106,7 +106,7 @@ namespace uvdar{
       /**
       * @brief Thread function: 
       * - 4DHT: processes the accumulated image points and periodically retrieves estimated origin points and frequency estimates of blinking markers
-      * - ami: Only used for visualization
+      * - AMI: Only used for visualization
       * 
       * @param image_index Index of the camera producing the image
       */
@@ -141,16 +141,16 @@ namespace uvdar{
       
                   
       int image_sizes_received_ = 0;
-      std::vector<std::shared_ptr<ami>> ami_;
+      std::vector<std::shared_ptr<AMI>> ami_;
       
       std::vector<std::vector<bool>> sequences_;
       std::vector<ros::Publisher> pub_blinkers_seen_;
       std::vector<ros::Publisher> pub_ami_logging_;
-      std::vector<ros::Publisher> pub_ami_all_seq_info;
+      std::vector<ros::Publisher> pub_AMI_all_seq_info;
       std::vector<ros::Publisher> pub_estimated_framerate_;
 
-      std::vector<ros::Publisher> pub_ami_fill_;
-      std::vector<ros::Publisher> pub_ami_result_;
+      std::vector<ros::Publisher> pub_AMI_fill_;
+      std::vector<ros::Publisher> pub_AMI_result_;
 
       std::vector<ros::Publisher> pub_4dht_fill_;
       std::vector<ros::Publisher> pub_4dht_result_;
@@ -196,8 +196,8 @@ namespace uvdar{
       std::vector<std::string> _ami_logging_topics_;
       std::vector<std::string> _ami_all_seq_info_topics;
       
-      std::vector<std::string> _runtime_ami_fill_;
-      std::vector<std::string> _runtime_ami_result_;
+      std::vector<std::string> _runtime_AMI_fill_;
+      std::vector<std::string> _runtime_AMI_result_;
       std::vector<std::string> _runtime_4dht_fill_;
       std::vector<std::string> _runtime_4dht_result_;
 
@@ -205,7 +205,7 @@ namespace uvdar{
       bool _use_4DHT_;
       std::string _sequence_file;
 
-      // params for ami
+      // params for AMI
       cv::Point _max_px_shift_;
       int _max_zeros_consecutive_;
       int _max_ones_consecutive_;
@@ -228,7 +228,7 @@ namespace uvdar{
       bool _visual_debug_;
       int _process_rate_;
 
-      // for extracting the received sequences from the ami/4DHT
+      // for extracting the received sequences from the AMI/4DHT
       struct BlinkData{
         ros::Time                     last_sample_time;
         ros::Time                     last_sample_time_diagnostic;
@@ -245,7 +245,7 @@ namespace uvdar{
       };
 
       std::vector<BlinkData> blink_data_;
-      std::vector<std::shared_ptr<ami>> ami_trackers_;
+      std::vector<std::shared_ptr<AMI>> AMI_trackers_;
       std::vector<std::shared_ptr<HT4DBlinkerTrackerCPU>> ht4dbt_trackers_;
   };
       
@@ -271,8 +271,8 @@ namespace uvdar{
     
     sun_points_.resize(_points_seen_topics_.size());
     if(!_use_4DHT_){
-      if(!initami()){
-        ROS_ERROR("[UVDARBlinkProcessor]: Shutting down - ami wasn't initialized correctly!");
+      if(!initAMI()){
+        ROS_ERROR("[UVDARBlinkProcessor]: Shutting down - AMI wasn't initialized correctly!");
         initialized_ = false;
         return;
       } 
@@ -316,8 +316,8 @@ namespace uvdar{
     nh_.param("ami_logging_topics", _ami_logging_topics_, _ami_logging_topics_);
     nh_.param("ami_all_seq_info_topics", _ami_all_seq_info_topics, _ami_all_seq_info_topics);
 
-    nh_.param("runtime_ami_fill", _runtime_ami_fill_, _runtime_ami_fill_);
-    nh_.param("runtime_ami_results", _runtime_ami_result_, _runtime_ami_result_);
+    nh_.param("runtime_AMI_fill", _runtime_AMI_fill_, _runtime_AMI_fill_);
+    nh_.param("runtime_AMI_results", _runtime_AMI_result_, _runtime_AMI_result_);
     
     nh_.param("runtime_4dht_fill", _runtime_4dht_fill_, _runtime_4dht_fill_);
     nh_.param("runtime_4dht_results", _runtime_4dht_result_, _runtime_4dht_result_);
@@ -328,7 +328,7 @@ namespace uvdar{
     param_loader.loadParam("manchester_code", _manchester_code_, bool(false));
     param_loader.loadParam("use_4DHT", _use_4DHT_, bool(false));
 
-    /***** ami params *****/
+    /***** AMI params *****/
     param_loader.loadParam("max_px_shift_x", _max_px_shift_.x, int(2));
     param_loader.loadParam("max_px_shift_y", _max_px_shift_.y, int(2));
     param_loader.loadParam("max_zeros_consecutive", _max_zeros_consecutive_, int(2));
@@ -380,7 +380,7 @@ namespace uvdar{
       return false;
     }
 
-    // for ami
+    // for AMI
     if( 100 <= _conf_probab_percent_){
       ROS_ERROR_STREAM("[UVDARBlinkProcessor]: Wanted confidence interval size equal or bigger than 100\% is set. A Confidence interval of 100\% is not settable! Returning."); 
       return false;
@@ -449,22 +449,22 @@ namespace uvdar{
     return true;
   }
 
-  bool UVDARBlinkProcessor::initami(){
-    loadedParamsForami params_ami;
-    params_ami.max_px_shift = _max_px_shift_;
-    params_ami.max_zeros_consecutive = _max_zeros_consecutive_;
-    params_ami.max_ones_consecutive = _max_ones_consecutive_;
-    params_ami.stored_seq_len_factor = _stored_seq_len_factor_;
-    params_ami.max_buffer_length = _max_buffer_length_;
-    params_ami.poly_order = _poly_order_;
-    params_ami.decay_factor = _decay_factor_;
-    params_ami.conf_probab_percent = _conf_probab_percent_;
-    params_ami.allowed_BER_per_seq = _allowed_BER_per_seq_;
+  bool UVDARBlinkProcessor::initAMI(){
+    loadedParamsForAMI params_AMI;
+    params_AMI.max_px_shift = _max_px_shift_;
+    params_AMI.max_zeros_consecutive = _max_zeros_consecutive_;
+    params_AMI.max_ones_consecutive = _max_ones_consecutive_;
+    params_AMI.stored_seq_len_factor = _stored_seq_len_factor_;
+    params_AMI.max_buffer_length = _max_buffer_length_;
+    params_AMI.poly_order = _poly_order_;
+    params_AMI.decay_factor = _decay_factor_;
+    params_AMI.conf_probab_percent = _conf_probab_percent_;
+    params_AMI.allowed_BER_per_seq = _allowed_BER_per_seq_;
     
     sun_points_.resize(_points_seen_topics_.size());
 
     for (int i = 0; i < (int)_points_seen_topics_.size(); ++i) {
-      ami_.push_back(std::make_shared<ami>(params_ami));
+      ami_.push_back(std::make_shared<AMI>(params_AMI));
 
       if(!ami_[i]->setSequences(sequences_)) return false;
 
@@ -509,11 +509,11 @@ namespace uvdar{
       pub_blinkers_seen_.push_back(nh_.advertise<uvdar_core::ImagePointsWithFloatStamped>(_blinkers_seen_topics_[i], 1));
       pub_estimated_framerate_.push_back(nh_.advertise<std_msgs::Float32>(_estimated_framerate_topics_[i], 1));
       if(!_use_4DHT_){
-        pub_ami_logging_.push_back(nh_.advertise<uvdar_core::amiDataForLogging>(_ami_logging_topics_[i], 1));
-        pub_ami_all_seq_info.push_back(nh_.advertise<uvdar_core::amiAllSequences>(_ami_all_seq_info_topics[i], 1));
+        pub_ami_logging_.push_back(nh_.advertise<uvdar_core::AMIDataForLogging>(_ami_logging_topics_[i], 1));
+        pub_AMI_all_seq_info.push_back(nh_.advertise<uvdar_core::AMIAllSequences>(_ami_all_seq_info_topics[i], 1));
 
-        pub_ami_fill_.push_back(nh_.advertise<std_msgs::Float32>(_runtime_ami_fill_[i], 1));
-        pub_ami_result_.push_back(nh_.advertise<std_msgs::Float32>(_runtime_ami_result_[i], 1));
+        pub_AMI_fill_.push_back(nh_.advertise<std_msgs::Float32>(_runtime_AMI_fill_[i], 1));
+        pub_AMI_result_.push_back(nh_.advertise<std_msgs::Float32>(_runtime_AMI_result_[i], 1));
 
       }else{
         pub_4dht_fill_.push_back(nh_.advertise<std_msgs::Float32>(_runtime_4dht_fill_[i], 1));
@@ -588,7 +588,7 @@ namespace uvdar{
     if (dt > (1.5/(blink_data_[img_index].framerate_estimate)) ){
       int new_frame_count = (int)(dt*(blink_data_[img_index].framerate_estimate) + 0.5) - 1;
       if(!_use_4DHT_){
-        ROS_ERROR_STREAM("[UVDARBlinkProcessor]: Missing frames! ami will automatically insert " << new_frame_count << " empty frames!"); 
+        ROS_ERROR_STREAM("[UVDARBlinkProcessor]: Missing frames! AMI will automatically insert " << new_frame_count << " empty frames!"); 
       }else{
         ROS_ERROR_STREAM("[UVDARBlinkProcessor]: Missing frames! Inserting " << new_frame_count << " empty frames to 4DHT!"); 
         std::vector<cv::Point2i> null_points;
@@ -611,7 +611,7 @@ namespace uvdar{
       auto duration = duration_cast<microseconds>(stop - start);
       std_msgs::Float32 msg_duration;
       msg_duration.data = duration.count();
-      pub_ami_fill_[img_index].publish(msg_duration);
+      pub_AMI_fill_[img_index].publish(msg_duration);
 
 
     }else{
@@ -645,8 +645,8 @@ namespace uvdar{
     if(_use_4DHT_) return;
     
     uvdar_core::ImagePointsWithFloatStamped msg;
-    uvdar_core::amiDataForLogging ami_logging_msg;
-    uvdar_core::amiAllSequences ami_all_seq_msg;
+    uvdar_core::AMIDataForLogging ami_logging_msg;
+    uvdar_core::AMIAllSequences AMI_all_seq_msg;
     ros::Time local_last_sample_time = blink_data_[img_index].last_sample_time;
     {
       std::scoped_lock lock(*(blink_data_[img_index].mutex_retrieved_blinkers));
@@ -656,7 +656,7 @@ namespace uvdar{
       auto duration = duration_cast<microseconds>(stop - start);
       std_msgs::Float32 msg_duration;
       msg_duration.data = duration.count();
-      pub_ami_result_[img_index].publish(msg_duration);
+      pub_AMI_result_[img_index].publish(msg_duration);
 
 
 
@@ -676,8 +676,8 @@ namespace uvdar{
           invalid_signal_cnt++;
         }
                   
-        // publish values from ami if the sequence is valid
-        uvdar_core::amiSeqVariables ami_seq_msg;
+        // publish values from AMI if the sequence is valid
+        uvdar_core::AMISeqVariables ami_seq_msg;
         ami_seq_msg.inserted_time = last_point.insert_time;
         ami_seq_msg.signal_id = signal.second;
 
@@ -696,7 +696,7 @@ namespace uvdar{
         }
 
         for(auto point_state : *signal.first){
-          uvdar_core::amiSeqPoint ps_msg;
+          uvdar_core::AMISeqPoint ps_msg;
           uvdar_core::Point2DWithFloat p;
           p.x = point_state.point.x;
           p.y = point_state.point.y;
@@ -712,7 +712,7 @@ namespace uvdar{
         ami_seq_msg.extended_search.push_back(last_point.x_statistics.extended_search);
         ami_seq_msg.extended_search.push_back(last_point.y_statistics.extended_search);
 
-        ami_all_seq_msg.sequences.push_back(ami_seq_msg);
+        AMI_all_seq_msg.sequences.push_back(ami_seq_msg);
         msg.points.push_back(point);
       }
       msg.stamp         = local_last_sample_time;
@@ -725,8 +725,8 @@ namespace uvdar{
 
       // publish the last point for the pose calculate
       pub_blinkers_seen_[img_index].publish(msg);
-      // publish whole sequence with infos from ami
-      pub_ami_all_seq_info[img_index].publish(ami_all_seq_msg);
+      // publish whole sequence with infos from AMI
+      pub_AMI_all_seq_info[img_index].publish(AMI_all_seq_msg);
 
       std_msgs::Float32 msg_framerate;
       msg_framerate.data = blink_data_[img_index].framerate_estimate;

@@ -39,7 +39,7 @@
 
   <arg name="blink_process_rate" default="10"/>
 
-  <!--OMT values-->
+  <!--AMI values-->
   <arg name="max_px_shift_y" default="3"/>
   <arg name="max_px_shift_x" default="3"/>
   <arg name="max_zeros_consecutive" default="2"/>

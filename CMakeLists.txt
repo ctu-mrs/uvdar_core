@@ -83,10 +83,10 @@ add_message_files(DIRECTORY msg FILES
    USM.msg
    RecMsg.msg
    DefaultMsg.msg
-   amiDataForLogging.msg
-   amiSeqVariables.msg
-   amiAllSequences.msg
-   amiSeqPoint.msg
+   AMIDataForLogging.msg
+   AMISeqVariables.msg
+   AMIAllSequences.msg
+   AMISeqPoint.msg
    ImagePointsWithFloatStamped.msg
    Point2DWithFloat.msg
    Int32MultiArrayStamped.msg
