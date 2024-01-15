@@ -28,7 +28,7 @@
   <depend>mrs_general</depend>
   <depend>mrs_uav_manager</depend>
   <depend>std_msgs</depend>
-  <depend>bluefox2</depend>
+<!-- <depend>bluefox2</depend> -->
   <!-- <depend>uvdar_gazebo_plugin</depend> -->
 
   <export>
