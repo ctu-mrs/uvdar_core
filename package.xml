@@ -21,15 +21,10 @@
   <depend>image_transport</depend>
   <depend>cv_bridge</depend>
   <depend>sensor_msgs</depend>
-  <depend>opencv</depend>
   <depend>mrs_msgs</depend>
   <depend>mrs_modules_msgs</depend>
   <depend>mrs_lib</depend>
-  <depend>mrs_general</depend>
-  <depend>mrs_uav_manager</depend>
   <depend>std_msgs</depend>
-<!-- <depend>bluefox2</depend> -->
-  <!-- <depend>uvdar_gazebo_plugin</depend> -->
 
   <export>
     <nodelet plugin="${prefix}/plugins.xml" />
