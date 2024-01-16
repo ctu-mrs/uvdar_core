@@ -21,14 +21,6 @@ find_package(catkin REQUIRED COMPONENTS
   mrs_msgs
   mrs_modules_msgs
   mrs_lib
-  tf2
-  tf2_ros
-  tf2_msgs
-  tf2_eigen
-  tf2_sensor_msgs
-  tf_conversions
-  tf2_eigen
-  tf2_geometry_msgs
   message_generation
   message_runtime
   # uvdar_gazebo_plugin
