@@ -132,9 +132,12 @@ while true; do
 
         if [[ $response_led =~ ^(y|Y)=$ ]]
         then 
-            echo "tbd"
+            source $workspace/devel/setup.bash
+            roslaunch uvdar_core led_manager.launch &> ~/tmp_led_output.txt & pid_led_manager=$$ & sleep 5; rosservice call /$UAV_NAME/uvdar_led_manager_node/set_active 1
+            echo "hjerer"
+            echo "$pid_led_manager"
         else
-            echo "hä" 
+            echo "hello killing now script"
         fi 
        
         exit 0
