@@ -3,16 +3,19 @@
     <description>the UV LED detector nodelet</description>
   </class>
 </library>
+
 <library path="lib/libUVDARBlinkProcessor">
   <class name="uvdar/UVDARBlinkProcessor" type="uvdar::UVDARBlinkProcessor" base_class_type="nodelet::Nodelet">
     <description>the UVDAR blinking marker processing nodelet</description>
   </class>
 </library>
+
 <library path="lib/libUVDARBluefoxEmulator">
   <class name="uvdar/UVDARBluefoxEmulator" type="uvdar::UVDARBluefoxEmulator" base_class_type="nodelet::Nodelet">
     <description>the UV filtered Bluefox camera emulator nodelet</description>
   </class>
 </library>
+
 <library path="lib/libSignalSetter">
   <class name="signal_setter/SignalSetter" type="signal_setter::SignalSetter" base_class_type="nodelet::Nodelet">
     <description>Signal setter nodelet</description>

@@ -2,7 +2,7 @@
 <package format="2">
   <name>uvdar_core</name>
   <version>0.0.0</version>
-  <description>The core UVDAR package</description>
+  <description>uvdar_core</description>
 
   <maintainer email="viktor.walter@fel.cvut.cz">Viktor Walter</maintainer>
 
@@ -10,16 +10,16 @@
 
   <buildtool_depend>catkin</buildtool_depend>
 
-  <depend>message_generation</depend>
-  <depend>roscpp</depend>
-  <depend>nodelet</depend>
-  <depend>message_runtime</depend>
-  <depend>image_transport</depend>
   <depend>cv_bridge</depend>
-  <depend>sensor_msgs</depend>
-  <depend>mrs_msgs</depend>
-  <depend>mrs_modules_msgs</depend>
+  <depend>image_transport</depend>
+  <depend>message_generation</depend>
+  <depend>message_runtime</depend>
   <depend>mrs_lib</depend>
+  <depend>mrs_modules_msgs</depend>
+  <depend>mrs_msgs</depend>
+  <depend>nodelet</depend>
+  <depend>roscpp</depend>
+  <depend>sensor_msgs</depend>
   <depend>std_msgs</depend>
 
   <export>
