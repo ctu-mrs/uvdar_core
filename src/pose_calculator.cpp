@@ -592,7 +592,7 @@ namespace uvdar {
         int i=0;
         for (auto calib_file : _calib_files_){
           if (calib_file == "default"){
-            file_name = ros::package::getPath("uvdar_core")+"/include/OCamCalib/config/calib_results_bf_uv_fe.txt";
+            file_name = ros::package::getPath("uvdar_core")+"/config/ocamcalib/calib_results_bf_uv_fe.txt";
           }
           else {
             file_name = calib_file;
