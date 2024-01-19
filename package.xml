@@ -23,7 +23,7 @@
   <depend>std_msgs</depend>
 
   <export>
-    <nodelet plugin="${prefix}/plugins.xml" />
+    <nodelet plugin="${prefix}/nodelets.xml" />
   </export>
 
 </package>

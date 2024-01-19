@@ -30,18 +30,18 @@ set(CATKIN_DEPENDENCIES
   )
 
 set(LIBRARIES
-  OCamCalib
-  ht4dbt
-  omta
-  extendedSearch
-  uv_led_detect_fast
-  frequency_classifier
-  color_selector
-  UVDARDetector
-  unscented
-  p3p
-  UVDARBlinkProcessor
-  UVDARBluefoxEmulator
+  UvdarCore_OCamCalib
+  UvdarCore_ht4dbt
+  UvdarCore_omta
+  UvdarCore_extendedSearch
+  UvdarCore_uv_led_detect_fast
+  UvdarCore_frequency_classifier
+  UvdarCore_color_selector
+  UvdarCore_UVDARDetector
+  UvdarCore_unscented
+  UvdarCore_p3p
+  UvdarCore_UVDARBlinkProcessor
+  UvdarCore_UVDARBluefoxEmulator
   )
 
 find_package(catkin REQUIRED COMPONENTS
@@ -136,7 +136,7 @@ add_executable(new_uvdar_rx_node
 target_link_libraries(new_uvdar_rx_node
   ${catkin_LIBRARIES}
   ${OpenCV_LIBRARIES}
-  ht4dbt
+  UvdarCore_ht4dbt
   )
 
 add_dependencies(new_uvdar_rx_node
@@ -146,81 +146,81 @@ add_dependencies(new_uvdar_rx_node
 
 ## | ------------------------ OCamCalub ----------------------- |
 
-add_library(OCamCalib
+add_library(UvdarCore_OCamCalib
   include/OCamCalib/ocam_functions.cpp
   )
 
-target_link_libraries(OCamCalib
+target_link_libraries(UvdarCore_OCamCalib
   ${catkin_LIBRARIES}
   )
 
-add_dependencies(OCamCalib
+add_dependencies(UvdarCore_OCamCalib
   ${${PROJECT_NAME}_EXPORTED_TARGETS}
   ${catkin_EXPORTED_TARGETS}
   )
 
-target_compile_options(OCamCalib PRIVATE
+target_compile_options(UvdarCore_OCamCalib PRIVATE
   -Wno-unused-variable
   -Wno-unused-result
   )
 
-## | ------------------------- ht4dbt ------------------------- |
+## | ------------------------- UvdarCore_ht4dbt ------------------------- |
 
-add_library(ht4dbt
+add_library(UvdarCore_ht4dbt
   include/ht4dbt/ht4d.cpp
   )
 
-add_dependencies(ht4dbt
+add_dependencies(UvdarCore_ht4dbt
   ${${PROJECT_NAME}_EXPORTED_TARGETS}
   ${catkin_EXPORTED_TARGETS}
   )
 
-target_link_libraries(ht4dbt
+target_link_libraries(UvdarCore_ht4dbt
   ${catkin_LIBRARIES}
   )
 
-## | -------------------------- omta -------------------------- |
+## | -------------------------- UvdarCore_omta -------------------------- |
 
-add_library(omta
+add_library(UvdarCore_omta
   include/omta/omta.cpp
   )
 
-add_dependencies(omta
+add_dependencies(UvdarCore_omta
   ${${PROJECT_NAME}_EXPORTED_TARGETS}
   ${catkin_EXPORTED_TARGETS}
   )
 
-target_link_libraries(omta
+target_link_libraries(UvdarCore_omta
   ${catkin_LIBRARIES}
   )
 
 ## | --------------------- extended Search -------------------- |
 
-add_library(extendedSearch
+add_library(UvdarCore_extendedSearch
   include/omta/extended_search.cpp
   )
 
-add_dependencies(extendedSearch
+add_dependencies(UvdarCore_extendedSearch
   ${${PROJECT_NAME}_EXPORTED_TARGETS}
   ${catkin_EXPORTED_TARGETS}
   )
 
-target_link_libraries(extendedSearch
+target_link_libraries(UvdarCore_extendedSearch
   ${catkin_LIBRARIES}
   )
 
 ## | ------------------- uv led detect fast ------------------- |
 
-add_library(uv_led_detect_fast
+add_library(UvdarCore_uv_led_detect_fast
   include/detect/uv_led_detect_fast.cpp
   )
 
-add_dependencies(uv_led_detect_fast
+add_dependencies(UvdarCore_uv_led_detect_fast
   ${${PROJECT_NAME}_EXPORTED_TARGETS}
   ${catkin_EXPORTED_TARGETS}
   )
 
-target_link_libraries(uv_led_detect_fast
+target_link_libraries(UvdarCore_uv_led_detect_fast
   debug
   ${OpenCV_LIBRARIES}
   ${catkin_LIBRARIES}
@@ -228,16 +228,16 @@ target_link_libraries(uv_led_detect_fast
 
 ## | ------------------ frequency classifier ------------------ |
 
-add_library(frequency_classifier
+add_library(UvdarCore_frequency_classifier
   include/frequency_classifier/frequency_classifier.cpp
   )
 
-add_dependencies(frequency_classifier
+add_dependencies(UvdarCore_frequency_classifier
   ${${PROJECT_NAME}_EXPORTED_TARGETS}
   ${catkin_EXPORTED_TARGETS}
   )
 
-target_link_libraries(frequency_classifier
+target_link_libraries(UvdarCore_frequency_classifier
   debug
   ${OpenCV_LIBRARIES}
   ${catkin_LIBRARIES}
@@ -245,16 +245,16 @@ target_link_libraries(frequency_classifier
 
 ## | --------------------- color selector --------------------- |
 
-add_library(color_selector
+add_library(UvdarCore_color_selector
   include/color_selector/color_selector.cpp
   )
 
-add_dependencies(color_selector
+add_dependencies(UvdarCore_color_selector
   ${${PROJECT_NAME}_EXPORTED_TARGETS}
   ${catkin_EXPORTED_TARGETS}
   )
 
-target_link_libraries(color_selector
+target_link_libraries(UvdarCore_color_selector
   debug
   ${OpenCV_LIBRARIES}
   ${catkin_LIBRARIES}
@@ -262,70 +262,70 @@ target_link_libraries(color_selector
 
 ## | --------------------- uvdar detector --------------------- |
 
-add_library(UVDARDetector
+add_library(UvdarCore_UVDARDetector
   src/detector.cpp
   )
 
-add_dependencies(UVDARDetector
+add_dependencies(UvdarCore_UVDARDetector
   ${${PROJECT_NAME}_EXPORTED_TARGETS}
   ${catkin_EXPORTED_TARGETS}
   )
 
-target_link_libraries(UVDARDetector
+target_link_libraries(UvdarCore_UVDARDetector
   ${catkin_LIBRARIES}
   ${OpenCV_LIBRARIES}
-  uv_led_detect_fast
+  UvdarCore_uv_led_detect_fast
   )
 
-## | ------------------------ unscented ----------------------- |
+## | ------------------------ UvdarCore_unscented ----------------------- |
 
-add_library(unscented
+add_library(UvdarCore_unscented
   include/unscented/unscented.cpp
   )
 
-add_dependencies(unscented
+add_dependencies(UvdarCore_unscented
   ${${PROJECT_NAME}_EXPORTED_TARGETS}
   ${catkin_EXPORTED_TARGETS}
   )
 
-target_link_libraries(unscented
+target_link_libraries(UvdarCore_unscented
   ${catkin_LIBRARIES}
   )
 
-## | --------------------------- p3p -------------------------- |
+## | --------------------------- UvdarCore_p3p -------------------------- |
 
-add_library(p3p
+add_library(UvdarCore_p3p
   include/p3p/P3p.cpp
   )
 
-add_dependencies(p3p
+add_dependencies(UvdarCore_p3p
   ${${PROJECT_NAME}_EXPORTED_TARGETS}
   ${catkin_EXPORTED_TARGETS}
   )
 
-target_link_libraries(p3p
+target_link_libraries(UvdarCore_p3p
   ${catkin_LIBRARIES}
   )
 
 ## | ------------------ uvdar blnk processor ------------------ |
 
-add_library(UVDARBlinkProcessor
+add_library(UvdarCore_UVDARBlinkProcessor
   src/blink_processor.cpp
   )
 
-add_dependencies(UVDARBlinkProcessor
+add_dependencies(UvdarCore_UVDARBlinkProcessor
   ${${PROJECT_NAME}_EXPORTED_TARGETS}
   ${catkin_EXPORTED_TARGETS}
   )
 
-target_link_libraries(UVDARBlinkProcessor
+target_link_libraries(UvdarCore_UVDARBlinkProcessor
   ${catkin_LIBRARIES}
   ${OpenCV_LIBRARIES}
-  ht4dbt
-  frequency_classifier
-  omta
-  extendedSearch
-  color_selector
+  UvdarCore_ht4dbt
+  UvdarCore_frequency_classifier
+  UvdarCore_omta
+  UvdarCore_extendedSearch
+  UvdarCore_color_selector
   )
 
 ## | --------------- uvdar pose calculator node --------------- |
@@ -343,11 +343,11 @@ target_link_libraries(uvdar_pose_calculator_node
   ${catkin_LIBRARIES}
   ${OpenCV_LIBRARIES}
   ${EIGEN3_LIBRARIES}
-  OCamCalib
-  unscented
-  p3p
-  color_selector
-  frequency_classifier
+  UvdarCore_OCamCalib
+  UvdarCore_unscented
+  UvdarCore_p3p
+  UvdarCore_color_selector
+  UvdarCore_frequency_classifier
   )
 
 ## | -------------------- uvdar filter node ------------------- |
@@ -369,20 +369,20 @@ target_link_libraries(uvdar_filter_node
 
 ## | ----------------- uvdar bluefox emulator ----------------- |
 
-add_library(UVDARBluefoxEmulator
+add_library(UvdarCore_UVDARBluefoxEmulator
   src/bluefox_emulator.cpp
   )
 
-add_dependencies(UVDARBluefoxEmulator
+add_dependencies(UvdarCore_UVDARBluefoxEmulator
   ${${PROJECT_NAME}_EXPORTED_TARGETS}
   ${catkin_EXPORTED_TARGETS}
   )
 
-target_link_libraries(UVDARBluefoxEmulator
+target_link_libraries(UvdarCore_UVDARBluefoxEmulator
   ${catkin_LIBRARIES}
   ${OpenCV_LIBRARIES}
   ${EIGEN3_LIBRARIES}
-  OCamCalib
+  UvdarCore_OCamCalib
   )
 
 ## | ---------------- uvdar mask generator node --------------- |
@@ -419,6 +419,38 @@ target_link_libraries(uvdar_led_manager_node
 
 ## | ---------------------- what is this? --------------------- |
 
-add_custom_target(headers
-  SOURCES ${HEADER_FILES} ${LAUNCHER_FILES} ${YAML_FILES}
+# add_custom_target(headers
+#   SOURCES ${HEADER_FILES} ${LAUNCHER_FILES} ${YAML_FILES}
+#   )
+
+## --------------------------------------------------------------
+## |                           Install                          |
+## --------------------------------------------------------------
+
+install(TARGETS ${LIBRARIES}
+  ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+  LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+  RUNTIME DESTINATION ${CATKIN_GLOBAL_BIN_DESTINATION}
+  )
+
+install(DIRECTORY msg srv
+  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
+  )
+
+install(DIRECTORY launch config rviz
+  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
+  )
+
+install(DIRECTORY scripts/
+  USE_SOURCE_PERMISSIONS
+  DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+  )
+
+install(DIRECTORY scripts
+  USE_SOURCE_PERMISSIONS
+  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
+  )
+
+install(FILES nodelets.xml
+  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
   )
