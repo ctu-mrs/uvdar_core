@@ -68,7 +68,7 @@ while true; do
                 ln -s $GIT_PATH/bluefox2 $workspace/src/bluefox2 
             fi
             cd $workspace
-            catkin build
+#            catkin build
             source $workspace/devel/setup.bash
 
         else 
@@ -86,11 +86,11 @@ while true; do
             #read n_cams
             if [[ $n_cams -eq 2 ]]; then
                 echo "Two cams selected!"
-                echo $'\e[1;32mPlease connect the left cam to NUC and UNPLUG the right cam! Then hit any key.\e[0m'
+                echo $'\e[1;32mPlease connect the left cam to NUC and UNPLUG the right cam! Wait approximately 5 sec. Then hit any key.\e[0m'
                 read -n 1 key
                 rosrun bluefox2 bluefox2_list_cameras 
                 id_left_cam=$(rosrun bluefox2 bluefox2_list_cameras | sed -n -E -e 's/.*Serial: ([0-9]+).*/\1/p')
-                echo -e $'\e[1;32m\nNow please connect the right cam to NUC and UNPLUG the left cam! Then hit any key.\e[0m'
+                echo -e $'\e[1;32m\nNow please connect the right cam to NUC and UNPLUG the left cam! Wait approximately 5 sec. Then hit any key.\e[0m'
                 read -n 1 key
                 id_right_cam=$(rosrun bluefox2 bluefox2_list_cameras | sed -n -E -e 's/.*Serial: ([0-9]+).*/\1/p')
                 echo -e "\n++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
@@ -105,14 +105,14 @@ while true; do
                 kill $pid_roslaunch && kill $pid_topic
             elif [[ $n_cams -eq 3 ]]; then
                 echo "Three cams selected!"
-                echo $'\e[1;32mPlease connect the left cam to NUC and UNPLUG the other two cams! Then hit any key.\e[0m'
+                echo $'\e[1;32mPlease connect the left cam to NUC and UNPLUG the other two cams! Wait approximately 5 sec. Then hit any key.\e[0m'
                 read -n 1 key
                 rosrun bluefox2 bluefox2_list_cameras
                 id_left_cam=$(rosrun bluefox2 bluefox2_list_cameras | sed -n -E -e 's/.*Serial: ([0-9]+).*/\1/p')
-                echo -e $'\e[1;32m\nNow please connect the right cam to NUC and UNPLUG the other two cams! Then hit any key.\e[0m'
+                echo -e $'\e[1;32m\nNow please connect the right cam to NUC and UNPLUG the other two cams! Wait approximately 5 sec. Then hit any key.\e[0m'
                 read -n 1 key
                 id_right_cam=$(rosrun bluefox2 bluefox2_list_cameras | sed -n -E -e 's/.*Serial: ([0-9]+).*/\1/p')
-                echo -e $'\e[1;32m\nFinally please connect the back cam to NUC and UNPLUG the other two cams! Then hit any key.\e[0m'
+                echo -e $'\e[1;32m\nFinally please connect the back cam to NUC and UNPLUG the other two cams! Wait approximately 5 sec. Then hit any key.\e[0m'
                 read -n 1 key
                 id_back_cam=$(rosrun bluefox2 bluefox2_list_cameras | sed -n -E -e 's/.*Serial: ([0-9]+).*/\1/p')
                 echo -e "\n++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
@@ -121,7 +121,7 @@ while true; do
                 echo "Back  cam ID: $id_back_cam" 
                 echo "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
                 # write to .bashrc and check camera functionlaity
-                echo "####################### Camera Calibration done #######################"
+                echo "####################### Camera Configuration done! #######################"
             else
                 echo "Only valid options: 2 or 3. retun.."; exit 1
             fi
@@ -133,11 +133,35 @@ while true; do
         if [[ $response_led =~ ^(y|Y)=$ ]]
         then 
             source $workspace/devel/setup.bash
-            roslaunch uvdar_core led_manager.launch &> ~/tmp_led_output.txt & pid_led_manager=$$ & sleep 5; rosservice call /$UAV_NAME/uvdar_led_manager_node/set_active 1
-            echo "hjerer"
-            echo "$pid_led_manager"
+            
+            echo "####################### LED Configuration #######################"
+            echo $'\e[1;32mWhich module is the UVDAR board connected to?\e[0m'
+            echo "Enter:"
+            echo "1 = /dev/MRS_MODULE1"
+            echo "2 = /dev/MRS_MODULE2"
+            echo "3 = /dev/MRS_MODULE3"
+            read -n 2 resp_module 
+            echo "Starting with LED initialization on:/dev/MRS_MODULE$resp_module... This will take about 20 seconds."
+            roslaunch uvdar_core led_manager.launch portname:=/dev/MRS_MODULE$resp_module &> ~/tmp_led_output.txt & 
+            pid_led_manager=$! 
+            sleep 5; rosservice call /$UAV_NAME/uvdar_led_manager_node/quick_start 0
+            sleep 2; rosservice call /$UAV_NAME/uvdar_led_manager_node/load_sequences
+            sleep 2; rosservice call /$UAV_NAME/uvdar_led_manager_node/select_sequences [0,1,2,3]
+            sleep 2; rosservice call /$UAV_NAME/uvdar_led_manager_node/set_frequency 1
+            sleep 5
+           
+            # kill the LED manager and the remove temporary file
+            kill -9 "$pid_led_manager"
+            rm ~/tmp_led_output.txt
+            echo "####################### LED Configuration done! #######################"
+            echo "Please verify that the LEDs are correctly wired!"
+            echo "Blinking frequency alignment:"
+            echo "Left front  = Constant on"
+            echo "Right front = slow blinking pattern"
+            echo "Left back   = moderate blinking pattern"
+            echo "Right back  = fastest blinking patter"
         else
-            echo "hello killing now script"
+            echo "Exiting script..."
         fi 
        
         exit 0
