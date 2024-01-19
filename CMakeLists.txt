@@ -44,6 +44,14 @@ set(LIBRARIES
   UvdarCore_UVDARBluefoxEmulator
   )
 
+set(EXECUTABLES
+  uvdar_rx_node
+  uvdar_tx_node
+  new_uvdar_rx_node
+  uvdar_led_manager_node
+  uvdar_filter_node
+  )
+
 find_package(catkin REQUIRED COMPONENTS
   ${CATKIN_DEPENDENCIES}
   )
@@ -431,6 +439,10 @@ install(TARGETS ${LIBRARIES}
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   RUNTIME DESTINATION ${CATKIN_GLOBAL_BIN_DESTINATION}
+  )
+
+install(TARGETS ${EXECUTABLES}
+  RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
   )
 
 install(DIRECTORY msg srv
