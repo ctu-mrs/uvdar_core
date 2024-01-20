@@ -50,6 +50,7 @@ set(EXECUTABLES
   new_uvdar_rx_node
   uvdar_led_manager_node
   uvdar_filter_node
+  uvdar_pose_calculator_node
   )
 
 find_package(catkin REQUIRED COMPONENTS
