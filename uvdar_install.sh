@@ -2,17 +2,41 @@
 
 set -e
 
-trap 'last_command=$current_command; current_command=$BASH_COMMAND' DEBUG
-trap 'echo "$0: \"${last_command}\" command failed with exit code $?"' ERR
 
+################### USER PARAMETER ################### 
 # default workspace location
 workspace=/home/$USER/workspace
 # default git folder
 GIT_PATH="/home/$USER/git"
 
+# temporary file names
+tmp_file_LED_launch="/tmp/led_manager.txt"
+
+#error handling 
+trap 'last_command=$current_command; current_command=$BASH_COMMAND' DEBUG
+trap 'echo "$0: \"${last_command}\" command failed with exit code $?"' ERR
+trap 'rm -f $tmp_file_LED_launch exit 1' SIGINT
+
+###### Some helper funcitons ######
+workspace_not_existent(){
+    echo $'\e[0;31m\nFolder does not exist!\e[0m'
+    echo "Please ensure you have the right workspace selected and the folder:" $'\e[0;33m'$workspace''$'\e[0;33m/src\e[0m' "exists."
+    exit 1
+}
+
+# extract ID for two bluefox cameras
+extract_id_two_cams(){
+    echo $'\e[1;32mPlease connect the left cam to NUC and UNPLUG the right cam! Wait approximately 5 sec. Then hit any key.\e[0m'
+    read -n 1 key
+    rosrun bluefox2 bluefox2_list_cameras 
+    id_left_cam=$(rosrun bluefox2 bluefox2_list_cameras | sed -n -E -e 's/.*Serial: ([0-9]+).*/\1/p')
+    echo -e $'\e[1;32m\nNow please connect the right cam to NUC and UNPLUG the left cam! Wait approximately 5 sec. Then hit any key.\e[0m'
+    read -n 1 key
+    id_right_cam=$(rosrun bluefox2 bluefox2_list_cameras | sed -n -E -e 's/.*Serial: ([0-9]+).*/\1/p')
+}
 
 
-echo "Cloning UVDAR repository:"
+echo "Cloning UVDAR repository into $GIT_PATH folder:"
 cd $GIT_PATH
 if [ -d "uvdar_core" ]; then
     echo "uvdar_core already cloned"
@@ -21,15 +45,15 @@ else
     sudo apt install libgbm-dev
 fi                                
 
-# build workspace
-if [ -d "$workspace" ]; then
-    if [ -d "$workspace/src/uvdar_core" ]; then echo "uvdar_core package already exists in workspace"
+# clone uvdar_core + symlink to workspace
+if [[ -d "$workspace/src" ]]
+then
+    if [ -d "$workspace/src/uvdar_core" ]; then echo "uvdar_core package already exists in workspace. Skipping..."
     else 
         ln -s $GIT_PATH/uvdar_core $workspace/src/uvdar_core
     fi
 else 
-    echo "Workspace at location: $workspace does not exist. Please ensure you select the right workspace or setup one at your wanted location"
-    exit 1
+    workspace_not_existent
 fi
 
 default=y
@@ -42,23 +66,20 @@ while true; do
         # Bluefox driver
         echo "Installing Bluefox drivers:"
         cd $GIT_PATH
-        if [ -d "camera_base" ]; then
-            echo "camera_base already cloned"
+        if [ -d "camera_base" ]; then echo "camera_base already cloned"
         else
             git clone https://github.com/ctu-mrs/camera_base.git
         fi
-        if [ -d "bluefox2" ]; then
-            echo "bluefox2 already cloned"
+        if [ -d "bluefox2" ]; then echo "bluefox2 already cloned"
         else 
             git clone https://github.com/ctu-mrs/bluefox2.git
             cd bluefox2/install
             sudo ./install.sh
         fi
         
-        cd /home/$USER
-
+        cd $workspace && cd ..
         # build workspace
-        if [ -d "$workspace" ]; then
+        if [ -d "$workspace/src" ]; then
             if [ -d "$workspace/src/camera_base" ]; then echo "camera_base package already exists in workspace"
             else 
                 ln -s $GIT_PATH/camera_base $workspace/src/camera_base 
@@ -72,8 +93,7 @@ while true; do
             source $workspace/devel/setup.bash
 
         else 
-            echo "Workspace at location: $workspace does not exist. Please ensure you select the right workspace or setup one at your wanted location"
-            exit 1
+            workspace_not_existent
         fi
 
         read -n 2 -p $'\e[1;32mDo you want to configure/test the cameras? [y/n]\e[0m\n' resp_cam
@@ -86,13 +106,7 @@ while true; do
             #read n_cams
             if [[ $n_cams -eq 2 ]]; then
                 echo "Two cams selected!"
-                echo $'\e[1;32mPlease connect the left cam to NUC and UNPLUG the right cam! Wait approximately 5 sec. Then hit any key.\e[0m'
-                read -n 1 key
-                rosrun bluefox2 bluefox2_list_cameras 
-                id_left_cam=$(rosrun bluefox2 bluefox2_list_cameras | sed -n -E -e 's/.*Serial: ([0-9]+).*/\1/p')
-                echo -e $'\e[1;32m\nNow please connect the right cam to NUC and UNPLUG the left cam! Wait approximately 5 sec. Then hit any key.\e[0m'
-                read -n 1 key
-                id_right_cam=$(rosrun bluefox2 bluefox2_list_cameras | sed -n -E -e 's/.*Serial: ([0-9]+).*/\1/p')
+                test_two_cams
                 echo -e "\n++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
                 echo "Left  cam ID: $id_left_cam"
                 echo "Right cam ID: $id_right_cam"
@@ -105,13 +119,7 @@ while true; do
                 kill $pid_roslaunch && kill $pid_topic
             elif [[ $n_cams -eq 3 ]]; then
                 echo "Three cams selected!"
-                echo $'\e[1;32mPlease connect the left cam to NUC and UNPLUG the other two cams! Wait approximately 5 sec. Then hit any key.\e[0m'
-                read -n 1 key
-                rosrun bluefox2 bluefox2_list_cameras
-                id_left_cam=$(rosrun bluefox2 bluefox2_list_cameras | sed -n -E -e 's/.*Serial: ([0-9]+).*/\1/p')
-                echo -e $'\e[1;32m\nNow please connect the right cam to NUC and UNPLUG the other two cams! Wait approximately 5 sec. Then hit any key.\e[0m'
-                read -n 1 key
-                id_right_cam=$(rosrun bluefox2 bluefox2_list_cameras | sed -n -E -e 's/.*Serial: ([0-9]+).*/\1/p')
+                test_two_cams
                 echo -e $'\e[1;32m\nFinally please connect the back cam to NUC and UNPLUG the other two cams! Wait approximately 5 sec. Then hit any key.\e[0m'
                 read -n 1 key
                 id_back_cam=$(rosrun bluefox2 bluefox2_list_cameras | sed -n -E -e 's/.*Serial: ([0-9]+).*/\1/p')
@@ -142,7 +150,7 @@ while true; do
             echo "3 = /dev/MRS_MODULE3"
             read -n 2 resp_module 
             echo "Starting with LED initialization on:/dev/MRS_MODULE$resp_module... This will take about 20 seconds."
-            roslaunch uvdar_core led_manager.launch portname:=/dev/MRS_MODULE$resp_module &> ~/tmp_led_output.txt & 
+            roslaunch uvdar_core led_manager.launch portname:=/dev/MRS_MODULE$resp_module &> $tmp_file_LED_launch & 
             pid_led_manager=$! 
             sleep 5; rosservice call /$UAV_NAME/uvdar_led_manager_node/quick_start 0
             sleep 2; rosservice call /$UAV_NAME/uvdar_led_manager_node/load_sequences
@@ -152,7 +160,7 @@ while true; do
            
             # kill the LED manager and the remove temporary file
             kill -9 "$pid_led_manager"
-            rm ~/tmp_led_output.txt
+            rm $tmp_file_LED_launch
             echo "####################### LED Configuration done! #######################"
             echo "Please verify that the LEDs are correctly wired!"
             echo "Blinking frequency alignment:"
