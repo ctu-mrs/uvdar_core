@@ -7,12 +7,14 @@ set -e
 workspace=/home/$USER/workspace
 # default git folder
 GIT_PATH="/home/$USER/git"
+# default exposure for bluefox cams
+EXPOSURE=1000
 ############################################################### 
 
 #error handling 
 trap 'last_command=$current_command; current_command=$BASH_COMMAND' DEBUG
 trap 'echo "$0: \"${last_command}\" command failed with exit code $?"' ERR
-trap 'rm -f $tmp_file_LED_launch && kill -9 $pid_led_manager  rm -f $tmp_file_cam_launch && kill -9 $pid_cam_launch exit 1' SIGINT
+trap 'rm -f $tmp_file_LED_launch && kill -9 $pid_led_manager && rm -f $tmp_file_cam_launch && kill -9 $pid_cam_launch exit 1' SIGINT
 
 # camera IDs
 id_left_cam=-1
@@ -43,22 +45,28 @@ extract_id_two_cams(){
 
 print_cam_ids_and_write_to_bash(){
 
+    #remove previous environment variables 
+    sed -i '/export BLUEFOX_UV_*/d' ~/.bashrc
+    
     echo -e "\n++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
     if [ $id_left_cam != -1 ]; then
         echo "Left  cam ID: $id_left_cam"
-        echo 'export BLUEFOX_UV_LEFT=$id_left_cam' >> ~/.bashrc
+        echo "export BLUEFOX_UV_LEFT=$id_left_cam" >> ~/.bashrc
+        echo "export BLUEFOX_UV_LEFT_EXPOSE_US=$EXPOSURE" >> ~/.bashrc
     else
         echo $'\e[0;33mCouldn\'t extract left cam ID! Please restart the camera configuration\e[0m'
     fi
     if [ $id_right_cam != -1 ]; then
         echo "Right cam ID: $id_right_cam"
-        echo 'export BLUEFOX_UV_RIGHT=$id_right_cam' >> ~/.bashrc
+        echo "export BLUEFOX_UV_RIGHT=$id_right_cam" >> ~/.bashrc
+        echo "export BLUEFOX_UV_RIGHT_EXPOSE_US=$EXPOSURE" >> ~/.bashrc
     else 
         echo $'\e[0;33mCouldn\'t extract right cam ID! Please restart the camera configuration\e[0m'
     fi
     if [ $id_back_cam != -1 ] && [ $n_cams == 3 ]; then
         echo "Back  cam ID: $id_back_cam" 
-        echo 'export BLUEFOX_UV_BACK=$id_back_cam' >> ~/.bashrc
+        echo "export BLUEFOX_UV_BACK=$id_back_cam" >> ~/.bashrc
+        echo "export BLUEFOX_UV_BACK_EXPOSE_US=$EXPOSURE" >> ~/.bashrc
     elif [ $id_back_cam == -1 ] && [ $n_cams == 3 ]; then
         echo $'\e[0;33mCouldn\'t extract back cam ID! Please restart the camera configuration\e[0m'
     fi
@@ -68,12 +76,12 @@ print_cam_ids_and_write_to_bash(){
 }
 
 test_cam(){
-    sleep 5 
-    echo "$1 camera output:"
+    sleep 2 
+    echo $'\e[1;34m\n'$1'' $'\e[1;34,mcamera output:\e[0m\n'
     rostopic hz "/$UAV_NAME/uvdar_bluefox/$1/image_raw" & 
     pid_hz_topic=$!
-    sleep 5; 
-    kill -9 pid_hz_topic
+    sleep 15; 
+    kill $pid_hz_topic
 }
 ###############################################################
 
@@ -126,10 +134,11 @@ if [ -d "$workspace/src" ]; then
     fi
     cd $workspace
     catkin build
-    source $workspace/devel/setup.bash
 else 
     workspace_not_existent
 fi
+
+source $workspace/devel/setup.bash
 
 #################### Camera Configuration #####################
 read -n 2 -p $'\e[1;32mDo you want to configure/test the cameras? [y/n]\e[0m\n' resp_cam
@@ -143,11 +152,19 @@ then
         echo "Two cams selected!"
         extract_id_two_cams
         print_cam_ids_and_write_to_bash
+        export BLUEFOX_UV_LEFT=$id_left_cam && export BLUEFOX_UV_RIGHT=$id_right_cam
+        export BLUEFOX_UV_LEFT_EXPOSE_US=$EXPOSURE && export BLUEFOX_UV_RIGHT_EXPOSE_US=$EXPOSURE
+        echo "Testing cameras. One moment please..."
         roslaunch uvdar_core camera_only_two_sided.launch &> $tmp_file_cam_launch &
+        sleep 10 
         pid_cam_launch=$! 
         test_cam left
         test_cam right
-        kill -9 $pid_cam_launch
+        
+        kill $pid_cam_launch
+        rm -f $tmp_file_cam_launch
+        
+        sleep 2
     elif [[ $n_cams -eq 3 ]]; then
         echo "Three cams selected!"
         extract_id_two_cams
@@ -156,15 +173,24 @@ then
         read -n 1 key
         id_back_cam=$(rosrun bluefox2 bluefox2_list_cameras | sed -n -E -e 's/.*Serial: ([0-9]+).*/\1/p')
         print_cam_ids_and_write_to_bash
+        export BLUEFOX_UV_LEFT=$id_left_cam && export BLUEFOX_UV_RIGHT=$id_right_cam && BLUEFOX_UV_BACK=$id_back_cam
+        export BLUEFOX_UV_LEFT_EXPOSE_US=$EXPOSURE && export BLUEFOX_UV_RIGHT_EXPOSE_US=$EXPOSURE && BLUEFOX_UV_BACK_EXPOSE_US=$EXPOSURE
+        echo "Testing cameras. One moment please..."
         roslaunch uvdar_core camera_only_three_sided.launch &> $tmp_file_cam_launch &
+        sleep 10 
         pid_cam_launch=$! 
         test_cam left
         test_cam right
         test_cam back
-        kill -9 $pid_cam_launch
+    
+        kill $pid_cam_launch
+        rm -f $tmp_file_cam_launch
+        
+        sleep 2
     else
         echo "Only valid options: 2 or 3. retun.."; exit 1
     fi
+    echo -e "##################### Camera Configuration done! ####################\n"
 fi 
 ###############################################################
 
