@@ -11,10 +11,17 @@ GIT_PATH="/home/$USER/git"
 EXPOSURE=1000
 ############################################################### 
 
+clean(){
+  rm -f $tmp_file_LED_launch 
+  kill -9 $pid_led_manager
+  rm -f $tmp_file_cam_launch 
+  kill -9 $pid_cam_launch 
+}
+
 #error handling 
 trap 'last_command=$current_command; current_command=$BASH_COMMAND' DEBUG
 trap 'echo "$0: \"${last_command}\" command failed with exit code $?"' ERR
-trap 'rm -f $tmp_file_LED_launch && kill -9 $pid_led_manager && rm -f $tmp_file_cam_launch && kill -9 $pid_cam_launch exit 1' SIGINT
+trap 'clean exit 1' SIGINT
 
 # camera IDs
 id_left_cam=-1
@@ -36,7 +43,6 @@ workspace_not_existent(){
 extract_id_two_cams(){
     echo $'\e[1;32mPlease connect the left cam to NUC and UNPLUG the right cam! Wait approximately 5 sec. Then hit any key.\e[0m'
     read -n 1 key
-    rosrun bluefox2 bluefox2_list_cameras 
     id_left_cam=$(rosrun bluefox2 bluefox2_list_cameras | sed -n -E -e 's/.*Serial: ([0-9]+).*/\1/p')
     echo -e $'\e[1;32m\nNow please connect the right cam to NUC and UNPLUG the left cam! Wait approximately 5 sec. Then hit any key.\e[0m'
     read -n 1 key
@@ -71,7 +77,7 @@ print_cam_ids_and_write_to_bash(){
         echo $'\e[0;33mCouldn\'t extract back cam ID! Please restart the camera configuration\e[0m'
     fi
     echo "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
-    echo $'\e[1;32mNow please connect all cameras. Then press any key..\e[0m'
+    echo $'\e[1;32mNow please connect all cameras. Wait approximately 5 seconds. Then press any key..\e[0m'
     read -n 1 key
 }
 
@@ -85,60 +91,72 @@ test_cam(){
 }
 ###############################################################
 
+build_workspace(){
+    ##################### UVDAR Installation ######################
+    echo "Cloning UVDAR repository into $GIT_PATH folder:"
+    cd $GIT_PATH
+    if [ -d "uvdar_core" ]; then
+        echo "uvdar_core already cloned"
+    else
+        git clone https://github.com/TimLakemann/uvdar_core.git
+        sudo apt install libgbm-dev
+    fi                                
 
-##################### UVDAR Installation ######################
-echo "Cloning UVDAR repository into $GIT_PATH folder:"
-cd $GIT_PATH
-if [ -d "uvdar_core" ]; then
-    echo "uvdar_core already cloned"
-else
-    git clone https://github.com/TimLakemann/uvdar_core.git
-    sudo apt install libgbm-dev
-fi                                
+    if [[ -d "$workspace/src" ]]
+    then
+        if [ -d "$workspace/src/uvdar_core" ]; then echo "uvdar_core package already exists in workspace. Skipping..."
+        else 
+            ln -s $GIT_PATH/uvdar_core $workspace/src/uvdar_core
+        fi
+    else 
+        workspace_not_existent
+    fi
 
-if [[ -d "$workspace/src" ]]
+    # Bluefox driver
+    echo "Installing Bluefox drivers:"
+    cd $GIT_PATH
+    if [ -d "camera_base" ]; then echo "camera_base already cloned"
+    else
+        git clone https://github.com/ctu-mrs/camera_base.git
+    fi
+    if [ -d "bluefox2" ]; then echo "bluefox2 already cloned"
+    else 
+        git clone https://github.com/ctu-mrs/bluefox2.git
+        cd bluefox2/install
+        sudo ./install.sh
+    fi
+
+    #cd $workspace && cd ..
+    # build workspace
+    if [ -d "$workspace/src" ]; then
+        if [ -d "$workspace/src/camera_base" ]; then echo "camera_base package already exists in workspace"
+        else 
+            ln -s $GIT_PATH/camera_base $workspace/src/camera_base 
+        fi
+        if [ -d "$workspace/src/bluefox2" ]; then echo "bluefox2 package already exists in workspace"
+        else 
+            ln -s $GIT_PATH/bluefox2 $workspace/src/bluefox2 
+        fi
+        cd $workspace
+        catkin clean -y
+        catkin build
+    else 
+        workspace_not_existent
+    fi
+
+    source $workspace/devel/setup.bash
+}
+
+
+echo "UVDAR Configuration script"
+read -n 2 -p $'\e[1;32mDo you want to (re)-build the workspace? [y/n]\n\e[0;33m[Hint:] When you call this script for the first time, please enter y!\n\e[0m'  resp_ws
+
+response_ws=`echo $resp_ws | sed -r 's/(.*)$/\1=/'`
+if [[ $response_ws =~ ^(y|Y)=$ ]]
 then
-    if [ -d "$workspace/src/uvdar_core" ]; then echo "uvdar_core package already exists in workspace. Skipping..."
-    else 
-        ln -s $GIT_PATH/uvdar_core $workspace/src/uvdar_core
-    fi
-else 
-    workspace_not_existent
-fi
-###############################################################
-
-# Bluefox driver
-echo "Installing Bluefox drivers:"
-cd $GIT_PATH
-if [ -d "camera_base" ]; then echo "camera_base already cloned"
-else
-    git clone https://github.com/ctu-mrs/camera_base.git
-fi
-if [ -d "bluefox2" ]; then echo "bluefox2 already cloned"
-else 
-    git clone https://github.com/ctu-mrs/bluefox2.git
-    cd bluefox2/install
-    sudo ./install.sh
+    build_workspace
 fi
 
-cd $workspace && cd ..
-# build workspace
-if [ -d "$workspace/src" ]; then
-    if [ -d "$workspace/src/camera_base" ]; then echo "camera_base package already exists in workspace"
-    else 
-        ln -s $GIT_PATH/camera_base $workspace/src/camera_base 
-    fi
-    if [ -d "$workspace/src/bluefox2" ]; then echo "bluefox2 package already exists in workspace"
-    else 
-        ln -s $GIT_PATH/bluefox2 $workspace/src/bluefox2 
-    fi
-    cd $workspace
-    catkin build
-else 
-    workspace_not_existent
-fi
-
-source $workspace/devel/setup.bash
 
 #################### Camera Configuration #####################
 read -n 2 -p $'\e[1;32mDo you want to configure/test the cameras? [y/n]\e[0m\n' resp_cam
@@ -152,10 +170,8 @@ then
         echo "Two cams selected!"
         extract_id_two_cams
         print_cam_ids_and_write_to_bash
-        export BLUEFOX_UV_LEFT=$id_left_cam && export BLUEFOX_UV_RIGHT=$id_right_cam
-        export BLUEFOX_UV_LEFT_EXPOSE_US=$EXPOSURE && export BLUEFOX_UV_RIGHT_EXPOSE_US=$EXPOSURE
         echo "Testing cameras. One moment please..."
-        roslaunch uvdar_core camera_only_two_sided.launch &> $tmp_file_cam_launch &
+        roslaunch uvdar_core camera_only_two_sided.launch left:=$id_left_cam right:=$id_right_cam expose_us_left:=$EXPOSURE expose_us_right:=$EXPOSURE &> $tmp_file_cam_launch &
         sleep 10 
         pid_cam_launch=$! 
         test_cam left
@@ -177,6 +193,7 @@ then
         export BLUEFOX_UV_LEFT_EXPOSE_US=$EXPOSURE && export BLUEFOX_UV_RIGHT_EXPOSE_US=$EXPOSURE && BLUEFOX_UV_BACK_EXPOSE_US=$EXPOSURE
         echo "Testing cameras. One moment please..."
         roslaunch uvdar_core camera_only_three_sided.launch &> $tmp_file_cam_launch &
+        roslaunch uvdar_core camera_only_three_sided.launch left:=$id_left_cam right:=$id_right_cam back:=$id_back_cam expose_us_left:=$EXPOSURE expose_us_right:=$EXPOSURE expose_us_back:=$EXPOSURE &> $tmp_file_cam_launch &
         sleep 10 
         pid_cam_launch=$! 
         test_cam left
