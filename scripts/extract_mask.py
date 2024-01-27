@@ -12,6 +12,8 @@ import subprocess
 from colorama import Fore, Back, Style
 import time
 import re
+import signal
+import sys
 
 class ImageSubscriber:
     def __init__(self, _camera_position, _bluefox_id, _mrs_id, _uav_name):
@@ -134,7 +136,13 @@ class ImageSubscriber:
                 break
 
 
+def signal_handler(sig, frame):
+    os.system("rm -f tmp_launch.txt")
+    sys.exit(0)
+
 if __name__ == '__main__':
+
+    signal.signal(signal.SIGINT, signal_handler)
 
     UAV_NAME="uav1" # this value is mostly for intern use -> you don't have to change it to your actual UAV name
     BINARIZATION_THRESHOLD = 120
