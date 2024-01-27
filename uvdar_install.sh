@@ -112,7 +112,6 @@ build_workspace(){
         workspace_not_existent
     fi
 
-    # Bluefox driver
     echo "Installing Bluefox drivers:"
     cd $GIT_PATH
     if [ -d "camera_base" ]; then echo "camera_base already cloned"
@@ -126,8 +125,6 @@ build_workspace(){
         sudo ./install.sh
     fi
 
-    #cd $workspace && cd ..
-    # build workspace
     if [ -d "$workspace/src" ]; then
         if [ -d "$workspace/src/camera_base" ]; then echo "camera_base package already exists in workspace"
         else 
@@ -147,15 +144,27 @@ build_workspace(){
     source $workspace/devel/setup.bash
 }
 
+echo ""
+echo $'\e[0;35m#######################################################################'
+echo "##################### UVDAR Configuration script ######################"
+echo $'#######################################################################\n\e[0m'
 
-echo "UVDAR Configuration script"
-read -n 2 -p $'\e[1;32mDo you want to (re)-build the workspace? [y/n]\n\e[0;33m[Hint:] When you call this script for the first time, please enter y!\n\e[0m'  resp_ws
 
+###################### Build Workspace ########################
+read -n 2 -p $'\e[1;32mDo you want to (re)-build the workspace? [y/n]\n\e[0;33m[Hint:] When calling this script for the first time, please enter y!\n\e[0m'  resp_ws
 response_ws=`echo $resp_ws | sed -r 's/(.*)$/\1=/'`
 if [[ $response_ws =~ ^(y|Y)=$ ]]
 then
     build_workspace
 fi
+###############################################################
+
+
+read -n 4 -p $'\e[1;32mPlease enter the MRS-ID [e.g. X01, X02, X13..]. Then hit enter.\n\e[0m'  resp_MRS_ID
+echo "Adding MRS-ID to bashrc..."
+#remove previous environment variables
+sed -i '/export MRS_ID=*/d' ~/.bashrc
+echo "export MRS_ID=$resp_MRS_ID" >> ~/.bashrc
 
 
 #################### Camera Configuration #####################
@@ -189,8 +198,6 @@ then
         read -n 1 key
         id_back_cam=$(rosrun bluefox2 bluefox2_list_cameras | sed -n -E -e 's/.*Serial: ([0-9]+).*/\1/p')
         print_cam_ids_and_write_to_bash
-        export BLUEFOX_UV_LEFT=$id_left_cam && export BLUEFOX_UV_RIGHT=$id_right_cam && BLUEFOX_UV_BACK=$id_back_cam
-        export BLUEFOX_UV_LEFT_EXPOSE_US=$EXPOSURE && export BLUEFOX_UV_RIGHT_EXPOSE_US=$EXPOSURE && BLUEFOX_UV_BACK_EXPOSE_US=$EXPOSURE
         echo "Testing cameras. One moment please..."
         roslaunch uvdar_core camera_only_three_sided.launch &> $tmp_file_cam_launch &
         roslaunch uvdar_core camera_only_three_sided.launch left:=$id_left_cam right:=$id_right_cam back:=$id_back_cam expose_us_left:=$EXPOSURE expose_us_right:=$EXPOSURE expose_us_back:=$EXPOSURE &> $tmp_file_cam_launch &
@@ -234,16 +241,12 @@ if [[ $response_led =~ ^(y|Y)=$ ]]; then
     sleep 2; rosservice call /$UAV_NAME/uvdar_led_manager_node/set_frequency 1
     sleep 5
    
-    # kill the LED manager and the remove temporary file
+    # kill the LED manager and remove temporary file
     kill -9 "$pid_led_manager"
     rm $tmp_file_LED_launch
-    echo "####################### LED Configuration done! #######################"
-    echo "Please verify that the LEDs are correctly wired!"
-    echo "Blinking frequency alignment:"
-    echo "Left front  = Constant on"
-    echo "Right front = Slow blinking pattern"
-    echo "Left back   = Moderate blinking pattern"
-    echo "Right back  = Fastest blinking patter"
+    echo "##################### LED Configuration done! ###################"
+    echo $'\e[1;32mPlease verify that the LEDs are correctly wired!\e[0m'
+    echo "Blinking Pattern: Clockwise blinking circle starting at the left front arm!"
 else
     echo "OK. Exiting script..."
 fi 
