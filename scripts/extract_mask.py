@@ -30,6 +30,7 @@ class ImageSubscriber:
         self.camera_position = _camera_position
         self.bluefox_id = _bluefox_id
         self.mrs_id = _mrs_id
+        self.uav_name = _uav_name
         self.lock = threading.Lock()
         
     def image_callback(self, data):
@@ -47,6 +48,8 @@ class ImageSubscriber:
         if self.mask_img is not None:
             cv2.imwrite(filename, self.mask_img)
             rospy.loginfo("Image saved with the name: " + filename)
+            print("You can move the file to your UAV with the following command:")
+            print("scp " + filename + " mrs@" + self.uav_name + ":/opt/ros/noetic/share/mrs_uav_deployment/config/uvdar_calibrations/masks/")
         else:
             rospy.logwarn("No mask image received yet")
 
@@ -144,15 +147,21 @@ if __name__ == '__main__':
 
     signal.signal(signal.SIGINT, signal_handler)
 
-    UAV_NAME="uav1" # this value is mostly for intern use -> you don't have to change it to your actual UAV name
     BINARIZATION_THRESHOLD = 120
     BORDER_THICKNESS = 50 # [pixel] - change value, if mask output is not as you like. smaller-> finer edges / larger -> bigger mask
    
     print("\n++++++++++++++++++++++++++++++++++++++++++++++\n")
     print("Automated Mask Generation Script")
-    print("Please call this script for each camera individually!")
-    print(Fore.BLUE + '\nPlease enter the \'MRS-ID\' of the UAV (e.g X12,X13):'+ Fore.GREEN)
+    print("++++++++++++++++++++++++++++++++++++++++++++++\n")
+    
+    print("Please call this script for each camera of the UAV individually and only with a UI! Otherwise you cannot verify the quality of the mask generation!")
+
+    print(Fore.BLUE + '\nPlease enter the \'MRS-ID\' of the UAV (e.g X02,X13):'+ Fore.GREEN)
     mrs_id=input() 
+    
+    print(Fore.BLUE + '\nPlease enter the \'UAV NAME\' of the UAV (e.g UAV1,UAV37):'+ Fore.GREEN)
+    uav_name=input() 
+    
     print(Fore.BLUE + '\nPlease enter for which camera you want to create the mask:') 
     print(Fore.BLUE + 'Enter: \n1 = LEFT camera \n2 = RIGHT camera \n3 = BACK camera')
     print(Fore.GREEN)
@@ -179,12 +188,12 @@ if __name__ == '__main__':
     res = list(map(int, temp))
     bluefox_id = res[2]
     os.system("rm -f tmp_cam_id.txt")
-    start_camera_cmd = "roslaunch uvdar_core camera_only.launch device:=" + str(bluefox_id) + " aec:=false expose_us:=100000 gain_db:=200 uav_name:=" + str(UAV_NAME) + " > tmp_launch.txt 2>&1"
+    start_camera_cmd = "roslaunch uvdar_core camera_only.launch device:=" + str(bluefox_id) + " aec:=false expose_us:=100000 gain_db:=200 uav_name:=" + str(uav_name) + " > tmp_launch.txt 2>&1"
     camera_process = subprocess.Popen([start_camera_cmd], shell=True)
 
     time.sleep(3)
 
-    image_subscriber = ImageSubscriber(cam_position, bluefox_id, mrs_id, UAV_NAME)
+    image_subscriber = ImageSubscriber(cam_position, bluefox_id, mrs_id, uav_name)
 
     print("As soon as the Image Stream opens: Please place the UV-Calibration pattern above the UAV to light up the image and press \"s\" to create a mask")
 
