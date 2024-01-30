@@ -48,7 +48,9 @@ windows:
       layout: tiled
       panes:
         - export UAV_NAME=uav1; waitForHw; roslaunch mrs_uav_autostart automatic_start.launch
+        - 'export UAV_NAME=uav1; waitForControl; rosservice call /$UAV_NAME/hw_api/arming 1; sleep 7; rosservice call /$UAV_NAME/hw_api/offboard'
         - export UAV_NAME=uav2; waitForHw; roslaunch mrs_uav_autostart automatic_start.launch
+        - 'export UAV_NAME=uav2; waitForControl; sleep 1; rosservice call /$UAV_NAME/hw_api/arming 1; sleep 7; rosservice call /$UAV_NAME/hw_api/offboard'
   - uv_observer:
         layout: even-vertical
         panes:
