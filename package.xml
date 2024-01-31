@@ -21,6 +21,7 @@
   <depend>roscpp</depend>
   <depend>sensor_msgs</depend>
   <depend>std_msgs</depend>
+  <depend>libgbm-dev</depend>
 
   <export>
     <nodelet plugin="${prefix}/nodelets.xml" />
