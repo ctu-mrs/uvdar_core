@@ -92,7 +92,6 @@ test_cam(){
 ###############################################################
 
 build_workspace(){
-    ##################### UVDAR Installation ######################
     echo "Cloning UVDAR repository into $GIT_PATH folder:"
     cd $GIT_PATH
     if [ -d "uvdar_core" ]; then
