@@ -51,7 +51,7 @@
   <arg name="sequence_file" default="$(find uvdar_core)/config/selected.txt"/>
 
     
-  <arg name="blink_throttle_rate" default="1"/>
+  <arg name="blink_throttle_rate" default="10"/>
 
   <arg name="max_px_shift_y" default="3"/>
   <arg name="max_px_shift_x" default="3"/>
@@ -154,10 +154,11 @@
 
       <param name="uav_name" type = "string" value="$(arg uav_name)"/>
       <param name="debug"		type="bool" value="$(arg debug)"/> 
-      <param name="gui"             type="bool" value="$(arg gui)"/>
+      <!-- <param name="gui"             type="bool" value="$(arg gui)"/> -->
       
       <!-- Changeable for each nodelet independently. - no arguments! -->
-      <param name="publish_visualization"             type="bool" value="false"/>
+      <!-- <param name="publish_visualization"             type="bool" value="false"/> -->
+      <param name="publish_visualization"             type="bool" value="true"/>
       <param name="use_camera_for_visualization"         type="bool" value="true"/>
       <param name="visualization_rate"         type="double" value="2"/>
 
