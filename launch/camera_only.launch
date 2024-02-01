@@ -14,7 +14,7 @@
   <arg name="device" default="$(optenv BLUEFOX_UV)"/>
   <arg name="camera_name" default="mv_$(arg device)"/>
 
-  <!-- <arg name="calibrations_folder" default="$(find mrs_uav_general)/config/uvdar_calibrations"/> -->
+  <!-- <arg name="calibrations_folder" default="$(find mrs_uav_deployment)/config/uvdar_calibrations"/> -->
 
   <arg name="rate" default="60"/>
   <arg name="camera" default="$(arg camera_name)"/>

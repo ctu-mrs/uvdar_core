@@ -1,0 +1,169 @@
+<launch>
+  <arg name="uav_name" default="$(env UAV_NAME)"/>
+  <arg name="mrs_id" default="$(env MRS_ID)"/>
+
+  <arg name="standalone" default="false"/>
+
+  <arg unless="$(arg standalone)" name="nodelet" value="load"/>
+  <arg     if="$(arg standalone)" name="nodelet" value="standalone"/>
+  <arg unless="$(arg standalone)" name="nodelet_manager" value="$(arg uav_name)_uvdar_nodelet_manager"/>
+  <arg     if="$(arg standalone)" name="nodelet_manager" value=""/>
+
+
+  <arg name="debug" default="false"/>
+
+  <!-- Basler camera settings: -->
+
+  <arg name="BASLER_LEFT_ID" default="$(env BASLER_UV_LEFT)" />
+  <arg name="BASLER_RIGHT_ID" default="$(env BASLER_UV_RIGHT)" />
+  <arg name="BASLER_BACK_ID" default="$(env BASLER_UV_BACK)" />
+
+
+  <arg name="camera_name_left" default="basler_left" />
+  <arg name="camera_name_right" default="basler_right" />
+  <arg name="camera_name_back" default="basler_back" />
+
+  <arg name="expose_us_left" default="$(env BASLER_UV_LEFT_EXPOSE_US)"/>
+  <arg name="expose_us_right" default="$(env BASLER_UV_RIGHT_EXPOSE_US)"/>
+  <arg name="expose_us_back" default="$(env BASLER_UV_BACK_EXPOSE_US)"/>
+  
+  <arg name="camera_config_file" default="$(find uvdar_core)/config/camera_config/basler_grayscale.yaml" />
+
+  <arg name="calibrations_folder" default="$(find mrs_uav_general)/config/uvdar_calibrations"/>
+
+  <arg name="FRAME_RATE" default="120" />
+
+    
+  <!-- Point detector settings: -->
+  <arg name="threshold" default="50"/>
+  
+  <!-- Blink processor settings: -->
+
+  <arg name="blink_process_rate" default="10"/>
+
+  <arg name="accumulator_length"         default="14"/>
+  <arg name="pitch_steps"         default="16"/>
+  <arg name="yaw_steps"         default="16"/>
+  <arg name="max_pixel_shift"         default="4"/>
+
+
+  <arg name="visual_debug" default="false"/>
+  <!-- <arg name="gui" default="true"/> -->
+  <arg name="gui" default="false"/>
+  <arg name="publish_visualization" default="true"/>
+  <arg name="visualization_rate" default="2"/>
+
+
+  <arg name="id1" value="0"/>
+  <arg name="id2" value="1"/>
+  <arg name="id3" value="2"/>
+  <arg name="id4" value="3"/>
+  <arg name="id5" value="4"/>
+  <arg name="id6" value="5"/>
+  <arg name="id7" value="6"/>
+  <arg name="id8" value="7"/>
+  <arg name="id9" value="8"/>
+  <arg name="id10" value="9"/>
+  <arg name="id11" value="10"/>
+  <arg name="id12" value="11"/>
+  <arg name="id13" value="12"/>
+  <arg name="id14" value="13"/>
+  <arg name="id15" value="14"/>
+  <arg name="id16" value="15"/>
+  <arg name="id17" value="16"/>
+  <arg name="id18" value="17"/>
+  <arg name="id19" value="18"/>
+  <arg name="id20" value="19"/>
+  <arg name="id21" value="20"/>
+
+  <arg name="sequence_file" default="$(find uvdar_core)/config/selected.txt"/>
+
+
+  <!-- Model settings: -->
+
+  <arg name="use_masks" default="true"/>
+  <!-- <arg name="use_masks" default="false"/> -->
+  <arg name="model_file" default="$(find uvdar_core)/config/models/quadrotor_foursided_px4_motor_aligned.txt"/>
+  <arg name="beacon" default="false"/>
+
+
+  <node
+    name="uvcam_left_tf_$(arg uav_name)"
+    pkg="tf2_ros"
+    type="static_transform_publisher"
+    args="0.03  0.10 0.06 -0.3490658504 0.0 -1.57079632679 $(arg uav_name)/fcu $(arg uav_name)/uvcam_left"/>
+
+  <node
+    name="uvcam_right_tf_$(arg uav_name)"
+    pkg="tf2_ros"
+    type="static_transform_publisher"
+    args="0.03 -0.10 0.06 -2.792526803 0.0 -1.57079632679 $(arg uav_name)/fcu $(arg uav_name)/uvcam_right"/>
+
+  <node
+    name="uvcam_back_tf_$(arg uav_name)"
+    pkg="tf2_ros"
+    type="static_transform_publisher"
+    args="-0.10 0.0 -0.02 0.0 1.57079632679 3.14159265 $(arg uav_name)/fcu $(arg uav_name)/uvcam_back"/>
+  <!-- ideal angle: 1.221730476 - pi/2 -->
+
+<!-- OR -->
+  <group ns="$(arg uav_name)">
+  
+      <arg name="respawn" default="false" />
+      <arg name="startup_user_set" default="CurrentSetting" />
+      <arg name="enable_status_publisher" default="true" />
+      
+      <arg name="nodelet_left" value="pylon_camera/PylonCameraNodelet" />
+      <arg name="nodelet_load_left" value="load $(arg nodelet_left) $(arg nodelet_manager)"/>
+
+      <arg name="nodelet_right" value="pylon_camera/PylonCameraNodelet" />
+      <arg name="nodelet_load_right" value="load $(arg nodelet_right) $(arg nodelet_manager)"/>
+
+      <arg name="nodelet_back" value="pylon_camera/PylonCameraNodelet" />
+      <arg name="nodelet_load_back" value="load $(arg nodelet_back) $(arg nodelet_manager)"/>
+
+    <!-- <node pkg="nodelet" type="nodelet" name="$(arg nodelet_manager)" args="manager" output="screen" launch-prefix="debug_roslaunch"> -->
+    <node pkg="nodelet" type="nodelet" name="$(arg nodelet_manager)" args="manager" output="screen">
+      <param name="num_worker_threads" value="8" />
+    </node>
+
+
+      <node pkg="nodelet" type="nodelet" name="$(arg camera_name_left)" args="$(arg nodelet_load_left)" output="screen" launch-prefix="bash -c 'sleep 5; $0 $@'; " respawn="$(arg respawn)" >
+        <rosparam command="load" file="$(arg camera_config_file)" />
+        <param name="camera_frame" value="$(arg uav_name)/$(arg camera_name_left)_optical"/>
+        <param name="frame_rate" type="double" value="$(arg FRAME_RATE)"/>
+        <param name="device_user_id" type="string" value="$(arg BASLER_LEFT_ID)"/>
+        <param name="startup_user_set" value="$(arg startup_user_set)"/>
+        <param name="enable_status_publisher" value="$(arg enable_status_publisher)"/>
+        <param name="enable_current_params_publisher" value="false"/>
+        <param name="exposure" type="double" value="$(arg expose_us_left)"/>
+
+      </node>
+
+      <node pkg="nodelet" type="nodelet" name="$(arg camera_name_right)" args="$(arg nodelet_load_right)" output="screen" launch-prefix="bash -c 'sleep 6; $0 $@'; " respawn="$(arg respawn)" >
+        <rosparam command="load" file="$(arg camera_config_file)" />
+        <param name="camera_frame" value="$(arg uav_name)/$(arg camera_name_right)_optical"/>
+        <param name="frame_rate" type="double" value="$(arg FRAME_RATE)"/>
+        <param name="device_user_id" type="string" value="$(arg BASLER_RIGHT_ID)"/>
+        <param name="startup_user_set" value="$(arg startup_user_set)"/>
+        <param name="enable_status_publisher" value="$(arg enable_status_publisher)"/>
+        <param name="enable_current_params_publisher" value="false"/>
+        <param name="exposure" type="double" value="$(arg expose_us_right)"/>
+      </node>
+
+      <node pkg="nodelet" type="nodelet" name="$(arg camera_name_back)" args="$(arg nodelet_load_back)" output="screen" launch-prefix="bash -c 'sleep 7; $0 $@'; " respawn="$(arg respawn)" >
+        <rosparam command="load" file="$(arg camera_config_file)" />
+        <param name="camera_frame" value="$(arg uav_name)/$(arg camera_name_back)_optical"/>
+        <param name="frame_rate" type="double" value="$(arg FRAME_RATE)"/>
+        <param name="device_user_id" type="string" value="$(arg BASLER_BACK_ID)"/>
+        <param name="startup_user_set" value="$(arg startup_user_set)"/>
+        <param name="enable_status_publisher" value="$(arg enable_status_publisher)"/>
+        <param name="enable_current_params_publisher" value="false"/>
+        <param name="exposure" type="double" value="$(arg expose_us_back)"/>
+      </node>
+
+
+  </group>
+
+
+</launch>

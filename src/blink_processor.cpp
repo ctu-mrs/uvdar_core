@@ -1,8 +1,10 @@
+#undef Success
 #include <ros/ros.h>
 #include <nodelet/nodelet.h>
 #include <cv_bridge/cv_bridge.h>
-#include <omta/omta.h>
-#include <ht4dbt/ht4d.h>
+#include <ht4dbt/ht4d_cpu.h>
+/* #include <ht4dbt/ht4d_gpu.h> */
+#include <ami/ami.h>
 #include <color_selector/color_selector.h>
 #include <uvdar_core/ImagePointsWithFloatStamped.h>
 #include <std_msgs/Float32.h>
@@ -10,14 +12,18 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <mrs_lib/param_loader.h>
 #include <mrs_lib/image_publisher.h>
-#include <uvdar_core/omtaDataForLogging.h>
-#include <uvdar_core/omtaSeqVariables.h>
-#include <uvdar_core/omtaAllSequences.h>
-#include <uvdar_core/omtaSeqPoint.h>
+#include <uvdar_core/AMIDataForLogging.h>
+#include <uvdar_core/AMISeqVariables.h>
+#include <uvdar_core/AMIAllSequences.h>
+#include <uvdar_core/AMISeqPoint.h>
 #include <mutex>
 #include <thread>
 #include <atomic>
 #include <fstream>
+
+
+#include <chrono>
+using namespace std::chrono;
 
 namespace uvdar{
 
@@ -62,19 +68,19 @@ namespace uvdar{
       bool parseSequenceFile(const std::string &);
       
       /**
-       * @brief setup OMTA data structure 
+       * @brief setup AMI data structure 
        * 
        * @return true if sequences could be set
        * @return false if sequences couln't be set
        */
-      bool initOMTA();
+      bool initAMI();
       void init4DHT();
 
       void setupCallbackAndPublisher();
 
       /**
       * @brief Callback to insert new image points to:
-      * - the OMTA and processes+publishes receiving points
+      * - the AMI and processes+publishes receiving points
       * - if 4DHT activated: the accumulator of the HT4D process
       *
       * @param msg The input message with image points
@@ -100,7 +106,7 @@ namespace uvdar{
       /**
       * @brief Thread function: 
       * - 4DHT: processes the accumulated image points and periodically retrieves estimated origin points and frequency estimates of blinking markers
-      * - OMTA: Only used for visualization
+      * - AMI: Only used for visualization
       * 
       * @param image_index Index of the camera producing the image
       */
@@ -135,13 +141,19 @@ namespace uvdar{
       
                   
       int image_sizes_received_ = 0;
-      std::vector<std::shared_ptr<OMTA>> omta_;
+      std::vector<std::shared_ptr<AMI>> ami_;
       
       std::vector<std::vector<bool>> sequences_;
       std::vector<ros::Publisher> pub_blinkers_seen_;
-      std::vector<ros::Publisher> pub_OMTA_logging_;
-      std::vector<ros::Publisher> pub_OMTA_all_seq_info;
+      std::vector<ros::Publisher> pub_ami_logging_;
+      std::vector<ros::Publisher> pub_AMI_all_seq_info;
       std::vector<ros::Publisher> pub_estimated_framerate_;
+
+      std::vector<ros::Publisher> pub_AMI_fill_;
+      std::vector<ros::Publisher> pub_AMI_result_;
+
+      std::vector<ros::Publisher> pub_4dht_fill_;
+      std::vector<ros::Publisher> pub_4dht_result_;
 
       using points_seen_callback_t = boost::function<void (const uvdar_core::ImagePointsWithFloatStampedConstPtr&)>;
       std::vector<points_seen_callback_t> cals_points_seen_;
@@ -168,7 +180,7 @@ namespace uvdar{
       std::vector<std::vector<cv::Point>> sun_points_;
       std::mutex mutex_sun;
       
-      ros::Time last_publish_omta_logging_;
+      ros::Time last_publish_ami_logging_;
 
       // dynamic loaded params
       std::string _uav_name_;   
@@ -180,14 +192,21 @@ namespace uvdar{
       bool        _use_camera_for_visualization_;
       std::vector<std::string> _blinkers_seen_topics_;
       std::vector<std::string> _estimated_framerate_topics_;
+      bool _pub_tracking_stats_;
       std::vector<std::string> _points_seen_topics_;
-      std::vector<std::string> _omta_logging_topics_;
-      std::vector<std::string> _omta_all_seq_info_topics;
+      std::vector<std::string> _ami_logging_topics_;
+      std::vector<std::string> _ami_all_seq_info_topics;
+      
+      std::vector<std::string> _runtime_AMI_fill_;
+      std::vector<std::string> _runtime_AMI_result_;
+      std::vector<std::string> _runtime_4dht_fill_;
+      std::vector<std::string> _runtime_4dht_result_;
+
       bool _manchester_code_;
       bool _use_4DHT_;
       std::string _sequence_file;
 
-      // params for OMTA
+      // params for AMI
       cv::Point _max_px_shift_;
       int _max_zeros_consecutive_;
       int _max_ones_consecutive_;
@@ -197,7 +216,6 @@ namespace uvdar{
       float _decay_factor_; 
       double _conf_probab_percent_;
       int _allowed_BER_per_seq_;
-      double _std_threshold_poly_reg_;
       int _loaded_var_pub_rate_; 
       double _draw_predict_window_sec_;
 
@@ -211,7 +229,7 @@ namespace uvdar{
       bool _visual_debug_;
       int _process_rate_;
 
-      // for extracting the received sequences from the OMTA/4DHT
+      // for extracting the received sequences from the AMI/4DHT
       struct BlinkData{
         ros::Time                     last_sample_time;
         ros::Time                     last_sample_time_diagnostic;
@@ -228,8 +246,8 @@ namespace uvdar{
       };
 
       std::vector<BlinkData> blink_data_;
-      std::vector<std::shared_ptr<OMTA>> omta_trackers_;
-      std::vector<std::shared_ptr<HT4DBlinkerTracker>> ht4dbt_trackers_;
+      std::vector<std::shared_ptr<AMI>> AMI_trackers_;
+      std::vector<std::shared_ptr<HT4DBlinkerTrackerCPU>> ht4dbt_trackers_;
   };
       
   void UVDARBlinkProcessor::onInit(){
@@ -237,7 +255,7 @@ namespace uvdar{
 
     nh_ = nodelet::Nodelet::getMTPrivateNodeHandle();
 
-    last_publish_omta_logging_ = ros::Time::now();
+    last_publish_ami_logging_ = ros::Time::now();
 
     const bool print_params_console = false;
     loadParams(print_params_console);
@@ -254,8 +272,8 @@ namespace uvdar{
     
     sun_points_.resize(_points_seen_topics_.size());
     if(!_use_4DHT_){
-      if(!initOMTA()){
-        ROS_ERROR("[UVDARBlinkProcessor]: Shutting down - OMTA wasn't initialized correctly!");
+      if(!initAMI()){
+        ROS_ERROR("[UVDARBlinkProcessor]: Shutting down - AMI wasn't initialized correctly!");
         initialized_ = false;
         return;
       } 
@@ -296,14 +314,23 @@ namespace uvdar{
     param_loader.loadParam("points_seen_topics", _points_seen_topics_, _points_seen_topics_);
     nh_.param("blinkers_seen_topics", _blinkers_seen_topics_, _blinkers_seen_topics_);
     nh_.param("estimated_framerate_topics", _estimated_framerate_topics_, _estimated_framerate_topics_);
-    nh_.param("omta_logging_topics", _omta_logging_topics_, _omta_logging_topics_);
-    nh_.param("omta_all_seq_info_topics", _omta_all_seq_info_topics, _omta_all_seq_info_topics);
+    nh_.param("ami_logging_topics", _ami_logging_topics_, _ami_logging_topics_);
+    nh_.param("ami_all_seq_info_topics", _ami_all_seq_info_topics, _ami_all_seq_info_topics);
+
+    nh_.param("runtime_AMI_fill", _runtime_AMI_fill_, _runtime_AMI_fill_);
+    nh_.param("runtime_AMI_results", _runtime_AMI_result_, _runtime_AMI_result_);
+    
+    nh_.param("runtime_4dht_fill", _runtime_4dht_fill_, _runtime_4dht_fill_);
+    nh_.param("runtime_4dht_results", _runtime_4dht_result_, _runtime_4dht_result_);
+
+
 
     param_loader.loadParam("sequence_file", _sequence_file, std::string());    
     param_loader.loadParam("manchester_code", _manchester_code_, bool(false));
     param_loader.loadParam("use_4DHT", _use_4DHT_, bool(false));
+    param_loader.loadParam("pub_tracking_stats", _pub_tracking_stats_, bool(false));
 
-    /***** OMTA params *****/
+    /***** AMI params *****/
     param_loader.loadParam("max_px_shift_x", _max_px_shift_.x, int(2));
     param_loader.loadParam("max_px_shift_y", _max_px_shift_.y, int(2));
     param_loader.loadParam("max_zeros_consecutive", _max_zeros_consecutive_, int(2));
@@ -314,9 +341,8 @@ namespace uvdar{
     param_loader.loadParam("decay_factor", _decay_factor_, float(0.1));
     param_loader.loadParam("confidence_probability", _conf_probab_percent_, double(75.0));
     param_loader.loadParam("allowed_BER_per_seq", _allowed_BER_per_seq_, int(0));
-    param_loader.loadParam("std_threshold_poly_reg", _std_threshold_poly_reg_, double(0.5));
     param_loader.loadParam("loaded_var_pub_rate", _loaded_var_pub_rate_, int(20));
-    param_loader.loadParam("draw_predict_window_sec", _draw_predict_window_sec_, double(0.3));
+    param_loader.loadParam("draw_predict_window_sec", _draw_predict_window_sec_, double(0.0));
       
     /***** 4DHT params *****/
     param_loader.loadParam("accumulator_length", _accumulator_length_, int(23));
@@ -356,16 +382,18 @@ namespace uvdar{
       return false;
     }
 
-    // for OMTA
+    // for AMI
     if( 100 <= _conf_probab_percent_){
       ROS_ERROR_STREAM("[UVDARBlinkProcessor]: Wanted confidence interval size equal or bigger than 100\% is set. A Confidence interval of 100\% is not settable! Returning."); 
       return false;
     } 
     if(_draw_predict_window_sec_ != 0.0){
-      ROS_WARN("[UVDARBlinkProcessor]: ''_draw_predict_window_sec_'' value is primary for debug use. Please don't set it too high - Otherwise it might cause unecessary load to the system.");
+      ROS_WARN("[UVDARBlinkProcessor]: \"_draw_predict_window_sec_\" value is primary for debug use. Please don't set it too high - Otherwise it might cause unecessary load to the system. Unit is seconds");
     }
 
     if(_use_4DHT_)ROS_WARN("[UVDARBlinkProcessor]: 4DHT activate! This algorithm is deprecated and slower compared to the default algorithm!");
+
+    if(_pub_tracking_stats_)ROS_WARN("[UVDARBlinkProcessor]: - \"pub_tracking_stats\" will be published. Use this option only if seeking statistics related to the AMI/4DHT algorithm.");
 
     return true;
   }
@@ -425,27 +453,26 @@ namespace uvdar{
     return true;
   }
 
-  bool UVDARBlinkProcessor::initOMTA(){
-    loadedParamsForOMTA params_omta;
-    params_omta.max_px_shift = _max_px_shift_;
-    params_omta.max_zeros_consecutive = _max_zeros_consecutive_;
-    params_omta.max_ones_consecutive = _max_ones_consecutive_;
-    params_omta.stored_seq_len_factor = _stored_seq_len_factor_;
-    params_omta.max_buffer_length = _max_buffer_length_;
-    params_omta.poly_order = _poly_order_;
-    params_omta.decay_factor = _decay_factor_;
-    params_omta.conf_probab_percent = _conf_probab_percent_;
-    params_omta.allowed_BER_per_seq = _allowed_BER_per_seq_;
-    params_omta.std_threshold_poly_reg = _std_threshold_poly_reg_;
+  bool UVDARBlinkProcessor::initAMI(){
+    loadedParamsForAMI params_AMI;
+    params_AMI.max_px_shift = _max_px_shift_;
+    params_AMI.max_zeros_consecutive = _max_zeros_consecutive_;
+    params_AMI.max_ones_consecutive = _max_ones_consecutive_;
+    params_AMI.stored_seq_len_factor = _stored_seq_len_factor_;
+    params_AMI.max_buffer_length = _max_buffer_length_;
+    params_AMI.poly_order = _poly_order_;
+    params_AMI.decay_factor = _decay_factor_;
+    params_AMI.conf_probab_percent = _conf_probab_percent_;
+    params_AMI.allowed_BER_per_seq = _allowed_BER_per_seq_;
     
     sun_points_.resize(_points_seen_topics_.size());
 
     for (int i = 0; i < (int)_points_seen_topics_.size(); ++i) {
-      omta_.push_back(std::make_shared<OMTA>(params_omta));
+      ami_.push_back(std::make_shared<AMI>(params_AMI));
 
-      if(!omta_[i]->setSequences(sequences_)) return false;
+      if(!ami_[i]->setSequences(sequences_)) return false;
 
-      omta_[i]->setDebugFlags(_debug_);
+      ami_[i]->setDebugFlags(_debug_);
 
     }
     return true;
@@ -454,7 +481,7 @@ namespace uvdar{
   void UVDARBlinkProcessor::init4DHT(){
     for (size_t i = 0; i < _points_seen_topics_.size(); ++i) {
       ht4dbt_trackers_.push_back(
-        std::make_shared<HT4DBlinkerTracker>(
+        std::make_shared<HT4DBlinkerTrackerCPU>(
             _accumulator_length_, _pitch_steps_, _yaw_steps_, _max_pixel_shift_, cv::Size(0, 0), _nullify_radius_, _reasonable_radius_
           )
         );
@@ -485,9 +512,20 @@ namespace uvdar{
     for (size_t i = 0; i < _blinkers_seen_topics_.size(); ++i) {
       pub_blinkers_seen_.push_back(nh_.advertise<uvdar_core::ImagePointsWithFloatStamped>(_blinkers_seen_topics_[i], 1));
       pub_estimated_framerate_.push_back(nh_.advertise<std_msgs::Float32>(_estimated_framerate_topics_[i], 1));
-      if(!_use_4DHT_){
-        pub_OMTA_logging_.push_back(nh_.advertise<uvdar_core::omtaDataForLogging>(_omta_logging_topics_[i], 1));
-        pub_OMTA_all_seq_info.push_back(nh_.advertise<uvdar_core::omtaAllSequences>(_omta_all_seq_info_topics[i], 1));
+      
+      if(_pub_tracking_stats_){
+        if(!_use_4DHT_){
+          pub_ami_logging_.push_back(nh_.advertise<uvdar_core::AMIDataForLogging>(_ami_logging_topics_[i], 1));
+          pub_AMI_all_seq_info.push_back(nh_.advertise<uvdar_core::AMIAllSequences>(_ami_all_seq_info_topics[i], 1));
+
+          pub_AMI_fill_.push_back(nh_.advertise<std_msgs::Float32>(_runtime_AMI_fill_[i], 1));
+          pub_AMI_result_.push_back(nh_.advertise<std_msgs::Float32>(_runtime_AMI_result_[i], 1));
+
+        }else{
+          pub_4dht_fill_.push_back(nh_.advertise<std_msgs::Float32>(_runtime_4dht_fill_[i], 1));
+          pub_4dht_result_.push_back(nh_.advertise<std_msgs::Float32>(_runtime_4dht_result_[i], 1));
+
+        }
       }
     }
   }
@@ -538,7 +576,7 @@ namespace uvdar{
       }
 
       if(!_use_4DHT_){
-        omta_[img_index]->updateFramerate(blink_data_[img_index].framerate_estimate);
+        ami_[img_index]->updateFramerate(blink_data_[img_index].framerate_estimate);
       }else{
         ht4dbt_trackers_[img_index]->updateFramerate(blink_data_[img_index].framerate_estimate);
       }
@@ -557,7 +595,7 @@ namespace uvdar{
     if (dt > (1.5/(blink_data_[img_index].framerate_estimate)) ){
       int new_frame_count = (int)(dt*(blink_data_[img_index].framerate_estimate) + 0.5) - 1;
       if(!_use_4DHT_){
-        ROS_ERROR_STREAM("[UVDARBlinkProcessor]: Missing frames! OMTA will automatically insert " << new_frame_count << " empty frames!"); 
+        ROS_ERROR_STREAM("[UVDARBlinkProcessor]: Missing frames! AMI will automatically insert " << new_frame_count << " empty frames!"); 
       }else{
         ROS_ERROR_STREAM("[UVDARBlinkProcessor]: Missing frames! Inserting " << new_frame_count << " empty frames to 4DHT!"); 
         std::vector<cv::Point2i> null_points;
@@ -574,13 +612,30 @@ namespace uvdar{
     }
 
     if(!_use_4DHT_){
-      omta_[img_index]->processBuffer(pts_msg);
+      auto start = high_resolution_clock::now();
+      ami_[img_index]->processBuffer(pts_msg);
+      auto stop = high_resolution_clock::now();
+      if(_pub_tracking_stats_){
+      auto duration = duration_cast<microseconds>(stop - start);
+        std_msgs::Float32 msg_duration;
+        msg_duration.data = duration.count();
+        pub_AMI_fill_[img_index].publish(msg_duration);
+      }
+
     }else{
       std::vector<cv::Point2i> points;
       for (auto& point : pts_msg->points) {
         points.push_back(cv::Point2d(point.x, point.y));
       }
+      auto start = high_resolution_clock::now();
       ht4dbt_trackers_[img_index]->insertFrame(points);
+      auto stop = high_resolution_clock::now();
+      if(_pub_tracking_stats_){
+        auto duration = duration_cast<microseconds>(stop - start);
+        std_msgs::Float32 msg_duration;
+        msg_duration.data = duration.count();
+        pub_4dht_fill_[img_index].publish(msg_duration);
+      }
     }
 
     if ((!_use_camera_for_visualization_) || ((!_gui_) && (!_publish_visualization_))){
@@ -600,12 +655,20 @@ namespace uvdar{
     if(_use_4DHT_) return;
     
     uvdar_core::ImagePointsWithFloatStamped msg;
-    uvdar_core::omtaDataForLogging omta_logging_msg;
-    uvdar_core::omtaAllSequences omta_all_seq_msg;
+    uvdar_core::AMIDataForLogging ami_logging_msg;
+    uvdar_core::AMIAllSequences ami_all_seq_msg;
     ros::Time local_last_sample_time = blink_data_[img_index].last_sample_time;
     {
       std::scoped_lock lock(*(blink_data_[img_index].mutex_retrieved_blinkers));
-      blink_data_[img_index].retrieved_blinkers = omta_[img_index]->getResults();
+      auto start = high_resolution_clock::now();
+      blink_data_[img_index].retrieved_blinkers = ami_[img_index]->getResults();
+      auto stop = high_resolution_clock::now();
+      auto duration = duration_cast<microseconds>(stop - start);
+      std_msgs::Float32 msg_duration;
+      msg_duration.data = duration.count();
+      if(_pub_tracking_stats_){
+        pub_AMI_result_[img_index].publish(msg_duration);
+      }
 
       int valid_signal_cnt = 0 , invalid_signal_cnt = 0;
       for (auto& signal : blink_data_[img_index].retrieved_blinkers) {
@@ -623,43 +686,43 @@ namespace uvdar{
           invalid_signal_cnt++;
         }
                   
-        // publish values from omta if the sequence is valid
-        uvdar_core::omtaSeqVariables omta_seq_msg;
-        omta_seq_msg.inserted_time = last_point.insert_time;
-        omta_seq_msg.signal_id = signal.second;
+        // publish values from AMI if the sequence is valid
+        uvdar_core::AMISeqVariables ami_seq_msg;
+        ami_seq_msg.inserted_time = last_point.insert_time;
+        ami_seq_msg.signal_id = signal.second;
 
-        omta_seq_msg.confidence_interval.x = last_point.x_statistics.confidence_interval;
-        omta_seq_msg.confidence_interval.y = last_point.y_statistics.confidence_interval;
-        omta_seq_msg.predicted_point.x = last_point.x_statistics.predicted_coordinate;
-        omta_seq_msg.predicted_point.y = last_point.y_statistics.predicted_coordinate;
+        ami_seq_msg.confidence_interval.x = last_point.x_statistics.confidence_interval;
+        ami_seq_msg.confidence_interval.y = last_point.y_statistics.confidence_interval;
+        ami_seq_msg.predicted_point.x = last_point.x_statistics.predicted_coordinate;
+        ami_seq_msg.predicted_point.y = last_point.y_statistics.predicted_coordinate;
         
 
         for(auto coeff : last_point.x_statistics.coeff){
-          omta_seq_msg.x_coeff_reg.push_back(static_cast<float>(coeff));
+          ami_seq_msg.x_coeff_reg.push_back(static_cast<float>(coeff));
         }
 
         for(auto coeff : last_point.y_statistics.coeff){
-          omta_seq_msg.y_coeff_reg.push_back(static_cast<float>(coeff));
+          ami_seq_msg.y_coeff_reg.push_back(static_cast<float>(coeff));
         }
 
         for(auto point_state : *signal.first){
-          uvdar_core::omtaSeqPoint ps_msg;
+          uvdar_core::AMISeqPoint ps_msg;
           uvdar_core::Point2DWithFloat p;
           p.x = point_state.point.x;
           p.y = point_state.point.y;
           p.value = point_state.led_state;
           ps_msg.point = p;
           ps_msg.insert_time = point_state.insert_time;
-          omta_seq_msg.sequence.push_back(ps_msg);
+          ami_seq_msg.sequence.push_back(ps_msg);
         }
 
-        omta_seq_msg.poly_reg_computed.push_back(last_point.x_statistics.poly_reg_computed);
-        omta_seq_msg.poly_reg_computed.push_back(last_point.y_statistics.poly_reg_computed);
+        ami_seq_msg.poly_reg_computed.push_back(last_point.x_statistics.poly_reg_computed);
+        ami_seq_msg.poly_reg_computed.push_back(last_point.y_statistics.poly_reg_computed);
 
-        omta_seq_msg.extended_search.push_back(last_point.x_statistics.extended_search);
-        omta_seq_msg.extended_search.push_back(last_point.y_statistics.extended_search);
+        ami_seq_msg.extended_search.push_back(last_point.x_statistics.extended_search);
+        ami_seq_msg.extended_search.push_back(last_point.y_statistics.extended_search);
 
-        omta_all_seq_msg.sequences.push_back(omta_seq_msg);
+        ami_all_seq_msg.sequences.push_back(ami_seq_msg);
         msg.points.push_back(point);
       }
       msg.stamp         = local_last_sample_time;
@@ -672,34 +735,38 @@ namespace uvdar{
 
       // publish the last point for the pose calculate
       pub_blinkers_seen_[img_index].publish(msg);
-      // publish whole sequence with infos from omta
-      pub_OMTA_all_seq_info[img_index].publish(omta_all_seq_msg);
-
+      if(_pub_tracking_stats_){
+        // publish whole sequence with infos from AMI
+        pub_AMI_all_seq_info[img_index].publish(ami_all_seq_msg);
+      }
       std_msgs::Float32 msg_framerate;
       msg_framerate.data = blink_data_[img_index].framerate_estimate;
       pub_estimated_framerate_[img_index].publish(msg_framerate);
 
 
+      if(_pub_tracking_stats_){
+        // publish loaded variables every _loaded_var_pub_rate_ seconds
+        double diff = ros::Time::now().toSec() - last_publish_ami_logging_.toSec();
+        if( _loaded_var_pub_rate_ < diff ) {
 
-      // publish loaded variables every _loaded_var_pub_rate_ seconds
-      double diff = ros::Time::now().toSec() - last_publish_omta_logging_.toSec();
-      if( _loaded_var_pub_rate_ < diff){
-        last_publish_omta_logging_ = ros::Time::now();
+          if ( ( _loaded_var_pub_rate_ + 0.1 ) <= diff ) 
+          last_publish_ami_logging_ = ros::Time::now();
 
-        omta_logging_msg.stamp = last_publish_omta_logging_;
-        omta_logging_msg.pub_rate = _loaded_var_pub_rate_; 
-        uvdar_core::Point2DWithFloat max_px_shift;
-        omta_logging_msg.stored_seq_len_factor = _stored_seq_len_factor_;
-        omta_logging_msg.max_buffer_length = _max_buffer_length_;
-        omta_logging_msg.default_poly_order = _poly_order_;
-        omta_logging_msg.max_zeros_consecutive = _max_zeros_consecutive_;
-        omta_logging_msg.max_ones_consecutive = _max_ones_consecutive_;
-        max_px_shift.x = _max_px_shift_.x;
-        max_px_shift.y = _max_px_shift_.y;
-        omta_logging_msg.confidence_probab_t_dist = _conf_probab_percent_;
-        omta_logging_msg.decay_factor_weight_func = _decay_factor_;
-        omta_logging_msg.max_px_shift = max_px_shift;
-        pub_OMTA_logging_[img_index].publish(omta_logging_msg);
+          ami_logging_msg.stamp = last_publish_ami_logging_;
+          ami_logging_msg.pub_rate = _loaded_var_pub_rate_; 
+          uvdar_core::Point2DWithFloat max_px_shift;
+          ami_logging_msg.stored_seq_len_factor = _stored_seq_len_factor_;
+          ami_logging_msg.max_buffer_length = _max_buffer_length_;
+          ami_logging_msg.default_poly_order = _poly_order_;
+          ami_logging_msg.max_zeros_consecutive = _max_zeros_consecutive_;
+          ami_logging_msg.max_ones_consecutive = _max_ones_consecutive_;
+          max_px_shift.x = _max_px_shift_.x;
+          max_px_shift.y = _max_px_shift_.y;
+          ami_logging_msg.confidence_probab_t_dist = _conf_probab_percent_;
+          ami_logging_msg.decay_factor_weight_func = _decay_factor_;
+          ami_logging_msg.max_px_shift = max_px_shift;
+          pub_ami_logging_[img_index].publish(ami_logging_msg);
+        }
       }
     }
     
@@ -735,10 +802,21 @@ namespace uvdar{
 
       ros::Time local_last_sample_time = blink_data_[image_index].last_sample_time;
       {
+
         std::scoped_lock lock(*(blink_data_[image_index].mutex_retrieved_blinkers));
-        blink_data_[image_index].retrieved_blinkers_4DHT = ht4dbt_trackers_[image_index]->getResults();
-        blink_data_[image_index].pitch_4DHT              = ht4dbt_trackers_[image_index]->getPitch();
-        blink_data_[image_index].yaw_4DHT                = ht4dbt_trackers_[image_index]->getYaw();
+
+      
+          auto start = high_resolution_clock::now();
+          blink_data_[image_index].retrieved_blinkers_4DHT = ht4dbt_trackers_[image_index]->getResults();
+          blink_data_[image_index].pitch_4DHT              = ht4dbt_trackers_[image_index]->getPitch();
+          blink_data_[image_index].yaw_4DHT                = ht4dbt_trackers_[image_index]->getYaw();      auto stop = high_resolution_clock::now();
+          auto duration = duration_cast<microseconds>(stop - start);
+          std_msgs::Float32 msg_duration;
+          msg_duration.data = duration.count();
+          pub_4dht_result_[image_index].publish(msg_duration);
+
+
+
       }
 
       msg.stamp         = local_last_sample_time;

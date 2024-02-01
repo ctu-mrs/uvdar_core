@@ -55,32 +55,31 @@ namespace uvdar {
 
       int matchSignalWithCrossCorr(std::vector<bool> i_signal){
 
-        if (i_signal.size() == 0){
+        if ((int)i_signal.size() == 0){
           return -1;
         }
 
-        if (i_signal.size() < 3){
+        if ((int)i_signal.size() < 3 || (int)i_signal.size() < sequence_size_){
           return -3;
         }
 
-        for (int s=0; s<(int)(sequences_.size()); s++){
-          for (int i=0; i<(int)sequences_[s].size(); i++){
-            int corr_val = 0;
-            for (int j=0; j<(int)i_signal.size(); j++){
-              if(sequences_[s][i+j] == i_signal[j]){
-                corr_val++;
+        for (int s=0; s<(int)(sequences_.size()); s++){ // check sequences
+          for (int i=0; i<sequence_size_; i++){ //slide along the duplicated sequence
+            int match_errors = 0;
+            for (int j=0; j<(int)(i_signal.size()); j++){ //iterate over signal
+              if (sequences_.at(s).at(i+j) != i_signal.at(j)){
+                match_errors++;
+              }
+              if (match_errors > allowed_BER_per_seq_) {//TODO make settable
+                break;
               }
             }
-            if (corr_val == sequence_size_){
+            if (match_errors <= allowed_BER_per_seq_){
               return s;
-            }
-            int valid_bits = sequence_size_ - allowed_BER_per_seq_;
-            if(corr_val >= valid_bits ){
-              return s; 
             }
           }
         }
-        return -1; 
+        return -1;
       }
 
 

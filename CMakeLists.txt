@@ -32,7 +32,7 @@ set(CATKIN_DEPENDENCIES
 set(LIBRARIES
   UvdarCore_OCamCalib
   UvdarCore_ht4dbt
-  UvdarCore_omta
+  UvdarCore_ami
   UvdarCore_extendedSearch
   UvdarCore_uv_led_detect_fast
   UvdarCore_frequency_classifier
@@ -97,10 +97,10 @@ add_message_files(DIRECTORY msg FILES
   USM.msg
   RecMsg.msg
   DefaultMsg.msg
-  omtaDataForLogging.msg
-  omtaSeqVariables.msg
-  omtaAllSequences.msg
-  omtaSeqPoint.msg
+  AMIDataForLogging.msg
+  AMISeqVariables.msg
+  AMIAllSequences.msg
+  AMISeqPoint.msg
   ImagePointsWithFloatStamped.msg
   Point2DWithFloat.msg
   Int32MultiArrayStamped.msg
@@ -211,25 +211,25 @@ target_link_libraries(UvdarCore_ht4dbt
   ${catkin_LIBRARIES}
   )
 
-## | -------------------------- UvdarCore_omta -------------------------- |
+## | -------------------------- UvdarCore_ami -------------------------- |
 
-add_library(UvdarCore_omta
-  include/omta/omta.cpp
+add_library(UvdarCore_ami
+  include/ami/ami.cpp
   )
 
-add_dependencies(UvdarCore_omta
+add_dependencies(UvdarCore_ami
   ${${PROJECT_NAME}_EXPORTED_TARGETS}
   ${catkin_EXPORTED_TARGETS}
   )
 
-target_link_libraries(UvdarCore_omta
+target_link_libraries(UvdarCore_ami
   ${catkin_LIBRARIES}
   )
 
 ## | --------------------- extended Search -------------------- |
 
 add_library(UvdarCore_extendedSearch
-  include/omta/extended_search.cpp
+  include/ami/extended_search.cpp
   )
 
 add_dependencies(UvdarCore_extendedSearch
@@ -378,7 +378,7 @@ target_link_libraries(UvdarCore_UVDARBlinkProcessor
   ${OpenCV_LIBRARIES}
   UvdarCore_ht4dbt
   UvdarCore_frequency_classifier
-  UvdarCore_omta
+  UvdarCore_ami
   UvdarCore_extendedSearch
   UvdarCore_color_selector
   )
@@ -438,23 +438,6 @@ target_link_libraries(UvdarCore_UVDARBluefoxEmulator
   ${OpenCV_LIBRARIES}
   ${EIGEN3_LIBRARIES}
   UvdarCore_OCamCalib
-  )
-
-## | ---------------- uvdar mask generator node --------------- |
-
-add_executable(uvdar_mask_generator_node
-  src/mask_generator.cpp
-  )
-
-add_dependencies(uvdar_mask_generator_node
-  ${${PROJECT_NAME}_EXPORTED_TARGETS}
-  ${catkin_EXPORTED_TARGETS}
-  )
-
-target_link_libraries(uvdar_mask_generator_node
-  ${catkin_LIBRARIES}
-  ${OpenCV_LIBRARIES}
-  ${EIGEN3_LIBRARIES}
   )
 
 ## | ----------------- uvdar led manager node ----------------- |
