@@ -259,6 +259,7 @@ target_link_libraries(UvdarCore_uv_led_detect_fast
   debug
   ${OpenCV_LIBRARIES}
   ${catkin_LIBRARIES}
+  UvdarCore_compute_lib
   )
 
 ## | ------------------ frequency classifier ------------------ |
