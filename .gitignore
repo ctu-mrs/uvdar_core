@@ -2,3 +2,4 @@
 scripts/.tmuxinator.yml
 .vscode/
 *.swp
+.gitman
