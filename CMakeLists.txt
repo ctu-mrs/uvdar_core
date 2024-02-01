@@ -211,6 +211,7 @@ add_dependencies(UvdarCore_ht4dbt
 
 target_link_libraries(UvdarCore_ht4dbt
   ${catkin_LIBRARIES}
+  UvdarCore_compute_lib
   )
 
 ## | -------------------------- UvdarCore_ami -------------------------- |
@@ -259,6 +260,7 @@ target_link_libraries(UvdarCore_uv_led_detect_fast
   debug
   ${OpenCV_LIBRARIES}
   ${catkin_LIBRARIES}
+  UvdarCore_compute_lib
   )
 
 ## | ------------------ frequency classifier ------------------ |
