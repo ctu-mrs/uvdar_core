@@ -67,7 +67,7 @@
   <arg name="id12" value="11"/>
 
   <arg name="sequence_file" default="$(find uvdar_core)/config/selected.txt"/>
-  <arg name="model_file" default="$(find uvdar_core)/config/models/quadrotor_foursided.txt"/>
+  <arg name="model_file" default="$(find uvdar_core)/config/models/quadrotor_foursided_px4_motor_aligned.txt"/>
   <!-- ideal angle: 1.221730476 - pi/2 -->
 
       <!-- <origin xyz="0.108 0 0.085" rpy="1.57079632679 4.71238898038 1.57079632679" /> -->

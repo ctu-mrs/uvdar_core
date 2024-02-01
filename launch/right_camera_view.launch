@@ -98,7 +98,7 @@
   <arg name="id20" value="19"/>
   <arg name="id21" value="20"/>
 
-  <arg name="model_file" default="$(find uvdar_core)/config/models/quadrotor_foursided.txt"/>
+  <arg name="model_file" default="$(find uvdar_core)/config/models/quadrotor_foursided_px4_motor_aligned.txt"/>
   <arg name="sequence_file" default="$(find uvdar_core)/config/selected.txt"/>
 
   <arg name="use_masks" default="true"/>

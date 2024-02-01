@@ -94,7 +94,7 @@
   <!-- Model settings: -->
 
   <arg name="use_masks" default="true"/>
-  <arg name="model_file" default="$(find uvdar_core)/config/models/quadrotor_foursided.txt"/>
+  <arg name="model_file" default="$(find uvdar_core)/config/models/quadrotor_foursided_px4_motor_aligned.txt"/>
   <arg name="beacon" default="false"/>
 
 
