@@ -25,7 +25,7 @@ windows:
   - spawn:
       layout: tiled
       panes:
-        - waitForGazebo; rosservice call /mrs_drone_spawner/spawn  "1 $UAV_TYPE --pos-file $(rospack find uvdar_core)/scripts/position1.csv --enable-rangefinder --enable-ground-truth --enable-dual-uv-cameras --enable-back-uv-camera --uvcam_calib_file \"$(rospack find uvdar_core)/include/OCamCalib/config/calib_results_bf_uv_fe.txt\""
+        - waitForGazebo; rosservice call /mrs_drone_spawner/spawn  "1 $UAV_TYPE --pos-file $(rospack find uvdar_core)/scripts/position1.csv --enable-rangefinder --enable-ground-truth --enable-dual-uv-cameras --enable-back-uv-camera --uvcam_calib_file \"$(rospack find uvdar_core)/config/ocamcalib/calib_results_bf_uv_fe.txt\""
         - waitForGazebo; sleep 12; rosservice call /mrs_drone_spawner/spawn  "2 $UAV_TYPE --pos-file $(rospack find uvdar_core)/scripts/position2.csv --enable-rangefinder --enable-ground-truth --enable-uv-leds --uvled_s 0 1 2 3"
   - hw_api:
       layout: tiled
