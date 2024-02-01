@@ -200,6 +200,8 @@ target_compile_options(UvdarCore_OCamCalib PRIVATE
 
 add_library(UvdarCore_ht4dbt
   include/ht4dbt/ht4d.cpp
+  include/ht4dbt/ht4d_cpu.cpp
+  include/ht4dbt/ht4d_cpu.cpp
   )
 
 add_dependencies(UvdarCore_ht4dbt
@@ -229,7 +231,7 @@ target_link_libraries(UvdarCore_ami
 ## | --------------------- extended Search -------------------- |
 
 add_library(UvdarCore_extendedSearch
-  include/ami/extended_search.cpp
+  include/ami/ami_extended_search.cpp
   )
 
 add_dependencies(UvdarCore_extendedSearch
@@ -244,7 +246,8 @@ target_link_libraries(UvdarCore_extendedSearch
 ## | ------------------- uv led detect fast ------------------- |
 
 add_library(UvdarCore_uv_led_detect_fast
-  include/detect/uv_led_detect_fast.cpp
+  include/detect/uv_led_detect_fast_cpu.cpp
+  include/detect/uv_led_detect_fast_gpu.cpp
   )
 
 add_dependencies(UvdarCore_uv_led_detect_fast
