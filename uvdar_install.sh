@@ -41,10 +41,10 @@ workspace_not_existent(){
 
 # extract ID for two bluefox cameras
 extract_id_two_cams(){
-    echo $'\e[1;32mPlease connect the left cam to NUC and UNPLUG the right cam! Wait approximately 5 sec. Then hit any key.\e[0m'
+  echo $'\e[1;32mPlease connect the left cam to NUC and UNPLUG the other cam(s)! Wait approximately 5 sec. Then hit any key.\e[0m'
     read -n 1 key
     id_left_cam=$(rosrun bluefox2 bluefox2_list_cameras | sed -n -E -e 's/.*Serial: ([0-9]+).*/\1/p')
-    echo -e $'\e[1;32m\nNow please connect the right cam to NUC and UNPLUG the left cam! Wait approximately 5 sec. Then hit any key.\e[0m'
+    echo -e $'\e[1;32m\nNow please connect the right cam to NUC and UNPLUG the other cam(s)! Wait approximately 5 sec. Then hit any key.\e[0m'
     read -n 1 key
     id_right_cam=$(rosrun bluefox2 bluefox2_list_cameras | sed -n -E -e 's/.*Serial: ([0-9]+).*/\1/p')
 }
@@ -149,6 +149,14 @@ echo "##################### UVDAR Configuration script ######################"
 echo $'#######################################################################\n\e[0m'
 
 
+read -n 2 -p $'\e[1;32mAre you calling this script on a real drone?\n\e[0m'  resp_uav
+response_uav=`echo $resp_uav | sed -r 's/(.*)$/\1=/'`
+if [[ $response_uav =~ ^(n|N)=$ ]]
+then
+    echo  $'\e[0;33mPlease call this script only on a real UAV\n\e[0m'
+    exit 1
+fi
+
 ###################### Build Workspace ########################
 read -n 2 -p $'\e[1;32mDo you want to (re)-build the workspace? [y/n]\n\e[0;33m[Hint:] When calling this script for the first time, please enter y!\n\e[0m'  resp_ws
 response_ws=`echo $resp_ws | sed -r 's/(.*)$/\1=/'`
@@ -211,7 +219,7 @@ then
         
         sleep 2
     else
-        echo "Only valid options: 2 or 3. retun.."; exit 1
+        echo "Only valid options: 2 or 3. return.."; exit 1
     fi
     echo -e "##################### Camera Configuration done! ####################\n"
 fi 
