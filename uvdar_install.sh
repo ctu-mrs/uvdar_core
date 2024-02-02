@@ -240,7 +240,7 @@ if [[ $response_led =~ ^(y|Y)=$ ]]; then
     echo "4 = /dev/MRS_MODULE4"
     read -n 2 resp_module 
     echo "Starting with LED initialization on:/dev/MRS_MODULE$resp_module... This will take about 20 seconds."
-    roslaunch uvdar_core led_manager.launch portname:=/dev/MRS_MODULE$resp_module &> $tmp_file_LED_launch & 
+    roslaunch uvdar_core led_manager.launch sequence_file:=config/blinking_sequences/test_assignment.txt portname:=/dev/MRS_MODULE$resp_module &> $tmp_file_LED_launch & 
     pid_led_manager=$! 
     sleep 5; rosservice call /$UAV_NAME/uvdar_led_manager_node/quick_start 0
     sleep 2; rosservice call /$UAV_NAME/uvdar_led_manager_node/load_sequences
