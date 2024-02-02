@@ -1,37 +1,60 @@
-cmake_minimum_required(VERSION 3.1.2)
+cmake_minimum_required(VERSION 3.5)
 project(uvdar_core)
 
-FILE(GLOB_RECURSE HEADER_FILES include *.h)
-FILE(GLOB_RECURSE LAUNCHER_FILES include *.launch)
-FILE(GLOB_RECURSE YAML_FILES include *.yaml)
+# FILE(GLOB_RECURSE HEADER_FILES include *.h)
+# FILE(GLOB_RECURSE LAUNCHER_FILES include *.launch)
+# FILE(GLOB_RECURSE YAML_FILES include *.yaml)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -g -Wall -Wextra")
-set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} -std=c++17 -g -Wall -Wextra -O3")
-# set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O0 -g -DNDEBUG -std=c++17 -g -Wall -Wextra")
 
-find_package(catkin REQUIRED COMPONENTS
-  roscpp
-  nodelet
+add_definitions(-Wall)
+add_definitions(-Wextra)
+
+if(NOT TESTING)
+  set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} -O3")
+endif()
+
+set(CATKIN_DEPENDENCIES
   cv_bridge
   image_transport
-  sensor_msgs
-  std_msgs
-  mrs_msgs
-  mrs_modules_msgs
-  mrs_lib
-  tf2
-  tf2_ros
-  tf2_msgs
-  tf2_eigen
-  tf2_sensor_msgs
-  tf_conversions
-  tf2_eigen
-  tf2_geometry_msgs
   message_generation
   message_runtime
-  # uvdar_gazebo_plugin
+  mrs_lib
+  mrs_modules_msgs
+  mrs_msgs
+  nodelet
+  roscpp
+  sensor_msgs
+  std_msgs
+  )
+
+set(LIBRARIES
+  UvdarCore_OCamCalib
+  UvdarCore_ht4dbt
+  UvdarCore_ami
+  UvdarCore_extendedSearch
+  UvdarCore_uv_led_detect_fast
+  UvdarCore_frequency_classifier
+  UvdarCore_color_selector
+  UvdarCore_UVDARDetector
+  UvdarCore_unscented
+  UvdarCore_UVDARBlinkProcessor
+  UvdarCore_UVDARBluefoxEmulator
+  UvdarCore_compute_lib
+  )
+
+set(EXECUTABLES
+  uvdar_rx_node
+  uvdar_tx_node
+  new_uvdar_rx_node
+  uvdar_led_manager_node
+  uvdar_filter_node
+  uvdar_pose_calculator_node
+  )
+
+find_package(catkin REQUIRED COMPONENTS
+  ${CATKIN_DEPENDENCIES}
   )
 
 find_package(Eigen3 REQUIRED)
@@ -60,55 +83,41 @@ FIND_PACKAGE_HANDLE_STANDARD_ARGS(LIBGBM DEFAULT_MSG LIBGBM_LIBRARIES)
 
 mark_as_advanced(LIBGBM_INCLUDE_DIRS LIBGBM_LIBRARIES)
 
-###################################
-## catkin specific configuration ##
-###################################
-## The catkin_package macro generates cmake config files for your package
-## Declare things to be passed to dependent projects
-## INCLUDE_DIRS: uncomment this if your package contains header files
-## LIBRARIES: libraries you create in this project that dependent projects also need
-## CATKIN_DEPENDS: catkin_packages dependent projects also need
-## DEPENDS: system dependencies of this project that dependent projects also need
-
 add_service_files(
   FILES
-  # SetLedState.srv
   SetLedMessage.srv
-  # SetIntIndex.srv
   SetInts.srv
-)
+  # SetIntIndex.srv
+  # SetLedState.srv
+  )
 
 add_message_files(DIRECTORY msg FILES
   FrequencySet.msg
-   USM.msg
-   RecMsg.msg
-   DefaultMsg.msg
-   omtaDataForLogging.msg
-   omtaSeqVariables.msg
-   omtaAllSequences.msg
-   omtaSeqPoint.msg
-   ImagePointsWithFloatStamped.msg
-   Point2DWithFloat.msg
-   Int32MultiArrayStamped.msg
+  USM.msg
+  RecMsg.msg
+  DefaultMsg.msg
+  AMIDataForLogging.msg
+  AMISeqVariables.msg
+  AMIAllSequences.msg
+  AMISeqPoint.msg
+  ImagePointsWithFloatStamped.msg
+  Point2DWithFloat.msg
+  Int32MultiArrayStamped.msg
   )
 
 generate_messages(DEPENDENCIES
   mrs_msgs
-  # uvdar_gazebo_plugin
   std_msgs
   sensor_msgs
+  # uvdar_gazebo_plugin
   )
 
 catkin_package(
- INCLUDE_DIRS include
-  CATKIN_DEPENDS cv_bridge image_transport roscpp sensor_msgs std_msgs message_runtime mrs_msgs mrs_modules_msgs message_generation
+  INCLUDE_DIRS include
+  CATKIN_DEPENDS ${CATKIN_DEPENDENCIES}
+  LIBRARIES ${LIBRARIES}
   DEPENDS Eigen
-  LIBRARIES OCamCalib unscented
-)
-
-###########
-## Build ##
-###########
+  )
 
 include_directories(
   include
@@ -119,119 +128,280 @@ include_directories(
   ${LIBGBM_INCLUDE_DIRS}
   )
 
-add_executable(uvdar_rx_node src/uvdar_rx.cpp)
-add_executable(uvdar_tx_node src/uvdar_tx.cpp)
-# add_executable(new_uvdar_rx_node src/new_uvdar_rx.cpp)
+## | ---------------------- uvdar rx node --------------------- |
 
-add_library(OCamCalib include/OCamCalib/ocam_functions.cpp )
-target_compile_options(OCamCalib PRIVATE -Wno-unused-variable -Wno-unused-result)
-
-add_library(ht4dbt include/ht4dbt/ht4d.cpp include/ht4dbt/ht4d_cpu.cpp include/ht4dbt/ht4d_gpu.cpp)
-add_library(extendedSearch include/omta/extended_search.cpp)
-add_library(omta include/omta/omta.cpp)
-add_library(uv_led_detect_fast include/detect/uv_led_detect_fast_cpu.cpp include/detect/uv_led_detect_fast_gpu.cpp)
-add_library(frequency_classifier include/frequency_classifier/frequency_classifier.cpp)
-add_library(color_selector include/color_selector/color_selector.cpp)
-# add_library(SignalSetter src/signal_setter.cpp)
-add_library(compute_lib include/compute_lib/compute_lib.c include/compute_lib/queue.c include/compute_lib/gl32_utils.c)
-
-target_link_libraries(compute_lib
-  debug ${OpenGL_LIBRARIES} ${LIBGBM_LIBRARIES} ${catkin_LIBRARIES} ${LGBM} ${LEGL} ${LGL})
-
-target_link_libraries(uvdar_rx_node ${catkin_LIBRARIES})
-target_link_libraries(uvdar_tx_node ${catkin_LIBRARIES})
-# target_link_libraries(new_uvdar_rx_node ${catkin_LIBRARIES} ${OpenCV_LIBRARIES} ht4dbt)
-# target_link_libraries(SignalSetter ${catkin_LIBRARIES})
-# add_dependencies(new_uvdar_rx_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-add_dependencies(uvdar_rx_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-add_dependencies(uvdar_tx_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-
-target_link_libraries(ht4dbt compute_lib)
-
-target_link_libraries(uv_led_detect_fast
-  debug ${OpenCV_LIBRARIES} ${catkin_LIBRARIES} compute_lib)
-
-target_link_libraries(frequency_classifier
-  debug ${OpenCV_LIBRARIES} ${catkin_LIBRARIES})
-
-target_link_libraries(color_selector
-  debug ${OpenCV_LIBRARIES} ${catkin_LIBRARIES})
-
-add_library(UVDARDetector src/detector.cpp)
-add_dependencies(UVDARDetector ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-
-add_library(unscented include/unscented/unscented.cpp)
-add_dependencies(unscented ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-
-add_library(p3p include/p3p/P3p.cpp)
-add_dependencies(p3p ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-
-add_library(UVDARBlinkProcessor src/blink_processor.cpp)
-add_dependencies(UVDARBlinkProcessor ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-
-# add_library(ROSTOPIC_HZ src/nodelet_rostopic_hz.cpp)
-# add_dependencies(ROSTOPIC_HZ ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-
-# add_executable(uvdar_uav_pose_calculator_node src/uav_pose_calculator.cpp)
-# add_dependencies(uvdar_uav_pose_calculator_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-
-add_executable(uvdar_pose_calculator_node src/pose_calculator.cpp)
-add_dependencies(uvdar_pose_calculator_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-
-add_executable(uvdar_filter_node src/filter.cpp)
-add_dependencies(uvdar_filter_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-
-add_library(UVDARBluefoxEmulator src/bluefox_emulator.cpp)
-add_dependencies(UVDARBluefoxEmulator ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-
-
-# add_executable(uvdar_frequency_setter_node src/frequency_setter.cpp)
-# add_dependencies(uvdar_frequency_setter_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-
-add_executable(uvdar_led_manager_node src/led_manager.cpp)
-add_dependencies(uvdar_led_manager_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-
-add_custom_target(headers SOURCES ${HEADER_FILES} ${LAUNCHER_FILES} ${YAML_FILES})
-
-target_link_libraries(UVDARDetector
-  ${catkin_LIBRARIES}
-  ${OpenCV_LIBRARIES}
-  uv_led_detect_fast
-  compute_lib
+add_executable(uvdar_rx_node
+  src/uvdar_rx.cpp
   )
 
-target_link_libraries(UVDARBlinkProcessor
+target_link_libraries(uvdar_rx_node
   ${catkin_LIBRARIES}
-  ${OpenCV_LIBRARIES}
-  ht4dbt
-  frequency_classifier
-  omta
-  extendedSearch
-  color_selector
   )
 
+add_dependencies(uvdar_rx_node
+  ${${PROJECT_NAME}_EXPORTED_TARGETS}
+  ${catkin_EXPORTED_TARGETS}
+  )
 
-# target_link_libraries(uvdar_uav_pose_calculator_node
+## | ---------------------- uvdar tx node --------------------- |
 
-#   ${catkin_LIBRARIES}
-#   ${OpenCV_LIBRARIES}
-#   ${EIGEN3_LIBRARIES}
-#   OCamCalib
-#   unscented
-#   p3p
-#   color_selector
-#   frequency_classifier
-#   )
+add_executable(uvdar_tx_node
+  src/uvdar_tx.cpp
+  )
+
+target_link_libraries(uvdar_tx_node
+  ${catkin_LIBRARIES}
+  )
+
+add_dependencies(uvdar_tx_node
+  ${${PROJECT_NAME}_EXPORTED_TARGETS}
+  ${catkin_EXPORTED_TARGETS}
+  )
+
+## | -------------------- new uvdar rx node ------------------- |
+
+add_executable(new_uvdar_rx_node
+  src/new_uvdar_rx.cpp
+  )
+
+target_link_libraries(new_uvdar_rx_node
+  ${catkin_LIBRARIES}
+  ${OpenCV_LIBRARIES}
+  UvdarCore_ht4dbt
+  )
+
+add_dependencies(new_uvdar_rx_node
+  ${${PROJECT_NAME}_EXPORTED_TARGETS}
+  ${catkin_EXPORTED_TARGETS}
+  )
+
+## | ------------------------ OCamCalib ----------------------- |
+
+add_library(UvdarCore_OCamCalib
+  include/OCamCalib/ocam_functions.cpp
+  )
+
+target_link_libraries(UvdarCore_OCamCalib
+  ${catkin_LIBRARIES}
+  )
+
+add_dependencies(UvdarCore_OCamCalib
+  ${${PROJECT_NAME}_EXPORTED_TARGETS}
+  ${catkin_EXPORTED_TARGETS}
+  )
+
+target_compile_options(UvdarCore_OCamCalib PRIVATE
+  -Wno-unused-variable
+  -Wno-unused-result
+  )
+
+## | ------------------------- UvdarCore_ht4dbt ------------------------- |
+
+add_library(UvdarCore_ht4dbt
+  include/ht4dbt/ht4d.cpp
+  include/ht4dbt/ht4d_cpu.cpp
+  include/ht4dbt/ht4d_cpu.cpp
+  )
+
+add_dependencies(UvdarCore_ht4dbt
+  ${${PROJECT_NAME}_EXPORTED_TARGETS}
+  ${catkin_EXPORTED_TARGETS}
+  )
+
+target_link_libraries(UvdarCore_ht4dbt
+  ${catkin_LIBRARIES}
+  UvdarCore_compute_lib
+  )
+
+## | -------------------------- UvdarCore_ami -------------------------- |
+
+add_library(UvdarCore_ami
+  include/ami/ami.cpp
+  )
+
+add_dependencies(UvdarCore_ami
+  ${${PROJECT_NAME}_EXPORTED_TARGETS}
+  ${catkin_EXPORTED_TARGETS}
+  )
+
+target_link_libraries(UvdarCore_ami
+  ${catkin_LIBRARIES}
+  )
+
+## | --------------------- extended Search -------------------- |
+
+add_library(UvdarCore_extendedSearch
+  include/ami/ami_extended_search.cpp
+  )
+
+add_dependencies(UvdarCore_extendedSearch
+  ${${PROJECT_NAME}_EXPORTED_TARGETS}
+  ${catkin_EXPORTED_TARGETS}
+  )
+
+target_link_libraries(UvdarCore_extendedSearch
+  ${catkin_LIBRARIES}
+  )
+
+## | ------------------- uv led detect fast ------------------- |
+
+add_library(UvdarCore_uv_led_detect_fast
+  include/detect/uv_led_detect_fast_cpu.cpp
+  include/detect/uv_led_detect_fast_gpu.cpp
+  )
+
+add_dependencies(UvdarCore_uv_led_detect_fast
+  ${${PROJECT_NAME}_EXPORTED_TARGETS}
+  ${catkin_EXPORTED_TARGETS}
+  )
+
+target_link_libraries(UvdarCore_uv_led_detect_fast
+  debug
+  ${OpenCV_LIBRARIES}
+  ${catkin_LIBRARIES}
+  UvdarCore_compute_lib
+  )
+
+## | ------------------ frequency classifier ------------------ |
+
+add_library(UvdarCore_frequency_classifier
+  include/frequency_classifier/frequency_classifier.cpp
+  )
+
+add_dependencies(UvdarCore_frequency_classifier
+  ${${PROJECT_NAME}_EXPORTED_TARGETS}
+  ${catkin_EXPORTED_TARGETS}
+  )
+
+target_link_libraries(UvdarCore_frequency_classifier
+  debug
+  ${OpenCV_LIBRARIES}
+  ${catkin_LIBRARIES}
+  )
+
+## | --------------------- color selector --------------------- |
+
+add_library(UvdarCore_color_selector
+  include/color_selector/color_selector.cpp
+  )
+
+add_dependencies(UvdarCore_color_selector
+  ${${PROJECT_NAME}_EXPORTED_TARGETS}
+  ${catkin_EXPORTED_TARGETS}
+  )
+
+target_link_libraries(UvdarCore_color_selector
+  debug
+  ${OpenCV_LIBRARIES}
+  ${catkin_LIBRARIES}
+  )
+
+## | --------------------- compute lib --------------------- |
+
+add_library(UvdarCore_compute_lib
+  include/compute_lib/compute_lib.c 
+  include/compute_lib/queue.c 
+  include/compute_lib/gl32_utils.c
+  )
+
+add_dependencies(UvdarCore_compute_lib
+  ${${PROJECT_NAME}_EXPORTED_TARGETS}
+  ${catkin_EXPORTED_TARGETS}
+  )
+
+target_link_libraries(UvdarCore_compute_lib
+  debug 
+  ${OpenGL_LIBRARIES} 
+  ${LIBGBM_LIBRARIES} 
+  ${catkin_LIBRARIES} 
+  ${LGBM} 
+  ${LEGL} 
+  ${LGL}
+  )
+
+## | --------------------- uvdar detector --------------------- |
+
+add_library(UvdarCore_UVDARDetector
+  src/detector.cpp
+  )
+
+add_dependencies(UvdarCore_UVDARDetector
+  ${${PROJECT_NAME}_EXPORTED_TARGETS}
+  ${catkin_EXPORTED_TARGETS}
+  )
+
+target_link_libraries(UvdarCore_UVDARDetector
+  ${catkin_LIBRARIES}
+  ${OpenCV_LIBRARIES}
+  UvdarCore_uv_led_detect_fast
+  )
+
+## | ------------------------ UvdarCore_unscented ----------------------- |
+
+add_library(UvdarCore_unscented
+  include/unscented/unscented.cpp
+  )
+
+add_dependencies(UvdarCore_unscented
+  ${${PROJECT_NAME}_EXPORTED_TARGETS}
+  ${catkin_EXPORTED_TARGETS}
+  )
+
+target_link_libraries(UvdarCore_unscented
+  ${catkin_LIBRARIES}
+  )
+
+## | ------------------ uvdar blnk processor ------------------ |
+
+add_library(UvdarCore_UVDARBlinkProcessor
+  src/blink_processor.cpp
+  )
+
+add_dependencies(UvdarCore_UVDARBlinkProcessor
+  ${${PROJECT_NAME}_EXPORTED_TARGETS}
+  ${catkin_EXPORTED_TARGETS}
+  )
+
+target_link_libraries(UvdarCore_UVDARBlinkProcessor
+  ${catkin_LIBRARIES}
+  ${OpenCV_LIBRARIES}
+  UvdarCore_ht4dbt
+  UvdarCore_frequency_classifier
+  UvdarCore_ami
+  UvdarCore_extendedSearch
+  UvdarCore_color_selector
+  )
+
+## | --------------- uvdar pose calculator node --------------- |
+
+add_executable(uvdar_pose_calculator_node
+  src/pose_calculator.cpp
+  )
+
+add_dependencies(uvdar_pose_calculator_node
+  ${${PROJECT_NAME}_EXPORTED_TARGETS}
+  ${catkin_EXPORTED_TARGETS}
+  )
 
 target_link_libraries(uvdar_pose_calculator_node
   ${catkin_LIBRARIES}
   ${OpenCV_LIBRARIES}
   ${EIGEN3_LIBRARIES}
-  OCamCalib
-  unscented
-  p3p
-  color_selector
-  frequency_classifier
+  UvdarCore_OCamCalib
+  UvdarCore_unscented
+  UvdarCore_color_selector
+  UvdarCore_frequency_classifier
+  )
+
+## | -------------------- uvdar filter node ------------------- |
+
+add_executable(uvdar_filter_node
+  src/filter.cpp
+  )
+
+add_dependencies(uvdar_filter_node
+  ${${PROJECT_NAME}_EXPORTED_TARGETS}
+  ${catkin_EXPORTED_TARGETS}
   )
 
 target_link_libraries(uvdar_filter_node
@@ -240,17 +410,77 @@ target_link_libraries(uvdar_filter_node
   ${EIGEN3_LIBRARIES}
   )
 
-target_link_libraries(UVDARBluefoxEmulator
+## | ----------------- uvdar bluefox emulator ----------------- |
+
+add_library(UvdarCore_UVDARBluefoxEmulator
+  src/bluefox_emulator.cpp
+  )
+
+add_dependencies(UvdarCore_UVDARBluefoxEmulator
+  ${${PROJECT_NAME}_EXPORTED_TARGETS}
+  ${catkin_EXPORTED_TARGETS}
+  )
+
+target_link_libraries(UvdarCore_UVDARBluefoxEmulator
   ${catkin_LIBRARIES}
   ${OpenCV_LIBRARIES}
   ${EIGEN3_LIBRARIES}
-  OCamCalib
+  UvdarCore_OCamCalib
   )
 
+## | ----------------- uvdar led manager node ----------------- |
 
-# target_link_libraries(uvdar_frequency_setter_node
-#   ${catkin_LIBRARIES}
-#   )
+add_executable(uvdar_led_manager_node
+  src/led_manager.cpp
+  )
+
+add_dependencies(uvdar_led_manager_node
+  ${${PROJECT_NAME}_EXPORTED_TARGETS}
+  ${catkin_EXPORTED_TARGETS}
+  )
+
 target_link_libraries(uvdar_led_manager_node
   ${catkin_LIBRARIES}
+  )
+
+## | ---------------------- what is this? --------------------- |
+
+# add_custom_target(headers
+#   SOURCES ${HEADER_FILES} ${LAUNCHER_FILES} ${YAML_FILES}
+#   )
+
+## --------------------------------------------------------------
+## |                           Install                          |
+## --------------------------------------------------------------
+
+install(TARGETS ${LIBRARIES}
+  ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+  LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+  RUNTIME DESTINATION ${CATKIN_GLOBAL_BIN_DESTINATION}
+  )
+
+install(TARGETS ${EXECUTABLES}
+  RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+  )
+
+install(DIRECTORY msg srv
+  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
+  )
+
+install(DIRECTORY launch config rviz
+  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
+  )
+
+install(DIRECTORY scripts/
+  USE_SOURCE_PERMISSIONS
+  DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+  )
+
+install(DIRECTORY scripts
+  USE_SOURCE_PERMISSIONS
+  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
+  )
+
+install(FILES nodelets.xml
+  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
   )

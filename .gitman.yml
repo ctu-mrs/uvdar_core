@@ -1,0 +1,14 @@
+location: .gitman
+sources:
+  - repo: https://github.com/TimLakemann/ami.git
+    name: ami
+    rev: master
+    type: git
+    params:
+    sparse_paths:
+      -
+    links:
+      - source: ''
+        target: include/ami
+    scripts:
+      - git submodule update --init --recursive

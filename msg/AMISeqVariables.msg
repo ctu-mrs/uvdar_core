@@ -1,0 +1,9 @@
+time inserted_time
+int8 signal_id
+bool[] extended_search
+bool[] poly_reg_computed
+uvdar_core/Point2DWithFloat predicted_point
+uvdar_core/Point2DWithFloat confidence_interval
+float32[] x_coeff_reg
+float32[] y_coeff_reg
+uvdar_core/AMISeqPoint[] sequence

@@ -1,5 +1,5 @@
 #define camera_delay 0.50
-#define MAX_POINTS_PER_IMAGE 200
+#define MAX_POINTS_PER_IMAGE 100
 
 #include <ros/ros.h>
 #include <ros/package.h>
@@ -44,7 +44,6 @@ public:
     param_loader.loadParam("publish_visualization", _publish_visualization_, bool(false));
 
     param_loader.loadParam("threshold", _threshold_, 200);
-    param_loader.loadParam("threshold_differential", _threshold_differential_, _threshold_/2);
 
     /* subscribe to cameras //{ */
     std::vector<std::string> _camera_topics;
@@ -95,7 +94,7 @@ public:
             _gui_,
             _debug_,
             _threshold_,
-            _threshold_differential_,
+            _threshold_ / 2,
             150,
             _masks_
             ));
@@ -379,7 +378,6 @@ private:
   std::vector<cv::Size> camera_image_sizes_;
 
   int  _threshold_;
-  int  _threshold_differential_;
 
   bool _use_masks_;
   std::vector<std::string> _mask_file_names_;

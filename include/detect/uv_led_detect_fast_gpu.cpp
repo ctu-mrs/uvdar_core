@@ -15,7 +15,7 @@ uvdar::UVDARLedDetectFASTGPU::UVDARLedDetectFASTGPU(bool i_gui, bool i_debug, in
   local_size_x = 16;
   local_size_y = 16;
   max_markers_count = 300;
-  max_sun_pts_count = 50000;
+  max_sun_pts_count = 10000;
 }
 
 void uvdar::UVDARLedDetectFASTGPU::init() {

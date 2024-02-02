@@ -26,7 +26,7 @@
 
 #include "OCamCalib/ocam_functions.h"
 #include <unscented/unscented.h>
-#include <p3p/P3p.h>
+/* #include <p3p/P3p.h> */
 #include <color_selector/color_selector.h>
 /* #include <frequency_classifier/frequency_classifier.h> */
 
@@ -822,7 +822,7 @@ namespace uvdar {
         int i=0;
         for (auto calib_file : _calib_files_){
           if (calib_file == "default"){
-            file_name = ros::package::getPath("uvdar_core")+"/include/OCamCalib/config/calib_results_bf_uv_fe.txt";
+            file_name = ros::package::getPath("uvdar_core")+"/config/ocamcalib/calib_results_bf_uv_fe.txt";
           }
           else {
             file_name = calib_file;
@@ -4273,4 +4273,3 @@ int main(int argc, char** argv) {
   ros::spin();
   return 0;
 }
-

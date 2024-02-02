@@ -2,7 +2,7 @@
 <package format="2">
   <name>uvdar_core</name>
   <version>0.0.0</version>
-  <description>The core UVDAR package</description>
+  <description>uvdar_core</description>
 
   <maintainer email="viktor.walter@fel.cvut.cz">Viktor Walter</maintainer>
 
@@ -10,29 +10,21 @@
 
   <buildtool_depend>catkin</buildtool_depend>
 
-  <depend>message_generation</depend>
-  <depend>roscpp</depend>
-  <depend>nodelet</depend>
-  <depend>tf2</depend>
-  <depend>tf2_msgs</depend>
-  <depend>tf2_eigen</depend>
-  <depend>tf2_geometry_msgs</depend>
-  <depend>message_runtime</depend>
-  <depend>image_transport</depend>
   <depend>cv_bridge</depend>
-  <depend>sensor_msgs</depend>
-  <depend>opencv</depend>
-  <depend>mrs_msgs</depend>
-  <depend>mrs_modules_msgs</depend>
+  <depend>image_transport</depend>
+  <depend>message_generation</depend>
+  <depend>message_runtime</depend>
   <depend>mrs_lib</depend>
-  <depend>mrs_general</depend>
-  <depend>mrs_uav_manager</depend>
+  <depend>mrs_modules_msgs</depend>
+  <depend>mrs_msgs</depend>
+  <depend>nodelet</depend>
+  <depend>roscpp</depend>
+  <depend>sensor_msgs</depend>
   <depend>std_msgs</depend>
-  <depend>bluefox2</depend>
-  <!-- <depend>uvdar_gazebo_plugin</depend> -->
+  <depend>libgbm-dev</depend>
 
   <export>
-    <nodelet plugin="${prefix}/plugins.xml" />
+    <nodelet plugin="${prefix}/nodelets.xml" />
   </export>
 
 </package>

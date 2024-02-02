@@ -1,4 +1,7 @@
 *.bmp
-scripts/.tmuxinator.yml
+
 .vscode/
+
 *.swp
+*.swo
+.gitman

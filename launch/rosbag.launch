@@ -10,7 +10,7 @@
 
   <arg name="threshold" default="100"/>
 
-  <arg name="calibrations_folder" default="$(find mrs_uav_general)/config/uvdar_calibrations"/>
+  <arg name="calibrations_folder" default="$(find mrs_uav_deployment)/config/uvdar_calibrations"/>
   
   <param name="use_sim_time" value="true"/>
 
@@ -54,7 +54,6 @@
   <arg name="decay_factor" default="0.1"/>
   <arg name="confidence_probability" default="95.0"/>
   <arg name="allowed_BER_per_seq" default="0"/>
-  <arg name="std_threshold_poly_reg" default="0.5"/>
 
   <arg name="use_4DHT" default="false"/>
   <!--4DHT values-->
@@ -142,7 +141,6 @@
       <param name="decay_factor"         type="double" value="$(arg decay_factor)"/>    
       <param name="confidence_probability"         type="double" value="$(arg confidence_probability)"/>
       <param name="allowed_BER_per_seq"     type="int"   value="$(arg allowed_BER_per_seq)"/>
-      <param name="std_threshold_poly_reg"     type="double"   value="$(arg std_threshold_poly_reg)"/>
       
       <param name="accumulator_length"         type="int" value="$(arg accumulator_length)"/>
       <param name="pitch_steps"         type="int" value="$(arg pitch_steps)"/>
@@ -157,15 +155,15 @@
       <rosparam param="points_seen_topics"> ["points_seen_left"] </rosparam>
       <rosparam param="blinkers_seen_topics"> ["blinkers_seen_back"] </rosparam>
       <rosparam param="estimated_framerate_topics"> ["estimated_framerate_back"] </rosparam>
-      <rosparam param="omta_logging_topics"> ["omta_logging_back"] </rosparam>
-      <rosparam param="omta_all_seq_info_topics"> ["omta_all_seq_info_back"] </rosparam>
+      <rosparam param="ami_logging_topics"> ["ami_logging_back"] </rosparam>
+      <rosparam param="ami_all_seq_info_topics"> ["ami_all_seq_info_back"] </rosparam>
       
 
       <remap from="~camera_left" to="/$(arg uav_name)/uvdar_bluefox/left/image_raw"/>
       <remap from="~points_seen_left" to="/$(arg uav_name)/uvdar/points_seen_left"/>
       <remap from="~blinkers_seen_back" to="/$(arg uav_name)/uvdar/blinkers_seen_back"/>
-      <remap from="~omta_logging_back" to="/$(arg uav_name)/uvdar/omta_logging_back"/>
-      <remap from="~omta_all_seq_info_back" to="/$(arg uav_name)/uvdar/omta_all_seq_info_back"/>
+      <remap from="~ami_logging_back" to="/$(arg uav_name)/uvdar/ami_logging_back"/>
+      <remap from="~ami_all_seq_info_back" to="/$(arg uav_name)/uvdar/ami_all_seq_info_back"/>
 
       <remap from="~estimated_framerate_back" to="/$(arg uav_name)/uvdar/estimated_framerate_back"/>
       <remap from="~visualization" to="/$(arg uav_name)/uvdar/blink_visualization/image_raw"/>

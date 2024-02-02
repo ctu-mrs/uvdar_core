@@ -67,7 +67,7 @@
   <arg name="id12" value="11"/>
 
   <arg name="sequence_file" default="$(find uvdar_core)/config/selected.txt"/>
-  <arg name="model_file" default="$(find uvdar_core)/config/models/quadrotor_foursided.txt"/>
+  <arg name="model_file" default="$(find uvdar_core)/config/models/quadrotor_foursided_px4_motor_aligned.txt"/>
   <!-- ideal angle: 1.221730476 - pi/2 -->
 
       <!-- <origin xyz="0.108 0 0.085" rpy="1.57079632679 4.71238898038 1.57079632679" /> -->
@@ -179,8 +179,8 @@
       <rosparam param="blinkers_seen_topics"> ["blinkers_seen_left", "blinkers_seen_right", "blinkers_seen_back"] </rosparam>
       <rosparam param="estimated_framerate_topics"> ["estimated_framerate_left", "estimated_framerate_right", "estimated_framerate_back"] </rosparam>
 
-      <rosparam param="omta_logging_topics"> ["omta_logging_left", "omta_logging_right", "omta_logging_back"] </rosparam>
-      <rosparam param="omta_all_seq_info_topics"> ["omta_all_seq_info_left", "omta_all_seq_info_right", "omta_all_seq_info_back"] </rosparam>
+      <rosparam param="ami_logging_topics"> ["ami_logging_left", "ami_logging_right", "ami_logging_back"] </rosparam>
+      <rosparam param="ami_all_seq_info_topics"> ["ami_all_seq_info_left", "ami_all_seq_info_right", "ami_all_seq_info_back"] </rosparam>
 
       <remap from="~camera_left" to="/$(arg uav_name)/uvdar_bluefox_left/image_raw"/>
       <remap from="~camera_right" to="/$(arg uav_name)/uvdar_bluefox_right/image_raw"/>
@@ -196,13 +196,13 @@
       <remap from="~estimated_framerate_back" to="/$(arg uav_name)/uvdar/estimated_framerate_back"/>
       <remap from="~visualization" to="/$(arg uav_name)/uvdar/blink_visualization/image_raw"/>
 
-      <remap from="~omta_logging_left" to="/$(arg uav_name)/uvdar/omta_logging_left"/>
-      <remap from="~omta_logging_right" to="/$(arg uav_name)/uvdar/omta_logging_right"/>
-      <remap from="~omta_logging_back" to="/$(arg uav_name)/uvdar/omta_logging_back"/>
+      <remap from="~ami_logging_left" to="/$(arg uav_name)/uvdar/ami_logging_left"/>
+      <remap from="~ami_logging_right" to="/$(arg uav_name)/uvdar/ami_logging_right"/>
+      <remap from="~ami_logging_back" to="/$(arg uav_name)/uvdar/ami_logging_back"/>
 
-      <remap from="~omta_all_seq_info_left" to="/$(arg uav_name)/uvdar/omta_all_seq_info_left"/>
-      <remap from="~omta_all_seq_info_right" to="/$(arg uav_name)/uvdar/omta_all_seq_info_right"/>
-      <remap from="~omta_all_seq_info_back" to="/$(arg uav_name)/uvdar/omta_all_seq_info_back"/>
+      <remap from="~ami_all_seq_info_left" to="/$(arg uav_name)/uvdar/ami_all_seq_info_left"/>
+      <remap from="~ami_all_seq_info_right" to="/$(arg uav_name)/uvdar/ami_all_seq_info_right"/>
+      <remap from="~ami_all_seq_info_back" to="/$(arg uav_name)/uvdar/ami_all_seq_info_back"/>
 
     </node>
 

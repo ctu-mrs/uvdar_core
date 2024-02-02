@@ -137,4 +137,3 @@ This work would not be possible without the hard work, resources and support fro
 ### Included libraries
 This package contains the following third-party libraries by the respective authors:
   * [OCamCalib](https://sites.google.com/site/scarabotix/ocamcalib-toolbox) calibration system by Davide Scaramuzza - only the C++ sources are included here. To perform calibration of the UV-sensitive cameras, use [This modification](https://github.com/ctu-mrs/OCamCalib_UVDAR) of the toolbox.
-  * [P3P](https://www.laurentkneip.com/software) library by Laurent Kneip
