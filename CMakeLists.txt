@@ -1,10 +1,6 @@
 cmake_minimum_required(VERSION 3.5)
 project(uvdar_core)
 
-# FILE(GLOB_RECURSE HEADER_FILES include *.h)
-# FILE(GLOB_RECURSE LAUNCHER_FILES include *.launch)
-# FILE(GLOB_RECURSE YAML_FILES include *.yaml)
-
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -12,7 +8,14 @@ add_definitions(-Wall)
 add_definitions(-Wextra)
 
 if(NOT TESTING)
+  message(WARNING "relwithdebinfo profile detected, building with -O3")
   set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} -O3")
+endif()
+
+if(COVERAGE)
+  message(WARNING "building with --coverage, the performance might be limited")
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} --coverage")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --coverage")
 endif()
 
 set(CATKIN_DEPENDENCIES
@@ -299,8 +302,8 @@ target_link_libraries(UvdarCore_color_selector
 ## | --------------------- compute lib --------------------- |
 
 add_library(UvdarCore_compute_lib
-  include/compute_lib/compute_lib.c 
-  include/compute_lib/queue.c 
+  include/compute_lib/compute_lib.c
+  include/compute_lib/queue.c
   include/compute_lib/gl32_utils.c
   )
 
@@ -310,12 +313,12 @@ add_dependencies(UvdarCore_compute_lib
   )
 
 target_link_libraries(UvdarCore_compute_lib
-  debug 
-  ${OpenGL_LIBRARIES} 
-  ${LIBGBM_LIBRARIES} 
-  ${catkin_LIBRARIES} 
-  ${LGBM} 
-  ${LEGL} 
+  debug
+  ${OpenGL_LIBRARIES}
+  ${LIBGBM_LIBRARIES}
+  ${catkin_LIBRARIES}
+  ${LGBM}
+  ${LEGL}
   ${LGL}
   )
 
@@ -442,12 +445,6 @@ add_dependencies(uvdar_led_manager_node
 target_link_libraries(uvdar_led_manager_node
   ${catkin_LIBRARIES}
   )
-
-## | ---------------------- what is this? --------------------- |
-
-# add_custom_target(headers
-#   SOURCES ${HEADER_FILES} ${LAUNCHER_FILES} ${YAML_FILES}
-#   )
 
 ## --------------------------------------------------------------
 ## |                           Install                          |

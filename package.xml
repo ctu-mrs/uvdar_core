@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <package format="2">
   <name>uvdar_core</name>
-  <version>0.0.0</version>
+  <version>1.0.0</version>
   <description>uvdar_core</description>
 
   <maintainer email="viktor.walter@fel.cvut.cz">Viktor Walter</maintainer>
@@ -28,4 +28,3 @@
   </export>
 
 </package>
-
