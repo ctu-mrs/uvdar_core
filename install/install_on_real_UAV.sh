@@ -206,7 +206,6 @@ then
         id_back_cam=$(rosrun bluefox2 bluefox2_list_cameras | sed -n -E -e 's/.*Serial: ([0-9]+).*/\1/p')
         print_cam_ids_and_write_to_bash
         echo "Testing cameras. One moment please..."
-        roslaunch uvdar_core camera_only_three_sided.launch &> $tmp_file_cam_launch &
         roslaunch uvdar_core camera_only_three_sided.launch left:=$id_left_cam right:=$id_right_cam back:=$id_back_cam expose_us_left:=$EXPOSURE expose_us_right:=$EXPOSURE expose_us_back:=$EXPOSURE &> $tmp_file_cam_launch &
         sleep 10 
         pid_cam_launch=$! 
