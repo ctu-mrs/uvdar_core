@@ -43,9 +43,11 @@ workspace_not_existent(){
 extract_id_two_cams(){
   echo $'\e[1;32mPlease connect the left cam to NUC and UNPLUG the other cam(s)! Wait approximately 5 sec. Then hit any key.\e[0m'
     read -n 1 key
+    sleep 3
     id_left_cam=$(rosrun bluefox2 bluefox2_list_cameras | sed -n -E -e 's/.*Serial: ([0-9]+).*/\1/p')
     echo -e $'\e[1;32m\nNow please connect the right cam to NUC and UNPLUG the other cam(s)! Wait approximately 5 sec. Then hit any key.\e[0m'
     read -n 1 key
+    sleep 3
     id_right_cam=$(rosrun bluefox2 bluefox2_list_cameras | sed -n -E -e 's/.*Serial: ([0-9]+).*/\1/p')
 }
 
@@ -93,7 +95,7 @@ test_cam(){
 
 build_workspace(){
     cd $GIT_PATH
-
+    sudo apt -y update && rosdep update && sudo apt -y upgrade --with-new-pkgs
     sudo apt install ros-noetic-uvdar-core
 
     echo "Installing Bluefox drivers:"
@@ -105,10 +107,11 @@ build_workspace(){
     if [ -d "bluefox2" ]; then echo "bluefox2 already cloned"
     else 
         git clone https://github.com/ctu-mrs/bluefox2.git
-        cd bluefox2/install
-        sudo ./install.sh
     fi
-
+    
+    cd bluefox2/install
+    sudo ./install.sh
+    
     if [ -d "$workspace/src" ]; then
         if [ -d "$workspace/src/camera_base" ]; then echo "camera_base package already exists in workspace"
         else 
@@ -188,6 +191,7 @@ then
         # extract id for back camera 
         echo -e $'\e[1;32m\nFinally please connect the back cam to NUC and UNPLUG the other two cams! Wait approximately 5 sec. Then hit any key.\e[0m'
         read -n 1 key
+        sleep 3
         id_back_cam=$(rosrun bluefox2 bluefox2_list_cameras | sed -n -E -e 's/.*Serial: ([0-9]+).*/\1/p')
         print_cam_ids_and_write_to_bash
         echo "Testing cameras. One moment please..."
@@ -216,6 +220,7 @@ if [[ $response_led =~ ^(y|Y)=$ ]]; then
     source $workspace/devel/setup.bash
     
     echo "####################### LED Configuration #######################"
+    echo $'\e[0;33mLED testing works only with a battery as the power source!\e[0m'
     echo $'\e[1;32mWhich module is the UVDAR board connected to?\e[0m'
     echo "Enter:"
     echo "1 = /dev/MRS_MODULE1"
@@ -224,7 +229,8 @@ if [[ $response_led =~ ^(y|Y)=$ ]]; then
     echo "4 = /dev/MRS_MODULE4"
     read -n 2 resp_module 
     echo "Starting with LED initialization on:/dev/MRS_MODULE$resp_module... This will take about 20 seconds."
-    roslaunch uvdar_core led_manager.launch sequence_file:=$GIT_PATH/uvdar_core/config/blinking_sequences/test_assignment.txt portname:=/dev/MRS_MODULE$resp_module &> $tmp_file_LED_launch & 
+    path_to_led_config=/opt/ros/noetic/share/uvdar_core/config/blinking_sequences/test_assignment.txt
+    roslaunch uvdar_core led_manager.launch sequence_file:=$path_to_led_config portname:=/dev/MRS_MODULE$resp_module &> $tmp_file_LED_launch & 
     pid_led_manager=$! 
     sleep 5; rosservice call /$UAV_NAME/uvdar_led_manager_node/quick_start 0
     sleep 2; rosservice call /$UAV_NAME/uvdar_led_manager_node/load_sequences
@@ -238,6 +244,7 @@ if [[ $response_led =~ ^(y|Y)=$ ]]; then
     echo "##################### LED Configuration done! ###################"
     echo $'\e[1;32mPlease verify that the LEDs are correctly wired!\e[0m'
     echo "Blinking Pattern: Clockwise blinking circle starting at the left front arm!"
+    echo $'\e[0;33mIf the blinking pattern didn\'t change: Please shutdown the NUC, detach the battery, attach it again and call this script again!\e[0m'
 else
     echo "OK. Exiting script..."
 fi 
