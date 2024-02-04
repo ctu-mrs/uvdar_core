@@ -92,24 +92,9 @@ test_cam(){
 ###############################################################
 
 build_workspace(){
-    echo "Cloning UVDAR repository into $GIT_PATH folder:"
     cd $GIT_PATH
-    if [ -d "uvdar_core" ]; then
-        echo "uvdar_core already cloned"
-    else
-        git clone https://github.com/TimLakemann/uvdar_core.git
-        sudo apt install libgbm-dev
-    fi                                
 
-    if [[ -d "$workspace/src" ]]
-    then
-        if [ -d "$workspace/src/uvdar_core" ]; then echo "uvdar_core package already exists in workspace. Skipping..."
-        else 
-            ln -s $GIT_PATH/uvdar_core $workspace/src/uvdar_core
-        fi
-    else 
-        workspace_not_existent
-    fi
+    sudo apt install ros-noetic-uvdar-core
 
     echo "Installing Bluefox drivers:"
     cd $GIT_PATH
@@ -158,7 +143,7 @@ then
 fi
 
 ###################### Build Workspace ########################
-read -n 2 -p $'\e[1;32mDo you want to (re)-build the workspace? [y/n]\n\e[0;33m[Hint:] When calling this script for the first time, please enter y!\n\e[0m'  resp_ws
+read -n 2 -p $'\e[1;32mDo you want to (re)-build the workspace and install the uvdar-deb package? [y/n]\n\e[0;33m[Hint:] When calling this script for the first time, please enter y!\n\e[0m'  resp_ws
 response_ws=`echo $resp_ws | sed -r 's/(.*)$/\1=/'`
 if [[ $response_ws =~ ^(y|Y)=$ ]]
 then
