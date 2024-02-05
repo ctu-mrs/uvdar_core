@@ -79,11 +79,11 @@ namespace uvdar {
 
         //for simulation
         for (int i = 0; i < 8; i++) {
-          clients_set_sq_gz.push_back(nh.serviceClient<mrs_msgs::SetInt>("/gazebo/ledSignalSetter/" + _uav_name_ + "_uvled_" + std::to_string(i + 1) + "_lens_link"));
-          clients_set_fr_gz.push_back(nh.serviceClient<mrs_msgs::Float64Srv>("/gazebo/ledFrequencySetter/" + _uav_name_ + "_uvled_" + std::to_string(i + 1) + "_lens_link"));
-          clients_set_md_gz.push_back(nh.serviceClient<mrs_msgs::SetInt>("/gazebo/ledModeSetter/" + _uav_name_ + "_uvled_" + std::to_string(i + 1) + "_lens_link"));
-          clients_set_ms_gz.push_back(nh.serviceClient<uvdar_core::SetLedMessage>("/gazebo/ledMessageSender/" + _uav_name_ + "_uvled_" + std::to_string(i + 1) + "_lens_link"));
-          clients_set_ac_gz.push_back(nh.serviceClient<std_srvs::SetBool>("/gazebo/ledActiveSetter/" + _uav_name_ + "_uvled_" + std::to_string(i + 1) + "_lens_link"));
+          clients_set_sq_gz.push_back(nh.serviceClient<mrs_msgs::SetInt>("/gazebo/ledSignalSetter/" + _uav_name_ + "_" + std::to_string(i + 1)));
+          clients_set_fr_gz.push_back(nh.serviceClient<mrs_msgs::Float64Srv>("/gazebo/ledFrequencySetter/" + _uav_name_ + "_" + std::to_string(i + 1)));
+          clients_set_md_gz.push_back(nh.serviceClient<mrs_msgs::SetInt>("/gazebo/ledModeSetter/" + _uav_name_ +  "_" +std::to_string(i + 1)));
+          clients_set_ms_gz.push_back(nh.serviceClient<uvdar_core::SetLedMessage>("/gazebo/ledMessageSender/" + _uav_name_ + "_" + std::to_string(i + 1)));
+          clients_set_ac_gz.push_back(nh.serviceClient<std_srvs::SetBool>("/gazebo/ledActiveSetter/" + _uav_name_ +  "_" +std::to_string(i + 1)));
         }
 
         initialized = true;

@@ -60,7 +60,7 @@ windows:
   - slow_down:
       layout: even-vertical
       panes:
-        - waitForGazebo; waitForRos; sleep 30; gz physics -u 80
+        - waitForGazebo; waitForRos; sleep 20; gz physics -u 80
   # - trajectories:
   #     layout: tiled
   #     panes:
