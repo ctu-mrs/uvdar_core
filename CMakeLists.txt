@@ -30,6 +30,7 @@ set(CATKIN_DEPENDENCIES
   roscpp
   sensor_msgs
   std_msgs
+  mrs_uav_testing
   )
 
 set(LIBRARIES
@@ -445,6 +446,16 @@ add_dependencies(uvdar_led_manager_node
 target_link_libraries(uvdar_led_manager_node
   ${catkin_LIBRARIES}
   )
+
+## --------------------------------------------------------------
+## |                           Testing                          |
+## --------------------------------------------------------------
+
+if(CATKIN_ENABLE_TESTING)
+
+  add_subdirectory(test)
+
+endif()
 
 ## --------------------------------------------------------------
 ## |                           Install                          |
