@@ -20,13 +20,15 @@ Tester::Tester() : mrs_uav_testing::TestGeneric() {
 
 bool Tester::test() {
 
-  {
-    auto [success, message] = spawnGazeboUav();
+  auto [uho, uh_message] = makeUAV(_uav_name_);
+  if (uho == std::nullopt){
+    ROS_ERROR("[%s]: Failed to create uav %s: %s", ros::this_node::getName().c_str(), _uav_name_.c_str(), uh_message.c_str());
+    return false;
+  }
+  auto uh = *std::move(uho);
 
-    if (!success) {
-      ROS_ERROR("[%s]: gazebo UAV spawning failed with message: '%s'", ros::this_node::getName().c_str(), message.c_str());
-      return false;
-    }
+  {
+    auto [success, message] = uh.spawn(_gazebo_spawner_params_);
   }
 
   // wait for the MRS system
@@ -39,13 +41,13 @@ bool Tester::test() {
       return false;
     }
 
-    if (this->mrsSystemReady()) {
+    if (uh.mrsSystemReady()) {
       break;
     }
   }
 
   {
-    auto [success, message] = this->takeoff();
+    auto [success, message] = uh.takeoff();
 
     if (!success) {
       ROS_ERROR("[%s]: takeoff failed with message: '%s'", ros::this_node::getName().c_str(), message.c_str());
@@ -53,9 +55,9 @@ bool Tester::test() {
     }
   }
 
-  this->sleep(5.0);
+  sleep(5.0);
 
-  if (this->isFlyingNormally()) {
+  if (uh.isFlyingNormally()) {
     return true;
   } else {
     ROS_ERROR("[%s]: not flying normally", ros::this_node::getName().c_str());
