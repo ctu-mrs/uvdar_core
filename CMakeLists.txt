@@ -31,6 +31,7 @@ set(CATKIN_DEPENDENCIES
   sensor_msgs
   std_msgs
   mrs_uav_testing
+  #  mrs_uav_testing
   )
 
 set(LIBRARIES
@@ -454,6 +455,7 @@ target_link_libraries(uvdar_led_manager_node
 if(CATKIN_ENABLE_TESTING)
 
   add_subdirectory(test)
+    #  add_subdirectory(test)
 
 endif()
 
