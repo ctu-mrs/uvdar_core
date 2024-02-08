@@ -1,0 +1,94 @@
+<launch>
+  <arg name="uav_name" default="$(optenv UAV_NAME uav2)"/>
+
+  <arg name="standalone" default="false"/>
+
+  <arg unless="$(arg standalone)" name="nodelet" value="load"/>
+  <arg     if="$(arg standalone)" name="nodelet" value="standalone"/>
+  <arg unless="$(arg standalone)" name="nodelet_manager" value="$(arg uav_name)_uvdar_nodelet_manager"/>
+  <arg     if="$(arg standalone)" name="nodelet_manager" value=""/>
+
+  <arg name="threshold" default="100"/>
+
+  <arg name="left" default="$(optenv BLUEFOX_UV_LEFT)"/>
+  <arg name="right" default="$(optenv BLUEFOX_UV_RIGHT)"/>
+  <arg name="left_camera_name" default="mv_$(arg left)"/>
+  <arg name="right_camera_name" default="mv_$(arg right)"/>
+  <arg name="expose_us_left" default="$(optenv BLUEFOX_UV_LEFT_EXPOSE_US)"/>
+  <arg name="expose_us_right" default="$(optenv BLUEFOX_UV_RIGHT_EXPOSE_US)"/>
+
+  <arg name="calibrations_folder" default="$(find mrs_uav_deployment)/config/uvdar_calibrations"/>
+
+
+  <!-- Node Settings -->
+  <arg name="output" default="screen"/>
+  <arg name="proc" default="false"/>
+  <arg name="view" default="false"/>
+  <arg name="calib" default="false"/>
+
+  <!-- <arg name="profiling" default="false"/> -->
+  <arg name="profiling" default="true"/>
+  <arg name="debug" default="false"/>
+  <arg name="visual_debug" default="false"/>
+  <arg name="gui" default="true"/>
+  <arg name="publish" default="true"/>
+  
+  <arg name="id1" value="0"/>
+  <arg name="id2" value="1"/>
+  <arg name="id3" value="2"/>
+  <arg name="id4" value="3"/>
+  <arg name="id5" value="4"/>
+  <arg name="id6" value="5"/>
+  <arg name="id7" value="6"/>
+  <arg name="id8" value="7"/>
+  <arg name="id9" value="8"/>
+  <arg name="id10" value="9"/>
+  <arg name="id11" value="10"/>
+  <arg name="id12" value="11"/>
+
+  <arg name="beacon" default="false"/>
+
+  <arg name="sequence_file" default="$(find uvdar_core)/config/selected.txt"/>
+  <arg name="pub_tracking_stats" default="true"/>
+  <arg name="draw_predict_window_sec" default="0.3"/>
+
+    
+  <arg name="blink_throttle_rate" default="10"/>
+
+  <arg name="max_px_shift_y" default="3"/>
+  <arg name="max_px_shift_x" default="3"/>
+  <arg name="max_zeros_consecutive" default="2"/>
+  <arg name="max_ones_consecutive" default="2"/>
+  <arg name="stored_seq_len_factor" default="1"/>
+  <arg name="max_buffer_length" default="5000"/>
+  <arg name="poly_order" default="2"/>
+  <arg name="decay_factor" default="0.1"/>
+  <arg name="confidence_probability" default="95.0"/>
+  <arg name="allowed_BER_per_seq" default="0"/>
+
+  <arg name="use_4DHT" default="false"/>
+  <!--4DHT values-->
+  <arg name="accumulator_length"         default="18"/>
+  <arg name="pitch_steps"         default="16"/>
+  <arg name="yaw_steps"         default="16"/>
+  <arg name="max_pixel_shift"         default="4"/>
+
+  <arg name="model_file" default="$(find uvdar_core)/config/models/quadrotor_foursided_px4_motor_aligned.txt"/>
+  <!-- ideal angle: 1.221730476 - pi/2 -->
+
+  <group ns="$(arg uav_name)">
+
+
+    <node pkg="nodelet" type="nodelet" name="$(arg uav_name)_uvdar_nodelet_manager" args="manager" output="screen" >
+    <!-- <node pkg="nodelet" type="nodelet" name="$(arg uav_name)_uvdar_nodelet_manager" args="manager" output="screen" launch-prefix="debug_roslaunch"> -->
+      <param name="num_worker_threads" value="8" />
+    </node>
+
+    <node name="uv_video_loader" pkg="nodelet" type="nodelet" args="load uvdar/UVDARVideoReader $(arg nodelet_manager)" output="screen" respawn="false"> 
+    </node>
+
+
+  </group>
+
+
+</launch>

@@ -21,3 +21,9 @@
     <description>Signal setter nodelet</description>
   </class>
 </library>
+
+<library path="lib/libUvdarCore_UVDARVideoReader">
+  <class name="uvdar/UVDARVideoReader" type="uvdar::UVDARVideoReader" base_class_type="nodelet::Nodelet">
+    <description>Read Video files</description>
+  </class>
+</library>
