@@ -30,7 +30,6 @@ set(CATKIN_DEPENDENCIES
   roscpp
   sensor_msgs
   std_msgs
-  mrs_uav_testing
   #  mrs_uav_testing
   )
 
@@ -43,6 +42,7 @@ set(LIBRARIES
   UvdarCore_frequency_classifier
   UvdarCore_color_selector
   UvdarCore_UVDARDetector
+  UvdarCore_UVDARVideoReader
   UvdarCore_unscented
   UvdarCore_UVDARBlinkProcessor
   UvdarCore_UVDARBluefoxEmulator
@@ -341,6 +341,24 @@ target_link_libraries(UvdarCore_UVDARDetector
   UvdarCore_uv_led_detect_fast
   )
 
+## | --------------------- uvdar video reader--------------------- |
+
+add_library(UvdarCore_UVDARVideoReader
+  src/video_reader.cpp
+  )
+
+add_dependencies(UvdarCore_UVDARVideoReader
+  ${${PROJECT_NAME}_EXPORTED_TARGETS}
+  ${catkin_EXPORTED_TARGETS}
+  )
+
+target_link_libraries(UvdarCore_UVDARVideoReader
+  ${catkin_LIBRARIES}
+  ${OpenCV_LIBRARIES}
+  )
+
+
+
 ## | ------------------------ UvdarCore_unscented ----------------------- |
 
 add_library(UvdarCore_unscented
@@ -454,7 +472,6 @@ target_link_libraries(uvdar_led_manager_node
 
 if(CATKIN_ENABLE_TESTING)
 
-  add_subdirectory(test)
     #  add_subdirectory(test)
 
 endif()
