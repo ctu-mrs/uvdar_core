@@ -7,7 +7,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 add_definitions(-Wall)
 add_definitions(-Wextra)
 
-if(NOT TESTING)
+if(NOT MRS_ENABLE_TESTING)
   message(WARNING "relwithdebinfo profile detected, building with -O3")
   set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} -O3")
 endif()
@@ -451,7 +451,9 @@ target_link_libraries(uvdar_led_manager_node
 ## |                           Testing                          |
 ## --------------------------------------------------------------
 
-if(CATKIN_ENABLE_TESTING)
+if(CATKIN_ENABLE_TESTING AND MRS_ENABLE_TESTING)
+
+  message(WARNING "Testing enabled.")
 
   add_subdirectory(test)
 
