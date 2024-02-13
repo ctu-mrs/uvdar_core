@@ -10,62 +10,48 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/imgcodecs/imgcodecs.hpp>
-
+#include <image_transport/image_transport.h>
 #include <iostream>
 
 namespace uvdar {
 class UVDARVideoReader: public nodelet::Nodelet{
 public:
-
+    UVDARVideoReader(){};
+    
+    ~UVDARVideoReader(){
+}
 /* onInit() //{ */
 
   /**
    * @brief Initializer - loads parameters and initializes necessary structures
    */
-  void onInit() {
+private:
+    void onInit() {
+
 
     ros::NodeHandle nh_ = nodelet::Nodelet::getMTPrivateNodeHandle();
     cv::VideoCapture cap("/home/tim/records_two_signals/water/first_test.mp4");
-    
-     
-  while(1){
- 
-    cv:: Mat frame;
-    
-    // Capture frame-by-frame
-    cap >> frame;
 
-    // If the frame is empty, break immediately
-    if (frame.empty()){
-        ROS_WARN("Frame Empty");
-    }
-    // Write the frame into the file 'outcpp.avi'
-    
-    // Display the resulting frame    
-    cv::imshow( "Frame", frame );
-  
-    // Press  ESC on keyboard to  exit
-    char c = (char)cv::waitKey(1);
-    if( c == 27 ) 
-      break;
-  }
- 
-  // When everything done, release the video capture and write object
-  cap.release();
- 
-  // Closes all the fra
-  cv::destroyAllWindows();  
-       
+    image_callback_t callback = [this] (sensor_msgs::Image& image_msg) { 
+        callbackImage(image_msg );
+      };
+    nh_.advertise<sensor_msgs::Image>("camera/image", 1);
+     
 
     
  }
   //}
-~UVDARVideoReader(){
-}
-  
-private:
 
-};
+  
+
+  ros::Publisher pub_image;
+  using image_callback_t= boost::function<void (const sensor_msgs::Image&)>;
+
+  void UVDARVideoReader::callbackImage(sensor_msgs::Image& image_msg){
+  
+  }
+  
+  };
 
 
 } //namespace uvdar
