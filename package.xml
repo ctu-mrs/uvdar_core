@@ -22,7 +22,6 @@
   <depend>sensor_msgs</depend>
   <depend>std_msgs</depend>
   <depend>libgbm-dev</depend>
-  <depend>mrs_uav_testing</depend>
 
   <export>
     <nodelet plugin="${prefix}/nodelets.xml" />
