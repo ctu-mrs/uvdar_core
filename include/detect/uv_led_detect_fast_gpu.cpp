@@ -127,28 +127,38 @@ uvdar::UVDARLedDetectFASTGPU::~UVDARLedDetectFASTGPU() {
 }
 
 bool uvdar::UVDARLedDetectFASTGPU::processImage(const cv::Mat i_image, std::vector<cv::Point2i>& detected_points, std::vector<cv::Point2i>& sun_points, int mask_id) {
+
+  std::cout << "[UVDARDetectorFASTGPU]: Starting processing..." << std::endl;
   detected_points = std::vector<cv::Point2i>();
   sun_points = std::vector<cv::Point2i>();
   image_curr_     = i_image;
 
+  std::cout << "[UVDARDetectorFASTGPU]: Checking if initialized..." << std::endl;
   if (!initialized_) {
     image_size = i_image.size();
+    std::cerr << "[UVDARDetectorFASTGPU]: Initializing..." << std::endl;
     init();
   }
+  std::cout << "[UVDARDetectorFASTGPU]: Initialized." << std::endl;
 
+  std::cout << "[UVDARDetectorFASTGPU]: Checking mask index..." << std::endl;
   if (mask_id >= (int)(masks_.size())) {
     std::cerr << "[UVDARDetectorFASTGPU]: Mask index " << mask_id << " is greater than the current number of loaded masks!" << std::endl;
     return false;
   }
+  std::cout << "[UVDARDetectorFASTGPU]: Mask index is ok." << std::endl;
 
+  std::cout << "[UVDARDetectorFASTGPU]: Checking mask size..." << std::endl;
   if (mask_id >= 0){
     if (image_curr_.size() != masks_[mask_id].size()) {
       std::cerr << "[UVDARDetectorFASTGPU]: The size of the selected mask does not match the current image!" << std::endl;
       return false;
     }
   }
+  std::cout << "[UVDARDetectorFASTGPU]: Checking mask size is ok." << std::endl;
 
   if (_gui_) {
+    std::cout << "[UVDARDetectorFASTGPU]: Copying to viewer image..." << std::endl;
     (image_curr_).copyTo(image_view_);
   }
 
@@ -157,30 +167,37 @@ bool uvdar::UVDARLedDetectFASTGPU::processImage(const cv::Mat i_image, std::vect
   uint32_t sun_points_cnt_val;
   uint32_t markers_cnt_val;
 
+    std::cout << "[UVDARDetectorFASTGPU]: Resetting atomic counter buffer objects..." << std::endl;
   // reset atomic counter buffer objects
   compute_lib_acbo_write_uint_val(&compute_prog, &markers_count_acbo, 0);
   compute_lib_acbo_write_uint_val(&compute_prog, &sun_pts_count_acbo, 0);
   
+    std::cout << "[UVDARDetectorFASTGPU]: Writing data to GPU memory..." << std::endl;
   // write input image data + mask data to GPU
   compute_lib_image2d_write(&compute_prog, &texture_in, image_curr_.data);
   compute_lib_image2d_write(&compute_prog, &mask, (mask_id>=0)?masks_[mask_id].data:nullptr);
 
+  std::cout << "[UVDARDetectorFASTGPU]: Dispatching shader..." << std::endl;
   // dispatch compute shader
   compute_lib_program_dispatch(&compute_prog, image_size.width / local_size_x, image_size.height / local_size_y, 1);
 
+  std::cout << "[UVDARDetectorFASTGPU]: Retrieving detected markers..." << std::endl;
   // retrieve detected markers
   compute_lib_acbo_read_uint_val(&compute_prog, &markers_count_acbo, &markers_cnt_val);
   if (markers_cnt_val > max_markers_count) markers_cnt_val = max_markers_count;
   if (markers_cnt_val > 0) compute_lib_ssbo_read(&compute_prog, &markers_ssbo, (void*) markers, markers_cnt_val);
 
+  std::cout << "[UVDARDetectorFASTGPU]: Retrieving detected sun points..." << std::endl;
   // retrieve detected sun points
   compute_lib_acbo_read_uint_val(&compute_prog, &sun_pts_count_acbo, &sun_points_cnt_val);
   if (sun_points_cnt_val > max_sun_pts_count) sun_points_cnt_val = max_sun_pts_count;
   if (sun_points_cnt_val > 0) compute_lib_ssbo_read(&compute_prog, &sun_pts_ssbo, (void*) sun_pts, sun_points_cnt_val);
 
+  std::cout << "[UVDARDetectorFASTGPU]: Finding centroids of detected markers..." << std::endl;
   // find centroids of concentrated detected markers
   cpuFindMarkerCentroids(markers, markers_cnt_val, 5, detected_points);
 
+  std::cout << "[UVDARDetectorFASTGPU]: Converting sun points..." << std::endl;
   for (uint32_t i = 0; i < sun_points_cnt_val; i++){
     sun_points.push_back(cv::Point(sun_pts[i].x,sun_pts[i].y));
   }
@@ -195,6 +212,7 @@ bool uvdar::UVDARLedDetectFASTGPU::processImage(const cv::Mat i_image, std::vect
   /*   std::cout << "Refined: " << p << std::endl; */
   /* } */
 
+  std::cout << "[UVDARDetectorFASTGPU]: Filtering markers based on sun points..." << std::endl;
   // filter markers using detected sun points
   for (int i = 0; i < (int)(detected_points.size()); i++) { //iterate over the detected marker points
     for (int j = 0; j < (int)(sun_points.size()); j++) { //iterate over the detected sun points
@@ -206,6 +224,7 @@ bool uvdar::UVDARLedDetectFASTGPU::processImage(const cv::Mat i_image, std::vect
     }
   }
 
+  std::cout << "[UVDARDetectorFASTGPU]: Done." << std::endl;
   return true;
 }
 
