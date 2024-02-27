@@ -27,6 +27,7 @@ void uvdar::UVDARLedDetectFASTGPU::init() {
     char err_str[4096];
     int err_str_len = 0;
 
+  std::cerr << "[UVDARDetectorFASTGPU]: Initializing compute lib instance..." << std::endl;
     // init compute lib instance
     compute_inst = COMPUTE_LIB_INSTANCE_NEW;
     if ((code = compute_lib_init(&compute_inst))) {
@@ -35,6 +36,7 @@ void uvdar::UVDARLedDetectFASTGPU::init() {
         return;
     }
 
+    std::cerr << "[UVDARDetectorFASTGPU]: Initializing compute program..." << std::endl;
     // init compute program
     char* formatted_src;
     if (asprintf(&formatted_src, fastlike_shader_src, local_size_x, local_size_y, _threshold_, _threshold_diff_, _threshold_sun_, max_markers_count, max_sun_pts_count) < 0)
@@ -53,6 +55,7 @@ void uvdar::UVDARLedDetectFASTGPU::init() {
 
     //compute_lib_program_print_resources(&compute_prog);
 
+    std::cerr << "[UVDARDetectorFASTGPU]: Initializing image2d objects..." << std::endl;
     // init image2d objects
     texture_in = COMPUTE_LIB_IMAGE2D_NEW("image_in", GL_TEXTURE0, image_size.width, image_size.height, GL_R8UI, GL_READ_ONLY, GL_CLAMP_TO_EDGE, GL_LINEAR, GL_RED_INTEGER, GL_UNSIGNED_BYTE);
     if (compute_lib_image2d_init(&compute_prog, &texture_in, 0)) {
@@ -68,6 +71,7 @@ void uvdar::UVDARLedDetectFASTGPU::init() {
       return;
     }
     
+    std::cerr << "[UVDARDetectorFASTGPU]: Initializing SSBOs..." << std::endl;
     // init SSBOs
     markers_ssbo = COMPUTE_LIB_SSBO_NEW("markers_buffer", GL_UNSIGNED_INT, GL_DYNAMIC_DRAW);
     if (compute_lib_ssbo_init(&compute_prog, &markers_ssbo, NULL, max_markers_count)) {
@@ -83,6 +87,7 @@ void uvdar::UVDARLedDetectFASTGPU::init() {
         return;
     }
 
+    std::cerr << "[UVDARDetectorFASTGPU]: Initializing atomic counter buffer objects..." << std::endl;
     // init atomic counter buffer objects
     markers_count_acbo = COMPUTE_LIB_ACBO_NEW("markers_count", GL_UNSIGNED_INT, GL_DYNAMIC_DRAW);
     if (compute_lib_acbo_init(&compute_prog, &markers_count_acbo, NULL, 0)) {
@@ -97,10 +102,12 @@ void uvdar::UVDARLedDetectFASTGPU::init() {
         return;
     }
 
+    std::cerr << "[UVDARDetectorFASTGPU]: Running dummy clear of mask..." << std::endl;
     // dummy clear of mask
     uint32_t zero = 255;
     compute_lib_image2d_reset(&compute_prog, &mask, &zero);
 
+    std::cerr << "[UVDARDetectorFASTGPU]: Initialized" << std::endl;
     initialized_ = true;
 }
 
