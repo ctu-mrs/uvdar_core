@@ -35,10 +35,18 @@ int compute_lib_init(compute_lib_instance_t* inst)
         return COMPUTE_LIB_ERROR_ALREADY_INITIALISED;
     }
 
-    inst->fd = open(COMPUTE_LIB_GPU_DRI_PATH, O_RDWR);
-    if (inst->fd <= 0) {
+    if (access(COMPUTE_LIB_GPU_DRI_PATH, F_OK) == 0) {
+      inst->fd = open(COMPUTE_LIB_GPU_DRI_PATH, O_RDWR);
+      if (inst->fd <= 0) {
         compute_lib_deinit(inst);
         return COMPUTE_LIB_ERROR_GPU_DRI_PATH;
+      }
+    } else {
+      inst->fd = open(COMPUTE_LIB_GPU_DRI_BACKUP_PATH, O_RDWR);
+      if (inst->fd <= 0) {
+        compute_lib_deinit(inst);
+        return COMPUTE_LIB_ERROR_GPU_DRI_BACKUP_PATH;
+      }
     }
 
     inst->gbm = gbm_create_device(inst->fd);
@@ -161,6 +169,9 @@ void compute_lib_error_str(int err_code, char* target_str, int* len)
             break;
         case COMPUTE_LIB_ERROR_GPU_DRI_PATH:
             *len += sprintf(target_str, "compute_lib_init error: could not open '%s'!\r\n", COMPUTE_LIB_GPU_DRI_PATH);
+            break;
+        case COMPUTE_LIB_ERROR_GPU_DRI_BACKUP_PATH:
+            *len += sprintf(target_str, "compute_lib_init error: could not open '%s'!\r\n", COMPUTE_LIB_GPU_DRI_BACKUP_PATH);
             break;
         case COMPUTE_LIB_ERROR_CREATE_GBM_CTX:
             *len += sprintf(target_str, "compute_lib_init: error: could not create GBM context!\r\n");
