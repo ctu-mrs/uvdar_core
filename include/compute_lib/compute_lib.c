@@ -120,39 +120,29 @@ int compute_lib_init(compute_lib_instance_t* inst)
 
 void compute_lib_deinit(compute_lib_instance_t* inst)
 {
-
-  fprintf(stderr, "[ComputeLib]: Deinitializing... \n", COMPUTE_LIB_GPU_DRI_PATH );
-
     if (inst->ctx != EGL_NO_CONTEXT && inst->dpy != NULL) {
-      fprintf(stderr, "[ComputeLib]: Destroying context... \n", COMPUTE_LIB_GPU_DRI_PATH );
         eglDestroyContext(inst->dpy, inst->ctx);
     }
     inst->ctx = EGL_NO_CONTEXT;
 
     if (inst->dpy != NULL) {
-      fprintf(stderr, "[ComputeLib]: Terminating EGL... \n", COMPUTE_LIB_GPU_DRI_PATH );
         eglTerminate(inst->dpy);
     }
     inst->dpy = NULL;
 
     if (inst->gbm != NULL) {
-      fprintf(stderr, "[ComputeLib]: Destroying GBM device... \n", COMPUTE_LIB_GPU_DRI_PATH );
         gbm_device_destroy(inst->gbm);
     }
     inst->gbm = NULL;
 
     if (inst->fd > 0) {
-      fprintf(stderr, "[ComputeLib]: Closing GPU DRI file... \n", COMPUTE_LIB_GPU_DRI_PATH );
         close(inst->fd);
     }
     inst->fd = 0;
 
-    fprintf(stderr, "[ComputeLib]: Flushing error queue... \n", COMPUTE_LIB_GPU_DRI_PATH );
     compute_lib_error_queue_flush(inst, NULL);
-    fprintf(stderr, "[ComputeLib]: Deleting queue... \n", COMPUTE_LIB_GPU_DRI_PATH );
     queue_delete(inst->error_queue);
 
-    fprintf(stderr, "[ComputeLib]: Deinitialized... \n", COMPUTE_LIB_GPU_DRI_PATH );
     inst->initialised = false;
 }
 
