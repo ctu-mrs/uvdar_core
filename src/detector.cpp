@@ -196,10 +196,13 @@ private:
      * @param image_index - index of the camera that produced this image message
      */
   void callbackImage(const sensor_msgs::ImageConstPtr& image_msg, int image_index) {
+    ROS_INFO_STREAM("[UVDARDetector]: Got IMG");
     cv_bridge::CvImageConstPtr image;
     image = cv_bridge::toCvShare(image_msg, enc::MONO8);
     ros::NodeHandle nh("~");
+    ROS_INFO_STREAM("[UVDARDetector]: Starting timer to process IMG");
     timer_process_[image_index] = nh.createTimer(ros::Duration(0), boost::bind(&UVDARDetector::processSingleImage, this, _1, image, image_index), true, true);
+    ROS_INFO_STREAM("[UVDARDetector]: Updating size of IMG");
     camera_image_sizes_[image_index] = image->image.size();
   }
   //}
@@ -215,17 +218,21 @@ private:
    * @param image_index - index of the camera that produced this image
    */
   void processSingleImage([[maybe_unused]] const ros::TimerEvent& te, const cv_bridge::CvImageConstPtr image, int image_index) {
+    ROS_INFO_STREAM("[UVDARDetector]: Checking if initialized");
     if (!initialized_){
       ROS_WARN_STREAM_THROTTLE(1.0,"[UVDARDetector]: Not yet initialized, dropping message...");
       return;
     }
 
+    ROS_INFO_STREAM("[UVDARDetector]: Was initialized");
     {
+      ROS_INFO_STREAM("[UVDARDetector]: Image mutex locking...");
       std::scoped_lock lock(*mutex_camera_image_[image_index]);
       images_current_[image_index] = image->image;
       sun_points_[image_index].clear();
       detected_points_[image_index].clear();
 
+      ROS_INFO_STREAM("[UVDARDetector]: Sending to process...");
       if ( ! (uvdf_[image_index]->processImage(
               image->image,
               detected_points_[image_index],
@@ -237,12 +244,15 @@ private:
         ROS_ERROR_STREAM("Failed to extract markers from the image!");
         return;
       }
+      ROS_INFO_STREAM("[UVDARDetector]: processed.");
       /* ROS_INFO_STREAM("Cam" << image_index << ". There are " << detected_points_[image_index].size() << " detected points."); */
 
       if (sun_points_[image_index].size() > 30){
         ROS_ERROR_STREAM("There are " << sun_points_[image_index].size() << " detected potential sun points! Check your exposure!");
       }
       /* ROS_INFO_STREAM("There are " << sun_points_[image_index].size() << " detected potential sun points."); */
+
+      ROS_INFO_STREAM("[UVDARDetector]: Image mutex unlocking...");
     }
 
     if (detected_points_[image_index].size()>MAX_POINTS_PER_IMAGE){
@@ -251,6 +261,7 @@ private:
     }
 
     {
+      ROS_INFO_STREAM("[UVDARDetector]: Publisher mutex locking...");
       std::scoped_lock lock(mutex_pub_);
       if (_publish_sun_points_){
         uvdar_core::ImagePointsWithFloatStamped msg_sun;
@@ -276,7 +287,9 @@ private:
         point.y = detected_point.y;
         msg_detected.points.push_back(point);
       }
+      ROS_INFO_STREAM("[UVDARDetector]: Publishing.");
       pub_candidate_points_[image_index].publish(msg_detected);
+      ROS_INFO_STREAM("[UVDARDetector]: Publisher mutex locking...");
     }
 
   }
