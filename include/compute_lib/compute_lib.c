@@ -31,41 +31,39 @@ static void compute_lib_gl_callback(GLenum source, GLenum type, GLuint id, GLenu
 
 int compute_lib_init(compute_lib_instance_t* inst)
 {
-  fprintf(stderr, "[ComputeLib]: Checking if initialized... \n" );
+  fprintf(stderr, "[ComputeLib]: Checking if initialized... " );
     if (inst->initialised == true) {
         return COMPUTE_LIB_ERROR_ALREADY_INITIALISED;
     }
 
-    fprintf(stderr, "[ComputeLib]: Opening GPU DRI PATH at [%s]... \n", COMPUTE_LIB_GPU_DRI_PATH );
+    fprintf(stderr, "[ComputeLib]: Opening GPU DRI PATH... " );
     inst->fd = open(COMPUTE_LIB_GPU_DRI_PATH, O_RDWR);
     if (inst->fd <= 0) {
-      fprintf(stderr, "[ComputeLib]: Opening GPU DRI PATH at [%s] failed!, will deinit... \n", COMPUTE_LIB_GPU_DRI_PATH );
         compute_lib_deinit(inst);
-      fprintf(stderr, "[ComputeLib]: Deinitialized. \n", COMPUTE_LIB_GPU_DRI_PATH );
         return COMPUTE_LIB_ERROR_GPU_DRI_PATH;
     }
 
-    fprintf(stderr, "[ComputeLib]: Creating BGM device... \n" );
+    fprintf(stderr, "[ComputeLib]: Creating BGM device... " );
     inst->gbm = gbm_create_device(inst->fd);
     if (inst->gbm == NULL) {
         compute_lib_deinit(inst);
         return COMPUTE_LIB_ERROR_CREATE_GBM_CTX;
     }
 
-    fprintf(stderr, "[ComputeLib]: Getting EGL platform display... \n" );
+    fprintf(stderr, "[ComputeLib]: Getting EGL platform display... " );
     inst->dpy = eglGetPlatformDisplay(EGL_PLATFORM_GBM_MESA, inst->gbm, NULL);
     if (inst->dpy == NULL) {
         compute_lib_deinit(inst);
         return COMPUTE_LIB_ERROR_EGL_PLATFORM_DISPLAY;
     }
 
-    fprintf(stderr, "[ComputeLib]: Initializing EGL... \n" );
+    fprintf(stderr, "[ComputeLib]: Initializing EGL... " );
     if (!eglInitialize(inst->dpy, NULL, NULL)) {
         compute_lib_deinit(inst);
         return COMPUTE_LIB_ERROR_EGL_INIT;
     }
 
-    fprintf(stderr, "[ComputeLib]: Getting EGL extensions... \n" );
+    fprintf(stderr, "[ComputeLib]: Getting EGL extensions... " );
     const char* egl_extension_st = eglQueryString(inst->dpy, EGL_EXTENSIONS);
     if (strstr(egl_extension_st, "EGL_KHR_create_context") == NULL) {
         compute_lib_deinit(inst);
@@ -78,25 +76,25 @@ int compute_lib_init(compute_lib_instance_t* inst)
 
     EGLConfig egl_cfg;
     EGLint egl_count;
-    fprintf(stderr, "[ComputeLib]: Choosing EGL config... \n" );
+    fprintf(stderr, "[ComputeLib]: Choosing EGL config... " );
     if (!eglChooseConfig(inst->dpy, egl_config_attribs, &egl_cfg, 1, &egl_count)) {
         compute_lib_deinit(inst);
         return COMPUTE_LIB_ERROR_EGL_CONFIG;
     }
-    fprintf(stderr, "[ComputeLib]: Binding EGL API... \n" );
+    fprintf(stderr, "[ComputeLib]: Binding EGL API... " );
     if (!eglBindAPI(EGL_OPENGL_ES_API)) {
         compute_lib_deinit(inst);
         return COMPUTE_LIB_ERROR_EGL_BIND_API;
     }
 
-    fprintf(stderr, "[ComputeLib]: Crating EGL context... \n" );
+    fprintf(stderr, "[ComputeLib]: Crating EGL context... " );
     inst->ctx = eglCreateContext(inst->dpy, egl_cfg, EGL_NO_CONTEXT, egl_ctx_attribs);
     if (inst->ctx == EGL_NO_CONTEXT) {
         compute_lib_deinit(inst);
         return COMPUTE_LIB_ERROR_EGL_CREATE_CTX;
     }
 
-    fprintf(stderr, "[ComputeLib]: Making EGL current... \n" );
+    fprintf(stderr, "[ComputeLib]: Making EGL current... " );
     if (!eglMakeCurrent(inst->dpy, EGL_NO_SURFACE, EGL_NO_SURFACE, inst->ctx)) {
         compute_lib_deinit(inst);
         return COMPUTE_LIB_ERROR_EGL_MAKE_CURRENT;
@@ -106,12 +104,12 @@ int compute_lib_init(compute_lib_instance_t* inst)
     inst->error_total_cnt = 0;
     inst->error_queue = queue_create(64);
 
-    fprintf(stderr, "[ComputeLib]: Enabling GL output... \n" );
+    fprintf(stderr, "[ComputeLib]: Enabling GL output... " );
     glEnable(GL_DEBUG_OUTPUT);
-    fprintf(stderr, "[ComputeLib]: Setting message callback... \n" );
+    fprintf(stderr, "[ComputeLib]: Setting message callback... " );
     glDebugMessageCallback(compute_lib_gl_callback, (const void*) inst);
     
-    fprintf(stderr, "[ComputeLib]: Initialized... \n" );
+    fprintf(stderr, "[ComputeLib]: Initialized... " );
     inst->initialised = true;
 
     return 0;
