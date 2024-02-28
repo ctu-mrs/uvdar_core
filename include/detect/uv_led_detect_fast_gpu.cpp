@@ -54,7 +54,7 @@ void uvdar::UVDARLedDetectFASTGPU::init() {
     //compute_lib_program_print_resources(&compute_prog);
 
     // init image2d objects
-    texture_in = COMPUTE_LIB_IMAGE2D_NEW("image_in", GL_TEXTURE0, image_size.width, image_size.height, GL_R8UI, GL_READ_ONLY, GL_CLAMP_TO_EDGE, GL_LINEAR, GL_RED_INTEGER, GL_UNSIGNED_BYTE);
+   texture_in = COMPUTE_LIB_IMAGE2D_NEW("image_in", GL_TEXTURE0, image_size.width, image_size.height, GL_R8UI, GL_READ_ONLY, GL_CLAMP_TO_EDGE, GL_LINEAR, GL_RED_INTEGER, GL_UNSIGNED_BYTE);
     if (compute_lib_image2d_init(&compute_prog, &texture_in, 0)) {
         fprintf(stderr, "Failed to create image2d '%s'!\r\n", texture_in.uniform_name);
         compute_lib_error_queue_flush(&compute_inst, stderr);
@@ -166,17 +166,38 @@ bool uvdar::UVDARLedDetectFASTGPU::processImage(const cv::Mat i_image, std::vect
   compute_lib_image2d_write(&compute_prog, &mask, (mask_id>=0)?masks_[mask_id].data:nullptr);
 
   // dispatch compute shader
-  compute_lib_program_dispatch(&compute_prog, image_size.width / local_size_x, image_size.height / local_size_y, 1);
+  if ( compute_lib_program_dispatch(&compute_prog, image_size.width / local_size_x, image_size.height / local_size_y, 1)){
+      std::cerr << "[UVDARDetectorFASTGPU]: Failed to dispatch the shader!" << std::endl;
+      return false;
+  }
 
   // retrieve detected markers
-  compute_lib_acbo_read_uint_val(&compute_prog, &markers_count_acbo, &markers_cnt_val);
+  if ( compute_lib_acbo_read_uint_val(&compute_prog, &markers_count_acbo, &markers_cnt_val)){
+    std::cerr << "[UVDARDetectorFASTGPU]: Failed to extract the marker count!" << std::endl;
+    return false;
+  }
   if (markers_cnt_val > max_markers_count) markers_cnt_val = max_markers_count;
-  if (markers_cnt_val > 0) compute_lib_ssbo_read(&compute_prog, &markers_ssbo, (void*) markers, markers_cnt_val);
+  if (markers_cnt_val > 0)
+  {
+    if ( compute_lib_ssbo_read(&compute_prog, &markers_ssbo, (void*) markers, markers_cnt_val)){
+    std::cerr << "[UVDARDetectorFASTGPU]: Failed to extract the marker SSBO!" << std::endl;
+    return false;
+    }
+  }
 
   // retrieve detected sun points
-  compute_lib_acbo_read_uint_val(&compute_prog, &sun_pts_count_acbo, &sun_points_cnt_val);
+  if (compute_lib_acbo_read_uint_val(&compute_prog, &sun_pts_count_acbo, &sun_points_cnt_val)){
+    std::cerr << "[UVDARDetectorFASTGPU]: Failed to extract the marker count!" << std::endl;
+    return false;
+  }
   if (sun_points_cnt_val > max_sun_pts_count) sun_points_cnt_val = max_sun_pts_count;
-  if (sun_points_cnt_val > 0) compute_lib_ssbo_read(&compute_prog, &sun_pts_ssbo, (void*) sun_pts, sun_points_cnt_val);
+  if (sun_points_cnt_val > 0)
+  {
+    if (compute_lib_ssbo_read(&compute_prog, &sun_pts_ssbo, (void*) sun_pts, sun_points_cnt_val)){
+      std::cerr << "[UVDARDetectorFASTGPU]: Failed to extract the marker SSBO!" << std::endl;
+      return false;
+    }
+  }
 
   // find centroids of concentrated detected markers
   cpuFindMarkerCentroids(markers, markers_cnt_val, 5, detected_points);
