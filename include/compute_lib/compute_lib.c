@@ -1,7 +1,8 @@
 #include "compute_lib.h"
 
 
-static const EGLint egl_config_attribs[] = { EGL_RENDERABLE_TYPE, EGL_OPENGL_ES3_BIT_KHR, EGL_NONE };
+static const EGLint egl_config_attribs_gbm[] = { EGL_RENDERABLE_TYPE, EGL_OPENGL_ES3_BIT_KHR, EGL_NONE };
+static const EGLint egl_config_attribs_surfaceless[] = { EGL_SURFACE_TYPE, EGL_PBUFFER_BIT, EGL_BLUE_SIZE, 8, EGL_GREEN_SIZE, 8, EGL_RED_SIZE, 8, EGL_DEPTH_SIZE, 8, EGL_RENDERABLE_TYPE, EGL_OPENGL_BIT, EGL_NONE };
 static const EGLint egl_ctx_attribs[] = { EGL_CONTEXT_CLIENT_VERSION, 3, EGL_NONE };
 
 
@@ -104,7 +105,7 @@ int compute_lib_init(compute_lib_instance_t* inst)
     EGLConfig egl_cfg;
     EGLint egl_count;
     fprintf(stderr, "[ComputeLib]: Choosing EGL config...\n");
-    if (!eglChooseConfig(inst->dpy, egl_config_attribs, &egl_cfg, 1, &egl_count)) {
+    if (!eglChooseConfig(inst->dpy, use_hw_rendering?egl_config_attribs_gbm:egl_config_attribs_surfaceless, &egl_cfg, 1, &egl_count)) {
         compute_lib_deinit(inst);
         return COMPUTE_LIB_ERROR_EGL_CONFIG;
     }
@@ -271,7 +272,7 @@ bool compute_lib_program_init(compute_lib_program_t* program)
         return compute_lib_program_destroy(program, false);
     }
 
-    GLsizei len;
+    /* GLsizei len; */
     GLint is_compiled;
     glCompileShader(program->shader_handle);
     glGetShaderiv(program->shader_handle, GL_COMPILE_STATUS, &is_compiled);
