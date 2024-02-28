@@ -46,16 +46,16 @@ int compute_lib_init(compute_lib_instance_t* inst)
       }
       fprintf(stderr, "[ComputeLib]: Opened the renderer.\n");
     }
-    else if (access(COMPUTE_LIB_GPU_DRI_BACKUP_PATH, F_OK) == 0) {
-      fprintf(stderr, "[ComputeLib]: Selecting the backup renderer path %s\n", COMPUTE_LIB_GPU_DRI_BACKUP_PATH);
-      inst->fd = open(COMPUTE_LIB_GPU_DRI_BACKUP_PATH, O_RDWR);
-      if (inst->fd <= 0) {
-        fprintf(stderr, "[ComputeLib]: Failed to open backup renderer path %s\n", COMPUTE_LIB_GPU_DRI_BACKUP_PATH);
-        compute_lib_deinit(inst);
-        return COMPUTE_LIB_ERROR_GPU_DRI_BACKUP_PATH;
-      }
-      fprintf(stderr, "[ComputeLib]: Opened the renderer.\n");
-    }
+    /* else if (access(COMPUTE_LIB_GPU_DRI_BACKUP_PATH, F_OK) == 0) { */
+    /*   fprintf(stderr, "[ComputeLib]: Selecting the backup renderer path %s\n", COMPUTE_LIB_GPU_DRI_BACKUP_PATH); */
+    /*   inst->fd = open(COMPUTE_LIB_GPU_DRI_BACKUP_PATH, O_RDWR); */
+    /*   if (inst->fd <= 0) { */
+    /*     fprintf(stderr, "[ComputeLib]: Failed to open backup renderer path %s\n", COMPUTE_LIB_GPU_DRI_BACKUP_PATH); */
+    /*     compute_lib_deinit(inst); */
+    /*     return COMPUTE_LIB_ERROR_GPU_DRI_BACKUP_PATH; */
+    /*   } */
+    /*   fprintf(stderr, "[ComputeLib]: Opened the renderer.\n"); */
+    /* } */
     else {
       use_hw_rendering = false;
       fprintf(stderr, "[ComputeLib]: Will attempt to use software rendering.\n");
