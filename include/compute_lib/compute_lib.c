@@ -36,12 +36,14 @@ int compute_lib_init(compute_lib_instance_t* inst)
     }
 
     if (access(COMPUTE_LIB_GPU_DRI_PATH, F_OK) == 0) {
+      fprintf(stderr, "[ComputeLib]: Selecting the main renderer path %s", COMPUTE_LIB_GPU_DRI_PATH);
       inst->fd = open(COMPUTE_LIB_GPU_DRI_PATH, O_RDWR);
       if (inst->fd <= 0) {
         compute_lib_deinit(inst);
         return COMPUTE_LIB_ERROR_GPU_DRI_PATH;
       }
     } else {
+      fprintf(stderr, "[ComputeLib]: Selecting the backup renderer path %s", COMPUTE_LIB_GPU_DRI_BACKUP_PATH);
       inst->fd = open(COMPUTE_LIB_GPU_DRI_BACKUP_PATH, O_RDWR);
       if (inst->fd <= 0) {
         compute_lib_deinit(inst);
