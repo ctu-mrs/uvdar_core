@@ -35,6 +35,7 @@ int compute_lib_init(compute_lib_instance_t* inst)
         return COMPUTE_LIB_ERROR_ALREADY_INITIALISED;
     }
 
+    bool use_hw_rendering = true;
     if (access(COMPUTE_LIB_GPU_DRI_PATH, F_OK) == 0) {
       fprintf(stderr, "[ComputeLib]: Selecting the main renderer path %s\n", COMPUTE_LIB_GPU_DRI_PATH);
       inst->fd = open(COMPUTE_LIB_GPU_DRI_PATH, O_RDWR);
@@ -43,7 +44,9 @@ int compute_lib_init(compute_lib_instance_t* inst)
         compute_lib_deinit(inst);
         return COMPUTE_LIB_ERROR_GPU_DRI_PATH;
       }
-    } else {
+      fprintf(stderr, "[ComputeLib]: Opened the renderer.\n");
+    }
+    else if (access(COMPUTE_LIB_GPU_DRI_BACKUP_PATH, F_OK) == 0) {
       fprintf(stderr, "[ComputeLib]: Selecting the backup renderer path %s\n", COMPUTE_LIB_GPU_DRI_BACKUP_PATH);
       inst->fd = open(COMPUTE_LIB_GPU_DRI_BACKUP_PATH, O_RDWR);
       if (inst->fd <= 0) {
@@ -51,19 +54,32 @@ int compute_lib_init(compute_lib_instance_t* inst)
         compute_lib_deinit(inst);
         return COMPUTE_LIB_ERROR_GPU_DRI_BACKUP_PATH;
       }
+      fprintf(stderr, "[ComputeLib]: Opened the renderer.\n");
     }
-    fprintf(stderr, "[ComputeLib]: Opened the renderer.\n");
+    else {
+      use_hw_rendering = false;
+      fprintf(stderr, "[ComputeLib]: Will attempt to use software rendering.\n");
+    }
 
-    inst->gbm = gbm_create_device(inst->fd);
-    if (inst->gbm == NULL) {
+    if (use_hw_rendering){
+      inst->gbm = gbm_create_device(inst->fd);
+      if (inst->gbm == NULL) {
         compute_lib_deinit(inst);
         return COMPUTE_LIB_ERROR_CREATE_GBM_CTX;
-    }
+      }
 
-    inst->dpy = eglGetPlatformDisplay(EGL_PLATFORM_GBM_MESA, inst->gbm, NULL);
-    if (inst->dpy == NULL) {
+      inst->dpy = eglGetPlatformDisplay(EGL_PLATFORM_GBM_MESA, inst->gbm, NULL);
+      if (inst->dpy == NULL) {
         compute_lib_deinit(inst);
         return COMPUTE_LIB_ERROR_EGL_PLATFORM_DISPLAY;
+      }
+    }
+    else {
+      inst->dpy = eglGetPlatformDisplay(EGL_PLATFORM_SURFACELESS_MESA, NULL, NULL);
+      if (inst->dpy == NULL) {
+        compute_lib_deinit(inst);
+        return COMPUTE_LIB_ERROR_EGL_PLATFORM_DISPLAY;
+      }
     }
 
     if (!eglInitialize(inst->dpy, NULL, NULL)) {
@@ -151,7 +167,7 @@ void compute_lib_deinit(compute_lib_instance_t* inst)
     }
 
     inst->initialised = false;
-    fprintf(stderr, "[ComputeLib]: De-initialized.");
+    fprintf(stderr, "[ComputeLib]: De-initialized.\n");
 }
 
 int compute_lib_error_queue_flush(compute_lib_instance_t* inst, FILE* out)
