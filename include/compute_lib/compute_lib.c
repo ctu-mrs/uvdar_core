@@ -68,6 +68,7 @@ int compute_lib_init(compute_lib_instance_t* inst)
         return COMPUTE_LIB_ERROR_CREATE_GBM_CTX;
       }
 
+      fprintf(stderr, "[ComputeLib]: Getting platform display - GBM...\n");
       inst->dpy = eglGetPlatformDisplay(EGL_PLATFORM_GBM_MESA, inst->gbm, NULL);
       if (inst->dpy == NULL) {
         compute_lib_deinit(inst);
@@ -75,6 +76,7 @@ int compute_lib_init(compute_lib_instance_t* inst)
       }
     }
     else {
+      fprintf(stderr, "[ComputeLib]: Getting platform display - surfaceless...\n");
       inst->dpy = eglGetPlatformDisplay(EGL_PLATFORM_SURFACELESS_MESA, NULL, NULL);
       if (inst->dpy == NULL) {
         compute_lib_deinit(inst);
@@ -82,11 +84,13 @@ int compute_lib_init(compute_lib_instance_t* inst)
       }
     }
 
+      fprintf(stderr, "[ComputeLib]: Initializing EGL...\n");
     if (!eglInitialize(inst->dpy, NULL, NULL)) {
         compute_lib_deinit(inst);
         return COMPUTE_LIB_ERROR_EGL_INIT;
     }
 
+      fprintf(stderr, "[ComputeLib]: Creating EGL query string...\n");
     const char* egl_extension_st = eglQueryString(inst->dpy, EGL_EXTENSIONS);
     if (strstr(egl_extension_st, "EGL_KHR_create_context") == NULL) {
         compute_lib_deinit(inst);
@@ -99,6 +103,7 @@ int compute_lib_init(compute_lib_instance_t* inst)
 
     EGLConfig egl_cfg;
     EGLint egl_count;
+    fprintf(stderr, "[ComputeLib]: Choosing EGL config...\n");
     if (!eglChooseConfig(inst->dpy, egl_config_attribs, &egl_cfg, 1, &egl_count)) {
         compute_lib_deinit(inst);
         return COMPUTE_LIB_ERROR_EGL_CONFIG;
@@ -108,12 +113,14 @@ int compute_lib_init(compute_lib_instance_t* inst)
         return COMPUTE_LIB_ERROR_EGL_BIND_API;
     }
 
+    fprintf(stderr, "[ComputeLib]: Creating EGL context...\n");
     inst->ctx = eglCreateContext(inst->dpy, egl_cfg, EGL_NO_CONTEXT, egl_ctx_attribs);
     if (inst->ctx == EGL_NO_CONTEXT) {
         compute_lib_deinit(inst);
         return COMPUTE_LIB_ERROR_EGL_CREATE_CTX;
     }
 
+    fprintf(stderr, "[ComputeLib]: Attaching EGL context to surface...\n");
     if (!eglMakeCurrent(inst->dpy, EGL_NO_SURFACE, EGL_NO_SURFACE, inst->ctx)) {
         compute_lib_deinit(inst);
         return COMPUTE_LIB_ERROR_EGL_MAKE_CURRENT;
@@ -123,10 +130,12 @@ int compute_lib_init(compute_lib_instance_t* inst)
     inst->error_total_cnt = 0;
     inst->error_queue = queue_create(64);
 
+    fprintf(stderr, "[ComputeLib]: Enabling GL debugging...\n");
     glEnable(GL_DEBUG_OUTPUT);
     glDebugMessageCallback(compute_lib_gl_callback, (const void*) inst);
     
     inst->initialised = true;
+    fprintf(stderr, "[ComputeLib]: Initialized.\n");
 
     return 0;
 }
