@@ -5,7 +5,7 @@ static const EGLint egl_config_attribs_gbm[] = {
   EGL_RENDERABLE_TYPE, EGL_OPENGL_ES3_BIT_KHR,
   EGL_NONE };
 static const EGLint egl_config_attribs_surfaceless[] = {
-  EGL_SURFACE_TYPE, EGL_OPENGL_ES3_BIT_KHR,
+  EGL_SURFACE_TYPE,  EGL_PBUFFER_BIT,
   EGL_RENDERABLE_TYPE, EGL_OPENGL_ES3_BIT_KHR,
   GL_NONE };
 static const EGLint egl_ctx_attribs[] = {
