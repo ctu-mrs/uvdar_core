@@ -36,23 +36,23 @@ int compute_lib_init(compute_lib_instance_t* inst)
     }
 
     if (access(COMPUTE_LIB_GPU_DRI_PATH, F_OK) == 0) {
-      fprintf(stderr, "[ComputeLib]: Selecting the main renderer path %s", COMPUTE_LIB_GPU_DRI_PATH);
+      fprintf(stderr, "[ComputeLib]: Selecting the main renderer path %s\n", COMPUTE_LIB_GPU_DRI_PATH);
       inst->fd = open(COMPUTE_LIB_GPU_DRI_PATH, O_RDWR);
       if (inst->fd <= 0) {
-        fprintf(stderr, "[ComputeLib]: Failed to open main renderer path %s", COMPUTE_LIB_GPU_DRI_PATH);
+        fprintf(stderr, "[ComputeLib]: Failed to open main renderer path %s\n", COMPUTE_LIB_GPU_DRI_PATH);
         compute_lib_deinit(inst);
         return COMPUTE_LIB_ERROR_GPU_DRI_PATH;
       }
     } else {
-      fprintf(stderr, "[ComputeLib]: Selecting the backup renderer path %s", COMPUTE_LIB_GPU_DRI_BACKUP_PATH);
+      fprintf(stderr, "[ComputeLib]: Selecting the backup renderer path %s\n", COMPUTE_LIB_GPU_DRI_BACKUP_PATH);
       inst->fd = open(COMPUTE_LIB_GPU_DRI_BACKUP_PATH, O_RDWR);
       if (inst->fd <= 0) {
-        fprintf(stderr, "[ComputeLib]: Failed to open backup renderer path %s", COMPUTE_LIB_GPU_DRI_BACKUP_PATH);
+        fprintf(stderr, "[ComputeLib]: Failed to open backup renderer path %s\n", COMPUTE_LIB_GPU_DRI_BACKUP_PATH);
         compute_lib_deinit(inst);
         return COMPUTE_LIB_ERROR_GPU_DRI_BACKUP_PATH;
       }
     }
-    fprintf(stderr, "[ComputeLib]: Opened the renderer.");
+    fprintf(stderr, "[ComputeLib]: Opened the renderer.\n");
 
     inst->gbm = gbm_create_device(inst->fd);
     if (inst->gbm == NULL) {
@@ -118,35 +118,37 @@ int compute_lib_init(compute_lib_instance_t* inst)
 
 void compute_lib_deinit(compute_lib_instance_t* inst)
 {
-  fprintf(stderr, "[ComputeLib]: De-initializing Compute lib...");
+  fprintf(stderr, "[ComputeLib]: De-initializing Compute lib...\n");
     if (inst->ctx != EGL_NO_CONTEXT && inst->dpy != NULL) {
-      fprintf(stderr, "[ComputeLib]: Destroying context...");
+      fprintf(stderr, "[ComputeLib]: Destroying context...\n");
         eglDestroyContext(inst->dpy, inst->ctx);
     }
     inst->ctx = EGL_NO_CONTEXT;
 
     if (inst->dpy != NULL) {
-      fprintf(stderr, "[ComputeLib]: Terminating...");
+      fprintf(stderr, "[ComputeLib]: Terminating...\n");
         eglTerminate(inst->dpy);
     }
     inst->dpy = NULL;
 
     if (inst->gbm != NULL) {
-      fprintf(stderr, "[ComputeLib]: Destroying device...");
+      fprintf(stderr, "[ComputeLib]: Destroying device...\n");
         gbm_device_destroy(inst->gbm);
     }
     inst->gbm = NULL;
 
     if (inst->fd > 0) {
-      fprintf(stderr, "[ComputeLib]: Closing renderer file...");
+      fprintf(stderr, "[ComputeLib]: Closing renderer file...\n");
         close(inst->fd);
     }
     inst->fd = 0;
 
-    fprintf(stderr, "[ComputeLib]: Flushing error queue...");
-    compute_lib_error_queue_flush(inst, NULL);
-    fprintf(stderr, "[ComputeLib]: Deleting error queue...");
-    queue_delete(inst->error_queue);
+    if (inst->error_queue != NULL) {
+      fprintf(stderr, "[ComputeLib]: Flushing error queue...\n");
+      compute_lib_error_queue_flush(inst, NULL);
+      fprintf(stderr, "[ComputeLib]: Deleting error queue...\n");
+      queue_delete(inst->error_queue);
+    }
 
     inst->initialised = false;
     fprintf(stderr, "[ComputeLib]: De-initialized.");
