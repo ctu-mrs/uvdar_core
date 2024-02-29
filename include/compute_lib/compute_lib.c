@@ -6,11 +6,11 @@ static const EGLint egl_config_attribs_gbm[] = {
   EGL_NONE };
 static const EGLint egl_config_attribs_surfaceless[] = {
     EGL_SURFACE_TYPE, EGL_PBUFFER_BIT,
-    EGL_RENDERABLE_TYPE, EGL_OPENGL_ES3_BIT_KHR,
-    EGL_BLUE_SIZE, 8,
-    EGL_GREEN_SIZE, 8,
-    EGL_RED_SIZE, 8,
-    EGL_DEPTH_SIZE, 8,
+    EGL_RENDERABLE_TYPE, EGL_OPENGL_ES3_BIT,
+    /* EGL_BLUE_SIZE, 8, */
+    /* EGL_GREEN_SIZE, 8, */
+    /* EGL_RED_SIZE, 8, */
+    /* EGL_DEPTH_SIZE, 8, */
     EGL_NONE };
 static const EGLint egl_ctx_attribs[] = {
   EGL_CONTEXT_CLIENT_VERSION, 3,
@@ -89,7 +89,8 @@ int compute_lib_init(compute_lib_instance_t* inst)
     }
     else {
       fprintf(stderr, "[ComputeLib]: Getting platform display - surfaceless...\n");
-      inst->dpy = eglGetPlatformDisplay(EGL_PLATFORM_SURFACELESS_MESA, NULL, NULL);
+      /* inst->dpy = eglGetPlatformDisplay(EGL_PLATFORM_SURFACELESS_MESA, NULL, NULL); */
+      inst->dpy = eglGetDisplay(EGL_DEFAULT_DISPLAY);
       if (inst->dpy == NULL) {
         compute_lib_deinit(inst);
         return COMPUTE_LIB_ERROR_EGL_PLATFORM_DISPLAY;
