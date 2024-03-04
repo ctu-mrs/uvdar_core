@@ -105,7 +105,7 @@ typedef struct {
 #define COMPUTE_LIB_UNIFORM_NEW(name_) ((compute_lib_uniform_t) {.name = (name_), .location = 0, .size = 0, .type = 0, .index = 0})
 
 
-#define COMPUTE_LIB_GPU_DRI_PATH "/dev/dri/renderD128XXX"
+#define COMPUTE_LIB_GPU_DRI_PATH "/dev/dri/renderD128"
 #define COMPUTE_LIB_GPU_DRI_BACKUP_PATH "/dev/dri/card0"
 #define COMPUTE_LIB_MAX_INFO_LOG_LEN 4096
 

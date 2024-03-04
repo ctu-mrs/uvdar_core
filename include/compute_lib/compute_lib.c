@@ -150,6 +150,11 @@ int compute_lib_init(compute_lib_instance_t* inst)
     inst->initialised = true;
     fprintf(stderr, "[ComputeLib]: Initialized.\n");
 
+    fprintf(stderr, "[ComputeLib]: Display CLIENT_APIS: %s\n", eglQueryString(inst->dpy, EGL_CLIENT_APIS));
+    fprintf(stderr, "[ComputeLib]: Display VENDOR: %s\n", eglQueryString(inst->dpy, EGL_VENDOR));
+    fprintf(stderr, "[ComputeLib]: Display VERSION: %s\n", eglQueryString(inst->dpy, EGL_VERSION));
+    fprintf(stderr, "[ComputeLib]: Display EXTENSIONS: %s\n", eglQueryString(inst->dpy, EGL_EXTENSIONS));
+
     return 0;
 }
 
