@@ -80,7 +80,7 @@ int compute_lib_init(compute_lib_instance_t* inst)
         return COMPUTE_LIB_ERROR_CREATE_GBM_CTX;
       }
 
-      fprintf(stderr, "[ComputeLib]: Getting platform display - GBM...\n");
+      fprintf(stdout, "[ComputeLib]: Getting platform display - GBM...\n");
       inst->dpy = eglGetPlatformDisplay(EGL_PLATFORM_GBM_MESA, inst->gbm, NULL);
       if (inst->dpy == NULL) {
         compute_lib_deinit(inst);
@@ -88,7 +88,7 @@ int compute_lib_init(compute_lib_instance_t* inst)
       }
     }
     else {
-      fprintf(stderr, "[ComputeLib]: Getting platform display - surfaceless...\n");
+      fprintf(stdout, "[ComputeLib]: Getting platform display - surfaceless...\n");
       /* inst->dpy = eglGetPlatformDisplay(EGL_PLATFORM_SURFACELESS_MESA, NULL, NULL); */
       inst->dpy = eglGetDisplay(EGL_DEFAULT_DISPLAY);
       if (inst->dpy == NULL) {
@@ -97,13 +97,13 @@ int compute_lib_init(compute_lib_instance_t* inst)
       }
     }
 
-      fprintf(stderr, "[ComputeLib]: Initializing EGL...\n");
+      fprintf(stdout, "[ComputeLib]: Initializing EGL...\n");
     if (!eglInitialize(inst->dpy, NULL, NULL)) {
         compute_lib_deinit(inst);
         return COMPUTE_LIB_ERROR_EGL_INIT;
     }
 
-      fprintf(stderr, "[ComputeLib]: Creating EGL query string...\n");
+      fprintf(stdout, "[ComputeLib]: Creating EGL query string...\n");
     const char* egl_extension_st = eglQueryString(inst->dpy, EGL_EXTENSIONS);
     if (strstr(egl_extension_st, "EGL_KHR_create_context") == NULL) {
         compute_lib_deinit(inst);
@@ -116,7 +116,7 @@ int compute_lib_init(compute_lib_instance_t* inst)
 
     EGLConfig egl_cfg;
     EGLint egl_count;
-    fprintf(stderr, "[ComputeLib]: Choosing EGL config...\n");
+    fprintf(stdout, "[ComputeLib]: Choosing EGL config...\n");
     if (!eglChooseConfig(inst->dpy, use_hw_rendering?egl_config_attribs_gbm:egl_config_attribs_surfaceless, &egl_cfg, 1, &egl_count)) {
         compute_lib_deinit(inst);
         return COMPUTE_LIB_ERROR_EGL_CONFIG;
@@ -126,14 +126,14 @@ int compute_lib_init(compute_lib_instance_t* inst)
         return COMPUTE_LIB_ERROR_EGL_BIND_API;
     }
 
-    fprintf(stderr, "[ComputeLib]: Creating EGL context...\n");
+    fprintf(stdout, "[ComputeLib]: Creating EGL context...\n");
     inst->ctx = eglCreateContext(inst->dpy, egl_cfg, EGL_NO_CONTEXT, egl_ctx_attribs);
     if (inst->ctx == EGL_NO_CONTEXT) {
         compute_lib_deinit(inst);
         return COMPUTE_LIB_ERROR_EGL_CREATE_CTX;
     }
 
-    fprintf(stderr, "[ComputeLib]: Attaching EGL context to surface...\n");
+    fprintf(stdout, "[ComputeLib]: Attaching EGL context to surface...\n");
     if (!eglMakeCurrent(inst->dpy, EGL_NO_SURFACE, EGL_NO_SURFACE, inst->ctx)) {
         compute_lib_deinit(inst);
         return COMPUTE_LIB_ERROR_EGL_MAKE_CURRENT;
@@ -143,17 +143,17 @@ int compute_lib_init(compute_lib_instance_t* inst)
     inst->error_total_cnt = 0;
     inst->error_queue = queue_create(64);
 
-    fprintf(stderr, "[ComputeLib]: Enabling GL debugging...\n");
+    fprintf(stdout, "[ComputeLib]: Enabling GL debugging...\n");
     glEnable(GL_DEBUG_OUTPUT);
     glDebugMessageCallback(compute_lib_gl_callback, (const void*) inst);
     
     inst->initialised = true;
-    fprintf(stderr, "[ComputeLib]: Initialized.\n");
+    fprintf(stdout, "[ComputeLib]: Initialized.\n");
 
-    fprintf(stderr, "[ComputeLib]: Display CLIENT_APIS: %s\n", eglQueryString(inst->dpy, EGL_CLIENT_APIS));
-    fprintf(stderr, "[ComputeLib]: Display VENDOR: %s\n", eglQueryString(inst->dpy, EGL_VENDOR));
-    fprintf(stderr, "[ComputeLib]: Display VERSION: %s\n", eglQueryString(inst->dpy, EGL_VERSION));
-    fprintf(stderr, "[ComputeLib]: Display EXTENSIONS: %s\n", eglQueryString(inst->dpy, EGL_EXTENSIONS));
+    fprintf(stdout, "[ComputeLib]: Display CLIENT_APIS: %s\n", eglQueryString(inst->dpy, EGL_CLIENT_APIS));
+    fprintf(stdout, "[ComputeLib]: Display VENDOR: %s\n", eglQueryString(inst->dpy, EGL_VENDOR));
+    fprintf(stdout, "[ComputeLib]: Display VERSION: %s\n", eglQueryString(inst->dpy, EGL_VERSION));
+    fprintf(stdout, "[ComputeLib]: Display EXTENSIONS: %s\n", eglQueryString(inst->dpy, EGL_EXTENSIONS));
 
     return 0;
 }
@@ -161,40 +161,40 @@ int compute_lib_init(compute_lib_instance_t* inst)
 
 void compute_lib_deinit(compute_lib_instance_t* inst)
 {
-  fprintf(stderr, "[ComputeLib]: De-initializing Compute lib...\n");
+  fprintf(stdout, "[ComputeLib]: De-initializing Compute lib...\n");
     if (inst->ctx != EGL_NO_CONTEXT && inst->dpy != NULL) {
-      fprintf(stderr, "[ComputeLib]: Destroying context...\n");
+      fprintf(stdout, "[ComputeLib]: Destroying context...\n");
         eglDestroyContext(inst->dpy, inst->ctx);
     }
     inst->ctx = EGL_NO_CONTEXT;
 
     if (inst->dpy != NULL) {
-      fprintf(stderr, "[ComputeLib]: Terminating...\n");
+      fprintf(stdout, "[ComputeLib]: Terminating...\n");
         eglTerminate(inst->dpy);
     }
     inst->dpy = NULL;
 
     if (inst->gbm != NULL) {
-      fprintf(stderr, "[ComputeLib]: Destroying device...\n");
+      fprintf(stdout, "[ComputeLib]: Destroying device...\n");
         gbm_device_destroy(inst->gbm);
     }
     inst->gbm = NULL;
 
     if (inst->fd > 0) {
-      fprintf(stderr, "[ComputeLib]: Closing renderer file...\n");
+      fprintf(stdout, "[ComputeLib]: Closing renderer file...\n");
         close(inst->fd);
     }
     inst->fd = 0;
 
     if (inst->error_queue != NULL) {
-      fprintf(stderr, "[ComputeLib]: Flushing error queue...\n");
+      fprintf(stdout, "[ComputeLib]: Flushing error queue...\n");
       compute_lib_error_queue_flush(inst, NULL);
-      fprintf(stderr, "[ComputeLib]: Deleting error queue...\n");
+      fprintf(stdout, "[ComputeLib]: Deleting error queue...\n");
       queue_delete(inst->error_queue);
     }
 
     inst->initialised = false;
-    fprintf(stderr, "[ComputeLib]: De-initialized.\n");
+    fprintf(stdout, "[ComputeLib]: De-initialized.\n");
 }
 
 int compute_lib_error_queue_flush(compute_lib_instance_t* inst, FILE* out)
