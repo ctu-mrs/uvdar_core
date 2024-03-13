@@ -154,6 +154,7 @@ private:
       }
       msg_o = image_data.at(image_index).outputImage.toImageMsg();
       msg_o->header.stamp = msg_i->header.stamp;
+      ROS_INFO_STREAM("[UVDARBluefoxEmulator]: Cam " << image_index << " publishing image with " << msg_i->points.size() << " points...");
       pub_image_.at(image_index).publish(msg_o);
     }
   }
