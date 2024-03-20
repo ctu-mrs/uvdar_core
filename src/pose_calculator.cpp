@@ -988,10 +988,10 @@ namespace uvdar {
           /* ROS_INFO("[UVDARPoseCalculator]:IN: C"); */
         batch_processsed_ = false;
         for (unsigned int image_index = 0; image_index < _camera_count_; image_index++){
-          if (!input_data_initialized[image_index]){
-            ROS_INFO("[%s]: TF for camera %d not initialized, skipping hypothesis intializaiton.", ros::this_node::getName().c_str(), image_index);
-            continue;
-          }
+          /* if (!input_data_initialized[image_index]){ */
+          /*   ROS_INFO("[%s]: TF for camera %d not initialized, skipping hypothesis intializaiton.", ros::this_node::getName().c_str(), image_index); */
+          /*   continue; */
+          /* } */
           /* ROS_INFO("[%s]: Initializing from C:%d", ros::this_node::getName().c_str(), image_index); */
 
           InputData latest_local;
