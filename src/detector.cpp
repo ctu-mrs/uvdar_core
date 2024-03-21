@@ -71,6 +71,7 @@ public:
     }
     //}
     
+
     // Create callbacks, timers and process objects for each camera
     for (unsigned int i = 0; i < _camera_count_; ++i) {
       image_callback_t callback = [image_index=i,this] (const sensor_msgs::ImageConstPtr& image_msg) { 
@@ -86,6 +87,9 @@ public:
 
       detected_points_.push_back(std::vector<cv::Point>());
       sun_points_.push_back(std::vector<cv::Point>());
+
+      image_yet_received_.push_back(false);
+      initial_delay_.push_back(ros::Time::now());
 
       /* mutex_camera_image_.push_back(std::make_unique<std::mutex>()); */
 
@@ -139,6 +143,7 @@ public:
     if (_gui_ || _publish_visualization_){
       timer_visualization_ = nh_.createTimer(ros::Duration(0.1), &UVDARDetector::VisualizationThread, this, false);
     }
+
 
 
     ROS_INFO("[UVDARDetector]: Waiting for time...");
@@ -215,6 +220,18 @@ private:
    * @param image_index - index of the camera that produced this image
    */
   void processSingleImage([[maybe_unused]] const ros::TimerEvent& te, const cv_bridge::CvImageConstPtr image, int image_index) {
+
+    if (!image_yet_received_[image_index]){
+      initial_delay_[image_index] = ros::Time::now();
+      image_yet_received_[image_index] = true;
+    }
+
+    if ((ros::Time::now() - initial_delay_[image_index]).toSec() < 2.0){
+      ROS_WARN_STREAM_THROTTLE(1.0, "[UVDARDetector]: Ignoring message for 2s...");
+      return;
+    }
+
+
     if (!initialized_){
       ROS_WARN_STREAM_THROTTLE(1.0,"[UVDARDetector]: Not yet initialized, dropping message...");
       return;
@@ -392,6 +409,10 @@ private:
   std::unique_ptr<UVDARLedDetectFAST> uvdf_;
   std::mutex  mutex_pub_;
   std::vector<ros::Timer> timer_process_;
+
+  std::vector<bool> image_yet_received_;
+  std::vector<ros::Time> initial_delay_;
+
 
 };
 

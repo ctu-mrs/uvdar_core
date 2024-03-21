@@ -137,7 +137,7 @@ bool uvdar::UVDARLedDetectFASTGPU::processImage(const cv::Mat i_image, std::vect
     image_size = i_image.size();
     /* std::cerr << "[UVDARDetectorFASTGPU]: First image, initializing..." << std::endl; */
     init();
-    /* return false; */
+    return false;
   }
 
   if (mask_id >= (int)(masks_.size())) {
