@@ -88,8 +88,8 @@ public:
       detected_points_.push_back(std::vector<cv::Point>());
       sun_points_.push_back(std::vector<cv::Point>());
 
-      image_yet_received_.push_back(false);
-      initial_delay_.push_back(ros::Time::now());
+      /* image_yet_received_.push_back(false); */
+      /* initial_delay_start_.push_back(ros::Time::now()); */
 
       /* mutex_camera_image_.push_back(std::make_unique<std::mutex>()); */
 
@@ -206,6 +206,19 @@ private:
     ros::NodeHandle nh("~");
     timer_process_[image_index] = nh.createTimer(ros::Duration(0), boost::bind(&UVDARDetector::processSingleImage, this, _1, image, image_index), true, true);
     camera_image_sizes_[image_index] = image->image.size();
+
+    if (!all_cameras_detected_){
+      unsigned int i = 0;
+      for (auto sz : camera_image_sizes_){
+        if ( (sz.width > 0) && (sz.height > 0) ){
+          i++;
+        }
+      }
+
+      if ( i == _camera_count_){
+        all_cameras_detected_ = true;
+      }
+    }
   }
   //}
 
@@ -221,14 +234,24 @@ private:
    */
   void processSingleImage([[maybe_unused]] const ros::TimerEvent& te, const cv_bridge::CvImageConstPtr image, int image_index) {
 
-    if (!image_yet_received_[image_index]){
-      initial_delay_[image_index] = ros::Time::now();
-      image_yet_received_[image_index] = true;
+    if (!all_cameras_detected_){
+      ROS_WARN_STREAM_THROTTLE(1.0, "[UVDARDetector]: Not all cameras have produced input, waiting...");
+      return;
     }
 
-    if ((ros::Time::now() - initial_delay_[image_index]).toSec() < 2.0){
-      ROS_WARN_STREAM_THROTTLE(1.0, "[UVDARDetector]: Ignoring message for 2s...");
+    double initial_delay = 5.0; //seconds
+    if ((ros::Time::now() - initial_delay_start_).toSec() < initial_delay){
+      ROS_WARN_STREAM_THROTTLE(1.0, "[UVDARDetector]: Ignoring message for "<< initial_delay <<"s...");
       return;
+    }
+    
+    if (!uvdf_was_initialized_){
+      if (!uvdf_->initDelayed(image->image)){
+        ROS_WARN_STREAM_THROTTLE(1.0,"[UVDARDetector]: Failed to initialize, dropping message...");
+        return;
+      }
+      initial_delay_start_ = ros::Time::now();
+      uvdf_was_initialized_ = true;
     }
 
 
@@ -253,7 +276,7 @@ private:
               )
             )
          ){
-        ROS_ERROR_STREAM("Failed to extract markers from the image!");
+        ROS_WARN_STREAM("Failed to extract markers from the image!");
         return;
       }
       /* ROS_INFO_STREAM("Cam" << image_index << ". There are " << detected_points_[image_index].size() << " detected points."); */
@@ -399,6 +422,8 @@ private:
 
   std::vector<cv::Size> camera_image_sizes_;
 
+  bool all_cameras_detected_ = false;
+
   int  _threshold_;
 
   bool _use_masks_;
@@ -410,8 +435,8 @@ private:
   std::mutex  mutex_pub_;
   std::vector<ros::Timer> timer_process_;
 
-  std::vector<bool> image_yet_received_;
-  std::vector<ros::Time> initial_delay_;
+  bool uvdf_was_initialized_ = false;
+  ros::Time initial_delay_start_;
 
 
 };

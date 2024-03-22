@@ -18,6 +18,7 @@ namespace uvdar {
       UVDARLedDetectFASTGPU(bool i_gui, bool i_debug, int i_threshold, int i_threshold_diff, int i_threshold_sun, std::vector<cv::Mat> i_masks);
       ~UVDARLedDetectFASTGPU();
       bool processImage(const cv::Mat i_image, std::vector<cv::Point2i>& detected_points, std::vector<cv::Point2i>& sun_points, int mask_id=-1);
+      bool initDelayed(const cv::Mat i_image);
 
     private:
       void init();

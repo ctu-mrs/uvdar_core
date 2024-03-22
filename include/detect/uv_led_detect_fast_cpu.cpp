@@ -11,6 +11,10 @@
 //addressing indices this way is noticeably faster than the "propper" way with .at method - numerous unnecessary checks are skipped. This of course means that we have to do necessary checks ourselves
 #define index2d(X, Y) (image_curr_.cols * (Y) + (X))
 
+bool uvdar::UVDARLedDetectFASTCPU::initDelayed([[maybe_unused]] const cv::Mat i_image){
+  return false;
+}
+
 uvdar::UVDARLedDetectFASTCPU::UVDARLedDetectFASTCPU(bool i_gui, bool i_debug, int i_threshold, int i_threshold_diff, int i_threshold_sun, std::vector<cv::Mat> i_masks) : UVDARLedDetectFAST(i_gui, i_debug, i_threshold, i_threshold_diff, i_threshold_sun, i_masks) {
   initFAST();
 }
