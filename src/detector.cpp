@@ -239,12 +239,6 @@ private:
       return;
     }
 
-    double initial_delay = 5.0; //seconds
-    if ((ros::Time::now() - initial_delay_start_).toSec() < initial_delay){
-      ROS_WARN_STREAM_THROTTLE(1.0, "[UVDARDetector]: Ignoring message for "<< initial_delay <<"s...");
-      return;
-    }
-    
     if (!uvdf_was_initialized_){
       if (!uvdf_->initDelayed(image->image)){
         ROS_WARN_STREAM_THROTTLE(1.0,"[UVDARDetector]: Failed to initialize, dropping message...");
@@ -252,6 +246,12 @@ private:
       }
       initial_delay_start_ = ros::Time::now();
       uvdf_was_initialized_ = true;
+    }
+
+    double initial_delay = 5.0; //seconds. This delay is necessary to avoid strange segmentation faults with software rendering backend for OpenGL used in the buildfarm testing.
+    if ((ros::Time::now() - initial_delay_start_).toSec() < initial_delay){
+      ROS_WARN_STREAM_THROTTLE(1.0, "[UVDARDetector]: Ignoring message for "<< initial_delay <<"s...");
+      return;
     }
 
 
