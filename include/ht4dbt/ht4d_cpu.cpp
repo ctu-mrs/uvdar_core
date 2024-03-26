@@ -8,10 +8,10 @@ HT4DBlinkerTrackerCPU::HT4DBlinkerTrackerCPU (
     int i_yaw_steps,
     int i_max_pixel_shift,
     cv::Size i_im_res,
+    int i_allowed_BER_per_seq,
     int i_nullify_radius,
     int i_reasonable_radius,
-    double i_framerate) : HT4DBlinkerTracker(i_mem_steps, i_pitch_steps, i_yaw_steps, i_max_pixel_shift, i_im_res, i_nullify_radius,
-    i_reasonable_radius, i_framerate) {
+    double i_framerate) : HT4DBlinkerTracker(i_mem_steps, i_pitch_steps, i_yaw_steps, i_max_pixel_shift, i_im_res, i_allowed_BER_per_seq, i_nullify_radius, i_reasonable_radius, i_framerate) {
   std::cout << "Initiating HT4DBlinkerTrackerCPU..." << std::endl;
 
   hough_space_ = new unsigned int[im_area_ * pitch_steps_ * yaw_steps_];

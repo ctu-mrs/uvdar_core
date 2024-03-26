@@ -36,6 +36,7 @@ HT4DBlinkerTracker::HT4DBlinkerTracker(
     int i_yaw_steps,
     int i_max_pixel_shift,
     cv::Size i_im_res,
+    int i_allowed_BER_per_seq,
     int i_nullify_radius,
     int i_reasonable_radius,
     double i_framerate) {
@@ -45,10 +46,11 @@ HT4DBlinkerTracker::HT4DBlinkerTracker(
   yaw_steps_      = i_yaw_steps;
   total_steps_    = pitch_steps_*yaw_steps_;
   framerate_     = i_framerate;
+  allowed_BER_per_seq_ = i_allowed_BER_per_seq;
   max_pixel_shift_ = i_max_pixel_shift;
   frame_scale_    = round(3 * framerate_ / 10);
   mask_width_     = 1 + 2 * max_pixel_shift_ * (frame_scale_ - 1);
-
+  
   double weight_coeff;
   if (CONSTANT_NEWER){
     weight_coeff = 0.625;
@@ -138,7 +140,7 @@ void HT4DBlinkerTracker::resetToZero(unsigned char *input, int steps) {
 
 void HT4DBlinkerTracker::setSequences(std::vector<std::vector<bool>> i_sequences){
   sequences_ = i_sequences;
-  matcher_ = std::make_unique<SignalMatcher>(sequences_);
+  matcher_ = std::make_unique<SignalMatcher>(sequences_, allowed_BER_per_seq_);
 }
 
 void HT4DBlinkerTracker::setDebug(bool i_debug, bool i_vis_debug) {

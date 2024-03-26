@@ -460,7 +460,7 @@ namespace uvdar{
     for (size_t i = 0; i < _points_seen_topics_.size(); ++i) {
       ht4dbt_trackers_.push_back(
         std::make_shared<HT4DBlinkerTrackerCPU>(
-            _accumulator_length_, _pitch_steps_, _yaw_steps_, _max_pixel_shift_, cv::Size(0, 0), _nullify_radius_, _reasonable_radius_
+            _accumulator_length_, _pitch_steps_, _yaw_steps_, _max_pixel_shift_, cv::Size(0, 0), _allowed_BER_per_seq_,  _nullify_radius_, _reasonable_radius_
           )
         );
       ht4dbt_trackers_.back()->setDebug(_debug_, _visual_debug_);
