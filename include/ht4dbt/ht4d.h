@@ -45,6 +45,7 @@ public:
       int i_yaw_steps,
       int i_max_pixel_shift,
       cv::Size i_im_res,
+      int i_allowed_BER_per_seq,
       int i_nullify_radius,
       int i_reasonable_radius,
       double i_framerate);
@@ -322,6 +323,7 @@ protected:
   int          reasonable_radius_;
   double       framerate_;
   int          max_pixel_shift_;
+  int          allowed_BER_per_seq_;
 
   cv::Size     im_res_;
   unsigned int im_area_;
