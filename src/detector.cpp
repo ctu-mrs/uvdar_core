@@ -45,6 +45,8 @@ public:
 
     param_loader.loadParam("threshold", _threshold_, 200);
 
+    param_loader.loadParam("initial_delay", _initial_delay_, 5.0);
+
     /* subscribe to cameras //{ */
     std::vector<std::string> _camera_topics;
     param_loader.loadParam("camera_topics", _camera_topics, _camera_topics);
@@ -71,6 +73,7 @@ public:
     }
     //}
     
+
     // Create callbacks, timers and process objects for each camera
     for (unsigned int i = 0; i < _camera_count_; ++i) {
       image_callback_t callback = [image_index=i,this] (const sensor_msgs::ImageConstPtr& image_msg) { 
@@ -87,18 +90,21 @@ public:
       detected_points_.push_back(std::vector<cv::Point>());
       sun_points_.push_back(std::vector<cv::Point>());
 
-      mutex_camera_image_.push_back(std::make_unique<std::mutex>());
+      /* image_yet_received_.push_back(false); */
+      /* initial_delay_start_.push_back(ros::Time::now()); */
+
+      /* mutex_camera_image_.push_back(std::make_unique<std::mutex>()); */
 
       ROS_INFO("[UVDARDetector]: Initializing FAST-based marker detection...");
-      uvdf_.push_back(std::make_unique<UVDARLedDetectFASTGPU>(
+      uvdf_ = std::make_unique<UVDARLedDetectFASTGPU>(
             _gui_,
             _debug_,
             _threshold_,
             _threshold_ / 2,
             150,
             _masks_
-            ));
-      if (!uvdf_.back()){
+            );
+      if (!uvdf_){
         ROS_ERROR("[UVDARDetector]: Failed to initialize FAST-based marker detection!");
         return;
       }
@@ -139,6 +145,7 @@ public:
     if (_gui_ || _publish_visualization_){
       timer_visualization_ = nh_.createTimer(ros::Duration(0.1), &UVDARDetector::VisualizationThread, this, false);
     }
+
 
 
     ROS_INFO("[UVDARDetector]: Waiting for time...");
@@ -201,6 +208,19 @@ private:
     ros::NodeHandle nh("~");
     timer_process_[image_index] = nh.createTimer(ros::Duration(0), boost::bind(&UVDARDetector::processSingleImage, this, _1, image, image_index), true, true);
     camera_image_sizes_[image_index] = image->image.size();
+
+    if (!all_cameras_detected_){
+      unsigned int i = 0;
+      for (auto sz : camera_image_sizes_){
+        if ( (sz.width > 0) && (sz.height > 0) ){
+          i++;
+        }
+      }
+
+      if ( i == _camera_count_){
+        all_cameras_detected_ = true;
+      }
+    }
   }
   //}
 
@@ -215,18 +235,47 @@ private:
    * @param image_index - index of the camera that produced this image
    */
   void processSingleImage([[maybe_unused]] const ros::TimerEvent& te, const cv_bridge::CvImageConstPtr image, int image_index) {
+
+    if (!all_cameras_detected_){
+      ROS_WARN_STREAM_THROTTLE(1.0, "[UVDARDetector]: Not all cameras have produced input, waiting...");
+      return;
+    }
+
+    if (!initial_delay_started_){
+      initial_delay_start_ = ros::Time::now();
+      initial_delay_started_ = true;
+    }
+
+    /* double initial_delay = 5.0; //seconds. This delay is necessary to avoid strange segmentation faults with software rendering backend for OpenGL used in the buildfarm testing. */
+    if ((ros::Time::now() - initial_delay_start_).toSec() < _initial_delay_){
+      ROS_WARN_STREAM_THROTTLE(1.0, "[UVDARDetector]: Ignoring message for "<< _initial_delay_ <<"s...");
+      return;
+    }
+
+
     if (!initialized_){
       ROS_WARN_STREAM_THROTTLE(1.0,"[UVDARDetector]: Not yet initialized, dropping message...");
       return;
     }
 
+      /* ROS_INFO_STREAM("[UVDARDetector]: Locking cam image mutex " << image_index << "..."); */
     {
-      std::scoped_lock lock(*mutex_camera_image_[image_index]);
+      /* std::scoped_lock lock(*mutex_camera_image_[image_index]); */
+      std::scoped_lock lock(mutex_camera_image_);
+
+      if (!uvdf_was_initialized_){
+        if (!uvdf_->initDelayed(image->image)){
+          ROS_WARN_STREAM_THROTTLE(1.0,"[UVDARDetector]: Failed to initialize, dropping message...");
+          return;
+        }
+        uvdf_was_initialized_ = true;
+      }
+      
       images_current_[image_index] = image->image;
       sun_points_[image_index].clear();
       detected_points_[image_index].clear();
 
-      if ( ! (uvdf_[image_index]->processImage(
+      if ( ! (uvdf_->processImage(
               image->image,
               detected_points_[image_index],
               sun_points_[image_index],
@@ -234,7 +283,7 @@ private:
               )
             )
          ){
-        ROS_ERROR_STREAM("Failed to extract markers from the image!");
+        ROS_WARN_STREAM("Failed to extract markers from the image!");
         return;
       }
       /* ROS_INFO_STREAM("Cam" << image_index << ". There are " << detected_points_[image_index].size() << " detected points."); */
@@ -244,6 +293,7 @@ private:
       }
       /* ROS_INFO_STREAM("There are " << sun_points_[image_index].size() << " detected potential sun points."); */
     }
+    /* ROS_INFO_STREAM("[UVDARDetector]: Unlocking cam image mutex " << image_index << "..."); */
 
     if (detected_points_[image_index].size()>MAX_POINTS_PER_IMAGE){
       ROS_WARN_STREAM("[UVDARDetector]: Over " << MAX_POINTS_PER_IMAGE << " points received. Skipping noisy image.");
@@ -317,7 +367,8 @@ private:
 
     int image_index = 0;
     for ([[maybe_unused]] auto curr_size : camera_image_sizes_){
-      std::scoped_lock lock(*(mutex_camera_image_[image_index]));
+      /* std::scoped_lock lock(*(mutex_camera_image_[image_index])); */
+      std::scoped_lock lock(mutex_camera_image_);
       cv::Point start_point = cv::Point(start_widths[image_index]+image_index, 0);
       cv::Mat image_rgb;
       cv::cvtColor(images_current_[image_index], image_rgb, cv::COLOR_GRAY2BGR);
@@ -368,7 +419,8 @@ private:
   bool _gui_;
   bool _publish_visualization_;
   std::unique_ptr<mrs_lib::ImagePublisher> pub_visualization_;
-  std::vector<std::unique_ptr<std::mutex>>  mutex_camera_image_;
+  /* std::vector<std::unique_ptr<std::mutex>>  mutex_camera_image_; */
+  std::mutex  mutex_camera_image_;
   ros::Timer timer_visualization_;
   ros::Timer timer_gui_visualization_;
   ros::Timer timer_publish_visualization_;
@@ -377,15 +429,25 @@ private:
 
   std::vector<cv::Size> camera_image_sizes_;
 
+  bool all_cameras_detected_ = false;
+
   int  _threshold_;
+
+  double _initial_delay_ = 5.0;
 
   bool _use_masks_;
   std::vector<std::string> _mask_file_names_;
   std::vector<cv::Mat> _masks_;
 
-  std::vector<std::unique_ptr<UVDARLedDetectFAST>> uvdf_;
+  /* std::vector<std::unique_ptr<UVDARLedDetectFAST>> uvdf_; */
+  std::unique_ptr<UVDARLedDetectFAST> uvdf_;
   std::mutex  mutex_pub_;
   std::vector<ros::Timer> timer_process_;
+
+  bool uvdf_was_initialized_ = false;
+  bool initial_delay_started_ = false;
+  ros::Time initial_delay_start_;
+
 
 };
 

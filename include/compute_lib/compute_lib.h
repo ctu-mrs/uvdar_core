@@ -106,6 +106,7 @@ typedef struct {
 
 
 #define COMPUTE_LIB_GPU_DRI_PATH "/dev/dri/renderD128"
+#define COMPUTE_LIB_GPU_DRI_BACKUP_PATH "/dev/dri/card0"
 #define COMPUTE_LIB_MAX_INFO_LOG_LEN 4096
 
 #define COMPUTE_LIB_SEVERITY_PRINT_NOTIFICATION false
@@ -116,6 +117,7 @@ enum {
     COMPUTE_LIB_ERROR_GROUP_INIT_FN                     = -100,
     COMPUTE_LIB_ERROR_ALREADY_INITIALISED               = -101,
     COMPUTE_LIB_ERROR_GPU_DRI_PATH                      = -102,
+    COMPUTE_LIB_ERROR_GPU_DRI_BACKUP_PATH               = -152,
     COMPUTE_LIB_ERROR_CREATE_GBM_CTX                    = -103,
     COMPUTE_LIB_ERROR_EGL_PLATFORM_DISPLAY              = -104,
     COMPUTE_LIB_ERROR_EGL_INIT                          = -105,

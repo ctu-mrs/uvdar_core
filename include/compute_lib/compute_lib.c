@@ -1,8 +1,20 @@
 #include "compute_lib.h"
 
 
-static const EGLint egl_config_attribs[] = { EGL_RENDERABLE_TYPE, EGL_OPENGL_ES3_BIT_KHR, EGL_NONE };
-static const EGLint egl_ctx_attribs[] = { EGL_CONTEXT_CLIENT_VERSION, 3, EGL_NONE };
+static const EGLint egl_config_attribs_gbm[] = {
+  EGL_RENDERABLE_TYPE, EGL_OPENGL_ES3_BIT_KHR,
+  EGL_NONE };
+static const EGLint egl_config_attribs_surfaceless[] = {
+    EGL_SURFACE_TYPE, EGL_PBUFFER_BIT,
+    EGL_RENDERABLE_TYPE, EGL_OPENGL_ES3_BIT,
+    /* EGL_BLUE_SIZE, 8, */
+    /* EGL_GREEN_SIZE, 8, */
+    /* EGL_RED_SIZE, 8, */
+    /* EGL_DEPTH_SIZE, 8, */
+    EGL_NONE };
+static const EGLint egl_ctx_attribs[] = {
+  EGL_CONTEXT_CLIENT_VERSION, 3,
+  EGL_NONE };
 
 
 static void compute_lib_gl_callback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const void* inst)
@@ -35,29 +47,63 @@ int compute_lib_init(compute_lib_instance_t* inst)
         return COMPUTE_LIB_ERROR_ALREADY_INITIALISED;
     }
 
-    inst->fd = open(COMPUTE_LIB_GPU_DRI_PATH, O_RDWR);
-    if (inst->fd <= 0) {
+    bool use_hw_rendering = true;
+    if (access(COMPUTE_LIB_GPU_DRI_PATH, F_OK) == 0) {
+      fprintf(stderr, "[ComputeLib]: Selecting the main renderer path %s\n", COMPUTE_LIB_GPU_DRI_PATH);
+      inst->fd = open(COMPUTE_LIB_GPU_DRI_PATH, O_RDWR);
+      if (inst->fd <= 0) {
+        fprintf(stderr, "[ComputeLib]: Failed to open main renderer path %s\n", COMPUTE_LIB_GPU_DRI_PATH);
         compute_lib_deinit(inst);
         return COMPUTE_LIB_ERROR_GPU_DRI_PATH;
+      }
+      fprintf(stderr, "[ComputeLib]: Opened the renderer.\n");
+    }
+    /* else if (access(COMPUTE_LIB_GPU_DRI_BACKUP_PATH, F_OK) == 0) { */
+    /*   fprintf(stderr, "[ComputeLib]: Selecting the backup renderer path %s\n", COMPUTE_LIB_GPU_DRI_BACKUP_PATH); */
+    /*   inst->fd = open(COMPUTE_LIB_GPU_DRI_BACKUP_PATH, O_RDWR); */
+    /*   if (inst->fd <= 0) { */
+    /*     fprintf(stderr, "[ComputeLib]: Failed to open backup renderer path %s\n", COMPUTE_LIB_GPU_DRI_BACKUP_PATH); */
+    /*     compute_lib_deinit(inst); */
+    /*     return COMPUTE_LIB_ERROR_GPU_DRI_BACKUP_PATH; */
+    /*   } */
+    /*   fprintf(stderr, "[ComputeLib]: Opened the renderer.\n"); */
+    /* } */
+    else {
+      use_hw_rendering = false;
+      fprintf(stderr, "[ComputeLib]: Will attempt to use software rendering.\n");
     }
 
-    inst->gbm = gbm_create_device(inst->fd);
-    if (inst->gbm == NULL) {
+    if (use_hw_rendering){
+      inst->gbm = gbm_create_device(inst->fd);
+      if (inst->gbm == NULL) {
         compute_lib_deinit(inst);
         return COMPUTE_LIB_ERROR_CREATE_GBM_CTX;
-    }
+      }
 
-    inst->dpy = eglGetPlatformDisplay(EGL_PLATFORM_GBM_MESA, inst->gbm, NULL);
-    if (inst->dpy == NULL) {
+      fprintf(stdout, "[ComputeLib]: Getting platform display - GBM...\n");
+      inst->dpy = eglGetPlatformDisplay(EGL_PLATFORM_GBM_MESA, inst->gbm, NULL);
+      if (inst->dpy == NULL) {
         compute_lib_deinit(inst);
         return COMPUTE_LIB_ERROR_EGL_PLATFORM_DISPLAY;
+      }
+    }
+    else {
+      fprintf(stdout, "[ComputeLib]: Getting platform display - surfaceless...\n");
+      /* inst->dpy = eglGetPlatformDisplay(EGL_PLATFORM_SURFACELESS_MESA, NULL, NULL); */
+      inst->dpy = eglGetDisplay(EGL_DEFAULT_DISPLAY);
+      if (inst->dpy == NULL) {
+        compute_lib_deinit(inst);
+        return COMPUTE_LIB_ERROR_EGL_PLATFORM_DISPLAY;
+      }
     }
 
+      fprintf(stdout, "[ComputeLib]: Initializing EGL...\n");
     if (!eglInitialize(inst->dpy, NULL, NULL)) {
         compute_lib_deinit(inst);
         return COMPUTE_LIB_ERROR_EGL_INIT;
     }
 
+      fprintf(stdout, "[ComputeLib]: Creating EGL query string...\n");
     const char* egl_extension_st = eglQueryString(inst->dpy, EGL_EXTENSIONS);
     if (strstr(egl_extension_st, "EGL_KHR_create_context") == NULL) {
         compute_lib_deinit(inst);
@@ -70,7 +116,8 @@ int compute_lib_init(compute_lib_instance_t* inst)
 
     EGLConfig egl_cfg;
     EGLint egl_count;
-    if (!eglChooseConfig(inst->dpy, egl_config_attribs, &egl_cfg, 1, &egl_count)) {
+    fprintf(stdout, "[ComputeLib]: Choosing EGL config...\n");
+    if (!eglChooseConfig(inst->dpy, use_hw_rendering?egl_config_attribs_gbm:egl_config_attribs_surfaceless, &egl_cfg, 1, &egl_count)) {
         compute_lib_deinit(inst);
         return COMPUTE_LIB_ERROR_EGL_CONFIG;
     }
@@ -79,12 +126,14 @@ int compute_lib_init(compute_lib_instance_t* inst)
         return COMPUTE_LIB_ERROR_EGL_BIND_API;
     }
 
+    fprintf(stdout, "[ComputeLib]: Creating EGL context...\n");
     inst->ctx = eglCreateContext(inst->dpy, egl_cfg, EGL_NO_CONTEXT, egl_ctx_attribs);
     if (inst->ctx == EGL_NO_CONTEXT) {
         compute_lib_deinit(inst);
         return COMPUTE_LIB_ERROR_EGL_CREATE_CTX;
     }
 
+    fprintf(stdout, "[ComputeLib]: Attaching EGL context to surface...\n");
     if (!eglMakeCurrent(inst->dpy, EGL_NO_SURFACE, EGL_NO_SURFACE, inst->ctx)) {
         compute_lib_deinit(inst);
         return COMPUTE_LIB_ERROR_EGL_MAKE_CURRENT;
@@ -94,10 +143,17 @@ int compute_lib_init(compute_lib_instance_t* inst)
     inst->error_total_cnt = 0;
     inst->error_queue = queue_create(64);
 
+    fprintf(stdout, "[ComputeLib]: Enabling GL debugging...\n");
     glEnable(GL_DEBUG_OUTPUT);
     glDebugMessageCallback(compute_lib_gl_callback, (const void*) inst);
     
     inst->initialised = true;
+    fprintf(stdout, "[ComputeLib]: Initialized.\n");
+
+    fprintf(stdout, "[ComputeLib]: Display CLIENT_APIS: %s\n", eglQueryString(inst->dpy, EGL_CLIENT_APIS));
+    fprintf(stdout, "[ComputeLib]: Display VENDOR: %s\n", eglQueryString(inst->dpy, EGL_VENDOR));
+    fprintf(stdout, "[ComputeLib]: Display VERSION: %s\n", eglQueryString(inst->dpy, EGL_VERSION));
+    fprintf(stdout, "[ComputeLib]: Display EXTENSIONS: %s\n", eglQueryString(inst->dpy, EGL_EXTENSIONS));
 
     return 0;
 }
@@ -105,30 +161,40 @@ int compute_lib_init(compute_lib_instance_t* inst)
 
 void compute_lib_deinit(compute_lib_instance_t* inst)
 {
+  fprintf(stdout, "[ComputeLib]: De-initializing Compute lib...\n");
     if (inst->ctx != EGL_NO_CONTEXT && inst->dpy != NULL) {
+      fprintf(stdout, "[ComputeLib]: Destroying context...\n");
         eglDestroyContext(inst->dpy, inst->ctx);
     }
     inst->ctx = EGL_NO_CONTEXT;
 
     if (inst->dpy != NULL) {
+      fprintf(stdout, "[ComputeLib]: Terminating...\n");
         eglTerminate(inst->dpy);
     }
     inst->dpy = NULL;
 
     if (inst->gbm != NULL) {
+      fprintf(stdout, "[ComputeLib]: Destroying device...\n");
         gbm_device_destroy(inst->gbm);
     }
     inst->gbm = NULL;
 
     if (inst->fd > 0) {
+      fprintf(stdout, "[ComputeLib]: Closing renderer file...\n");
         close(inst->fd);
     }
     inst->fd = 0;
 
-    compute_lib_error_queue_flush(inst, NULL);
-    queue_delete(inst->error_queue);
+    if (inst->error_queue != NULL) {
+      fprintf(stdout, "[ComputeLib]: Flushing error queue...\n");
+      compute_lib_error_queue_flush(inst, NULL);
+      fprintf(stdout, "[ComputeLib]: Deleting error queue...\n");
+      queue_delete(inst->error_queue);
+    }
 
     inst->initialised = false;
+    fprintf(stdout, "[ComputeLib]: De-initialized.\n");
 }
 
 int compute_lib_error_queue_flush(compute_lib_instance_t* inst, FILE* out)
@@ -161,6 +227,9 @@ void compute_lib_error_str(int err_code, char* target_str, int* len)
             break;
         case COMPUTE_LIB_ERROR_GPU_DRI_PATH:
             *len += sprintf(target_str, "compute_lib_init error: could not open '%s'!\r\n", COMPUTE_LIB_GPU_DRI_PATH);
+            break;
+        case COMPUTE_LIB_ERROR_GPU_DRI_BACKUP_PATH:
+            *len += sprintf(target_str, "compute_lib_init error: could not open '%s'!\r\n", COMPUTE_LIB_GPU_DRI_BACKUP_PATH);
             break;
         case COMPUTE_LIB_ERROR_CREATE_GBM_CTX:
             *len += sprintf(target_str, "compute_lib_init: error: could not create GBM context!\r\n");
@@ -220,7 +289,7 @@ bool compute_lib_program_init(compute_lib_program_t* program)
         return compute_lib_program_destroy(program, false);
     }
 
-    GLsizei len;
+    /* GLsizei len; */
     GLint is_compiled;
     glCompileShader(program->shader_handle);
     glGetShaderiv(program->shader_handle, GL_COMPILE_STATUS, &is_compiled);
