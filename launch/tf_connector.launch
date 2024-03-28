@@ -1,0 +1,32 @@
+<launch>
+  <!-- other args -->
+  <arg name="standalone" default="true" />
+  <arg name="debug" default="false" />
+
+  <arg name="custom_config" default="" />
+  <param name="use_sim_time" value="true"/>
+  
+  <arg     if="$(eval arg('standalone') or arg('debug'))" name="nodelet" value="standalone" />
+  <arg unless="$(eval arg('standalone') or arg('debug'))" name="nodelet" value="load" />
+  <arg     if="$(eval arg('standalone') or arg('debug'))" name="nodelet_manager" value="" />
+  <arg unless="$(eval arg('standalone') or arg('debug'))" name="nodelet_manager" value="tf_connector_nodelet_manager" />
+
+  <arg     if="$(arg debug)" name="launch_prefix" value="debug_roslaunch" />
+  <arg unless="$(arg debug)" name="launch_prefix" value="" />
+
+  <node pkg="nodelet" type="nodelet" name="tf_connector" args="$(arg nodelet) mrs_tf_connector/TFConnector $(arg nodelet_manager)" output="screen" launch-prefix="$(arg launch_prefix)">
+
+    <rosparam unless="$(eval not arg('custom_config') == '')" file="$(find uvdar_core)/config/tf/tf_connector.yaml" />
+
+    <!-- Load a user param file -->
+    <rosparam if="$(eval not arg('custom_config') == '')" file="$(arg custom_config)" />
+
+      <!-- Subscribers -->
+    <remap from="~tf_in" to="/tf" />
+
+      <!-- Publishers -->
+    <remap from="~tf_out" to="/tf" />
+
+  </node>
+
+</launch>

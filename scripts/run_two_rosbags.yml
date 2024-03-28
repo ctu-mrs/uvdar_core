@@ -1,0 +1,25 @@
+name: simulation
+root: ./
+startup_window: launch
+pre_window: UAV_NAME=uav38
+windows:
+  - tf:
+      layout: even-vertical
+      panes:
+        - waitForRos; rosrun rqt_tf_tree rqt_tf_tree 
+        - waitForRos; rosparam set use_sim_time true
+  - launch:
+      layout: even-vertical
+      panes:
+        - waitForRos; roslaunch uvdar_core tf_connector.launch
+  - play:
+      layout: even-vertical
+      panes:
+         - waitForRos; rosbag play --clock ~/october_camp/uav/uav37/_37.bag ~/rosbags/ami_paper/ami_test_test.bag
+        #  - waitForRos; rosbag play ~/october_camp/uav/uav42/_42.bag 
+         - waitForRos; rosparam set use_sim_time true
+  - roscore:
+      layout: even-vertical
+      panes:
+        - roscore
+        - waitForRos; rosparam set use_sim_time true

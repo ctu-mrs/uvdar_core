@@ -1,0 +1,28 @@
+name: simulation
+root: ./
+startup_window: launch
+pre_window: UAV_NAME=uav38
+windows:
+        # - roscore
+  - launch:
+      layout: even-vertical
+      panes:
+        - roslaunch uvdar_core rosbag_camp.launch uav_name:=uav42 use_4DHT:=false
+  - play:
+      layout: even-vertical
+      panes:
+        - waitForRos; sleep 3; rosbag play --clock  ~/october_camp/tim_tx1/2_2023_10_19_15_12_58_omta_line_eight_star/_2023-10-19-15-16-24.bag -s 60 
+        # - waitForRos; sleep 3; rosbag play --clock ~/experiments/20_04/two_tx/two_tx/rx/occlusion_2/rx.bag
+        # - waitForRos; sleep 3; rosbag play --clock -s 46.0 --duration 75.4 ~/experiments/20_04/two_tx/two_tx/rx/occlusion_2/rx.bag
+        # - waitForRos; sleep 3; rosbag play --clock ~/rosbags/rerun/omta_sim.bag
+        # - waitForRos; sleep 3; rosbag play --clock ~/rosbags/rerun/4dht_occlusion.bag
+        # - waitForRos; sleep 3; rosbag play --clock ~/october_camp/tim_tx1/5_2023_10_19_15_33_14_4dht/_2023-10-19-15-33-58.bag
+
+
+          #- waitForRos; sleep 3; rosbag play --clock ~/led_merge_test/outdoor/led5cm_5m_on_led.bag
+
+  - record:
+      layout: even-vertical
+      panes:
+        # - waitForRos; sleep 3; rosbag record -e "(.*)uav42(.*)" -O "/home/tim/rosbags/ami_paper/ami_test"
+        # - waitForRos; sleep 3; rosbag record -a -O "/home/tim/rosbags/ami_paper/ami_test_test"
