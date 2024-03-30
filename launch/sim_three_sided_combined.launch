@@ -26,8 +26,8 @@
   <arg name="view" default="false"/>
   <arg name="calib" default="false"/>
 
-  <!-- <arg name="profiling" default="false"/> -->
-  <arg name="profiling" default="true"/>
+  <arg name="profiling" default="false"/>
+  <!-- <arg name="profiling" default="true"/> -->
   <arg name="debug" default="false"/>
   <arg name="visual_debug" default="false"/>
   <arg name="gui" default="true"/>
@@ -53,7 +53,7 @@
   <arg name="draw_predict_window_sec" default="0.3"/>
 
     
-  <arg name="blink_throttle_rate" default="2"/>
+  <arg name="blink_throttle_rate" default="10"/>
 
   <arg name="max_px_shift_y" default="3"/>
   <arg name="max_px_shift_x" default="3"/>
