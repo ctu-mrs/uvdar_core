@@ -63,11 +63,14 @@
 #define MUTATION_COUNT 1
 #define MUTATION_POSITION_MAX_STEP 5.0//m per second
 #define MUTATION_ORIENTATION_MAX_STEP 3.14//rad per second
+#define MUTATION_VELOCITY_MAX_STEP 1.0//m per second^2
 
-#define MAX_HYPOTHESIS_COUNT 100
+#define MAX_INITIAL_VELOCITY 1.0//m per second
 
-#define INITIAL_ROUGH_HYPOTHESIS_COUNT 100
-#define INITIAL_HYPOTHESIS_COUNT 10
+#define MAX_HYPOTHESIS_COUNT 200
+
+#define INITIAL_ROUGH_HYPOTHESIS_COUNT 200
+#define INITIAL_HYPOTHESIS_COUNT 20
 
 #define MAX_HYPOTHESIS_AGE 1.5
 
@@ -203,6 +206,10 @@ namespace uvdar {
       e::Vector3d position;
       e::Quaterniond orientation;
     };
+    struct Twist {
+      e::Vector3d linear;
+      e::Quaterniond angular; //TODO or remove
+    };
 
     struct LEDMarker {
       Pose pose;
@@ -232,8 +239,10 @@ namespace uvdar {
       public:
       int index;
       Pose pose;
+      Twist twist;
       HypothesisFlag flag;
-      ros::Time updated;
+      ros::Time observed;
+      ros::Time propagated;
       int unique_id;
 
       Hypothesis() {
@@ -800,7 +809,7 @@ namespace uvdar {
 
         /* timer_initializer_ = nh.createTimer(ros::Rate(1), &UVDARPoseCalculator::InitializationThreadStarter, this, false); //Thread that generates fresh, naive hypotheses from images at low rate */
         /* initializer_thread_ = std::make_unique<std::thread>(&UVDARPoseCalculator::InitializationThread,this); */
-        ros::Rate ir(10);
+        ros::Rate ir(1);
         initializer_thread_ = std::make_unique<mrs_lib::ThreadTimer>(nh, ir, &UVDARPoseCalculator::InitializationThread, this, false, true);
         timer_particle_filter_ = nh.createTimer(ros::Rate(1.0/SCATTER_TIME_STEP), &UVDARPoseCalculator::ParticleScatteringThread, this, false); //Thread that filters and propagates hypotheses from prior estimates
 
@@ -1157,6 +1166,14 @@ namespace uvdar {
               /* bool res = extractSingleRelative(separated_points[i].second, separated_points[i].first, image_index, pose, constituents, new_hypotheses); */
               /* ROS_INFO("[%s]: C:%d - Image clusters: %d", ros::this_node::getName().c_str(), image_index, (int)(separated_points.size())); */
               new_hypotheses = extractHypotheses(separated_points[i].points, separated_points[i].ID, image_index, fromcam_tf, tocam_tf, profiler_thread_, latest_local.time);
+
+              //TODO: consider doing multiple for each hypothesis
+              double velocity_max_step = MAX_INITIAL_VELOCITY;
+              for (auto &h : new_hypotheses){
+                double vd = static_cast <double> (rand()) / static_cast <double> (RAND_MAX);//scaler form 0 to 1
+                e::Vector3d initial_velocity = (e::Vector3d::Random().normalized())*vd*velocity_max_step;
+                h.twist.linear = initial_velocity;
+              }
               /* ROS_INFO("[%s]: C:%d - New hypothesis count: %d", ros::this_node::getName().c_str(), image_index, (int)(new_hypotheses.size())); */
 
               /* if (res){ */
@@ -1314,11 +1331,18 @@ namespace uvdar {
                 removeExtraHypotheses(index, now_time);
                 if (_debug_)
                   ROS_INFO("[%s]: Culling. Curr hypothesis count: %d", ros::this_node::getName().c_str(), (int)(hypothesis_buffer_.at(index).hypotheses.size()));
+                propagateHypotheses(index, now_time);
               }
           }
 
 
           {
+              /* for (int index = 0; index < (int)(hypothesis_buffer_.size()); index++){ */
+              /*   /1* removeOldHypotheses(index,now_time); *1/ */
+              /*   removeExtraHypotheses(index, now_time); */
+              /*   if (_debug_) */
+              /*     ROS_INFO("[%s]: Culling. Curr hypothesis count: %d", ros::this_node::getName().c_str(), (int)(hypothesis_buffer_.at(index).hypotheses.size())); */
+              /* } */
             std::scoped_lock lock(hypothesis_mutex);
             if (_publish_constituents_){
 
@@ -1390,6 +1414,7 @@ namespace uvdar {
             }
             pub_measured_poses_.publish(msg_output);
           }
+
 
           if (_profiling_){
             profiler_main_.printAll("[UVDARPoseCalculator]: [PF]:");
@@ -1503,7 +1528,7 @@ namespace uvdar {
           output.pose = transform(input.pose, tf.value()).value();
           output.index = input.index;
           output.flag = input.flag;
-          output.updated = time;
+          /* output.updated = time; */
 
           return output;
         }
@@ -1561,7 +1586,7 @@ namespace uvdar {
                     /*   hypotheses.verified_count++; */
                     /* h.flag = verified; */
                     hypotheses.setVerified(i);
-                    h.updated = time;
+                    h.observed = time;
                   }
                   else {
                     if (_debug_)
@@ -1592,6 +1617,13 @@ namespace uvdar {
               /* hypotheses.erase(hypotheses.begin()+i); //remove the other */
               i--;
             }
+          }
+        }
+
+        void propagateHypotheses(int index, ros::Time time){
+          for (auto &h : hypothesis_buffer_.at(index).hypotheses){
+            h.pose.position += h.twist.linear*(time-h.propagated).toSec();
+            h.propagated = time;
           }
         }
 
@@ -1626,12 +1658,12 @@ namespace uvdar {
         void removeOldHypotheses(int index, ros::Time time){
           int i = 0;
           while (i < (int)(hypothesis_buffer_.at(index).hypotheses.size())){ //first, let's try to remove the unverified only...
-            if (ros::Duration(time - hypothesis_buffer_.at(index).hypotheses[i].updated).toSec() > MAX_HYPOTHESIS_AGE){
+            if (ros::Duration(time - hypothesis_buffer_.at(index).hypotheses[i].observed).toSec() > MAX_HYPOTHESIS_AGE){
               /* if (hypothesis_buffer_.at(index).hypotheses[i].flag == verified) */
               /*   hypothesis_buffer_.at(index).verified_count--; */
               /* hypothesis_buffer_.at(index).hypotheses.erase(hypothesis_buffer_.at(index).hypotheses.begin()+i); //remove old */
               if (_debug_)
-                ROS_INFO_STREAM("[UVDARPoseCalculator]: Hypothesis " << hypothesis_buffer_.at(index).hypotheses[i].unique_id << " is " << ros::Duration(time - hypothesis_buffer_.at(index).hypotheses[i].updated).toSec() << " old, compared to " << time << ".");
+                ROS_INFO_STREAM("[UVDARPoseCalculator]: Hypothesis " << hypothesis_buffer_.at(index).hypotheses[i].unique_id << " is " << ros::Duration(time - hypothesis_buffer_.at(index).hypotheses[i].observed).toSec() << " old, compared to " << time << ".");
               hypothesis_buffer_.at(index).removeHypothesis(i);
             }
             else {
@@ -1653,11 +1685,11 @@ namespace uvdar {
           for (int i = 0; i < count; i++){
             int parent_index = rand() % (int)(hypotheses.size());
             if (hypotheses[parent_index].flag == verified){
-              auto new_mutations = generateMutations(hypotheses[parent_index], 2, time);
+              auto new_mutations = generateMutations(hypotheses[parent_index], 10, time, 1.0, 1.0, 1.0);
               mutations.insert(mutations.end(),new_mutations.begin(),new_mutations.end());
             }
             else if (hypotheses[parent_index].flag == neutral){
-              auto new_mutations = generateMutations(hypotheses[parent_index], 1, hypotheses[parent_index].updated);//consider them as old as the parent if the parent wasn't verified
+              auto new_mutations = generateMutations(hypotheses[parent_index], 1, time, 1.0, 1.0, 1.0);//consider them as old as the parent if the parent wasn't verified
               mutations.insert(mutations.end(),new_mutations.begin(),new_mutations.end());
             }
             else{
@@ -1693,22 +1725,33 @@ namespace uvdar {
             return false;
         }
 
-        std::vector<Hypothesis> generateMutations(Hypothesis hin, int count, ros::Time time, double position_max_step = -1.0, double angle_max_step = -1.0){
+        std::vector<Hypothesis> generateMutations(Hypothesis hin, int count, ros::Time time, double position_max_step = -1.0, double angle_max_step = -1.0, double velocity_max_step = -1.0){
           std::vector<Hypothesis> output;
           if (position_max_step < 0)
             position_max_step = MUTATION_POSITION_MAX_STEP*SCATTER_TIME_STEP;//m
+          if (velocity_max_step < 0)
+            velocity_max_step = MUTATION_VELOCITY_MAX_STEP*SCATTER_TIME_STEP;//m
           if (angle_max_step < 0)
             angle_max_step = MUTATION_ORIENTATION_MAX_STEP*SCATTER_TIME_STEP;//rad
 
           Hypothesis current_mutation;
           current_mutation.index=hin.index;
           current_mutation.flag=neutral;
-          current_mutation.updated=time;
+          current_mutation.observed=hin.observed;
+          current_mutation.propagated=hin.propagated;
 
           for (int i = 0; i < count; i++) {
             double d = static_cast <double> (rand()) / static_cast <double> (RAND_MAX);//scaler form 0 to 1
             e::Vector3d offset_position = (e::Vector3d::Random().normalized())*d*position_max_step;
             current_mutation.pose.position = hin.pose.position+offset_position;
+
+            double vd = static_cast <double> (rand()) / static_cast <double> (RAND_MAX);//scaler form 0 to 1
+            e::Vector3d offset_velocity = (e::Vector3d::Random().normalized())*vd*velocity_max_step;
+            current_mutation.twist.linear = hin.twist.linear+offset_velocity;
+            if ((hin.flag == verified) && (time > hin.propagated))
+              current_mutation.twist.linear +=
+                0.5 * //dampening
+                ((current_mutation.pose.position-hin.pose.position)/(time-hin.propagated).toSec()); // if our original hypothesis was verified, this mutation should have been the result of an incorrect velocity estimate
 
             double a = static_cast <double> (rand()) / static_cast <double> (RAND_MAX);//scaler form 0 to 1
             auto offset_rotation = e::AngleAxisd(a*angle_max_step, e::Vector3d::Random().normalized());
@@ -2317,6 +2360,13 @@ namespace uvdar {
           hypotheses_refined      = refineByMutation(model_, points, hypotheses_refined,  tocam_tf, image_index, target, ERROR_THRESHOLD_MUTATION_2(image_index), 1.0, 1.0, INITIAL_HYPOTHESIS_COUNT);
           hypotheses_refined      = refineByMutation(model_, points, hypotheses_refined,  tocam_tf, image_index, target, ERROR_THRESHOLD_MUTATION_3(image_index), 1.0, 1.0, INITIAL_HYPOTHESIS_COUNT);
 
+          /* for (auto &h : hypotheses_refined){ */
+          /*   h.flag = verified; */
+          /* } */
+
+
+          /* auto hypotheses_refined = hypotheses_init; */
+
           /* int initial_hypothesis_count = (int)(hypotheses.size()); */
 
           /* std::vector<Hypothesis> hypotheses_fitted; */
@@ -2710,7 +2760,8 @@ namespace uvdar {
                 hypo_new.index = target;
                 hypo_new.pose = {.position=global_position.value(), .orientation=current_orientation};
                 hypo_new.flag = neutral;
-                hypo_new.updated = time;
+                hypo_new.observed = time;
+                hypo_new.propagated = time;
                 double error_total = hypothesisError(hypo_new, rpc);
 
                 /* ROS_INFO_STREAM("[UVDARPoseCalculator]: Err: "<< error_total << " from P: " <<  global_position.value().transpose() << "; R: " << quaternionToRPY(current_orientation).transpose()); */
@@ -2745,19 +2796,22 @@ namespace uvdar {
             rpc.observed_points = observed_points;
 
             for (auto &h : hypotheses){
-              if ( hypothesisError(h, rpc) < threshold)
+              if ( hypothesisError(h, rpc) < threshold){
                 output.push_back(h);
+                output.back().flag = neutral;
+              }
             }
 
             int iter = 0;
             for (; (unsigned int)(output.size()) < desired_count;){
             for (auto &h : hypotheses){
 
-                auto new_mutations = generateMutations(h, 1, h.updated, position_max_step, angle_max_step);
+                auto new_mutations = generateMutations(h, 1, h.observed, position_max_step, angle_max_step);
                 for (auto &hm : new_mutations){
                   double error_curr = hypothesisError(hm, rpc);
                   if (error_curr < threshold){
                     output.push_back(hm);
+                    output.back().flag = neutral;
                     ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: Adding hypo with error of " << error_curr);
                   }
                   else {
@@ -3766,7 +3820,7 @@ namespace uvdar {
           double n = (double)(d+1);
           int N = (int)(Pv.size());
 
-          ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: N " << N);
+          /* ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: N " << N); */
           e::MatrixXd P = stdVecOfVectorsToMatrix(Pv);
 
           e::MatrixXd Q = e::MatrixXd::Constant(4,N,1.0);
@@ -4392,6 +4446,14 @@ namespace uvdar {
         }
 
         //}
+        //
+
+        ros::Time newer(ros::Time a, ros::Time b){
+          if (a > b)
+            return a;
+          else
+            return b;
+        }
 
 
         /* Conversions of rotation matrices to aviation angles //{ */
