@@ -122,6 +122,7 @@ build_workspace(){
             ln -s $GIT_PATH/bluefox2 $workspace/src/bluefox2 
         fi
         cd $workspace
+        catkin init
         catkin clean -y
         catkin build
     else 
