@@ -4,7 +4,7 @@ set -e
 
 ####################### USER Parameter ########################
 # default workspace location
-workspace=/home/$USER/workspace
+workspace=/home/$USER/ws_uvdar
 # default git folder
 GIT_PATH="/home/$USER/git"
 # default exposure for bluefox cams
