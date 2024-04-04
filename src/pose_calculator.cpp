@@ -68,7 +68,7 @@
 
 #define MAX_INITIAL_VELOCITY 1.0//m per second
 
-#define MAX_HYPOTHESIS_COUNT 200
+#define MAX_HYPOTHESIS_COUNT 1000
 
 #define INITIAL_ROUGH_HYPOTHESIS_COUNT 200
 #define INITIAL_HYPOTHESIS_COUNT 10
@@ -214,9 +214,8 @@ namespace uvdar {
 
     struct LEDMarker {
       Pose pose;
-      int type; // 0 - directional, 1 - omni ring, 2 - full omni
-      /* int freq_id; */
-      int signal_id;
+      int type = -1; // 0 - directional, 1 - omni ring, 2 - full omni
+      int signal_id = -1;
     };
 
     struct InputData {
@@ -407,6 +406,11 @@ namespace uvdar {
         prepareGroups();
       }
 
+      LEDModel(const LEDModel &input){
+        markers = input.markers;
+        groups = input.groups;
+      }
+
       LEDModel translate(e::Vector3d position) const {
         LEDModel output = *this;
         for (auto &marker : output.markers){
@@ -555,6 +559,13 @@ namespace uvdar {
       };
 
       const LEDMarker operator[](std::size_t idx) const { return markers.at(idx); }
+
+      LEDModel& operator=(const LEDModel &other){
+          markers = other.markers;
+          groups = other.groups;
+          return *this;
+      }
+
       inline std::vector<LEDMarker>::iterator begin() noexcept { return markers.begin(); }
       inline std::vector<LEDMarker>::iterator end() noexcept { return markers.end(); }
 
