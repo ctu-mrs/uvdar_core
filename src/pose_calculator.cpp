@@ -1390,7 +1390,8 @@ namespace uvdar {
               msg_constuents_tentative_array.header.stamp = latest_input_data_[0].time;
 
               for (auto &hb : hypothesis_buffer_){
-                ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: Current hypothesis count for target " << hb.target << " is " << hb.hypotheses.size());
+                if (_debug_)
+                  ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: Current hypothesis count for target " << hb.target << " is " << hb.hypotheses.size());
                 for (auto &h : hb.hypotheses){
                   /* ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: Age: " << (now_time - h.updated).toSec()); */
 
@@ -2898,7 +2899,8 @@ namespace uvdar {
                   if (error_curr < threshold){
                     output.push_back(hm);
                     output.back().flag = neutral;
-                    ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: Adding hypo with error of " << error_curr);
+                    if (_debug_)
+                      ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: Adding hypo with error of " << error_curr);
                   }
                   else {
                     /* ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: Discarding hypo with error of " << error_curr << " vs. " << threshold); */
@@ -3756,13 +3758,15 @@ namespace uvdar {
 
 
         std::optional<std::pair<Pose,e::MatrixXd>> getMeasurementElipsoidHull(AssociatedHypotheses meas){
-          ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: Hypo count: " << meas.hypotheses.size());
+          if (_debug_)
+            ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: Hypo count: " << meas.hypotheses.size());
           if (meas.hypotheses.size() < 1){
             ROS_ERROR_STREAM("[UVDARPoseCalculator]: No hypotheses provided. Returning!");
             return std::nullopt;
           }
 
-          ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: Verified count: " << meas.verified_count);
+          if (_debug_)
+            ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: Verified count: " << meas.verified_count);
           if (meas.verified_count < 1){
             ROS_ERROR_STREAM("[UVDARPoseCalculator]: No verified hypotheses provided. Returning!");
             return std::nullopt;
@@ -3784,7 +3788,8 @@ namespace uvdar {
             return output;
           }
 
-          ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: Verified count: " << meas.verified_count);
+          if (_debug_)
+            ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: Verified count: " << meas.verified_count);
 
           // position
           std::vector<e::Vector3d> meas_pos;
@@ -3799,7 +3804,8 @@ namespace uvdar {
           }
           mean_pos /= ((double)(meas.hypotheses.size()));
           std::vector<e::Vector3d> meas_pos_diff;
-          ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: Verified count: " << meas.verified_count);
+          if (_debug_)
+            ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: Verified count: " << meas.verified_count);
 
           // orientation
           e::Quaterniond mean_rot = getAverageOrientation(meas.getVerified());
@@ -3812,12 +3818,15 @@ namespace uvdar {
             }
           }
 
-          ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: Verified count: " << meas.verified_count);
+          if (_debug_)
+            ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: Verified count: " << meas.verified_count);
 
-          if (meas_pos_diff.size() > 0)
-            ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: meas_pos_diff: " << meas_pos_diff.at(0));
-          else
-            ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: meas_pos_diff is empty");
+          if (_debug_){
+            if (meas_pos_diff.size() > 0)
+              ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: meas_pos_diff: " << meas_pos_diff.at(0));
+            else
+              ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: meas_pos_diff is empty");
+          }
           /* auto Hp = get3DEnclosingEllipsoid(meas_pos_diff,0.001); */
           auto Hp = get3DEnclosingEllipsoid(meas_pos_diff);
           if ( (Hp.first.array().isNaN().any()) ||(Hp.second.array().isNaN().any()) ){
@@ -3825,10 +3834,12 @@ namespace uvdar {
             return std::nullopt;
           }
 
-          if (meas_rpy_diff.size() > 0)
-            ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: meas_rpy_diff: " << meas_rpy_diff.at(0));
-          else
-            ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: meas_rpy_diff is empty");
+          if (_debug_){
+            if (meas_rpy_diff.size() > 0)
+              ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: meas_rpy_diff: " << meas_rpy_diff.at(0));
+            else
+              ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: meas_rpy_diff is empty");
+          }
 
           auto Ho = get3DEnclosingEllipsoid(meas_rpy_diff);
           if ( (Ho.first.array().isNaN().any()) ||(Ho.second.array().isNaN().any()) ){
