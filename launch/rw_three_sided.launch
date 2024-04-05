@@ -75,6 +75,8 @@
 
   <arg name="beacon" default="false"/>
 
+  <arg name="output_frame" default="local_origin">
+
   <arg name="id1" value="0"/>
   <arg name="id2" value="1"/>
   <arg name="id3" value="2"/>
@@ -98,7 +100,7 @@
   <arg name="id21" value="20"/>
 
   <arg name="sequence_file" default="$(find uvdar_core)/config/selected.txt"/>
-  <arg name="model_file" default="$(find uvdar_core)/config/models/quadrotor_foursided.txt"/>
+  <arg name="model_file" default="$(find uvdar_core)/config/models/quadrotor_foursided_px4_motor_aligned.txt"/>
 
   <arg name="use_masks" default="true"/>
 
@@ -341,6 +343,8 @@
 
       <remap from="~constituentHypotheses" to="/$(arg uav_name)/uvdar/constituentHypotheses"/>
       <remap from="~measuredPoses" to="/$(arg uav_name)/uvdar/measuredPoses"/>
+
+      <param name="output_frame" type="string" value="$(arg output_frame)"/>
     </node>
   </group>
 
