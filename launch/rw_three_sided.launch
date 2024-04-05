@@ -20,7 +20,7 @@
   <arg name="expose_us_right" default="$(optenv BLUEFOX_UV_RIGHT_EXPOSE_US)"/>
   <arg name="expose_us_back" default="$(optenv BLUEFOX_UV_BACK_EXPOSE_US)"/>
 
-  <arg name="calibrations_folder" default="$(find mrs_uav_general)/config/uvdar_calibrations"/>
+  <arg name="calibrations_folder" default="$(find mrs_uav_deployment)/config/uvdar_calibrations"/>
 
   <arg name="camera_rate" default="60"/>
   <arg name="fps" default="$(arg camera_rate)"/>
@@ -75,7 +75,7 @@
 
   <arg name="beacon" default="false"/>
 
-  <arg name="output_frame" default="local_origin">
+  <arg name="output_frame" default="local_origin"/>
 
   <arg name="id1" value="0"/>
   <arg name="id2" value="1"/>
@@ -347,6 +347,5 @@
       <param name="output_frame" type="string" value="$(arg output_frame)"/>
     </node>
   </group>
-
 
 </launch>
