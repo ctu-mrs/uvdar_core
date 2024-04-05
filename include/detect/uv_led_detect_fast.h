@@ -60,6 +60,13 @@ namespace uvdar {
        */
       virtual bool processImage(const cv::Mat i_image, std::vector<cv::Point2i>& detected_points, std::vector<cv::Point2i>& sun_points, int mask_id=-1) = 0;
     
+      /**
+       * @brief Arbitrary initialization procedures that happen outside of the constructor at a later time, after the first image is retrieved to use for parameters
+       *        Must be overriden by inheriting class
+       *
+       */
+      virtual bool initDelayed(const cv::Mat i_image) = 0;
+
     protected:
       bool _debug_;
       bool _gui_;

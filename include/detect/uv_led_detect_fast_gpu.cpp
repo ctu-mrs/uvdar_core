@@ -11,6 +11,12 @@
 //addressing indices this way is noticeably faster than the "propper" way with .at method - numerous unnecessary checks are skipped. This of course means that we have to do necessary checks ourselves
 #define index2d(X, Y) (image_curr_.cols * (Y) + (X))
 
+bool uvdar::UVDARLedDetectFASTGPU::initDelayed(const cv::Mat i_image){
+  image_size = i_image.size();
+  init();
+  return initialized_;
+}
+
 uvdar::UVDARLedDetectFASTGPU::UVDARLedDetectFASTGPU(bool i_gui, bool i_debug, int i_threshold, int i_threshold_diff, int i_threshold_sun, std::vector<cv::Mat> i_masks) : UVDARLedDetectFAST(i_gui, i_debug, i_threshold, i_threshold_diff, i_threshold_sun, i_masks) {
   local_size_x = 16;
   local_size_y = 16;
@@ -134,10 +140,10 @@ bool uvdar::UVDARLedDetectFASTGPU::processImage(const cv::Mat i_image, std::vect
     /* std::cerr << "[UVDARDetectorFASTGPU]: Getting image..." << std::endl; */
 
   if (!initialized_) {
-    image_size = i_image.size();
-    /* std::cerr << "[UVDARDetectorFASTGPU]: First image, initializing..." << std::endl; */
-    init();
-    /* return false; */
+    /* image_size = i_image.size(); */
+    std::cerr << "[UVDARDetectorFASTGPU]: Not yet initialized, returning..." << std::endl;
+    /* init(); */
+    return false;
   }
 
   if (mask_id >= (int)(masks_.size())) {

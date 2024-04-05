@@ -4,7 +4,7 @@ set -e
 
 ####################### USER Parameter ########################
 # default workspace location
-workspace=/home/$USER/workspace
+workspace=/home/$USER/ws_uvdar
 # default git folder
 GIT_PATH="/home/$USER/git"
 # default exposure for bluefox cams
@@ -122,6 +122,7 @@ build_workspace(){
             ln -s $GIT_PATH/bluefox2 $workspace/src/bluefox2 
         fi
         cd $workspace
+        catkin init
         catkin clean -y
         catkin build
     else 

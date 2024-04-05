@@ -26,6 +26,7 @@ public:
       int i_yaw_steps,
       int i_max_pixel_shift,
       cv::Size i_im_res,
+      int i_allowed_BER_per_seq,
       int i_nullify_radius = 8,
       int i_reasonable_radius = 6,
       double i_framerate = 72);
