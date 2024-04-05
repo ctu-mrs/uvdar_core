@@ -76,7 +76,6 @@
   <arg name="max_px_shift_x" default="1"/>
   <arg name="max_px_shift_y" default="1"/>
   <arg name="max_zeros_consecutive" default="2"/>
-  <arg name="max_ones_consecutive" default="2"/>
   <arg name="stored_seq_len_factor" default="15"/>
   <arg name="poly_order" default="4"/>
   <arg name="decay_factor" default="0.01"/>
@@ -180,7 +179,6 @@
       <param name="max_px_shift_x"     type="int"   value="$(arg max_px_shift_x)"/>
       <param name="max_px_shift_y"     type="int"   value="$(arg max_px_shift_y)"/>
       <param name="max_zeros_consecutive"     type="int"   value="$(arg max_zeros_consecutive)"/>
-      <param name="max_ones_consecutive"     type="int"   value="$(arg max_ones_consecutive)"/>
       <param name="stored_seq_len_factor"         type="double" value="$(arg stored_seq_len_factor)"/>    
       <param name="poly_order" type="int" value="$(arg poly_order)"/>
       <param name="decay_factor"         type="double" value="$(arg decay_factor)"/>    
