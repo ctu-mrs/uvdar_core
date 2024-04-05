@@ -20,7 +20,7 @@
   <arg name="expose_us_right" default="$(optenv BLUEFOX_UV_RIGHT_EXPOSE_US)"/>
   <arg name="expose_us_back" default="$(optenv BLUEFOX_UV_BACK_EXPOSE_US)"/>
 
-  <arg name="calibrations_folder" default="$(find mrs_uav_general)/config/uvdar_calibrations"/>
+  <arg name="calibrations_folder" default="$(find mrs_uav_deployment)/config/uvdar_calibrations"/>
 
   <arg name="camera_rate" default="60"/>
   <arg name="fps" default="$(arg camera_rate)"/>
@@ -75,6 +75,8 @@
 
   <arg name="beacon" default="false"/>
 
+  <arg name="output_frame" default="local_origin"/>
+
   <arg name="id1" value="0"/>
   <arg name="id2" value="1"/>
   <arg name="id3" value="2"/>
@@ -98,8 +100,11 @@
   <arg name="id21" value="20"/>
 
   <arg name="sequence_file" default="$(find uvdar_core)/config/selected.txt"/>
+  <arg name="model_file" default="$(find uvdar_core)/config/models/quadrotor_foursided_px4_motor_aligned.txt"/>
 
   <arg name="use_masks" default="true"/>
+
+  <arg name="blink_throttle_rate" default="10"/>
 
   <node
     name="uvcam_left_tf_$(arg uav_name)"
@@ -272,6 +277,9 @@
       <rosparam param="blinkers_seen_topics"> ["blinkers_seen_left", "blinkers_seen_right", "blinkers_seen_back"] </rosparam>
       <rosparam param="estimated_framerate_topics"> ["estimated_framerate_left", "estimated_framerate_right", "estimated_framerate_back"] </rosparam>
 
+      <rosparam param="omta_logging_topics"> ["omta_logging_left", "omta_logging_right", "omta_logging_back"] </rosparam>
+      <rosparam param="omta_all_seq_info_topics"> ["omta_all_seq_info_left", "omta_all_seq_info_right", "omta_all_seq_info_back"] </rosparam>
+
       <remap from="~camera_left" to="/$(arg uav_name)/uvdar_bluefox/left/image_raw"/>
       <remap from="~camera_right" to="/$(arg uav_name)/uvdar_bluefox/right/image_raw"/>
       <remap from="~camera_back" to="/$(arg uav_name)/uvdar_bluefox/back/image_raw"/>
@@ -286,7 +294,21 @@
       <remap from="~estimated_framerate_back" to="/$(arg uav_name)/uvdar/estimated_framerate_back"/>
       <!-- <remap from="~visualization" to="/$(arg uav_name)/uvdar/blink_visualization/image_raw"/> -->
 
+      <remap from="~omta_logging_left" to="/$(arg uav_name)/uvdar/omta_logging_left"/>
+      <remap from="~omta_logging_right" to="/$(arg uav_name)/uvdar/omta_logging_right"/>
+      <remap from="~omta_logging_back" to="/$(arg uav_name)/uvdar/omta_logging_back"/>
+
+      <remap from="~omta_all_seq_info_left" to="/$(arg uav_name)/uvdar/omta_all_seq_info_left"/>
+      <remap from="~omta_all_seq_info_right" to="/$(arg uav_name)/uvdar/omta_all_seq_info_right"/>
+      <remap from="~omta_all_seq_info_back" to="/$(arg uav_name)/uvdar/omta_all_seq_info_back"/>
     </node>
+
+    <node name="throttle_blinkers_left" type="throttle" pkg="topic_tools"
+      args="messages /$(arg uav_name)/uvdar/blinkers_seen_left $(arg blink_throttle_rate) /$(arg uav_name)/uvdar/blinkers_seen_left/throttled" />
+    <node name="throttle_blinkers_right" type="throttle" pkg="topic_tools"
+      args="messages /$(arg uav_name)/uvdar/blinkers_seen_right $(arg blink_throttle_rate) /$(arg uav_name)/uvdar/blinkers_seen_right/throttled" />
+    <node name="throttle_blinkers_back" type="throttle" pkg="topic_tools"
+      args="messages /$(arg uav_name)/uvdar/blinkers_seen_back $(arg blink_throttle_rate) /$(arg uav_name)/uvdar/blinkers_seen_back/throttled" />
       
     <node name="uvdar_pose_calculator_node" pkg="uvdar_core" type="uvdar_pose_calculator_node" output="screen" > 
         <!-- <node name="uvdar_pose_calculator_node" pkg="uvdar_core" type="uvdar_pose_calculator_node" launch-prefix="valgrind -/-tool=callgrind -/-callgrind-out-file=/home/viktor/callgrind.out -/-instr-atstart=no -/-collect-atstart=yes"> --> 
@@ -302,31 +324,28 @@
       <rosparam param="signal_ids" subst_value="true"> [$(arg id1), $(arg id2), $(arg id3), $(arg id4), $(arg id5), $(arg id6), $(arg id7), $(arg id8), $(arg id9), $(arg id10), $(arg id11), $(arg id12), $(arg id13), $(arg id14), $(arg id15), $(arg id16), $(arg id17), $(arg id18), $(arg id19), $(arg id20), $(arg id21)] </rosparam>
 
       <param name="quadrotor" type="bool" value="true"/>
-      <param name="beacon" type="bool" value="$(arg beacon)"/>
-      <param name="arm_length" type="double" value="0.245"/>
+      <param name="custom_model" type="bool" value="true"/>
+      <param name="model_file" type="string" value="$(arg model_file)"/>
+      <param name="beacon" type="bool" value="false"/>
 
       <rosparam param="blinkers_seen_topics"> ["blinkers_seen_left", "blinkers_seen_right", "blinkers_seen_back"] </rosparam>
       <rosparam param="estimated_framerate_topics"> ["estimated_framerate_left", "estimated_framerate_right", "estimated_framerate_back"] </rosparam>
       <rosparam param="camera_frames" subst_value="true"> ["$(arg uav_name)/uvcam_left", "$(arg uav_name)/uvcam_right", "$(arg uav_name)/uvcam_back"] </rosparam>
 
-      <remap from="~blinkers_seen_left" to="/$(arg uav_name)/uvdar/blinkers_seen_left"/>
-      <remap from="~blinkers_seen_right" to="/$(arg uav_name)/uvdar/blinkers_seen_right"/>
-      <remap from="~blinkers_seen_back" to="/$(arg uav_name)/uvdar/blinkers_seen_back"/>
+      <remap from="~blinkers_seen_left" to="/$(arg uav_name)/uvdar/blinkers_seen_left/throttled"/>
+      <remap from="~blinkers_seen_right" to="/$(arg uav_name)/uvdar/blinkers_seen_right/throttled"/>
+      <remap from="~blinkers_seen_back" to="/$(arg uav_name)/uvdar/blinkers_seen_back/throttled"/>
       <remap from="~estimated_framerate_left" to="/$(arg uav_name)/uvdar/estimated_framerate_left"/>
       <remap from="~estimated_framerate_right" to="/$(arg uav_name)/uvdar/estimated_framerate_right"/>
       <remap from="~estimated_framerate_back" to="/$(arg uav_name)/uvdar/estimated_framerate_back"/>
 
       <rosparam param="calib_files" subst_value="true"> ["$(arg calibrations_folder)/camera_calibrations/calib_results_bf_uv_$(arg left).txt", "$(arg calibrations_folder)/camera_calibrations/calib_results_bf_uv_$(arg right).txt", "$(arg calibrations_folder)/camera_calibrations/calib_results_bf_uv_$(arg back).txt"] </rosparam>
 
-      <remap from="~constituentPoses1" to="/$(arg uav_name)/uvdar/constituentPosesL"/>
-      <remap from="~constituentPoses2" to="/$(arg uav_name)/uvdar/constituentPosesR"/>
-      <remap from="~constituentPoses3" to="/$(arg uav_name)/uvdar/constituentPosesB"/>
+      <remap from="~constituentHypotheses" to="/$(arg uav_name)/uvdar/constituentHypotheses"/>
+      <remap from="~measuredPoses" to="/$(arg uav_name)/uvdar/measuredPoses"/>
 
-      <remap from="~measuredPoses1" to="/$(arg uav_name)/uvdar/measuredPosesL"/>
-      <remap from="~measuredPoses2" to="/$(arg uav_name)/uvdar/measuredPosesR"/>
-      <remap from="~measuredPoses3" to="/$(arg uav_name)/uvdar/measuredPosesB"/>
+      <param name="output_frame" type="string" value="$(arg output_frame)"/>
     </node>
   </group>
-
 
 </launch>
