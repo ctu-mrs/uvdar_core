@@ -90,10 +90,10 @@ class ImageSubscriber:
     def create_mask(self):
         with self.lock:
             if self.camera_position == "left" or self.camera_position == "right": 
-                self.cut_img_height=int(3.0/4.0 * self.image_height)
+                self.cut_img_height=int(1.0/2.0 * self.image_height)
                 self.cut_img_width = 0 
             else:
-                self.cut_img_width = int(3.0/4.0 * self.image_width)
+                self.cut_img_width = int(1.0/2.0 * self.image_width)
                 self.cut_img_height = 0
             
             self.mask_img = np.zeros([self.image_height,self.image_width,1],dtype=np.uint8)
@@ -147,8 +147,8 @@ if __name__ == '__main__':
 
     signal.signal(signal.SIGINT, signal_handler)
 
-    BINARIZATION_THRESHOLD = 120
-    BORDER_THICKNESS = 50 # [pixel] - change value, if mask output is not as you like. smaller-> finer edges / larger -> bigger mask
+    BINARIZATION_THRESHOLD = 90
+    BORDER_THICKNESS = 55 # [pixel] - change value, if mask output is not as you like. smaller-> finer edges / larger -> bigger mask
    
     print("\n++++++++++++++++++++++++++++++++++++++++++++++\n")
     print("Automated Mask Generation Script")
