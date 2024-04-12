@@ -51,22 +51,32 @@
 
 /* #define ERROR_THRESHOLD_INITIAL (752.0/M_PI) */
 /* #define ERROR_THRESHOLD_INITIAL sqr(10) */
-#define ERROR_THRESHOLD_INITIAL(img) sqr(_oc_models_.at(img).width/100.0)
-#define ERROR_THRESHOLD_FITTED(img) sqr(_oc_models_.at(img).width/150.0)
+#define ERROR_THRESHOLD_INITIAL(img) sqr(_oc_models_.at(img).width/50.0)
+#define ERROR_THRESHOLD_MUTATION_1(img) sqr(_oc_models_.at(img).width/75.0)
+#define ERROR_THRESHOLD_MUTATION_2(img) sqr(_oc_models_.at(img).width/100.0)
+#define ERROR_THRESHOLD_MUTATION_3(img) sqr(_oc_models_.at(img).width/150.0)
 
 #define PF_REPROJECT_THRESHOLD_VERIFIED(img) sqr(_oc_models_.at(img).width/150.0)
+/* #define PF_REPROJECT_THRESHOLD_VERIFIED(img) sqr(2) */
 #define PF_REPROJECT_THRESHOLD_UNFIT(img) sqr(_oc_models_.at(img).width/50.0)
 /* #define PF_MUTATION_THRESHOLD(img) sqr(_oc_models_.at(img).width/150.0) */
+#define SCATTER_TIME_STEP 0.1//s
 #define MUTATION_COUNT 1
-#define MUTATION_POSITION_MAX_STEP 1.0//m
-#define MUTATION_ORIENTATION_MAX_STEP 1.0//rad
+#define MUTATION_POSITION_MAX_STEP 5.0//m per second
+#define MUTATION_ORIENTATION_MAX_STEP 3.14//rad per second
+#define MUTATION_VELOCITY_MAX_STEP 1.0//m per second^2
 
-#define MAX_HYPOTHESIS_COUNT 40
+#define MAX_INITIAL_VELOCITY 1.0//m per second
+
+#define MAX_HYPOTHESIS_COUNT 1000
+
+#define INITIAL_ROUGH_HYPOTHESIS_COUNT 200
 #define INITIAL_HYPOTHESIS_COUNT 10
 
 #define MAX_HYPOTHESIS_AGE 1.5
 
 #define MAX_INIT_ITERATIONS 10000
+#define MAX_MUTATION_REFINE_ITERATIONS 10000
 
 #define SIMILAR_ERRORS_THRESHOLD sqr(1)
 
@@ -197,12 +207,15 @@ namespace uvdar {
       e::Vector3d position;
       e::Quaterniond orientation;
     };
+    struct Twist {
+      e::Vector3d linear;
+      e::Quaterniond angular; //TODO or remove
+    };
 
     struct LEDMarker {
       Pose pose;
-      int type; // 0 - directional, 1 - omni ring, 2 - full omni
-      /* int freq_id; */
-      int signal_id;
+      int type = -1; // 0 - directional, 1 - omni ring, 2 - full omni
+      int signal_id = -1;
     };
 
     struct InputData {
@@ -226,8 +239,16 @@ namespace uvdar {
       public:
       int index;
       Pose pose;
+      Twist twist;
       HypothesisFlag flag;
-      ros::Time updated;
+      ros::Time observed;
+      ros::Time propagated;
+      int unique_id;
+
+      Hypothesis() {
+        unique_id = rand(); //not perfectly unique, this is only for debugging
+        /* ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: Creating hypothesis with ID "<< unique_id << " at " << ros::Time::now()); */
+      }
 
       void setPose(geometry_msgs::Pose inp){
         pose.position = e::Vector3d(
@@ -241,7 +262,7 @@ namespace uvdar {
             inp.orientation.y,
             inp.orientation.z
             );
-      }
+        }
 
       geometry_msgs::Pose getPose(){
           geometry_msgs::Pose output;
@@ -256,11 +277,20 @@ namespace uvdar {
 
           return output;
         }
+
+      std::string flagString(){
+        switch (flag){
+          case verified: return "verified";
+          case neutral: return "neutral";
+          default: return "unfit";
+        }
+      }
+
     };
 
     class AssociatedHypotheses {
       public:
-        std::vector<Hypothesis> hypotheses;
+        std::list<Hypothesis> hypotheses;
         int target;
         int verified_count = 0;
 
@@ -268,13 +298,20 @@ namespace uvdar {
 
         AssociatedHypotheses(const std::vector<Hypothesis> &hs, int target_i, bool debug_i){
           debug = debug_i;
-          hypotheses = hs;
+          /* hypotheses = hs; */
+          std::copy(hs.begin(), hs.end(), std::back_inserter(hypotheses));
           target = target_i;
           for (auto &h :hypotheses){
             if (h.flag == verified){
               verified_count++;
             }
           }
+        }
+
+        std::list<Hypothesis>::iterator at(int index){
+          std::list<Hypothesis>::iterator it = hypotheses.begin();
+          std::advance(it, index);
+          return it;
         }
 
         std::vector<Hypothesis> getVerified(){
@@ -288,14 +325,27 @@ namespace uvdar {
 
         }
 
-        void removeHypothesis(int index){
+        std::list<Hypothesis>::iterator removeHypothesis(std::list<Hypothesis>::iterator it){
+          int hypothesis_count = (int)(hypotheses.size());
+          Hypothesis hypo_value = (*it);
           if (debug)
-                ROS_INFO_STREAM("[UVDARPoseCalculator]: Removing hypothesis: " << hypotheses[index].pose.position.transpose());
+                ROS_INFO_STREAM("[UVDARPoseCalculator]: Removing hypothesis: " << hypo_value.unique_id << ": " << hypo_value.pose.position.transpose() <<", status: " << hypo_value.flagString());
+          if (hypothesis_count == 0){
+            ROS_ERROR_STREAM("[UVDARPoseCalculator]: Cannot remove, no hypotheses available");
+            return it;
+          }
 
-          if (hypotheses[index].flag == verified){
+          if (hypo_value.flag == verified){
             verified_count --;
           }
-          hypotheses.erase(hypotheses.begin()+index);
+
+
+          return hypotheses.erase(it);
+
+        }
+
+        void removeUnfit(){
+          hypotheses.remove_if([](Hypothesis h){return h.flag == unfit;});
         }
 
         void addHypothesis(const Hypothesis &h){
@@ -306,31 +356,31 @@ namespace uvdar {
         }
 
         void addHypotheses(const std::vector<Hypothesis> &hs){
-          hypotheses.insert(hypotheses.end(), hs.begin(), hs.end());
-
           for (auto &h :hs){
             if (h.flag == verified){
               verified_count++;
             }
           }
+
+          hypotheses.insert(hypotheses.end(), hs.begin(), hs.end());
         }
 
-        void setVerified(int index){
-          if (hypotheses[index].flag != verified)
+        void setVerified(std::list<Hypothesis>::iterator it){
+          if ((*it).flag != verified)
             verified_count++;
-          hypotheses[index].flag = verified;
+          (*it).flag = verified;
         }
 
-        void setUnfit(int index){
-          if (hypotheses[index].flag == verified)
+        void setUnfit(std::list<Hypothesis>::iterator it){
+          if ((*it).flag == verified)
             verified_count--;
-          hypotheses[index].flag = unfit;
+          (*it).flag = unfit;
         }
 
-        void setNeutral(int index){
-          if (hypotheses[index].flag == verified)
+        void setNeutral(std::list<Hypothesis>::iterator it){
+          if ((*it).flag == verified)
             verified_count--;
-          hypotheses[index].flag = neutral;
+          (*it).flag = neutral;
         }
     };
 
@@ -354,6 +404,11 @@ namespace uvdar {
         }
 
         prepareGroups();
+      }
+
+      LEDModel(const LEDModel &input){
+        markers = input.markers;
+        groups = input.groups;
       }
 
       LEDModel translate(e::Vector3d position) const {
@@ -504,6 +559,13 @@ namespace uvdar {
       };
 
       const LEDMarker operator[](std::size_t idx) const { return markers.at(idx); }
+
+      LEDModel& operator=(const LEDModel &other){
+          markers = other.markers;
+          groups = other.groups;
+          return *this;
+      }
+
       inline std::vector<LEDMarker>::iterator begin() noexcept { return markers.begin(); }
       inline std::vector<LEDMarker>::iterator end() noexcept { return markers.end(); }
 
@@ -583,6 +645,14 @@ namespace uvdar {
       }
     };
 
+    struct ReprojectionContext {
+      int target;
+      std::vector<ImagePointIdentified> observed_points;
+      int image_index;
+      geometry_msgs::TransformStamped tocam_tf;
+      LEDModel model;
+    };
+
     public:
 
       /**
@@ -603,11 +673,11 @@ namespace uvdar {
 
         if (_profiling_){
           profiler_main_.start();
-          /* profiler_thread_.start(); */
+          profiler_thread_.start();
         }
         else {
           profiler_main_.stop();
-          /* profiler_thread_.stop(); */
+          profiler_thread_.stop();
         }
 
         param_loader.loadParam("gui", _gui_, bool(false));
@@ -672,6 +742,7 @@ namespace uvdar {
             /*   pub_constituent_hypo_poses_.push_back(nh.advertise<mrs_msgs::PoseWithCovarianceArrayStamped>("constituentHypoPoses"+std::to_string(i+1), 1)); */ 
             /* } */
               pub_hypotheses_ = nh.advertise<mrs_msgs::PoseWithCovarianceArrayStamped>("constituentHypotheses", 1); 
+              pub_hypotheses_tentative_ = nh.advertise<mrs_msgs::PoseWithCovarianceArrayStamped>("constituentHypothesesTentative", 1); 
           }
 
           camera_image_sizes_.push_back(cv::Size(-1,-1));
@@ -772,7 +843,10 @@ namespace uvdar {
         /* initializer_thread_ = std::make_unique<std::thread>(&UVDARPoseCalculator::InitializationThread,this); */
         ros::Rate ir(1);
         initializer_thread_ = std::make_unique<mrs_lib::ThreadTimer>(nh, ir, &UVDARPoseCalculator::InitializationThread, this, false, true);
-        timer_particle_filter_ = nh.createTimer(ros::Rate(10), &UVDARPoseCalculator::ParticleFilterThread, this, false); //Thread that filters and propagates hypotheses from prior estimates
+        timer_particle_filter_ = nh.createTimer(ros::Rate(1.0/SCATTER_TIME_STEP), &UVDARPoseCalculator::ParticleScatteringThread, this, false); //Thread that filters and propagates hypotheses from prior estimates
+
+        ros::Duration idt(0);
+        particle_filtering_thread_ = std::make_unique<mrs_lib::ThreadTimer>(nh, idt, &UVDARPoseCalculator::InitializationThread, this, true, false); //the thread callback will change upon use.
 
         initialized_ = true;
 
@@ -914,6 +988,7 @@ namespace uvdar {
           ROS_ERROR_STREAM("[UVDARPoseCalculator]: Uninitialized! Ignoring image points.");
           return;
         }
+        /* ROS_INFO("[UVDARPoseCalculator]:PP: A"); */
         {
           std::scoped_lock lock(input_mutex);
           latest_input_data_[image_index].time = msg->stamp;
@@ -922,6 +997,7 @@ namespace uvdar {
         camera_image_sizes_[image_index].width = msg->image_width;
         camera_image_sizes_[image_index].height = msg->image_height;
 
+        /* ROS_INFO("[UVDARPoseCalculator]:PP: B"); */
         /* { */
           /* std::scoped_lock lock(transformer_mutex); */
           /* auto tocam_tmp = transformer_.getTransform(_uav_name_+"/"+_output_frame_,_camera_frames_[image_index], msg->stamp - ros::Duration(0.1)); */
@@ -952,6 +1028,16 @@ namespace uvdar {
 
         input_data_initialized[image_index] = true;
 
+
+        /* ROS_INFO_STREAM("[UVDARPoseCalculator]:PP: C, " << image_index); */
+
+        {
+          std::scoped_lock lock(threadconfig_mutex);
+          /* ROS_INFO_STREAM("[UVDARPoseCalculator]:PP: D, " << image_index); */
+          particle_filtering_thread_->setCallback(boost::bind(&UVDARPoseCalculator::ParticleFilteringThread, this, _1, image_index));
+          /* ROS_INFO_STREAM("[UVDARPoseCalculator]:PP: E, " << image_index); */
+          particle_filtering_thread_->start();
+        }
 
 
       }
@@ -1112,6 +1198,14 @@ namespace uvdar {
               /* bool res = extractSingleRelative(separated_points[i].second, separated_points[i].first, image_index, pose, constituents, new_hypotheses); */
               /* ROS_INFO("[%s]: C:%d - Image clusters: %d", ros::this_node::getName().c_str(), image_index, (int)(separated_points.size())); */
               new_hypotheses = extractHypotheses(separated_points[i].points, separated_points[i].ID, image_index, fromcam_tf, tocam_tf, profiler_thread_, latest_local.time);
+
+              //TODO: consider doing multiple for each hypothesis
+              double velocity_max_step = MAX_INITIAL_VELOCITY;
+              for (auto &h : new_hypotheses){
+                double vd = static_cast <double> (rand()) / static_cast <double> (RAND_MAX);//scaler form 0 to 1
+                e::Vector3d initial_velocity = (e::Vector3d::Random().normalized())*vd*velocity_max_step;
+                h.twist.linear = initial_velocity;
+              }
               /* ROS_INFO("[%s]: C:%d - New hypothesis count: %d", ros::this_node::getName().c_str(), image_index, (int)(new_hypotheses.size())); */
 
               /* if (res){ */
@@ -1160,9 +1254,9 @@ namespace uvdar {
                 }
                 else{
 
-                  removeExtraHypotheses(index, latest_local.time);
-                  if (_debug_)
-                    ROS_INFO("[%s]: Culling. Curr hypothesis count: %d", ros::this_node::getName().c_str(), (int)(hypothesis_buffer_.at(index).hypotheses.size()));
+                  /* removeExtraHypotheses(index, latest_local.time); */
+                  /* if (_debug_) */
+                  /*   ROS_INFO("[%s]: Culling. Curr hypothesis count: %d", ros::this_node::getName().c_str(), (int)(hypothesis_buffer_.at(index).hypotheses.size())); */
                   /* hypothesis_buffer_.at(index).hypotheses.insert(hypothesis_buffer_.at(index).hypotheses.end(), new_hypotheses.begin(), new_hypotheses.end()); */
                   hypothesis_buffer_.at(index).addHypotheses(new_hypotheses);
                   /* hypothesis_buffer_.at(index).verified_count+=(int)(new_hypotheses.size()); */
@@ -1205,8 +1299,8 @@ namespace uvdar {
          *
          * @param te TimerEvent for the timer spinning this thread
          */
-        /* ParticleFilterThread() //{ */
-        void ParticleFilterThread([[maybe_unused]] const ros::TimerEvent& te) {
+        /* ParticleScatteringThread() //{ */
+        void ParticleScatteringThread([[maybe_unused]] const ros::TimerEvent& te) {
           if ((!initialized_)){
             return;
           }
@@ -1214,158 +1308,247 @@ namespace uvdar {
 
           auto now_time = ros::Time::now();
           if (true){
-          /* if (false){ */
+            /* if (false){ */
+            std::scoped_lock lock(hypothesis_mutex);
             for (int index = 0; index < (int)(hypothesis_buffer_.size()); index++){
-              std::scoped_lock lock(hypothesis_mutex);
               int verified_count = hypothesis_buffer_.at(index).verified_count;
               if (_debug_)
                 ROS_INFO("[%s]: Prev. hypothesis count: %d, of which verified: %d", ros::this_node::getName().c_str(), (int)(hypothesis_buffer_.at(index).hypotheses.size()), verified_count);
               profiler_main_.indent();
-              auto mutations = mutateHypotheses(hypothesis_buffer_.at(index).hypotheses, std::min(std::max(0,MAX_HYPOTHESIS_COUNT - (int)(hypothesis_buffer_.at(index).hypotheses.size())),verified_count), now_time);
+              /* auto mutations = mutateHypotheses(hypothesis_buffer_.at(index).hypotheses, std::min(std::max(0,MAX_HYPOTHESIS_COUNT - (int)(hypothesis_buffer_.at(index).hypotheses.size())),verified_count), now_time); */
+              auto mutations = mutateHypotheses(hypothesis_buffer_.at(index), hypothesis_buffer_.at(index).hypotheses.size()/2, now_time);
               /* auto mutations = mutateHypotheses(hypothesis_buffer_.at(index).hypotheses, MUTATION_COUNT); */
               if (_debug_)
                 ROS_INFO("[%s]: Made: %d mutations", ros::this_node::getName().c_str(), (int)(mutations.size()));
               profiler_main_.unindent();
-              hypothesis_buffer_.at(index).hypotheses.insert(hypothesis_buffer_.at(index).hypotheses.end(), mutations.begin(), mutations.end());
+              hypothesis_buffer_.at(index).addHypotheses(mutations);
               if (_debug_)
                 ROS_INFO("[%s]: Adding mutations to set. Curr hypothesis count: %d", ros::this_node::getName().c_str(), (int)(hypothesis_buffer_.at(index).hypotheses.size()));
             }
 
-          /* ROS_INFO("[UVDARPoseCalculator]:PF: B"); */
-          for (unsigned int image_index = 0; image_index < _camera_count_; image_index++){
+            /* ROS_INFO("[UVDARPoseCalculator]:PF: B"); */
+            for (unsigned int image_index = 0; image_index < _camera_count_; image_index++){
 
-            InputData latest_local;
-            geometry_msgs::TransformStamped tocam_tf;
-            {
-              std::scoped_lock lock(input_mutex);
-              if (!input_data_initialized[image_index]){
-                  /* ROS_ERROR_STREAM("[UVDARPoseCalculator]:PF: Input data for camera " << image_index << " not yet intializad!"); */
-                continue;
-              }
-              latest_local = latest_input_data_[image_index];
-            }
-            auto separated_points = separateBySignals(latest_local.points);
-
-          /* ROS_INFO("[UVDARPoseCalculator]:PF: C"); */
-            {
-              std::scoped_lock lock(transformer_mutex);
-              auto tocam_tmp = transformer_.getTransform(_uav_name_+"/"+_output_frame_,_camera_frames_[image_index], latest_local.time - ros::Duration(0.1));
-              if (!tocam_tmp){
-                /* ROS_ERROR_STREAM("[UVDARPoseCalculator]:PF: Could not obtain transform from " << _uav_name_+"/"+_output_frame_ << " to " << _camera_frames_[image_index] << "!"); */
-                continue;
-              }
-              tocam_tf = tocam_tmp.value();
-            }
-          /* ROS_INFO("[UVDARPoseCalculator]:PF: D"); */
-
-            for (int index = 0; index < (int)(hypothesis_buffer_.size()); index++){
+              InputData latest_local;
+              geometry_msgs::TransformStamped tocam_tf;
               {
-                std::scoped_lock lock(hypothesis_mutex);
+                std::scoped_lock lock(input_mutex);
+                if (!input_data_initialized[image_index]){
+                  /* ROS_ERROR_STREAM("[UVDARPoseCalculator]:PF: Input data for camera " << image_index << " not yet intializad!"); */
+                  continue;
+                }
+                latest_local = latest_input_data_[image_index];
+              }
+              auto separated_points = separateBySignals(latest_local.points);
 
+              /* ROS_INFO("[UVDARPoseCalculator]:PF: C"); */
+              {
+                std::scoped_lock lock(transformer_mutex);
+                auto tocam_tmp = transformer_.getTransform(_uav_name_+"/"+_output_frame_,_camera_frames_[image_index], latest_local.time - ros::Duration(0.1));
+                if (!tocam_tmp){
+                  /* ROS_ERROR_STREAM("[UVDARPoseCalculator]:PF: Could not obtain transform from " << _uav_name_+"/"+_output_frame_ << " to " << _camera_frames_[image_index] << "!"); */
+                  continue;
+                }
+                tocam_tf = tocam_tmp.value();
+              }
+              /* ROS_INFO("[UVDARPoseCalculator]:PF: D"); */
+
+              /* ROS_INFO("[UVDARPoseCalculator]:PF: E"); */
+
+
+              /* ROS_INFO("[UVDARPoseCalculator]:PF: F"); */
+            }
+              auto start = profiler_main_.getTime();
+              for (int index = 0; index < (int)(hypothesis_buffer_.size()); index++){
+                /* removeOldHypotheses(index,now_time); */
+                removeExtraHypotheses(index, now_time, profiler_main_);
                 if (_debug_)
-                ROS_INFO("[%s]: C:%d, I:%d Refining. Prev. hypothesis count: %d", ros::this_node::getName().c_str(), image_index, index, (int)(hypothesis_buffer_.at(index).hypotheses.size()));
-
-                  /* auto start = profiler.getTime(); */
-                /* auto local_hypotheses = HypothesesToLocal(hypothesis_buffer_,image_index); */
-                /* ROS_INFO("[%s]: C:%d Checking...", ros::this_node::getName().c_str(), image_index); */
-                /* ROS_INFO("[%s]: C:%d Removing unfit and mutating. Prev. hypthesis count: %d", ros::this_node::getName().c_str(), image_index, (int)(hypothesis_buffer_.size())); */
-                /* auto mutations = removeUnfitAndMutateHypotheses(hypothesis_buffer_.at(index).first); */
-
-                /* ROS_INFO("[%s]: C:%d Finding unfit mutations. Prev. mutation count: %d", ros::this_node::getName().c_str(), image_index, (int)(mutations.size())); */
-                /* double threshold_mutation = PF_MUTATION_THRESHOLD(image_index); */
-                /* checkHypothesisFitness(mutations,image_index,threshold_mutation, latest_local, tocam_tf); */
-                /* ROS_INFO("[%s]: C:%d Removing unfit mutations...", ros::this_node::getName().c_str(), image_index); */
-                /* removeUnfitHypotheses(mutations); */
+                  ROS_INFO("[%s]: Culling. Curr hypothesis count: %d", ros::this_node::getName().c_str(), (int)(hypothesis_buffer_.at(index).hypotheses.size()));
+                /* propagateHypotheses(index, now_time); */
+              }
+              profiler_main_.addValueSince("Extra hypothesis removal", start);
+          }
 
 
-                /* profiler_main_.indent(); */
-                /* refineHypotheses(separated_points, hypothesis_buffer_.at(index).first, hypothesis_buffer_.at(index).second, image_index, tocam_tf, profiler_main_); */
-                /* profiler_main_.unindent(); */
+          {
+              /* for (int index = 0; index < (int)(hypothesis_buffer_.size()); index++){ */
+              /*   /1* removeOldHypotheses(index,now_time); *1/ */
+              /*   removeExtraHypotheses(index, now_time); */
+              /*   if (_debug_) */
+              /*     ROS_INFO("[%s]: Culling. Curr hypothesis count: %d", ros::this_node::getName().c_str(), (int)(hypothesis_buffer_.at(index).hypotheses.size())); */
+              /* } */
+            std::scoped_lock lock(hypothesis_mutex);
+            if (_publish_constituents_){
+              auto start_pub_const = profiler_main_.getTime();
 
-                double threshold_reproject_unfit = PF_REPROJECT_THRESHOLD_UNFIT(image_index);
-                double threshold_reproject_verified = PF_REPROJECT_THRESHOLD_VERIFIED(image_index);
+              mrs_msgs::PoseWithCovarianceArrayStamped msg_constuents_array;
+              msg_constuents_array.header.frame_id = _uav_name_+"/"+_output_frame_;
+              msg_constuents_array.header.stamp = latest_input_data_[0].time;
 
-                profiler_main_.indent();
-                checkHypothesisFitness(hypothesis_buffer_.at(index), image_index, threshold_reproject_unfit, threshold_reproject_verified, separated_points, tocam_tf, latest_local.time);
-                removeUnfitHypotheses(hypothesis_buffer_.at(index));
-                profiler_main_.unindent();
+              mrs_msgs::PoseWithCovarianceArrayStamped msg_constuents_tentative_array;
+              msg_constuents_tentative_array.header.frame_id = _uav_name_+"/"+_output_frame_;
+              msg_constuents_tentative_array.header.stamp = latest_input_data_[0].time;
+
+              for (auto &hb : hypothesis_buffer_){
                 if (_debug_)
-                  ROS_INFO("[%s]: C:%d, I:%d Curr. hypothesis count: %d", ros::this_node::getName().c_str(), image_index, index, (int)(hypothesis_buffer_.at(index).hypotheses.size()));
-                /* ROS_INFO("[%s]: C:%d Removing extras, left: %d", ros::this_node::getName().c_str(), image_index, (int)(hypothesis_buffer_.at(index).hypotheses.size())); */
+                  ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: Current hypothesis count for target " << hb.target << " is " << hb.hypotheses.size());
+                for (auto &h : hb.hypotheses){
+                  /* ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: Age: " << (now_time - h.updated).toSec()); */
+
+                  mrs_msgs::PoseWithCovarianceIdentified constituent;
+                  constituent.id = h.index;
+                  constituent.pose.position.x = h.pose.position.x();
+                  constituent.pose.position.y = h.pose.position.y();
+                  constituent.pose.position.z = h.pose.position.z();
+                  constituent.pose.orientation.x = h.pose.orientation.x();
+                  constituent.pose.orientation.y = h.pose.orientation.y();
+                  constituent.pose.orientation.z = h.pose.orientation.z();
+                  constituent.pose.orientation.w = h.pose.orientation.w();
+
+                  e::MatrixXd hypo_covar = e::MatrixXd::Identity(6,6)*0.01;
+                  for (int i=0; i<6; i++){
+                    for (int j=0; j<6; j++){
+                      constituent.covariance[6*j+i] =  hypo_covar(j,i);
+                    }
+                  }
+                  if (h.flag == verified)
+                    msg_constuents_array.poses.push_back(constituent);
+                  else if (h.flag == neutral)
+                    msg_constuents_tentative_array.poses.push_back(constituent);
+                }
               }
 
-          /* ROS_INFO("[UVDARPoseCalculator]:PF: E"); */
-              removeOldHypotheses(index,latest_local.time);
-
-
-          /* ROS_INFO("[UVDARPoseCalculator]:PF: F"); */
+              pub_hypotheses_.publish(msg_constuents_array);
+              pub_hypotheses_tentative_.publish(msg_constuents_tentative_array);
+              profiler_main_.addValueSince("Publishing constituents", start_pub_const);
             }
-          }
-          }
 
-          if (_publish_constituents_){
-
-            mrs_msgs::PoseWithCovarianceArrayStamped msg_constuents_array;
-            msg_constuents_array.header.frame_id = _uav_name_+"/"+_output_frame_;
-            msg_constuents_array.header.stamp = latest_input_data_[0].time;
-
+            mrs_msgs::PoseWithCovarianceArrayStamped msg_output;
+            msg_output.header.frame_id = _uav_name_+"/"+_output_frame_;
+            msg_output.header.stamp = latest_input_data_[0].time;
             for (auto &hb : hypothesis_buffer_){
-              for (auto &h : hb.hypotheses){
+              mrs_msgs::PoseWithCovarianceIdentified msg_target;
+              auto start_conv_hull = profiler_main_.getTime();
+              auto res = getMeasurementElipsoidHull(hb);
+              profiler_main_.addValueSince("Constructing convex hull", start_conv_hull);
+              if (res){
+                auto [m, C] = res.value();
+                msg_target.id = hb.target;
+                msg_target.pose.position.x = m.position.x();
+                msg_target.pose.position.y = m.position.y();
+                msg_target.pose.position.z = m.position.z();
+                msg_target.pose.orientation.x = m.orientation.x();
+                msg_target.pose.orientation.y = m.orientation.y();
+                msg_target.pose.orientation.z = m.orientation.z();
+                msg_target.pose.orientation.w = m.orientation.w();
 
-                mrs_msgs::PoseWithCovarianceIdentified constituent;
-                constituent.id = h.index;
-                constituent.pose.position.x = h.pose.position.x();
-                constituent.pose.position.y = h.pose.position.y();
-                constituent.pose.position.z = h.pose.position.z();
-                constituent.pose.orientation.x = h.pose.orientation.x();
-                constituent.pose.orientation.y = h.pose.orientation.y();
-                constituent.pose.orientation.z = h.pose.orientation.z();
-                constituent.pose.orientation.w = h.pose.orientation.w();
-
-                e::MatrixXd hypo_covar = e::MatrixXd::Identity(6,6)*0.01;
                 for (int i=0; i<6; i++){
                   for (int j=0; j<6; j++){
-                    constituent.covariance[6*j+i] =  hypo_covar(j,i);
+                    msg_target.covariance[6*j+i] =  C(j,i);
                   }
                 }
-                msg_constuents_array.poses.push_back(constituent);
+                msg_output.poses.push_back(msg_target);
               }
             }
-
-            pub_hypotheses_.publish(msg_constuents_array);
+            pub_measured_poses_.publish(msg_output);
           }
 
-          mrs_msgs::PoseWithCovarianceArrayStamped msg_output;
-          msg_output.header.frame_id = _uav_name_+"/"+_output_frame_;
-          msg_output.header.stamp = latest_input_data_[0].time;
-          for (auto &hb : hypothesis_buffer_){
-            mrs_msgs::PoseWithCovarianceIdentified msg_target;
-            auto res = getMeasurementElipsoidHull(hb);
-            if (res){
-              auto [m, C] = res.value();
-              msg_target.id = hb.target;
-              msg_target.pose.position.x = m.position.x();
-              msg_target.pose.position.y = m.position.y();
-              msg_target.pose.position.z = m.position.z();
-              msg_target.pose.orientation.x = m.orientation.x();
-              msg_target.pose.orientation.y = m.orientation.y();
-              msg_target.pose.orientation.z = m.orientation.z();
-              msg_target.pose.orientation.w = m.orientation.w();
-
-              for (int i=0; i<6; i++){
-                for (int j=0; j<6; j++){
-                  msg_target.covariance[6*j+i] =  C(j,i);
-                }
-              }
-              msg_output.poses.push_back(msg_target);
+          {
+            std::scoped_lock lock(hypothesis_mutex);
+            auto start_hypo_propagation = profiler_main_.getTime();
+            for (int index = 0; index < (int)(hypothesis_buffer_.size()); index++){
+              propagateHypotheses(index, now_time);
             }
+              profiler_main_.addValueSince("Propagating hypotheses", start_hypo_propagation);
           }
-          pub_measured_poses_.publish(msg_output);
+
+
 
           if (_profiling_){
             profiler_main_.printAll("[UVDARPoseCalculator]: [PF]:");
           }
           profiler_main_.clear();
+        }
+        //}
+        
+
+        void ParticleFilteringThread([[maybe_unused]] const ros::TimerEvent& te, const int& image_index) {
+          if ((!initialized_)){
+            return;
+          }
+          /* ROS_INFO_STREAM("[UVDARPoseCalculator]:PF: A, " <<  image_index); */
+
+          /* auto now_time = ros::Time::now(); */
+
+          InputData latest_local;
+          geometry_msgs::TransformStamped tocam_tf;
+          {
+            std::scoped_lock lock(input_mutex);
+            if (!input_data_initialized[image_index]){
+              /* ROS_ERROR_STREAM("[UVDARPoseCalculator]:PF: Input data for camera " << image_index << " not yet intializad!"); */
+              return;
+            }
+            latest_local = latest_input_data_[image_index];
+          }
+          auto separated_points = separateBySignals(latest_local.points);
+
+          /* ROS_INFO_STREAM("[UVDARPoseCalculator]:PF: C, " <<  image_index); */
+          {
+            std::scoped_lock lock(transformer_mutex);
+            auto tocam_tmp = transformer_.getTransform(_uav_name_+"/"+_output_frame_,_camera_frames_[image_index], latest_local.time - ros::Duration(0.1));
+            if (!tocam_tmp){
+              /* ROS_ERROR_STREAM("[UVDARPoseCalculator]:PF: Could not obtain transform from " << _uav_name_+"/"+_output_frame_ << " to " << _camera_frames_[image_index] << "!"); */
+              return;
+            }
+            tocam_tf = tocam_tmp.value();
+          }
+          /* ROS_INFO_STREAM("[UVDARPoseCalculator]:PF: D, " <<  image_index); */
+
+          for (int index = 0; index < (int)(hypothesis_buffer_.size()); index++){
+            {
+              std::scoped_lock lock(hypothesis_mutex);
+
+              if (_debug_)
+                ROS_INFO("[%s]: C:%d, I:%d Refining. Prev. hypothesis count: %d", ros::this_node::getName().c_str(), image_index, index, (int)(hypothesis_buffer_.at(index).hypotheses.size()));
+
+              /* auto start = profiler.getTime(); */
+              /* auto local_hypotheses = HypothesesToLocal(hypothesis_buffer_,image_index); */
+              /* ROS_INFO("[%s]: C:%d Checking...", ros::this_node::getName().c_str(), image_index); */
+              /* ROS_INFO("[%s]: C:%d Removing unfit and mutating. Prev. hypthesis count: %d", ros::this_node::getName().c_str(), image_index, (int)(hypothesis_buffer_.size())); */
+              /* auto mutations = removeUnfitAndMutateHypotheses(hypothesis_buffer_.at(index).first); */
+
+              /* ROS_INFO("[%s]: C:%d Finding unfit mutations. Prev. mutation count: %d", ros::this_node::getName().c_str(), image_index, (int)(mutations.size())); */
+              /* double threshold_mutation = PF_MUTATION_THRESHOLD(image_index); */
+              /* checkHypothesisFitness(mutations,image_index,threshold_mutation, latest_local, tocam_tf); */
+              /* ROS_INFO("[%s]: C:%d Removing unfit mutations...", ros::this_node::getName().c_str(), image_index); */
+              /* removeUnfitHypotheses(mutations); */
+
+
+              /* profiler_main_.indent(); */
+              /* refineHypotheses(separated_points, hypothesis_buffer_.at(index).first, hypothesis_buffer_.at(index).second, image_index, tocam_tf, profiler_main_); */
+              /* profiler_main_.unindent(); */
+
+              double threshold_reproject_unfit = PF_REPROJECT_THRESHOLD_UNFIT(image_index);
+              double threshold_reproject_verified = PF_REPROJECT_THRESHOLD_VERIFIED(image_index);
+
+              profiler_main_.indent();
+              checkHypothesisFitness(hypothesis_buffer_.at(index), image_index, threshold_reproject_unfit, threshold_reproject_verified, separated_points, tocam_tf, latest_local.time);
+              profiler_main_.addValue("Hypotheses fitness checking");
+              removeUnfitHypotheses(hypothesis_buffer_.at(index));
+              profiler_main_.addValue("Removal of unfit hypotheses");
+              profiler_main_.unindent();
+              if (_debug_)
+                ROS_INFO("[%s]: C:%d, I:%d Curr. hypothesis count: %d", ros::this_node::getName().c_str(), image_index, index, (int)(hypothesis_buffer_.at(index).hypotheses.size()));
+              /* ROS_INFO("[%s]: C:%d Removing extras, left: %d", ros::this_node::getName().c_str(), image_index, (int)(hypothesis_buffer_.at(index).hypotheses.size())); */
+            }
+
+            /* ROS_INFO("[UVDARPoseCalculator]:PF: E"); */
+
+
+            /* ROS_INFO("[UVDARPoseCalculator]:PF: F"); */
+          }
+
+          /* ROS_INFO("[UVDARPoseCalculator]:PF: Z"); */
         }
         //}
        
@@ -1395,7 +1578,7 @@ namespace uvdar {
           output.pose = transform(input.pose, tf.value()).value();
           output.index = input.index;
           output.flag = input.flag;
-          output.updated = time;
+          /* output.updated = time; */
 
           return output;
         }
@@ -1408,47 +1591,59 @@ namespace uvdar {
           /* } */
           /* std::vector<ImageCluster> separated_points; */
           /* separated_points = separateBySignals(input_data.points); */
+          ReprojectionContext rpc;
+          rpc.image_index=image_index;
+          rpc.tocam_tf=tocam_tf;
+          rpc.model=model_;
 
           std::vector<ImagePointIdentified> associated_points;
           /* int i=0; */
           for (auto &pts : points){
             if ((pts.ID%1000)==(hypotheses.target%1000)){
               associated_points = pts.points;
-              int i = 0;
-              for (auto &h : hypotheses.hypotheses){
-                if (isInView(h,image_index, tocam_tf)){
+              for (auto hit = hypotheses.hypotheses.begin(); hit!=hypotheses.hypotheses.end(); hit++){
+                if (_debug_)
+                  ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: Checking hypotheis " << (*hit).unique_id);
+                if (isInView((*hit),image_index, tocam_tf)){
+                  if (_debug_)
+                    ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: Hypotheis " << (*hit).unique_id << " is in view of camera " << image_index);
 
-                  auto model_curr = model_.rotate(h.pose.orientation).translate(h.pose.position);
+                  /* auto model_curr = model_.rotate(h.pose.orientation).translate(h.pose.position); */
 
                   double threshold_scaled_unfit = (int)(associated_points.size())*threshold_unfit;
                   double threshold_scaled_verified = (int)(associated_points.size())*threshold_verified;
-                  double error_total = totalError(model_curr, associated_points, h.index, image_index, tocam_tf);
+
+                  rpc.observed_points=associated_points;
+                  rpc.target=(*hit).index;
+
+                  double error_total = hypothesisError((*hit), rpc);
                   /* ROS_INFO("[%s]: error: %f vs threshold_scaled: %f", ros::this_node::getName().c_str(), error_total, threshold_scaled); */
 
                   if (error_total > threshold_scaled_unfit){
                     if (_debug_)
-                      ROS_INFO_STREAM("[UVDARPoseCalculator]: setting hypo as unfit, err:" << error_total << " vs " << threshold_scaled_unfit);
+                      ROS_INFO_STREAM("[UVDARPoseCalculator]: setting hypo " << (*hit).unique_id << " as unfit, err:" << error_total << " vs " << threshold_scaled_unfit);
                     /* if (h.flag == verified) */
                     /*   hypotheses.verified_count--; */
                     /* h.flag = unfit; */
-                    hypotheses.setUnfit(i);
+                    hypotheses.setUnfit(hit);
                     /* h.updated = time; */
                   }
                   else if (error_total < threshold_scaled_verified) {
                     if (_debug_)
-                      ROS_INFO_STREAM("[UVDARPoseCalculator]: setting hypo as verified, err:" << error_total << " vs " << threshold_scaled_verified);
+                      ROS_INFO_STREAM("[UVDARPoseCalculator]: setting hypo " << (*hit).unique_id << " as verified, err:" << error_total << " vs " << threshold_scaled_verified);
                     /* if (h.flag != verified) */
                     /*   hypotheses.verified_count++; */
                     /* h.flag = verified; */
-                    hypotheses.setVerified(i);
-                    /* h.updated = time; */
+                    hypotheses.setVerified(hit);
+                    (*hit).observed = time;
                   }
                   else {
-                    hypotheses.setNeutral(i);
+                    if (_debug_)
+                      ROS_INFO_STREAM("[UVDARPoseCalculator]: setting hypo " << (*hit).unique_id << " as neutral, err:" << error_total << " vs " << threshold_scaled_verified << " and " << threshold_scaled_unfit);
+                    hypotheses.setNeutral(hit);
                   }
-                  h.updated = time;
+                  /* h.updated = time; */
                 }
-                i++;
               }
             }
             else
@@ -1458,94 +1653,102 @@ namespace uvdar {
 
         std::vector<Hypothesis> removeUnfitAndMutateHypotheses(AssociatedHypotheses &hypotheses){
           removeUnfitHypotheses(hypotheses);
-          return mutateHypotheses(hypotheses.hypotheses, MUTATION_COUNT, ros::Time::now());
+          return mutateHypotheses(hypotheses, MUTATION_COUNT, ros::Time::now());
         }
 
         void removeUnfitHypotheses(AssociatedHypotheses &hypotheses){
-          for (int i=0; i<(int)(hypotheses.hypotheses.size()); i++){
-            if (hypotheses.hypotheses[i].flag == unfit) {
-              if (_debug_)
-                ROS_INFO_STREAM("[UVDARPoseCalculator]: Hypothesis unfit!");
-              hypotheses.removeHypothesis(i);
-              /* hypotheses.erase(hypotheses.begin()+i); //remove the other */
-              i--;
-            }
+          hypotheses.removeUnfit();
+        }
+
+        void propagateHypotheses(int index, ros::Time time){
+          for (auto &h : hypothesis_buffer_.at(index).hypotheses){
+            h.pose.position += h.twist.linear*(time-h.propagated).toSec();
+            h.propagated = time;
           }
         }
 
-        void removeExtraHypotheses(int index, ros::Time time){
-          int init_size = (int)(hypothesis_buffer_.at(index).hypotheses.size());
+        void removeExtraHypotheses(int index, ros::Time time, Profiler &profiler){
+          profiler.indent();
+          auto start = profiler.getTime();
           removeOldHypotheses(index, time);
-          int i = 0;
-          while ((int)(hypothesis_buffer_.at(index).hypotheses.size()) > MAX_HYPOTHESIS_COUNT){ //first, let's try to remove the unverified only...
-            int cull_index = rand() % (int)(hypothesis_buffer_.at(index).hypotheses.size());
-            if (hypothesis_buffer_.at(index).hypotheses[cull_index].flag !=verified){
+          profiler.addValueSince("Old hypothesis removal", start);
+
+          std::vector<std::list<Hypothesis>::iterator> nonverified_hypotheses;
+          for (auto hit = hypothesis_buffer_.at(index).hypotheses.begin(); hit!=hypothesis_buffer_.at(index).hypotheses.end(); hit++){
+            if ((*hit).flag != verified){
+              nonverified_hypotheses.push_back(hit);
+            }
+          }
+          profiler.addValue("Search for unverified hypotheses");
+          while (((int)(hypothesis_buffer_.at(index).hypotheses.size()) > MAX_HYPOTHESIS_COUNT) && (nonverified_hypotheses.size() > 0) ){ //first, let's try to remove the unverified only...
+            int cull_index_selection = rand() % (int)(nonverified_hypotheses.size());
+            auto hit = nonverified_hypotheses.at(cull_index_selection);
+            if ((*hit).flag !=verified){
               if (_debug_)
-                ROS_INFO_STREAM("[UVDARPoseCalculator]: Culling extra unverified hypothesis.");
-              hypothesis_buffer_.at(index).removeHypothesis(cull_index);
+                ROS_INFO_STREAM("[UVDARPoseCalculator]: Culling extra unverified hypothesis " << (*hit).unique_id << ".");
+              hypothesis_buffer_.at(index).removeHypothesis(hit);
+              nonverified_hypotheses.erase(nonverified_hypotheses.begin()+cull_index_selection);
             }
               /* hypothesis_buffer_.at(index).hypotheses.erase(hypothesis_buffer_.at(index).hypotheses.begin()+cull_index); //remove */
-            i++;
-            if (i > init_size)
-              break;
           }
+          profiler.addValue("Unverified hypothesis removal");
           while ((int)(hypothesis_buffer_.at(index).hypotheses.size()) > MAX_HYPOTHESIS_COUNT){
             int cull_index = rand() % (int)(hypothesis_buffer_.at(index).hypotheses.size());
             /* if (hypothesis_buffer_.at(index).hypotheses[cull_index].flag == verified) */
               /* hypothesis_buffer_.at(index).verified_count--; */
             /* hypothesis_buffer_.at(index).hypotheses.erase(hypothesis_buffer_.at(index).hypotheses.begin()+cull_index); //remove */
+            auto hit = hypothesis_buffer_.at(index).at(cull_index);
               if (_debug_)
-                ROS_INFO_STREAM("[UVDARPoseCalculator]: Culling extra hypothesis.");
-            hypothesis_buffer_.at(index).removeHypothesis(cull_index);
+                ROS_INFO_STREAM("[UVDARPoseCalculator]: Culling extra hypothesis " << (*hit).unique_id << ".");
+            hypothesis_buffer_.at(index).removeHypothesis(hit);
           }
+          profiler.addValue("Remaining hypothesis removal");
+          profiler.unindent();
           return;
         }
 
         void removeOldHypotheses(int index, ros::Time time){
-          int i = 0;
-          while (i < (int)(hypothesis_buffer_.at(index).hypotheses.size())){ //first, let's try to remove the unverified only...
-            if (ros::Duration(time - hypothesis_buffer_.at(index).hypotheses[i].updated).toSec() > MAX_HYPOTHESIS_AGE){
+          for (auto hit = hypothesis_buffer_.at(index).hypotheses.begin(); hit!=hypothesis_buffer_.at(index).hypotheses.end(); hit++){
+            if (ros::Duration(time - (*hit).observed).toSec() > MAX_HYPOTHESIS_AGE){
               /* if (hypothesis_buffer_.at(index).hypotheses[i].flag == verified) */
               /*   hypothesis_buffer_.at(index).verified_count--; */
               /* hypothesis_buffer_.at(index).hypotheses.erase(hypothesis_buffer_.at(index).hypotheses.begin()+i); //remove old */
               if (_debug_)
-                ROS_INFO_STREAM("[UVDARPoseCalculator]: Hypothesis is " << ros::Duration(time - hypothesis_buffer_.at(index).hypotheses[i].updated).toSec() << " old.");
-              hypothesis_buffer_.at(index).removeHypothesis(i);
-            }
-            else {
-              i++;
+                ROS_INFO_STREAM("[UVDARPoseCalculator]: Hypothesis " << (*hit).unique_id << " is " << ros::Duration(time - (*hit).observed).toSec() << " old, compared to " << time << ".");
+              hit = hypothesis_buffer_.at(index).removeHypothesis(hit);
             }
           }
 
         }
 
 
-        std::vector<Hypothesis> mutateHypotheses(std::vector<Hypothesis> &hypotheses, int count, ros::Time time){
-          if ((int)(hypotheses.size()) == 0){
+        std::vector<Hypothesis> mutateHypotheses(AssociatedHypotheses &hypotheses, int count, ros::Time time){
+          if ((int)(hypotheses.hypotheses.size()) == 0){
             return {};
           }
 
           std::vector<Hypothesis> mutations;
-          std::vector<Hypothesis>::iterator h_iter;
 
           for (int i = 0; i < count; i++){
-            int parent_index = rand() % (int)(hypotheses.size());
-            if (hypotheses[parent_index].flag == verified){
-              auto new_mutations = generateMutations(hypotheses[parent_index], 2, time);
+            int parent_index = rand() % (int)(hypotheses.hypotheses.size());
+
+            auto selected = hypotheses.at(parent_index);
+
+            if ((*selected).flag == verified){
+              auto new_mutations = generateVelocityMutations(*selected, 10, time, neutral, 1.0);//verification from current image only checks if they fit in the current moment - the target may have been moving differently than the hypothesis
+              mutations.insert(mutations.end(),new_mutations.begin(),new_mutations.end());
+
+              new_mutations = generateMutations(*selected, 10, time, 1.0, 1.0);
+              mutations.insert(mutations.end(),new_mutations.begin(),new_mutations.end());
+            }
+            else if ((*selected).flag == neutral){
+              auto new_mutations = generateMutations(*selected, 1, time, 1.0, 1.0);//consider them as old as the parent if the parent wasn't verified
               mutations.insert(mutations.end(),new_mutations.begin(),new_mutations.end());
             }
             else{
               i--;
             }
           }
-          /* for (h_iter = hypotheses.begin(); h_iter != hypotheses.end(); h_iter++) { */
-          /*   if  ((*h_iter).flag == verified){ */
-          /*   /1* if  (true){ *1/ */
-          /*     /1* (*h_iter).flag = neutral; *1/ */
-          /*     /1* ROS_INFO_STREAM("[UVDARPoseCalculator]: from H:" << ); *1/ */
-          /*     auto new_mutations = generateMutations(*h_iter, 1); */
-          /*   } */
-          /* } */
 
           return mutations;
         }
@@ -1567,20 +1770,35 @@ namespace uvdar {
             return false;
         }
 
-        std::vector<Hypothesis> generateMutations(Hypothesis hin, int count, ros::Time time){
+        std::vector<Hypothesis> generateMutations(Hypothesis hin, int count, [[maybe_unused]] ros::Time time, double position_max_step = -1.0, double angle_max_step = -1.0){
           std::vector<Hypothesis> output;
-          double position_max_step = MUTATION_POSITION_MAX_STEP;//m
-          double angle_max_step = MUTATION_ORIENTATION_MAX_STEP;//rad
+          if (position_max_step < 0)
+            position_max_step = MUTATION_POSITION_MAX_STEP*SCATTER_TIME_STEP;//m
+          /* if (velocity_max_step < 0) */
+          /*   velocity_max_step = MUTATION_VELOCITY_MAX_STEP*SCATTER_TIME_STEP;//m */
+          if (angle_max_step < 0)
+            angle_max_step = MUTATION_ORIENTATION_MAX_STEP*SCATTER_TIME_STEP;//rad
 
           Hypothesis current_mutation;
           current_mutation.index=hin.index;
           current_mutation.flag=neutral;
-          current_mutation.updated=time;
+          current_mutation.observed=hin.observed;
+          current_mutation.propagated=hin.propagated;
 
           for (int i = 0; i < count; i++) {
             double d = static_cast <double> (rand()) / static_cast <double> (RAND_MAX);//scaler form 0 to 1
             e::Vector3d offset_position = (e::Vector3d::Random().normalized())*d*position_max_step;
             current_mutation.pose.position = hin.pose.position+offset_position;
+
+            /* double vd = static_cast <double> (rand()) / static_cast <double> (RAND_MAX);//scaler form 0 to 1 */
+            /* e::Vector3d offset_velocity = (e::Vector3d::Random().normalized())*vd*velocity_max_step; */
+            /* current_mutation.twist.linear = hin.twist.linear+offset_velocity; */
+            /* if ((hin.flag == verified) && (time > hin.propagated)) */
+            /*   current_mutation.twist.linear += */
+            /*     0.5 * //dampening */
+            /*     ((current_mutation.pose.position-hin.pose.position)/(time-hin.propagated).toSec()); // if our original hypothesis was verified, this mutation should have been the result of an incorrect velocity estimate */
+
+            current_mutation.twist.linear = hin.twist.linear;
 
             double a = static_cast <double> (rand()) / static_cast <double> (RAND_MAX);//scaler form 0 to 1
             auto offset_rotation = e::AngleAxisd(a*angle_max_step, e::Vector3d::Random().normalized());
@@ -1610,6 +1828,35 @@ namespace uvdar {
 
           /* }}} */
 
+          return output;
+        }
+
+        std::vector<Hypothesis> generateVelocityMutations(Hypothesis hin, int count,[[maybe_unused]] ros::Time time, HypothesisFlag flag = neutral, double velocity_max_step = -1.0){
+          std::vector<Hypothesis> output;
+          if (velocity_max_step < 0)
+            velocity_max_step = MUTATION_VELOCITY_MAX_STEP*SCATTER_TIME_STEP;//m
+
+          Hypothesis current_mutation;
+          current_mutation.index=hin.index;
+          current_mutation.flag=flag;
+          current_mutation.observed=hin.observed;
+          current_mutation.propagated=hin.propagated;
+
+          current_mutation.pose = hin.pose;
+
+          for (int i = 0; i < count; i++) {
+
+
+            double vd = static_cast <double> (rand()) / static_cast <double> (RAND_MAX);//scaler form 0 to 1
+            e::Vector3d offset_velocity = (e::Vector3d::Random().normalized())*vd*velocity_max_step;
+            current_mutation.twist.linear = hin.twist.linear+offset_velocity;
+            /* if ((hin.flag == verified) && (time > hin.propagated)) */
+            /*   current_mutation.twist.linear += */
+            /*     0.5 * //dampening */
+            /*     ((current_mutation.pose.position-hin.pose.position)/(time-hin.propagated).toSec()); // if our original hypothesis was verified, this mutation should have been the result of an incorrect velocity estimate */
+
+            output.push_back(current_mutation);
+          }
           return output;
         }
 
@@ -2183,32 +2430,54 @@ namespace uvdar {
           /* elapsedTime.push_back({currDepthIndent() + ,std::chrono::duration_cast<std::chrono::microseconds>(rough_init - start).count()}); */
           profiler.addValueSince("Rough initialization", start);
 
-          auto [hypotheses_init, errors_init] = getViableInitialHyptheses(points, furthest_position, target, image_index, fromcam_tf, tocam_tf, INITIAL_HYPOTHESIS_COUNT, time);
+          auto [hypotheses_init, errors_init] = getViableInitialHyptheses(points, furthest_position, target, image_index, fromcam_tf, tocam_tf, INITIAL_ROUGH_HYPOTHESIS_COUNT, time);
+          profiler.addValue("InitialHypotheses");
+
+          auto hypotheses_refined = refineByMutation(model_, points, hypotheses_init,     tocam_tf, image_index, target, ERROR_THRESHOLD_MUTATION_1(image_index), 1.0, 1.0, INITIAL_HYPOTHESIS_COUNT);
+          profiler.addValue("Initial Mutation 1");
+          hypotheses_refined      = refineByMutation(model_, points, hypotheses_refined,  tocam_tf, image_index, target, ERROR_THRESHOLD_MUTATION_2(image_index), 1.0, 1.0, INITIAL_HYPOTHESIS_COUNT);
+          profiler.addValue("Initial Mutation 2");
+          hypotheses_refined      = refineByMutation(model_, points, hypotheses_refined,  tocam_tf, image_index, target, ERROR_THRESHOLD_MUTATION_3(image_index), 1.0, 1.0, INITIAL_HYPOTHESIS_COUNT);
+          profiler.addValue("Initial Mutation 3");
+
+          int static_hypothesis_count = (int)(hypotheses_refined.size());
+          for (int i=0; i<static_hypothesis_count; i++){
+            auto new_mutations = generateVelocityMutations(hypotheses_refined.at(i), 5, time, neutral, 1.0);
+            hypotheses_refined.insert(hypotheses_refined.end(),new_mutations.begin(),new_mutations.end());
+          }
+          profiler.addValue("Initial Velocity Mutation");
+
+          /* for (auto &h : hypotheses_refined){ */
+          /*   h.flag = verified; */
+          /* } */
+
+
+          /* auto hypotheses_refined = hypotheses_init; */
 
           /* int initial_hypothesis_count = (int)(hypotheses.size()); */
 
-          std::vector<Hypothesis> hypotheses_fitted;
-          int i = 0;
-          for (auto &h : hypotheses_init){
-            double error_t;
-            Hypothesis h_t;
-            std::tie(h_t, error_t) = iterFitFull(model_, points, h, target,  image_index, tocam_tf, profiler);
+          /* std::vector<Hypothesis> hypotheses_fitted; */
+          /* int i = 0; */
+          /* for (auto &h : hypotheses_init){ */
+          /*   double error_t; */
+          /*   Hypothesis h_t; */
+          /*   /1* std::tie(h_t, error_t) = iterFitFull(model_, points, h, target,  image_index, tocam_tf, profiler); *1/ */
 
-            if (_debug_)
-              ROS_INFO_STREAM("[UVDARPoseCalculator]: Fitted position: Pre. error: " << errors_init[i] << ", New error: " << error_t);
-            const double threshold = (double)(points.size())*ERROR_THRESHOLD_FITTED(image_index);
-            if (error_t <= threshold){
-              hypotheses_fitted.push_back(h_t);
-              if (_debug_)
-                ROS_INFO_STREAM("[UVDARPoseCalculator]: Adding");
-            }
-            else {
-              if (_debug_)
-                ROS_INFO_STREAM("[UVDARPoseCalculator]: Rejecting!");
-            }
+          /*   /1* if (_debug_) *1/ */
+          /*   /1*   ROS_INFO_STREAM("[UVDARPoseCalculator]: Fitted position: Pre. error: " << errors_init[i] << ", New error: " << error_t); *1/ */
+          /*   /1* const double threshold = (double)(points.size())*ERROR_THRESHOLD_FITTED(image_index); *1/ */
+          /*   /1* if (error_t <= threshold){ *1/ */
+          /*     hypotheses_fitted.push_back(h); */
+          /*     if (_debug_) */
+          /*       ROS_INFO_STREAM("[UVDARPoseCalculator]: Adding"); */
+          /*   /1* } *1/ */
+          /*   /1* else { *1/ */
+          /*   /1*   if (_debug_) *1/ */
+          /*   /1*     ROS_INFO_STREAM("[UVDARPoseCalculator]: Rejecting!"); *1/ */
+          /*   /1* } *1/ */
 
-            i++;
-          }
+          /*   i++; */
+          /* } */
           /* if (_debug_){ */
           /*   ROS_INFO_STREAM("[UVDARPoseCalculator]: Fitted position: " << fitted_position.transpose()); */
           /* } */
@@ -2226,7 +2495,7 @@ namespace uvdar {
           /* elapsedTime.push_back({currDepthIndent() + "Viable initial hypotheses",std::chrono::duration_cast<std::chrono::microseconds>(viable_hypotheses - rough_init).count()}); */
           profiler.addValue("Viable initial hypotheses");
 
-          return hypotheses_fitted;
+          return hypotheses_refined;
         
       }
 
@@ -2547,6 +2816,14 @@ namespace uvdar {
 
             double threshold = (int)(observed_points.size())*ERROR_THRESHOLD_INITIAL(image_index);
 
+            ReprojectionContext rpc;
+            rpc.image_index=image_index;
+            rpc.tocam_tf=tocam_tf;
+            rpc.target=target;
+            rpc.observed_points=observed_points;
+            rpc.model=model_;
+
+
             std::vector<Hypothesis> initial_hypotheses;
             std::vector<double> errors;
             int iter = 0;
@@ -2564,14 +2841,22 @@ namespace uvdar {
                 e::Quaterniond current_orientation(e::AngleAxisd(a*2.0*M_PI, e::Vector3d::Random().normalized()));
 
                 auto global_position = transform(current_position, fromcam_tf);
-                double error_total = totalError(model_.rotate(current_orientation).translate(global_position.value()), observed_points, target, image_index, tocam_tf);
+
+                /* rpc.model=model_.rotate(current_orientation).translate(global_position.value()); */
+                Hypothesis hypo_new;
+                hypo_new.index = target;
+                hypo_new.pose = {.position=global_position.value(), .orientation=current_orientation};
+                hypo_new.flag = neutral;
+                hypo_new.observed = time;
+                hypo_new.propagated = time;
+                double error_total = hypothesisError(hypo_new, rpc);
 
                 /* ROS_INFO_STREAM("[UVDARPoseCalculator]: Err: "<< error_total << " from P: " <<  global_position.value().transpose() << "; R: " << quaternionToRPY(current_orientation).transpose()); */
 
                 
                 if (error_total < threshold){
-                  Pose current_pose = {.position=global_position.value(), .orientation=current_orientation};
-                  initial_hypotheses.push_back({.index= target, .pose = current_pose, .flag = neutral, .updated = time});
+
+                  initial_hypotheses.push_back(hypo_new);
                   errors.push_back(error_total);
                 }
                 iter++;
@@ -2585,339 +2870,432 @@ namespace uvdar {
             return {initial_hypotheses, errors};
           }
 
-          std::pair<Hypothesis, double> iterFitFull(const LEDModel& model, const std::vector<ImagePointIdentified>& observed_points, const Hypothesis& hypothesis, int target, int image_index, geometry_msgs::TransformStamped tocam_tf, Profiler &profiler)
-          {
-            const auto start = profiler.getTime();
+          std::vector<Hypothesis> refineByMutation(const LEDModel& model, const std::vector<ImagePointIdentified>& observed_points, std::vector<Hypothesis> &hypotheses,  geometry_msgs::TransformStamped tocam_tf, int image_index, int target, double threshold_local, double position_max_step, double angle_max_step, unsigned int desired_count){
+            std::vector<Hypothesis> output;
+            double threshold = (int)(observed_points.size())*threshold_local;
 
-            /* if (_debug_) */
-            /*   ROS_INFO_STREAM("[UVDARPoseCalculator]: Refined hypotheses for target " << target << " in image " << image_index << ": "); */
-            e::Vector3d position_curr = hypothesis.pose.position;
-            const e::Quaterniond orientation_start  = hypothesis.pose.orientation;
-            e::Quaterniond orientation_curr  = orientation_start;
-            auto model_curr = model.rotate(orientation_curr).translate(position_curr);
+            ReprojectionContext rpc;
 
+            rpc.model=model;
+            rpc.target=target;
+            rpc.tocam_tf=tocam_tf;
+            rpc.image_index=image_index;
+            rpc.observed_points = observed_points;
 
-
-            const double pos_step_init = 1.0;
-            const double angle_step_init = 0.1;
-
-            std::shared_ptr<std::vector<ImagePointIdentified>> projected_points = std::make_shared<std::vector<ImagePointIdentified>>();
-            double error_total = totalError(model_curr, observed_points, target, image_index, tocam_tf, projected_points, _debug_);
-
-            if (_debug_){
-              ROS_INFO_STREAM("[UVDARPoseCalculator]: Proj. points:");
-              for (const auto& p : *projected_points){
-                ROS_INFO_STREAM("[UVDARPoseCalculator]: " << p.position.x << ":\t" << p.position.y << "; ID:" << p.ID);
+            for (auto &h : hypotheses){
+              if ( hypothesisError(h, rpc) < threshold){
+                output.push_back(h);
+                output.back().flag = neutral;
               }
             }
-            using vec6_t = e::Matrix<double, 6, 1>;
-            vec6_t gradient = std::numeric_limits<double>::max()*vec6_t::Ones();
-            const double threshold = (double)(observed_points.size())*ERROR_THRESHOLD_FITTED(image_index);
-            if (_debug_)
-              ROS_INFO_STREAM("[UVDARPoseCalculator]: total error init: " << error_total);
-            profiler.addValueSince("Variable initialization, initial e="+std::to_string(error_total),start);
 
+            int iter = 0;
+            for (; (unsigned int)(output.size()) < desired_count;){
+            for (auto &h : hypotheses){
 
-            profiler.indent();
-            int iters = 0;
-            double prev_error_total = error_total*1.5;
-            while ((error_total > (threshold)) && ((prev_error_total - error_total) > (prev_error_total*0.1)) && (iters < 2)){
-              const auto loop_start = profiler.getTime();
-              prev_error_total = error_total;
-              int grad_iter = 0;
-              for (int dim = 0; dim < 3; dim++){
-                double pos_step = 0.1;
-                bool extreme = false;
-                int it=0;
-                double a_error = 0.0, b_error = 0.0;
-                while (it<1000){//get local position gradient
-                  it++;
-                  grad_iter++;
-                  e::Vector3d grad_vec = e::Vector3d::Zero();
-                  grad_vec(dim) = pos_step;
-                  const LEDModel shape_a = model_curr.translate(grad_vec);
-                  const LEDModel shape_b = model_curr.translate(-grad_vec);
-
-                  a_error = totalError(shape_a, observed_points, target, image_index, tocam_tf);
-                  b_error = totalError(shape_b, observed_points, target, image_index, tocam_tf);
-                  /* ROS_INFO_STREAM("[UVDARPoseCalculator]:  1"); */
-                  if ( (pos_step > (0.01*pos_step_init)) && (sgn(b_error - error_total) == sgn(a_error - error_total))) {
-                  /* ROS_INFO_STREAM("[UVDARPoseCalculator]:  2"); */
-                    pos_step /= 2;
-                    if (pos_step <= (0.01*pos_step_init)){
-                  /* ROS_INFO_STREAM("[UVDARPoseCalculator]:  3"); */
-                      extreme = true;
-                      break;
-                    }
-                    continue;
-                  }
-                  if (pos_step <= (0.01*pos_step_init)){
-                  /* ROS_INFO_STREAM("[UVDARPoseCalculator]:  4"); */
-                    extreme = true;
-                  }
-                  /* ROS_INFO_STREAM("[UVDARPoseCalculator]:  5"); */
-                  break;
-                }
-
-                if (!extreme)
-                  gradient(dim) = ((a_error-b_error)/(2*pos_step))/((double)(observed_points.size()));
-                else 
-                  gradient(dim) = 0;
-              }
-
-              profiler.addValueSince("Position gradient (it:"+std::to_string(grad_iter)+",g="+std::to_string(gradient.head<3>().norm())+")",loop_start);
-
-              if ((gradient.head<3>().norm()) > (0.01)){//to check for extremes
-                double grad_norm = gradient.head<3>().norm();
-                const double m_lin_gradient = grad_norm;
-                /* const double t_parameter = -0.5*m_lin_gradient; */
-                const double t_parameter = 0.5*m_lin_gradient;
-                double dist = 0.0;
-                const double lin_step_init = 0.01;
-                double alpha_lin_step = lin_step_init;
-                const e::Vector3d p_step_dir = -(gradient.head<3>().normalized());
-                /* const e::Vector3d p_step_dir = -(gradient.head<3>()); */
-                const double error_shift_prev = error_total;
-                double error_shift_curr = error_total;
-                auto model_shifted_curr = model_curr;
-                const auto loop_start_gradient_descent = profiler.getTime();
-
-                int j=0;
-                /* double condition = std::numeric_limits<double>::max(); */
-
-                bool shrinking;
-                model_shifted_curr = model_curr.translate(p_step_dir*alpha_lin_step);
-                error_shift_curr = totalError(model_shifted_curr, observed_points, target, image_index, tocam_tf);
-                if ((error_shift_prev-error_shift_curr) >= (alpha_lin_step*t_parameter)){
-                  shrinking = false;
-                }
-                else{
-                  shrinking = true;
-                }
-
-                bool backtracking_failed = false;
-                /* ROS_INFO_STREAM("[UVDARPoseCalculator]:  Starting Armijo"); */
-                /* ROS_INFO_STREAM("[UVDARPoseCalculator]:  Initial error: " << error_total); */
-                /* ROS_INFO_STREAM("[UVDARPoseCalculator]:  Initial direction: " << p_step_dir.transpose()); */
-                /* ROS_INFO_STREAM("[UVDARPoseCalculator]:  Gradient: " << gradient.head<3>().transpose()); */
-                while (j < 100){
-                  j++;
-                  model_shifted_curr = model_curr.translate(p_step_dir*alpha_lin_step);
-                  error_shift_curr = totalError(model_shifted_curr, observed_points, target, image_index, tocam_tf);
-
-                  if (!shrinking){
-                    /* ROS_INFO_STREAM("[UVDARPoseCalculator]:  grow?"); */
-                    /* ROS_INFO_STREAM("[UVDARPoseCalculator]:  current erorr: " << error_shift_curr); */
-                    /* ROS_INFO_STREAM("[UVDARPoseCalculator]:  compare: " << (error_shift_prev-error_shift_curr) << " vs " << (alpha_lin_step*t_parameter)); */
-                    /* ROS_INFO_STREAM("[UVDARPoseCalculator]:  condition: " << ((error_shift_prev-error_shift_curr) - (alpha_lin_step*t_parameter))); */
-                    if ((error_shift_prev-error_shift_curr) >= (alpha_lin_step*t_parameter)){
-                      /* ROS_INFO_STREAM("[UVDARPoseCalculator]:  growing"); */
-                      alpha_lin_step *= 2.0;
-                    }
-                    else {
-                      /* ROS_INFO_STREAM("[UVDARPoseCalculator]:  terminating"); */
-                      dist = alpha_lin_step*0.5;
-                      break;
-                    }
+                auto new_mutations = generateMutations(h, 1, h.observed, position_max_step, angle_max_step);
+                for (auto &hm : new_mutations){
+                  double error_curr = hypothesisError(hm, rpc);
+                  if (error_curr < threshold){
+                    output.push_back(hm);
+                    output.back().flag = neutral;
+                    if (_debug_)
+                      ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: Adding hypo with error of " << error_curr);
                   }
                   else {
-                    /* ROS_INFO_STREAM("[UVDARPoseCalculator]:  shrink?"); */
-                    /* ROS_INFO_STREAM("[UVDARPoseCalculator]:  current erorr: " << error_shift_curr); */
-                    /* ROS_INFO_STREAM("[UVDARPoseCalculator]:  compare: " << (error_shift_prev-error_shift_curr) << " vs " << (alpha_lin_step*t_parameter)); */
-                    /* ROS_INFO_STREAM("[UVDARPoseCalculator]:  condition: " << ((error_shift_prev-error_shift_curr) - (alpha_lin_step*t_parameter))); */
-                    if ((error_shift_prev-error_shift_curr) < (alpha_lin_step*t_parameter)){
-                      /* ROS_INFO_STREAM("[UVDARPoseCalculator]:  shrinking"); */
-                      alpha_lin_step *= 0.5;
-                    }
-                    else {
-                      /* ROS_INFO_STREAM("[UVDARPoseCalculator]:  terminating"); */
-                      dist = alpha_lin_step;
-                      break;
-                    }
-                  }
-
-                  if ((alpha_lin_step < 0.01) || (alpha_lin_step > 20)){
-                    backtracking_failed = true;
-                    /* ROS_INFO_STREAM("[UVDARPoseCalculator]:  Breaking Armijo, step is extreme."); */
-                    break;
+                    /* ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: Discarding hypo with error of " << error_curr << " vs. " << threshold); */
                   }
                 }
-                if (!backtracking_failed){
-                  position_curr += p_step_dir*dist;
-                  model_curr = model_curr.translate(p_step_dir*dist);
-                  error_total = totalError(model_curr, observed_points, target, image_index, tocam_tf, projected_points, true);;
-                  /* ROS_INFO_STREAM("[UVDARPoseCalculator]:  Moved the hypothesis by "<< dist << "m"); */
-                }
-                /* ROS_INFO_STREAM("[UVDARPoseCalculator]:  Final error: " << error_total); */
-
-                profiler.addValueSince("Position fitting - iter. "+std::to_string(j)+" (e="+std::to_string(error_total)+")",loop_start_gradient_descent);
-            }
-
-            /* iters++; */
-            /* profiler.addValueSince("Iteration loop position "+std::to_string(iters),loop_start); */
-            /* } */
-
-            /* iters = 0; */
-
-            /* prev_error_total = error_total+(threshold); */
-            /* while ((error_total > (threshold*0.1)) && ((prev_error_total - error_total) > (prev_error_total*0.10)) && (iters < 50)){ */
-              /* const auto loop_start = profiler.getTime(); */
-              const auto rot_steps = profiler.getTime();
-              /* prev_error_total = error_total; */
-              grad_iter = 0;
-              for (int dim = 0; dim < 3; dim++){
-                double angle_step = 0.1;
-                bool extreme = false;
-                int it=0;
-                double a_error = 0.0, b_error = 0.0;
-                while (it<1000){
-                  it++;
-                  grad_iter++;
-
-                  e::Vector3d grad_axis_vec = e::Vector3d::Zero();
-                  grad_axis_vec(dim) = 1;
-                  const LEDModel shape_a = model_curr.rotate(position_curr,  orientation_curr*grad_axis_vec, angle_step);
-                  const LEDModel shape_b = model_curr.rotate(position_curr,  orientation_curr*grad_axis_vec, -angle_step);
-                  a_error = totalError(shape_a, observed_points, target, image_index, tocam_tf);
-                  /* ROS_INFO_STREAM("[UVDARPoseCalculator]: ccw: " << a_error); */
-                  b_error = totalError(shape_b, observed_points, target, image_index, tocam_tf);
-                  /* ROS_INFO_STREAM("[UVDARPoseCalculator]: cw: " << b_error); */
-
-                  if ( (angle_step > (0.1*angle_step_init)) && (sgn(b_error - error_total) == sgn(a_error - error_total))) {
-                    angle_step /= 2;
-                    if (angle_step <= (0.1*angle_step_init)){
-                      extreme = true;
-                      break;
-                    }
-                    continue;
-                  }
-                  break;
-                }
-
-                if (!extreme)
-                  gradient(3+dim) = ((a_error-b_error)/(2*angle_step))/((double)(observed_points.size()));
-                else
-                  gradient(3+dim) = 0;
               }
 
-              profiler.addValueSince("Orientation gradient (it:"+std::to_string(grad_iter)+",g="+std::to_string(gradient.head<3>().norm())+")", rot_steps);
-
-              if ((gradient.tail<3>().norm()) > (0.01)){//to check for extremes
-                const double rot_step_init = angle_step_init/2.0;
-                double alpha_rot_step = rot_step_init;
-                const e::Vector3d norm_gradient = gradient.tail<3>().normalized()*0.01;//small, to avoid cross-axis influence
-                const e::Vector3d p_step_axis =
-                  e::AngleAxisd(
-                      e::AngleAxisd(-norm_gradient(0), e::Vector3d::UnitX()) *
-                      e::AngleAxisd(-norm_gradient(1), e::Vector3d::UnitY()) *
-                      e::AngleAxisd(-norm_gradient(2), e::Vector3d::UnitZ())
-                      ).axis();
-
-                /* -(gradient.topRightCorner(3,1).normalized()); */
-                const double error_rot_prev = error_total;
-                double error_rot_curr = error_total;
-                auto model_rotated_curr = model_curr;
-
-                const double m_rot_gradient = gradient.tail<3>().norm();
-                const double t_parameter = 0.5*m_rot_gradient;
-                double angle = 0.0;
-                int j=0;
-                /* double condition = std::numeric_limits<double>::max(); */
-
-                bool shrinking;
-                model_rotated_curr = model_curr.rotate(position_curr, p_step_axis,alpha_rot_step);
-                error_rot_curr = totalError(model_rotated_curr, observed_points, target, image_index, tocam_tf);
-                /* ROS_INFO_STREAM("[UVDARPoseCalculator]:  prev: "<< error_rot_prev << ", curr: " << error_rot_curr); */
-                if ((error_rot_prev-error_rot_curr) >= (alpha_rot_step*t_parameter)){
-                  shrinking = false;
-                }
-                else{
-                  shrinking = true;
-                }
-
-                bool backtracking_failed = false;
-                while (j < 10){
-                  j++;
-                  model_rotated_curr = model_curr.rotate(position_curr, p_step_axis,alpha_rot_step);
-                  error_rot_curr = totalError(model_rotated_curr, observed_points, target, image_index, tocam_tf);
-                  
-                  /* ROS_INFO_STREAM("[UVDARPoseCalculator]:  prev: "<< error_rot_prev << ", curr: " << error_rot_curr); */
-                  /* ROS_INFO_STREAM("[UVDARPoseCalculator]:  alpha_rot_step: "<< alpha_rot_step << ", t_parameter: " << t_parameter << ", product: " << alpha_rot_step*t_parameter); */
-                  if (!shrinking){
-                    if ((error_rot_prev-error_rot_curr) >= (alpha_rot_step*t_parameter)){
-                      /* ROS_INFO_STREAM("[UVDARPoseCalculator]:  growing"); */
-                      alpha_rot_step *= 2.0;
-                    }
-                    else {
-                      /* ROS_INFO_STREAM("[UVDARPoseCalculator]:  terminating"); */
-                      angle = alpha_rot_step*0.5;
-                      break;
-                    }
-                  }
-                  else {
-                    if ((error_rot_prev-error_rot_curr) < (alpha_rot_step*t_parameter)){
-                      /* ROS_INFO_STREAM("[UVDARPoseCalculator]:  shrinking"); */
-                      alpha_rot_step *= 0.5;
-                    }
-                    else {
-                      /* ROS_INFO_STREAM("[UVDARPoseCalculator]:  terminating"); */
-                      angle = alpha_rot_step;
-                      break;
-                    }
-                  }
-
-                  if (alpha_rot_step > 1.5){
-                    backtracking_failed = true;
-                    /* ROS_INFO_STREAM("[UVDARPoseCalculator]:  Breaking Armijo, step is extreme: " << alpha_rot_step); */
-                    break;
-                  }
-                  if (alpha_rot_step < 0.0001){
-                    /* backtracking_failed = true; */
-                    /* ROS_INFO_STREAM("[UVDARPoseCalculator]:  Breaking Armijo, step is too small: " << alpha_rot_step); */
-                    angle = alpha_rot_step*2.0;
-                    break;
-                  }
-                }
-                if (!backtracking_failed){
-                  orientation_curr = e::AngleAxisd(angle,p_step_axis)*orientation_curr;
-                  model_curr = model_curr.rotate(position_curr, p_step_axis,angle);
-                  error_total = totalError(model_curr, observed_points, target, image_index, tocam_tf, projected_points,_debug_);
-                  /* ROS_INFO_STREAM("[UVDARPoseCalculator]:  Moved the hypothesis by "<< rad2deg(angle) << "deg"); */
-                }
-                /* else { */
-                /* profiler.addValue("backtracking_failed"); */
-                /* } */
-
-                profiler.addValue("Orientation fitting - iter. "+std::to_string(j)+" (e="+std::to_string(error_total)+")");
-              }
-
-              if ((orientation_curr.angularDistance(orientation_start)) > (deg2rad(50))){
-                error_total = -1;
-                /* ROS_INFO_STREAM("[UVDARPoseCalculator]: Skipping hypothesis - fitting went too far."); */
+              iter++;
+              if (iter > MAX_MUTATION_REFINE_ITERATIONS){
                 break;
               }
-
-              iters++;
-              profiler.addValueSince("Iteration loop "+std::to_string(iters),loop_start);
-              }
-              profiler.unindent();
-
-              profiler.addValue("Main fitting loop (e="+std::to_string(error_total)+")");
-
-              profiler.addValue("Final operations");
-              
-            if (_debug_){
-              ROS_INFO_STREAM("[UVDARPoseCalculator]: Proj. points fitted:");
-              for (const auto& p : *projected_points){
-                ROS_INFO_STREAM("[UVDARPoseCalculator]: " << p.position.x << ":\t" << p.position.y << "; ID:" << p.ID);
-              }
             }
 
-              return {{.index = target,.pose={.position = position_curr, .orientation = orientation_curr}, .flag = verified, .updated=hypothesis.updated }, error_total};
+            if (_debug_)
+              ROS_INFO_STREAM("[UVDARPoseCalculator]: Iterations for mutation : "<< iter );
+
+            return output;
+
+          }
+
+          /* std::pair<Hypothesis, double> iterFitFull(const LEDModel& model, const std::vector<ImagePointIdentified>& observed_points, const Hypothesis& hypothesis, int target, int image_index, geometry_msgs::TransformStamped tocam_tf, Profiler &profiler) */
+          /* { */
+          /*   const auto start = profiler.getTime(); */
+
+          /*   ReprojectionContext rpc; */
+          /*   rpc.image_index=image_index; */
+          /*   rpc.tocam_tf=tocam_tf; */
+          /*   rpc.observed_points=observed_points; */
+          /*   rpc.target=target; */
+
+          /*   /1* if (_debug_) *1/ */
+          /*   /1*   ROS_INFO_STREAM("[UVDARPoseCalculator]: Refined hypotheses for target " << target << " in image " << image_index << ": "); *1/ */
+          /*   e::Vector3d position_curr = hypothesis.pose.position; */
+          /*   const e::Quaterniond orientation_start  = hypothesis.pose.orientation; */
+          /*   e::Quaterniond orientation_curr  = orientation_start; */
+          /*   auto model_curr = model.rotate(orientation_curr).translate(position_curr); */
+
+
+
+          /*   const double pos_step_init = 1.0; */
+          /*   const double angle_step_init = 0.1; */
+
+          /*   std::shared_ptr<std::vector<ImagePointIdentified>> projected_points = std::make_shared<std::vector<ImagePointIdentified>>(); */
+            
+          /*   rpc.model=model_curr; */
+          /*   double error_total = totalError(rpc, projected_points, _debug_); */
+
+          /*   if (_debug_){ */
+          /*     ROS_INFO_STREAM("[UVDARPoseCalculator]: Proj. points:"); */
+          /*     for (const auto& p : *projected_points){ */
+          /*       ROS_INFO_STREAM("[UVDARPoseCalculator]: " << p.position.x << ":\t" << p.position.y << "; ID:" << p.ID); */
+          /*     } */
+          /*   } */
+          /*   using vec6_t = e::Matrix<double, 6, 1>; */
+          /*   vec6_t gradient = std::numeric_limits<double>::max()*vec6_t::Ones(); */
+          /*   const double threshold = (double)(observed_points.size())*ERROR_THRESHOLD_FITTED(image_index); */
+          /*   if (_debug_) */
+          /*     ROS_INFO_STREAM("[UVDARPoseCalculator]: total error init: " << error_total); */
+          /*   profiler.addValueSince("Variable initialization, initial e="+std::to_string(error_total),start); */
+
+
+          /*   profiler.indent(); */
+          /*   int iters = 0; */
+          /*   double prev_error_total = error_total*1.5; */
+          /*   while ((error_total > (threshold)) && ((prev_error_total - error_total) > (prev_error_total*0.1)) && (iters < 2)){ */
+          /*     const auto loop_start = profiler.getTime(); */
+          /*     prev_error_total = error_total; */
+          /*     int grad_iter = 0; */
+          /*     for (int dim = 0; dim < 3; dim++){ */
+          /*       double pos_step = 0.1; */
+          /*       bool extreme = false; */
+          /*       int it=0; */
+          /*       double a_error = 0.0, b_error = 0.0; */
+          /*       while (it<1000){//get local position gradient */
+          /*         it++; */
+          /*         grad_iter++; */
+          /*         e::Vector3d grad_vec = e::Vector3d::Zero(); */
+          /*         grad_vec(dim) = pos_step; */
+          /*         const LEDModel shape_a = model_curr.translate(grad_vec); */
+          /*         const LEDModel shape_b = model_curr.translate(-grad_vec); */
+
+          /*         rpc.model=shape_a; */
+          /*         a_error = totalError(rpc); */
+          /*         rpc.model=shape_b; */
+          /*         b_error = totalError(rpc); */
+          /*         /1* ROS_INFO_STREAM("[UVDARPoseCalculator]:  1"); *1/ */
+          /*         if ( (pos_step > (0.01*pos_step_init)) && (sgn(b_error - error_total) == sgn(a_error - error_total))) { */
+          /*         /1* ROS_INFO_STREAM("[UVDARPoseCalculator]:  2"); *1/ */
+          /*           pos_step /= 2; */
+          /*           if (pos_step <= (0.01*pos_step_init)){ */
+          /*         /1* ROS_INFO_STREAM("[UVDARPoseCalculator]:  3"); *1/ */
+          /*             extreme = true; */
+          /*             break; */
+          /*           } */
+          /*           continue; */
+          /*         } */
+          /*         if (pos_step <= (0.01*pos_step_init)){ */
+          /*         /1* ROS_INFO_STREAM("[UVDARPoseCalculator]:  4"); *1/ */
+          /*           extreme = true; */
+          /*         } */
+          /*         /1* ROS_INFO_STREAM("[UVDARPoseCalculator]:  5"); *1/ */
+          /*         break; */
+          /*       } */
+
+          /*       if (!extreme) */
+          /*         gradient(dim) = ((a_error-b_error)/(2*pos_step))/((double)(observed_points.size())); */
+          /*       else */ 
+          /*         gradient(dim) = 0; */
+          /*     } */
+
+          /*     profiler.addValueSince("Position gradient (it:"+std::to_string(grad_iter)+",g="+std::to_string(gradient.head<3>().norm())+")",loop_start); */
+
+          /*     if ((gradient.head<3>().norm()) > (0.01)){//to check for extremes */
+          /*       double grad_norm = gradient.head<3>().norm(); */
+          /*       const double m_lin_gradient = grad_norm; */
+          /*       /1* const double t_parameter = -0.5*m_lin_gradient; *1/ */
+          /*       const double t_parameter = 0.5*m_lin_gradient; */
+          /*       double dist = 0.0; */
+          /*       const double lin_step_init = 0.01; */
+          /*       double alpha_lin_step = lin_step_init; */
+          /*       const e::Vector3d p_step_dir = -(gradient.head<3>().normalized()); */
+          /*       /1* const e::Vector3d p_step_dir = -(gradient.head<3>()); *1/ */
+          /*       const double error_shift_prev = error_total; */
+          /*       double error_shift_curr = error_total; */
+          /*       auto model_shifted_curr = model_curr; */
+          /*       const auto loop_start_gradient_descent = profiler.getTime(); */
+
+          /*       int j=0; */
+          /*       /1* double condition = std::numeric_limits<double>::max(); *1/ */
+
+          /*       bool shrinking; */
+          /*       model_shifted_curr = model_curr.translate(p_step_dir*alpha_lin_step); */
+
+          /*       rpc.model=model_shifted_curr; */
+          /*       error_shift_curr = totalError(rpc); */
+          /*       if ((error_shift_prev-error_shift_curr) >= (alpha_lin_step*t_parameter)){ */
+          /*         shrinking = false; */
+          /*       } */
+          /*       else{ */
+          /*         shrinking = true; */
+          /*       } */
+
+          /*       bool backtracking_failed = false; */
+          /*       /1* ROS_INFO_STREAM("[UVDARPoseCalculator]:  Starting Armijo"); *1/ */
+          /*       /1* ROS_INFO_STREAM("[UVDARPoseCalculator]:  Initial error: " << error_total); *1/ */
+          /*       /1* ROS_INFO_STREAM("[UVDARPoseCalculator]:  Initial direction: " << p_step_dir.transpose()); *1/ */
+          /*       /1* ROS_INFO_STREAM("[UVDARPoseCalculator]:  Gradient: " << gradient.head<3>().transpose()); *1/ */
+          /*       while (j < 100){ */
+          /*         j++; */
+          /*         model_shifted_curr = model_curr.translate(p_step_dir*alpha_lin_step); */
+          /*       rpc.model=model_shifted_curr; */
+          /*         error_shift_curr = totalError(rpc); */
+
+          /*         if (!shrinking){ */
+          /*           /1* ROS_INFO_STREAM("[UVDARPoseCalculator]:  grow?"); *1/ */
+          /*           /1* ROS_INFO_STREAM("[UVDARPoseCalculator]:  current erorr: " << error_shift_curr); *1/ */
+          /*           /1* ROS_INFO_STREAM("[UVDARPoseCalculator]:  compare: " << (error_shift_prev-error_shift_curr) << " vs " << (alpha_lin_step*t_parameter)); *1/ */
+          /*           /1* ROS_INFO_STREAM("[UVDARPoseCalculator]:  condition: " << ((error_shift_prev-error_shift_curr) - (alpha_lin_step*t_parameter))); *1/ */
+          /*           if ((error_shift_prev-error_shift_curr) >= (alpha_lin_step*t_parameter)){ */
+          /*             /1* ROS_INFO_STREAM("[UVDARPoseCalculator]:  growing"); *1/ */
+          /*             alpha_lin_step *= 2.0; */
+          /*           } */
+          /*           else { */
+          /*             /1* ROS_INFO_STREAM("[UVDARPoseCalculator]:  terminating"); *1/ */
+          /*             dist = alpha_lin_step*0.5; */
+          /*             break; */
+          /*           } */
+          /*         } */
+          /*         else { */
+          /*           /1* ROS_INFO_STREAM("[UVDARPoseCalculator]:  shrink?"); *1/ */
+          /*           /1* ROS_INFO_STREAM("[UVDARPoseCalculator]:  current erorr: " << error_shift_curr); *1/ */
+          /*           /1* ROS_INFO_STREAM("[UVDARPoseCalculator]:  compare: " << (error_shift_prev-error_shift_curr) << " vs " << (alpha_lin_step*t_parameter)); *1/ */
+          /*           /1* ROS_INFO_STREAM("[UVDARPoseCalculator]:  condition: " << ((error_shift_prev-error_shift_curr) - (alpha_lin_step*t_parameter))); *1/ */
+          /*           if ((error_shift_prev-error_shift_curr) < (alpha_lin_step*t_parameter)){ */
+          /*             /1* ROS_INFO_STREAM("[UVDARPoseCalculator]:  shrinking"); *1/ */
+          /*             alpha_lin_step *= 0.5; */
+          /*           } */
+          /*           else { */
+          /*             /1* ROS_INFO_STREAM("[UVDARPoseCalculator]:  terminating"); *1/ */
+          /*             dist = alpha_lin_step; */
+          /*             break; */
+          /*           } */
+          /*         } */
+
+          /*         if ((alpha_lin_step < 0.01) || (alpha_lin_step > 20)){ */
+          /*           backtracking_failed = true; */
+          /*           /1* ROS_INFO_STREAM("[UVDARPoseCalculator]:  Breaking Armijo, step is extreme."); *1/ */
+          /*           break; */
+          /*         } */
+          /*       } */
+          /*       if (!backtracking_failed){ */
+          /*         position_curr += p_step_dir*dist; */
+          /*         model_curr = model_curr.translate(p_step_dir*dist); */
+          /*         rpc.model=model_curr; */
+          /*         error_total = totalError(rpc);; */
+          /*         /1* ROS_INFO_STREAM("[UVDARPoseCalculator]:  Moved the hypothesis by "<< dist << "m"); *1/ */
+          /*       } */
+          /*       /1* ROS_INFO_STREAM("[UVDARPoseCalculator]:  Final error: " << error_total); *1/ */
+
+          /*       profiler.addValueSince("Position fitting - iter. "+std::to_string(j)+" (e="+std::to_string(error_total)+")",loop_start_gradient_descent); */
+          /*   } */
+
+          /*   /1* iters++; *1/ */
+          /*   /1* profiler.addValueSince("Iteration loop position "+std::to_string(iters),loop_start); *1/ */
+          /*   /1* } *1/ */
+
+          /*   /1* iters = 0; *1/ */
+
+          /*   /1* prev_error_total = error_total+(threshold); *1/ */
+          /*   /1* while ((error_total > (threshold*0.1)) && ((prev_error_total - error_total) > (prev_error_total*0.10)) && (iters < 50)){ *1/ */
+          /*     /1* const auto loop_start = profiler.getTime(); *1/ */
+          /*     const auto rot_steps = profiler.getTime(); */
+          /*     /1* prev_error_total = error_total; *1/ */
+          /*     grad_iter = 0; */
+          /*     for (int dim = 0; dim < 3; dim++){ */
+          /*       double angle_step = 0.1; */
+          /*       bool extreme = false; */
+          /*       int it=0; */
+          /*       double a_error = 0.0, b_error = 0.0; */
+          /*       while (it<1000){ */
+          /*         it++; */
+          /*         grad_iter++; */
+
+          /*         e::Vector3d grad_axis_vec = e::Vector3d::Zero(); */
+          /*         grad_axis_vec(dim) = 1; */
+          /*         const LEDModel shape_a = model_curr.rotate(position_curr,  orientation_curr*grad_axis_vec, angle_step); */
+          /*         const LEDModel shape_b = model_curr.rotate(position_curr,  orientation_curr*grad_axis_vec, -angle_step); */
+
+          /*         rpc.model=shape_a; */
+          /*         a_error = totalError(rpc); */
+          /*         /1* ROS_INFO_STREAM("[UVDARPoseCalculator]: ccw: " << a_error); *1/ */
+          /*         rpc.model=shape_b; */
+          /*         b_error = totalError(rpc); */
+          /*         /1* ROS_INFO_STREAM("[UVDARPoseCalculator]: cw: " << b_error); *1/ */
+
+          /*         if ( (angle_step > (0.1*angle_step_init)) && (sgn(b_error - error_total) == sgn(a_error - error_total))) { */
+          /*           angle_step /= 2; */
+          /*           if (angle_step <= (0.1*angle_step_init)){ */
+          /*             extreme = true; */
+          /*             break; */
+          /*           } */
+          /*           continue; */
+          /*         } */
+          /*         break; */
+          /*       } */
+
+          /*       if (!extreme) */
+          /*         gradient(3+dim) = ((a_error-b_error)/(2*angle_step))/((double)(observed_points.size())); */
+          /*       else */
+          /*         gradient(3+dim) = 0; */
+          /*     } */
+
+          /*     profiler.addValueSince("Orientation gradient (it:"+std::to_string(grad_iter)+",g="+std::to_string(gradient.head<3>().norm())+")", rot_steps); */
+
+          /*     if ((gradient.tail<3>().norm()) > (0.01)){//to check for extremes */
+          /*       const double rot_step_init = angle_step_init/2.0; */
+          /*       double alpha_rot_step = rot_step_init; */
+          /*       const e::Vector3d norm_gradient = gradient.tail<3>().normalized()*0.01;//small, to avoid cross-axis influence */
+          /*       const e::Vector3d p_step_axis = */
+          /*         e::AngleAxisd( */
+          /*             e::AngleAxisd(-norm_gradient(0), e::Vector3d::UnitX()) * */
+          /*             e::AngleAxisd(-norm_gradient(1), e::Vector3d::UnitY()) * */
+          /*             e::AngleAxisd(-norm_gradient(2), e::Vector3d::UnitZ()) */
+          /*             ).axis(); */
+
+          /*       /1* -(gradient.topRightCorner(3,1).normalized()); *1/ */
+          /*       const double error_rot_prev = error_total; */
+          /*       double error_rot_curr = error_total; */
+          /*       auto model_rotated_curr = model_curr; */
+
+          /*       const double m_rot_gradient = gradient.tail<3>().norm(); */
+          /*       const double t_parameter = 0.5*m_rot_gradient; */
+          /*       double angle = 0.0; */
+          /*       int j=0; */
+          /*       /1* double condition = std::numeric_limits<double>::max(); *1/ */
+
+          /*       bool shrinking; */
+          /*       model_rotated_curr = model_curr.rotate(position_curr, p_step_axis,alpha_rot_step); */
+          /*       rpc.model=model_rotated_curr; */
+          /*       error_rot_curr = totalError(rpc); */
+          /*       /1* ROS_INFO_STREAM("[UVDARPoseCalculator]:  prev: "<< error_rot_prev << ", curr: " << error_rot_curr); *1/ */
+          /*       if ((error_rot_prev-error_rot_curr) >= (alpha_rot_step*t_parameter)){ */
+          /*         shrinking = false; */
+          /*       } */
+          /*       else{ */
+          /*         shrinking = true; */
+          /*       } */
+
+          /*       bool backtracking_failed = false; */
+          /*       while (j < 10){ */
+          /*         j++; */
+          /*         model_rotated_curr = model_curr.rotate(position_curr, p_step_axis,alpha_rot_step); */
+          /*         rpc.model=model_rotated_curr; */
+          /*         error_rot_curr = totalError(rpc); */
+                  
+          /*         /1* ROS_INFO_STREAM("[UVDARPoseCalculator]:  prev: "<< error_rot_prev << ", curr: " << error_rot_curr); *1/ */
+          /*         /1* ROS_INFO_STREAM("[UVDARPoseCalculator]:  alpha_rot_step: "<< alpha_rot_step << ", t_parameter: " << t_parameter << ", product: " << alpha_rot_step*t_parameter); *1/ */
+          /*         if (!shrinking){ */
+          /*           if ((error_rot_prev-error_rot_curr) >= (alpha_rot_step*t_parameter)){ */
+          /*             /1* ROS_INFO_STREAM("[UVDARPoseCalculator]:  growing"); *1/ */
+          /*             alpha_rot_step *= 2.0; */
+          /*           } */
+          /*           else { */
+          /*             /1* ROS_INFO_STREAM("[UVDARPoseCalculator]:  terminating"); *1/ */
+          /*             angle = alpha_rot_step*0.5; */
+          /*             break; */
+          /*           } */
+          /*         } */
+          /*         else { */
+          /*           if ((error_rot_prev-error_rot_curr) < (alpha_rot_step*t_parameter)){ */
+          /*             /1* ROS_INFO_STREAM("[UVDARPoseCalculator]:  shrinking"); *1/ */
+          /*             alpha_rot_step *= 0.5; */
+          /*           } */
+          /*           else { */
+          /*             /1* ROS_INFO_STREAM("[UVDARPoseCalculator]:  terminating"); *1/ */
+          /*             angle = alpha_rot_step; */
+          /*             break; */
+          /*           } */
+          /*         } */
+
+          /*         if (alpha_rot_step > 1.5){ */
+          /*           backtracking_failed = true; */
+          /*           /1* ROS_INFO_STREAM("[UVDARPoseCalculator]:  Breaking Armijo, step is extreme: " << alpha_rot_step); *1/ */
+          /*           break; */
+          /*         } */
+          /*         if (alpha_rot_step < 0.0001){ */
+          /*           /1* backtracking_failed = true; *1/ */
+          /*           /1* ROS_INFO_STREAM("[UVDARPoseCalculator]:  Breaking Armijo, step is too small: " << alpha_rot_step); *1/ */
+          /*           angle = alpha_rot_step*2.0; */
+          /*           break; */
+          /*         } */
+          /*       } */
+          /*       if (!backtracking_failed){ */
+          /*         orientation_curr = e::AngleAxisd(angle,p_step_axis)*orientation_curr; */
+          /*         model_curr = model_curr.rotate(position_curr, p_step_axis,angle); */
+          /*         rpc.model=model_curr; */
+          /*         error_total = totalError(rpc, projected_points,_debug_); */
+          /*         /1* ROS_INFO_STREAM("[UVDARPoseCalculator]:  Moved the hypothesis by "<< rad2deg(angle) << "deg"); *1/ */
+          /*       } */
+          /*       /1* else { *1/ */
+          /*       /1* profiler.addValue("backtracking_failed"); *1/ */
+          /*       /1* } *1/ */
+
+          /*       profiler.addValue("Orientation fitting - iter. "+std::to_string(j)+" (e="+std::to_string(error_total)+")"); */
+          /*     } */
+
+          /*     if ((orientation_curr.angularDistance(orientation_start)) > (deg2rad(50))){ */
+          /*       error_total = -1; */
+          /*       /1* ROS_INFO_STREAM("[UVDARPoseCalculator]: Skipping hypothesis - fitting went too far."); *1/ */
+          /*       break; */
+          /*     } */
+
+          /*     iters++; */
+          /*     profiler.addValueSince("Iteration loop "+std::to_string(iters),loop_start); */
+          /*     } */
+          /*     profiler.unindent(); */
+
+          /*     profiler.addValue("Main fitting loop (e="+std::to_string(error_total)+")"); */
+
+          /*     profiler.addValue("Final operations"); */
+              
+          /*   if (_debug_){ */
+          /*     ROS_INFO_STREAM("[UVDARPoseCalculator]: Proj. points fitted:"); */
+          /*     for (const auto& p : *projected_points){ */
+          /*       ROS_INFO_STREAM("[UVDARPoseCalculator]: " << p.position.x << ":\t" << p.position.y << "; ID:" << p.ID); */
+          /*     } */
+          /*   } */
+
+          /*   Hypothesis hypo_new; */
+          /*   hypo_new.index = target; */
+          /*   hypo_new.pose = {.position = position_curr, .orientation = orientation_curr}; */
+          /*   hypo_new.flag = verified; */
+          /*   hypo_new.updated = hypothesis.updated; */
+
+          /*     return {hypo_new, error_total}; */
+      /* } */
+
+      double hypothesisError(Hypothesis &hypothesis, const ReprojectionContext rpc, std::shared_ptr<std::vector<ImagePointIdentified>> projected_points={}, bool return_projections=false, bool discrete_pixels=false){
+        if  ( rpc.target != hypothesis.index){
+          ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: Hypothesis " << hypothesis.unique_id << " has different ID of " << hypothesis.index << " compared to the target with id " << rpc.target);
+          return -1;
+        }
+
+        e::Vector3d position_curr = hypothesis.pose.position;
+        const e::Quaterniond orientation_curr  = hypothesis.pose.orientation;
+        auto model_curr = rpc.model.rotate(orientation_curr).translate(position_curr);
+        auto rpc_tr = rpc;
+        rpc_tr.model = model_curr;
+
+        double error_total = modelError(rpc_tr, projected_points, return_projections, discrete_pixels);
+        return error_total;
       }
 
+      double modelError(const ReprojectionContext rpc, std::shared_ptr<std::vector<ImagePointIdentified>> projected_points={}, bool return_projections=false, bool discrete_pixels=false){
 
-      double totalError(const LEDModel& model, std::vector<ImagePointIdentified> observed_points, int target, int image_index, geometry_msgs::TransformStamped tocam_tf, std::shared_ptr<std::vector<ImagePointIdentified>> projected_points={}, bool return_projections=false, bool discrete_pixels=false){
         struct ProjectedMarker {
           cv::Point2d position;
           /* int freq_id; */
@@ -2936,16 +3314,16 @@ namespace uvdar {
         }
 
         std::vector<ProjectedMarker> projected_markers;
-        for (auto marker : model){
+        for (auto marker : rpc.model){
           /* auto curr_projected =  camPointFromModelPoint(marker, image_index); */
-          auto curr_projected =  camPointFromGlobal(marker, image_index, tocam_tf);
+          auto curr_projected =  camPointFromGlobal(marker, rpc.image_index, rpc.tocam_tf);
 
           /* ROS_INFO_STREAM("[UVDARPoseCalculator]: marker: pos: " << marker.position.transpose() << " rot: " << quaternionToRPY(marker.orientation).transpose()  << " : " << (target*signals_per_target_)+marker.signal_id); */
           if (
               (std::get<0>(curr_projected).position.x>-0.5) && // edge of the leftmost pixel
               (std::get<0>(curr_projected).position.y>-0.5) && // edge of the topmost pixel
-              (std::get<0>(curr_projected).position.x<(_oc_models_[image_index].width + 0.5)) && // edge of the rightmost pixel
-              (std::get<0>(curr_projected).position.y<(_oc_models_[image_index].height+ 0.5)) // edge of the bottommost pixel
+              (std::get<0>(curr_projected).position.x<(_oc_models_[rpc.image_index].width + 0.5)) && // edge of the rightmost pixel
+              (std::get<0>(curr_projected).position.y<(_oc_models_[rpc.image_index].height+ 0.5)) // edge of the bottommost pixel
              ){
             projected_markers.push_back({
                 .position = std::get<0>(curr_projected).position,
@@ -3006,7 +3384,7 @@ namespace uvdar {
           }
         }
 
-        for (auto& obs_point : observed_points){
+        for (auto& obs_point : rpc.observed_points){
 
           /* ROS_INFO_STREAM("[UVDARPoseCalculator]: observed marker:  " << obs_point); */
           ProjectedMarker closest_projection;
@@ -3018,7 +3396,7 @@ namespace uvdar {
             /* ROS_INFO_STREAM("[UVDARPoseCalculator]: signal id:  " << (target*signals_per_target_)+proj_point.signal_id); */
             /* ROS_INFO_STREAM("[UVDARPoseCalculator]: signal ids size:  " << _signal_ids_.size()); */
             /* if (tent_signal_distance < (2.0/estimated_framerate_[image_index])){ */
-            if (_signal_ids_.at(((target%1000)*signals_per_target_)+proj_point.signal_id) == (int)(obs_point.ID)){
+            if (_signal_ids_.at(((rpc.target%1000)*signals_per_target_)+proj_point.signal_id) == (int)(obs_point.ID)){
               double tent_image_distance;
               if (!discrete_pixels){
                 tent_image_distance = cv::norm(proj_point.position - cv::Point2d(obs_point.position));
@@ -3045,162 +3423,180 @@ namespace uvdar {
           }
           }
 
-          total_error += (UNMATCHED_PROJECTED_POINT_PENALTY) * std::max(0,(int)(selected_markers.size() - observed_points.size()));
+          total_error += (UNMATCHED_PROJECTED_POINT_PENALTY) * std::max(0,(int)(selected_markers.size() - rpc.observed_points.size()));
           /* total_error += (UNMATCHED_OBSERVED_POINT_PENALTY) * std::max(0,(int)(observed_points.size() - selected_markers.size())); */
 
           return total_error;
         }
 
-        std::pair<std::pair<e::Vector3d, e::Quaterniond>,e::MatrixXd> getCovarianceEstimate(LEDModel model, std::vector<ImagePointIdentified> observed_points, std::pair<e::Vector3d, e::Quaterniond> pose, int target, int image_index, geometry_msgs::TransformStamped tocam_tf){
+        /* std::pair<std::pair<e::Vector3d, e::Quaterniond>,e::MatrixXd> getCovarianceEstimate(LEDModel model, std::vector<ImagePointIdentified> observed_points, std::pair<e::Vector3d, e::Quaterniond> pose, int target, int image_index, geometry_msgs::TransformStamped tocam_tf){ */
 
-          LEDModel model_local = model.rotate(pose.second).translate(pose.first);
+        /*   ReprojectionContext rpc; */
+        /*   rpc.target=target; */
+        /*   rpc.image_index=image_index; */
+        /*   rpc.tocam_tf=tocam_tf; */
+        /*   rpc.observed_points=observed_points; */
+        /*   rpc.model=model; */
 
-          e::MatrixXd output;
+        /*   /1* LEDModel model_local = model.rotate(pose.second).translate(pose.first); *1/ */
 
-          double trans_scale = 0.1;
-          /* rot_scale = 0.05; */
-          double rot_scale = 0.1;
-          /* auto Y0 = pose; */
-          /* e::MatrixXd Y(6,(3*3*3*3*3*3)); */
-          e::MatrixXd Y(6,(2*2*2*2*2*2+2*6));
-          std::vector<double> Xe;
+        /*   e::MatrixXd output; */
 
-          /* Y(0,0) = 0; */
-          /* Y(1,0) = 0; */
-          /* Y(2,0) = 0; */
-          /* Y(3,0) = 0; */
-          /* Y(4,0) = 0; */
-          /* Y(5,0) = 0; */
+        /*   double trans_scale = 0.1; */
+        /*   /1* rot_scale = 0.05; *1/ */
+        /*   double rot_scale = 0.1; */
+        /*   /1* auto Y0 = pose; *1/ */
+        /*   /1* e::MatrixXd Y(6,(3*3*3*3*3*3)); *1/ */
+        /*   e::MatrixXd Y(6,(2*2*2*2*2*2+2*6)); */
+        /*   std::vector<double> Xe; */
 
-          double error_init = totalError(model_local, observed_points, target, image_index, tocam_tf, {}, false, true);
-          /* ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: terror: " << Xe.back() << " at: [  0, 0, 0, 0, 0, 0  ]"); */
+        /*   /1* Y(0,0) = 0; *1/ */
+        /*   /1* Y(1,0) = 0; *1/ */
+        /*   /1* Y(2,0) = 0; *1/ */
+        /*   /1* Y(3,0) = 0; *1/ */
+        /*   /1* Y(4,0) = 0; *1/ */
+        /*   /1* Y(5,0) = 0; *1/ */
 
-          std::vector<int> j = {-1,1}; // for 6D, we need 21 independent samples. Accounting for point symmetry, this is 42. 6D hypercube has 64 vertices, which is sufficient.
-          int k = 0;
+        /*   /1* rpc.model=model_local; *1/ */
+        /*   /1* double error_init = totalError(rpc, {}, false, true); *1/ */
+        /*   Hypothesis hypo_new; */
+        /*   hypo_new.index = target; */
+        /*   hypo_new.pose = pose; */
+        /*   double error_init = hypothesisError(hypo_new, rpc, {}, false, true); */
+        /*   /1* ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: terror: " << Xe.back() << " at: [  0, 0, 0, 0, 0, 0  ]"); *1/ */
 
-          auto Y_rpy = quaternionToRPY(pose.second);
-          if (_debug_){
-            ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: RPY: [ R=" << Y_rpy(0)<< ", P=" << Y_rpy(1) << ", Y=" << Y_rpy(2) << " ]");
-          }
+        /*   std::vector<int> j = {-1,1}; // for 6D, we need 21 independent samples. Accounting for point symmetry, this is 42. 6D hypercube has 64 vertices, which is sufficient. */
+        /*   int k = 0; */
 
-          for (auto x_s : j){
-            for (auto y_s : j){
-              for (auto z_s : j){
-                for (auto roll_s : j){
-                  for (auto pitch_s : j){
-                    for (auto yaw_s : j){
-                      e::Quaterniond rotation(
-                          /* e::AngleAxisd(yaw_s*rot_scale,    camera_view_[image_index]*e::Vector3d(0,0,1)) * */
-                          /* e::AngleAxisd(pitch_s*rot_scale,  camera_view_[image_index]*e::Vector3d(0,1,0)) * */
-                          /* e::AngleAxisd(roll_s*rot_scale,   camera_view_[image_index]*e::Vector3d(1,0,0)) */
-                          e::AngleAxisd(yaw_s*rot_scale,    e::Vector3d(0,0,1)) *
-                          e::AngleAxisd(pitch_s*rot_scale,  e::Vector3d(0,1,0)) *
-                          e::AngleAxisd(roll_s*rot_scale,   e::Vector3d(1,0,0))
-                          );
-                      auto model_curr = model_local.rotate(pose.first,  rotation);
-                      model_curr = model_curr.translate(e::Vector3d(x_s, y_s, z_s)*trans_scale);
-
-                      Xe.push_back(abs(totalError(model_curr, observed_points, target, image_index, tocam_tf, {}, false, true)-error_init));
-                      if (_debug_){
-                        ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: terror: " << Xe.back() << " at: [ " << x_s<< ", " << y_s<< ", " << z_s << ", "<< roll_s<< ", " << pitch_s << ", " << yaw_s << " ]");
-                      }
-                      Y(0,k) = x_s*trans_scale;
-                      Y(1,k) = y_s*trans_scale;
-                      Y(2,k) = z_s*trans_scale;
-                      Y(3,k) = roll_s*rot_scale;
-                      Y(4,k) = pitch_s*rot_scale;
-                      Y(5,k) = yaw_s*rot_scale;
-                      /* } */
-                      k++;
-                  }
-                }
-              }
-            }
-          }
-        }
-
-        for (int i=0; i<6; i++){
-          std::vector<double> shifts(6,0.0);// X Y Z ROLL PITCH YAW
-          for (auto s : j){
-            shifts.at(i) = s;
-
-            e::Quaterniond rotation(
-                /* e::AngleAxisd(shifts.at(5)*rot_scale,    camera_view_[image_index]*e::Vector3d(0,0,1)) * */
-                /* e::AngleAxisd(shifts.at(4)*rot_scale,  camera_view_[image_index]*e::Vector3d(0,1,0)) * */
-                /* e::AngleAxisd(shifts.at(3)*rot_scale,   camera_view_[image_index]*e::Vector3d(1,0,0)) */
-                e::AngleAxisd(shifts.at(5)*rot_scale,    e::Vector3d(0,0,1)) *
-                e::AngleAxisd(shifts.at(4)*rot_scale,  e::Vector3d(0,1,0)) *
-                e::AngleAxisd(shifts.at(3)*rot_scale,   e::Vector3d(1,0,0))
-                );
-            auto model_curr = model_local.rotate(pose.first,  rotation);
-            model_curr = model_curr.translate(e::Vector3d(shifts.at(0), shifts.at(1), shifts.at(2))*trans_scale);
-
-            Xe.push_back(abs(totalError(model_curr, observed_points, target, image_index, tocam_tf, {}, false, true)-error_init));
-            if (_debug_){
-              ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: terror: " << Xe.back() << " at: [ " << shifts.at(0)<< ", " << shifts.at(1)<< ", " << shifts.at(2) << ", "<< shifts.at(3)<< ", " << shifts.at(4) << ", " << shifts.at(5) << " ]");
-            }
-            Y(0,k) = shifts.at(0)*trans_scale;
-            Y(1,k) = shifts.at(1)*trans_scale;
-            Y(2,k) = shifts.at(2)*trans_scale;
-            Y(3,k) = shifts.at(3)*rot_scale;
-            Y(4,k) = shifts.at(4)*rot_scale;
-            Y(5,k) = shifts.at(5)*rot_scale;
-
-            k++;
-
-          }
-        }
-
-
-        e::VectorXd W(Xe.size());
-        int i = 0;
-        double Wsum = 0;
-        for (auto xe : Xe){
-          /* ROS_INFO_STREAM("[UVDARPoseCalculator]: xe("<<i<<") = " << xe); */
-          if (xe < 0.00001)
-            W(i) = sqr(QPIX);
-          else
-            W(i) = (sqr(QPIX)/sqrt(xe));
-          Wsum += W(i);
-          /* if (W(i) > 0.1){ */
-          /* ROS_INFO_STREAM("[UVDARPoseCalculator]: W("<<i<<") = " << W(i)); */
-          /* } */
-          i++;
-        }
-        /* ROS_INFO_STREAM("[UVDARPoseCalculator]: Wsum: [\n" << Wsum << "\n]"); */
-        /* ROS_INFO_STREAM("[UVDARPoseCalculator]: W_orig: [\n" << W << "\n]"); */
-        W /= (Wsum);
-        /* W *= sqr(QPIX)*observed_points.size(); */
-        /* W *= sqr(0.8); */
-        /* ROS_INFO_STREAM("[UVDARPoseCalculator]: W: [\n" << W << "\n]"); */
-        /* auto y = Y*(W/Wsum); */
-        auto y = Y*W;
-        /* ROS_INFO_STREAM("[UVDARPoseCalculator]: y: [\n" << y << "\n]"); */
-        auto Ye = (Y-y.replicate(1,W.size()));
-        /* ROS_INFO_STREAM("[UVDARPoseCalculator]: Ye: [\n" << Ye << "\n]"); */
-
-        /* i=0; */
-        /* for (auto xe : Xe){ */
-        /*   if ((Ye*W(i)) > 0.1){ */
-        /*     ROS_ERROR_STREAM("[UVDARPoseCalculator]: W("<<i<<") = " << W(i)); */
+        /*   auto Y_rpy = quaternionToRPY(pose.second); */
+        /*   if (_debug_){ */
+        /*     ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: RPY: [ R=" << Y_rpy(0)<< ", P=" << Y_rpy(1) << ", Y=" << Y_rpy(2) << " ]"); */
         /*   } */
+
+        /*   for (auto x_s : j){ */
+        /*     for (auto y_s : j){ */
+        /*       for (auto z_s : j){ */
+        /*         for (auto roll_s : j){ */
+        /*           for (auto pitch_s : j){ */
+        /*             for (auto yaw_s : j){ */
+        /*               e::Quaterniond rotation( */
+        /*                   /1* e::AngleAxisd(yaw_s*rot_scale,    camera_view_[image_index]*e::Vector3d(0,0,1)) * *1/ */
+        /*                   /1* e::AngleAxisd(pitch_s*rot_scale,  camera_view_[image_index]*e::Vector3d(0,1,0)) * *1/ */
+        /*                   /1* e::AngleAxisd(roll_s*rot_scale,   camera_view_[image_index]*e::Vector3d(1,0,0)) *1/ */
+        /*                   e::AngleAxisd(yaw_s*rot_scale,    e::Vector3d(0,0,1)) * */
+        /*                   e::AngleAxisd(pitch_s*rot_scale,  e::Vector3d(0,1,0)) * */
+        /*                   e::AngleAxisd(roll_s*rot_scale,   e::Vector3d(1,0,0)) */
+        /*                   ); */
+        /*               Pose pose = {.position=pose.first+e::Vector3d(x_s, y_s, z_s)*trans_scale, .orientation=rotation}; */ 
+        /*               hypo_new.pose = pose; */
+
+        /*               /1* auto model_curr = model_local.rotate(pose.first,  rotation); *1/ */
+        /*               /1* model_curr = model_curr.translate(e::Vector3d(x_s, y_s, z_s)*trans_scale); *1/ */
+
+        /*               /1* rpc.model=model_curr; *1/ */
+
+        /*               Xe.push_back(abs(hypothesisError(hypo_new, rpc, {}, false, true)-error_init)); */
+        /*               if (_debug_){ */
+        /*                 ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: terror: " << Xe.back() << " at: [ " << x_s<< ", " << y_s<< ", " << z_s << ", "<< roll_s<< ", " << pitch_s << ", " << yaw_s << " ]"); */
+        /*               } */
+        /*               Y(0,k) = x_s*trans_scale; */
+        /*               Y(1,k) = y_s*trans_scale; */
+        /*               Y(2,k) = z_s*trans_scale; */
+        /*               Y(3,k) = roll_s*rot_scale; */
+        /*               Y(4,k) = pitch_s*rot_scale; */
+        /*               Y(5,k) = yaw_s*rot_scale; */
+        /*               /1* } *1/ */
+        /*               k++; */
+        /*           } */
+        /*         } */
+        /*       } */
+        /*     } */
+        /*   } */
+        /* } */
+
+        /* for (int i=0; i<6; i++){ */
+        /*   std::vector<double> shifts(6,0.0);// X Y Z ROLL PITCH YAW */
+        /*   for (auto s : j){ */
+        /*     shifts.at(i) = s; */
+
+        /*     e::Quaterniond rotation( */
+        /*         /1* e::AngleAxisd(shifts.at(5)*rot_scale,    camera_view_[image_index]*e::Vector3d(0,0,1)) * *1/ */
+        /*         /1* e::AngleAxisd(shifts.at(4)*rot_scale,  camera_view_[image_index]*e::Vector3d(0,1,0)) * *1/ */
+        /*         /1* e::AngleAxisd(shifts.at(3)*rot_scale,   camera_view_[image_index]*e::Vector3d(1,0,0)) *1/ */
+        /*         e::AngleAxisd(shifts.at(5)*rot_scale,    e::Vector3d(0,0,1)) * */
+        /*         e::AngleAxisd(shifts.at(4)*rot_scale,  e::Vector3d(0,1,0)) * */
+        /*         e::AngleAxisd(shifts.at(3)*rot_scale,   e::Vector3d(1,0,0)) */
+        /*         ); */
+        /*     auto model_curr = model_local.rotate(pose.first,  rotation); */
+        /*     model_curr = model_curr.translate(e::Vector3d(shifts.at(0), shifts.at(1), shifts.at(2))*trans_scale); */
+
+        /*     rpc.model=model_curr; */
+        /*     Xe.push_back(abs(totalError(rpc, {}, false, true)-error_init)); */
+        /*     if (_debug_){ */
+        /*       ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: terror: " << Xe.back() << " at: [ " << shifts.at(0)<< ", " << shifts.at(1)<< ", " << shifts.at(2) << ", "<< shifts.at(3)<< ", " << shifts.at(4) << ", " << shifts.at(5) << " ]"); */
+        /*     } */
+        /*     Y(0,k) = shifts.at(0)*trans_scale; */
+        /*     Y(1,k) = shifts.at(1)*trans_scale; */
+        /*     Y(2,k) = shifts.at(2)*trans_scale; */
+        /*     Y(3,k) = shifts.at(3)*rot_scale; */
+        /*     Y(4,k) = shifts.at(4)*rot_scale; */
+        /*     Y(5,k) = shifts.at(5)*rot_scale; */
+
+        /*     k++; */
+
+        /*   } */
+        /* } */
+
+
+        /* e::VectorXd W(Xe.size()); */
+        /* int i = 0; */
+        /* double Wsum = 0; */
+        /* for (auto xe : Xe){ */
+        /*   /1* ROS_INFO_STREAM("[UVDARPoseCalculator]: xe("<<i<<") = " << xe); *1/ */
+        /*   if (xe < 0.00001) */
+        /*     W(i) = sqr(QPIX); */
+        /*   else */
+        /*     W(i) = (sqr(QPIX)/sqrt(xe)); */
+        /*   Wsum += W(i); */
+        /*   /1* if (W(i) > 0.1){ *1/ */
+        /*   /1* ROS_INFO_STREAM("[UVDARPoseCalculator]: W("<<i<<") = " << W(i)); *1/ */
+        /*   /1* } *1/ */
         /*   i++; */
         /* } */
+        /* /1* ROS_INFO_STREAM("[UVDARPoseCalculator]: Wsum: [\n" << Wsum << "\n]"); *1/ */
+        /* /1* ROS_INFO_STREAM("[UVDARPoseCalculator]: W_orig: [\n" << W << "\n]"); *1/ */
+        /* W /= (Wsum); */
+        /* /1* W *= sqr(QPIX)*observed_points.size(); *1/ */
+        /* /1* W *= sqr(0.8); *1/ */
+        /* /1* ROS_INFO_STREAM("[UVDARPoseCalculator]: W: [\n" << W << "\n]"); *1/ */
+        /* /1* auto y = Y*(W/Wsum); *1/ */
+        /* auto y = Y*W; */
+        /* /1* ROS_INFO_STREAM("[UVDARPoseCalculator]: y: [\n" << y << "\n]"); *1/ */
+        /* auto Ye = (Y-y.replicate(1,W.size())); */
+        /* /1* ROS_INFO_STREAM("[UVDARPoseCalculator]: Ye: [\n" << Ye << "\n]"); *1/ */
 
-        auto P = Ye*W.asDiagonal()*Ye.transpose();
-        /* e::JacobiSVD<e::MatrixXd> svd(P, e::ComputeThinU | e::ComputeThinV); */
-        /* if (P.topLeftCorner(3,3).determinant() > 0.001){ */
+        /* /1* i=0; *1/ */
+        /* /1* for (auto xe : Xe){ *1/ */
+        /* /1*   if ((Ye*W(i)) > 0.1){ *1/ */
+        /* /1*     ROS_ERROR_STREAM("[UVDARPoseCalculator]: W("<<i<<") = " << W(i)); *1/ */
+        /* /1*   } *1/ */
+        /* /1*   i++; *1/ */
+        /* /1* } *1/ */
 
-        /* ROS_INFO_STREAM("[UVDARPoseCalculator]: P: [\n" << P << "\n]"); */
-        /* ROS_INFO_STREAM("[UVDARPoseCalculator]: P determinant: [\n" << P.topLeftCorner(3,3).determinant() << "\n]"); */
-        /* ROS_INFO_STREAM("[UVDARPoseCalculator]: Singular values: [\n" << svd.singularValues() << "\n]"); */
-        /* ROS_INFO_STREAM("[UVDARPoseCalculator]: Matrix V: [\n" << svd.matrixV() << "\n]"); */
+        /* auto P = Ye*W.asDiagonal()*Ye.transpose(); */
+        /* /1* e::JacobiSVD<e::MatrixXd> svd(P, e::ComputeThinU | e::ComputeThinV); *1/ */
+        /* /1* if (P.topLeftCorner(3,3).determinant() > 0.001){ *1/ */
+
+        /* /1* ROS_INFO_STREAM("[UVDARPoseCalculator]: P: [\n" << P << "\n]"); *1/ */
+        /* /1* ROS_INFO_STREAM("[UVDARPoseCalculator]: P determinant: [\n" << P.topLeftCorner(3,3).determinant() << "\n]"); *1/ */
+        /* /1* ROS_INFO_STREAM("[UVDARPoseCalculator]: Singular values: [\n" << svd.singularValues() << "\n]"); *1/ */
+        /* /1* ROS_INFO_STREAM("[UVDARPoseCalculator]: Matrix V: [\n" << svd.matrixV() << "\n]"); *1/ */
+        /* /1* } *1/ */
+
+
+        /* /1* output.setIdentity(6,6); *1/ */
+        /* return {{pose.first+e::Vector3d(y(0,0), y(1,0), y(2,0)),pose.second},P}; */
         /* } */
-
-
-        /* output.setIdentity(6,6); */
-        return {{pose.first+e::Vector3d(y(0,0), y(1,0), y(2,0)),pose.second},P};
-        }
 
         //Implemented based on "Generalised Covariance Union: A Unified Approach to Hypothesis Merging in Tracking" by STEVEN REECE and STEPHEN ROBERTS
         //and
@@ -3362,11 +3758,15 @@ namespace uvdar {
 
 
         std::optional<std::pair<Pose,e::MatrixXd>> getMeasurementElipsoidHull(AssociatedHypotheses meas){
+          if (_debug_)
+            ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: Hypo count: " << meas.hypotheses.size());
           if (meas.hypotheses.size() < 1){
             ROS_ERROR_STREAM("[UVDARPoseCalculator]: No hypotheses provided. Returning!");
             return std::nullopt;
           }
 
+          if (_debug_)
+            ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: Verified count: " << meas.verified_count);
           if (meas.verified_count < 1){
             ROS_ERROR_STREAM("[UVDARPoseCalculator]: No verified hypotheses provided. Returning!");
             return std::nullopt;
@@ -3388,6 +3788,9 @@ namespace uvdar {
             return output;
           }
 
+          if (_debug_)
+            ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: Verified count: " << meas.verified_count);
+
           // position
           std::vector<e::Vector3d> meas_pos;
 
@@ -3401,6 +3804,8 @@ namespace uvdar {
           }
           mean_pos /= ((double)(meas.hypotheses.size()));
           std::vector<e::Vector3d> meas_pos_diff;
+          if (_debug_)
+            ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: Verified count: " << meas.verified_count);
 
           // orientation
           e::Quaterniond mean_rot = getAverageOrientation(meas.getVerified());
@@ -3413,9 +3818,34 @@ namespace uvdar {
             }
           }
 
+          if (_debug_)
+            ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: Verified count: " << meas.verified_count);
+
+          if (_debug_){
+            if (meas_pos_diff.size() > 0)
+              ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: meas_pos_diff: " << meas_pos_diff.at(0));
+            else
+              ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: meas_pos_diff is empty");
+          }
           /* auto Hp = get3DEnclosingEllipsoid(meas_pos_diff,0.001); */
           auto Hp = get3DEnclosingEllipsoid(meas_pos_diff);
+          if ( (Hp.first.array().isNaN().any()) ||(Hp.second.array().isNaN().any()) ){
+            ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: Position ellipsoid contains NaNs, returning...");
+            return std::nullopt;
+          }
+
+          if (_debug_){
+            if (meas_rpy_diff.size() > 0)
+              ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: meas_rpy_diff: " << meas_rpy_diff.at(0));
+            else
+              ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: meas_rpy_diff is empty");
+          }
+
           auto Ho = get3DEnclosingEllipsoid(meas_rpy_diff);
+          if ( (Ho.first.array().isNaN().any()) ||(Ho.second.array().isNaN().any()) ){
+            ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: Orientation ellipsoid contains NaNs, returning...");
+            return std::nullopt;
+          }
           
           e::Vector3d mean_pos_shift = Hp.first;
           
@@ -3486,6 +3916,8 @@ namespace uvdar {
           int d = 3;
           double n = (double)(d+1);
           int N = (int)(Pv.size());
+
+          /* ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: N " << N); */
           e::MatrixXd P = stdVecOfVectorsToMatrix(Pv);
 
           e::MatrixXd Q = e::MatrixXd::Constant(4,N,1.0);
@@ -3580,8 +4012,15 @@ namespace uvdar {
 
 
             int jp, jm;
+            /* ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: A"); */
+            /* ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: X " << X); */
+            /* ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: Q " << Q); */
+            /* ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: u " << u); */
+            /* ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: m " << m); */
             double maximum = m.maxCoeff(&jp);
+            /* ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: B"); */
             double minimum = m.minCoeff(&jm);
+            /* ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: C"); */
             double eps_plus = ((maximum/n) - 1.0);
             double eps_minus = (1.0 - (minimum/n));
 
@@ -4104,6 +4543,14 @@ namespace uvdar {
         }
 
         //}
+        //
+
+        ros::Time newer(ros::Time a, ros::Time b){
+          if (a > b)
+            return a;
+          else
+            return b;
+        }
 
 
         /* Conversions of rotation matrices to aviation angles //{ */
@@ -4204,6 +4651,7 @@ namespace uvdar {
         ros::Publisher pub_measured_poses_;
         /* std::vector<ros::Publisher> pub_constituent_poses_; */
         ros::Publisher pub_hypotheses_;
+        ros::Publisher pub_hypotheses_tentative_;
 
         std::vector<int> _signal_ids_;
         int signals_per_target_;
@@ -4256,6 +4704,7 @@ namespace uvdar {
         std::mutex input_mutex;
         std::mutex hypothesis_mutex;
         std::mutex transformer_mutex;
+        std::mutex threadconfig_mutex;
         mrs_lib::Transformer transformer_;
         /* std::vector<std::optional<geometry_msgs::TransformStamped>> tf_fcu_to_cam; */
         /* std::vector<e::Quaterniond> camera_view_; */
@@ -4263,7 +4712,8 @@ namespace uvdar {
         /* e::Quaterniond rot_base_to_optical = e::Quaterniond(0.5,0.5,-0.5,0.5); */
         /* e::Quaterniond rot_optical_to_base = e::Quaterniond(0.5,-0.5,0.5,-0.5); */
 
-        std::unique_ptr<mrs_lib::MRSTimer>  initializer_thread_=nullptr;
+        std::unique_ptr<mrs_lib::ThreadTimer>  initializer_thread_=nullptr;
+        std::unique_ptr<mrs_lib::ThreadTimer>  particle_filtering_thread_=nullptr;
         ros::Timer timer_initializer_;
         ros::Timer timer_particle_filter_;
 
