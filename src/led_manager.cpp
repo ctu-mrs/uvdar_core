@@ -183,6 +183,7 @@ namespace uvdar {
 
 
         unsigned char i = 0;
+        ros::Duration local_sleeper(0.25 + 0.1*(sequences_[0].size()));
         for (auto sq : sequences_){
           serial_msg.payload.clear();
           serial_msg.payload.push_back(0x99); //write sequences
@@ -196,7 +197,8 @@ namespace uvdar {
 
           /* if (i == 3) */
           baca_protocol_publisher.publish(serial_msg);
-          sleeper.sleep();
+
+          local_sleeper.sleep();
           i++;
         }
 
