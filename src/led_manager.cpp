@@ -408,8 +408,19 @@ namespace uvdar {
         /* uvdar_core::SetIntIndex::Request ind_req; */
         /* uvdar_core::SetIntIndex::Response ind_res; */
         /* ind_req.value = req.value; */
-        callbackSelectSingleSequence(req,res);
+        /* callbackSelectSingleSequence(req,res); */
+        uvdar_core::SetInts::Request req_seqences;
+        uvdar_core::SetInts::Response res_seqences;
+        unsigned char val = (unsigned char)(req.value);
+        req_seqences.value.push_back(4*val+0);
+        req_seqences.value.push_back(4*val+1);
+        req_seqences.value.push_back(4*val+2);
+        req_seqences.value.push_back(4*val+3);
+        callbackSelectSequences(req_seqences, res_seqences);
 
+        res.success = true;
+        char message[100];
+        sprintf(message, "Quickstart done. Sequences set to [%d,%d,%d,%d].", 4*val+0, 4*val+1, 4*val+2, 4*val+3); 
         return true;
       }
 
