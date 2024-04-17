@@ -310,10 +310,10 @@ namespace uvdar{
     /***** AMI params *****/
     param_loader.loadParam("max_px_shift_x", _max_px_shift_.x, int(2));
     param_loader.loadParam("max_px_shift_y", _max_px_shift_.y, int(2));
-    param_loader.loadParam("max_zeros_consecutive", _max_zeros_consecutive_, int(2));
-    param_loader.loadParam("stored_seq_len_factor", _stored_seq_len_factor_, int(15));
+    param_loader.loadParam("max_zeros_consecutive", _max_zeros_consecutive_, int(10));
+    param_loader.loadParam("stored_seq_len_factor", _stored_seq_len_factor_, int(20));
     param_loader.loadParam("max_buffer_length", _max_buffer_length_, int(1000));
-    param_loader.loadParam("poly_order", _poly_order_, int(2));
+    param_loader.loadParam("poly_order", _poly_order_, int(4));
     param_loader.loadParam("decay_factor", _decay_factor_, float(0.1));
     param_loader.loadParam("confidence_probability", _conf_probab_percent_, double(75.0));
     param_loader.loadParam("allowed_BER_per_seq", _allowed_BER_per_seq_, int(0));
