@@ -4,7 +4,6 @@ sources:
     name: ami
     rev: master
     type: git
-    params:
     sparse_paths:
       -
     links:
@@ -12,3 +11,18 @@ sources:
         target: include/ami
     scripts:
       - git submodule update --init --recursive
+sources_locked:
+  - repo: https://github.com/TimLakemann/ami.git
+    name: ami
+    rev: 59402d1844ea8ae24ef0dc4a5d9fce5bb55e80a4
+    type: git
+    sparse_paths:
+      -
+    links:
+      - source: ''
+        target: include/ami
+    scripts:
+      - git submodule update --init --recursive
+default_group: ''
+groups:
+  -

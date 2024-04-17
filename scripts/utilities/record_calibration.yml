@@ -10,20 +10,20 @@ windows:
   - roscore:
       layout: even-vertical
       panes:
-        - sleep 4; roscore
+        - sleep 5; roscore
   - directories:
       layout: even-vertical
       panes: 
-        - sleep 2; devnum=`cat devnum.txt`; mkdir ~/bag_files; mkdir ~/bag_files/uvdar_calib/; mkdir ~/bag_files/uvdar_calib/${devnum}
+        - sleep 6; devnum=`cat devnum.txt`; mkdir ~/bag_files; mkdir ~/bag_files/uvdar_calib/; mkdir ~/bag_files/uvdar_calib/${devnum}
   - bluefox:
       layout: even-vertical
       panes:
-        - waitForRos; devnum=`cat devnum.txt`; roslaunch bluefox2 single_nodelet.launch aec:=false agc:=false expose_us:=50 camera:=cam device:=${devnum} 
+        - sleep 6; devnum=`cat devnum.txt`; roslaunch bluefox2 single_nodelet.launch aec:=false agc:=false expose_us:=500 camera:=cam device:=${devnum} 
   - recording:
       layout: even-vertical
       panes:
-        - waitForRos; sleep 1; devnum=`cat devnum.txt`; rosbag record -a -x '(.*)compressed(.*)' -x '(.*)theora(.*)' -O ~/bag_files/uvdar_calib/${devnum}/C_${devnum}.bag
+        - sleep 6; sleep 1; devnum=`cat devnum.txt`; rosbag record -a -x '(.*)compressed(.*)' -x '(.*)theora(.*)' -O ~/bag_files/uvdar_calib/${devnum}/C_${devnum}.bag
   - termviz: 
       layout: even-vertical
       panes:
-        - waitForRos; sleep 2; termviz record_calibration_termviz.yml 
+        - sleep 6; sleep 2; termviz record_calibration_termviz.yml 
