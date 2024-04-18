@@ -275,6 +275,16 @@
 
       <param name="blink_process_rate"         type="int" value="$(arg blink_process_rate)"/>
 
+      <param name="max_px_shift_x"          type="int"    value="$(arg max_px_shift_x)"/>
+      <param name="max_px_shift_y"          type="int"    value="$(arg max_px_shift_y)"/>
+      <param name="max_zeros_consecutive"   type="int"    value="$(arg max_zeros_consecutive)"/>
+      <param name="stored_seq_len_factor"   type="int"    value="$(arg stored_seq_len_factor)"/>  
+      <param name="max_buffer_length"       type="int"    value="$(arg max_buffer_length)"/>  
+      <param name="poly_order"              type="int"    value="$(arg poly_order)"/>
+      <param name="decay_factor"            type="double" value="$(arg decay_factor)"/>    
+      <param name="confidence_probability"  type="double" value="$(arg confidence_probability)"/>
+      <param name="allowed_BER_per_seq"     type="int"    value="$(arg allowed_BER_per_seq)"/>
+     
       <param name="accumulator_length"         type="int" value="$(arg accumulator_length)"/>
       <param name="pitch_steps"         type="int" value="$(arg pitch_steps)"/>
       <param name="yaw_steps"         type="int" value="$(arg yaw_steps)"/>
