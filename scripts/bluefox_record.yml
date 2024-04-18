@@ -1,0 +1,18 @@
+name: simulation
+root: ./
+startup_window: launch
+pre_window: UAV_NAME=uav1
+windows:
+        # - roscore
+  - launch:
+      layout: even-vertical
+      panes:
+        - roslaunch uvdar_core rw_one_sided.launch
+  - rqt_image_view:
+      layout: even-vertical
+      panes:
+        - rqt_image_view
+  - record:
+      layout: even-vertical
+      panes:
+        - waitForRos; sleep 3; rosbag record -a
