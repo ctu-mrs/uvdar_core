@@ -38,6 +38,15 @@
   <arg name="jpeg_quality" default="90"/>
 
   <arg name="blink_process_rate" default="10"/>
+  <arg name="max_px_shift_y" default="3"/>
+  <arg name="max_px_shift_x" default="3"/>
+  <arg name="max_zeros_consecutive" default="10"/>
+  <arg name="stored_seq_len_factor" default="20"/>
+  <arg name="max_buffer_length" default="5000"/>
+  <arg name="poly_order" default="4"/>
+  <arg name="decay_factor" default="0.1"/>
+  <arg name="confidence_probability" default="95.0"/>
+  <arg name="allowed_BER_per_seq" default="0"/>
 
   <arg name="accumulator_length"         default="14"/>
   <arg name="pitch_steps"         default="16"/>

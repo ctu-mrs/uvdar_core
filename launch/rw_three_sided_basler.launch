@@ -44,11 +44,10 @@
   <!--AMI values-->
   <arg name="max_px_shift_y" default="3"/>
   <arg name="max_px_shift_x" default="3"/>
-  <arg name="max_zeros_consecutive" default="2"/>
-  <arg name="max_ones_consecutive" default="2"/>
-  <arg name="stored_seq_len_factor" default="1"/>
+  <arg name="max_zeros_consecutive" default="10"/>
+  <arg name="stored_seq_len_factor" default="20"/>
   <arg name="max_buffer_length" default="5000"/>
-  <arg name="poly_order" default="2"/>
+  <arg name="poly_order" default="4"/>
   <arg name="decay_factor" default="0.1"/>
   <arg name="confidence_probability" default="95.0"/>
   <arg name="allowed_BER_per_seq" default="0"/>
@@ -90,19 +89,6 @@
   <arg name="id21" value="20"/>
 
   <arg name="sequence_file" default="$(find uvdar_core)/config/selected.txt"/>
-
-<!-- Params for Tim's BP_Processor-->
-  <arg name="max_px_shift_x" default="2"/>
-  <arg name="max_px_shift_y" default="2"/>
-  <arg name="max_zeros_consecutive" default="2"/>
-  <arg name="max_ones_consecutive" default="2"/>
-  <arg name="stored_seq_len_factor" default="15"/>
-  <arg name="poly_order" default="4"/>
-  <arg name="decay_factor" default="0.01"/>
-  <arg name="confidence_probability" default="95.0"/>
-  <arg name="frame_tolerance" default="5"/>
-  <arg name="allowed_BER_per_seq" default="0"/>
-
 
   <!-- Model settings: -->
 
@@ -238,7 +224,6 @@
       <param name="max_px_shift_x"          type="int"    value="$(arg max_px_shift_x)"/>
       <param name="max_px_shift_y"          type="int"    value="$(arg max_px_shift_y)"/>
       <param name="max_zeros_consecutive"   type="int"    value="$(arg max_zeros_consecutive)"/>
-      <param name="max_ones_consecutive"    type="int"    value="$(arg max_ones_consecutive)"/>
       <param name="stored_seq_len_factor"   type="int"    value="$(arg stored_seq_len_factor)"/>  
       <param name="max_buffer_length"       type="int"    value="$(arg max_buffer_length)"/>  
       <param name="poly_order"              type="int"    value="$(arg poly_order)"/>
