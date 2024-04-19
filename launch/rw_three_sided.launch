@@ -22,7 +22,7 @@
 
   <arg name="calibrations_folder" default="$(find mrs_uav_deployment)/config/uvdar_calibrations"/>
 
-  <arg name="camera_rate" default="60"/>
+  <arg name="camera_rate" default="59.90"/>
   <arg name="fps" default="$(arg camera_rate)"/>
   <arg name="idpf" default="0"/>
   <arg name="aec" default="false"/>
@@ -262,8 +262,8 @@
     <node name="blink_processor" pkg="nodelet" type="nodelet" args="$(arg nodelet) uvdar/UVDARBlinkProcessor $(arg nodelet_manager)" output="screen" respawn="true"> 
     <!-- <node name="blink_processor" pkg="nodelet" type="nodelet" args="$(arg nodelet) uvdar/UVDARBlinkProcessor $(arg nodelet_manager)" output="screen" respawn="true" launch-prefix="roslaunch_debug"> --> 
       <param name="uav_name" type = "string" value="$(arg uav_name)"/>
-      <!-- <param name="debug"		type="bool" value="$(arg debug)"/> --> 
-      <param name="debug"		type="bool" value="false"/> 
+      <param name="debug"		type="bool" value="$(arg debug)"/> 
+      <!-- <param name="debug"		type="bool" value="true"/> --> 
       <param name="visual_debug"		type="bool" value="$(arg visual_debug)"/> 
       <param name="gui"             type="bool" value="$(arg gui)"/>
       <param name="publish_visualization"         type="bool" value="$(arg publish_visualization)"/>
