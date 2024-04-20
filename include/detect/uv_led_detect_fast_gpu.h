@@ -188,7 +188,7 @@ int run_fast(int radius)
 
 void main()
 {
-    if (atomicCounter(markers_count) >= uint(MAX_MARKERS_COUNT) || atomicCounter(sun_pts_count) >= uint(MAX_SUN_PTS_COUNT)) {
+    if (atomicCounter(markers_count) >= uint(MAX_MARKERS_COUNT)) {
         return;
     }
 
@@ -203,7 +203,8 @@ void main()
                 markers[atomicCounterIncrement(markers_count)] = ((uint(center_pos.x) & uint(0x0000FFFF)) << 16) | (uint(center_pos.y) & uint(0x0000FFFF));
                 break;
             case FAST_RESULT_SUN:
-                sun_pts[atomicCounterIncrement(sun_pts_count)] = ((uint(center_pos.x) & uint(0x0000FFFF)) << 16) | (uint(center_pos.y) & uint(0x0000FFFF));
+                if (atomicCounter(sun_pts_count) < uint(MAX_SUN_PTS_COUNT))
+                  sun_pts[atomicCounterIncrement(sun_pts_count)] = ((uint(center_pos.x) & uint(0x0000FFFF)) << 16) | (uint(center_pos.y) & uint(0x0000FFFF));
                 break;
             case FAST_RESULT_NONE:
                 switch (run_fast(4)) {
@@ -211,7 +212,8 @@ void main()
                         markers[atomicCounterIncrement(markers_count)] = ((uint(center_pos.x) & uint(0x0000FFFF)) << 16) | (uint(center_pos.y) & uint(0x0000FFFF));
                         break;
                     case FAST_RESULT_SUN:
-                        sun_pts[atomicCounterIncrement(sun_pts_count)] = ((uint(center_pos.x) & uint(0x0000FFFF)) << 16) | (uint(center_pos.y) & uint(0x0000FFFF));
+                        if (atomicCounter(sun_pts_count) < uint(MAX_SUN_PTS_COUNT))
+                          sun_pts[atomicCounterIncrement(sun_pts_count)] = ((uint(center_pos.x) & uint(0x0000FFFF)) << 16) | (uint(center_pos.y) & uint(0x0000FFFF));
                         break;
                     case FAST_RESULT_NONE:
                         break;
