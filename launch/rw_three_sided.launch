@@ -8,7 +8,6 @@
   <arg unless="$(arg standalone)" name="nodelet_manager" value="$(arg uav_name)_uvdar_nodelet_manager"/>
   <arg     if="$(arg standalone)" name="nodelet_manager" value=""/>
 
-  <arg name="threshold" default="50"/>
 
   <arg name="left" default="$(optenv BLUEFOX_UV_LEFT)"/>
   <arg name="right" default="$(optenv BLUEFOX_UV_RIGHT)"/>
@@ -37,7 +36,15 @@
   <arg name="mm" default="0"/>
   <arg name="jpeg_quality" default="90"/>
 
+  <!-- Point detector settings: -->
+  <arg name="threshold" default="50"/>
+  
+  <!-- Blink processor settings: -->
   <arg name="blink_process_rate" default="10"/>
+  
+  <!--AMI values-->
+  <arg name="pub_tracking_stats" default="false"/>
+  <arg name="draw_predict_window_sec" default="0.0"/>
   <arg name="max_px_shift_y" default="3"/>
   <arg name="max_px_shift_x" default="3"/>
   <arg name="max_zeros_consecutive" default="10"/>
@@ -48,6 +55,8 @@
   <arg name="confidence_probability" default="95.0"/>
   <arg name="allowed_BER_per_seq" default="0"/>
 
+  <!--4DHT values-->
+  <arg name="use_4DHT" default="false"/>
   <arg name="accumulator_length"         default="14"/>
   <arg name="pitch_steps"         default="16"/>
   <arg name="yaw_steps"         default="16"/>
@@ -275,6 +284,10 @@
 
       <param name="blink_process_rate"         type="int" value="$(arg blink_process_rate)"/>
 
+      <param name="pub_tracking_stats"      type="bool" value="$(arg pub_tracking_stats)"/>
+      <param name="draw_predict_window_sec"  type="double" value="$(arg draw_predict_window_sec)"/>
+      <param name="use_4DHT"             type="bool" value="$(arg use_4DHT)"/>
+    
       <param name="max_px_shift_x"          type="int"    value="$(arg max_px_shift_x)"/>
       <param name="max_px_shift_y"          type="int"    value="$(arg max_px_shift_y)"/>
       <param name="max_zeros_consecutive"   type="int"    value="$(arg max_zeros_consecutive)"/>
@@ -296,8 +309,8 @@
       <rosparam param="blinkers_seen_topics"> ["blinkers_seen_left", "blinkers_seen_right", "blinkers_seen_back"] </rosparam>
       <rosparam param="estimated_framerate_topics"> ["estimated_framerate_left", "estimated_framerate_right", "estimated_framerate_back"] </rosparam>
 
-      <rosparam param="omta_logging_topics"> ["omta_logging_left", "omta_logging_right", "omta_logging_back"] </rosparam>
-      <rosparam param="omta_all_seq_info_topics"> ["omta_all_seq_info_left", "omta_all_seq_info_right", "omta_all_seq_info_back"] </rosparam>
+      <rosparam param="ami_logging_topics"> ["ami_logging_left", "ami_logging_right", "ami_logging_back"] </rosparam>
+      <rosparam param="ami_all_seq_info_topics"> ["ami_all_seq_info_left", "ami_all_seq_info_right", "ami_all_seq_info_back"] </rosparam>
 
       <remap from="~camera_left" to="/$(arg uav_name)/uvdar_bluefox/left/image_raw"/>
       <remap from="~camera_right" to="/$(arg uav_name)/uvdar_bluefox/right/image_raw"/>
@@ -312,14 +325,13 @@
       <remap from="~estimated_framerate_right" to="/$(arg uav_name)/uvdar/estimated_framerate_right"/>
       <remap from="~estimated_framerate_back" to="/$(arg uav_name)/uvdar/estimated_framerate_back"/>
       <!-- <remap from="~visualization" to="/$(arg uav_name)/uvdar/blink_visualization/image_raw"/> -->
-
-      <remap from="~omta_logging_left" to="/$(arg uav_name)/uvdar/omta_logging_left"/>
-      <remap from="~omta_logging_right" to="/$(arg uav_name)/uvdar/omta_logging_right"/>
-      <remap from="~omta_logging_back" to="/$(arg uav_name)/uvdar/omta_logging_back"/>
-
-      <remap from="~omta_all_seq_info_left" to="/$(arg uav_name)/uvdar/omta_all_seq_info_left"/>
-      <remap from="~omta_all_seq_info_right" to="/$(arg uav_name)/uvdar/omta_all_seq_info_right"/>
-      <remap from="~omta_all_seq_info_back" to="/$(arg uav_name)/uvdar/omta_all_seq_info_back"/>
+      
+      <remap from="~ami_logging_left" to="/$(arg uav_name)/uvdar/ami_logging_left"/>
+      <remap from="~ami_logging_right" to="/$(arg uav_name)/uvdar/ami_logging_right"/>
+      <remap from="~ami_logging_back" to="/$(arg uav_name)/uvdar/ami_logging_back"/>
+      <remap from="~ami_all_seq_info_left" to="/$(arg uav_name)/uvdar/ami_all_seq_info_left"/>
+      <remap from="~ami_all_seq_info_right" to="/$(arg uav_name)/uvdar/ami_all_seq_info_right"/>
+      <remap from="~ami_all_seq_info_back" to="/$(arg uav_name)/uvdar/ami_all_seq_info_back"/>
     </node>
 
     <node name="throttle_blinkers_left" type="throttle" pkg="topic_tools"

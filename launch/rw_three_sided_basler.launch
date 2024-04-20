@@ -246,6 +246,7 @@
       <rosparam param="points_seen_topics"> ["points_seen_left", "points_seen_right", "points_seen_back"] </rosparam>
       <rosparam param="blinkers_seen_topics"> ["blinkers_seen_left", "blinkers_seen_right", "blinkers_seen_back"] </rosparam>
       <rosparam param="estimated_framerate_topics"> ["estimated_framerate_left", "estimated_framerate_right", "estimated_framerate_back"] </rosparam>
+      
       <rosparam param="ami_logging_topics"> ["ami_logging_left", "ami_logging_right", "ami_logging_back"] </rosparam>
       <rosparam param="ami_all_seq_info_topics"> ["ami_all_seq_info_left", "ami_all_seq_info_right", "ami_all_seq_info_back"] </rosparam>
 
