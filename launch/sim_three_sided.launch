@@ -49,12 +49,14 @@
   <arg name="beacon" default="false"/>
 
   <arg name="sequence_file" default="$(find uvdar_core)/config/selected.txt"/>
-  <arg name="pub_tracking_stats" default="true"/>
-  <arg name="draw_predict_window_sec" default="0.3"/>
 
     
-  <arg name="blink_throttle_rate" default="10"/>
-
+  <!-- Blink processor settings: -->
+  <arg name="blink_process_rate" default="10"/>
+  
+  <!--AMI values-->
+  <arg name="pub_tracking_stats" default="true"/>
+  <arg name="draw_predict_window_sec" default="0.3"/>
   <arg name="max_px_shift_y" default="3"/>
   <arg name="max_px_shift_x" default="3"/>
   <arg name="max_zeros_consecutive" default="10"/>
@@ -65,8 +67,8 @@
   <arg name="confidence_probability" default="95.0"/>
   <arg name="allowed_BER_per_seq" default="0"/>
 
-  <arg name="use_4DHT" default="false"/>
   <!--4DHT values-->
+  <arg name="use_4DHT" default="false"/>
   <arg name="accumulator_length"         default="18"/>
   <arg name="pitch_steps"         default="16"/>
   <arg name="yaw_steps"         default="16"/>
@@ -74,6 +76,8 @@
 
   <arg name="model_file" default="$(find uvdar_core)/config/models/quadrotor_foursided_px4_motor_aligned.txt"/>
   <!-- ideal angle: 1.221730476 - pi/2 -->
+
+  <arg name="blink_throttle_rate" default="10"/>
 
       <!-- <origin xyz="0.108 0 0.085" rpy="1.57079632679 4.71238898038 1.57079632679" /> -->
   <!--Usage: static_transform_publisher x y z yaw pitch roll frame_id child_frame_id  period(milliseconds)-->
@@ -165,7 +169,6 @@
       <param name="pub_tracking_stats"      type="bool" value="$(arg pub_tracking_stats)"/>
       <param name="draw_predict_window_sec"  type="double" value="$(arg draw_predict_window_sec)"/>
       <param name="use_4DHT"             type="bool" value="$(arg use_4DHT)"/>
-    
 
       <param name="max_px_shift_x"          type="int"    value="$(arg max_px_shift_x)"/>
       <param name="max_px_shift_y"          type="int"    value="$(arg max_px_shift_y)"/>

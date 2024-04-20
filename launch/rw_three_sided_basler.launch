@@ -38,10 +38,11 @@
   <arg name="threshold" default="50"/>
   
   <!-- Blink processor settings: -->
-
   <arg name="blink_process_rate" default="10"/>
 
   <!--AMI values-->
+  <arg name="pub_tracking_stats" default="false"/>
+  <arg name="draw_predict_window_sec" default="0.0"/>
   <arg name="max_px_shift_y" default="3"/>
   <arg name="max_px_shift_x" default="3"/>
   <arg name="max_zeros_consecutive" default="10"/>
@@ -52,8 +53,8 @@
   <arg name="confidence_probability" default="95.0"/>
   <arg name="allowed_BER_per_seq" default="0"/>
 
-  <arg name="use_4DHT" default="false"/>
   <!--4DHT values-->
+  <arg name="use_4DHT" default="false"/>
   <arg name="accumulator_length"         default="18"/>
   <arg name="pitch_steps"         default="16"/>
   <arg name="yaw_steps"         default="16"/>
@@ -220,6 +221,10 @@
       <param name="sequence_file"         type="string" value="$(arg sequence_file)"/>
 
       <param name="blink_process_rate"         type="int" value="$(arg blink_process_rate)"/>
+
+      <param name="pub_tracking_stats"      type="bool" value="$(arg pub_tracking_stats)"/>
+      <param name="draw_predict_window_sec"  type="double" value="$(arg draw_predict_window_sec)"/>
+      <param name="use_4DHT"             type="bool" value="$(arg use_4DHT)"/>
 
       <param name="max_px_shift_x"          type="int"    value="$(arg max_px_shift_x)"/>
       <param name="max_px_shift_y"          type="int"    value="$(arg max_px_shift_y)"/>
