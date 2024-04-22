@@ -4,6 +4,7 @@ sources:
     name: ami
     rev: master
     type: git
+    params:
     sparse_paths:
       -
     links:
@@ -16,6 +17,7 @@ sources_locked:
     name: ami
     rev: 59402d1844ea8ae24ef0dc4a5d9fce5bb55e80a4
     type: git
+    params:
     sparse_paths:
       -
     links:
