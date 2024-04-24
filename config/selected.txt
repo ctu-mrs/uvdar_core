@@ -1,1 +1,1 @@
-blinking_sequences/merged_signals.txt
+blinking_sequences/mixed.txt
