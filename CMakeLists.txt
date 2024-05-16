@@ -6,6 +6,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 add_definitions(-Wall)
 add_definitions(-Wextra)
+add_definitions(-fno-omit-frame-pointer)
+# add_definitions(-O0)
 
 if(NOT MRS_ENABLE_TESTING)
   message(WARNING "relwithdebinfo profile detected, building with -O3")
