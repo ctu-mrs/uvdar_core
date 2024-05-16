@@ -216,6 +216,7 @@ namespace uvdar{
 
       // for extracting the received sequences from the AMI/4DHT
       struct BlinkData{
+        bool valid = false;
         ros::Time                     last_sample_time;
         ros::Time                     last_sample_time_diagnostic;
         unsigned int                  sample_count = -1;
@@ -573,6 +574,7 @@ namespace uvdar{
 
     }
     blink_data_[img_index].last_sample_time = pts_msg->stamp;
+    blink_data_[img_index].valid = true;
 
     if (_debug_) {
       ROS_INFO_STREAM("[UVDARBlinkProcessor]: Received contours: " << pts_msg->points.size());
@@ -736,6 +738,11 @@ namespace uvdar{
     }
 
     if(_use_4DHT_){
+
+      if (!(blink_data_[image_index].valid)){
+        return;
+      }
+
       uvdar_core::ImagePointsWithFloatStamped msg;
 
       if (_debug_){
