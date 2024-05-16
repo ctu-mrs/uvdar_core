@@ -21,6 +21,10 @@
 #include <atomic>
 #include <fstream>
 
+
+#include <chrono>
+using namespace std::chrono;
+
 namespace uvdar{
 
   /**
@@ -185,9 +189,18 @@ namespace uvdar{
       bool _pub_tracking_stats_;
       std::vector<std::string> _points_seen_topics_;
       std::vector<std::string> _ami_logging_topics_;
-      std::vector<std::string> _ami_all_seq_info_topics;
+      std::vector<std::string> _ami_all_seq_info_topics_;
       
+      std::vector<std::string> _runtime_ami_fill_;
+      std::vector<std::string> _runtime_ami_result_;
+      std::vector<std::string> _runtime_4dht_fill_;
+      std::vector<std::string> _runtime_4dht_result_;
 
+      std::vector<ros::Publisher> pub_ami_fill_;
+      std::vector<ros::Publisher> pub_ami_result_;
+
+      std::vector<ros::Publisher> pub_4dht_fill_;
+      std::vector<ros::Publisher> pub_4dht_result_;
       bool _manchester_code_;
       bool _use_4DHT_;
       std::string _sequence_file;
@@ -300,7 +313,12 @@ namespace uvdar{
     nh_.param("blinkers_seen_topics", _blinkers_seen_topics_, _blinkers_seen_topics_);
     nh_.param("estimated_framerate_topics", _estimated_framerate_topics_, _estimated_framerate_topics_);
     nh_.param("ami_logging_topics", _ami_logging_topics_, _ami_logging_topics_);
-    nh_.param("ami_all_seq_info_topics", _ami_all_seq_info_topics, _ami_all_seq_info_topics);
+    nh_.param("ami_all_seq_info_topics", _ami_all_seq_info_topics_, _ami_all_seq_info_topics_);
+
+    nh_.param("runtime_ami_fill", _runtime_ami_fill_, _runtime_ami_fill_);
+    nh_.param("runtime_ami_results", _runtime_ami_result_, _runtime_ami_result_);
+    nh_.param("runtime_4dht_fill", _runtime_4dht_fill_, _runtime_4dht_fill_);
+    nh_.param("runtime_4dht_results", _runtime_4dht_result_, _runtime_4dht_result_);
 
     param_loader.loadParam("sequence_file", _sequence_file, std::string());    
     param_loader.loadParam("manchester_code", _manchester_code_, bool(false));
@@ -490,8 +508,15 @@ namespace uvdar{
       
       if(_pub_tracking_stats_){
         if(!_use_4DHT_){
+
+          pub_ami_fill_.push_back(nh_.advertise<std_msgs::Float32>(_runtime_ami_fill_[i], 1));
+          pub_ami_result_.push_back(nh_.advertise<std_msgs::Float32>(_runtime_ami_result_[i], 1));
+
           pub_ami_logging_.push_back(nh_.advertise<uvdar_core::AMIDataForLogging>(_ami_logging_topics_[i], 1));
-          pub_AMI_all_seq_info.push_back(nh_.advertise<uvdar_core::AMIAllSequences>(_ami_all_seq_info_topics[i], 1));
+          pub_AMI_all_seq_info.push_back(nh_.advertise<uvdar_core::AMIAllSequences>(_ami_all_seq_info_topics_[i], 1));
+        }else{
+          pub_4dht_fill_.push_back(nh_.advertise<std_msgs::Float32>(_runtime_4dht_fill_[i], 1));
+          pub_4dht_result_.push_back(nh_.advertise<std_msgs::Float32>(_runtime_4dht_result_[i], 1));
         }
       }
     }
@@ -579,14 +604,25 @@ namespace uvdar{
     }
 
     if(!_use_4DHT_){
+      auto start = high_resolution_clock::now();
       ami_[img_index]->processBuffer(pts_msg);
-
+      auto stop = high_resolution_clock::now();
+      auto duration = duration_cast<microseconds>(stop - start);
+      std_msgs::Float32 msg_duration;
+      msg_duration.data = duration.count();
+      pub_ami_fill_[img_index].publish(msg_duration);
     }else{
       std::vector<cv::Point2i> points;
       for (auto& point : pts_msg->points) {
         points.push_back(cv::Point2d(point.x, point.y));
       }
+      auto start = high_resolution_clock::now();
       ht4dbt_trackers_[img_index]->insertFrame(points);
+      auto stop = high_resolution_clock::now();
+      auto duration = duration_cast<microseconds>(stop - start);
+      std_msgs::Float32 msg_duration;
+      msg_duration.data = duration.count();
+      pub_4dht_fill_[img_index].publish(msg_duration);
     }
 
     if ((!_use_camera_for_visualization_) || ((!_gui_) && (!_publish_visualization_))){
@@ -611,7 +647,15 @@ namespace uvdar{
     ros::Time local_last_sample_time = blink_data_[img_index].last_sample_time;
     {
       std::scoped_lock lock(*(blink_data_[img_index].mutex_retrieved_blinkers));
+      auto start = high_resolution_clock::now();
       blink_data_[img_index].retrieved_blinkers = ami_[img_index]->getResults();
+      auto stop = high_resolution_clock::now();
+      auto duration = duration_cast<microseconds>(stop - start);
+      std_msgs::Float32 msg_duration;
+      msg_duration.data = duration.count();
+      pub_ami_result_[img_index].publish(msg_duration);
+
+
 
       int valid_signal_cnt = 0 , invalid_signal_cnt = 0;
       for (auto& signal : blink_data_[img_index].retrieved_blinkers) {
@@ -746,9 +790,16 @@ namespace uvdar{
       {
 
         std::scoped_lock lock(*(blink_data_[image_index].mutex_retrieved_blinkers));
+          
+          auto start = high_resolution_clock::now();
           blink_data_[image_index].retrieved_blinkers_4DHT = ht4dbt_trackers_[image_index]->getResults();
+          auto stop = high_resolution_clock::now();
           blink_data_[image_index].pitch_4DHT              = ht4dbt_trackers_[image_index]->getPitch();
           blink_data_[image_index].yaw_4DHT                = ht4dbt_trackers_[image_index]->getYaw();      
+          auto duration = duration_cast<microseconds>(stop - start);
+          std_msgs::Float32 msg_duration;
+          msg_duration.data = duration.count();
+          pub_4dht_result_[image_index].publish(msg_duration);
 
       }
 

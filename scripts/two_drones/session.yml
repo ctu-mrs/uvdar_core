@@ -54,7 +54,7 @@ windows:
   - uv_observer:
         layout: even-vertical
         panes:
-        - gz world --pause=0; sleep 6;  export UAV_NAME=uav1; waitForControl; roslaunch uvdar_core sim_three_sided.launch use_4DHT:=false
+            - gz world --pause=0; sleep 2;  export UAV_NAME=uav1; waitForControl; roslaunch uvdar_core sim_three_sided.launch use_4DHT:=false pub_tracking_stats:=true
   - slow_down:
       layout: even-vertical
       panes:
