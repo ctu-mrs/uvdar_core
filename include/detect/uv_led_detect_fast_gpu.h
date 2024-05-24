@@ -48,7 +48,7 @@ namespace uvdar {
       uint32_t max_sun_pts_count;
 
       static constexpr char fastlike_shader_src[] = R""""(
-#version 320 es
+#version 310 es
 
 #define LOCAL_SIZE_X %d
 #define LOCAL_SIZE_Y %d
