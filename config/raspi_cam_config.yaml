@@ -32,7 +32,7 @@ control:
   # hdr_mode - not supported by the current version of the libcamera SDK
   # exposure_value: 0.0 # Specify an Exposure Value (EV) parameter. The EV parameter will only be applied if the AE algorithm is currently enabled.
   analogue_gain: 1.0 # Analogue gain value applied in the sensor device. The value of the control specifies the gain multiplier applied to all colour channels. This value cannot be lower than 1.0.
-  awb_enable: false
+  # awb_enable: false
   # awb_mode: "auto" # [auto, incandescent, tungsten, fluorescent, indoor, daylight, cloudy, custom]
   # ae_flicker_period - not supported by the current version of the libcamera SDK
   # ae_metering_mode: "centre-weighted" # [centre-weighted, spot, matrix, custom]
