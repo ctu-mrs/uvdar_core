@@ -6,8 +6,8 @@ camera_id: 0
 stream_role: "still" # [raw, still, video, viewfinder]
 pixel_format: "RGB888" #pixel format documentation: https://libcamera.org/api-html/build_2include_2libcamera_2formats_8h_source.html
 resolution:
-  width: 1280
-  height: 800
+  width: 640 #full: 1280
+  height: 400 #full: 800
 use_ros_time: true
 
 #frame_id and calib_url parameters are set using launch file
@@ -18,14 +18,14 @@ use_ros_time: true
 # documentation: https://libcamera.org/api-html/namespacelibcamera_1_1controls.html
 control:
   fps: 59.9 # [Hz] Note: fps is set as 1000000/frame_duration_limits 
-  exposure_time: 9 # Exposure time (shutter speed) for the frame applied in the sensor device. This value is specified in micro-seconds.
+  exposure_time: 100 # Exposure time (shutter speed) for the frame applied in the sensor device. This value is specified in micro-seconds.
   # stats_output_enable - not supported by the current version of the libcamera SDK
   # noise_reduction_mode - not supported by the current version of the libcamera SDK
   # ae_constraint_mode: "normal" # [normal, highlight, shadows, custom]
   # brightness: 0.0 # Positive values (up to 1.0) produce brighter images; negative values (up to -1.0) produce darker images and 0.0 leaves pixels unchanged.
   # sharpness: 1.0 # A value of 0.0 means no sharpening. The minimum value means minimal sharpening, and shall be 0.0 unless the camera can't disable sharpening completely. The default value shall give a "reasonable" level of sharpening, suitable for most use cases. The maximum value may apply extremely high levels of sharpening, higher than anyone could reasonably want. Negative values are not allowed. Note also that sharpening is not applied to raw streams.
   # colour_gain: 0.0 # Pair of gain values for the Red and Blue colour channels, in that order. ColourGains can only be applied in a Request when the AWB is disabled.
-  ae_enabled: false
+  # ae_enabled: true
   # ae_flicker_mode - not supported by the current version of the libcamera SDK
   # saturation: 1.0 # Specify a fixed saturation parameter. Normal saturation is given by the value 1.0; larger values produce more saturated colours; 0.0 produces a greyscale image.
   # contrast: 1.0 # Specify a fixed contrast parameter. Normal contrast is given by the value 1.0; larger values produce images with more contrast.
