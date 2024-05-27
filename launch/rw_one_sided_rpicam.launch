@@ -128,7 +128,7 @@
     <node pkg="nodelet" type="nodelet" name="uvdar_camera" args="$(arg nodelet) libcamera_ros/LibcameraRos $(arg nodelet_manager)" output="screen">
 
       <!-- Load the default param files -->
-      <rosparam command="load" file="$(find uvdar_core)/config/raspi_cam_config.yaml" />
+      <rosparam command="load" file="$(find uvdar_core)/config/camera_config/raspi_cam_config.yaml" />
 
       <param if="$(eval arg('custom_config') == '')" name="custom_config" value="" />
       <rosparam if="$(eval not arg('custom_config') == '' and arg('custom_config')[0] == '/')" command="load" file="$(arg custom_config)" />
