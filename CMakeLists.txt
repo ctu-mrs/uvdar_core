@@ -53,6 +53,7 @@ set(EXECUTABLES
   new_uvdar_rx_node
   uvdar_led_manager_node
   uvdar_filter_node
+  uwb_uvdar_fuser_node
   uvdar_pose_calculator_node
   )
 
@@ -408,6 +409,23 @@ add_dependencies(uvdar_filter_node
   )
 
 target_link_libraries(uvdar_filter_node
+  ${catkin_LIBRARIES}
+  ${OpenCV_LIBRARIES}
+  ${EIGEN3_LIBRARIES}
+  )
+
+## | -------------------- UWB - UVDAR fuser node ------------------- |
+
+add_executable(uwb_uvdar_fuser_node
+  src/uwv_uvdar_fuser.cpp
+  )
+
+add_dependencies(uwb_uvdar_fuser_node
+  ${${PROJECT_NAME}_EXPORTED_TARGETS}
+  ${catkin_EXPORTED_TARGETS}
+  )
+
+target_link_libraries(uwb_uvdar_fuser_node
   ${catkin_LIBRARIES}
   ${OpenCV_LIBRARIES}
   ${EIGEN3_LIBRARIES}
