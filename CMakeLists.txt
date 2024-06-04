@@ -417,7 +417,7 @@ target_link_libraries(uvdar_filter_node
 ## | -------------------- UWB - UVDAR fuser node ------------------- |
 
 add_executable(uwb_uvdar_fuser_node
-  src/uwv_uvdar_fuser.cpp
+  src/uwb_uvdar_fuser.cpp
   )
 
 add_dependencies(uwb_uvdar_fuser_node

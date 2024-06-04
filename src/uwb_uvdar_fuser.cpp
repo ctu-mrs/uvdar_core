@@ -5,19 +5,24 @@
 #include <mrs_lib/param_loader.h>
 #include <mrs_lib/transformer.h>
 
-#include <mrs_lib/lkf.h>
+#include <mrs_lib/dkf.h>
 
 #include <mrs_msgs/PoseWithCovarianceArrayStamped.h>
 #include <mrs_msgs/ReferenceStamped.h>
 #include <mrs_msgs/String.h>
 #include <mrs_msgs/Vec4.h>
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
+
+#include <uvdar_core/ImagePointsWithFloatStamped.h> 
+
 #include <std_srvs/Trigger.h>
 #include <std_srvs/SetBool.h>
 #include <nav_msgs/Odometry.h>
 #include <std_msgs/String.h>
 
-#include <boost/range/adaptor/indexed.hpp> 
+/* #include <boost/range/adaptor/indexed.hpp> */ 
+
+#include "OCamCalib/ocam_functions.h"
 
 #include <mutex>
 
@@ -35,14 +40,15 @@
 #define MATCH_LEVEL_THRESHOLD_ASSOCIATE 0.3
 #define MATCH_LEVEL_THRESHOLD_REMOVE 0.5
 
-using namespace boost::adaptors;
+/* using namespace boost::adaptors; */
 
 namespace mrs_lib
 {
-  const int n_states = -1;
+  /* const int n_states = -1; */
+  const int n_states = 6;
   const int n_inputs = 0;
-  const int n_measurements = 6;
-  using dkf_t = LKF<n_states, n_inputs, n_measurements>;
+  /* const int n_measurements = 6; */
+  /* using dkf_t = LKF<n_states, n_inputs, n_measurements>; */
   using dkf_t = DKF<n_states, n_inputs>;
 }
 
@@ -78,6 +84,9 @@ namespace uvdar {
       double vl, vv, sn;
       bool _anonymous_measurements_;
       bool _use_velocity_;
+
+
+      /* std::vector<bool> input_data_initialized_; */
 
       std::mutex meas_mutex;
       std::mutex filter_mutex;
@@ -118,8 +127,26 @@ namespace uvdar {
       double dt;
       unsigned long long int latest_id = 0;
 
-      std::unique_ptr<mrs_lib::Transformer> transformer_;
+      mrs_lib::Transformer transformer_;
 
+
+      // | ----------------------- camera data --------------------- |
+      using blinkers_seen_callback_t = boost::function<void (const uvdar_core::ImagePointsWithFloatStampedConstPtr& msg)>;
+      struct CameraContext{
+        std::string topic;
+        blinkers_seen_callback_t callback;
+        ros::Subscriber subscriber;
+        std::string tf_frame;
+        geometry_msgs::TransformStamped fromcam_tf;
+        /* geometry_msgs::TransformStamped tocam_tf */
+        std::string calibration_file;
+        struct ocam_model oc_model;
+        cv::Size image_size;
+      };
+      std::vector<CameraContext> cameras_;
+      unsigned int _camera_count_;
+      std::string calibration_file;
+      std::string blinker_topic;
       //}
 
     public:
@@ -145,7 +172,8 @@ namespace uvdar {
         param_loader.loadParam("indoor", _indoor_, bool(false));
         param_loader.loadParam("odometry_available", _odometry_available_, bool(true));
         param_loader.loadParam("use_velocity", _use_velocity_, bool(false));
-        const auto transform_lookup_timeout = param_loader.loadParam2<ros::Duration>("transform_lookup_timeout", ros::Duration(0.005));
+
+        /* const auto transform_lookup_timeout = param_loader.loadParam2<ros::Duration>("transform_lookup_timeout", ros::Duration(0.005)); */
 
         if (_indoor_){ //lateral and vertical velocities are more limited in indoor conditions
           vl = 1;
@@ -167,60 +195,81 @@ namespace uvdar {
         dt = filter_update_period.toSec();
         timer = nh.createTimer(filter_update_period, &UWB_UVDAR_Fuser::spin, this);
 
-        transformer_ = std::make_unique<mrs_lib::Transformer>("UWB_UVDAR_Fuser");
-        transformer_->setLookupTimeout(transform_lookup_timeout);
-        transformer_->setDefaultPrefix(_uav_name_);
-
+        transformer_ = mrs_lib::Transformer("UWB_UVDAR_Fuser");
+        transformer_.setDefaultPrefix(_uav_name_);
 
 
         std::vector<std::string> _blinkers_seen_topics;
         param_loader.loadParam("blinkers_seen_topics", _blinkers_seen_topics, _blinkers_seen_topics);
         if (_blinkers_seen_topics.empty()) {
-          ROS_WARN("[UVDARPoseCalculator]: No topics of blinkers were supplied");
+          ROS_ERROR("[UVDARPoseCalculator]: No topics of blinkers were supplied");
+          return;
+        }
+
+        std::vector<std::string> _calib_files;
+        param_loader.loadParam("calib_files", _calib_files, _calib_files);
+        if (_calib_files.empty()){
+          ROS_ERROR("[UVDARPoseCalculator]: No calibration files were supplied");
+          return;
+          }
+
+        std::vector<std::string> _camera_frames;
+        param_loader.loadParam("camera_frames", _camera_frames, _camera_frames);
+        if (_camera_frames.empty()){
+          ROS_ERROR("[UVDARPoseCalculator]: No camera TF frames were supplied");
+          return;
+        }
+
+        if ( _blinkers_seen_topics.size() != _calib_files.size()){
+          ROS_ERROR_STREAM("[" << ros::this_node::getName().c_str() << "]: The number of provided blinker topics of " << _blinkers_seen_topics.size() << " does not match the number of provided calibration files of " << _calib_files.size());
+          return;
+        }
+
+        if ( _blinkers_seen_topics.size() != _camera_frames.size()){
+          ROS_ERROR_STREAM("[" << ros::this_node::getName().c_str() << "]: The number of provided blinker topics of " << _blinkers_seen_topics.size() << " does not match the number of provided TF camera frames of " << _camera_frames.size());
+          return;
         }
 
         _camera_count_ = (unsigned int)(_blinkers_seen_topics.size());
-
-
         for (unsigned int i = 0; i < _camera_count_; i++){
-          /* tocam_tf_.push_back(geometry_msgs::TransformStamped()); */
-          /* fromcam_tf_.push_back(geometry_msgs::TransformStamped()); */
-          input_data_initialized.push_back(false);
-          InputData id;
-          latest_input_data_.push_back(id);
+          cameras_.push_back(CameraContext());
 
-          blinkers_seen_callback_t callback = [image_index=i,this] (const uvdar_core::ImagePointsWithFloatStampedConstPtr& pointsMessage) { 
-            ProcessPoints(pointsMessage, image_index);
+          cameras_.back().topic = _blinkers_seen_topics.at(i);
+
+          cameras_.back().calibration_file = _calib_files.at(i);
+
+          cameras_.back().tf_frame = _camera_frames.at(i);
+
+          cameras_.back().callback = [image_index=i,this] (const uvdar_core::ImagePointsWithFloatStampedConstPtr& pointsMessage) { 
+            ProcessBlinkPoints(pointsMessage, image_index);
           };
+
           ROS_INFO_STREAM("[UVDARPoseCalculator]: Subscribing to " << _blinkers_seen_topics[i]);
-          sub_blinkers_seen_.push_back(
-              nh.subscribe(_blinkers_seen_topics[i], 1, callback));
+          cameras_.back().subscriber = nh.subscribe(_blinkers_seen_topics[i], 1, cameras_.back().callback);
 
-          nh.subscribe("ranges_in", 1, ProcessRanges);
+          cameras_.back().image_size = cv::Size(-1,-1);
 
-          ROS_INFO_STREAM("[UVDARPoseCalculator]: Advertising measured poses " << i+1);
 
-          if (_publish_constituents_){
-            /* pub_constituent_poses_.push_back(nh.advertise<mrs_msgs::PoseWithCovarianceArrayStamped>("constituentPoses"+std::to_string(i+1), 1)); */ 
-            /* if (PUBLISH_HYPO_CONSTITUENTS){ */
-            /*   pub_constituent_hypo_poses_.push_back(nh.advertise<mrs_msgs::PoseWithCovarianceArrayStamped>("constituentHypoPoses"+std::to_string(i+1), 1)); */ 
-            /* } */
-              pub_hypotheses_ = nh.advertise<mrs_msgs::PoseWithCovarianceArrayStamped>("constituentHypotheses", 1); 
-              pub_hypotheses_tentative_ = nh.advertise<mrs_msgs::PoseWithCovarianceArrayStamped>("constituentHypothesesTentative", 1); 
+          if (_calib_files.at(i) == "default"){
+            cameras_.back().calibration_file = ros::package::getPath("uvdar_core")+"/config/ocamcalib/calib_results_bf_uv_fe.txt";
+          }
+          else {
+            cameras_.back().calibration_file = _calib_files.at(i);
           }
 
-          camera_image_sizes_.push_back(cv::Size(-1,-1));
+          get_ocam_model(&cameras_.back().oc_model, (char*)(cameras_.back().calibration_file.c_str()));
+          ROS_INFO_STREAM("[UVDARPoseCalculator]: Calibration parameters for virtual camera " << i << " came from the file " <<  cameras_.back().calibration_file);
+          for (int j=0; j<cameras_.back().oc_model.length_pol; j++){
+            if (isnan(cameras_.back().oc_model.pol[j])){
+              ROS_ERROR("[UVDARPoseCalculator]: Calibration polynomial containts NaNs! Returning.");
+              return;
+            }
+          }
 
-          /* mutex_separated_points_.push_back(std::make_shared<std::mutex>()); */
         }
 
+        nh.subscribe("ranges_in", 1, &UWB_UVDAR_Fuser::ProcessRanges, this);
 
-
-
-        for (auto& topic : _blinker_topics) {
-          ROS_INFO_STREAM("[UWB_UVDAR_Fuser]: Subscribing to " << topic);
-          sub_blinkers_.push_back(nh.subscribe(topic, 3, &UWB_UVDAR_Fuser::callbackBlinker, this, ros::TransportHints().tcpNoDelay())); 
-        }
 
         pub_filter_ = nh.advertise<mrs_msgs::PoseWithCovarianceArrayStamped>("filtered_poses", 1);
         pub_filter_tent_ = nh.advertise<mrs_msgs::PoseWithCovarianceArrayStamped>("filtered_poses/tentative", 1);
@@ -296,36 +345,39 @@ namespace uvdar {
     private:
 
       /**
-       * @brief Callback to process input blinker messges - array of image points with identities
+       * @brief Callback to process input blinker messges
        *
-       * @param msg
+       * @param msg - array of image points with identities produced by the camera and processing
+       * @param image_index - index of the camera producing the given message
        */
-      /* calllbackBlinker //{ */
-      void ProcessPoints(const uvdar_core::ImagePointsWithFloatStampedConstPtr& msg, size_t image_index) {
+      /* ProcessBlinkPoints //{ */
+      void ProcessBlinkPoints(const uvdar_core::ImagePointsWithFloatStampedConstPtr& msg, size_t image_index) {
         if (!initialized_){
           ROS_ERROR_STREAM("[UWB_UVDAR_Fuser]: Uninitialized! Ignoring image points.");
           return;
         }
+        
+        cameras_[image_index].image_size = cv::Size(msg->image_width, msg->image_height);
 
-        if ((int)(msg.points.size()) < 1)
+        if ((int)(msg->points.size()) < 1)
           return;
         if (_debug_)
-          ROS_INFO_STREAM("[UWB_UVDAR_Fuser]: Getting " << (int)(msg.points.size()) << " points...");
+          ROS_INFO_STREAM("[UWB_UVDAR_Fuser]: Getting " << (int)(msg->points.size()) << " points...");
 
-        geometry_msgs::TransformStamped fromcam_tf;
-        e::Point3d camera_origin;
+        e::Vector3d camera_origin;
         {
           std::scoped_lock lock(transformer_mutex);
-          auto fromcam_tmp = transformer_.getTransform(_camera_frames_[image_index],_uav_name_+"/"+_output_frame_, time);
+
+          auto fromcam_tmp = transformer_.getTransform(cameras_[image_index].tf_frame,_uav_name_+"/"+_output_frame_, msg->stamp);
           if (!fromcam_tmp){
-            ROS_ERROR_STREAM("[UWB_UVDAR_Fuser]: Could not obtain transform from " << _camera_frames_[image_index]  << " to " _uav_name_+"/"+_output_frame_ << "!");
+            ROS_ERROR_STREAM("[UWB_UVDAR_Fuser]: Could not obtain transform from " << cameras_[image_index].tf_frame  << " to " << _uav_name_+"/"+_output_frame_ << "!");
             return;
           }
           else
-            fromcam_tf = fromcam_tmp.value()
+            cameras_[image_index].fromcam_tf = fromcam_tmp.value();
 
 
-          auto camera_origin_tmp = transformer_.transform(fromcam_tf, e::Point3d(0,0,0));
+          auto camera_origin_tmp = transformer_.transform(e::Vector3d(0,0,0), cameras_[image_index].fromcam_tf);
           if (!camera_origin_tmp){
             ROS_ERROR_STREAM("[" << ros::this_node::getName().c_str() << "]: Failed to transform camera origin! Returning.");
             return;
@@ -337,49 +389,108 @@ namespace uvdar {
 
         uvdar_core::ImagePointsWithFloatStamped msg_local;
         {
-          std::scoped_lock lock(uvdar_meas_mutex);
-          msg_local = msg;
+          /* std::scoped_lock lock(uvdar_meas_mutex); */
+          //TODO consider if it is necessary to mutex or locally copy this
+          msg_local = *msg;
         }
 
-        std::vector< std::pair<int, std::vector<uvdar_core/Point2DWithFloat>> > associated_points = associateImagePointsToTargets(msg_local); //each element is a vector of image points with associated target id
+        {
+          std::scoped_lock lock(filter_mutex);
 
-        for (target_points : associated_points) {
-          int target = target_points.first;
+          std::vector< std::vector<uvdar_core::Point2DWithFloat > > associated_points = associateImagePointsToTargets(msg_local); //each element is a vector of image points with associated target id
 
-          for (auto& point: target_points.second.points){
-            e::Vector3d curr_direction_local = directionFromCamPoint(point.position, image_index);
+          int target = 0;
+          for (auto target_points : associated_points) {
+            for (auto& pt: target_points){
+              e::Vector3d curr_direction_local = directionFromCamPoint(cv::Point2d(pt.x, pt.y), image_index);
 
-            e::Vector3d curr_direction; //global
-            {
-              std::scoped_lock lock(transformer_mutex);
-              auto curr_direction_tmp = transformer_.transformAsVector(gms_pose, fromcam_tf);
-              if (!curr_direction_tmp){
-                ROS_ERROR_STREAM("[" << ros::this_node::getName().c_str() << "]: Failed to transform direction vector! Returning.");
-                return;
+              e::Vector3d curr_direction; //global
+              {
+                std::scoped_lock lock(transformer_mutex);
+                auto curr_direction_tmp = transformer_.transformAsVector(curr_direction_local, cameras_[image_index].fromcam_tf);
+                if (!curr_direction_tmp){
+                  ROS_ERROR_STREAM("[" << ros::this_node::getName().c_str() << "]: Failed to transform direction vector! Returning.");
+                  return;
+                }
+                else
+                  curr_direction = curr_direction_tmp.value();
               }
-              else
-                curr_direction = curr_direction_tmp.value();
+
+              //TODO: implement Masreliez Uniform Updater in mrs_lib
+              //TODO: implement plane filtering in DKF
+              //TODO: initialize fd[target]
+              //TODO: mutex fd[target]
+
+              // Apply the correction step for line
+              fd[target].filter_state = filter.correctLine(fd[target].filter_state, camera_origin, curr_direction, LINE_VARIANCE, true); //true should activate Masreliez uniform filtering
+
+              // Restrict state to be in front of the camera
+              double dist_range_span = (RANGE_MAX-RANGE_MIN)/2.0;
+              double dist_range_center = RANGE_MIN+dist_range_span;
+              fd[target].filter_state = filter.correctPlane(fd[target].filter_state, camera_origin+(curr_direction*dist_range_center), curr_direction, dist_range_span, true); //true should activate Masreliez uniform filtering
+
+
             }
-
-            //TODO: implement Masreliez Uniform Updater in mrs_lib
-            //TODO: implement plane filtering in DKF
-            //TODO: initialize fd[target]
-            //TODO: mutex fd[target]
-            
-            // Apply the correction step for line
-            fd[target].filter_state = filter.correctLine(fd[target].filter_state, camera_origin, curr_direction, LINE_VARIANCE, true); //true should activate Masreliez uniform filtering
-
-            // Restrict state to be in front of the camera
-            double dist_range_span = (RANGE_MAX-RANGE_MIN)/2.0;
-            double dist_range_center = RANGE_MIN+dist_range_span;
-            fd[target].filter_state = filter.correctPlane(fd[target].filter_state, camera_origin+(curr_direction*dist_range_center), curr_direction, dist_range_span, true); //true should activate Masreliez uniform filtering
-
-
+            target++;
           }
         }
 
       }
       //}
+      
+      /**
+       * @brief Splits all points from the blinker message into groups associated with specific target trackers
+       *
+       * @param msg - the bliker data to split
+       *
+       * @return A vector of vectors of blinker points, each associated with its own tracker
+       *
+       * associateImagePointsToTargets //{ */
+      std::vector<std::vector<uvdar_core::Point2DWithFloat>> associateImagePointsToTargets(uvdar_core::ImagePointsWithFloatStamped msg){
+        std::vector< std::pair<int, std::vector<uvdar_core::Point2DWithFloat> > > output;
+        for (auto &f : fd){
+          output.push_back(std::vector<uvdar_core::Point2DWithFloat>());
+        }
+
+        for (auto &pt : msg.points){
+          int ID = targetIDFromUVDAR(pt.value);
+          if ((ID >= 0) && (ID < fd.size())){
+            output[ID].push_back(pt);
+          }
+          else {
+            ROS_ERROR_STREAM("[" << ros::this_node::getName().c_str() << "]: Blinker point with ID " << pt.value << " matches no known target ID.");
+            return {{}};
+          }
+        }
+        return output;
+      }
+      //}
+      
+      /**
+       * @brief Associates the blinking sequence ID retrieved by UVDAR with a specific target
+       *
+       * @param uvdar_id - the Blinker ID provided by UVDAR
+       *
+       * @return An ID of the target that is expected to carry the uvdar_id
+       *
+       * targetIDFromUVDAR //{ */
+      int targetIDFromUVDAR(double uvdar_id){
+        //TODO - maybe fill in look up table using a pre-loaded file
+        return -1;
+      }
+      //}
+      
+      /**
+       * @brief Callback to process input range measurement messges
+       *
+       * @param msg
+       */
+      /* ProcessRanges //{ */
+      void ProcessRanges(const uvdar_core::ImagePointsWithFloatStampedConstPtr& msg) {
+        return;
+      }
+      //}
+      
 
       /**
        * @brief Thread for processing, predicting and outputting filter states at a regular rate
@@ -1217,14 +1328,18 @@ namespace uvdar {
         return filter_matrices.Q;
       }
       //}
+      
+      //TODO: description
+      e::Vector3d directionFromCamPoint(cv::Point2d point, int image_index){
+        double v_i[2] = {(double)(point.y), (double)(point.x)};
+        double v_w_raw[3];
+        cam2world(v_w_raw, v_i, &(cameras_[image_index].oc_models));
+        return e::Vector3d(v_w_raw[1], v_w_raw[0], -v_w_raw[2]);
+      };
+      //}
 
   };
-  e::Vector3d directionFromCamPoint(cv::Point2d point, int image_index){
-    double v_i[2] = {(double)(point.y), (double)(point.x)};
-    double v_w_raw[3];
-    cam2world(v_w_raw, v_i, &(_oc_models_[image_index]));
-    return e::Vector3d(v_w_raw[1], v_w_raw[0], -v_w_raw[2]);
-  }
+
 
 } //uvdar
 
