@@ -40,6 +40,10 @@
 #define MATCH_LEVEL_THRESHOLD_ASSOCIATE 0.3
 #define MATCH_LEVEL_THRESHOLD_REMOVE 0.5
 
+#define LINE_VARIANCE 1 //meters^2
+#define RANGE_MIN 1.0 //meters
+#define RANGE_MAX 50.0 //meters
+
 /* using namespace boost::adaptors; */
 
 namespace mrs_lib
@@ -422,12 +426,14 @@ namespace uvdar {
               //TODO: mutex fd[target]
 
               // Apply the correction step for line
-              fd[target].filter_state = filter.correctLine(fd[target].filter_state, camera_origin, curr_direction, LINE_VARIANCE, true); //true should activate Masreliez uniform filtering
+              /* fd[target].filter_state = filter.correctLine(fd[target].filter_state, camera_origin, curr_direction, LINE_VARIANCE, true); //true should activate Masreliez uniform filtering */
+              fd[target].filter_state = filter->correctLine(fd[target].filter_state, camera_origin, curr_direction, LINE_VARIANCE);
 
               // Restrict state to be in front of the camera
               double dist_range_span = (RANGE_MAX-RANGE_MIN)/2.0;
               double dist_range_center = RANGE_MIN+dist_range_span;
-              fd[target].filter_state = filter.correctPlane(fd[target].filter_state, camera_origin+(curr_direction*dist_range_center), curr_direction, dist_range_span, true); //true should activate Masreliez uniform filtering
+              /* fd[target].filter_state = filter.correctPlane(fd[target].filter_state, camera_origin+(curr_direction*dist_range_center), curr_direction, dist_range_span, true); //true should activate Masreliez uniform filtering */
+              fd[target].filter_state = filter->correctPlane(fd[target].filter_state, camera_origin+(curr_direction*dist_range_center), curr_direction, dist_range_span);
 
 
             }

@@ -158,7 +158,7 @@
 
       <param name="uav_name" type = "string" value="$(arg uav_name)"/>
       <param name="debug"		type="bool" value="$(arg debug)"/> 
-      <!-- <param name="gui"             type="bool" value="$(arg gui)"/> -->
+      <param name="gui"             type="bool" value="true"/>
       
       <!-- Changeable for each nodelet independently. - no arguments! -->
       <!-- <param name="publish_visualization"             type="bool" value="false"/> -->
