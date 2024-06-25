@@ -5,3 +5,4 @@
 *.swp
 *.swo
 .gitman
+.tmuxinator.yml

@@ -29,7 +29,7 @@
   
   <arg name="camera_config_file" default="$(find uvdar_core)/config/camera_config/basler_grayscale.yaml" />
 
-  <arg name="calibrations_folder" default="$(find mrs_uav_general)/config/uvdar_calibrations"/>
+  <arg name="calibrations_folder" default="$(find mrs_uav_deployment)/config/uvdar_calibrations"/>
 
   <arg name="FRAME_RATE" default="120" />
 
@@ -132,7 +132,7 @@
         <rosparam command="load" file="$(arg camera_config_file)" />
         <param name="camera_frame" value="$(arg uav_name)/$(arg camera_name_left)_optical"/>
         <param name="frame_rate" type="double" value="$(arg FRAME_RATE)"/>
-        <param name="device_user_id" type="string" value="$(arg BASLER_LEFT_ID)"/>
+        <param name="device_serial_number" type="string" value="$(arg BASLER_LEFT_ID)"/>
         <param name="startup_user_set" value="$(arg startup_user_set)"/>
         <param name="enable_status_publisher" value="$(arg enable_status_publisher)"/>
         <param name="enable_current_params_publisher" value="false"/>
@@ -144,7 +144,7 @@
         <rosparam command="load" file="$(arg camera_config_file)" />
         <param name="camera_frame" value="$(arg uav_name)/$(arg camera_name_right)_optical"/>
         <param name="frame_rate" type="double" value="$(arg FRAME_RATE)"/>
-        <param name="device_user_id" type="string" value="$(arg BASLER_RIGHT_ID)"/>
+        <param name="device_serial_number" type="string" value="$(arg BASLER_RIGHT_ID)"/>
         <param name="startup_user_set" value="$(arg startup_user_set)"/>
         <param name="enable_status_publisher" value="$(arg enable_status_publisher)"/>
         <param name="enable_current_params_publisher" value="false"/>
@@ -155,7 +155,7 @@
         <rosparam command="load" file="$(arg camera_config_file)" />
         <param name="camera_frame" value="$(arg uav_name)/$(arg camera_name_back)_optical"/>
         <param name="frame_rate" type="double" value="$(arg FRAME_RATE)"/>
-        <param name="device_user_id" type="string" value="$(arg BASLER_BACK_ID)"/>
+        <param name="device_serial_number" type="string" value="$(arg BASLER_BACK_ID)"/>
         <param name="startup_user_set" value="$(arg startup_user_set)"/>
         <param name="enable_status_publisher" value="$(arg enable_status_publisher)"/>
         <param name="enable_current_params_publisher" value="false"/>
