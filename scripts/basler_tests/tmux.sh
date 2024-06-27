@@ -39,6 +39,8 @@ input=(
 '
   'Sensors' 'waitForTime; roslaunch mrs_uav_deployment sensors.launch
 '
+  'Luxonis' 'waitForTime; roslaunch ~/git/luxonis.launch
+'
   'Nimbro' 'waitForTime; rosrun mrs_uav_deployment run_nimbro.py ./config/network_config.yaml `rospack find mrs_uav_deployment`/config/communication_config.yaml
 '
   'HwApi' 'waitForTime; roslaunch mrs_uav_px4_api api.launch
