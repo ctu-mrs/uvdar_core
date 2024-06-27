@@ -31,7 +31,7 @@
 
   <arg name="calibrations_folder" default="$(find mrs_uav_deployment)/config/uvdar_calibrations"/>
 
-  <arg name="FRAME_RATE" default="120" />
+  <arg name="FRAME_RATE" default="59.9" />
 
     
   <!-- Point detector settings: -->
