@@ -1,27 +1,30 @@
 name: uvdar_calib_record
 root: ./
 startup_window: termviz
-pre_window: devnum=$BASLER_UV_RIGHT
-
+pre_window:
 windows:
+  - devnum: 
+      layout: even-vertical
+      panes:
+        - ./basler_get_cam.sh > devnum.txt
   - roscore:
       layout: even-vertical
       panes:
-        - sleep 4; roscore
+        - sleep 12; roscore
   - directories:
       layout: even-vertical
       panes: 
-        - sleep 2; mkdir ~/bag_files; mkdir ~/bag_files/uvdar_calib/; mkdir ~/bag_files/uvdar_calib/${devnum}
+        - sleep 12; devnum=`cat devnum.txt`; mkdir ~/bag_files; mkdir ~/bag_files/uvdar_calib/; mkdir ~/bag_files/uvdar_calib/${devnum}
   - basler:
       layout: even-vertical
       panes:
         # - waitForRos; devnum=`cat devnum.txt`; roslaunch bluefox2 single_nodelet.launch aec:=false agc:=false expose_us:=50 camera:=cam device:=${devnum} 
-        - waitForRos;  roslaunch uvdar_core cam_only_basler.launch expose_us:=1000 FRAME_RATE:=5 BASLER_ID:=$devnum
+        - sleep 12; waitForRos;  roslaunch uvdar_core cam_only_basler.launch expose_us:=1000 FRAME_RATE:=5
   - recording:
       layout: even-vertical
       panes:
-        - waitForRos; sleep 1;  rosbag record -a -x '(.*)compressed(.*)' -x '(.*)theora(.*)' -O ~/bag_files/uvdar_calib/${devnum}/C_${devnum}.bag
+        - sleep 12; devnum=`cat devnum.txt`; waitForRos; sleep 1;  rosbag record -a -x '(.*)compressed(.*)' -x '(.*)theora(.*)' -O ~/bag_files/uvdar_calib/${devnum}/C_${devnum}.bag
   - termviz: 
       layout: even-vertical
       panes:
-        - waitForRos; sleep 2; termviz record_calibration_termviz.yml 
+        - sleep 12; waitForRos;  termviz record_calibration_termviz.yml 
