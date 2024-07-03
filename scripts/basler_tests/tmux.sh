@@ -60,7 +60,7 @@ input=(
 '
   'simtime' 'waitForRos; rosparam set use_sim_time false
 '
-  'UVDAR' 'waitForRos; sleep 10; roslaunch uvdar_core rw_three_sided_basler.launch use_masks:=false
+  'UVDAR' 'waitForRos; sleep 10; roslaunch uvdar_core rw_three_sided_basler.launch
 '
 )
 
