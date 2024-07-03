@@ -2433,18 +2433,18 @@ namespace uvdar {
           auto [hypotheses_init, errors_init] = getViableInitialHyptheses(points, furthest_position, target, image_index, fromcam_tf, tocam_tf, INITIAL_ROUGH_HYPOTHESIS_COUNT, time);
           profiler.addValue("InitialHypotheses");
           double ratio_found = (double)(hypotheses_init.size()) / (double)(INITIAL_ROUGH_HYPOTHESIS_COUNT);
-          ROS_INFO(" Ratio Init: %f", 100*ratio_found );
+          //ROS_INFO(" Ratio Init: %f", 100*ratio_found );
 
           int desired_count = (int)(ratio_found*INITIAL_HYPOTHESIS_COUNT);
           auto hypotheses_refined = refineByMutation(model_, points, hypotheses_init,     tocam_tf, image_index, target, ERROR_THRESHOLD_MUTATION_1(image_index), 1.0, 1.0, desired_count);
           /* profiler.addValue("Initial Mutation 1"); */
           ratio_found = (double)(hypotheses_refined.size()) / desired_count;
-          ROS_INFO(" Ratio Refin 1: %f", 100*ratio_found );
+          //ROS_INFO(" Ratio Refin 1: %f", 100*ratio_found );
           desired_count = (int)(ratio_found*desired_count);
           hypotheses_refined      = refineByMutation(model_, points, hypotheses_refined,  tocam_tf, image_index, target, ERROR_THRESHOLD_MUTATION_2(image_index), 1.0, 1.0, desired_count);
           /* profiler.addValue("Initial Mutation 2"); */
           ratio_found = (double)(hypotheses_refined.size()) / desired_count;
-          ROS_INFO(" Ratio Refin 2: %f", 100*ratio_found );
+          //ROS_INFO(" Ratio Refin 2: %f", 100*ratio_found );
           desired_count = (int)(ratio_found*desired_count);
           hypotheses_refined      = refineByMutation(model_, points, hypotheses_refined,  tocam_tf, image_index, target, ERROR_THRESHOLD_MUTATION_3(image_index), 1.0, 1.0, desired_count);
           /* profiler.addValue("Initial Mutation 3"); */
