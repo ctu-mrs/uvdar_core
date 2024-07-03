@@ -29,8 +29,8 @@ image_encoding: "mono8"
 #  (width / binning_x) x (height / binning_y).
 #  The default values binning_x = binning_y = 0 are considered the same
 #  as binning_x = binning_y = 1 (no subsampling).
-binning_x: 1
-binning_y: 1
+binning_x: 2
+binning_y: 2
 
 #  The desired publisher frame rate if listening to the topics.
 #  This parameter can only be set once at startup
