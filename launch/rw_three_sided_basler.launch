@@ -31,7 +31,7 @@
 
   <arg name="calibrations_folder" default="$(find mrs_uav_deployment)/config/uvdar_calibrations"/>
 
-  <arg name="FRAME_RATE" default="59.9" />
+  <arg name="FRAME_RATE" default="59.0" />
 
     
   <!-- Point detector settings: -->
@@ -269,7 +269,15 @@
       <remap from="~ami_all_seq_info_right" to="/$(arg uav_name)/uvdar/ami_all_seq_info_right"/>
       <remap from="~ami_all_seq_info_back" to="/$(arg uav_name)/uvdar/ami_all_seq_info_back"/>
     </node>
+
+    <node name="throttle_blinkers_left" type="throttle" pkg="topic_tools"
+      args="messages /$(arg uav_name)/uvdar/blinkers_seen_left $(arg blink_throttle_rate) /$(arg uav_name)/uvdar/blinkers_seen_left/throttled" />
+    <node name="throttle_blinkers_right" type="throttle" pkg="topic_tools"
+      args="messages /$(arg uav_name)/uvdar/blinkers_seen_right $(arg blink_throttle_rate) /$(arg uav_name)/uvdar/blinkers_seen_right/throttled" />
+    <node name="throttle_blinkers_back" type="throttle" pkg="topic_tools"
+      args="messages /$(arg uav_name)/uvdar/blinkers_seen_back $(arg blink_throttle_rate) /$(arg uav_name)/uvdar/blinkers_seen_back/throttled" />
     <node name="uvdar_pose_calculator_node" pkg="uvdar_core" type="uvdar_pose_calculator_node" output="screen" > 
+
         <!-- <node name="uvdar_pose_calculator_node" pkg="uvdar_core" type="uvdar_pose_calculator_node" launch-prefix="valgrind -/-tool=callgrind -/-callgrind-out-file=/home/viktor/callgrind.out -/-instr-atstart=no -/-collect-atstart=yes"> --> 
             <!-- <node name="uvdar_pose_calculator_node" pkg="uvdar_core" type="uvdar_pose_calculator_node" launch-prefix="valgrind -/-tool=callgrind -/-callgrind-out-file=/home/viktor/callgrind.out"> --> 
       <param name="uav_name" type = "string" value="$(arg uav_name)"/>
