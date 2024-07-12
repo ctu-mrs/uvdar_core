@@ -1,0 +1,44 @@
+targets:
+  - uvdar_ids: [0]
+    uwb_id: 0
+  - uvdar_ids: [1]
+    uwb_id: 1
+  - uvdar_ids: [2]
+    uwb_id: 2
+  - uvdar_ids: [3]
+    uwb_id: 3
+  - uvdar_ids: [4]
+    uwb_id: 4
+  - uvdar_ids: [5]
+    uwb_id: 5
+  - uvdar_ids: [6]
+    uwb_id: 6
+  - uvdar_ids: [7]
+    uwb_id: 7
+  - uvdar_ids: [8]
+    uwb_id: 8
+  - uvdar_ids: [9]
+    uwb_id: 9
+  - uvdar_ids: [10]
+    uwb_id: 10
+  - uvdar_ids: [11]
+    uwb_id: 11
+  - uvdar_ids: [12]
+    uwb_id: 12
+  - uvdar_ids: [13]
+    uwb_id: 13
+  - uvdar_ids: [14]
+    uwb_id: 14
+  - uvdar_ids: [15]
+    uwb_id: 15
+  - uvdar_ids: [16]
+    uwb_id: 16
+  - uvdar_ids: [17]
+    uwb_id: 17
+  - uvdar_ids: [18]
+    uwb_id: 18
+  - uvdar_ids: [19]
+    uwb_id: 19
+  - uvdar_ids: [20]
+    uwb_id: 20
+
