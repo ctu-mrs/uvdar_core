@@ -65,6 +65,9 @@
 
   <arg name="mrs_id" default="$(optenv MRS_ID)"/>
 
+  <arg name="uwb_id" default="$(optenv UWB_ID)"/>
+  <arg name="uwb_portname" default="$(optenv uwb_portname /dev/ttyACM0)"/>
+
   <arg name="beacon" default="false"/>
 
   <arg name="id1" value="0"/>
@@ -216,6 +219,48 @@
       <remap from="~omta_all_seq_info_front" to="/$(arg uav_name)/uvdar/omta_all_seq_info_front"/>
     </node>
 
+    <node name="uwb_tf_$(arg UAV_NAME)" pkg="tf2_ros" type="static_transform_publisher" args="0.00  0.08 -0.1 0.0 0.0 0.0 $(arg UAV_NAME)/fcu $(arg UAV_NAME)/uwb"/>
+
+    <!-- launch the node -->
+    <node pkg="nodelet" type="nodelet" name="serial_uwb" args="standalone baca_protocol/BacaProtocol" respawn="true" output="screen">
+      <param name="uav_name" type="string" value="$(arg UAV_NAME)"/>
+
+      <rosparam file="$(find mrs_serial)/config/mrs_serial.yaml" />
+
+      <param name="enable_profiler" type="bool" value="$(arg profiler)" />
+      <param name="portname" value="$(arg uwb_portname)"/>
+      <param name="use_timeout" value="true"/>
+
+      <!-- Publishers -->
+      <remap from="~range" to="~" />
+      <remap from="~range_up" to="~" />
+      <remap from="~profiler" to="profiler" />
+      <remap from="~baca_protocol_out" to="~received_message" />
+
+      <!-- Subscribers -->
+      <remap from="~baca_protocol_in" to="~send_message" />
+      <remap from="~raw_in" to="~send_raw_message" />
+
+    </node>
+
+    <node name="uwb_range" pkg="uwb_range" type="uwb_range_node" output="screen" respawn="true">
+      <remap from="~baca_out" to="/$(arg UAV_NAME)/serial_uwb/send_message" />
+      <remap from="~baca_in" to="/$(arg UAV_NAME)/serial_uwb/received_message"/>
+
+      <remap from="~odometry_in" to="/$(arg UAV_NAME)/estimation_manager/odom_main"/>
+      <remap from="~gps_in" to="/$(arg UAV_NAME)/mavros/global_position/global"/>
+
+      <remap from="~range_out" to="~range"/>
+      <remap from="~beacon_out" to="~beacon"/>
+
+      <param name="preprocessing" type="int" value="$(arg preprocessing)" />
+      <param name="uav_name" type="string" value="$(arg UAV_NAME)" />
+      <param name="uwb_id" value="$(arg uwb_id)" />
+      <param name="output_frame" value="$(arg output_frame)"/>
+      <param name="variance" value="$(arg variance)" />
+      <param name="enable_requests" value="$(arg enable_requests)" />
+    </node>
+
     <node name="UWB_UVDAR_Fuser" type="uwb_uvdar_fuser_node" output="screen" respawn="true">
       <param name="uav_name" type = "string" value="$(arg uav_name)"/>
       <param name="debug"		type="bool" value="false"/> 
@@ -223,6 +268,7 @@
       <param name="gui"             type="bool" value="$(arg gui)"/>
       <rosparam file="$(find uvdar_core)/config/uwb_uvdar_fuser/target_ids.yaml" />
     </node>
+
       
   </group>
 

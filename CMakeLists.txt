@@ -429,6 +429,7 @@ target_link_libraries(uwb_uvdar_fuser_node
   ${catkin_LIBRARIES}
   ${OpenCV_LIBRARIES}
   ${EIGEN3_LIBRARIES}
+  UvdarCore_OCamCalib
   )
 
 ## | ----------------- uvdar bluefox emulator ----------------- |
