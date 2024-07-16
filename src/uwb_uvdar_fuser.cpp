@@ -291,7 +291,7 @@ namespace uvdar {
           }
 
           get_ocam_model(&cameras_.back().oc_model, (char*)(cameras_.back().calibration_file.c_str()));
-          ROS_INFO_STREAM("[UVDARPoseCalculator]: Calibration parameters for virtual camera " << i << " came from the file " <<  cameras_.back().calibration_file);
+          ROS_INFO_STREAM("[UVDARPoseCalculator]: Calibration parameters for camera " << i << " came from the file " <<  cameras_.back().calibration_file);
           for (int j=0; j<cameras_.back().oc_model.length_pol; j++){
             if (isnan(cameras_.back().oc_model.pol[j])){
               ROS_ERROR("[UVDARPoseCalculator]: Calibration polynomial containts NaNs! Returning.");
@@ -304,9 +304,9 @@ namespace uvdar {
 
         }
 
-        param_loader.loadParam("uwb_frame", _uwb_frame_, _uwb_frame_);
+        param_loader.loadParam("uwb_frame", _uwb_frame_);
 
-        nh.subscribe("ranges_in", 1, &UWB_UVDAR_Fuser::ProcessRanges, this);
+        sub_range_ = nh.subscribe<mrs_msgs::RangeWithCovarianceArrayStamped>("ranges_in", 1, &UWB_UVDAR_Fuser::ProcessRanges, this);
 
 
         pub_filter_ = nh.advertise<mrs_msgs::PoseWithCovarianceArrayStamped>("filtered_poses", 1);
@@ -415,10 +415,10 @@ namespace uvdar {
           for (auto target_points : associated_points) {
           int target = target_points.first;
             for (auto& pt: target_points.second){
-              ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: Point: [" << pt.x << "," << pt.y << "].");
+              /* ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: Point: [" << pt.x << "," << pt.y << "]."); */
               e::Vector3d curr_direction_local = directionFromCamPoint(cv::Point2d(pt.x, pt.y), image_index);
-              ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: Line direction in camera: [" << curr_direction_local.transpose() << "].");
-              ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: Camera resolution: [" << cameras_[image_index].oc_model.width << "," << cameras_[image_index].oc_model.height << "]");
+              /* ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: Line direction in camera: [" << curr_direction_local.transpose() << "]."); */
+              /* ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: Camera resolution: [" << cameras_[image_index].oc_model.width << "," << cameras_[image_index].oc_model.height << "]"); */
                     
 
               e::Vector3d curr_direction; //global
@@ -440,7 +440,7 @@ namespace uvdar {
 
               // Apply the correction step for line
               /* fd_[target].filter_state = filter_.correctLine(fd_[target].filter_state, camera_origin, curr_direction, LINE_VARIANCE, true); //true should activate Masreliez uniform filtering */
-              ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: Line direction in output: [" << curr_direction.transpose() << "].");
+              /* ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: Line direction in output: [" << curr_direction.transpose() << "]."); */
               fd_[target].filter_state = filter_->correctLine(fd_[target].filter_state, camera_origin, curr_direction, LINE_VARIANCE);
 
               // Restrict state to be in front of the camera
@@ -471,7 +471,7 @@ namespace uvdar {
         for (auto &pt : msg.points){
           int ID = targetIDFromUVDAR(pt.value);
           if (ID < 0){
-            ROS_WARN_STREAM("[UWB_UVDAR_Fuser]: Observed point [" << pt.x << ", " << pt.y << "] with ID: " << pt.value << " did not match any target!");
+            ROS_WARN_STREAM_THROTTLE(1.0,"[UWB_UVDAR_Fuser]: Observed point [" << pt.x << ", " << pt.y << "] with ID: " << pt.value << " did not match any target!");
             continue;
           }
           int i=0;
@@ -550,6 +550,7 @@ namespace uvdar {
        */
       /* ProcessRanges //{ */
       void ProcessRanges(const mrs_msgs::RangeWithCovarianceArrayStampedConstPtr& msg) {
+        ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: Getting ranges.");
         std::scoped_lock lock(filter_mutex);
 
         e::Vector3d receiver_origin;
@@ -564,7 +565,7 @@ namespace uvdar {
 
           auto receiver_origin_tmp = transformer_.transform(e::Vector3d(0,0,0), fromrec_tmp.value());
           if (!receiver_origin_tmp){
-            ROS_ERROR_STREAM("[" << ros::this_node::getName().c_str() << "]: Failed to transform camera origin! Returning.");
+            ROS_ERROR_STREAM("[" << ros::this_node::getName().c_str() << "]: Failed to transform UWB device origin! Returning.");
             return;
           }
           else
@@ -574,6 +575,7 @@ namespace uvdar {
         for (auto r: msg->ranges){
           int uwb_id = r.id;
           int ID = targetIDFromUWB(uwb_id);
+          ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: Getting range: " << r.range << ", ID: " << r.id);
           if (ID < 0){
             ROS_WARN_STREAM("[UWB_UVDAR_Fuser]: Observed range [" << r.range.range << "] with ID: " << r.id << " did not match any target!");
             continue;
@@ -585,6 +587,7 @@ namespace uvdar {
             if (f.id == ID){
               if (f.received_bearing){
                 e::Vector3d direction = f.filter_state.x.topLeftCorner(3,1).normalized();
+                ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: Fusing distance measurement with distance of " << range << " with assumed direction of [ " << direction.transpose() << "].");
                 f.filter_state = filter_->correctPlane(f.filter_state, receiver_origin+(direction*range), direction, variance);
               }
             }
@@ -678,7 +681,6 @@ namespace uvdar {
           C_large << e::Matrix3d::Identity()*666, e::Matrix3d::Zero(), e::Matrix3d::Zero(), e::Matrix3d::Identity()*666;
           e::Vector6d zero_state = e::Vector6d::Zero();
 
-          ROS_INFO_STREAM("[UWB_UVDAR_Fuser]: A");
 
           fd_.push_back({.filter_state = {.x = zero_state, .P = C_large}, .update_count = 0, .latest_update = stamp, .latest_measurement = stamp, .id = ID});
           return true;
@@ -706,7 +708,7 @@ namespace uvdar {
 
         int ID = targetIDFromUWB(r.id);
         if (ID < 0){
-          ROS_ERROR_STREAM("[UWB_UVDAR_Fuser]: Observed range [" << r.range.range << "] with ID: " << r.id << " did not match any target!");
+          ROS_ERROR_STREAM_THROTTLE(1.0,"[UWB_UVDAR_Fuser]: Observed range [" << r.range.range << "] with ID: " << r.id << " did not match any target!");
           return false ;
         }
 
@@ -759,18 +761,28 @@ namespace uvdar {
 
         double mahalanobis_distance = mahalanobisDistance(filter.filter_state, projection_line);
 
+        /* ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: Mean: " << filter.filter_state.x.transpose()); */
+        /* ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: Mahalanobis distance: " << mahalanobis_distance); */
+
         return (mahalanobis_distance < LINE_MAH_THRESH);
       }
 
       double mahalanobisDistance(statecov_t X, LineProperties line){
         Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> eigenSolver(X.P.topLeftCorner(3,3));
-        Eigen::Matrix3d sphere_transform = sphere_transform.inverse(); //transforms the Covariance to unit spherical - in the resulting space we compute the distance of the line to the estimate, corresponding to the Mahalanobis distance of the closest point on the line to the estimate mean
+        Eigen::Matrix3d sphere_transform_inverse = eigenSolver.eigenvectors() * eigenSolver.eigenvalues().cwiseSqrt().asDiagonal(); 
+        Eigen::Matrix3d sphere_transform = sphere_transform_inverse.inverse(); //transforms the Covariance to unit spherical - in the resulting space we compute the distance of the line to the estimate, corresponding to the Mahalanobis distance of the closest point on the line to the estimate mean
         e::Vector3d d = (sphere_transform*line.direction).normalized();
         e::Vector3d o = sphere_transform*line.origin;
         e::Vector3d m = sphere_transform*X.x.topLeftCorner(3,1);
         e::Vector3d W = m-o;
         e::Vector3d closest_point = o+d*(W.dot(d));
-        return (o-closest_point).norm();
+        /* ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: Origin: " << o.transpose()); */
+        /* ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: Mean: " << m.transpose()); */
+        /* ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: Dist: " << W.transpose()); */
+        /* ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: Direction: " << d.transpose()); */
+        /* ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: Scale: " << (W.dot(d))); */
+        /* ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: Closest point: " << closest_point.transpose()); */
+        return (m-closest_point).norm();
       }
 
       double mahalanobisDistance(statecov_t X, e::Vector3d p){

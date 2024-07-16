@@ -103,7 +103,7 @@
     name="uvcam_tf_$(arg uav_name)"
     pkg="tf2_ros"
     type="static_transform_publisher"
-    args="0.03  0.10 0.06 -0.3490658504 0.0 -1.57079632679 $(arg uav_name)/fcu $(arg uav_name)/uvcam"/>
+    args="0.05  0.0 -0.02 -1.57079632679 0.0 -1.57079632679 $(arg uav_name)/fcu $(arg uav_name)/uvcam"/>
 
 
       <!-- <origin xyz="0.108 0 0.085" rpy="1.57079632679 4.71238898038 1.57079632679" /> -->
@@ -279,9 +279,10 @@
       <rosparam param="blinkers_seen_topics"> ["blinkers_seen_front"] </rosparam>
       <remap from="~blinkers_seen_front" to="/$(arg uav_name)/uvdar/blinkers_seen_front"/>
 
-      <rosparam param="calib_files" subst_value="true"> ["$(arg calibrations_folder)/camera_calibrations/calib_results_bf_uv_default.txt"] </rosparam>
+      <rosparam param="calib_files" subst_value="true"> ["default"] </rosparam>
       <rosparam param="camera_frames" subst_value="true"> ["$(arg uav_name)/uvcam"] </rosparam>
 
+      <param name="uwb_frame" value="fcu"/>
       <remap from="~ranges_in" to="/$(arg uav_name)/uwb_range/range"/>
     </node>
 
