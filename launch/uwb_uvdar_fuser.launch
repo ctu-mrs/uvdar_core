@@ -219,15 +219,16 @@
       <remap from="~omta_all_seq_info_front" to="/$(arg uav_name)/uvdar/omta_all_seq_info_front"/>
     </node>
 
-    <node name="uwb_tf_$(arg UAV_NAME)" pkg="tf2_ros" type="static_transform_publisher" args="0.00  0.08 -0.1 0.0 0.0 0.0 $(arg UAV_NAME)/fcu $(arg UAV_NAME)/uwb"/>
+    <node name="uwb_tf_$(arg uav_name)" pkg="tf2_ros" type="static_transform_publisher" args="0.00  0.08 -0.1 0.0 0.0 0.0 $(arg uav_name)/fcu $(arg uav_name)/uwb"/>
 
     <!-- launch the node -->
     <node pkg="nodelet" type="nodelet" name="serial_uwb" args="standalone baca_protocol/BacaProtocol" respawn="true" output="screen">
-      <param name="uav_name" type="string" value="$(arg UAV_NAME)"/>
+      <param name="uav_name" type="string" value="$(arg uav_name)"/>
 
       <rosparam file="$(find mrs_serial)/config/mrs_serial.yaml" />
 
-      <param name="enable_profiler" type="bool" value="$(arg profiler)" />
+      <!-- <param name="enable_profiler" type="bool" value="$(arg profiler)" /> -->
+      <param name="enable_profiler" type="bool" value="0" />
       <param name="portname" value="$(arg uwb_portname)"/>
       <param name="use_timeout" value="true"/>
 
@@ -244,29 +245,44 @@
     </node>
 
     <node name="uwb_range" pkg="uwb_range" type="uwb_range_node" output="screen" respawn="true">
-      <remap from="~baca_out" to="/$(arg UAV_NAME)/serial_uwb/send_message" />
-      <remap from="~baca_in" to="/$(arg UAV_NAME)/serial_uwb/received_message"/>
+      <remap from="~baca_out" to="/$(arg uav_name)/serial_uwb/send_message" />
+      <remap from="~baca_in" to="/$(arg uav_name)/serial_uwb/received_message"/>
 
-      <remap from="~odometry_in" to="/$(arg UAV_NAME)/estimation_manager/odom_main"/>
-      <remap from="~gps_in" to="/$(arg UAV_NAME)/mavros/global_position/global"/>
+      <remap from="~odometry_in" to="/$(arg uav_name)/estimation_manager/odom_main"/>
+      <remap from="~gps_in" to="/$(arg uav_name)/mavros/global_position/global"/>
 
       <remap from="~range_out" to="~range"/>
       <remap from="~beacon_out" to="~beacon"/>
 
-      <param name="preprocessing" type="int" value="$(arg preprocessing)" />
-      <param name="uav_name" type="string" value="$(arg UAV_NAME)" />
+      <!-- <param name="preprocessing" type="int" value="$(arg preprocessing)" /> -->
+      <param name="preprocessing" type="int" value="0" />
+      <param name="uav_name" type="string" value="$(arg uav_name)" />
       <param name="uwb_id" value="$(arg uwb_id)" />
-      <param name="output_frame" value="$(arg output_frame)"/>
-      <param name="variance" value="$(arg variance)" />
-      <param name="enable_requests" value="$(arg enable_requests)" />
+      <!-- <param name="output_frame" value="$(arg output_frame)"/> -->
+      <param name="output_frame" value="fcu"/>
+      <!-- <param name="variance" value="$(arg variance)" /> -->
+      <param name="variance" value="0.0004" />
+      <!-- <param name="enable_requests" value="$(arg enable_requests)" /> -->
+      <param name="enable_requests" value="1" />
     </node>
 
-    <node name="UWB_UVDAR_Fuser" type="uwb_uvdar_fuser_node" output="screen" respawn="true">
+    <node name="UWB_UVDAR_Fuser" pkg="uvdar_core" type="uwb_uvdar_fuser_node" output="screen" respawn="false">
+    <!-- <node name="UWB_UVDAR_Fuser" pkg="uvdar_core" type="uwb_uvdar_fuser_node" output="screen" respawn="false"  launch-prefix="debug_roslaunch"> -->
       <param name="uav_name" type = "string" value="$(arg uav_name)"/>
       <param name="debug"		type="bool" value="false"/> 
       <param name="visual_debug"		type="bool" value="$(arg visual_debug)"/> 
       <param name="gui"             type="bool" value="$(arg gui)"/>
       <rosparam file="$(find uvdar_core)/config/uwb_uvdar_fuser/target_ids.yaml" />
+
+      <param name="output_frame" value="fcu"/>
+
+      <rosparam param="blinkers_seen_topics"> ["blinkers_seen_front"] </rosparam>
+      <remap from="~blinkers_seen_front" to="/$(arg uav_name)/uvdar/blinkers_seen_front"/>
+
+      <rosparam param="calib_files" subst_value="true"> ["$(arg calibrations_folder)/camera_calibrations/calib_results_bf_uv_default.txt"] </rosparam>
+      <rosparam param="camera_frames" subst_value="true"> ["$(arg uav_name)/uvcam"] </rosparam>
+
+      <remap from="~ranges_in" to="/$(arg uav_name)/uwb_range/range"/>
     </node>
 
       

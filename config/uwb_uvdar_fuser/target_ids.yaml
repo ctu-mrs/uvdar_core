@@ -1,5 +1,5 @@
 targets:
-  - uvdar_ids: [0]
+  - uvdar_ids: [0,1,2,3]
     uwb_id: 0
   - uvdar_ids: [1]
     uwb_id: 1

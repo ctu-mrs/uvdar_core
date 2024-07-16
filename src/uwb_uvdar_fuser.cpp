@@ -8,6 +8,7 @@
 #include <mrs_lib/dkf.h>
 
 #include <mrs_msgs/PoseWithCovarianceArrayStamped.h>
+#include <mrs_msgs/RangeWithCovarianceArrayStamped.h>
 #include <mrs_msgs/ReferenceStamped.h>
 #include <mrs_msgs/String.h>
 #include <mrs_msgs/Vec4.h>
@@ -120,12 +121,12 @@ namespace uvdar {
         ros::Time latest_update;
         ros::Time latest_measurement;
         int id;
+        bool received_bearing = false;
       };
 
       std::vector<FilterData> fd_;
       // | ----------------------- subscribers ---------------------- |
 
-      std::vector<ros::Subscriber> sub_blinkers_;
       ros::Subscriber sub_range_;
 
       // | ----------------------- publishers ---------------------- |
@@ -161,6 +162,12 @@ namespace uvdar {
       std::string blinker_topic;
       //}
       
+      // | --------------------- UWB ranger data ------------------- |
+      std::string _uwb_frame_;
+      //
+
+      // }
+
       // | ---------------------- line prperties ------------------- |
       struct LineProperties{
         e::Vector3d origin;
@@ -272,8 +279,6 @@ namespace uvdar {
             ProcessBlinkPoints(pointsMessage, image_index);
           };
 
-          ROS_INFO_STREAM("[UVDARPoseCalculator]: Subscribing to " << _blinkers_seen_topics[i]);
-          cameras_.back().subscriber = nh.subscribe(_blinkers_seen_topics[i], 1, cameras_.back().callback);
 
           cameras_.back().image_size = cv::Size(-1,-1);
 
@@ -294,7 +299,12 @@ namespace uvdar {
             }
           }
 
+          ROS_INFO_STREAM("[UVDARPoseCalculator]: Subscribing to " << _blinkers_seen_topics[i]);
+          cameras_.back().subscriber = nh.subscribe(_blinkers_seen_topics[i], 1, cameras_.back().callback);
+
         }
+
+        param_loader.loadParam("uwb_frame", _uwb_frame_, _uwb_frame_);
 
         nh.subscribe("ranges_in", 1, &UWB_UVDAR_Fuser::ProcessRanges, this);
 
@@ -405,7 +415,11 @@ namespace uvdar {
           for (auto target_points : associated_points) {
           int target = target_points.first;
             for (auto& pt: target_points.second){
+              ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: Point: [" << pt.x << "," << pt.y << "].");
               e::Vector3d curr_direction_local = directionFromCamPoint(cv::Point2d(pt.x, pt.y), image_index);
+              ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: Line direction in camera: [" << curr_direction_local.transpose() << "].");
+              ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: Camera resolution: [" << cameras_[image_index].oc_model.width << "," << cameras_[image_index].oc_model.height << "]");
+                    
 
               e::Vector3d curr_direction; //global
               {
@@ -426,6 +440,7 @@ namespace uvdar {
 
               // Apply the correction step for line
               /* fd_[target].filter_state = filter_.correctLine(fd_[target].filter_state, camera_origin, curr_direction, LINE_VARIANCE, true); //true should activate Masreliez uniform filtering */
+              ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: Line direction in output: [" << curr_direction.transpose() << "].");
               fd_[target].filter_state = filter_->correctLine(fd_[target].filter_state, camera_origin, curr_direction, LINE_VARIANCE);
 
               // Restrict state to be in front of the camera
@@ -435,6 +450,7 @@ namespace uvdar {
               fd_[target].filter_state = filter_->correctPlane(fd_[target].filter_state, camera_origin+(curr_direction*dist_range_center), curr_direction, dist_range_span);
 
 
+              fd_[target].received_bearing = true;
             }
           }
         }
@@ -510,12 +526,75 @@ namespace uvdar {
       //}
 
       /**
+       * @brief Associates the blinking sequence ID retrieved by UWB with a specific target
+       *
+       * @param uvdar_id - the UWB ID provided by receiver
+       *
+       * @return An ID of the target that is expected to carry the uvdar_id
+       *
+       * targetIDFromUWB //{ */
+      int targetIDFromUWB(double uwb_id){
+        for (auto tg : _targets_){
+          if (uwb_id == tg.uwb_id){
+            return tg.id;
+          }
+        }
+        return -1; //not found
+      }
+      //}
+
+      /**
        * @brief Callback to process input range measurement messges
        *
        * @param msg
        */
       /* ProcessRanges //{ */
-      void ProcessRanges(const uvdar_core::ImagePointsWithFloatStampedConstPtr& msg) {
+      void ProcessRanges(const mrs_msgs::RangeWithCovarianceArrayStampedConstPtr& msg) {
+        std::scoped_lock lock(filter_mutex);
+
+        e::Vector3d receiver_origin;
+        {
+          std::scoped_lock lock(transformer_mutex);
+
+          auto fromrec_tmp = transformer_.getTransform(_uwb_frame_,_uav_name_+"/"+_output_frame_, msg->header.stamp);
+          if (!fromrec_tmp){
+            ROS_ERROR_STREAM("[UWB_UVDAR_Fuser]: Could not obtain transform from " << _uwb_frame_  << " to " << _uav_name_+"/"+_output_frame_ << "!");
+            return;
+          }
+
+          auto receiver_origin_tmp = transformer_.transform(e::Vector3d(0,0,0), fromrec_tmp.value());
+          if (!receiver_origin_tmp){
+            ROS_ERROR_STREAM("[" << ros::this_node::getName().c_str() << "]: Failed to transform camera origin! Returning.");
+            return;
+          }
+          else
+            receiver_origin = receiver_origin_tmp.value();
+        }
+
+        for (auto r: msg->ranges){
+          int uwb_id = r.id;
+          int ID = targetIDFromUWB(uwb_id);
+          if (ID < 0){
+            ROS_WARN_STREAM("[UWB_UVDAR_Fuser]: Observed range [" << r.range.range << "] with ID: " << r.id << " did not match any target!");
+            continue;
+          }
+          double range = r.range.range;
+          double variance = r.variance;
+          bool found_filter = false;
+          for (auto &f: fd_){
+            if (f.id == ID){
+              if (f.received_bearing){
+                e::Vector3d direction = f.filter_state.x.topLeftCorner(3,1).normalized();
+                f.filter_state = filter_->correctPlane(f.filter_state, receiver_origin+(direction*range), direction, variance);
+              }
+            }
+          }
+          if (!found_filter){
+            initiateNew(r, msg->header.stamp);
+          }
+
+
+        }
         return;
       }
       //}
@@ -592,7 +671,49 @@ namespace uvdar {
 
         if (!_use_velocity_){
           int index = (int)(fd_.size());
-          ROS_INFO_STREAM("[UWB_UVDAR_Fuser]: Initiating state " << index << "(ID:" << ID << ").");
+          ROS_INFO_STREAM("[UWB_UVDAR_Fuser]: Initiating state " << index << " (ID:" << ID << ").");
+          ROS_INFO_STREAM("[UWB_UVDAR_Fuser]: The source input of the state is " << (ros::Time::now() - stamp).toSec() << "s old.");
+
+          e::Matrix6d C_large;
+          C_large << e::Matrix3d::Identity()*666, e::Matrix3d::Zero(), e::Matrix3d::Zero(), e::Matrix3d::Identity()*666;
+          e::Vector6d zero_state = e::Vector6d::Zero();
+
+          ROS_INFO_STREAM("[UWB_UVDAR_Fuser]: A");
+
+          fd_.push_back({.filter_state = {.x = zero_state, .P = C_large}, .update_count = 0, .latest_update = stamp, .latest_measurement = stamp, .id = ID});
+          return true;
+
+        }
+        else{
+          ROS_WARN("[UWB_UVDAR_Fuser]: Initialization of states with velocity is not implemented. Returning.");
+          return false;
+        }
+
+        return false;
+      }
+      //}
+
+      /**
+       * @brief Initiates a new filter based on a blinker point measurement
+       *
+       * @param r - range message from which to initialize
+       * @param stamp Time of the measurement
+       */
+      /* initiateNew //{ */
+      bool initiateNew(mrs_msgs::RangeWithCovarianceIdentified r, ros::Time stamp){
+        if (fd_.size() > MAX_TARGET_COUNT)
+          return false;
+
+        int ID = targetIDFromUWB(r.id);
+        if (ID < 0){
+          ROS_ERROR_STREAM("[UWB_UVDAR_Fuser]: Observed range [" << r.range.range << "] with ID: " << r.id << " did not match any target!");
+          return false ;
+        }
+
+
+        if (!_use_velocity_){
+          int index = (int)(fd_.size());
+          ROS_INFO_STREAM("[UWB_UVDAR_Fuser]: Initiating state " << index << " (ID:" << ID << ").");
           ROS_INFO_STREAM("[UWB_UVDAR_Fuser]: The source input of the state is " << (ros::Time::now() - stamp).toSec() << "s old.");
 
           e::Matrix6d C_large;
