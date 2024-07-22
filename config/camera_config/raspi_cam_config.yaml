@@ -6,8 +6,8 @@ camera_id: 0
 stream_role: "still" # [raw, still, video, viewfinder]
 pixel_format: "RGB888" #pixel format documentation: https://libcamera.org/api-html/build_2include_2libcamera_2formats_8h_source.html
 resolution:
-  width: 640 #full: 1280
-  height: 400 #full: 800
+  width: 1280 #full: 1280
+  height: 800 #full: 800
 use_ros_time: true
 
 #frame_id and calib_url parameters are set using launch file

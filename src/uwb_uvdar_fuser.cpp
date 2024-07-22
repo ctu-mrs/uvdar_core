@@ -450,6 +450,7 @@ namespace uvdar {
               fd_[target].filter_state = filter_->correctPlane(fd_[target].filter_state, camera_origin+(curr_direction*dist_range_center), curr_direction, dist_range_span);
 
 
+              fd_[target].update_count++;
               fd_[target].received_bearing = true;
             }
           }
@@ -493,10 +494,15 @@ namespace uvdar {
                 }
 
               }
+              else
+              {
+                ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: Measurement incompatible");
+              }
             }
             i++;
           }
           if (!found_filter){
+            ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: Filter not found. ID: " << ID);
             if ( initiateNew(pt, msg.stamp))
               output.push_back({i, {pt}});
           }
@@ -589,7 +595,9 @@ namespace uvdar {
                 e::Vector3d direction = f.filter_state.x.topLeftCorner(3,1).normalized();
                 ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: Fusing distance measurement with distance of " << range << " with assumed direction of [ " << direction.transpose() << "].");
                 f.filter_state = filter_->correctPlane(f.filter_state, receiver_origin+(direction*range), direction, variance);
+                f.update_count++;
               }
+              found_filter = true;
             }
           }
           if (!found_filter){
@@ -674,7 +682,7 @@ namespace uvdar {
 
         if (!_use_velocity_){
           int index = (int)(fd_.size());
-          ROS_INFO_STREAM("[UWB_UVDAR_Fuser]: Initiating state " << index << " (ID:" << ID << ").");
+          ROS_INFO_STREAM("[UWB_UVDAR_Fuser]: Initiating state " << index << " (ID:" << ID << ") using directional measurement.");
           ROS_INFO_STREAM("[UWB_UVDAR_Fuser]: The source input of the state is " << (ros::Time::now() - stamp).toSec() << "s old.");
 
           e::Matrix6d C_large;
@@ -715,7 +723,7 @@ namespace uvdar {
 
         if (!_use_velocity_){
           int index = (int)(fd_.size());
-          ROS_INFO_STREAM("[UWB_UVDAR_Fuser]: Initiating state " << index << " (ID:" << ID << ").");
+          ROS_INFO_STREAM("[UWB_UVDAR_Fuser]: Initiating state " << index << " (ID:" << ID << ") using range measurement.");
           ROS_INFO_STREAM("[UWB_UVDAR_Fuser]: The source input of the state is " << (ros::Time::now() - stamp).toSec() << "s old.");
 
           e::Matrix6d C_large;
@@ -762,7 +770,7 @@ namespace uvdar {
         double mahalanobis_distance = mahalanobisDistance(filter.filter_state, projection_line);
 
         /* ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: Mean: " << filter.filter_state.x.transpose()); */
-        /* ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: Mahalanobis distance: " << mahalanobis_distance); */
+        ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: Mahalanobis distance: " << mahalanobis_distance);
 
         return (mahalanobis_distance < LINE_MAH_THRESH);
       }
@@ -1037,7 +1045,7 @@ namespace uvdar {
       void publishStates(){
         mrs_msgs::PoseWithCovarianceArrayStamped msg;
         mrs_msgs::PoseWithCovarianceArrayStamped msg_tent;
-        msg.header.frame_id = _output_frame_;
+        msg.header.frame_id = _uav_name_+"/"+_output_frame_;
         msg.header.stamp = ros::Time::now();
         msg_tent.header = msg.header;
 
