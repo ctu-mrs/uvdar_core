@@ -18,7 +18,7 @@ use_ros_time: true
 # documentation: https://libcamera.org/api-html/namespacelibcamera_1_1controls.html
 control:
   fps: 59.9 # [Hz] Note: fps is set as 1000000/frame_duration_limits 
-  exposure_time: 100 # Exposure time (shutter speed) for the frame applied in the sensor device. This value is specified in micro-seconds.
+  exposure_time: 50 # Exposure time (shutter speed) for the frame applied in the sensor device. This value is specified in micro-seconds.
   # stats_output_enable - not supported by the current version of the libcamera SDK
   # noise_reduction_mode - not supported by the current version of the libcamera SDK
   # ae_constraint_mode: "normal" # [normal, highlight, shadows, custom]

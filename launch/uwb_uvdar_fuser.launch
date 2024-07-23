@@ -103,7 +103,7 @@
     name="uvcam_tf_$(arg uav_name)"
     pkg="tf2_ros"
     type="static_transform_publisher"
-    args="0.05  0.0 -0.02 -1.57079632679 0.0 -1.57079632679 $(arg uav_name)/fcu $(arg uav_name)/uvcam"/>
+    args="0.05  0.0 -0.02 1.57079632679 0.0 1.57079632679 $(arg uav_name)/fcu $(arg uav_name)/uvcam"/>
 
 
       <!-- <origin xyz="0.108 0 0.085" rpy="1.57079632679 4.71238898038 1.57079632679" /> -->
@@ -222,7 +222,7 @@
     <node name="uwb_tf_$(arg uav_name)" pkg="tf2_ros" type="static_transform_publisher" args="0.00  0.08 -0.1 0.0 0.0 0.0 $(arg uav_name)/fcu $(arg uav_name)/uwb"/>
 
     <!-- launch the node -->
-    <node pkg="nodelet" type="nodelet" name="serial_uwb" args="standalone baca_protocol/BacaProtocol" respawn="true" output="screen">
+    <node pkg="nodelet" type="nodelet" name="serial_uwb" args="standalone baca_protocol/BacaProtocol" respawn="true" output="log">
       <param name="uav_name" type="string" value="$(arg uav_name)"/>
 
       <rosparam file="$(find mrs_serial)/config/mrs_serial.yaml" />
@@ -276,10 +276,12 @@
 
       <param name="output_frame" value="fcu"/>
 
+      <param name="use_velocity"		type="bool" value="true"/> 
+
       <rosparam param="blinkers_seen_topics"> ["blinkers_seen_front"] </rosparam>
       <remap from="~blinkers_seen_front" to="/$(arg uav_name)/uvdar/blinkers_seen_front"/>
 
-      <rosparam param="calib_files" subst_value="true"> ["default"] </rosparam>
+      <rosparam param="calib_files" subst_value="true"> ["$(arg calibrations_folder)/camera_calibrations/calib_results_rp_uv_$(arg uav_name).txt"] </rosparam>
       <rosparam param="camera_frames" subst_value="true"> ["$(arg uav_name)/uvcam"] </rosparam>
 
       <param name="uwb_frame" value="fcu"/>
