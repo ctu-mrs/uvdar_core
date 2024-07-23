@@ -1,0 +1,25 @@
+name: uvdar_calib_record
+root: ./
+startup_window: termviz
+pre_window: 
+windows:
+  - roscore:
+      layout: even-vertical
+      panes:
+        - sleep 5; roscore
+  - directories:
+      layout: even-vertical
+      panes: 
+        - sleep 6;  mkdir ~/bag_files; mkdir ~/bag_files/uvdar_calib/; mkdir ~/bag_files/uvdar_calib/raspi_${UAV_NAME}
+  - raspi_camera:
+      layout: even-vertical
+      panes:
+        - sleep 6;  roslaunch libcamera_ros uav.launch custom_config:=$(rospack find uvdar_core)/config/camera_config/raspi_cam_config_calibration.yaml
+  - recording:
+      layout: even-vertical
+      panes:
+        - sleep 6; sleep 1;  rosbag record -a -x '(.*)compressed(.*)' -x '(.*)theora(.*)' -O ~/bag_files/uvdar_calib/raspi_${UAV_NAME}/C_raspi_${UAV_NAME}.bag
+  - termviz: 
+      layout: even-vertical
+      panes:
+        - sleep 6; sleep 2; termviz record_calibration_termviz.yml 
