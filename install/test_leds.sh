@@ -16,7 +16,7 @@ if [[ $response_led =~ ^(y|Y)=$ ]]; then
     echo "4 = /dev/MRS_MODULE4"
     read -n 2 resp_module 
     echo "Starting with LED initialization on:/dev/MRS_MODULE$resp_module... This will take about 20 seconds."
-    path_to_led_config=/opt/ros/noetic/share/uvdar_core/config/blinking_sequences/test_assignment.txt
+    path_to_led_config=$(rospack find uvdar_core)/config/blinking_sequences/test_assignment.txt
     roslaunch uvdar_core led_manager.launch sequence_file:=$path_to_led_config portname:=/dev/MRS_MODULE$resp_module &> $tmp_file_LED_launch & 
     pid_led_manager=$! 
     sleep 5; rosservice call /$UAV_NAME/uvdar_led_manager_node/quick_start 0
