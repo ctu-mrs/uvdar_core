@@ -29,6 +29,20 @@
   <arg name="mm" default="0"/>
   <arg name="jpeg_quality" default="90"/>
 
+  <arg name="pub_tracking_stats" default="false"/>
+  <arg name="draw_predict_window_sec" default="0.0"/>
+  <arg name="max_px_shift_y" default="5"/>
+  <arg name="max_px_shift_x" default="5"/>
+  <arg name="max_zeros_consecutive" default="10"/>
+  <arg name="stored_seq_len_factor" default="20"/>
+  <arg name="max_buffer_length" default="5000"/>
+  <arg name="poly_order" default="4"/>
+  <arg name="decay_factor" default="0.1"/>
+  <arg name="confidence_probability" default="95.0"/>
+  <arg name="allowed_BER_per_seq" default="1"/>
+
+  <arg name="use_4DHT" default="false"/>
+
   <arg name="blink_process_rate" default="10"/>
 
   <arg name="accumulator_length"         default="14"/>
@@ -194,6 +208,20 @@
 
       <param name="blink_process_rate"         type="int" value="$(arg blink_process_rate)"/>
 
+      <param name="pub_tracking_stats"      type="bool" value="$(arg pub_tracking_stats)"/>
+      <param name="draw_predict_window_sec"  type="double" value="$(arg draw_predict_window_sec)"/>
+      <param name="use_4DHT"             type="bool" value="$(arg use_4DHT)"/>
+
+      <param name="max_px_shift_x"          type="int"    value="$(arg max_px_shift_x)"/>
+      <param name="max_px_shift_y"          type="int"    value="$(arg max_px_shift_y)"/>
+      <param name="max_zeros_consecutive"   type="int"    value="$(arg max_zeros_consecutive)"/>
+      <param name="stored_seq_len_factor"   type="int"    value="$(arg stored_seq_len_factor)"/>  
+      <param name="max_buffer_length"       type="int"    value="$(arg max_buffer_length)"/>  
+      <param name="poly_order"              type="int"    value="$(arg poly_order)"/>
+      <param name="decay_factor"            type="double" value="$(arg decay_factor)"/>    
+      <param name="confidence_probability"  type="double" value="$(arg confidence_probability)"/>
+      <param name="allowed_BER_per_seq"     type="int"    value="$(arg allowed_BER_per_seq)"/>
+
       <param name="accumulator_length"         type="int" value="$(arg accumulator_length)"/>
       <param name="pitch_steps"         type="int" value="$(arg pitch_steps)"/>
       <param name="yaw_steps"         type="int" value="$(arg yaw_steps)"/>
@@ -205,8 +233,8 @@
       <rosparam param="blinkers_seen_topics"> ["blinkers_seen_front"] </rosparam>
       <rosparam param="estimated_framerate_topics"> ["estimated_framerate_front"] </rosparam>
 
-      <rosparam param="omta_logging_topics"> ["omta_logging_front"] </rosparam>
-      <rosparam param="omta_all_seq_info_topics"> ["omta_all_seq_info_front"] </rosparam>
+      <rosparam param="ami_logging_topics"> ["ami_logging_front"] </rosparam>
+      <rosparam param="ami_all_seq_info_topics"> ["ami_all_seq_info_front"] </rosparam>
 
       <remap from="~camera_front" to="/$(arg uav_name)/uvdar_camera/front/image_raw"/>
       <remap from="~points_seen_front" to="/$(arg uav_name)/uvdar/points_seen_front"/>
@@ -214,9 +242,9 @@
       <remap from="~estimated_framerate_front" to="/$(arg uav_name)/uvdar/estimated_framerate_front"/>
       <!-- <remap from="~visualization" to="/$(arg uav_name)/uvdar/blink_visualization/image_raw"/> -->
 
-      <remap from="~omta_logging_front" to="/$(arg uav_name)/uvdar/omta_logging_front"/>
+      <remap from="~ami_logging_front" to="/$(arg uav_name)/uvdar/ami_logging_front"/>
 
-      <remap from="~omta_all_seq_info_front" to="/$(arg uav_name)/uvdar/omta_all_seq_info_front"/>
+      <remap from="~ami_all_seq_info_front" to="/$(arg uav_name)/uvdar/ami_all_seq_info_front"/>
     </node>
 
     <node name="uwb_tf_$(arg uav_name)" pkg="tf2_ros" type="static_transform_publisher" args="0.00  0.08 -0.1 0.0 0.0 0.0 $(arg uav_name)/fcu $(arg uav_name)/uwb"/>
