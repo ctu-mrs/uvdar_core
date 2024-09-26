@@ -998,7 +998,7 @@ namespace uvdar {
             msg.poses.push_back(temp);
           }
 
-          if (_use_velocity_)=
+          if (_use_velocity_)
             ROS_INFO_STREAM_THROTTLE(1.0,"[" << ros::this_node::getName().c_str() << "]: Velocity of filter ID " << temp.id << " is [" << fd_curr.filter_state.x[3] << "," << fd_curr.filter_state.x[4] << "," << fd_curr.filter_state.x[5] << "].");
         }
 
