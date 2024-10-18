@@ -2432,21 +2432,41 @@ namespace uvdar {
 
           auto [hypotheses_init, errors_init] = getViableInitialHyptheses(points, furthest_position, target, image_index, fromcam_tf, tocam_tf, INITIAL_ROUGH_HYPOTHESIS_COUNT, time);
           profiler.addValue("InitialHypotheses");
-          double ratio_found = (double)(hypotheses_init.size()) / (double)(INITIAL_ROUGH_HYPOTHESIS_COUNT);
+          double init_rough_count = (double)(INITIAL_ROUGH_HYPOTHESIS_COUNT);
+          double init_hypothesis_count =(double)(hypotheses_init.size());
+          double ratio_found = init_hypothesis_count / init_rough_count;
+          if (isnan(ratio_found)){
+            ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: FUCK 0!");
+          }
           //ROS_INFO(" Ratio Init: %f", 100*ratio_found );
 
           int desired_count = (int)(ratio_found*INITIAL_HYPOTHESIS_COUNT);
+          /* ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: desired_count" << desired_count); */
           auto hypotheses_refined = refineByMutation(model_, points, hypotheses_init,     tocam_tf, image_index, target, ERROR_THRESHOLD_MUTATION_1(image_index), 1.0, 1.0, desired_count);
           /* profiler.addValue("Initial Mutation 1"); */
-          ratio_found = (double)(hypotheses_refined.size()) / desired_count;
+          if (hypotheses_refined.size() == 0){
+            profiler.addValue("Viable initial hypotheses");
+            return hypotheses_refined;
+          }
+          double ratio_found_2 = (double)(hypotheses_refined.size()) / desired_count;
+          if (isnan(ratio_found_2)){
+            ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: FUCK 1!");
+          }
           //ROS_INFO(" Ratio Refin 1: %f", 100*ratio_found );
-          desired_count = (int)(ratio_found*desired_count);
-          hypotheses_refined      = refineByMutation(model_, points, hypotheses_refined,  tocam_tf, image_index, target, ERROR_THRESHOLD_MUTATION_2(image_index), 1.0, 1.0, desired_count);
+          int desired_count_2 = (int)(ratio_found_2*desired_count);
+          hypotheses_refined      = refineByMutation(model_, points, hypotheses_refined,  tocam_tf, image_index, target, ERROR_THRESHOLD_MUTATION_2(image_index), 1.0, 1.0, desired_count_2);
+          if (hypotheses_refined.size() == 0){
+            profiler.addValue("Viable initial hypotheses");
+            return hypotheses_refined;
+          }
           /* profiler.addValue("Initial Mutation 2"); */
-          ratio_found = (double)(hypotheses_refined.size()) / desired_count;
+          double ratio_found_3 = (double)(hypotheses_refined.size()) / desired_count_2;
+          if (isnan(ratio_found_3)){
+            ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: FUCK 2!");
+          }
           //ROS_INFO(" Ratio Refin 2: %f", 100*ratio_found );
-          desired_count = (int)(ratio_found*desired_count);
-          hypotheses_refined      = refineByMutation(model_, points, hypotheses_refined,  tocam_tf, image_index, target, ERROR_THRESHOLD_MUTATION_3(image_index), 1.0, 1.0, desired_count);
+          int desired_count_3 = (int)(ratio_found_3*desired_count_2);
+          hypotheses_refined      = refineByMutation(model_, points, hypotheses_refined,  tocam_tf, image_index, target, ERROR_THRESHOLD_MUTATION_3(image_index), 1.0, 1.0, desired_count_3);
           /* profiler.addValue("Initial Mutation 3"); */
 
           int static_hypothesis_count = (int)(hypotheses_refined.size());
@@ -2899,6 +2919,7 @@ namespace uvdar {
             }
 
             int iter = 0;
+            /* bool breakloop = false; */
             for (; (unsigned int)(output.size()) < desired_count;){
             for (auto &h : hypotheses){
 
@@ -2915,12 +2936,14 @@ namespace uvdar {
                     /* ROS_INFO_STREAM("[" << ros::this_node::getName().c_str() << "]: Discarding hypo with error of " << error_curr << " vs. " << threshold); */
                   }
                 }
+
               }
 
               iter++;
               if (iter > MAX_MUTATION_REFINE_ITERATIONS){
                 break;
               }
+
             }
 
             if (_debug_)
