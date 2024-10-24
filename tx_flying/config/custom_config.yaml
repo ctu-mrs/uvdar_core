@@ -1,0 +1,109 @@
+mrs_uav_managers:
+
+  estimation_manager:
+
+    # loaded state estimator plugins
+    # available in mrs_uav_state_estimators: gps_garmin, gps_baro, rtk, aloam, ground_truth, dummy
+    state_estimators: [
+      "gps_baro",
+      "gps_garmin",
+    # "rtk",
+    # "aloam",
+    # "ground_truth",
+    # "dummy"
+    ]
+
+    initial_state_estimator: "gps_baro" # will be used as the first state estimator
+    agl_height_estimator: "garmin_agl" # only slightly filtered height for checking min height (not used in control feedback)
+
+  constraint_manager:
+
+    faster:
+
+      horizontal:
+        speed: 10.0
+        acceleration: 4.0
+        jerk: 60.0
+        snap: 60.0
+
+      vertical:
+
+        ascending:
+          speed: 6.0
+          acceleration: 2.0
+          jerk: 60.0
+          snap: 60.0
+
+        descending:
+          speed: 6.0
+          acceleration: 2.0
+          jerk: 60.0
+          snap: 60.0
+
+      heading:
+        speed: 4.0
+        acceleration: 2.0
+        jerk: 40.0
+        snap: 40.0
+
+      angular_speed:
+        roll: 60.0
+        pitch: 60.0
+        yaw: 10.0
+
+      tilt: 65.0 # [deg]
+
+    fastest:
+
+      horizontal:
+        speed: 100.0
+        acceleration: 40.5
+        jerk: 70.0
+        snap: 70.0
+
+      vertical:
+
+        ascending:
+          speed: 100.0
+          acceleration: 20.0
+          jerk: 70.0
+          snap: 70.0
+
+        descending:
+          speed: 100.0
+          acceleration: 20.0
+          jerk: 70.0
+          snap: 70.0
+
+      heading:
+        speed: 4.0
+        acceleration: 2.0
+        jerk: 40.0
+        snap: 40.0
+
+      angular_speed:
+        roll: 60.0
+        pitch: 60.0
+        yaw: 10.0
+
+      tilt: 65.0 # [deg]
+
+    constraints: [
+      "slow",
+      "medium",
+      "fast",
+      "faster",
+      "fastest",
+    ]
+
+    allowed_constraints:
+        gps_baro: ["slow", "medium", "fast", "faster", "fastest"]
+
+    default_constraints:
+      gps_baro: "fast"
+
+mrs_uav_trackers:
+  mpc_tracker:
+    collision_avoidance:
+      radius: 1.5 # [m]
+      enabled: true

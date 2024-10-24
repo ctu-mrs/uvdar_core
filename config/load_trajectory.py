@@ -10,9 +10,6 @@ import math
 from mrs_msgs.srv import PathSrv,PathSrvRequest
 from mrs_msgs.msg import Reference
 
-selector = "line" 
-# selector = "eight"
-# selector = "star"
 
 # Instantiate the parser
 parser = argparse.ArgumentParser(description='Optional app description')
@@ -24,6 +21,8 @@ parser.add_argument('-e', '--exec_time', type=float, help='a')
 
 args = parser.parse_args()
 # 
+uav_name = os.getenv("UAV_NAME")
+uav_name = "uav1"
 
 class Goto:
 
@@ -40,7 +39,8 @@ class Goto:
 
         # self.sc_path = rospy.ServiceProxy('/uav42/trajectory_generation/path', PathSrv)
         # self.sc_path = rospy.ServiceProxy('/uav1/trajectory_generation/path', PathSrv)
-        self.sc_path = rospy.ServiceProxy('/uav2/trajectory_generation/path', PathSrv)
+        trajectory_name = '/' + uav_name + '/trajectory_generation/path'
+        self.sc_path = rospy.ServiceProxy( trajectory_name, PathSrv)
 
         path_msg = PathSrvRequest()
 
@@ -58,22 +58,22 @@ class Goto:
         # path_msg.path.loop =True
         path_msg.path.loop = args.loop
 
+        along_x = False
 
         if args.selector == "line":
             center_point = [4.0, 0.0, 1.0, 0.0]
             dist = 15.0
             point1 = Reference()
             point2 = Reference()
-            along_x = False
             
             point1.position.x = center_point[0]
             point1.position.y = center_point[1]
-            point1.position.z = center_point[2] 
-            point1.heading = 0
+            point1.position.z = center_point[2]
+            point1.heading = center_point[3]
             point2.position.x = center_point[0]
             point2.position.y = center_point[1]
             point2.position.z = center_point[2] 
-            point2.heading = 0
+            point2.heading = center_point[3]
             if along_x:
                 point1.position.x = center_point[0] - dist/2
                 point2.position.x = center_point[0] + dist/2
@@ -86,9 +86,8 @@ class Goto:
             path_msg.path.points.append(point1)
 
         elif args.selector == "eight":
-            center_point = [4.0, 0.0, 4,0, 5.0]
+            center_point = [4.0, 0.0, 4,0, 0.0]
             radius = 2.5
-            along_x = False
 
             angle = -math.pi / 2.0
             data_points = 6
@@ -148,9 +147,78 @@ class Goto:
             path_msg.path.points.append(first_pt)
 
         elif args.selector == "star":
-            rospy.loginfo('TBD')
+
+            center_point = [4.0, 0.0, 5.0, 0.0] 
+
+            offset_p1 = 1.0
+            offset_p2p5_h = 2.0
+            offset_p2p5_v = 2.0
+            offset_p3p4_h = 2.5
+            offset_p3p4_v = 0.5
+
+            point1 = Reference()
+            point2 = Reference()
+            point3 = Reference()
+            point4 = Reference()
+            point5 = Reference()
             
+            if along_x:
+                point1.position.x = center_point[0]  
+                point1.position.y = center_point[1]  
+                point1.position.z = center_point[2] + offset_p1
+                point1.heading = center_point[3]
+                
+                point2.position.x = center_point[0] + offset_p2p5_h
+                point2.position.y = center_point[1]  
+                point2.position.z = center_point[2] - offset_p2p5_v
+                point2.heading = center_point[3]
         
+                point3.position.x = center_point[0] - offset_p3p4_h
+                point3.position.y = center_point[1]  
+                point3.position.z = center_point[2] + offset_p3p4_v
+                point3.heading = center_point[3]
+
+                point4.position.x = center_point[0] + offset_p3p4_h
+                point4.position.y = center_point[1]  
+                point4.position.z = center_point[2] + offset_p3p4_v
+                point4.heading = center_point[3]
+
+                point5.position.x = center_point[0] - offset_p2p5_h
+                point5.position.y = center_point[1]  
+                point5.position.z = center_point[2] - offset_p2p5_v
+                point5.heading = center_point[3]
+            else:
+                point1.position.x = center_point[0]  
+                point1.position.y = center_point[1]  
+                point1.position.z = center_point[2] + offset_p1
+                point1.heading = center_point[3]
+                
+                point2.position.x = center_point[0] 
+                point2.position.y = center_point[1] + offset_p2p5_h
+                point2.position.z = center_point[2] - offset_p2p5_v
+                point2.heading = center_point[3]
+        
+                point3.position.x = center_point[0] 
+                point3.position.y = center_point[1] - offset_p3p4_h
+                point3.position.z = center_point[2] + offset_p3p4_v
+                point3.heading = center_point[3]
+
+                point4.position.x = center_point[0] 
+                point4.position.y = center_point[1] + offset_p3p4_h
+                point4.position.z = center_point[2] + offset_p3p4_v
+                point4.heading = center_point[3]
+
+                point5.position.x = center_point[0] 
+                point5.position.y = center_point[1] - offset_p2p5_h 
+                point5.position.z = center_point[2] - offset_p2p5_v
+                point5.heading = center_point[3]
+            
+            path_msg.path.points.append(point1)
+            path_msg.path.points.append(point2)
+            path_msg.path.points.append(point3)
+            path_msg.path.points.append(point4)
+            path_msg.path.points.append(point5)
+    
         else:
             rospy.loginfo('no trajectory selected')
 
