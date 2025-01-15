@@ -117,7 +117,7 @@
     name="uvcam_tf_$(arg uav_name)"
     pkg="tf2_ros"
     type="static_transform_publisher"
-    args="0.05  0.0 -0.02 1.57079632679 0.0 1.57079632679 $(arg uav_name)/fcu $(arg uav_name)/uvcam"/>
+    args="0.05  0.0 -0.02 -1.57079632679 0.0 -1.57079632679 $(arg uav_name)/fcu $(arg uav_name)/uvcam"/>
 
 
       <!-- <origin xyz="0.108 0 0.085" rpy="1.57079632679 4.71238898038 1.57079632679" /> -->
@@ -148,10 +148,10 @@
 
 
     <!-- <node pkg="nodelet" type="nodelet" name="uvdar_camera" args="$(arg nodelet) libcamera_ros_driver/LibcameraRosDriver $(arg nodelet_manager)" output="screen" respawn="true" launch-prefix="bash -c 'sleep 5; $0 $@'"> -->
-    <node pkg="nodelet" type="nodelet" name="uvdar_camera" args="$(arg nodelet) libcamera_ros_driver/LibcameraRosDriver $(arg nodelet_manager)" output="screen" respawn="true" >
+    <node pkg="nodelet" type="nodelet" name="uvdar_camera_front" args="$(arg nodelet) libcamera_ros_driver/LibcameraRosDriver $(arg nodelet_manager)" output="screen" respawn="true" >
 
       <!-- Load the default param files -->
-      <rosparam command="load" file="$(find uvdar_core)/config/camera_config/raspi_cam_config.yaml" />
+      <rosparam command="load" file="$(find uvdar_core)/config/camera_config/raspi_cam_config_front.yaml" />
 
       <param if="$(eval arg('custom_config') == '')" name="custom_config" value="" />
       <rosparam if="$(eval not arg('custom_config') == '' and arg('custom_config')[0] == '/')" command="load" file="$(arg custom_config)" />
@@ -169,6 +169,33 @@
 
       <!-- Publishers -->
       <remap from="~image_raw" to="~front/image_raw" />
+      <remap from="~camera_info" to="~camera_info" />
+
+    </node>
+      
+    <!-- <node pkg="nodelet" type="nodelet" name="uvdar_camera" args="$(arg nodelet) libcamera_ros_driver/LibcameraRosDriver $(arg nodelet_manager)" output="screen" respawn="true" launch-prefix="bash -c 'sleep 5; $0 $@'"> -->
+    <!-- <node pkg="nodelet" type="nodelet" name="uvdar_camera_back" args="standalone libcamera_ros_driver/LibcameraRosDriver" output="screen" respawn="false"  launch-prefix="debug_roslaunch"> -->
+    <node pkg="nodelet" type="nodelet" name="uvdar_camera_back" args="standalone libcamera_ros_driver/LibcameraRosDriver" output="screen" respawn="false" >
+
+      <!-- Load the default param files -->
+      <rosparam command="load" file="$(find uvdar_core)/config/camera_config/raspi_cam_config_back.yaml" />
+
+      <param if="$(eval arg('custom_config') == '')" name="custom_config" value="" />
+      <rosparam if="$(eval not arg('custom_config') == '' and arg('custom_config')[0] == '/')" command="load" file="$(arg custom_config)" />
+      <rosparam if="$(eval not arg('custom_config') == '' and not arg('custom_config')[0] == '/')" command="load" file="$(env PWD)/$(arg custom_config)" />
+
+      <param name="frame_id" type="string" value="$(arg uav_name)/uvcam"/>
+      <param name="calib_url" type="string" value="dummy"/>
+
+      <!-- Disable publishing of specific image transport topics -->
+      <rosparam param="image_raw/disable_pub_plugins">
+      - 'image_transport/compressedDepth'
+      - 'image_transport/theora'
+      - 'image_transport/h264'
+      </rosparam>
+
+      <!-- Publishers -->
+      <remap from="~image_raw" to="~back/image_raw" />
       <remap from="~camera_info" to="~camera_info" />
 
     </node>
@@ -330,6 +357,7 @@
       <param name="uav_name" value="$(arg uav_name)" />
       <param name="uwb_mac_addr" type="int" value="$(arg uwb_mac_addr)" />
       <param name="uwb_pan_id" type="int" value="$(arg uwb_pan_id)" />
+      <param name="requests" type="bool" value="true" />
     </node>
 
 

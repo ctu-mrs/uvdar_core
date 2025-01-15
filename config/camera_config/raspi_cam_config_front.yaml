@@ -1,0 +1,41 @@
+## --------------------------------------------------------------
+## |                    compulsory parameters                   #
+## --------------------------------------------------------------
+camera_name: "/base/axi/pcie@120000/rp1/i2c@88000/ov9281@60" # if the camera_name is not defined, the id is used
+camera_id: -1
+stream_role: "still" # [raw, still, video, viewfinder]
+pixel_format: "R16" #pixel format documentation: https://libcamera.org/api-html/build_2include_2libcamera_2formats_8h_source.html
+resolution:
+  width: 640 #full: 1280
+  height: 400 #full: 800
+use_ros_time: true
+
+#frame_id and calib_url parameters are set using launch file
+
+## --------------------------------------------------------------
+## |                     optional parameters                    #
+## --------------------------------------------------------------
+# documentation: https://libcamera.org/api-html/namespacelibcamera_1_1controls.html
+control:
+  fps: 59.90 # [Hz] Note: fps is set as 1000000/frame_duration_limits 
+  exposure_time: 300 # Exposure time (shutter speed) for the frame applied in the sensor device. This value is specified in micro-seconds.
+  # stats_output_enable - not supported by the current version of the libcamera SDK
+  # noise_reduction_mode - not supported by the current version of the libcamera SDK
+  # ae_constraint_mode: "normal" # [normal, highlight, shadows, custom]
+  # brightness: 0.0 # Positive values (up to 1.0) produce brighter images; negative values (up to -1.0) produce darker images and 0.0 leaves pixels unchanged.
+  # sharpness: 1.0 # A value of 0.0 means no sharpening. The minimum value means minimal sharpening, and shall be 0.0 unless the camera can't disable sharpening completely. The default value shall give a "reasonable" level of sharpening, suitable for most use cases. The maximum value may apply extremely high levels of sharpening, higher than anyone could reasonably want. Negative values are not allowed. Note also that sharpening is not applied to raw streams.
+  # colour_gain: 0.0 # Pair of gain values for the Red and Blue colour channels, in that order. ColourGains can only be applied in a Request when the AWB is disabled.
+  ae_enabled: false
+  # ae_flicker_mode - not supported by the current version of the libcamera SDK
+  # saturation: 1.0 # Specify a fixed saturation parameter. Normal saturation is given by the value 1.0; larger values produce more saturated colours; 0.0 produces a greyscale image.
+  # contrast: 1.0 # Specify a fixed contrast parameter. Normal contrast is given by the value 1.0; larger values produce images with more contrast.
+  # hdr_mode - not supported by the current version of the libcamera SDK
+  # exposure_value: 0.0 # Specify an Exposure Value (EV) parameter. The EV parameter will only be applied if the AE algorithm is currently enabled.
+  analogue_gain: 1.0 # Analogue gain value applied in the sensor device. The value of the control specifies the gain multiplier applied to all colour channels. This value cannot be lower than 1.0.
+  # awb_enable: false
+  # awb_mode: "auto" # [auto, incandescent, tungsten, fluorescent, indoor, daylight, cloudy, custom]
+  # ae_flicker_period - not supported by the current version of the libcamera SDK
+  # ae_metering_mode: "centre-weighted" # [centre-weighted, spot, matrix, custom]
+  # scaler_crop: [0, 0, 1456, 1088] # Sets the image portion that will be scaled to form the whole of the final output image. (example of usage: [0, 0, 1456, 1088] is [(0, 0)/1456x1088])
+  # ae_exposure_mode: "normal" # [normal, short, long, custom]
+  #
