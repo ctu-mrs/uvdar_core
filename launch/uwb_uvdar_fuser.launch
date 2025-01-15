@@ -174,8 +174,8 @@
       </rosparam>
 
       <!-- Publishers -->
-      <remap from="~image_raw" to="~front/image_raw" />
-      <remap from="~camera_info" to="~camera_info" />
+      <remap from="~image_raw" to="/$(arg uav_name)/uvdar_camera/front/image_raw"/>
+      <remap from="~camera_info" to="/$(arg uav_name)/uvdar_camera/front/camera_info"/>
 
     </node>
       
@@ -201,8 +201,8 @@
       </rosparam>
 
       <!-- Publishers -->
-      <remap from="~image_raw" to="~back/image_raw" />
-      <remap from="~camera_info" to="~camera_info" />
+      <remap from="~image_raw" to="/$(arg uav_name)/uvdar_camera/back/image_raw"/>
+      <remap from="~camera_info" to="/$(arg uav_name)/uvdar_camera/back/camera_info"/>
 
     </node>
 
