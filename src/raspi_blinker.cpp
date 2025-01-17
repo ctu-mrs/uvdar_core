@@ -9,13 +9,13 @@
 
 #include <fstream>
 #include <signal.h>
-
-extern "C" {
-#include <wiringPi.h>
-}
+#include <fcntl.h>
+#include <string.h>
 
 #define BLINK_GPIO_PIN 25
 #define INIT_BITRATE 60
+
+#define LED std::string("/sys/class/leds/uvled/")
 
 namespace uvdar {
 
@@ -32,11 +32,11 @@ namespace uvdar {
 
       //}
       //
-      
+
       bool initialized_ = false;
 
       int _mode_ = 0;
-      
+
       std::string _sequence_file_;
 
       std::mutex sequence_mutex;
@@ -50,7 +50,7 @@ namespace uvdar {
       int blanking_index_ = 0; //used for counding down bits till we restart blinking after changing the sequence
 
       bool active_ = true;
-      
+
 
       ros::Timer timer;
 
@@ -59,7 +59,7 @@ namespace uvdar {
       ros::ServiceServer serv_select_sequence;
       ros::ServiceServer serv_use_custom;
       ros::ServiceServer serv_set_custom;
-      
+
     public:
       /**
        * @brief Constructor - loads parameters and initializes necessary structures
@@ -92,8 +92,6 @@ namespace uvdar {
           return;
         }
 
-        wiringPiSetupGpio();
-        pinMode(BLINK_GPIO_PIN, OUTPUT);
         ROS_INFO_STREAM("[Raspi_UVDAR_blinker]: GPIO pin " << BLINK_GPIO_PIN << " has been set as OUTPUT.");
 
         serv_set_active = nh.advertiseService("set_active", &Raspi_UVDAR_Blinker::callbackSetActive, this);
@@ -103,10 +101,12 @@ namespace uvdar {
         serv_select_sequence = nh.advertiseService("select_sequence", &Raspi_UVDAR_Blinker::callbackSelectSequence, this);
 
         serv_use_custom = nh.advertiseService("use_custom_sequence", &Raspi_UVDAR_Blinker::callbackUseCustom, this);
-        
+
         serv_set_custom = nh.advertiseService("set_custom_sequence", &Raspi_UVDAR_Blinker::callbackSetCustom, this);
 
         timer = nh.createTimer(INIT_BITRATE, &Raspi_UVDAR_Blinker::spin, this);
+
+        initiateBlinker();
 
         initialized_ = true;
       }
@@ -123,7 +123,7 @@ namespace uvdar {
           return;
 
         if (!active_){
-          digitalWrite(BLINK_GPIO_PIN, LOW);
+          setLED(false);
           return;
         }
 
@@ -133,7 +133,7 @@ namespace uvdar {
         std::vector<bool> sequence = (_use_custom_sequence_?custom_sequence_:_sequences_[selected_sequence_]);
 
         if ((blanking_) && (blanking_index_ < (int)(sequence.size()))){
-          digitalWrite(BLINK_GPIO_PIN, LOW);
+          setLED(false);
           blanking_index_++;
           if (blanking_index_ >= (int)(sequence.size())){
             blanking_ = false;
@@ -148,13 +148,13 @@ namespace uvdar {
         }
 
         if (sequence[curr_index_] != sequence[prev_index_]){
-            digitalWrite(BLINK_GPIO_PIN, sequence[curr_index_]?HIGH:LOW);
+          setLED(sequence[curr_index_]);
         }
-        
+
         prev_index_ = curr_index_;
       }
       //}
-      
+
       bool callbackSetActive(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res){
         if (!initialized_){
           ROS_ERROR("[Raspi_UVDAR_Blinker]: Blinker is NOT initialized!");
@@ -164,7 +164,7 @@ namespace uvdar {
         }
 
         active_ = req.data;
-        
+
         res.message = std::string("Turning blinker "+std::string(active_?"ON":"OFF")).c_str();
         res.success = true;
 
@@ -172,7 +172,7 @@ namespace uvdar {
 
         return true;
       }
-      
+
       bool callbackSetFrequency(mrs_msgs::Float64Srv::Request &req, mrs_msgs::Float64Srv::Response &res){
         if (!initialized_){
           ROS_ERROR("[Raspi_UVDAR_Blinker]: Blinker is NOT initialized!");
@@ -180,7 +180,7 @@ namespace uvdar {
           res.message = "Blinker is NOT initialized!";
           return true;
         }
-          
+
 
         unsigned short int_frequency = (unsigned short)(req.value); // Hz
 
@@ -227,7 +227,7 @@ namespace uvdar {
         }
 
 
-        
+
 
         return true;
       }
@@ -319,9 +319,32 @@ namespace uvdar {
         ROS_INFO("[Raspi_UVDAR_Blinker]: Stopping timer...");
         timer.stop();
         ROS_INFO("[Raspi_UVDAR_Blinker]: Clearing LED GPIO pin %d...",BLINK_GPIO_PIN);
-        digitalWrite(BLINK_GPIO_PIN, LOW);
+        setLED(false);
         ROS_INFO("[Raspi_UVDAR_Blinker]: Done.");
         return;
+      }
+
+
+      void write_to_file(std::string path, std::string value) {
+        int fd = open(path.c_str(), O_WRONLY);
+        if (fd < 0) {
+          perror("open");
+          exit(EXIT_FAILURE);
+        }
+        if (write(fd, value.c_str(), strlen(value.c_str())) < 0) {
+          perror("write");
+          close(fd);
+          exit(EXIT_FAILURE);
+        }
+        close(fd);
+      }
+
+      void initiateBlinker(){
+        write_to_file(LED+"trigger", "none\n");
+      }
+
+      void setLED(bool state){
+        write_to_file(LED+"brightness", state?"1":"0");
       }
 
   };
