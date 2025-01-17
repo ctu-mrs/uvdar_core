@@ -7,6 +7,7 @@
     <node name="raspi_uvdar_blinker_node" pkg="uvdar_core" type="raspi_uvdar_blinker_node" output="screen" respawn="true">
       <param name="uav_name" type="string" value="$(arg UAV_NAME)"/>
       <param name="sequence_file" type="string" value="$(arg sequence_file)" />
+      <param name="initial_id" type="int" value="0" />
       <param name="mode" type="int" value="0" />
       <param name="use_custom_sequence" type="bool" value="false" />
     </node>
