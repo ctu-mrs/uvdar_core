@@ -79,6 +79,13 @@ namespace uvdar {
 
         param_loader.loadParam("sequence_file", _sequence_file_, std::string());
 
+        int _initial_id = -1;
+        param_loader.loadParam("initial_id", _initial_id);
+
+        if (_initial_id >= 0){
+          selected_sequence_ = _initial_id;
+        }
+
         ROS_INFO_STREAM("[Raspi_UVDAR_blinker]: Loading sequences from file " << _sequence_file_);
         if ((!parseSequenceFile(_sequence_file_)) || ((int)(_sequences_.size()) < 1)){
           ROS_INFO_STREAM("[Raspi_UVDAR_blinker]: Failed to load file " << _sequence_file_);

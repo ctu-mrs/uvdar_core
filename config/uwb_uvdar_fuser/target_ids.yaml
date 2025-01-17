@@ -1,13 +1,13 @@
 targets:
-  - uvdar_ids: [12,13,14,15]
+  - uvdar_ids: [0]
     uwb_id: 0
-  - uvdar_ids: [66]
+  - uvdar_ids: [1]
     uwb_id: 1
-  - uvdar_ids: [66]
+  - uvdar_ids: [2]
     uwb_id: 2
-  - uvdar_ids: [66]
+  - uvdar_ids: [3]
     uwb_id: 3
-  - uvdar_ids: [66]
+  - uvdar_ids: [4]
     uwb_id: 4
   - uvdar_ids: [66]
     uwb_id: 5

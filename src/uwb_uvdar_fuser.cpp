@@ -372,7 +372,7 @@ namespace uvdar {
           return;
         }
         
-        cameras_[image_index].image_size = cv::Size(msg->image_width, msg->image_height);
+        cameras_[image_index].image_size = cv::Size(msg->image_width*2, msg->image_height*2);
 
         if ((int)(msg->points.size()) < 1)
           return;
@@ -473,6 +473,8 @@ namespace uvdar {
       std::vector<std::pair<int,std::vector<uvdar_core::Point2DWithFloat>>> associateImagePointsToTargets(uvdar_core::ImagePointsWithFloatStamped msg, int image_index){
         std::vector< std::pair<int, std::vector<uvdar_core::Point2DWithFloat>>> output;
         for (auto &pt : msg.points){
+          pt.x = pt.x*2;
+          pt.y = pt.y*2;
           int ID = targetIDFromUVDAR(pt.value);
           if (ID < 0){
             ROS_WARN_STREAM_THROTTLE(1.0,"[UWB_UVDAR_Fuser]: Observed point [" << pt.x << ", " << pt.y << "] with ID: " << pt.value << " did not match any target!");
@@ -482,7 +484,8 @@ namespace uvdar {
           bool found_filter = false;
           for (auto &f: fd_){
             if (f.id == ID){
-              if (measurementCompatible(f, pt, image_index, msg.stamp))
+              /* if (measurementCompatible(f, pt, image_index, msg.stamp)) */
+              if (true)
               {
                 found_filter = true;
                 bool found_association_group = false;

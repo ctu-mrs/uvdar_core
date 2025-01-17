@@ -106,6 +106,8 @@
   <arg name="id20" value="19"/>
   <arg name="id21" value="20"/>
 
+  <arg name="uvdar_id" value="$(optenv UVDAR_ID)"/>
+
   <arg name="sequence_file" default="$(find uvdar_core)/config/selected.txt"/>
   <arg name="model_file" default="$(find uvdar_core)/config/models/quadrotor_foursided.txt"/>
 
@@ -380,6 +382,7 @@
     <node name="raspi_uvdar_blinker_node" pkg="uvdar_core" type="raspi_uvdar_blinker_node" output="screen" respawn="true">
       <param name="uav_name" type="string" value="$(arg uav_name)"/>
       <param name="sequence_file" type="string" value="$(arg sequence_file)" />
+      <param name="initial_id" type="int" value="$(arg uvdar_id)" />
       <param name="mode" type="int" value="0" />
       <param name="use_custom_sequence" type="bool" value="false" />
     </node>
