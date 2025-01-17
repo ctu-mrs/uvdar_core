@@ -363,7 +363,7 @@
       <remap from="~blinkers_seen_front" to="/$(arg uav_name)/uvdar/blinkers_seen_front"/>
       <remap from="~blinkers_seen_back" to="/$(arg uav_name)/uvdar/blinkers_seen_back"/>
 
-      <rosparam param="calib_files" subst_value="true"> ["$(arg calibrations_folder)/camera_calibrations/calib_results_rp_uv_$(arg uav_name).txt", "$(arg calibrations_folder)/camera_calibrations/calib_results_rp_uv_$(arg uav_name).txt"] </rosparam>
+      <rosparam param="calib_files" subst_value="true"> ["$(arg calibrations_folder)/camera_calibrations/calib_results_rp_uv_$(arg uav_name)_front.txt", "$(arg calibrations_folder)/camera_calibrations/calib_results_rp_uv_$(arg uav_name)_back.txt"] </rosparam>
       <rosparam param="camera_frames" subst_value="true"> ["$(arg uav_name)/uvcam_front", "$(arg uav_name)/uvcam_front"] </rosparam>
 
       <param name="uwb_frame" value="fcu"/>
