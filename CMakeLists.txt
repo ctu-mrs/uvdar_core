@@ -446,7 +446,7 @@ if (${ARCHITECTURE} MATCHES "aarch64")
   # message("Executables:")
   # message(${EXECUTABLES})
 
-  find_library(WiringPi_LIB wiringPi REQUIRED)
+  # find_library(WiringPi_LIB wiringPi REQUIRED)
 
 
   add_executable(raspi_uvdar_blinker_node
@@ -460,7 +460,7 @@ if (${ARCHITECTURE} MATCHES "aarch64")
 
   target_link_libraries(raspi_uvdar_blinker_node
     ${catkin_LIBRARIES}
-    ${WiringPi_LIB}
+    # ${WiringPi_LIB}
     )
 endif()
 
