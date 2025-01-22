@@ -1,0 +1,63 @@
+# For more options and information see
+# http://rptl.io/configtxt
+# Some settings may impact device functionality. See link above for details
+
+# Uncomment some or all of these to enable the optional hardware interfaces
+dtparam=i2c_arm=on
+dtparam=i2s=on
+dtparam=spi=on
+
+dtoverlay=spi1-1cs,cs0_spidev=off,cs0_pin=17
+dtoverlay=gpio-poweroff,gpiopin=16,active_low
+dtoverlay=dw3000,interrupt=26,speed=500000
+dtoverlay=gpio-led,gpio=25,label=uvled
+
+# Enable audio (loads snd_bcm2835)
+dtparam=audio=on
+
+# Additional overlays and parameters are documented
+# /boot/firmware/overlays/README
+
+# Automatically load overlays for detected cameras
+# camera_auto_detect=1
+
+# Automatically load overlays for detected DSI displays
+display_auto_detect=1
+
+# Automatically load initramfs files, if found
+auto_initramfs=1
+
+# Enable DRM VC4 V3D driver
+dtoverlay=vc4-kms-v3d-pi5
+max_framebuffers=2
+
+# Don't have the firmware create an initial video= setting in cmdline.txt.
+# Use the kernel's default instead.
+disable_fw_kms_setup=1
+
+# Run in 64-bit mode
+arm_64bit=1
+
+# Disable compensation for displays with overscan
+disable_overscan=1
+
+# Run as fast as firmware / board allows
+arm_boost=1
+
+[cm4]
+# Enable host mode on the 2711 built-in XHCI USB controller.
+# This line should be removed if the legacy DWC2 controller is required
+# (e.g. for USB device mode) or if USB support is not required.
+otg_mode=1
+
+[all]
+#over_voltage_delta=50000
+#arm_freq=3000
+
+#dtoverlay=arducam-pivariety
+dtoverlay=ov9281
+dtoverlay=ov9281,cam0
+dtoverlay=ov9281,cam1
+# dtoverlay=ov2311
+# dtoverlay=arducam-pivariety, media-controller=0
+dtparam=uart0=on
