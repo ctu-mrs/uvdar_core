@@ -79,8 +79,8 @@
 
   <arg name="mrs_id" default="$(optenv MRS_ID)"/>
 
-  <arg name="uwb_id" default="$(optenv UWB_ID)"/>
-  <arg name="uwb_portname" default="$(optenv uwb_portname /dev/ttyACM0)"/>
+  <!-- <arg name="uwb_id" default="$(optenv UWB_ID)"/> -->
+  <!-- <arg name="uwb_portname" default="$(optenv uwb_portname /dev/ttyACM0)"/> -->
 
   <arg name="beacon" default="false"/>
 
@@ -183,7 +183,8 @@
       
     <!-- <node pkg="nodelet" type="nodelet" name="uvdar_camera" args="$(arg nodelet) libcamera_ros_driver/LibcameraRosDriver $(arg nodelet_manager)" output="screen" respawn="true" launch-prefix="bash -c 'sleep 5; $0 $@'"> -->
     <!-- <node pkg="nodelet" type="nodelet" name="uvdar_camera_back" args="standalone libcamera_ros_driver/LibcameraRosDriver" output="screen" respawn="false"  launch-prefix="debug_roslaunch"> -->
-    <node pkg="nodelet" type="nodelet" name="uvdar_camera_back" args="standalone libcamera_ros_driver/LibcameraRosDriver" output="screen" respawn="false" >
+    <!-- <node pkg="nodelet" type="nodelet" name="uvdar_camera_back" args="standalone libcamera_ros_driver/LibcameraRosDriver" output="screen" respawn="false" > -->
+    <node pkg="nodelet" type="nodelet" name="uvdar_camera_back" args="$(arg nodelet) libcamera_ros_driver/LibcameraRosDriver $(arg nodelet_manager)" output="screen" respawn="true" >
 
       <!-- Load the default param files -->
       <rosparam command="load" file="$(find uvdar_core)/config/camera_config/raspi_cam_config_back.yaml" />
