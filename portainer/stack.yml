@@ -1,0 +1,70 @@
+volumes:
+
+  catkin_workspace:
+
+  uav_custom_files:
+
+  logs:
+
+services:
+
+  # will copy user's ROS catkin workspace from the 'transfer' alpine image to a shared volume
+  copy_catkin_workspace:
+    image: catkin_workspace:1.0.0
+    volumes:
+      - catkin_workspace:/tmp/docker/catkin_workspace:consistent
+    tty: true
+    command: sh -c "rm -rvf /tmp/docker/catkin_workspace/*; mkdir -pv /tmp/docker/catkin_workspace; cp -rv /etc/docker/catkin_workspace/* /tmp/docker/catkin_workspace/"
+
+  # will copy uav-specific configs, launch files and other files from the uav-specific docker image to a shared volume
+  copy_uav_custom_files:
+    image: fly4future/uav_custom_files
+    volumes:
+      - uav_custom_files:/tmp/docker/uav_custom_files:consistent
+    tty: true
+    command: sh -c "rm -rvf /tmp/docker/uav_custom_files/*; mkdir -pv /tmp/docker/uav_custom_files; cp -rv /etc/docker/uav_custom_files/${UAV_TYPE}/${UAV_ID}/* /tmp/docker/uav_custom_files/"
+
+  # starts the UVDAR
+  custom_package:
+    image: ctumrs/mrs_uav_system:${MRS_UAV_SYSTEM_VERSION}
+    network_mode: host
+    depends_on:
+      - copy_catkin_workspace
+      - copy_uav_custom_files
+    volumes:
+      - catkin_workspace:/etc/docker/catkin_workspace:consistent
+      - uav_custom_files:/etc/docker/uav_custom_files:consistent
+      - /dev/:/dev/
+      - /sys/class/leds/uvled/:/sys/class/leds/uvled/
+    env_file:
+      - ./stack.env
+    tty: true
+    privileged: true
+    command: bash -c "source /etc/docker/catkin_workspace/devel/setup.bash && source /etc/docker/uav_custom_files/uvdar/set_ids.sh && roslaunch uvdar_core uwb_uvdar_fuser.launch"
+
+  # starts a plaintext logger
+  dogtail:
+    image: klaxalk/dogtail:latest
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - logs:/etc/logs:consistent
+
+  # this container can be used to access a terminal with ROS inside the compose session
+  terminal:
+    image: ctumrs/mrs_uav_system:${MRS_UAV_SYSTEM_VERSION}
+    network_mode: host
+    depends_on:
+      - copy_catkin_workspace
+      - copy_uav_custom_files
+    env_file:
+      - ./stack.env
+    entrypoint: ["/bin/bash", "-c"]
+    volumes:
+      - catkin_workspace:/etc/docker/catkin_workspace:consistent
+      - uav_custom_files:/etc/docker/uav_custom_files:consistent
+      - /dev/:/dev/
+    command:
+      - bash --rcfile /etc/docker/catkin_workspace/devel/setup.bash
+    privileged: true
+    stdin_open: true
+    tty: true
