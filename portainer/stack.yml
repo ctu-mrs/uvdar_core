@@ -38,13 +38,14 @@ services:
       - /sys/class/leds/uvled/:/sys/class/leds/uvled/
       - /home/uav/custom/:/etc/docker/custom/
       - /home/uav/coredumps/:/etc/docker/coredumps/
-      - /home/git/spi_uwb_controller/driver/:/etc/docker/uwb_driver/
+      - /home/uav/git/spi_uwb_controller/driver/:/etc/docker/uwb_driver/
     env_file:
       - ./stack.env
     tty: true
     privileged: true
 #    command: bash -c "sleep 5 && source /etc/docker/catkin_workspace/devel/setup.bash && source /etc/docker/uav_custom_files/uvdar/set_ids.sh && roslaunch uvdar_core uwb_uvdar_fuser.launch"
-    command: bash -c "ulimit -c unlimited && sysctl -w kernel.core_pattern="/etc/docker/coredumps/%e_%p.core" && sleep 5 && source /etc/docker/catkin_workspace/devel/setup.bash && source /etc/docker/uav_custom_files/uvdar/set_ids.sh && roslaunch /etc/docker/custom/uwb_uvdar_fuser.launch calibrations_folder:=/etc/docker/uav_custom_files/"
+    # command: bash -c "ulimit -c unlimited && sysctl -w kernel.core_pattern="/etc/docker/coredumps/%e_%p.core" && sleep 5 && source /etc/docker/catkin_workspace/devel/setup.bash && source /etc/docker/uav_custom_files/uvdar/set_ids.sh && roslaunch /etc/docker/custom/uwb_uvdar_fuser.launch calibrations_folder:=/etc/docker/uav_custom_files/"
+    command: bash -c "sleep 5 && source /etc/docker/catkin_workspace/devel/setup.bash && source /etc/docker/uav_custom_files/uvdar/set_ids.sh && roslaunch uvdar_core uwb_uvdar_fuser.launch calibrations_folder:=/etc/docker/uav_custom_files/"
   # starts a plaintext logger
   dogtail:
     image: klaxalk/dogtail:latest
@@ -69,7 +70,8 @@ services:
       - /sys/class/leds/uvled/:/sys/class/leds/uvled/
       - /home/uav/custom/:/etc/docker/custom/
       - /home/uav/coredumps/:/etc/docker/coredumps/
-      - /home/git/spi_uwb_controller/driver/:/etc/docker/uwb_driver/
+      - /home/uav/git/spi_uwb_controller/driver/:/etc/docker/uwb_driver/
+
     command:
       - bash --rcfile /etc/docker/catkin_workspace/devel/setup.bash
     privileged: true
