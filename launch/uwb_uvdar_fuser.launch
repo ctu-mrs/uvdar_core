@@ -12,7 +12,7 @@
 
   <arg name="front" default="raspi_cam"/>
 
-  <arg name="calibrations_folder" default="$(find mrs_uav_deployment)/config/uvdar_calibrations"/>
+  <arg name="calibrations_folder"/>
 
   <arg name="camera_rate" default="59.90"/>
   <arg name="fps" default="$(arg camera_rate)"/>
@@ -79,7 +79,7 @@
 
   <arg name="mrs_id" default="$(optenv MRS_ID)"/>
 
-  <!-- <arg name="uwb_id" default="$(optenv UWB_ID)"/> -->
+  <arg name="uwb_id" default="$(optenv UWB_ID)"/> -->
   <!-- <arg name="uwb_portname" default="$(optenv uwb_portname /dev/ttyACM0)"/> -->
 
   <arg name="beacon" default="false"/>
@@ -143,7 +143,7 @@
 
 
     <!-- UWB transceiver settings -->
-  <arg name="uwb_mac_addr" default="$(optenv UWB_MAC_ADDR 4660)" />
+  <arg name="uwb_mac_addr" default="$(optenv UWB_ID 4660)" />
   <arg name="uwb_pan_id" default="$(optenv UWB_PAN_ID 43981)" />
 
     
@@ -354,7 +354,7 @@
       <param name="debug"		type="bool" value="false"/> 
       <param name="visual_debug"		type="bool" value="$(arg visual_debug)"/> 
       <param name="gui"             type="bool" value="$(arg gui)"/>
-      <rosparam file="$(find uvdar_core)/config/uwb_uvdar_fuser/target_ids.yaml" />
+      <rosparam file="/etc/docker/custom/target_ids.yaml" />
 
       <param name="output_frame" value="fcu"/>
 
@@ -364,7 +364,7 @@
       <remap from="~blinkers_seen_front" to="/$(arg uav_name)/uvdar/blinkers_seen_front"/>
       <remap from="~blinkers_seen_back" to="/$(arg uav_name)/uvdar/blinkers_seen_back"/>
 
-      <rosparam param="calib_files" subst_value="true"> ["$(arg calibrations_folder)/camera_calibrations/calib_results_rp_uv_$(arg uav_name)_front.txt", "$(arg calibrations_folder)/camera_calibrations/calib_results_rp_uv_$(arg uav_name)_back.txt"] </rosparam>
+      <rosparam param="calib_files" subst_value="true"> ["$(arg calibrations_folder)/camera_calibrations/calib_results_rp_uv_front.txt", "$(arg calibrations_folder)/camera_calibrations/calib_results_rp_uv_back.txt"] </rosparam>
       <rosparam param="camera_frames" subst_value="true"> ["$(arg uav_name)/uvcam_front", "$(arg uav_name)/uvcam_front"] </rosparam>
 
       <param name="uwb_frame" value="fcu"/>
