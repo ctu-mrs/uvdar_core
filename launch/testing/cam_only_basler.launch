@@ -14,7 +14,7 @@
 
   <!-- Basler camera settings: -->
 
-  <arg name="BASLER_ID" default="$(env BASLER_UV_LEFT)" />
+  <!-- <arg name="BASLER_ID" default="$(env BASLER_UV_LEFT)" /> -->
   <!-- <arg name="BASLER_RIGHT_ID" default="$(env BASLER_UV_RIGHT)" /> -->
   <!-- <arg name="BASLER_BACK_ID" default="$(env BASLER_UV_BACK)" /> -->
 
@@ -29,8 +29,6 @@
   <!-- <arg name="expose_us_back" default="$(env BASLER_UV_BACK_EXPOSE_US)"/> -->
   
   <arg name="camera_config_file" default="$(find uvdar_core)/config/camera_config/basler_grayscale.yaml" />
-
-  <arg name="calibrations_folder" default="$(find mrs_uav_general)/config/uvdar_calibrations"/>
 
   <arg name="FRAME_RATE" default="5" />
 
@@ -58,7 +56,7 @@
         <rosparam command="load" file="$(arg camera_config_file)" />
         <param name="camera_frame" value="$(arg uav_name)/$(arg camera_name)_optical"/>
         <param name="frame_rate" type="double" value="$(arg FRAME_RATE)"/>
-        <param name="device_serial_number" type="string" value="$(arg BASLER_ID)"/>
+        <!-- <param name="device_serial_number" type="string" value="$(arg BASLER_ID)"/> -->
         <param name="startup_user_set" value="$(arg startup_user_set)"/>
         <param name="enable_status_publisher" value="$(arg enable_status_publisher)"/>
         <param name="enable_current_params_publisher" value="false"/>

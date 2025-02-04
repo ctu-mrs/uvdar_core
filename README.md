@@ -47,6 +47,31 @@ This package contains the core signal processing and pose estimation software co
 * Run [`install/install.sh`](install/install.sh)
 * Build the package using catkin tools (e.g. `catkin build uvdar_core`)
 
+##Installation for RoboFly
+* prepare firmware overlays and module selection on the RoboFly unit
+  * copy `robofly/config.txt` to `/boot/firmware/`
+  * copy `robofly/modules.conf` to `/etc/modules-load.d/`
+* prepare UWB driver
+  ```
+  cd ~/
+  git clone git@github.com:fly4future/spi_uwb_controller.git
+  cd spi_uwb_controller
+  cd kernel
+  make -C /lib/modules/$(uname -r)/build M=$(pwd)/ieee802154 modules
+  xz -f ieee802154/ieee802154_socket.ko
+  sudo cp ieee802154/ieee802154_socket.ko.xz /lib/modules/$(uname -r)/kernel/net/ieee802154/ieee802154_socket.ko.xz
+  cd ../driver
+  make
+  install_service.sh
+  ```
+* add the necessary Docker images
+  *`ctumrs/mrs_uav_system:robofly_uvdar` 
+  *`fly4future/uav_custom_files:latest` 
+  *`uvdar_workspace:1.0.0`
+* run a stack with commands from `portainer/stack.yml`
+
+
+
 ## Testing
 In order to test the system in simulation, install all software dependencies including those designated for testing in simulation (Above) and run this script in the [scripts](scripts/) folder:
   %% * For testing separation of units based on position and beacons use [beacon_test.sh](scripts/beacon_test.sh)
