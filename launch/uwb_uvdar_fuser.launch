@@ -79,7 +79,7 @@
 
   <arg name="mrs_id" default="$(optenv MRS_ID)"/>
 
-  <arg name="uwb_id" default="$(optenv UWB_ID)"/> -->
+  <arg name="uwb_id" default="$(optenv UWB_ID 4660)"/> -->
   <!-- <arg name="uwb_portname" default="$(optenv uwb_portname /dev/ttyACM0)"/> -->
 
   <arg name="beacon" default="false"/>
@@ -143,7 +143,6 @@
 
 
     <!-- UWB transceiver settings -->
-  <arg name="uwb_mac_addr" default="$(optenv UWB_ID 4660)" />
   <arg name="uwb_pan_id" default="$(optenv UWB_PAN_ID 43981)" />
 
     
@@ -373,7 +372,7 @@
 
   <node pkg="nodelet" type="nodelet" name="radar_nodelet" args="standalone active_radar/ActiveRadarNodelet" output="screen" launch-prefix="" respawn="true">
       <param name="uav_name" value="$(arg uav_name)" />
-      <param name="uwb_mac_addr" type="int" value="$(arg uwb_mac_addr)" />
+      <param name="uwb_mac_addr" type="int" command="/etc/docker/uwb_driver/reload.sh $(arg uwb_id)"/>
       <param name="uwb_pan_id" type="int" value="$(arg uwb_pan_id)" />
       <param name="requests" type="bool" value="true" />
     </node>
