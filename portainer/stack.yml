@@ -10,7 +10,7 @@ services:
 
   # will copy user's ROS catkin workspace from the 'transfer' alpine image to a shared volume
   copy_catkin_workspace:
-    image: catkin_workspace:1.0.0
+    image: uvdar_workspace:1.0.0
     volumes:
       - catkin_workspace:/tmp/docker/catkin_workspace:consistent
     tty: true
@@ -44,8 +44,8 @@ services:
     tty: true
     privileged: true
 #    command: bash -c "sleep 5 && source /etc/docker/catkin_workspace/devel/setup.bash && source /etc/docker/uav_custom_files/uvdar/set_ids.sh && roslaunch uvdar_core uwb_uvdar_fuser.launch"
-    # command: bash -c "ulimit -c unlimited && sysctl -w kernel.core_pattern="/etc/docker/coredumps/%e_%p.core" && sleep 5 && source /etc/docker/catkin_workspace/devel/setup.bash && source /etc/docker/uav_custom_files/uvdar/set_ids.sh && roslaunch /etc/docker/custom/uwb_uvdar_fuser.launch calibrations_folder:=/etc/docker/uav_custom_files/"
-    command: bash -c "sleep 5 && source /etc/docker/catkin_workspace/devel/setup.bash && source /etc/docker/uav_custom_files/uvdar/set_ids.sh && roslaunch uvdar_core uwb_uvdar_fuser.launch calibrations_folder:=/etc/docker/uav_custom_files/"
+    command: bash -c "ulimit -c unlimited && sysctl -w kernel.core_pattern="/etc/docker/coredumps/%e_%p.core" && sleep 5 && source /etc/docker/catkin_workspace/devel/setup.bash && source /etc/docker/uav_custom_files/uvdar/set_ids.sh && roslaunch /etc/docker/custom/uwb_uvdar_fuser.launch calibrations_folder:=/etc/docker/uav_custom_files/"
+   # command: bash -c "sleep 5 && source /etc/docker/catkin_workspace/devel/setup.bash && source /etc/docker/uav_custom_files/uvdar/set_ids.sh && roslaunch uvdar_core uwb_uvdar_fuser.launch calibrations_folder:=/etc/docker/uav_custom_files/"
   # starts a plaintext logger
   dogtail:
     image: klaxalk/dogtail:latest
