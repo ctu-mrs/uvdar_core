@@ -71,7 +71,7 @@ This package contains the core signal processing and pose estimation software co
   make
   install_service.sh
   ```
-* set permissions to the LED control files
+* reboot before using
   
 * add the necessary Docker images
   * `ctumrs/mrs_uav_system:robofly_uvdar` 
