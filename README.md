@@ -42,13 +42,16 @@ This package contains the core signal processing and pose estimation software co
   * [uvdar_gazebo_plugin](https://github.com/ctu-mrs/uvdar_gazebo_plugin) - Emulation library that produces meta-data that is used for generation of synthetic UV LED image stream in simulation
 
 ## Installation
+
+### Original MRS setup
+
 * Install the dependencies.
 * Clone this repository into a ROS workspace as a package.
 * Run [`install/install.sh`](install/install.sh)
 * Build the package using catkin tools (e.g. `catkin build uvdar_core`)
 
 
-##Installation for RoboFly
+### Installation for RoboFly
 * prepare firmware overlays, module selection and UDEV rule onto the RoboFly unit
   * copy `robofly/config.txt` to `/boot/firmware/`
   * copy `robofly/modules.conf` to `/etc/modules-load.d/`
@@ -56,6 +59,8 @@ This package contains the core signal processing and pose estimation software co
 * prepare UWB driver
   ```
   cd ~/
+  mkdir git
+  cd git
   git clone git@github.com:fly4future/spi_uwb_controller.git
   cd spi_uwb_controller
   cd kernel
@@ -69,10 +74,10 @@ This package contains the core signal processing and pose estimation software co
 * set permissions to the LED control files
   
 * add the necessary Docker images
-  *`ctumrs/mrs_uav_system:robofly_uvdar` 
-  *`fly4future/uav_custom_files:latest` 
-  *`uvdar_workspace:1.0.0`
-* run a stack with commands from `portainer/stack.yml`
+  * `ctumrs/mrs_uav_system:robofly_uvdar` 
+  * `fly4future/uav_custom_files:latest` 
+  * `uvdar_workspace:1.0.0`
+* run a stack with commands from `robofly/portainer/stack.yml`
 
 
 
