@@ -24,7 +24,7 @@ This package contains the core signal processing and pose estimation software co
 * Blinking ultraviolet LEDs (395nm) attached to extreme points of the target UAVs. In our setup, these are:
   * ProLight Opto PM2B-1LLE
   * Attached to the ends of the arms of the UAVs
-  %% * , respectively on the top of the UAVs for "beacons"
+<!--- * , respectively on the top of the UAVs for "beacons" -->
   * For quadrotors, the markers comprise two LEDs each, rotated 90&deg; from each other in the "yaw" axis of the UAV
   
 * [Blinking signal generator](https://github.com/ctu-mrs/mrs_hw_uvdar)
@@ -83,8 +83,8 @@ This package contains the core signal processing and pose estimation software co
 
 ## Testing
 In order to test the system in simulation, install all software dependencies including those designated for testing in simulation (Above) and run this script in the [scripts](scripts/) folder:
-  %% * For testing separation of units based on position and beacons use [beacon_test.sh](scripts/beacon_test.sh)
-  %% * For testing separation of units based on different blinking frequencies [multi_frequency_test.sh](scripts/multi_frequency_test.sh)
+<!--- * For testing separation of units based on position and beacons use [beacon_test.sh](scripts/beacon_test.sh) -->
+<!--- * For testing separation of units based on different blinking frequencies [multi_frequency_test.sh](scripts/multi_frequency_test.sh) -->
   * For testing separation of units based on different blinking signal sequences [simulation_baseline_test.sh](scripts/simulation_baseline_test.sh)
 
 Note, that the script slows down the simulation below real-time. This is necessary, since if Gazebo slows down automatically due to insufficient processing power, the blinking signals get corrupted. Test the maximum admissible real-time factor for your computer by checking how far you can increase / have to decrease it such that the real-time factor consistently stays at the value it was set to.
