@@ -47,10 +47,12 @@ This package contains the core signal processing and pose estimation software co
 * Run [`install/install.sh`](install/install.sh)
 * Build the package using catkin tools (e.g. `catkin build uvdar_core`)
 
+
 ##Installation for RoboFly
-* prepare firmware overlays and module selection on the RoboFly unit
+* prepare firmware overlays, module selection and UDEV rule onto the RoboFly unit
   * copy `robofly/config.txt` to `/boot/firmware/`
   * copy `robofly/modules.conf` to `/etc/modules-load.d/`
+  * copy `robofly/01-uvled.rules` to `/etc/udev/rules.d/`
 * prepare UWB driver
   ```
   cd ~/
@@ -64,6 +66,8 @@ This package contains the core signal processing and pose estimation software co
   make
   install_service.sh
   ```
+* set permissions to the LED control files
+  
 * add the necessary Docker images
   *`ctumrs/mrs_uav_system:robofly_uvdar` 
   *`fly4future/uav_custom_files:latest` 
