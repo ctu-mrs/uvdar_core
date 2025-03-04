@@ -30,6 +30,7 @@ Note that the `uvdar_ids` is an array - this is legacy from testing with UVDAR d
 ## Camera calibrations
 The system uses OCamCalib calibration files for the cameras.
 Ideally, these should be generated for each Arducam-Filter-Lens system using our fork of the OCamCalib toolkit, but for testing purposes I've been copying the calibration files for the reference units.
+These should be in the `uav_custom_files` repo, and named as `uav_custom_files/data/robofly/#####/camera_calibrations/calib_results_rp_uv_front.txt` and `uav_custom_files/data/robofly/#####/camera_calibrations/calib_results_rp_uv_back.txt` for the two cameras.
 
 ## 3D position filtering
 The system fuses bearing information from the UVDAR camera outputs and distance information from the UWB ranging modules using our variant of the Linear Kalman Filter that we call the "Degenerate Kalman Filter", allowing for input covariances with infinite eigenvalues, such as for filtering 3D position only using the bearing along an infinite line.
