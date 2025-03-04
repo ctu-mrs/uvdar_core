@@ -27,6 +27,19 @@ For each unit, configure these in `uav_custom_files/data/robofly/#####/uvdar/set
 Then for estimating other unit's locations, you need to define these ID pairs in `uvdar_core/config/uwb_uvdar_fuser/target_ids.yaml`.
 Note that the `uvdar_ids` is an array - this is legacy from testing with UVDAR drones with multiple different blinking ID.
 
+## Camera calibrations
+The system uses OCamCalib calibration files for the cameras.
+Ideally, these should be generated for each Arducam-Filter-Lens system using our fork of the OCamCalib toolkit, but for testing purposes I've been copying the calibration files for the reference units.
+
+## 3D position filtering
+The system fuses bearing information from the UVDAR camera outputs and distance information from the UWB ranging modules using our variant of the Linear Kalman Filter that we call the "Degenerate Kalman Filter", allowing for input covariances with infinite eigenvalues, such as for filtering 3D position only using the bearing along an infinite line.
+
+The bearings are obtained by combining the image pixel positions of the annotated markers with the camera calibrations.
+
+The distance estimates are used directly from the ranging messages, but in the filter they are represented by a flat (disk shaped) 3D  covariances perpendicular to the bearing of the latest estimate.
+
+The two types of measurement are entering the filter asynchronously.
+
 # Quirks and issues to be addressed
 
 
@@ -92,7 +105,10 @@ To test if the system works, you need at least two units.
 Run the `uvdar_stack` though Portainer on both.
 Then if you listen to the `/uav##/UWB_UVDAR_Fuser/filtered_poses` topic (or visualize it in RViz), you should be gettin relatively reasonable estimates of the other unit's pose.
 In the testing stack, these estimates are in the current UAV's `fcu` frame.
-If you have odometry available, it is better to set the `output_frame` in the `uvdar_core/launch/uwb_uvdar_fuser.launch` to another frame that is world-fixed, in order to filter out ego-motion for better estimate quality.
+
+If you have odometry available, it would be better to set the `output_frame` in the `uvdar_core/launch/uwb_uvdar_fuser.launch` to another frame that is world-fixed, in order to filter out ego-motion for better estimate quality.
+However, this currently needs a code fix, since the bearing for the purposes of fusing range is now generated assuming that the filter is in the `fcu` frame - see `uvdar_core/src/uwb_uvdar_fuser.cpp:602`.
+
 If the estimate covariance tends to be shaped like a flat "disk" for too long, it implies issues with the vision (UVDAR) part of the system.
 If on the other hand it tends to be very elongatte along the line of sight, it implies there is an issue with the UWB part of the system - if the covariance stays in such an elongated state permanently and its mean is very far from the truth, the UWB may not be working at all.
 The UWB should be outputting range estimates in the topic `uav##/radar_nodelet/range`, while the vision system should be outputting annotated image positions of the markers in the topics `/$(arg uav_name)/uvdar/blinkers_seen_front` and `/$(arg uav_name)/uvdar/blinkers_seen_back`, and these topics should be outputting something (emtpy messages) even when nothing is seen.
