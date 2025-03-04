@@ -5,7 +5,7 @@ For issues with GPU acceleration - contact Vojtěch Vrba - `vojtech.vrba@cvut.cz
 
 For issues with UWB, including drivers in the `spi_uwb_controller` package, contact Vít Petřík - `petrivi2@student.cvut.cz`.
 
-For general hardware issues, contact Dan Heřt = `daniel.hert@cvut.cz`.
+# For general hardware issues, contact Dan Heřt - `daniel.hert@cvut.cz`.
 
 For general software issues, including Portainer and Docker stuff, contact Tomáš Báča - `tomas.baca@cvut.cz`.
 
