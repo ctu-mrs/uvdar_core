@@ -100,6 +100,9 @@ Our current solution is such that the UAV with the higher UWB ID (= PAN MAC addr
 In other words, the unit with higher MAC address ignores boradcast messges from units with lower MAC addresses.
 If this is seen as insufficient, talk with Vít Petřík.
 
+## Portainer loading times
+The portainer system take long time - even a few minutes to load after turning a unit on. This is frustrating and slows down deployment.
+
 ## Testing
 To test if the system works, you need at least two units.
 Run the `uvdar_stack` though Portainer on both.
