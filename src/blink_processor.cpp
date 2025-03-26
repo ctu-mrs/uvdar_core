@@ -8,6 +8,8 @@
 #include <color_selector/color_selector.h>
 #include <uvdar_core/ImagePointsWithFloatStamped.h>
 #include <std_msgs/Float32.h>
+#include <std_msgs/Int16.h>
+#include <mrs_msgs/SetInt.h>
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <mrs_lib/param_loader.h>
@@ -16,6 +18,7 @@
 #include <uvdar_core/AMISeqVariables.h>
 #include <uvdar_core/AMIAllSequences.h>
 #include <uvdar_core/AMISeqPoint.h>
+#include <uvdar_core/RecMsg.h>
 #include <mutex>
 #include <thread>
 #include <atomic>
@@ -132,6 +135,11 @@ namespace uvdar{
       */
       void callbackImage(const sensor_msgs::ImageConstPtr&, size_t);
 
+  
+      /* bool callbackSetMode(mrs_msgs::SetInt::Request, mrs_msgs::SetInt::Response); */
+      bool callbackSetMode(mrs_msgs::SetInt::Request &req, mrs_msgs::SetInt::Response &res);
+      
+
       ros::NodeHandle nh_;
       std::atomic_bool initialized_ = false;  
       
@@ -144,6 +152,7 @@ namespace uvdar{
       std::vector<ros::Publisher> pub_ami_logging_;
       std::vector<ros::Publisher> pub_AMI_all_seq_info;
       std::vector<ros::Publisher> pub_estimated_framerate_;
+      ros::Publisher pub_received_msg_;
 
       using points_seen_callback_t = boost::function<void (const uvdar_core::ImagePointsWithFloatStampedConstPtr&)>;
       std::vector<points_seen_callback_t> cals_points_seen_;
@@ -151,6 +160,7 @@ namespace uvdar{
       std::vector<ros::Subscriber> sub_points_seen_;
       std::vector<ros::Subscriber> sub_sun_points_;
 
+      ros::ServiceServer serv_set_mode;
 
       // visualization variables
       std::vector<ros::Timer> timer_process_;
@@ -186,7 +196,7 @@ namespace uvdar{
       std::vector<std::string> _points_seen_topics_;
       std::vector<std::string> _ami_logging_topics_;
       std::vector<std::string> _ami_all_seq_info_topics;
-      
+      bool        _com_;  
 
       bool _manchester_code_;
       bool _use_4DHT_;
@@ -197,6 +207,7 @@ namespace uvdar{
       int _max_zeros_consecutive_;
       int _stored_seq_len_factor_;
       int _max_buffer_length_;
+      int _frame_length_;
       int _poly_order_;
       float _decay_factor_; 
       double _conf_probab_percent_;
@@ -221,7 +232,7 @@ namespace uvdar{
         ros::Time                     last_sample_time_diagnostic;
         unsigned int                  sample_count = -1;
         double                        framerate_estimate = 72;
-        std::vector<std::pair<seqPointer,int>> retrieved_blinkers;
+        std::vector<std::pair<std::pair<seqPointer,int>, std::vector<int>>> retrieved_blinkers;
         std::vector<std::pair<cv::Point2d,int>>      retrieved_blinkers_4DHT;
         std::vector<double>           pitch_4DHT;
         std::vector<double>           yaw_4DHT;
@@ -294,6 +305,7 @@ namespace uvdar{
     param_loader.loadParam("publish_visualization", _publish_visualization_, bool(true));
     param_loader.loadParam("visualization_rate", _visualization_rate_, float(2.0));    
     nh_.param("use_camera_for_visualization", _use_camera_for_visualization_, bool(true));
+    param_loader.loadParam("com", _com_, bool(false));                                     
 
     /***** topic name params *****/
     nh_.param("camera_topics", _camera_topics_, _camera_topics_);
@@ -314,6 +326,7 @@ namespace uvdar{
     param_loader.loadParam("max_zeros_consecutive", _max_zeros_consecutive_, int(10));
     param_loader.loadParam("stored_seq_len_factor", _stored_seq_len_factor_, int(20));
     param_loader.loadParam("max_buffer_length", _max_buffer_length_, int(1000));
+    param_loader.loadParam("frame_length", _frame_length_, int(16));
     param_loader.loadParam("poly_order", _poly_order_, int(4));
     param_loader.loadParam("decay_factor", _decay_factor_, float(0.1));
     param_loader.loadParam("confidence_probability", _conf_probab_percent_, double(75.0));
@@ -436,6 +449,7 @@ namespace uvdar{
     params_AMI.max_zeros_consecutive = _max_zeros_consecutive_;
     params_AMI.stored_seq_len_factor = _stored_seq_len_factor_;
     params_AMI.max_buffer_length = _max_buffer_length_;
+    params_AMI.frame_length = _frame_length_;
     params_AMI.poly_order = _poly_order_;
     params_AMI.decay_factor = _decay_factor_;
     params_AMI.conf_probab_percent = _conf_probab_percent_;
@@ -496,6 +510,9 @@ namespace uvdar{
         }
       }
     }
+
+    serv_set_mode = nh_.advertiseService("set_mode", &UVDARBlinkProcessor::callbackSetMode, this);
+    pub_received_msg_ = nh_.advertise<uvdar_core::RecMsg>("received_msg", 1);
   }
 
 
@@ -613,28 +630,77 @@ namespace uvdar{
     ros::Time local_last_sample_time = blink_data_[img_index].last_sample_time;
     {
       std::scoped_lock lock(*(blink_data_[img_index].mutex_retrieved_blinkers));
+      ami_[img_index]->setMode(_com_);
       blink_data_[img_index].retrieved_blinkers = ami_[img_index]->getResults();
 
       int valid_signal_cnt = 0 , invalid_signal_cnt = 0;
       for (auto& signal : blink_data_[img_index].retrieved_blinkers) {
         uvdar_core::Point2DWithFloat point;
         // take the last/most up-to-date point and publish to pose calculator
-        auto last_point = signal.first->end()[-1];
+        auto last_point = signal.first.first->end()[-1];
         point.x = last_point.point.x;
         point.y = last_point.point.y;
-        if ( 0 <= signal.second && signal.second <= (int)sequences_.size()){
-          point.value = signal.second;
+        if ( 0 <= signal.first.second && signal.first.second <= (int)sequences_.size()){
+          point.value = signal.first.second;
           valid_signal_cnt++;
         }
         else {
           point.value = -2;
           invalid_signal_cnt++;
         }
-                  
+
+        if(_com_){
+
+          std::cout << "Received msg: ";
+          for(auto& bit : signal.second){
+            std::cout << bit;
+          }
+          std::cout << std::endl;
+          
+
+          if (signal.second.size() % 2 != 0) {
+            ROS_ERROR("Invalid Manchester coding: signal length must be even.");
+          }
+
+          bool valid_msg = true;
+          std::vector<int> decodedBits;
+          for (size_t i = 0; i < signal.second.size(); i += 2) {
+            if (signal.second[i] == 1 && signal.second[i + 1] == 0) {
+                decodedBits.push_back(0); // Manchester pair `10` -> logical `0`
+            } else if (signal.second[i] == 0 && signal.second[i + 1] == 1) {
+                decodedBits.push_back(1); // Manchester pair `01` -> logical `1`
+            } else {
+                decodedBits.push_back(0);
+                valid_msg = false;
+                /* ROS_ERROR("Invalid Manchester coding: signal contains invalid pairs."); */
+            }
+          }
+
+          // Convert binary sequence to decimal
+          int decimalValue = 0;
+          for (size_t i = 0; i < decodedBits.size(); ++i) {
+            decimalValue = (decimalValue << 1) | decodedBits[i];
+          }
+
+          decimalValue = 255 - decimalValue;
+
+          if(valid_msg){
+            ROS_INFO("[UVDARBlinkProcessor]: id: %d, dec_msg: %d ", signal.first.second, decimalValue);
+            /* std_msgs::Int16 rec_msg; */
+            /* rec_msg.data = decimalValue; */
+            uvdar_core::RecMsg received_msgs;
+            received_msgs.id = signal.first.second;
+            received_msgs.msg = decimalValue;
+            pub_received_msg_.publish(received_msgs);
+          }
+
+        }
+
+
         // publish values from AMI if the sequence is valid
         uvdar_core::AMISeqVariables ami_seq_msg;
         ami_seq_msg.inserted_time = last_point.insert_time;
-        ami_seq_msg.signal_id = signal.second;
+        ami_seq_msg.signal_id = signal.first.second;
 
         ami_seq_msg.confidence_interval.x = last_point.x_statistics.confidence_interval;
         ami_seq_msg.confidence_interval.y = last_point.y_statistics.confidence_interval;
@@ -650,7 +716,7 @@ namespace uvdar{
           ami_seq_msg.y_coeff_reg.push_back(static_cast<float>(coeff));
         }
 
-        for(auto point_state : *signal.first){
+        for(auto point_state : *signal.first.first){
           uvdar_core::AMISeqPoint ps_msg;
           uvdar_core::Point2DWithFloat p;
           p.x = point_state.point.x;
@@ -871,20 +937,20 @@ namespace uvdar{
           cv::Scalar seq_colour(160,160,160);
           
           cv::Point2d confidence_interval = cv::Point2d(
-            blink_data_[image_index].retrieved_blinkers[j].first->end()[-1].x_statistics.confidence_interval,
-            blink_data_[image_index].retrieved_blinkers[j].first->end()[-1].y_statistics.confidence_interval
+            blink_data_[image_index].retrieved_blinkers[j].first.first->end()[-1].x_statistics.confidence_interval,
+            blink_data_[image_index].retrieved_blinkers[j].first.first->end()[-1].y_statistics.confidence_interval
           );
           cv::Point2d predicted = cv::Point2d(
-            blink_data_[image_index].retrieved_blinkers[j].first->end()[-1].x_statistics.predicted_coordinate,
-            blink_data_[image_index].retrieved_blinkers[j].first->end()[-1].y_statistics.predicted_coordinate
+            blink_data_[image_index].retrieved_blinkers[j].first.first->end()[-1].x_statistics.predicted_coordinate,
+            blink_data_[image_index].retrieved_blinkers[j].first.first->end()[-1].y_statistics.predicted_coordinate
           );
-          auto x_coeff = blink_data_[image_index].retrieved_blinkers[j].first->end()[-1].x_statistics.coeff;
-          auto y_coeff = blink_data_[image_index].retrieved_blinkers[j].first->end()[-1].y_statistics.coeff;
-          double curr_time = blink_data_[image_index].retrieved_blinkers[j].first->end()[-1].insert_time.toSec();
-          bool x_poly_reg_computed = blink_data_[image_index].retrieved_blinkers[j].first->end()[-1].x_statistics.poly_reg_computed;
-          bool y_poly_reg_computed = blink_data_[image_index].retrieved_blinkers[j].first->end()[-1].y_statistics.poly_reg_computed;
-          bool x_extended_search = blink_data_[image_index].retrieved_blinkers[j].first->end()[-1].x_statistics.extended_search;
-          bool y_extended_search = blink_data_[image_index].retrieved_blinkers[j].first->end()[-1].y_statistics.extended_search;
+          auto x_coeff = blink_data_[image_index].retrieved_blinkers[j].first.first->end()[-1].x_statistics.coeff;
+          auto y_coeff = blink_data_[image_index].retrieved_blinkers[j].first.first->end()[-1].y_statistics.coeff;
+          double curr_time = blink_data_[image_index].retrieved_blinkers[j].first.first->end()[-1].insert_time.toSec();
+          bool x_poly_reg_computed = blink_data_[image_index].retrieved_blinkers[j].first.first->end()[-1].x_statistics.poly_reg_computed;
+          bool y_poly_reg_computed = blink_data_[image_index].retrieved_blinkers[j].first.first->end()[-1].y_statistics.poly_reg_computed;
+          bool x_extended_search = blink_data_[image_index].retrieved_blinkers[j].first.first->end()[-1].x_statistics.extended_search;
+          bool y_extended_search = blink_data_[image_index].retrieved_blinkers[j].first.first->end()[-1].y_statistics.extended_search;
 
           std::vector<cv::Point> interpolated_prediction;
           
@@ -928,8 +994,8 @@ namespace uvdar{
             }
           }
   
-          cv::Point center = cv::Point(blink_data_[image_index].retrieved_blinkers[j].first->end()[-1].point.x, blink_data_[image_index].retrieved_blinkers[j].first->end()[-1].point.y) + start_point;
-          int signal_index = blink_data_[image_index].retrieved_blinkers[j].second;
+          cv::Point center = cv::Point(blink_data_[image_index].retrieved_blinkers[j].first.first->end()[-1].point.x, blink_data_[image_index].retrieved_blinkers[j].first.first->end()[-1].point.y) + start_point;
+          int signal_index = blink_data_[image_index].retrieved_blinkers[j].first.second;
           if(signal_index == -2 || signal_index == -3) {
             continue;
           }
@@ -966,7 +1032,7 @@ namespace uvdar{
   
           // draw "past" stored sequence points 
           std::vector<cv::Point> draw_seq;  
-          for(auto p : *blink_data_[image_index].retrieved_blinkers[j].first){
+          for(auto p : *blink_data_[image_index].retrieved_blinkers[j].first.first){
             if(p.led_state){
               cv::Point point;
               point.x = p.point.x;
@@ -1043,6 +1109,33 @@ namespace uvdar{
     }
   }
 
+  bool UVDARBlinkProcessor::callbackSetMode(mrs_msgs::SetInt::Request &req, mrs_msgs::SetInt::Response &res){
+    if (!initialized_){
+
+    ROS_ERROR("[UVDARBlinkProcessor]: Blink processor NOT initialized!");
+    res.success = false;
+    res.message = "BlinkProcessor is NOT initialized!";
+    return true;
+    }
+
+    unsigned char index = (unsigned char)(req.value); //0 - tracking mode; 1 - communication mode
+
+    switch (index){
+      case 0:
+        res.message="Selecting tracking mode";
+        _com_ = false;
+        break;
+      case 1:
+        res.message="Selecting communication mode";
+        _com_ = true;
+        break;
+    }
+
+    ROS_INFO_STREAM("[UVDARBlinkProcessor]: " << res.message);
+
+    res.success = true;
+    return true;
+  }
 
 
 }// namespace uvdar

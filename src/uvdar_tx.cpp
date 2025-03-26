@@ -3,12 +3,14 @@
 #include <mrs_lib/param_loader.h>
 #include <uvdar_core/ImagePointsWithFloatStamped.h>
 /* #include <uvdar_gazebo_plugin/LedInfo.h> */
+#include <fstream>
 #include <uvdar_core/USM.h>
 #include <mrs_msgs/String.h>
 #include <nav_msgs/Odometry.h>
 #include <geometry_msgs/Quaternion.h>
 #include <string>
 #include <cmath>
+#include <std_msgs/Int32.h>
 #include <std_msgs/Float64.h>
 #include <std_msgs/Float32.h>
 #include <mrs_msgs/SetInt.h>
@@ -16,7 +18,11 @@
 #include <uvdar_core/SetLedMessage.h>
 #include <uvdar_core/DefaultMsg.h>
 
-#define SEPARATOR_BITS 5
+#define MSG_BITS 8
+
+std::string id_sequence_file;
+std::vector<std::vector<bool>> sequences_;
+std::vector<int> msg_manchester(2*MSG_BITS, 0);  
 
 int                         uav_id = 0;
 int                         set_rate = 0;
@@ -26,40 +32,23 @@ std::string                 uav_name;
 std::vector<std::string>    leds_topics;
 std::vector<int>            curr_msg;
 std::vector<int>            curr_frame;
-// std::vector<int> curr_frame_raw;
+
 uvdar_core::SetLedMessage led_msg;
 int                              rate = (int)(80 / 3);  // three frames per bit. TODO variable rate based on estimated camera frequency
-ros::Subscriber                  USmsgSub;
-ros::Subscriber                  OdomSub;
 ros::ServiceClient               led_message_client;
 ros::ServiceClient               led_mode_client;
+ros::ServiceClient               decode_mode_client;
 ros::ServiceClient               led_frequency_client;
-
-std::vector<std::string>    estimated_framerate_topics;
-/* using framerate_callback = boost::function<void(const std_msgs::ImagePointsWithFloatStampedConstPtr&)>; */
-using framerate_callback = boost::function<void(const std_msgs::Float32ConstPtr&)>;
-std::vector<framerate_callback> callbacks_estimated_framerate;
-std::vector<ros::Subscriber>      subscribers_estimated_framerates;
 
 std::string sig_setter_service;
 std::string mode_setter_service;
+std::string decode_mode_setter_service;
 std::string frequency_setter_service;
-std::string odom_topic;
 std::string msgs_topic;
 
-std::vector<float> cam_framerates;
-/* double default_msg; */
-ros::Subscriber    sub_default_msg;
+ros::Subscriber    sub_msg;
 
-float act_heading;
-
-struct DefMsg
-{
-  bool enable = false;;
-  double msg = 0.0;
-};
-
-DefMsg default_msg;
+int payload_ = 0;
 
 struct Msg2send
 {
@@ -81,300 +70,171 @@ public:
 
     param_loader.loadParam("uav_name", uav_name);
     param_loader.loadParam("uav_id", uav_id);
-    param_loader.loadParam("leds_topics", leds_topics, leds_topics);  // gazebo topics for led frequency setting
+    /* param_loader.loadParam("leds_topics", leds_topics, leds_topics);  // gazebo topics for led frequency setting */
+    param_loader.loadParam("id_sequence_file", id_sequence_file);
     param_loader.loadParam("sig_setter_service", sig_setter_service);
     param_loader.loadParam("mode_setter_service", mode_setter_service);
+    param_loader.loadParam("decode_mode_setter_service", decode_mode_setter_service);
     param_loader.loadParam("frequency_setter_service", frequency_setter_service);
-    param_loader.loadParam("odom_topic", odom_topic);
     param_loader.loadParam("msgs_topic", msgs_topic);
     param_loader.loadParam("set_rate", set_rate);
     param_loader.loadParam("bit_duplication_amount", bit_duplication_amount);
-    param_loader.loadParam("estimated_framerate_topics", estimated_framerate_topics, estimated_framerate_topics);
 
-    USmsgSub = nh.subscribe(msgs_topic, 1, &TX_processor::usm_cb, this);  // sub for get new custom command to send
-    OdomSub  = nh.subscribe(odom_topic, 1, &TX_processor::odom_cb, this);    // sub for get info about heading
-   
     /* rate = (int)(set_rate / bit_duplication_amount); */
 
-    sub_default_msg  = nh.subscribe("/" + uav_name + "/uvdar_communication/default_angle_msg", 1, &TX_processor::defMsg, this);    // sub for get info about heading
+    sub_msg  = nh.subscribe("/" + uav_name + "/uvcom/send_msg", 1, &TX_processor::subMsg, this);    // sub for get info about heading
 
     led_message_client = nh.serviceClient<uvdar_core::SetLedMessage>(sig_setter_service);
     led_mode_client = nh.serviceClient<mrs_msgs::SetInt>(mode_setter_service);
+    decode_mode_client = nh.serviceClient<mrs_msgs::SetInt>(decode_mode_setter_service);
     led_frequency_client = nh.serviceClient<mrs_msgs::Float64Srv>(frequency_setter_service);
 
-    // creating publishers for leds
-    for (size_t i = 0; i < leds_topics.size(); ++i) {
-      ROS_INFO("Topic loaded %s", leds_topics[i].c_str());
-      /* pub_led_states.push_back(nh.advertise<uvdar_gazebo_plugin::LedInfo>(leds_topics[i], 1)); */
-    }
-    
-    for (int i = 0; i < (int)estimated_framerate_topics.size(); ++i) {
-      // callback of individual framerates
-      framerate_callback callback = [i, this](const std_msgs::Float32ConstPtr& frMessage) { EstimatedFramerates(frMessage, i); };
-      callbacks_estimated_framerate.push_back(callback);
-      subscribers_estimated_framerates.push_back(nh.subscribe(estimated_framerate_topics[i], 1, callbacks_estimated_framerate[i]));
-    }
+    parseSequenceFile(id_sequence_file);
+    /* ROS_INFO("ID sequence file: %s", id_sequence_file.c_str()); */
 
     ROS_INFO("Node initialized %s", uav_name.c_str());
   }
+  
+  std::vector<int> manchesterEncode(const std::vector<int>& binaryVector) {
+      std::vector<int> manchester;
+
+      // Traverse through the original binary vector
+      for (int bit : binaryVector) {
+          if (bit == 0) {
+              // For 0, append 01
+              manchester.push_back(0);
+              manchester.push_back(1);
+          } else {
+              // For 1, append 10
+              manchester.push_back(1);
+              manchester.push_back(0);
+          }
+      }
+
+      return manchester;
+  }
+
+  void printBinaryVector(const std::vector<int>& binary) {
+    for (int bit : binary) {
+        std::cout << bit;
+    }
+    std::cout << std::endl;
+  }
+
 
 private:
-  void EstimatedFramerates(const std_msgs::Float32ConstPtr& framerate_msg, size_t camera_index) {
-    if((int)cam_framerates.size() <= (int)camera_index){
-      cam_framerates.push_back(framerate_msg->data);
+  bool parseSequenceFile(const std::string &sequence_file) {
+
+    ROS_INFO_STREAM("[UVDAR TX]: Loading sequence from file: [ " + sequence_file + " ]");
+    std::ifstream ifs;
+    ifs.open(sequence_file);
+    std::string word;
+    std::string line;
+    std::vector<std::vector<bool>> sequences;
+    if (ifs.good()){
+      ROS_INFO("[UVDARBlinkProcessor]: Loaded Sequences: [: ");
+      while (getline(ifs, line)){
+        if (line[0] == '#'){
+          continue;
+        }
+        std::string show_string = "";
+        std::vector<bool> sequence;
+        std::stringstream iss(line);
+        std::string token;
+        while (std::getline(iss, token, ',')){
+          sequence.push_back(token == "1");
+        }
+
+        for (const auto bool_val : sequence){
+          if (bool_val)
+            show_string += "1,";
+          else
+            show_string += "0,";
+        }
+
+        sequences.push_back(sequence);
+        ROS_INFO_STREAM("[UVDARBlinkProcessor]: [" << show_string << "]");
+      }
+      ROS_INFO("[UVDARBlinkProcessor]: ]");
+      ifs.close();
+      sequences_ = sequences;
+    }else{
+      ROS_ERROR_STREAM("[UVDARBlinkProcessor]: Failed to load sequence file " << sequence_file << "! Returning.");
+      ifs.close();
+      return false;
     }
-    else{
-      cam_framerates[camera_index] = framerate_msg->data;
+    return true;
+  }
+
+  void subMsg(const std_msgs::Int32 msg) {
+    if(msg.data < 0 || msg.data > 255){
+      ROS_ERROR("Value %d is out of the range [0-255]", msg.data);
+    } else{
+      int decimal = msg.data;
+      std::vector<int> binary(MSG_BITS, 0);  // Initialize a vector of size 8 with all 0s
+      
+      std::cout << "Msg. decimal: ";
+      std::cout << decimal;
+      std::cout << std::endl;
+
+      for (int i = (MSG_BITS - 1); i >= 0; --i) {
+        binary[i] = (decimal & 1);  // Get the least significant bit
+        decimal >>= 1;              // Shift the number right by 1 to process the next bit
+      }
+      
+      std::vector<int> manchester = manchesterEncode(binary);
+      msg_manchester = manchester;
+
+      
+      std::cout << "Msg. binary: ";
+      printBinaryVector(binary);
+
+      std::cout << "Msg. manchester: ";
+      printBinaryVector(manchester);
     }
-    /* ROS_INFO("[UVDAR TX]: cam_index: %d, framerate: %f", (int)camera_index, framerate_msg->data); */ 
-  }
-
-    // callback for heading calculation. Heading is coded and sent in the first data byte together with uav id and data type
-  void odom_cb(const nav_msgs::Odometry& msg) {
-    geometry_msgs::Quaternion q = msg.pose.pose.orientation;
-    act_heading                 = toYaw(q.x, q.y, q.z, q.w);
-  }
-  
-  void defMsg(const uvdar_core::DefaultMsg& msg) {
-    default_msg.enable = msg.enable;
-    default_msg.msg = msg.message;
-  }
-
-  // to calculate heading from quaternion
-  float toYaw(float x, float y, float z, float w) {
-    float siny = +2.0 * (w * z + x * y);
-    float cosy = +1.0 - 2.0 * (y * y + z * z);
-    return atan2(siny, cosy);
-  }
-
-  // callback for load custom msg into queue for send through uvdar comm. channel
-  void usm_cb(const uvdar_core::USM& msg) {
-    Msg2send rec;
-    rec.blank_msg = msg.blank_msg;
-    rec.msg_type  = msg.msg_type;
-    rec.payload   = msg.payload;
-    msg_queue.push_back(rec);
-    // ROS_INFO("Received msg for send through uvdar channel %d, %f, %f", msg.msg_type.data, msg.azimuth.data, msg.velocity.data);
   }
 
 };
 }  // namespace TX
 
-int setPayloadVelocity(float pl) {
-  if (pl < 0)
-    pl = 0;  // limit velocity
-  if (pl > 1.5)
-    pl = 1.5;
-  return (int)(pl * 10);  // make a data in range 0-15
-}
-
-int setPayloadAzimuth(float pl) {
-  if (pl < 0)
-    pl = 0;
-  if (pl > 360)
-    pl = 360;
-  return (int)(pl / 22.5);  // make a data in range 0-15
-}
-
-void fillPayload(int pl) {
-  int payload = pl;
-  for (int i = 0; i < 4; i++) {  // filling data message from back
-    if (payload != 0) {
-      curr_msg.push_back(payload % 2);  // fill velocity
-      payload /= 2;
-      continue;
-    }
-    curr_msg.push_back(0);  // fill with zeros to remain 4 bit value
-  }
-}
-
-void fillMsgType(int type) {
-  int msg_type = type;
-  for (int i = 0; i < 2; i++) {
-    if (msg_type != 0) {
-      curr_msg.push_back(msg_type % 2);  // fill msg type (2bit)
-      msg_type /= 2;
-      continue;
-    }
-    curr_msg.push_back(0);
-  }
-}
-
-void fillHeading() {
-  //int discr_heading = (int)(((act_heading + M_PI) * (180 / M_PI) + 11.25) / 22.5);  // discretized to range 0-15
-  int discr_heading = (int)(((default_msg.msg + M_PI) * (180 / M_PI) +11.25 )/ 22.5);  // discretized to range 0-15
-  for (int i = 0; i < 4; i++) {
-    if (discr_heading != 0) {
-      curr_msg.push_back(discr_heading % 2);  // fill heading
-      discr_heading /= 2;
-      continue;
-    }
-    curr_msg.push_back(0);
-  }
-  if(default_msg.enable){
-    curr_msg.push_back(1);
-  }
-  else{
-    curr_msg.push_back(0);
-  }
-  /* std::cout << "Sent heading:"; */
-  /* for (int i = 0; i < (int)curr_msg.size(); i++) { */
-  /*   std::cout << curr_msg[i]; */
-  /* } */
-  /* std::cout << std::endl; */
-}
-
 void fillUavId() {
-  int tmp_id = uav_id;
-  for (int i = 0; i < 2; i++) {
-    if (tmp_id != 0) {
-      curr_msg.push_back(tmp_id % 2);  // fill uav_id (2bit)
-      tmp_id /= 2;
-      continue;
-    }
-    curr_msg.push_back(0);
+  /* ROS_INFO("id: %d, seq len: %d", uav_id, (int)size(sequences_)); */
+  std::vector<bool> sequence; 
+  if((int)size(sequences_) >= (uav_id + 1)){
+    sequence = sequences_[uav_id];
+  } else{
+    ROS_WARN("UAV ID not accesible");
+    exit(0);
+  }
+  
+  for (int i = 0; i < (int)size(sequence); i++) {
+    curr_msg.push_back((int)sequence[i]);
   }
 }
 
-void fillDataAndParity() {
-  int parity = 0;  // parity counter to make odd parity
-
-  for (int i = 0; i < (int)curr_msg.size(); i++) {  // adding label and data bites
-    curr_frame.push_back(curr_msg[i]);
-    if (curr_msg[i] == 1)
-      parity++;
-  }
-
-  if (parity % 2 == 0) {  // adding parity bit
-    curr_frame.push_back(1);
-  } else {
-    curr_frame.push_back(0);
+void fillPayload() {
+  for(auto& b : msg_manchester){
+    curr_msg.push_back(b);
   }
 }
-
-void bitStuffing() {
-  int curr_frame_length = (int)curr_frame.size() - SEPARATOR_BITS - 1;  // one frame bit - 00010 was before  // without separator and frame end bits
-  for (int i = 3; i < curr_frame_length; i++) {                         // bit-stuffing of 3 bits
-    if (curr_frame[i - 3] == curr_frame[i - 2] && curr_frame[i - 2] == curr_frame[i - 1]) {
-      if (curr_frame[i - 1] == 0) {
-        curr_frame.insert(curr_frame.begin() + i, 1);
-      } else {
-        curr_frame.insert(curr_frame.begin() + i, 0);
-      }
-      curr_frame_length++;
-      i += 2;  // change
-    }
-  }
-}
-
-/* void multiplyBits(int k){ */
-/*   auto backup = curr_frame; */
-/*   curr_frame.clear(); */
-/*   for (auto b : backup){ */
-/*     for (int i=0; i<k; i++){ */
-/*       curr_frame.push_back(b); */
-/*     } */
-/*   } */
-/* } */
 
 // function for create physical data frame of message.
-// frame has following structure: 11111 (spacing bits) 01 (start bits) byte_1 (label byte) byte_2 (data byte) 0/1 (parity) 10 (stop bits)
 void create_curr_msg() {
-  // curr_frame_raw.clear(); //containers init
   curr_frame.clear();
   curr_msg.clear();
-  Msg2send tmp_m2s = msg_queue.front();  // load the oldest msg from masgs queue
-  msg_queue.erase(msg_queue.begin());
 
-  bool             valid = false;
-  std::vector<int> msg_payload;
-  if (!tmp_m2s.blank_msg) {
-    if (tmp_m2s.payload.size() == 0) {
-      ROS_ERROR("No payload set, sending blank msg");
-    } else if (tmp_m2s.payload.size() == 1) {
-      switch (tmp_m2s.msg_type) {
-        case 0:
-          ROS_INFO("Sending velocity");
-          msg_payload.push_back(setPayloadVelocity(tmp_m2s.payload[0]));
-          valid = true;
-          break;
-        case 1:
-          ROS_INFO("Sending azimuth");
-          msg_payload.push_back(setPayloadAzimuth(tmp_m2s.payload[0]));
-          valid = true;
-          break;
-        case 2:
-          ROS_WARN("Unknown implementation of msg type, sending blank msg");
-          break;
-        case 3:
-          ROS_WARN("Unknown implementation of msg type, sending blank msg");
-          break;
-        default:
-          ROS_ERROR("Unexpected msg_type, sending blank msg");
-          break;
-      }
-    } else if (tmp_m2s.payload.size() == 2) {
-      switch (tmp_m2s.msg_type) {
-        case 0:
-          ROS_INFO("Velocity and azimuth sent");
-          msg_payload.push_back(setPayloadVelocity(tmp_m2s.payload[1]));
-          msg_payload.push_back(setPayloadAzimuth(tmp_m2s.payload[0]));
-          valid = true;
-          break;
-        case 1:
-          ROS_WARN("Unknown implementation of msg type, sending blank msg");
-          break;
-        case 2:
-          ROS_WARN("Unknown implementation of msg type, sending blank msg");
-          break;
-        case 3:
-          ROS_WARN("Unknown implementation of msg type, sending blank msg");
-          break;
-        default:
-          ROS_ERROR("Unexpected msg_type, sending blank msg");
-          break;
-      }
-    } else {
-      ROS_ERROR("Sending payload with size higher that 2 is not reliable, sending blank msg");
-    }
-  }
-
-  if (valid) {
-    for (auto& pl : msg_payload) {
-      fillPayload(pl);
-    }
-    fillMsgType(tmp_m2s.msg_type);
-  } else {
-    fillHeading();
-    ROS_INFO("Sending blank message only with UAV ID and its heading");
-  }
   fillUavId();
 
-  std::reverse(curr_msg.begin(), curr_msg.end());  // reverse the data message into correct order
+  fillPayload();
 
-  curr_frame.push_back(0);  // frame start bits //creating data frame
-  curr_frame.push_back(1);  // frame start bits
+  curr_msg.push_back(1);
+  curr_msg.push_back(1);
+  curr_msg.push_back(1);
+  curr_msg.push_back(1);
 
-  fillDataAndParity();
-
-  curr_frame.push_back(1);  // frame end bits
-  curr_frame.push_back(0);  // frame end bits
-
-  for (int i = 0; i < SEPARATOR_BITS; i++) {  // 4 separator bits
-    curr_frame.push_back(1);
-  }
+  curr_frame = curr_msg;
 
   curr_msg.clear();  // init data msg
-
-  bitStuffing();
-
-
-  std::cout << "Sent data frame:";
-  for (int i = 0; i < (int)curr_frame.size(); i++) {
-    std::cout << curr_frame[i];
-  }
-  std::cout << std::endl;
-
 }
 
 int main(int argc, char** argv) {
@@ -382,57 +242,44 @@ int main(int argc, char** argv) {
   ros::NodeHandle  nh("~");
   TX::TX_processor txko(nh);
   ROS_INFO("[TX_processor] Node initialized");
-  /* ros::Rate my_rate(rate); */
-
-  /* int curr_bit_index = 0;  // order of currently sending bit */
-
 
   mrs_msgs::SetInt ledMode;
   ledMode.request.value = 1;
   led_mode_client.call(ledMode);
+  decode_mode_client.call(ledMode);
+
+  ROS_WARN("Communication mode set");
 
   mrs_msgs::Float64Srv ledFrequency;
   ledFrequency.request.value = set_rate;
-  ledFrequency.request.value /= bit_duplication_amount; // to triplicate each bit
+  ledFrequency.request.value /= bit_duplication_amount; // to dublicate each bit
   led_frequency_client.call(ledFrequency);
 
   double bit_rate = ((double)set_rate / (double)bit_duplication_amount);
 
+  std::vector<int> init_msg(MSG_BITS, 0);  // Initialize a vector of size 8 with zeros
+  msg_manchester = txko.manchesterEncode(init_msg);
+
   while (ros::ok()) {
-    /* ROS_INFO("ej %d", (int)curr_frame.size()); */
-    if (curr_frame.empty()) {    // if current data frame is empty - avoiding self channel collision
-      if (!msg_queue.empty()) {  // checking content of msgs queue. If it is not empty, it creates new data frame from the oldest stored message
-        create_curr_msg();
-      } else {  // if msg queue is empty, create blank msg just with uav id, its heading, msg_type = 0. The message is added to the msgs queue
-        Msg2send sim_msg;
-        sim_msg.blank_msg = true;
-        msg_queue.push_back(sim_msg);
-      }
-    }
-    /* } else { */
-    /*   if (curr_frame[curr_bit_index] == 0) {  // check vlaue of bit in current data frame and set frequency */
-    /*     led_msg.request.bit_value = false; */
-    /*   } */
-    /*   curr_bit_index++;                                // go to next bit in the next tranmiting round */
-    /*   if (curr_bit_index >= (int)curr_frame.size()) {  // if the data frame was transmited, init values */
-    /*     curr_bit_index = 0; */
-    /*     curr_frame.clear(); */
-    /*   } */
-    /* } */
     
+    create_curr_msg(); 
+    std::cout << "Transmitted msg frame: ";
+    txko.printBinaryVector(curr_frame);
+    std::cout << std::endl;
+
     led_msg.request.data_frame.clear();
+    
     for (auto b : curr_frame){
       led_msg.request.data_frame.push_back((b==0)?0:255);
     }
 
     led_message_client.call(led_msg);
-    /* ROS_INFO("[%d]: ", rate); */
 
     ros::Duration sleeper = ros::Duration((double)(curr_frame.size()) / bit_rate);
 
     curr_frame.clear();
-    /* ROS_INFO_STREAM("[TX_processor]: Will sleep for " << sleeper.toSec() << " seconds. ( bit_rate =" << bit_rate << "; curr_frame.size=" << (double)(curr_frame.size()) << ")" ); */
     sleeper.sleep();
     ros::spinOnce();
   }
 }
+
