@@ -1,0 +1,19 @@
+digraph G {
+"uav38/fcu" -> "uav38/fcu_untilted"[label="Broadcaster: /play_1733130934533393531\nAverage rate: 94.388 Hz\nMost recent transform: 1714063076.258 ( -0.002 sec old)\nBuffer length: 3.221 sec\n"];
+"uav38/fcu" -> "uav38/rtk_origin_att_only"[label="Broadcaster: /play_1733130934533393531\nAverage rate: 172.052 Hz\nMost recent transform: 1714063076.258 ( -0.001 sec old)\nBuffer length: 3.220 sec\n"];
+"uav38/fcu" -> "uav38/rtk_origin"[label="Broadcaster: /play_1733130934533393531\nAverage rate: 100.312 Hz\nMost recent transform: 1714063076.258 ( -0.001 sec old)\nBuffer length: 3.220 sec\n"];
+"uav38/fcu" -> "uav38/utm_origin"[label="Broadcaster: /play_1733130934533393531\nAverage rate: 100.312 Hz\nMost recent transform: 1714063076.258 ( -0.001 sec old)\nBuffer length: 3.220 sec\n"];
+"uav38/fcu" -> "uav38/world_origin"[label="Broadcaster: /play_1733130934533393531\nAverage rate: 100.312 Hz\nMost recent transform: 1714063076.258 ( -0.001 sec old)\nBuffer length: 3.220 sec\n"];
+"uav38/fcu" -> "uav38/uvcam_right"[label="Broadcaster: /play_1733130934533393531\nAverage rate: 10000.000 Hz\nMost recent transform: 0.000 ( 1714063076.257 sec old)\nBuffer length: 0.000 sec\n"];
+"uav38/fcu" -> "uav38/gps_garmin_origin_att_only"[label="Broadcaster: /play_1733130934533393531\nAverage rate: 159.628 Hz\nMost recent transform: 1714063076.259 ( -0.002 sec old)\nBuffer length: 3.220 sec\n"];
+"uav38/fcu" -> "uav38/gps_garmin_origin"[label="Broadcaster: /play_1733130934533393531\nAverage rate: 100.310 Hz\nMost recent transform: 1714063076.259 ( -0.002 sec old)\nBuffer length: 3.220 sec\n"];
+"uav38/fcu" -> "uav38/stable_origin"[label="Broadcaster: /play_1733130934533393531\nAverage rate: 100.311 Hz\nMost recent transform: 1714063076.251 ( 0.006 sec old)\nBuffer length: 3.220 sec\n"];
+"uav38/fcu" -> "uav38/fixed_origin"[label="Broadcaster: /play_1733130934533393531\nAverage rate: 100.311 Hz\nMost recent transform: 1714063076.251 ( 0.006 sec old)\nBuffer length: 3.220 sec\n"];
+"uav38/fcu" -> "uav38/gps_baro_origin_att_only"[label="Broadcaster: /play_1733130934533393531\nAverage rate: 147.826 Hz\nMost recent transform: 1714063076.261 ( -0.004 sec old)\nBuffer length: 3.220 sec\n"];
+"uav38/fcu" -> "uav38/gps_baro_origin"[label="Broadcaster: /play_1733130934533393531\nAverage rate: 100.311 Hz\nMost recent transform: 1714063076.261 ( -0.004 sec old)\nBuffer length: 3.220 sec\n"];
+"uav38/fcu_untilted" -> "uav38/amsl_origin"[label="Broadcaster: /play_1733130934533393531\nAverage rate: 1.499 Hz\nMost recent transform: 1714063075.800 ( 0.456 sec old)\nBuffer length: 2.001 sec\n"];
+edge [style=invis];
+ subgraph cluster_legend { style=bold; color=black; label ="view_frames Result";
+"Recorded at time: 1714063076.257"[ shape=plaintext ] ;
+ }->"uav38/fcu";
+}

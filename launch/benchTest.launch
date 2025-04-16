@@ -1,0 +1,50 @@
+<launch>
+
+  <!-- <arg name="simulation" default="$(eval env('RUN_TYPE') == 'simulation')" /> -->
+
+  <arg name="uav_name" default="$(optenv UAV_NAME uav)"/>
+  <arg name="respawn" default="false" />
+
+  <arg name="debug" default="false" />
+  <arg unless="$(arg debug)" name="launch_prefix" value=""/>
+  <arg     if="$(arg debug)" name="launch_prefix" value="debug_roslaunch"/>
+
+  <arg name="profile" default="false" />
+  <arg unless="$(arg profile)" name="launch_prefix_profile" value=""/>
+  <arg     if="$(arg profile)" name="launch_prefix_profile" value="valgrind --tool=callgrind --callgrind-out-file='callgrind.out.%p'"/>
+
+
+  <!-- nodelet-related arguments -->
+  <arg name="standalone" default="true" />
+  <arg name="manager" default="radar_nodelet_manager" />
+  <arg name="radar_nodelet" value="active_radar/ActiveRadarNodelet" />
+  <arg unless="$(arg standalone)" name="nodelet_load" value="load $(arg radar_nodelet) $(arg manager)"/>
+  <arg     if="$(arg standalone)" name="nodelet_load" value="standalone $(arg radar_nodelet)"/>
+
+  <!-- UWB transceiver settings -->
+  <arg name="uwb_mac_addr" default="$(optenv UWB_MAC_ADDR 4660)" />
+  <arg name="uwb_mac_addr2" default="$(optenv UWB_MAC_ADDR2 22136)" />
+  <arg name="uwb_pan_id" default="$(optenv UWB_PAN_ID 43981)" />
+
+  <group ns="$(arg uav_name)">
+    <node pkg="nodelet" type="nodelet" name="radar_nodelet" args="$(arg nodelet_load)" output="screen" launch-prefix="$(arg launch_prefix) $(arg launch_prefix_profile)" respawn="$(arg respawn)">
+
+    <param name="uav_name" value="$(arg uav_name)" />
+    <param name="uwb_mac_addr" type="int" value="$(arg uwb_mac_addr)" />
+    <param name="uwb_pan_id" type="int" value="$(arg uwb_pan_id)" />
+    <param name="requests" value="true" />
+
+    </node>
+
+    <node pkg="nodelet" type="nodelet" name="radar_nodelet2" args="$(arg nodelet_load)" output="screen" launch-prefix="$(arg launch_prefix) $(arg launch_prefix_profile)" respawn="$(arg respawn)">
+
+    <param name="uav_name" value="$(arg uav_name)" />
+    <param name="uwb_mac_addr" type="int" value="$(arg uwb_mac_addr2)" />
+    <param name="uwb_pan_id" type="int" value="$(arg uwb_pan_id)" />
+    <param name="requests" value="false" />
+
+    </node>
+
+  </group>
+
+</launch>

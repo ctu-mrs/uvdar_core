@@ -1,0 +1,38 @@
+# do not modify these
+root: ./
+name: simulation
+socket_name: mrs
+attach: false
+tmux_options: -f /etc/ctu-mrs/tmux.conf
+# you can modify these
+pre_window: 
+startup_window: uv_observer
+windows:
+  - roscore:
+      layout: tiled
+      panes:
+        - roscore
+  - uv_observer:
+        layout: even-vertical
+        panes:
+        - waitForRos; roslaunch uvdar_core rosbag.launch use_4DHT:=false uav_name:=uav38
+  - play:
+        layout: even-vertical
+        panes: 
+        - rosbag play --clock /home/tim/rosbag_water_reflection_paper/8_2024_04_25_18_29_31/_2024-04-25-18-29-39-004.bag
+        # - rosbag play --clock /home/tim/rosbag_water_reflection_paper/8_2024_04_25_18_29_31/_2024-04-25-18-33-15-007.bag
+        # - rosbag play --clock /home/tim/rosbag_water_reflection_paper/_2024-04-24-20-13-30.bag
+        # - rosbag play --clock /home/tim/rosbag_water_reflection_paper/8_2024_04_25_18_29_31/_2024-04-25-18-36-06-005.bag
+
+  - record:
+      layout: even-vertical
+      panes:
+        # - waitForRos; sleep 3; rosbag record -e "(.*)$UAV_NAME(.*)/(.*)uvdar_bluefox/right/image_raw" "/uav38/rtk/gpgga" "/uav38/estimation_manager/rtk/odom" -O "/home/tim/rosbag_water_reflection_paper/ds1_rtk"
+        # - waitForRos; sleep 3; rosbag record -e "(.*)$UAV_NAME(.*)/(.*)uvdar_bluefox/right/image_raw" "/uav38/rtk/gpgga" "/uav38/estimation_manager/odom_main" "/uav38/estimation_manager/rtk/odom" -O "/home/tim/rosbag_water_reflection_paper/ds1_rtk"
+        # - waitForRos; sleep 3; rosbag record -e "(.*)$UAV_NAME(.*)/(.*)uvdar_bluefox/right/image_raw" "/uav38/rtk/gpgga" "/uav38/estimation_manager/gps_garmin/odom" -O "/home/tim/rosbag_water_reflection_paper/ds3"
+      #   - waitForRos; sleep 3; rosbag record -e "(.*)$UAV_NAME(.*)/uvdar/measuredPoses" "/uav38/rtk/gpgga" "/uav38/estimation_manager/rtk/odom" -O "/home/tim/rosbag_water_reflection_paper/ds1_uvdar_rtk_test"
+        # - waitForRos; sleep 3; rosbag record -a -x "(.*)$UAV_NAME(.*)/(.*)uvdar_bluefox/right/image_raw" -O "/home/tim/rosbag_water_reflection_paper/ds1_uvdar_rtk_test"
+        - waitForRos; sleep 3; rosbag record -e "(.*)$UAV_NAME(.*)/uvdar/measuredPoses" "/uav38/rtk/gpgga" "/uav38/estimation_manager/odom_main" "/uav38/estimation_manager/rtk/odom" -O "/home/tim/rosbag_water_reflection_paper/ds1_uvdar_rtk"
+        # - waitForRos; sleep 3; rosbag record -e "(.*)$UAV_NAME(.*)/uvdar/measuredPoses" "/uav38/rtk/gpgga" "/uav38/estimation_manager/gps_garmin/odom" -O "/home/tim/rosbag_water_reflection_paper/ds3_uvdar"
+
+        # - waitForRos; sleep 3; rosbag record -e "/uav39/rtk/gpgga" "/uav39/estimation_manager/rtk/odom" -O "/home/tim/rosbag_water_reflection_paper/tx"
