@@ -48,7 +48,8 @@
 
   <arg name="beacon" default="false"/>
 
-  <arg name="sequence_file" default="$(find uvdar_core)/config/selected.txt"/>
+  <!-- <arg name="sequence_file" default="$(find uvdar_core)/config/selected.txt"/> -->
+  <arg name="sequence_file" default="$(find uvdar_core)/config/com/id_sequences.txt"/>
 
     
   <!-- Blink processor settings: -->
@@ -66,6 +67,7 @@
   <arg name="decay_factor" default="0.1"/>
   <arg name="confidence_probability" default="95.0"/>
   <arg name="allowed_BER_per_seq" default="0"/>
+  <arg name="frame_length" default="16"/>
 
   <!--4DHT values-->
   <arg name="use_4DHT" default="false"/>
@@ -159,6 +161,7 @@
       <param name="uav_name" type = "string" value="$(arg uav_name)"/>
       <param name="debug"		type="bool" value="$(arg debug)"/> 
       <!-- <param name="gui"             type="bool" value="$(arg gui)"/> -->
+      <param name="com"             type="bool" value="false"/>
       
       <!-- Changeable for each nodelet independently. - no arguments! -->
       <!-- <param name="publish_visualization"             type="bool" value="false"/> -->
@@ -175,6 +178,7 @@
       <param name="max_zeros_consecutive"   type="int"    value="$(arg max_zeros_consecutive)"/>
       <param name="stored_seq_len_factor"   type="int"    value="$(arg stored_seq_len_factor)"/>  
       <param name="max_buffer_length"       type="int"    value="$(arg max_buffer_length)"/>  
+      <param name="frame_length"            type="int"    value="$(arg frame_length)"/>  
       <param name="poly_order"              type="int"    value="$(arg poly_order)"/>
       <param name="decay_factor"            type="double" value="$(arg decay_factor)"/>    
       <param name="confidence_probability"  type="double" value="$(arg confidence_probability)"/>

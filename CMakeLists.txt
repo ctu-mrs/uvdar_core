@@ -50,9 +50,7 @@ set(LIBRARIES
   )
 
 set(EXECUTABLES
-  uvdar_rx_node
   uvdar_tx_node
-  new_uvdar_rx_node
   uvdar_led_manager_node
   uvdar_filter_node
   uvdar_pose_calculator_node
@@ -133,20 +131,6 @@ include_directories(
   ${LIBGBM_INCLUDE_DIRS}
   )
 
-## | ---------------------- uvdar rx node --------------------- |
-
-add_executable(uvdar_rx_node
-  src/uvdar_rx.cpp
-  )
-
-target_link_libraries(uvdar_rx_node
-  ${catkin_LIBRARIES}
-  )
-
-add_dependencies(uvdar_rx_node
-  ${${PROJECT_NAME}_EXPORTED_TARGETS}
-  ${catkin_EXPORTED_TARGETS}
-  )
 
 ## | ---------------------- uvdar tx node --------------------- |
 
@@ -159,23 +143,6 @@ target_link_libraries(uvdar_tx_node
   )
 
 add_dependencies(uvdar_tx_node
-  ${${PROJECT_NAME}_EXPORTED_TARGETS}
-  ${catkin_EXPORTED_TARGETS}
-  )
-
-## | -------------------- new uvdar rx node ------------------- |
-
-add_executable(new_uvdar_rx_node
-  src/new_uvdar_rx.cpp
-  )
-
-target_link_libraries(new_uvdar_rx_node
-  ${catkin_LIBRARIES}
-  ${OpenCV_LIBRARIES}
-  UvdarCore_ht4dbt
-  )
-
-add_dependencies(new_uvdar_rx_node
   ${${PROJECT_NAME}_EXPORTED_TARGETS}
   ${catkin_EXPORTED_TARGETS}
   )
