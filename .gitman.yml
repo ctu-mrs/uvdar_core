@@ -15,7 +15,7 @@ sources:
 sources_locked:
   - repo: https://github.com/TimLakemann/ami.git
     name: ami
-    rev: f9b44c56297effa62badf9cab835b06a6528e074
+    rev: f217f833bc212628f2925a83a60d150da83bb2a7
     type: git
     params:
     sparse_paths:
