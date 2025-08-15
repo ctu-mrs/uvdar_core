@@ -15,7 +15,7 @@ windows:
   - gazebo:
       layout: tiled
       panes:
-        - waitForRos; roslaunch mrs_uav_gazebo_simulation simulation.launch world_name:=grass_plane gui:=true
+        - waitForRos; roslaunch mrs_uav_gazebo_simulation simulation.launch world_name:=grass_plane gui:=false
   - status:
       layout: tiled
       panes:
@@ -58,7 +58,7 @@ windows:
   - slow_down:
       layout: even-vertical
       panes:
-        - waitForGazebo; waitForRos; sleep 20; gz physics -u 80
+        - 'history -s gz physics -u 125'
   - rviz:
       layout: even-vertical
       panes:

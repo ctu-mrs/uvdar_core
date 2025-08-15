@@ -1,4 +1,4 @@
-#!/bin/zsh
+#!/bin/bash
 
 # Absolute path to this script. /home/user/bin/foo.sh
 SCRIPT=$(readlink -f $0)
