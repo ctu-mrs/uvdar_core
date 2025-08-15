@@ -47,6 +47,8 @@ public:
 
     param_loader.loadParam("initial_delay", _initial_delay_, 5.0);
 
+    param_loader.loadParam("use_cpu", _use_cpu_, bool(false));
+
     /* subscribe to cameras //{ */
     std::vector<std::string> _camera_topics;
     param_loader.loadParam("camera_topics", _camera_topics, _camera_topics);
@@ -96,14 +98,26 @@ public:
       /* mutex_camera_image_.push_back(std::make_unique<std::mutex>()); */
 
       ROS_INFO("[UVDARDetector]: Initializing FAST-based marker detection...");
-      uvdf_ = std::make_unique<UVDARLedDetectFASTGPU>(
-            _gui_,
-            _debug_,
-            _threshold_,
-            _threshold_ / 2,
-            150,
-            _masks_
-            );
+      if (!_use_cpu_){
+        uvdf_ = std::make_unique<UVDARLedDetectFASTGPU>(
+              _gui_,
+              _debug_,
+              _threshold_,
+              _threshold_ / 2,
+              150,
+              _masks_
+              );
+      } else {
+        ROS_WARN("[UVDARDetector]: Using CPU!");
+        uvdf_ = std::make_unique<UVDARLedDetectFASTCPU>(
+              _gui_,
+              _debug_,
+              _threshold_,
+              _threshold_ / 2,
+              150,
+              _masks_
+              );
+      }
       if (!uvdf_){
         ROS_ERROR("[UVDARDetector]: Failed to initialize FAST-based marker detection!");
         return;
@@ -264,7 +278,7 @@ private:
       std::scoped_lock lock(mutex_camera_image_);
 
       if (!uvdf_was_initialized_){
-        if (!uvdf_->initDelayed(image->image)){
+        if (!_use_cpu_ && !uvdf_->initDelayed(image->image)){
           ROS_WARN_STREAM_THROTTLE(1.0,"[UVDARDetector]: Failed to initialize, dropping message...");
           return;
         }
@@ -417,6 +431,7 @@ private:
   std::vector<std::vector<cv::Point>> sun_points_;
 
   bool _gui_;
+  bool _use_cpu_;
   bool _publish_visualization_;
   std::unique_ptr<mrs_lib::ImagePublisher> pub_visualization_;
   /* std::vector<std::unique_ptr<std::mutex>>  mutex_camera_image_; */
