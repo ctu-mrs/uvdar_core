@@ -5,9 +5,27 @@ read -n 2 -p $'\e[1;32mDo you want to test the LEDs? [y/n]\e[0m\n' resp_led
 response_led=`echo $resp_led | sed -r 's/(.*)$/\1=/'`
 if [[ $response_led =~ ^(y|Y)=$ ]]; then 
     source $workspace/devel/setup.bash
-    
+    echo ""
+    echo ""
     echo "####################### LED Configuration #######################"
-    echo $'\e[0;33mLED testing works only with a battery as the power source!\e[0m'
+    echo $'\e[0;33m1. LED testing works only with a battery as the power source!\e[0m'
+    echo ""
+    echo $'\e[0;33m2. Please verify that the LEDs are connected in the correct order on the UVDAR module! The LEDs should be connected as the pixhawk motor alignment!\e[0m'
+    echo -e "\e[1;36m
+   (3)        (1)
+     \\        /
+      \\      /
+       \\    /
+        \\  /
+         \\/
+         /\\
+        /  \\
+       /    \\
+      /      \\
+     /        \\
+   (2)        (4)
+    \e[0m"
+
     echo $'\e[1;32mWhich module is the UVDAR board connected to?\e[0m'
     echo "Enter:"
     echo "1 = /dev/MRS_MODULE1"
