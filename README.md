@@ -5,6 +5,11 @@
 | Build status | [![Build Status](https://github.com/ctu-mrs/uvdar_core/workflows/Melodic/badge.svg)](https://github.com/ctu-mrs/uvdar_core/actions) | [![Build Status](https://github.com/ctu-mrs/uvdar_core/workflows/Noetic/badge.svg)](https://github.com/ctu-mrs/uvdar_core/actions) |
 |--------------|-------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------|
 
+
+> :warning: **Attention please: Work in progress.**
+> :warning: **Attention please: This README is outdated.**
+
+
 ## Description
 This package contains the core signal processing and pose estimation software components of the UVDAR system necessary for running it on a MAV.
 
