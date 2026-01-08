@@ -1,34 +1,21 @@
-Standard: C++11
-BasedOnStyle: Google
-AccessModifierOffset: -2
-ColumnLimit: 160
-MaxEmptyLinesToKeep: 2
+---
+BasedOnStyle: LLVM
+PointerAlignment: Left
+AccessModifierOffset: -1
+ColumnLimit: 120
+MaxEmptyLinesToKeep: 1
 AlignAfterOpenBracket: Align
 AllowShortLoopsOnASingleLine: false
 AllowShortBlocksOnASingleLine: false
-AllowShortFunctionsOnASingleLine: false
+AllowShortFunctionsOnASingleLine: None
 AllowShortCaseLabelsOnASingleLine: false
 AllowShortIfStatementsOnASingleLine: false
 AlwaysBreakTemplateDeclarations: true
-AlignConsecutiveAssignments: false
+AlignConsecutiveAssignments: true
 AlignConsecutiveDeclarations: false
 SpaceBeforeParens: ControlStatements
-BreakBeforeBinaryOperators: NonAssignment
+BreakBeforeBinaryOperators: false
 KeepEmptyLinesAtTheStartOfBlocks: true
-DerivePointerAlignment: false
-PointerAlignment: Left
-BreakBeforeBraces: Custom
 SortIncludes: false
-NamespaceIndentation: All
-BraceWrapping:
-  AfterClass: true
-  AfterControlStatement: true
-  AfterEnum: true
-  AfterFunction: true
-  AfterNamespace: true
-  AfterObjCDeclaration: true
-  AfterStruct: true
-  AfterUnion: true
-  BeforeCatch: true
-  BeforeElse: false
-  IndentBraces: false
+NamespaceIndentation: None
+IndentCaseLabels: true

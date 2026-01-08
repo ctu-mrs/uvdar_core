@@ -1,4 +1,4 @@
-#include <uvdar_core/uv_detector.h>
+#include <uvdar_core/uv_led_detector/uv_detector.h>
 
 namespace uvdar
 {
