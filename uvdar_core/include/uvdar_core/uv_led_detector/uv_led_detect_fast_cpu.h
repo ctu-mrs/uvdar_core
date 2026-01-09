@@ -21,9 +21,29 @@ class UvdarLedDetectFastCPU : public UvdarLedDetectFastBase {
    * @brief Initializes points used in FAST-like bright point detection
    */
   void initFast_();
+  void initOnFirstFrame_();
 
   void initFastPointsSet_();
   void initFastInteriorSet_();
+
+  void scanImageForCandidates_(const int mask_id, std::vector<cv::Point2i>& detected_points,
+                               std::vector<cv::Point2i>& sun_points);
+  void rejectMarkersNearSun_(std::vector<cv::Point2i>& detected_points, std::vector<cv::Point2i>& sun_points);
+
+  [[nodiscard]] inline bool isMaskedOut_(const int point_idx, const int mask_id) const noexcept;
+  [[nodiscard]] inline bool isAlreadyAssignedToCluster_(const int point_idx) const noexcept;
+  [[nodiscard]] inline bool isBelowBrightnessThreshold_(const int point_idx) const noexcept;
+  [[nodiscard]] inline bool isInsideRoi_(const int x, const int y) const noexcept;
+  [[nodiscard]] inline bool isSunLikePixel_(const int i, const int j) const noexcept;
+  [[nodiscard]] inline bool isCenterBrighterThanNeighbor_(int center, int neighbor) const noexcept;
+
+  [[nodiscard]] bool validateMask_(const int mask_id) const noexcept;
+  [[nodiscard]] FastTestResult evaluateFastRings_(const int i, const int j);
+  inline void addToCluster_(int idx);
+
+  void localizeMarkerPoint_(const FastTestResult& fast_result, std::vector<cv::Point2i>& detected_points);
+  void localizeSunPoint_(const FastTestResult& fast_result, std::vector<cv::Point2i>& sun_points,
+                         std::vector<SunCluster>& sun_clusters);
 
  private:
   std::vector<std::vector<cv::Point>> fast_points_set_;
