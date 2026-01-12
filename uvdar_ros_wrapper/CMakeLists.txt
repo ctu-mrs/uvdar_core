@@ -97,13 +97,13 @@ install(
   RUNTIME DESTINATION bin
 )
 
-# install(DIRECTORY launch
-#   DESTINATION share/${PROJECT_NAME}
-# )
+install(DIRECTORY launch
+  DESTINATION share/${PROJECT_NAME}
+)
 
-# install(DIRECTORY config
-#   DESTINATION share/${PROJECT_NAME}
-# )
+install(DIRECTORY config
+  DESTINATION share/${PROJECT_NAME}
+)
 
 # ament_export_targets(
 #   export_${PROJECT_NAME} HAS_LIBRARY_TARGET

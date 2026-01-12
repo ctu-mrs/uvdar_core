@@ -1,0 +1,12 @@
+uav_name: "uav1"
+publish_visualization: false
+initial_delay: 5.0
+
+uv_led_detector:
+  use_gpu: false
+  gui: false
+  threshold: 200 # minimum pixel brightness to be considered
+  threshold_diff: 100 # minimum brightness difference from surrounding pixels
+  threshold_sun: 150 # brightness threshold for candidate sun pixels
+  threshold_sun_dist: 25 # max pixel distance to classify a pixel as sun-affected
+  threshold_sun_merge: 20 # max pixel distance for merging sun pixel clusters

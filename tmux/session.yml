@@ -19,3 +19,7 @@ windows:
       panes:
         - ros2 launch foxglove_bridge foxglove_bridge_launch.xml 
         - ros2 bag play /home/mrs/ros2_ws/bags/led_rosbag --rate 0.5
+  - uvled_detector:
+      layout: tiled
+      panes:
+        - ros2 launch uvdar_ros_wrapper uv_led_detector.launch.py

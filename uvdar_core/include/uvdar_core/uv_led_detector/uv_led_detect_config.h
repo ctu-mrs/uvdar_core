@@ -14,11 +14,11 @@ namespace uvdar {
 struct UvLedDetectConfig {
   bool gpu;
   bool gui;
-  bool debug;
   int threshold;
   int threshold_diff;
   int threshold_sun;
   int threshold_sun_dist;
+  int threshold_sun_merge;
   std::vector<cv::Mat> masks;
 };
 //}
