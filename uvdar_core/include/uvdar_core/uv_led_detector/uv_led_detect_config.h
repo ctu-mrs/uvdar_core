@@ -14,6 +14,7 @@ namespace uvdar {
 struct UvLedDetectConfig {
   bool gpu;
   bool gui;
+  bool use_masks;
   int threshold;
   int threshold_diff;
   int threshold_sun;

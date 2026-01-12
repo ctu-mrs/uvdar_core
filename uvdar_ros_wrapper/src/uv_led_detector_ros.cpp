@@ -15,9 +15,14 @@ void UvLedDetectorComponent::initialize_() {
   logger_ = std::make_shared<RosLogger>(node_->get_logger());
 
   loadParams_();
-  uv_detector_ = std::make_unique<UvLedDetector>(*logger_, detect_cfg_);
+
+  initDetector_();
+
+  initRosInterface_();
 
   timer_init_->cancel();
+  initialized_ = true;
+  RCLCPP_INFO(node_->get_logger(), "[UVDARDetector]: Initialized.");
 }
 //}
 
@@ -49,6 +54,8 @@ void UvLedDetectorComponent::loadRosParams_() {
   param_loader_->loadParam("uav_name", uav_name_, std::string("uav1"));
   param_loader_->loadParam("publish_visualization", publish_visualization_flag_, false);
   param_loader_->loadParam("initial_delay", initial_delay_, 5.0);
+
+  param_loader_->loadParam("camera_topics", camera_topics_, std::vector<std::string>{"camera_in"});
 }
 //}
 
@@ -56,6 +63,7 @@ void UvLedDetectorComponent::loadRosParams_() {
 void UvLedDetectorComponent::loadUvLedDetectParams_() {
   param_loader_->loadParam("uv_led_detector/use_gpu", detect_cfg_.gpu, false);
   param_loader_->loadParam("uv_led_detector/gui", detect_cfg_.gui, false);
+  param_loader_->loadParam("uv_led_detector/use_masks", detect_cfg_.use_masks, false);
   param_loader_->loadParam("uv_led_detector/threshold", detect_cfg_.threshold, 200);
   param_loader_->loadParam("uv_led_detector/threshold_diff", detect_cfg_.threshold_diff, 100);
   param_loader_->loadParam("uv_led_detector/threshold_sun", detect_cfg_.threshold_sun, 150);
@@ -63,6 +71,53 @@ void UvLedDetectorComponent::loadUvLedDetectParams_() {
   param_loader_->loadParam("uv_led_detector/threshold_sun_merge", detect_cfg_.threshold_sun_merge, 20);
 }
 //}
+
+/* initDetector_ //{ */
+void UvLedDetectorComponent::initDetector_() {
+  if (camera_topics_.empty()) {
+    RCLCPP_ERROR(node_->get_logger(), "[UVDARDetector]:  No camera topics were supplied, ending the node!");
+    rclcpp::shutdown();
+  }
+  camera_count_ = camera_topics_.size();
+
+  if (detect_cfg_.use_masks) {
+    RCLCPP_ERROR_STREAM(node_->get_logger(), "[UVDARDetector]: Masks has not been implemented yet. Shutting down!");
+    return;
+  }
+
+  uv_detector_ = std::make_unique<UvLedDetector>(*logger_, detect_cfg_);
+}
+//}
+
+/* initRosInterface_ //{ */
+void UvLedDetectorComponent::initRosInterface_() {
+  cameras_.clear();
+
+  image_callback_group_ = create_callback_group(rclcpp::CallbackGroupType::Reentrant);
+
+  for (size_t i = 0; i < camera_count_; ++i) {
+    CameraContext cam;
+    cam.topic = camera_topics_[i];
+
+    mrs_lib::SubscriberHandlerOptions shopts;
+    shopts.node                                = node_;
+    shopts.node_name                           = node_->get_name();
+    shopts.no_message_timeout                  = rclcpp::Duration::from_seconds(5.0);
+    shopts.subscription_options.callback_group = image_callback_group_;
+
+    cam.sub = mrs_lib::SubscriberHandler<sensor_msgs::msg::Image>(
+        shopts, cam.topic, [image_idx = i, this](const sensor_msgs::msg::Image::ConstSharedPtr& image_msg) {
+          callbackImage_(image_msg, image_idx);
+        });
+
+    cameras_.push_back(std::move(cam));
+  }
+}
+//}
+
+void UvLedDetectorComponent::callbackImage_(const sensor_msgs::msg::Image::ConstSharedPtr& image_msg, int image_index) {
+  RCLCPP_INFO(node_->get_logger(), "image callback");
+}
 
 } // namespace uvdar
 
