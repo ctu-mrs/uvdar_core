@@ -92,12 +92,18 @@ void UvLedDetectorComponent::initDetector_() {
 /* initRosInterface_ //{ */
 void UvLedDetectorComponent::initRosInterface_() {
   cameras_.clear();
+  cameras_.resize(camera_count_);
 
-  image_callback_group_ = create_callback_group(rclcpp::CallbackGroupType::Reentrant);
+  image_callback_group_      = node_->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
+  processing_callback_group_ = node_->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
 
   for (size_t i = 0; i < camera_count_; ++i) {
-    CameraContext cam;
-    cam.topic = camera_topics_[i];
+    auto& cam = cameras_.at(i);
+    cam.topic = camera_topics_.at(i);
+
+    cam.timer = this->create_wall_timer(
+        std::chrono::milliseconds(0), [this, i]() { processImage_(i); }, processing_callback_group_);
+    cam.timer->cancel();
 
     mrs_lib::SubscriberHandlerOptions shopts;
     shopts.node                                = node_;
@@ -105,19 +111,90 @@ void UvLedDetectorComponent::initRosInterface_() {
     shopts.no_message_timeout                  = rclcpp::Duration::from_seconds(5.0);
     shopts.subscription_options.callback_group = image_callback_group_;
 
+    // clang-format off
     cam.sub = mrs_lib::SubscriberHandler<sensor_msgs::msg::Image>(
         shopts, cam.topic, [image_idx = i, this](const sensor_msgs::msg::Image::ConstSharedPtr& image_msg) {
-          callbackImage_(image_msg, image_idx);
+          auto& cam = cameras_[image_idx];
+          {
+            std::lock_guard<std::mutex> lk(cam.mtx);
+            cam.last_msg = std::move(image_msg);
+          }
+          cameras_[image_idx].timer->reset();
         });
-
-    cameras_.push_back(std::move(cam));
+    // clang-format on
   }
+
+  mrs_lib::PublisherHandlerOptions pubopts;
+  pubopts.node = node_;
+  pubopts.qos  = rclcpp::QoS(1);
+
+  pub_detected_points = mrs_lib::PublisherHandler<uvdar_ros_interfaces::msg::ImagePointsWithFloatStamped>(
+      pubopts, "~/detected_points_out");
+
+  debug_pub_ = this->create_publisher<sensor_msgs::msg::Image>("/debug_image", rclcpp::SensorDataQoS());
 }
 //}
 
-void UvLedDetectorComponent::callbackImage_(const sensor_msgs::msg::Image::ConstSharedPtr& image_msg, int image_index) {
-  RCLCPP_INFO(node_->get_logger(), "image callback");
+/* callbackImage_ //{ */
+void UvLedDetectorComponent::processImage_(const int image_index) {
+
+  auto& camera = cameras_[image_index];
+  sensor_msgs::msg::Image::ConstSharedPtr msg;
+  {
+    std::lock_guard<std::mutex> lk(camera.mtx);
+    msg = camera.last_msg;
+
+    if (!msg) {
+      camera.timer->cancel();
+      return;
+    }
+
+    auto cv_ptr          = cv_bridge::toCvShare(msg, sensor_msgs::image_encodings::MONO8);
+    camera.current_image = cv_ptr->image.clone();
+    camera.image_size    = cv_ptr->image.size();
+
+    if (!uv_detector_->detect(camera.current_image, camera.detected_points, camera.sun_points)) {
+      RCLCPP_ERROR(node_->get_logger(), "[UVDARDetector]: Failed to detect UV LEDs from camera:%d", image_index);
+    }
+
+    // uvdar_ros_interfaces::msg::ImagePointsWithFloatStamped msg_detected;
+    // msg_detected.stamp        = cv_ptr->header.stamp;
+    // msg_detected.image_width  = cv_ptr->image.cols;
+    // msg_detected.image_height = cv_ptr->image.rows;
+    // for (auto& detected_point : camera.detected_points) {
+    //   uvdar_ros_interfaces::msg::Point2DWithFloat point;
+    //   point.x = detected_point.x;
+    //   point.y = detected_point.y;
+    //   msg_detected.points.push_back(point);
+    // }
+    // pub_detected_points.publish(msg_detected);
+
+    sensor_msgs::msg::Image msg;
+
+    msg.header.stamp    = this->now();
+    msg.header.frame_id = "camera";
+    msg.height          = cv_ptr->image.rows;
+    msg.width           = cv_ptr->image.cols;
+    msg.encoding        = "mono8";
+    msg.step            = msg.width;
+    msg.data.assign(msg.height * msg.step, 0);
+
+    // Mark detected pixels as white
+    for (const auto& detected_point : camera.detected_points) {
+      int x = detected_point.x;
+      int y = detected_point.y;
+
+      if (x < 0 || x >= static_cast<int>(msg.width) || y < 0 || y >= static_cast<int>(msg.height)) {
+        continue;
+      }
+
+      msg.data[y * msg.step + x] = 255;
+    }
+    debug_pub_->publish(msg);
+  }
+  camera.timer->cancel();
 }
+//}
 
 } // namespace uvdar
 

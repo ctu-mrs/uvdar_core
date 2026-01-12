@@ -41,6 +41,7 @@ set(DEPENDENCIES
   Eigen3
   tf2_eigen
   uvdar_core
+  uvdar_ros_interfaces
 )
 
 foreach(DEP IN LISTS DEPENDENCIES)

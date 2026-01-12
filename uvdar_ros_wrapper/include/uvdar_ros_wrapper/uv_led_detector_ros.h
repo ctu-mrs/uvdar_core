@@ -1,14 +1,19 @@
 #pragma once
 
+#include <mutex>
+#include <deque>
+
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/image.hpp>
-#include "image_transport/image_transport.hpp"
+#include <cv_bridge/cv_bridge.hpp>
 
 #include <mrs_lib/param_loader.h>
 #include <mrs_lib/subscriber_handler.h>
+#include <mrs_lib/publisher_handler.h>
 
 #include <uvdar_core/uv_led_detector/uv_led_detector.h>
 #include <uvdar_ros_wrapper/utils/ros_logger.h>
+#include <uvdar_ros_interfaces/msg/image_points_with_float_stamped.hpp>
 
 namespace uvdar {
 
@@ -17,14 +22,16 @@ using namespace std::literals::chrono_literals;
 
 struct CameraContext {
   std::string topic;
-  // rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr sub;
   mrs_lib::SubscriberHandler<sensor_msgs::msg::Image> sub;
   rclcpp::TimerBase::SharedPtr timer;
+
+  sensor_msgs::msg::Image::ConstSharedPtr last_msg;
 
   cv::Size image_size{0, 0};
   cv::Mat current_image;
   std::vector<cv::Point> detected_points;
   std::vector<cv::Point> sun_points;
+  std::mutex mtx;
 };
 
 class UvLedDetectorComponent : public rclcpp::Node {
@@ -40,15 +47,18 @@ class UvLedDetectorComponent : public rclcpp::Node {
   void loadRosParams_();
   void loadUvLedDetectParams_();
 
-  void callbackImage_(const sensor_msgs::msg::Image::ConstSharedPtr& image_msg, int image_index);
+  void processImage_(const int image_index);
 
  private:
   rclcpp::Node::SharedPtr node_;
   rclcpp::TimerBase::SharedPtr timer_init_;
   rclcpp::CallbackGroup::SharedPtr image_callback_group_{nullptr};
+  rclcpp::CallbackGroup::SharedPtr processing_callback_group_{nullptr};
 
   std::shared_ptr<RosLogger> logger_;
   std::shared_ptr<mrs_lib::ParamLoader> param_loader_;
+  mrs_lib::PublisherHandler<uvdar_ros_interfaces::msg::ImagePointsWithFloatStamped> pub_detected_points;
+  rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr debug_pub_;
 
   bool initialized_;
   std::string uav_name_;
@@ -60,7 +70,7 @@ class UvLedDetectorComponent : public rclcpp::Node {
 
   UvLedDetectConfig detect_cfg_;
   std::unique_ptr<UvLedDetector> uv_detector_;
-  std::vector<CameraContext> cameras_;
+  std::deque<CameraContext> cameras_;
 };
 
 } // namespace uvdar

@@ -27,8 +27,9 @@ std::unique_ptr<UvLedDetectFastBase> UvLedDetector::makeUvLedDetector_() {
 //}
 
 /* detect //{ */
-void UvLedDetector::detect(const cv::Mat i_image) {
-  // detector_->processImage(i_image, )
+bool UvLedDetector::detect(const cv::Mat i_image, std::vector<cv::Point2i>& detected_points,
+                           std::vector<cv::Point2i>& sun_points) {
+  return detector_->processImage(i_image, detected_points, sun_points);
 }
 //}
 
