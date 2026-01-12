@@ -4,7 +4,7 @@
 
 namespace uvdar {
 
-class UvdarLedDetectFastCPU : public UvdarLedDetectFastBase {
+class UvdarLedDetectFastCPU : public UvLedDetectFastBase {
  public:
   explicit UvdarLedDetectFastCPU(UvLedDetectConfig cfg, ILogger& logger);
   bool processImage(const cv::Mat image, std::vector<cv::Point2i>& detected_points,
@@ -22,7 +22,6 @@ class UvdarLedDetectFastCPU : public UvdarLedDetectFastBase {
    */
   void initFast_();
   void initOnFirstFrame_();
-
   void initFastPointsSet_();
   void initFastInteriorSet_();
 

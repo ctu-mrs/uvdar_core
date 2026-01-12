@@ -8,7 +8,7 @@ inline int index2d(int x, int y, int cols) noexcept {
 
 /* UvdarLedDetectFastCPU constructor //{ */
 UvdarLedDetectFastCPU::UvdarLedDetectFastCPU(UvLedDetectConfig cfg, ILogger& logger)
-    : UvdarLedDetectFastBase(std::move(cfg), logger) {
+    : UvLedDetectFastBase(std::move(cfg), logger) {
   initFast_();
 }
 //}
@@ -78,6 +78,12 @@ void UvdarLedDetectFastCPU::initOnFirstFrame_() {
     image_check_ = cv::Mat(image_curr_.size(), CV_8UC1);
     image_check_ = cv::Scalar(0);
   }
+}
+//}
+
+/* initDelayed //{ */
+bool UvdarLedDetectFastCPU::initDelayed([[maybe_unused]] const cv::Mat i_image) {
+  return false;
 }
 //}
 

@@ -26,6 +26,7 @@
   <depend>mrs_lib</depend>
   <depend>mrs_modules_msgs</depend>
   <depend>mrs_msgs</depend>
+  <depend>uvdar_core</depend>
 
 
   <!-- <depend>message_generation</depend> -->

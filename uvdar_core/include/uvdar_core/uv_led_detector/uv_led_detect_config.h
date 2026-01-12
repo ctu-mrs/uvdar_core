@@ -10,7 +10,9 @@
 
 namespace uvdar {
 
+/* UvLedDetectConfig //{ */
 struct UvLedDetectConfig {
+  bool gpu;
   bool gui;
   bool debug;
   int threshold;
@@ -19,7 +21,9 @@ struct UvLedDetectConfig {
   int threshold_sun_dist;
   std::vector<cv::Mat> masks;
 };
+//}
 
+/* FastTestResult //{ */
 struct FastTestResult {
   bool marker_candidate{false};
   bool sun_candidate{false};
@@ -28,7 +32,9 @@ struct FastTestResult {
   int sun_test_points{0};
   int ring_idx{0};
 };
+//}
 
+/* SunCluster //{ */
 struct SunCluster {
   cv::Point sum;
   int count;
@@ -36,8 +42,10 @@ struct SunCluster {
   cv::Point centroid() const {
     return sum / count;
   }
+
   SunCluster(cv::Point s, int c) : sum(s), count(c) {
   }
 };
+//}
 
 } // namespace uvdar

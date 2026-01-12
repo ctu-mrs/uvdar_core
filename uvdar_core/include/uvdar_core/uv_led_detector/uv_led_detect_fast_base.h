@@ -5,9 +5,9 @@
 
 namespace uvdar {
 
-class UvdarLedDetectFastBase {
+class UvLedDetectFastBase {
  public:
-  virtual ~UvdarLedDetectFastBase() = default;
+  virtual ~UvLedDetectFastBase() = default;
 
   /**
    * @brief Adds an image matrix used for masking out portions of the input stream
@@ -42,7 +42,7 @@ class UvdarLedDetectFastBase {
   virtual bool initDelayed(const cv::Mat image) = 0;
 
  protected:
-  explicit UvdarLedDetectFastBase(UvLedDetectConfig cfg, ILogger& logger) : cfg_(std::move(cfg)), logger_(logger) {
+  explicit UvLedDetectFastBase(UvLedDetectConfig cfg, ILogger& logger) : cfg_(std::move(cfg)), logger_(logger) {
   }
 
  protected:

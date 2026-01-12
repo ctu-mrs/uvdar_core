@@ -40,7 +40,6 @@ set(DEPENDENCIES
   std_msgs
   Eigen3
   tf2_eigen
-  rosidl_default_generators
 )
 
 foreach(DEP IN LISTS DEPENDENCIES)
@@ -74,6 +73,7 @@ set(LIBRARIES
 ## | --------------------- UvdarCore_UvLedDetectorLib --------------------- |
 add_library(UvdarCore_UvLedDetectorLib SHARED
   src/uv_led_detector/uv_led_detector_fast_cpu.cpp
+  src/uv_led_detector/uv_led_detector.cpp
 )
 
 ament_target_dependencies(UvdarCore_UvLedDetectorLib
