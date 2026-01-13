@@ -27,7 +27,7 @@ class UvdarLedDetectFastCPU : public UvLedDetectFastBase {
 
   void scanImageForCandidates_(const int mask_id, std::vector<cv::Point2i>& detected_points,
                                std::vector<cv::Point2i>& sun_points);
-  void rejectMarkersNearSun_(std::vector<cv::Point2i>& detected_points, std::vector<cv::Point2i>& sun_points);
+  void rejectMarkersNearSun_(std::vector<cv::Point2i>& detected_points, const std::vector<cv::Point2i>& sun_points);
 
   [[nodiscard]] inline bool isMaskedOut_(const int point_idx, const int mask_id) const noexcept;
   [[nodiscard]] inline bool isAlreadyAssignedToCluster_(const int point_idx) const noexcept;

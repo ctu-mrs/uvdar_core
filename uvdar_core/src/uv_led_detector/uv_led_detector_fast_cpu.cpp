@@ -178,7 +178,7 @@ inline bool UvdarLedDetectFastCPU::isCenterBrighterThanNeighbor_(int center, int
 }
 //}
 
-/* isBorderBreach_ //{ */
+/* addToCluster_ //{ */
 inline void UvdarLedDetectFastCPU::addToCluster_(int idx) {
   image_check_.data[idx] = 255;
 }
@@ -214,8 +214,7 @@ void UvdarLedDetectFastCPU::scanImageForCandidates_(const int mask_id, std::vect
 
       if (fast_result.marker_candidate) {
         localizeMarkerPoint_(fast_result, detected_points);
-      }
-      if (fast_result.sun_candidate) {
+      } else if (fast_result.sun_candidate) {
         localizeSunPoint_(fast_result, sun_points, sun_clusters);
       }
     }
@@ -281,7 +280,7 @@ void UvdarLedDetectFastCPU::localizeMarkerPoint_(const FastTestResult& fast_resu
     const int x = fast_result.i + point.x;
     const int y = fast_result.j + point.y;
 
-    if (isInsideRoi_(x, y)) {
+    if (!isInsideRoi_(x, y)) {
       continue;
     }
 
@@ -307,13 +306,12 @@ void UvdarLedDetectFastCPU::localizeSunPoint_(const FastTestResult& fast_result,
   if (fast_result.sun_test_points != static_cast<int>(fast_points_set_[fast_result.ring_idx].size())) {
     return;
   }
-  constexpr double SUN_MERGE_DIST = 20.0; // TODO: move to config file
   const cv::Point point(fast_result.i, fast_result.j);
   bool found{false};
 
   for (size_t i = 0; i < sun_clusters.size(); ++i) {
     auto& cluster = sun_clusters[i];
-    if (cv::norm(point - cluster.centroid()) < SUN_MERGE_DIST) {
+    if (cv::norm(point - cluster.centroid()) < cfg_.threshold_sun_merge) {
       cluster.sum += point;
       cluster.count++;
       sun_points[i] = cluster.centroid();
@@ -331,7 +329,7 @@ void UvdarLedDetectFastCPU::localizeSunPoint_(const FastTestResult& fast_result,
 
 /* rejectMarkersNearSun_ //{ */
 void UvdarLedDetectFastCPU::rejectMarkersNearSun_(std::vector<cv::Point2i>& detected_points,
-                                                  std::vector<cv::Point2i>& sun_points) {
+                                                  const std::vector<cv::Point2i>& sun_points) {
 
   auto is_glare = [&](const cv::Point2i& p) {
     for (const auto& s : sun_points) {

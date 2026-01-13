@@ -157,20 +157,21 @@ void UvLedDetectorComponent::processImage_(const int image_index) {
       RCLCPP_ERROR(node_->get_logger(), "[UVDARDetector]: Failed to detect UV LEDs from camera:%d", image_index);
     }
 
-    // uvdar_ros_interfaces::msg::ImagePointsWithFloatStamped msg_detected;
-    // msg_detected.stamp        = cv_ptr->header.stamp;
-    // msg_detected.image_width  = cv_ptr->image.cols;
-    // msg_detected.image_height = cv_ptr->image.rows;
-    // for (auto& detected_point : camera.detected_points) {
-    //   uvdar_ros_interfaces::msg::Point2DWithFloat point;
-    //   point.x = detected_point.x;
-    //   point.y = detected_point.y;
-    //   msg_detected.points.push_back(point);
-    // }
-    // pub_detected_points.publish(msg_detected);
+    uvdar_ros_interfaces::msg::ImagePointsWithFloatStamped msg_detected;
+    msg_detected.stamp        = cv_ptr->header.stamp;
+    msg_detected.image_width  = cv_ptr->image.cols;
+    msg_detected.image_height = cv_ptr->image.rows;
+    for (auto& detected_point : camera.detected_points) {
+      uvdar_ros_interfaces::msg::Point2DWithFloat point;
+      point.x = detected_point.x;
+      point.y = detected_point.y;
+      msg_detected.points.push_back(point);
+    }
+    pub_detected_points.publish(msg_detected);
 
+    // ============================
+    // TODO: remove
     sensor_msgs::msg::Image msg;
-
     msg.header.stamp    = this->now();
     msg.header.frame_id = "camera";
     msg.height          = cv_ptr->image.rows;
@@ -179,7 +180,6 @@ void UvLedDetectorComponent::processImage_(const int image_index) {
     msg.step            = msg.width;
     msg.data.assign(msg.height * msg.step, 0);
 
-    // Mark detected pixels as white
     for (const auto& detected_point : camera.detected_points) {
       int x = detected_point.x;
       int y = detected_point.y;
