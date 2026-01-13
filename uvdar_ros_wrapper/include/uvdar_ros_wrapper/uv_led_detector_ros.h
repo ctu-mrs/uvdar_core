@@ -53,9 +53,12 @@ class UvLedDetectorComponent : public rclcpp::Node {
   void loadUvLedDetectParams_();
 
   [[nodiscard]] bool areAllCamerasDetected_();
-
   [[nodiscard]] bool isInitDelayDone_();
+
   void processImage_(const int image_index);
+
+  void publishDetectedPoints_(const cv_bridge::CvImage& image, const std::vector<cv::Point>& points);
+  void publishDetectedPointsImage_(const cv_bridge::CvImage& image, const std::vector<cv::Point>& points);
 
  private:
   rclcpp::Node::SharedPtr node_;
