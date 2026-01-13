@@ -1,5 +1,4 @@
 uav_name: "uav1"
-publish_visualization: false
 initial_delay: 5.0
 camera_topics: ["/my_camera/pylon_ros2_camera_node/image_raw"]
 

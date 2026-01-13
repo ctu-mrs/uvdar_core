@@ -52,9 +52,7 @@ void UvLedDetectorComponent::loadParams_() {
 /* loadRosParams_ //{ */
 void UvLedDetectorComponent::loadRosParams_() {
   param_loader_->loadParam("uav_name", uav_name_, std::string("uav1"));
-  param_loader_->loadParam("publish_visualization", publish_visualization_flag_, false);
   param_loader_->loadParam("initial_delay", initial_delay_, 5.0);
-
   param_loader_->loadParam("camera_topics", camera_topics_, std::vector<std::string>{"camera_in"});
 }
 //}
@@ -85,24 +83,33 @@ void UvLedDetectorComponent::initDetector_() {
     return;
   }
 
-  uv_detector_ = std::make_unique<UvLedDetector>(*logger_, detect_cfg_);
+  cameras_.clear();
+  cameras_.resize(camera_count_);
+
+  for (auto& cam : cameras_) {
+    cam.uv_detector = std::make_unique<UvLedDetector>(*logger_, detect_cfg_);
+  }
 }
 //}
 
 /* initRosInterface_ //{ */
 void UvLedDetectorComponent::initRosInterface_() {
-  cameras_.clear();
-  cameras_.resize(camera_count_);
-
   image_callback_group_      = node_->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
   processing_callback_group_ = node_->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
 
+  initRosProcessImgSubs_();
+  initRosPublishers_();
+}
+//}
+
+/* initRosProcessImgSubs_ //{ */
+void UvLedDetectorComponent::initRosProcessImgSubs_() {
   for (size_t i = 0; i < camera_count_; ++i) {
     auto& cam = cameras_.at(i);
     cam.topic = camera_topics_.at(i);
 
     cam.timer = this->create_wall_timer(
-        std::chrono::milliseconds(0), [this, i]() { processImage_(i); }, processing_callback_group_);
+        std::chrono::milliseconds(1), [this, i]() { processImage_(i); }, processing_callback_group_);
     cam.timer->cancel();
 
     mrs_lib::SubscriberHandlerOptions shopts;
@@ -117,13 +124,17 @@ void UvLedDetectorComponent::initRosInterface_() {
           auto& cam = cameras_[image_idx];
           {
             std::lock_guard<std::mutex> lk(cam.mtx);
-            cam.last_msg = std::move(image_msg);
+            cam.last_msg = image_msg;
           }
           cameras_[image_idx].timer->reset();
         });
     // clang-format on
   }
+}
+//}
 
+/* initRosPublishers_ //{ */
+void UvLedDetectorComponent::initRosPublishers_() {
   mrs_lib::PublisherHandlerOptions pubopts;
   pubopts.node = node_;
   pubopts.qos  = rclcpp::QoS(1);
@@ -135,42 +146,112 @@ void UvLedDetectorComponent::initRosInterface_() {
 }
 //}
 
-/* callbackImage_ //{ */
+/* areAllCamerasDetected_ //{ */
+bool UvLedDetectorComponent::areAllCamerasDetected_() {
+  if (all_cameras_detected_) {
+    return true;
+  }
+
+  size_t counter{0};
+  for (const auto& cam : cameras_) {
+    if ((cam.current_image.cols > 0) && (cam.current_image.rows > 0)) {
+      counter++;
+    }
+  }
+
+  if (counter == cameras_.size()) {
+    all_cameras_detected_ = true;
+  }
+
+  return all_cameras_detected_;
+}
+//}
+
+/* isInitDelayDone_ //{ */
+bool UvLedDetectorComponent::isInitDelayDone_() {
+  /*
+   This delay is necessary to avoid strange segmentation faults with software
+   rendering backend for OpenGL used in the buildfarm testing.
+  */
+  if (initial_delay_done_flag_.load(std::memory_order_acquire)) {
+    return true;
+  }
+
+  std::lock_guard<std::mutex> lk(initial_delay_mtx_);
+  // re-check
+  if (initial_delay_done_flag_.load(std::memory_order_relaxed)) {
+    return true;
+  }
+
+  if (!initial_delay_started_flag_) {
+    initial_delay_started_flag_ = true;
+    initial_delay_start_        = node_->get_clock()->now();
+  }
+
+  const auto now       = node_->get_clock()->now();
+  const auto diff_time = (now - initial_delay_start_).seconds();
+
+  if (diff_time < initial_delay_) {
+    RCLCPP_WARN_THROTTLE(node_->get_logger(), *node_->get_clock(), 1000,
+                         "[UVDARDetector]: Ignoring message for %.1f s...", initial_delay_ - diff_time);
+    return false;
+  }
+
+  initial_delay_done_flag_.store(true, std::memory_order_release);
+  return true;
+}
+//}
+
+/* processImage_ //{ */
 void UvLedDetectorComponent::processImage_(const int image_index) {
 
-  auto& camera = cameras_[image_index];
+  auto& cam = cameras_[image_index];
   sensor_msgs::msg::Image::ConstSharedPtr msg;
   {
-    std::lock_guard<std::mutex> lk(camera.mtx);
-    msg = camera.last_msg;
+    std::lock_guard<std::mutex> lk(cam.mtx);
+    msg = cam.last_msg;
+  }
 
-    if (!msg) {
-      camera.timer->cancel();
-      return;
-    }
+  if (!msg) {
+    cam.timer->cancel();
+    return;
+  }
 
-    auto cv_ptr          = cv_bridge::toCvShare(msg, sensor_msgs::image_encodings::MONO8);
-    camera.current_image = cv_ptr->image.clone();
-    camera.image_size    = cv_ptr->image.size();
+  auto cv_ptr       = cv_bridge::toCvShare(msg, sensor_msgs::image_encodings::MONO8);
+  cam.current_image = cv_ptr->image.clone();
+  cam.image_size    = cv_ptr->image.size();
 
-    if (!uv_detector_->detect(camera.current_image, camera.detected_points, camera.sun_points)) {
-      RCLCPP_ERROR(node_->get_logger(), "[UVDARDetector]: Failed to detect UV LEDs from camera:%d", image_index);
-    }
+  if (!areAllCamerasDetected_()) {
+    RCLCPP_WARN_THROTTLE(node_->get_logger(), *node_->get_clock(), 1000,
+                         "[UVDARDetector]: Not all cameras have produced input, waiting...");
+    return;
+  }
 
-    uvdar_ros_interfaces::msg::ImagePointsWithFloatStamped msg_detected;
-    msg_detected.stamp        = cv_ptr->header.stamp;
-    msg_detected.image_width  = cv_ptr->image.cols;
-    msg_detected.image_height = cv_ptr->image.rows;
-    for (auto& detected_point : camera.detected_points) {
-      uvdar_ros_interfaces::msg::Point2DWithFloat point;
-      point.x = detected_point.x;
-      point.y = detected_point.y;
-      msg_detected.points.push_back(point);
-    }
-    pub_detected_points.publish(msg_detected);
+  if (!isInitDelayDone_()) {
+    return;
+  }
 
-    // ============================
+  if (!cam.uv_detector->detect(cam.current_image, cam.detected_points, cam.sun_points)) {
+    RCLCPP_ERROR(node_->get_logger(), "[UVDARDetector]: Failed to detect UV LEDs from camera:%d", image_index);
+  }
+
+  uvdar_ros_interfaces::msg::ImagePointsWithFloatStamped msg_detected;
+  msg_detected.stamp        = cv_ptr->header.stamp;
+  msg_detected.image_width  = cv_ptr->image.cols;
+  msg_detected.image_height = cv_ptr->image.rows;
+  for (auto& detected_point : cam.detected_points) {
+    uvdar_ros_interfaces::msg::Point2DWithFloat point;
+    point.x = detected_point.x;
+    point.y = detected_point.y;
+    msg_detected.points.push_back(point);
+  }
+  pub_detected_points.publish(msg_detected);
+
+  {
     // TODO: remove
+    // ============================
+    RCLCPP_INFO_THROTTLE(node_->get_logger(), *node_->get_clock(), 1000, "Number of detected points: %ld",
+                         cam.detected_points.size());
     sensor_msgs::msg::Image msg;
     msg.header.stamp    = this->now();
     msg.header.frame_id = "camera";
@@ -180,7 +261,7 @@ void UvLedDetectorComponent::processImage_(const int image_index) {
     msg.step            = msg.width;
     msg.data.assign(msg.height * msg.step, 0);
 
-    for (const auto& detected_point : camera.detected_points) {
+    for (const auto& detected_point : cam.detected_points) {
       int x = detected_point.x;
       int y = detected_point.y;
 
@@ -192,7 +273,8 @@ void UvLedDetectorComponent::processImage_(const int image_index) {
     }
     debug_pub_->publish(msg);
   }
-  camera.timer->cancel();
+
+  cam.timer->cancel();
 }
 //}
 

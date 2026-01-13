@@ -29,8 +29,10 @@ struct CameraContext {
 
   cv::Size image_size{0, 0};
   cv::Mat current_image;
+  std::unique_ptr<UvLedDetector> uv_detector;
   std::vector<cv::Point> detected_points;
   std::vector<cv::Point> sun_points;
+
   std::mutex mtx;
 };
 
@@ -41,12 +43,18 @@ class UvLedDetectorComponent : public rclcpp::Node {
  private:
   void initialize_();
   void initDetector_();
+
   void initRosInterface_();
+  void initRosProcessImgSubs_();
+  void initRosPublishers_();
 
   void loadParams_();
   void loadRosParams_();
   void loadUvLedDetectParams_();
 
+  [[nodiscard]] bool areAllCamerasDetected_();
+
+  [[nodiscard]] bool isInitDelayDone_();
   void processImage_(const int image_index);
 
  private:
@@ -60,17 +68,20 @@ class UvLedDetectorComponent : public rclcpp::Node {
   mrs_lib::PublisherHandler<uvdar_ros_interfaces::msg::ImagePointsWithFloatStamped> pub_detected_points;
   rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr debug_pub_;
 
-  bool initialized_;
+  bool initialized_{false};
   std::string uav_name_;
   double initial_delay_;
-  bool publish_visualization_flag_;
+  bool initial_delay_started_flag_{false};
+  std::atomic_bool initial_delay_done_flag_{false};
+  rclcpp::Time initial_delay_start_;
+  std::mutex initial_delay_mtx_;
 
-  size_t camera_count_;
+  size_t camera_count_{0};
   std::vector<std::string> camera_topics_;
 
   UvLedDetectConfig detect_cfg_;
-  std::unique_ptr<UvLedDetector> uv_detector_;
   std::deque<CameraContext> cameras_;
+  bool all_cameras_detected_{false};
 };
 
 } // namespace uvdar
