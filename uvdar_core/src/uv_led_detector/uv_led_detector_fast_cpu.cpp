@@ -174,7 +174,7 @@ inline bool UvdarLedDetectFastCPU::isInsideRoi_(int x, int y) const noexcept {
 
 /* isCenterBrighterThanNeighbor_ //{ */
 inline bool UvdarLedDetectFastCPU::isCenterBrighterThanNeighbor_(int center, int neighbor) const noexcept {
-  return (center - neighbor) < cfg_.threshold_diff;
+  return (center - neighbor) >= cfg_.threshold_diff;
 }
 //}
 
@@ -244,8 +244,12 @@ FastTestResult UvdarLedDetectFastCPU::evaluateFastRings_(const int i, const int 
         break;
       }
 
-      if (!isCenterBrighterThanNeighbor_(image_curr_.data[index2d(i, j, image_curr_.cols)],
-                                         image_curr_.data[index2d(x, y, image_curr_.cols)])) {
+      int center   = static_cast<int>(image_curr_.data[index2d(i, j, image_curr_.cols)]);
+      int neighbor = static_cast<int>(image_curr_.data[index2d(x, y, image_curr_.cols)]);
+      // if (!isCenterBrighterThanNeighbor_(image_curr_.data[center_idx], image_curr_.data[neighbor_idx])) {
+
+      if ((center - neighbor) < cfg_.threshold_diff) {
+
         result.marker_candidate = false;
 
         if (!result.sun_candidate) {
@@ -253,6 +257,8 @@ FastTestResult UvdarLedDetectFastCPU::evaluateFastRings_(const int i, const int 
         } else {
           result.sun_test_points++;
         }
+      } else {
+        result.sun_candidate = false;
       }
     }
 

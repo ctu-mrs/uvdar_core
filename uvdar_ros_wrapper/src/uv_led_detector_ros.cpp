@@ -286,6 +286,8 @@ void UvLedDetectorComponent::processImage_(const int image_index) {
 #ifdef DEBUG
   RCLCPP_INFO_THROTTLE(node_->get_logger(), *node_->get_clock(), 1000, "Number of detected points: %ld",
                        cam.detected_points.size());
+  RCLCPP_INFO_THROTTLE(node_->get_logger(), *node_->get_clock(), 1000, "Number of sun points: %ld",
+                       cam.sun_points.size());
   publishDetectedPointsImage_(*cv_ptr, cam);
 #endif
 

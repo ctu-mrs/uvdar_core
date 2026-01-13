@@ -8,6 +8,8 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic -fno-omit-frame-pointer)
 endif()
 
+option(ENABLE_TESTS "Enable building tests" ON)
+
 # if(NOT MRS_ENABLE_TESTING)
 #   message(WARNING "relwithdebinfo profile detected, building with -O3")
 #   set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} -O3")
