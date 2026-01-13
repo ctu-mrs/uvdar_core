@@ -53,7 +53,11 @@ void UvLedDetectorComponent::loadParams_() {
 void UvLedDetectorComponent::loadRosParams_() {
   param_loader_->loadParam("uav_name", uav_name_, std::string("uav1"));
   param_loader_->loadParam("initial_delay", initial_delay_, 5.0);
-  param_loader_->loadParam("camera_topics", camera_topics_, std::vector<std::string>{"camera_in"});
+
+  param_loader_->loadParam("camera_input_topics", camera_topics_, std::vector<std::string>{"camera_in"});
+  param_loader_->loadParam("detected_points_topics", detected_points_topics_,
+                           std::vector<std::string>{"detected_points_topics"});
+  param_loader_->loadParam("publish_sun_points", publish_sun_points_, false);
 }
 //}
 
@@ -72,12 +76,11 @@ void UvLedDetectorComponent::loadUvLedDetectParams_() {
 
 /* initDetector_ //{ */
 void UvLedDetectorComponent::initDetector_() {
-  if (camera_topics_.empty()) {
-    RCLCPP_ERROR(node_->get_logger(), "[UVDARDetector]:  No camera topics were supplied, ending the node!");
-    rclcpp::shutdown();
-  }
-  camera_count_ = camera_topics_.size();
+  checkCameraInputTopics_();
 
+  checkDetectedPointsTopics_();
+
+  // TODO:
   if (detect_cfg_.use_masks) {
     RCLCPP_ERROR_STREAM(node_->get_logger(), "[UVDARDetector]: Masks has not been implemented yet. Shutting down!");
     return;
@@ -85,9 +88,37 @@ void UvLedDetectorComponent::initDetector_() {
 
   cameras_.clear();
   cameras_.resize(camera_count_);
+  for (size_t i = 0; i < camera_count_; ++i) {
+    cameras_[i].uv_detector           = std::make_unique<UvLedDetector>(*logger_, detect_cfg_);
+    cameras_[i].camera_topic          = camera_topics_[i];
+    cameras_[i].detected_points_topic = detected_points_topics_[i];
+  }
+}
+//}
 
-  for (auto& cam : cameras_) {
-    cam.uv_detector = std::make_unique<UvLedDetector>(*logger_, detect_cfg_);
+/* checkCameraInputTopics_ //{ */
+void UvLedDetectorComponent::checkCameraInputTopics_() {
+  if (camera_topics_.empty()) {
+    RCLCPP_ERROR(node_->get_logger(), "[UVDARDetector]:  No camera topics were supplied, ending the node!");
+    rclcpp::shutdown();
+  }
+  camera_count_ = camera_topics_.size();
+}
+//}
+
+/* checkDetectedPointsTopics_ //{ */
+void UvLedDetectorComponent::checkDetectedPointsTopics_() {
+  if (detected_points_topics_.empty()) {
+    RCLCPP_ERROR(node_->get_logger(), "[UVDARDetector]:  No detected_points topics were supplied, ending the node!");
+    rclcpp::shutdown();
+  }
+
+  if (detected_points_topics_.size() != camera_count_) {
+    RCLCPP_ERROR_STREAM(node_->get_logger(), "[UVDARDetector] The number of detected_points topics ("
+                                                 << detected_points_topics_.size()
+                                                 << ") does not match the number of cameras (" << camera_count_
+                                                 << ")!");
+    rclcpp::shutdown();
   }
 }
 //}
@@ -104,9 +135,9 @@ void UvLedDetectorComponent::initRosInterface_() {
 
 /* initRosProcessImgSubs_ //{ */
 void UvLedDetectorComponent::initRosProcessImgSubs_() {
+
   for (size_t i = 0; i < camera_count_; ++i) {
     auto& cam = cameras_.at(i);
-    cam.topic = camera_topics_.at(i);
 
     cam.timer = this->create_wall_timer(
         std::chrono::milliseconds(1), [this, i]() { processImage_(i); }, processing_callback_group_);
@@ -120,7 +151,7 @@ void UvLedDetectorComponent::initRosProcessImgSubs_() {
 
     // clang-format off
     cam.sub = mrs_lib::SubscriberHandler<sensor_msgs::msg::Image>(
-        shopts, cam.topic, [image_idx = i, this](const sensor_msgs::msg::Image::ConstSharedPtr& image_msg) {
+        shopts, cam.camera_topic, [image_idx = i, this](const sensor_msgs::msg::Image::ConstSharedPtr& image_msg) {
           auto& cam = cameras_[image_idx];
           {
             std::lock_guard<std::mutex> lk(cam.mtx);
@@ -139,10 +170,22 @@ void UvLedDetectorComponent::initRosPublishers_() {
   pubopts.node = node_;
   pubopts.qos  = rclcpp::QoS(1);
 
-  pub_detected_points = mrs_lib::PublisherHandler<uvdar_ros_interfaces::msg::ImagePointsWithFloatStamped>(
-      pubopts, "~/detected_points_out");
+  for (size_t i = 0; i < camera_count_; ++i) {
+    auto& cam = cameras_.at(i);
 
-  debug_pub_ = this->create_publisher<sensor_msgs::msg::Image>("/debug_image", rclcpp::SensorDataQoS());
+    cam.pub_detected_points = mrs_lib::PublisherHandler<uvdar_ros_interfaces::msg::ImagePointsWithFloatStamped>(
+        pubopts, cam.detected_points_topic);
+
+    if (publish_sun_points_) {
+      cam.pub_sun_points = mrs_lib::PublisherHandler<uvdar_ros_interfaces::msg::ImagePointsWithFloatStamped>(
+          pubopts, cam.detected_points_topic + "/sun");
+    }
+
+#ifdef DEBUG
+    cam.pub_debug_image =
+        mrs_lib::PublisherHandler<sensor_msgs::msg::Image>(pubopts, cam.detected_points_topic + "/raw_image");
+#endif
+  }
 }
 //}
 
@@ -193,7 +236,7 @@ bool UvLedDetectorComponent::isInitDelayDone_() {
 
   if (diff_time < initial_delay_) {
     RCLCPP_WARN_THROTTLE(node_->get_logger(), *node_->get_clock(), 1000,
-                         "[UVDARDetector]: Ignoring message for %.1f s...", initial_delay_ - diff_time);
+                         "[UVDARDetector]: Ignoring message for %.1fs...", initial_delay_ - diff_time);
     return false;
   }
 
@@ -235,12 +278,15 @@ void UvLedDetectorComponent::processImage_(const int image_index) {
     RCLCPP_ERROR(node_->get_logger(), "[UVDARDetector]: Failed to detect UV LEDs from camera:%d", image_index);
   }
 
-  publishDetectedPoints_(*cv_ptr, cam.detected_points);
+  publishDetectedPoints_(*cv_ptr, cam);
+  if (publish_sun_points_) {
+    publishSunPoints_(*cv_ptr, cam);
+  }
 
 #ifdef DEBUG
   RCLCPP_INFO_THROTTLE(node_->get_logger(), *node_->get_clock(), 1000, "Number of detected points: %ld",
                        cam.detected_points.size());
-  publishDetectedPointsImage_(*cv_ptr, cam.detected_points);
+  publishDetectedPointsImage_(*cv_ptr, cam);
 #endif
 
   cam.timer->cancel();
@@ -248,26 +294,39 @@ void UvLedDetectorComponent::processImage_(const int image_index) {
 //}
 
 /* publishDetectedPoints_ //{ */
-void UvLedDetectorComponent::publishDetectedPoints_(const cv_bridge::CvImage& image,
-                                                    const std::vector<cv::Point>& points) {
-
+void UvLedDetectorComponent::publishDetectedPoints_(const cv_bridge::CvImage& image, CameraContext& camera) {
   uvdar_ros_interfaces::msg::ImagePointsWithFloatStamped msg_detected;
   msg_detected.stamp        = image.header.stamp;
   msg_detected.image_width  = image.image.cols;
   msg_detected.image_height = image.image.rows;
-  for (auto& detected_point : points) {
+  for (const auto& detected_point : camera.detected_points) {
     uvdar_ros_interfaces::msg::Point2DWithFloat point;
     point.x = detected_point.x;
     point.y = detected_point.y;
     msg_detected.points.push_back(point);
   }
-  pub_detected_points.publish(msg_detected);
+  camera.pub_detected_points.publish(msg_detected);
+}
+//}
+
+/* publishSunPoints_ //{ */
+void UvLedDetectorComponent::publishSunPoints_(const cv_bridge::CvImage& image, CameraContext& camera) {
+  uvdar_ros_interfaces::msg::ImagePointsWithFloatStamped msg_detected;
+  msg_detected.stamp        = image.header.stamp;
+  msg_detected.image_width  = image.image.cols;
+  msg_detected.image_height = image.image.rows;
+  for (const auto& sun_point : camera.sun_points) {
+    uvdar_ros_interfaces::msg::Point2DWithFloat point;
+    point.x = sun_point.x;
+    point.y = sun_point.y;
+    msg_detected.points.push_back(point);
+  }
+  camera.pub_sun_points.publish(msg_detected);
 }
 //}
 
 /* publishDetectedPointsImage_ //{ */
-void UvLedDetectorComponent::publishDetectedPointsImage_(const cv_bridge::CvImage& image,
-                                                         const std::vector<cv::Point>& points) {
+void UvLedDetectorComponent::publishDetectedPointsImage_(const cv_bridge::CvImage& image, CameraContext& camera) {
   sensor_msgs::msg::Image msg;
   msg.header.stamp    = image.header.stamp;
   msg.header.frame_id = "camera";
@@ -277,7 +336,7 @@ void UvLedDetectorComponent::publishDetectedPointsImage_(const cv_bridge::CvImag
   msg.step            = msg.width;
   msg.data.assign(msg.height * msg.step, 0);
 
-  for (const auto& detected_point : points) {
+  for (const auto& detected_point : camera.detected_points) {
     int x = detected_point.x;
     int y = detected_point.y;
 
@@ -287,7 +346,7 @@ void UvLedDetectorComponent::publishDetectedPointsImage_(const cv_bridge::CvImag
 
     msg.data[y * msg.step + x] = 255;
   }
-  debug_pub_->publish(msg);
+  camera.pub_debug_image.publish(msg);
 }
 //}
 
