@@ -1,0 +1,27 @@
+<?xml version="1.0"?>
+<launch>
+    <arg name="camera_serial"/>
+    <arg name="expose_us" default="1000"/>
+    <arg name="frame_rate" default="5"/>
+    <arg name="bag_base_dir" default="$(env HOME)/bag_files/uvdar_calib"/>
+    <arg name="record" default="true"/>
+    <arg name="gui" default="true"/>
+
+    <param name="/uvdar/camera_serial" value="$(arg camera_serial)"/>
+
+    <include file="$(find uvdar_core)/launch/testing/cam_only_basler.launch">
+        <arg name="expose_us" value="$(arg expose_us)"/>
+        <arg name="FRAME_RATE" value="$(arg frame_rate)"/>
+    </include>
+
+    <node name="image_viewer" pkg="rqt_image_view" type="rqt_image_view"
+          if="$(arg gui)"/>
+
+    <group if="$(arg record)">
+        <node name="rosbag_record" pkg="rosbag" type="record" required="true"
+              args="-a --exclude '(.*)compressed(.*)|(.*)theora(.*)' -O $(arg bag_base_dir)/$(arg camera_serial)/$(arg camera_serial).bag"
+              output="screen"/>
+    </group>
+
+
+</launch>

@@ -27,4 +27,4 @@ windows:
   - termviz: 
       layout: even-vertical
       panes:
-        - sleep 12; waitForRos;  termviz record_calibration_termviz.yml 
+        - sleep 12; waitForRos;  rqt_image_view

@@ -9,6 +9,10 @@
   <arg unless="$(arg standalone)" name="nodelet_manager" value="$(arg uav_name)_uvdar_nodelet_manager"/>
   <arg     if="$(arg standalone)" name="nodelet_manager" value=""/>
 
+  <node pkg="tf2_ros" type="static_transform_publisher" name="tf_odom_to_fcu"
+        args="0 0 0 0 0 0 uav1/odom uav1/fcu"/>
+  <node pkg="tf2_ros" type="static_transform_publisher" name="tf_local_origin"
+        args="0 0 0 0 0 0 uav1/odom uav1/local_origin"/>
 
   <arg name="debug" default="false"/>
 
@@ -93,7 +97,7 @@
 
   <!-- Model settings: -->
 
-  <arg name="use_masks" default="true"/>
+  <arg name="use_masks" default="false"/>
   <arg name="model_file" default="$(find uvdar_core)/config/models/quadrotor_foursided_px4_motor_aligned.txt"/>
   <arg name="beacon" default="false"/>
 
