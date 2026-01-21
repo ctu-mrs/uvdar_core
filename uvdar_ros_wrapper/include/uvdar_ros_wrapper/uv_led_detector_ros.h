@@ -29,7 +29,8 @@ struct CameraContext {
   mrs_lib::SubscriberHandler<sensor_msgs::msg::Image> sub;
   image_point_publisher_t pub_detected_points;
   image_point_publisher_t pub_sun_points;
-  mrs_lib::PublisherHandler<sensor_msgs::msg::Image> pub_debug_image;
+  mrs_lib::PublisherHandler<sensor_msgs::msg::Image> pub_debug_dp_image;
+  mrs_lib::PublisherHandler<sensor_msgs::msg::Image> pub_debug_sp_image;
 
   rclcpp::TimerBase::SharedPtr timer;
   sensor_msgs::msg::Image::ConstSharedPtr last_msg;
@@ -70,6 +71,7 @@ class UvLedDetectorComponent : public rclcpp::Node {
   void publishDetectedPoints_(const cv_bridge::CvImage& image, CameraContext& camera);
   void publishDetectedPointsImage_(const cv_bridge::CvImage& image, CameraContext& camera);
   void publishSunPoints_(const cv_bridge::CvImage& image, CameraContext& camera);
+  void publishSunPointsImage_(const cv_bridge::CvImage& image, CameraContext& camera);
 
  private:
   rclcpp::Node::SharedPtr node_;

@@ -125,7 +125,7 @@ void UvLedDetectorComponent::checkDetectedPointsTopics_() {
 
 /* initRosInterface_ //{ */
 void UvLedDetectorComponent::initRosInterface_() {
-  image_callback_group_      = node_->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
+  image_callback_group_      = node_->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
   processing_callback_group_ = node_->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
 
   initRosProcessImgSubs_();
@@ -182,8 +182,11 @@ void UvLedDetectorComponent::initRosPublishers_() {
     }
 
 #ifdef DEBUG
-    cam.pub_debug_image =
+    cam.pub_debug_dp_image =
         mrs_lib::PublisherHandler<sensor_msgs::msg::Image>(pubopts, cam.detected_points_topic + "/raw_image");
+
+    cam.pub_debug_sp_image =
+        mrs_lib::PublisherHandler<sensor_msgs::msg::Image>(pubopts, cam.detected_points_topic + "/sun/raw_image");
 #endif
   }
 }
@@ -289,6 +292,7 @@ void UvLedDetectorComponent::processImage_(const int image_index) {
   RCLCPP_INFO_THROTTLE(node_->get_logger(), *node_->get_clock(), 1000, "Number of sun points: %ld",
                        cam.sun_points.size());
   publishDetectedPointsImage_(*cv_ptr, cam);
+  publishSunPointsImage_(*cv_ptr, cam);
 #endif
 
   cam.timer->cancel();
@@ -348,7 +352,32 @@ void UvLedDetectorComponent::publishDetectedPointsImage_(const cv_bridge::CvImag
 
     msg.data[y * msg.step + x] = 255;
   }
-  camera.pub_debug_image.publish(msg);
+  camera.pub_debug_dp_image.publish(msg);
+}
+//}
+
+/* publishSunPointsImage_ //{ */
+void UvLedDetectorComponent::publishSunPointsImage_(const cv_bridge::CvImage& image, CameraContext& camera) {
+  sensor_msgs::msg::Image msg;
+  msg.header.stamp    = image.header.stamp;
+  msg.header.frame_id = "camera";
+  msg.height          = image.image.rows;
+  msg.width           = image.image.cols;
+  msg.encoding        = "mono8";
+  msg.step            = msg.width;
+  msg.data.assign(msg.height * msg.step, 0);
+
+  for (const auto& sun_point : camera.sun_points) {
+    int x = sun_point.x;
+    int y = sun_point.y;
+
+    if (x < 0 || x >= static_cast<int>(msg.width) || y < 0 || y >= static_cast<int>(msg.height)) {
+      continue;
+    }
+
+    msg.data[y * msg.step + x] = 255;
+  }
+  camera.pub_debug_sp_image.publish(msg);
 }
 //}
 

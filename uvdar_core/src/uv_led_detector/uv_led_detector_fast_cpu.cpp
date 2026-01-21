@@ -6,22 +6,22 @@ inline int index2d(int x, int y, int cols) noexcept {
   return cols * y + x;
 }
 
-/* UvdarLedDetectFastCPU constructor //{ */
-UvdarLedDetectFastCPU::UvdarLedDetectFastCPU(UvLedDetectConfig cfg, ILogger& logger)
+/* UvdarLedDetectFastCpu constructor //{ */
+UvdarLedDetectFastCpu::UvdarLedDetectFastCpu(UvLedDetectConfig cfg, ILogger& logger)
     : UvLedDetectFastBase(std::move(cfg), logger) {
   initFast_();
 }
 //}
 
 /* initFast_ //{ */
-void UvdarLedDetectFastCPU::initFast_() {
+void UvdarLedDetectFastCpu::initFast_() {
   initFastPointsSet_();
   initFastInteriorSet_();
 }
 //}
 
 /* initFastPointsSet_ //{ */
-void UvdarLedDetectFastCPU::initFastPointsSet_() {
+void UvdarLedDetectFastCpu::initFastPointsSet_() {
   fast_points_set_.clear();
 
   // clang-format off
@@ -45,7 +45,7 @@ void UvdarLedDetectFastCPU::initFastPointsSet_() {
 //}
 
 /* initFastInteriorSet_ //{ */
-void UvdarLedDetectFastCPU::initFastInteriorSet_() {
+void UvdarLedDetectFastCpu::initFastInteriorSet_() {
   fast_interior_set_.clear();
 
   // clang-format off
@@ -71,7 +71,7 @@ void UvdarLedDetectFastCPU::initFastInteriorSet_() {
 //}
 
 /* initOnFirstFrame_ //{ */
-void UvdarLedDetectFastCPU::initOnFirstFrame_() {
+void UvdarLedDetectFastCpu::initOnFirstFrame_() {
   if (first_) {
     first_       = false;
     roi_         = cv::Rect(cv::Point(0, 0), image_curr_.size());
@@ -82,13 +82,13 @@ void UvdarLedDetectFastCPU::initOnFirstFrame_() {
 //}
 
 /* initDelayed //{ */
-bool UvdarLedDetectFastCPU::initDelayed([[maybe_unused]] const cv::Mat i_image) {
+bool UvdarLedDetectFastCpu::initDelayed([[maybe_unused]] const cv::Mat i_image) {
   return false;
 }
 //}
 
 /* clearMarks_ //{ */
-void UvdarLedDetectFastCPU::clearMarks_() {
+void UvdarLedDetectFastCpu::clearMarks_() {
   for (int j = 0; j < image_curr_.rows; j++) {
     for (int i = 0; i < image_curr_.cols; i++) {
       if (image_check_.at<unsigned char>(j, i) == 255) {
@@ -100,15 +100,15 @@ void UvdarLedDetectFastCPU::clearMarks_() {
 //}
 
 /* validateMask_ //{ */
-bool UvdarLedDetectFastCPU::validateMask_(const int mask_id) const noexcept {
+bool UvdarLedDetectFastCpu::validateMask_(const int mask_id) const noexcept {
   if (mask_id >= 0) {
     if (mask_id >= static_cast<int>(cfg_.masks.size())) {
-      logger_.error("[UVDARDetectorFASTCPU]: Mask index " + std::to_string(mask_id) +
+      logger_.error("[UVDARDetectorFastCpu]: Mask index " + std::to_string(mask_id) +
                     " is greater than the current number of loaded masks!");
       return false;
     }
     if (image_curr_.size() != cfg_.masks[mask_id].size()) {
-      logger_.error("[UVDARDetectorFASTCPU]: The size of the selected mask does not match the current image!");
+      logger_.error("[UVDARDetectorFastCpu]: The size of the selected mask does not match the current image!");
       return false;
     }
   }
@@ -117,7 +117,7 @@ bool UvdarLedDetectFastCPU::validateMask_(const int mask_id) const noexcept {
 //}
 
 /* processImage //{ */
-bool UvdarLedDetectFastCPU::processImage(const cv::Mat image, std::vector<cv::Point2i>& detected_points,
+bool UvdarLedDetectFastCpu::processImage(const cv::Mat image, std::vector<cv::Point2i>& detected_points,
                                          std::vector<cv::Point2i>& sun_points, int mask_id) {
   detected_points.clear();
   sun_points.clear();
@@ -143,7 +143,7 @@ bool UvdarLedDetectFastCPU::processImage(const cv::Mat image, std::vector<cv::Po
 //}
 
 /* isMaskedOut_ //{ */
-inline bool UvdarLedDetectFastCPU::isMaskedOut_(const int point_idx, const int mask_id) const noexcept {
+inline bool UvdarLedDetectFastCpu::isMaskedOut_(const int point_idx, const int mask_id) const noexcept {
   if (mask_id >= 0) {
     if (cfg_.masks[mask_id].data[point_idx] == 0) {
       return true;
@@ -154,44 +154,44 @@ inline bool UvdarLedDetectFastCPU::isMaskedOut_(const int point_idx, const int m
 //}
 
 /* isAlreadyAssignedToCluster_ //{ */
-inline bool UvdarLedDetectFastCPU::isAlreadyAssignedToCluster_(const int point_idx) const noexcept {
+inline bool UvdarLedDetectFastCpu::isAlreadyAssignedToCluster_(const int point_idx) const noexcept {
   return image_check_.data[point_idx] != 0;
 }
 //}
 
 /* isBelowBrightnessThreshold_ //{ */
-inline bool UvdarLedDetectFastCPU::isBelowBrightnessThreshold_(const int point_idx) const noexcept {
+inline bool UvdarLedDetectFastCpu::isBelowBrightnessThreshold_(const int point_idx) const noexcept {
   return image_curr_.data[point_idx] <= cfg_.threshold;
 }
 //}
 
 /* isInsideRoi_ //{ */
-inline bool UvdarLedDetectFastCPU::isInsideRoi_(int x, int y) const noexcept {
+inline bool UvdarLedDetectFastCpu::isInsideRoi_(int x, int y) const noexcept {
   return static_cast<unsigned>(x) < static_cast<unsigned>(roi_.width) &&
          static_cast<unsigned>(y) < static_cast<unsigned>(roi_.height);
 }
 //}
 
 /* isCenterBrighterThanNeighbor_ //{ */
-inline bool UvdarLedDetectFastCPU::isCenterBrighterThanNeighbor_(int center, int neighbor) const noexcept {
+inline bool UvdarLedDetectFastCpu::isCenterBrighterThanNeighbor_(int center, int neighbor) const noexcept {
   return (center - neighbor) >= cfg_.threshold_diff;
 }
 //}
 
 /* addToCluster_ //{ */
-inline void UvdarLedDetectFastCPU::addToCluster_(int idx) {
+inline void UvdarLedDetectFastCpu::addToCluster_(int idx) {
   image_check_.data[idx] = 255;
 }
 //}
 
 /* isSunLikePixel_ //{ */
-inline bool UvdarLedDetectFastCPU::isSunLikePixel_(const int i, const int j) const noexcept {
+inline bool UvdarLedDetectFastCpu::isSunLikePixel_(const int i, const int j) const noexcept {
   return (image_curr_.data[index2d(i, j, image_curr_.cols)] > cfg_.threshold_sun);
 }
 //}
 
 /* scanImageForCandidates_ //{ */
-void UvdarLedDetectFastCPU::scanImageForCandidates_(const int mask_id, std::vector<cv::Point2i>& detected_points,
+void UvdarLedDetectFastCpu::scanImageForCandidates_(const int mask_id, std::vector<cv::Point2i>& detected_points,
                                                     std::vector<cv::Point2i>& sun_points) {
   std::vector<SunCluster> sun_clusters;
 
@@ -223,7 +223,7 @@ void UvdarLedDetectFastCPU::scanImageForCandidates_(const int mask_id, std::vect
 //}
 
 /* evaluateFastRing_ //{ */
-FastTestResult UvdarLedDetectFastCPU::evaluateFastRings_(const int i, const int j) {
+FastTestResult UvdarLedDetectFastCpu::evaluateFastRings_(const int i, const int j) {
   FastTestResult result;
   result.i             = i;
   result.j             = j;
@@ -249,7 +249,6 @@ FastTestResult UvdarLedDetectFastCPU::evaluateFastRings_(const int i, const int 
       // if (!isCenterBrighterThanNeighbor_(image_curr_.data[center_idx], image_curr_.data[neighbor_idx])) {
 
       if ((center - neighbor) < cfg_.threshold_diff) {
-
         result.marker_candidate = false;
 
         if (!result.sun_candidate) {
@@ -273,7 +272,7 @@ FastTestResult UvdarLedDetectFastCPU::evaluateFastRings_(const int i, const int 
 //}
 
 /* localizeMarkerPoint_ //{ */
-void UvdarLedDetectFastCPU::localizeMarkerPoint_(const FastTestResult& fast_result,
+void UvdarLedDetectFastCpu::localizeMarkerPoint_(const FastTestResult& fast_result,
                                                  std::vector<cv::Point2i>& detected_points) {
   unsigned char best_val = 0;
   cv::Point best_point(fast_result.i, fast_result.j);
@@ -307,7 +306,7 @@ void UvdarLedDetectFastCPU::localizeMarkerPoint_(const FastTestResult& fast_resu
 //}
 
 /* localizeSunPoint_ //{ */
-void UvdarLedDetectFastCPU::localizeSunPoint_(const FastTestResult& fast_result, std::vector<cv::Point2i>& sun_points,
+void UvdarLedDetectFastCpu::localizeSunPoint_(const FastTestResult& fast_result, std::vector<cv::Point2i>& sun_points,
                                               std::vector<SunCluster>& sun_clusters) {
   if (fast_result.sun_test_points != static_cast<int>(fast_points_set_[fast_result.ring_idx].size())) {
     return;
@@ -334,7 +333,7 @@ void UvdarLedDetectFastCPU::localizeSunPoint_(const FastTestResult& fast_result,
 //}
 
 /* rejectMarkersNearSun_ //{ */
-void UvdarLedDetectFastCPU::rejectMarkersNearSun_(std::vector<cv::Point2i>& detected_points,
+void UvdarLedDetectFastCpu::rejectMarkersNearSun_(std::vector<cv::Point2i>& detected_points,
                                                   const std::vector<cv::Point2i>& sun_points) {
 
   auto is_glare = [&](const cv::Point2i& p) {

@@ -20,8 +20,9 @@
   <depend>sensor_msgs</depend>
   <depend>tf2_eigen</depend>
   <depend>eigen</depend>
+  <depend>kompute</depend>
 
-  <depend>libgbm-dev</depend>
+  <!-- <depend>libgbm-dev</depend> -->
 
   <depend>mrs_lib</depend>
   <depend>mrs_modules_msgs</depend>

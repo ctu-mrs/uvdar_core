@@ -8,6 +8,7 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic -fno-omit-frame-pointer)
 endif()
 
+
 option(ENABLE_TESTS "Enable building tests" ON)
 
 # if(NOT MRS_ENABLE_TESTING)
@@ -42,30 +43,36 @@ set(DEPENDENCIES
   std_msgs
   Eigen3
   tf2_eigen
+  kompute
 )
 
 foreach(DEP IN LISTS DEPENDENCIES)
   find_package(${DEP} REQUIRED)
 endforeach()
 
+
+
+# find_package(kompute CONFIG REQUIRED)
+
+
 # find_package(OpenCV REQUIRED HINTS /usr/local/lib)
 
-set(OpenGL_GL_PREFERENCE "LEGACY")
-find_package(OpenGL REQUIRED)
-find_library(LGBM libgbm.so REQUIRED)
-find_library(LEGL libEGL.so REQUIRED)
-find_library(LGL libGL.so REQUIRED)
-include(FindPackageHandleStandardArgs)
-FIND_PACKAGE_HANDLE_STANDARD_ARGS(LIBGBM DEFAULT_MSG LIBGBM_LIBRARIES)
-mark_as_advanced(LIBGBM_INCLUDE_DIRS LIBGBM_LIBRARIES)
+# set(OpenGL_GL_PREFERENCE "LEGACY")
+# find_package(OpenGL REQUIRED)
+# find_library(LGBM libgbm.so REQUIRED)
+# find_library(LEGL libEGL.so REQUIRED)
+# find_library(LGL libGL.so REQUIRED)
+# include(FindPackageHandleStandardArgs)
+# FIND_PACKAGE_HANDLE_STANDARD_ARGS(LIBGBM DEFAULT_MSG LIBGBM_LIBRARIES)
+# mark_as_advanced(LIBGBM_INCLUDE_DIRS LIBGBM_LIBRARIES)
 
 
 include_directories(
   include
   ${rclcpp_INCLUDE_DIRS}
   ${mrs_lib_INCLUDE_DIRS}
-  ${OpenGL_INCLUDE_DIRS}
-  ${LIBGBM_INCLUDE_DIRS}
+  # ${OpenGL_INCLUDE_DIRS}
+  # ${LIBGBM_INCLUDE_DIRS}
   )
 
 set(LIBRARIES
@@ -74,6 +81,7 @@ set(LIBRARIES
 
 ## | --------------------- UvdarCore_UvLedDetectorLib --------------------- |
 add_library(UvdarCore_UvLedDetectorLib SHARED
+  src/uv_led_detector/uv_led_detector_fast_gpu.cpp
   src/uv_led_detector/uv_led_detector_fast_cpu.cpp
   src/uv_led_detector/uv_led_detector.cpp
 )
@@ -81,6 +89,11 @@ add_library(UvdarCore_UvLedDetectorLib SHARED
 ament_target_dependencies(UvdarCore_UvLedDetectorLib
   PUBLIC
     ${DEPENDENCIES}
+)
+
+target_link_libraries(UvdarCore_UvLedDetectorLib
+  PUBLIC
+    kompute
 )
 
 ## | -------------------- export interfaces ------------------- |
@@ -134,9 +147,7 @@ ament_export_libraries(
 
 install(
   TARGETS
-    uvdar_core_uvdar_core
     ${LIBRARIES}
-  EXPORT export_${PROJECT_NAME}
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin
@@ -159,9 +170,9 @@ ament_export_include_directories(
 #   DESTINATION share/${PROJECT_NAME}
 # )
 
-ament_export_targets(
-  export_${PROJECT_NAME} HAS_LIBRARY_TARGET
-)
+# ament_export_targets(
+#   export_${PROJECT_NAME} HAS_LIBRARY_TARGET
+# )
 
 ament_export_dependencies(
   ${DEPENDENCIES}

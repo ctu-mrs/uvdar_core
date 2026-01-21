@@ -6,12 +6,10 @@
 static const int W = 64;
 static const int H = 48;
 
-/* createSinglePointImage //{ */
-cv::Mat createSinglePointImage() {
+/* createSingleMarkerImage //{ */
+cv::Mat createSingleMarkerImage(const int cx, const int cy) {
 
   cv::Mat image(H, W, CV_8UC1, cv::Scalar(0));
-  const int cx = W / 2;
-  const int cy = H / 2;
   // image.at<uint8_t>(cy, cx) = 210;
 
   // Single bright marker (tiny blob)
@@ -21,6 +19,35 @@ cv::Mat createSinglePointImage() {
     }
   }
   return image;
+}
+//}
+
+/* TEST(UvLedDetector, CPU_RoiBreach) //{ */
+/**
+ * @brief Add the marker point to the corner of the image
+ *        so that the isInsideRoi_() check is triggered.
+ */
+TEST(UvLedDetector, CPU_RoiBreach) {
+  DummyLogger logger;
+  uvdar::UvLedDetectConfig cfg;
+  cfg.gui                 = false;
+  cfg.use_masks           = false;
+  cfg.threshold           = 200;
+  cfg.threshold_diff      = 100;
+  cfg.threshold_sun       = 150;
+  cfg.threshold_sun_dist  = 25;
+  cfg.threshold_sun_merge = 20;
+  uvdar::UvdarLedDetectFastCpu uv_detector(cfg, logger);
+
+  std::vector<cv::Point2i> detected_points;
+  std::vector<cv::Point2i> sun_points;
+
+  auto dummy_image  = createSingleMarkerImage(1, 1); // corner
+  bool success_flag = uv_detector.processImage(dummy_image, detected_points, sun_points);
+
+  EXPECT_TRUE(success_flag);
+  EXPECT_TRUE(detected_points.empty());
+  EXPECT_TRUE(sun_points.empty());
 }
 //}
 
@@ -35,12 +62,12 @@ TEST(UvLedDetector, CPU_singlePoint) {
   cfg.threshold_sun       = 150;
   cfg.threshold_sun_dist  = 25;
   cfg.threshold_sun_merge = 20;
-  uvdar::UvdarLedDetectFastCPU uv_detector(cfg, logger);
+  uvdar::UvdarLedDetectFastCpu uv_detector(cfg, logger);
 
   std::vector<cv::Point2i> detected_points;
   std::vector<cv::Point2i> sun_points;
 
-  auto dummy_image  = createSinglePointImage();
+  auto dummy_image  = createSingleMarkerImage(W / 2, H / 2); // center
   bool success_flag = uv_detector.processImage(dummy_image, detected_points, sun_points);
 
   EXPECT_TRUE(success_flag);
