@@ -3,7 +3,8 @@
 namespace uvdar {
 
 /* UvLedDetector constructor //{ */
-UvLedDetector::UvLedDetector(ILogger& logger, const UvLedDetectConfig& cfg) : logger_(logger), cfg_(cfg) {
+UvLedDetector::UvLedDetector(ILogger& logger, const UvLedDetectConfig& cfg, kp::Manager& gpu_manager)
+    : logger_(logger), cfg_(cfg), gpu_manager_(gpu_manager) {
   detector_ = makeUvLedDetector_();
 }
 //}
@@ -17,11 +18,10 @@ UvLedDetector::~UvLedDetector() {
 std::unique_ptr<UvLedDetectFastBase> UvLedDetector::makeUvLedDetector_() {
   if (cfg_.gpu) {
     logger_.info("[UVDARDetector]: Initializing FAST-based marker detection running on GPU...");
-    logger_.error("[UVDARDetector]: GPU version is not implemented!");
     return std::make_unique<UvdarLedDetectFastGpu>(cfg_, logger_);
   } else {
     logger_.info("[UVDARDetector]: Initializing FAST-based marker detection running on CPU...");
-    return std::make_unique<UvdarLedDetectFastCpu>(cfg_, logger_);
+    return std::make_unique<UvdarLedDetectFastCpu>(cfg_, logger_, gpu_manager_);
   }
 }
 //}

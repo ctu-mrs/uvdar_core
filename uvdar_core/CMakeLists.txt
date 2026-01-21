@@ -32,6 +32,7 @@ endif()
 
 set(DEPENDENCIES
   ament_cmake
+  ament_index_cpp
   rclcpp
   rclcpp_components
   cv_bridge
@@ -160,6 +161,10 @@ install(
 
 ament_export_include_directories(
   "include/${PROJECT_NAME}"
+)
+
+install(DIRECTORY include/uvdar_core/uv_led_detector/gpu_shaders
+  DESTINATION share/${PROJECT_NAME}/uv_led_detector/
 )
 
 # install(DIRECTORY launch
