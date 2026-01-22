@@ -85,6 +85,7 @@ add_library(UvdarCore_UvLedDetectorLib SHARED
   src/uv_led_detector/uv_led_detector_fast_gpu.cpp
   src/uv_led_detector/uv_led_detector_fast_cpu.cpp
   src/uv_led_detector/uv_led_detector.cpp
+  src/uv_led_detector/gpu_context.cpp
 )
 
 ament_target_dependencies(UvdarCore_UvLedDetectorLib

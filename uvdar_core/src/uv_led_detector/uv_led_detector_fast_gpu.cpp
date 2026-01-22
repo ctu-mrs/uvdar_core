@@ -40,14 +40,10 @@ static std::string LoadEvalFastRingShader() {
 //}
 
 /* UvdarLedDetectFastCpu constructor //{ */
-UvdarLedDetectFastGpu::UvdarLedDetectFastGpu(UvLedDetectConfig cfg, ILogger& logger, kp::Manager& gpu_manager)
-    : UvLedDetectFastBase(std::move(cfg), logger), gpu_mgr_(gpu_manager),
+UvdarLedDetectFastGpu::UvdarLedDetectFastGpu(UvLedDetectConfig cfg, ILogger& logger)
+    : UvLedDetectFastBase(std::move(cfg), logger), gpu_mgr_(GpuContext::GetInstance()),
       eval_fast_ring_shader_(LoadEvalFastRingShader()) {
-  logger.info("[UVDARDetectorFastCpu]: Loaded shader, " + std::to_string(eval_fast_ring_shader_.size()) + " bytes");
-
-  //   const auto& props = mgr_->getDeviceProperties();
-
-  //   logger.info("[UVDARDetectorFastCpu]: Using GPU: " + props.deviceName + " Type: " + props.deviceType);
+  logGpuProperties_();
 }
 //}
 
@@ -62,6 +58,32 @@ bool UvdarLedDetectFastGpu::processImage(const cv::Mat image, std::vector<cv::Po
 /* initDelayed //{ */
 bool UvdarLedDetectFastGpu::initDelayed(const cv::Mat image) {
   return true;
+}
+//}
+
+/* logGpuProperties_ //{ */
+void UvdarLedDetectFastGpu::logGpuProperties_() {
+  logger_.info("[UVDARDetectorFastCpu]: Loaded shader, " + std::to_string(eval_fast_ring_shader_.size()) + " bytes");
+
+  const auto& props = gpu_mgr_.manager().getDeviceProperties();
+  std::string gpu_name(props.deviceName.data());
+
+  auto deviceTypeToStr = [](vk::PhysicalDeviceType t) {
+    switch (t) {
+      case vk::PhysicalDeviceType::eDiscreteGpu:
+        return "DISCRETE";
+      case vk::PhysicalDeviceType::eIntegratedGpu:
+        return "INTEGRATED";
+      case vk::PhysicalDeviceType::eVirtualGpu:
+        return "VIRTUAL";
+      case vk::PhysicalDeviceType::eCpu:
+        return "CPU";
+      default:
+        return "OTHER";
+    }
+  };
+
+  logger_.info("[UVDARDetectorFastGpu]: Using GPU: " + gpu_name + " Type: " + deviceTypeToStr(props.deviceType));
 }
 //}
 

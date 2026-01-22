@@ -7,7 +7,7 @@ namespace uvdar {
 
 class UvLedDetector {
  public:
-  UvLedDetector(ILogger& logger, const UvLedDetectConfig& cfg, kp::Manager& gpu_manager);
+  UvLedDetector(ILogger& logger, const UvLedDetectConfig& cfg);
   ~UvLedDetector();
 
   bool detect(const cv::Mat i_image, std::vector<cv::Point2i>& detected_points, std::vector<cv::Point2i>& sun_points);
@@ -18,7 +18,6 @@ class UvLedDetector {
  private:
   ILogger& logger_;
   const UvLedDetectConfig cfg_;
-  kp::Manager& gpu_manager_;
 
   std::unique_ptr<UvLedDetectFastBase> detector_;
 
