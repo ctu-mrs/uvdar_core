@@ -23,9 +23,30 @@ class UvdarLedDetectFastGpu : public UvLedDetectFastBase {
  private:
   void logGpuProperties_();
 
+  void scanImageForCandidates_(const int mask_id, std::vector<cv::Point2i>& detected_points,
+                               std::vector<cv::Point2i>& sun_points);
+  void rejectMarkersNearSun_(std::vector<cv::Point2i>& detected_points, const std::vector<cv::Point2i>& sun_points);
+
+  std::vector<uint32_t> loadPrecompiledShader_(const std::string& pkg, const std::string& rel);
+
+  std::vector<uint8_t> getVectorFromImage_(const cv::Mat image);
+
  private:
-  const std::string eval_fast_ring_shader_;
+  // const std::string eval_fast_ring_shader_;
   GpuContext& gpu_mgr_;
+
+  cv::Mat image_curr_;
+  cv::Mat image_check_;
+  cv::Mat image_view_;
+  cv::Rect roi_;
+
+  std::shared_ptr<kp::ImageT<uint8_t>> image_gpu_in_;
+  std::shared_ptr<kp::ImageT<uint8_t>> image_gpu_out_;
+
+  std::vector<uint8_t> image_pixels_in_;
+
+  std::vector<std::shared_ptr<kp::Memory>> params_;
+  std::shared_ptr<kp::Algorithm> eval_fast_ring_gpu_alg_;
 };
 
 } // namespace uvdar

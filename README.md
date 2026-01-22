@@ -12,11 +12,7 @@
 
 ### Kompute installation
 ```bash
-cmake -S . -B build \
-  -DCMAKE_BUILD_TYPE=Release \
-  -DCMAKE_INSTALL_PREFIX=/usr/local \
-  -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
-  -DKOMPUTE_OPT_LOG_LEVEL=Off
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr/local -DCMAKE_POSITION_INDEPENDENT_CODE=ON -DKOMPUTE_OPT_LOG_LEVEL=Off
 cmake --build build -j
 sudo cmake --install build
 sudo ldconfig

@@ -1,0 +1,33 @@
+#version 450
+
+layout (local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+
+
+layout(push_constant) uniform Params {
+    float threshold;
+    float threshold_diff;
+    float threshold_sun;
+    float threshold_sun_dist;
+    float threshold_sun_merge;
+} pc;
+
+
+
+
+layout(set = 0, binding = 0, r8ui) uniform readonly uimage2D image_input;
+layout(set = 0, binding = 1, r8ui) uniform writeonly uimage2D image_output;
+
+void main()
+{
+    ivec2 size = imageSize(image_input);
+    ivec2 p = ivec2(gl_GlobalInvocationID.xy);
+    // Safety: if you ever dispatch larger than the image
+    if (p.x >= size.x || p.y >= size.y) {
+        return;
+    }
+
+    uint outv = 255u;
+
+    imageStore(image_output, p, uvec4(outv, 0u, 0u, 0u));
+
+}
