@@ -10,6 +10,19 @@
 > :warning: **Attention please: This README is outdated.**
 
 
+### Kompute installation
+```bash
+cmake -S . -B build \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_INSTALL_PREFIX=/usr/local \
+  -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+  -DKOMPUTE_OPT_LOG_LEVEL=Off
+cmake --build build -j
+sudo cmake --install build
+sudo ldconfig
+```
+
+
 ## Description
 This package contains the core signal processing and pose estimation software components of the UVDAR system necessary for running it on a MAV.
 

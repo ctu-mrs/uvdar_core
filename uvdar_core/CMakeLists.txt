@@ -80,6 +80,28 @@ set(LIBRARIES
   UvdarCore_UvLedDetectorLib
 )
 
+## | --------------------- Shaders --------------------- |
+find_program(GLSLANG_VALIDATOR glslangValidator)
+if(NOT GLSLANG_VALIDATOR)
+  message(FATAL_ERROR "glslangValidator not found. Install glslang-tools.")
+endif()
+
+set(SHADER_SRC 
+  ${CMAKE_CURRENT_SOURCE_DIR}/gpu_shaders/eval_fast_ring.comp
+)
+
+set(SHADER_SPV 
+  ${CMAKE_CURRENT_BINARY_DIR}/eval_fast_ring.spv
+)
+
+add_custom_command(
+  OUTPUT ${SHADER_SPV}
+  COMMAND ${GLSLANG_VALIDATOR} -V ${SHADER_SRC} -o ${SHADER_SPV}
+  DEPENDS ${SHADER_SRC}
+  VERBATIM
+)
+add_custom_target(uvdar_shaders ALL DEPENDS ${SHADER_SPV})
+
 ## | --------------------- UvdarCore_UvLedDetectorLib --------------------- |
 add_library(UvdarCore_UvLedDetectorLib SHARED
   src/uv_led_detector/uv_led_detector_fast_gpu.cpp
@@ -97,6 +119,14 @@ target_link_libraries(UvdarCore_UvLedDetectorLib
   PUBLIC
     kompute
 )
+
+# Disable spdlog macros (if anything uses them)
+target_compile_definitions(UvdarCore_UvLedDetectorLib PRIVATE SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_OFF)
+
+target_compile_definitions(UvdarCore_UvLedDetectorLib PRIVATE KOMPUTE_OPT_ACTIVE_LOG_LEVEL=KOMPUTE_LOG_LEVEL_OFF)
+
+add_dependencies(UvdarCore_UvLedDetectorLib uvdar_shaders)
+
 
 ## | -------------------- export interfaces ------------------- |
 foreach(library IN LISTS LIBRARIES)
@@ -164,8 +194,12 @@ ament_export_include_directories(
   "include/${PROJECT_NAME}"
 )
 
-install(DIRECTORY include/uvdar_core/uv_led_detector/gpu_shaders
-  DESTINATION share/${PROJECT_NAME}/uv_led_detector/
+install(FILES ${SHADER_SPV}
+  DESTINATION share/${PROJECT_NAME}/gpu_shaders
+)
+
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/gpu_shaders/
+  DESTINATION share/${PROJECT_NAME}/gpu_shaders
 )
 
 # install(DIRECTORY launch
