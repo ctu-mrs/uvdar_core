@@ -222,7 +222,7 @@ void UvdarLedDetectFastCpu::scanImageForCandidates_(const int mask_id, std::vect
 }
 //}
 
-/* evaluateFastRing_ //{ */
+/* evaluateFastRings_ //{ */
 FastTestResult UvdarLedDetectFastCpu::evaluateFastRings_(const int i, const int j) {
   FastTestResult result;
   result.i             = i;

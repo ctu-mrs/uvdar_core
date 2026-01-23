@@ -181,9 +181,9 @@ void UvLedDetectorComponent::initRosPublishers_() {
           pubopts, cam.detected_points_topic + "/sun");
     }
 
-#ifdef DEBUG
     cam.pub_debug_dp_image =
         mrs_lib::PublisherHandler<sensor_msgs::msg::Image>(pubopts, cam.detected_points_topic + "/raw_image");
+#ifdef DEBUG
 
     cam.pub_debug_sp_image =
         mrs_lib::PublisherHandler<sensor_msgs::msg::Image>(pubopts, cam.detected_points_topic + "/sun/raw_image");
@@ -286,12 +286,13 @@ void UvLedDetectorComponent::processImage_(const int image_index) {
     publishSunPoints_(*cv_ptr, cam);
   }
 
-#ifdef DEBUG
   RCLCPP_INFO_THROTTLE(node_->get_logger(), *node_->get_clock(), 1000, "Number of detected points: %ld",
                        cam.detected_points.size());
   RCLCPP_INFO_THROTTLE(node_->get_logger(), *node_->get_clock(), 1000, "Number of sun points: %ld",
                        cam.sun_points.size());
   publishDetectedPointsImage_(*cv_ptr, cam);
+#ifdef DEBUG
+
   publishSunPointsImage_(*cv_ptr, cam);
 #endif
 

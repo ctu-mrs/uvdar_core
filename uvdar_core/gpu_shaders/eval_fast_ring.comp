@@ -1,33 +1,161 @@
 #version 450
 
-layout (local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+layout (local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
 
+#define MAX_MARKERS 100
 
 layout(push_constant) uniform Params {
-    float threshold;
-    float threshold_diff;
-    float threshold_sun;
-    float threshold_sun_dist;
-    float threshold_sun_merge;
+    int threshold;
+    int threshold_diff;
 } pc;
 
 
+layout(r8ui, set = 0, binding = 0) uniform readonly uimage2D image_input;
+layout(r8ui, set = 0, binding = 1) uniform readonly uimage2D image_mask;
+layout(std430, set = 0, binding = 2) buffer MarkerBuf { uvec2 marker_xy[]; } markers;
+layout(std430, set = 0, binding = 3) buffer Counters { uint marker_count;} ctr;
+
+#define FAST_RING_P3_SIZE 16
+#define FAST_RING_INTERIOR_P3_SIZE 11
+
+const ivec2 FAST_RING_P3[FAST_RING_P3_SIZE] = ivec2[](
+    ivec2( 0, -3), ivec2( 0,  3), ivec2( 3,  0), ivec2(-3,  0),
+    ivec2( 2, -2), ivec2(-2,  2), ivec2(-2, -2), ivec2( 2,  2),
+    ivec2(-1, -3), ivec2( 1,  3), ivec2( 3, -1), ivec2(-3,  1),
+    ivec2( 1, -3), ivec2(-1,  3), ivec2( 3,  1), ivec2(-3, -1)
+);
+
+const ivec2 FAST_INTERIOR_SET_P3[FAST_RING_INTERIOR_P3_SIZE] = ivec2[](
+    ivec2( 0, 0), ivec2( 1, 0), ivec2( 2, 0),
+    ivec2(-2, 1), ivec2(-1, 1),
+    ivec2( 0, 1), ivec2( 1, 1), ivec2( 2, 1),
+    ivec2(-1, 2),
+    ivec2( 0, 2), ivec2( 1, 2)
+);
+
+/* testFastRing3px //{ */
+bool testFastRing3px(ivec2 center_point, int center_val) {
+    // N,S,E,W first
+    for (int k = 0; k < 4; ++k) {
+        int v = int(imageLoad(image_input, center_point + FAST_RING_P3[k]).r);
+        if ((center_val - v) < pc.threshold_diff) return false;
+    }
+    // rest
+    for (int k = 4; k < FAST_RING_P3_SIZE; ++k) {
+        int v = int(imageLoad(image_input, center_point + FAST_RING_P3[k]).r);
+        if ((center_val - v) < pc.threshold_diff) return false;
+    }
+    return true;
+}
+//}
+
+/* recordMarker //{ */
+void recordMarker(ivec2 point) {
+    uint idx = atomicAdd(ctr.marker_count, 1u);
+    if (idx < MAX_MARKERS) {
+        markers.marker_xy[idx] = uvec2(point);
+    }
+}
+//}
+
+/* localizeMarkerPoint //{ */
+void localizeMarkerPoint(ivec2 center_point){
+    int best_val = 0;
+    ivec2 best_point = center_point;
+
+    for (int k=0; k<FAST_RING_INTERIOR_P3_SIZE; ++k){
+        ivec2 q = center_point + FAST_INTERIOR_SET_P3[k];
+        int s = int(imageLoad(image_input, q).r);
+
+        if (s > best_val) {
+            best_val = s;
+            best_point = q;
+        } 
+    }
+    recordMarker(best_point);
+}
+//}
+
+/* isInsideRoi //{ */
+bool isInsideRoi(ivec2 center_point, ivec2 image_size){
+    if (center_point.x >= 4 && center_point.x < image_size.x-4 
+        && center_point.y >= 4 && center_point.y < image_size.y-4 ) {
+        return true;
+    }
+    return false;
+}
+//}
 
 
-layout(set = 0, binding = 0, r8ui) uniform readonly uimage2D image_input;
-layout(set = 0, binding = 1, r8ui) uniform writeonly uimage2D image_output;
 
+/* isBelowBrightnessThreshold //{ */
+bool isBelowBrightnessThreshold(int center_brightness) {
+    return center_brightness <= pc.threshold;
+}
+//}
+
+
+bool isLocalMax3x3(ivec2 p, int v) {
+    for (int dy = -1; dy <= 1; ++dy)
+    for (int dx = -1; dx <= 1; ++dx) {
+        if (dx == 0 && dy == 0) continue;
+        int n = int(imageLoad(image_input, p + ivec2(dx, dy)).r);
+        if (n >= v) return false;
+    }
+    return true;
+}
+
+
+/* main //{ */
 void main()
 {
-    ivec2 size = imageSize(image_input);
-    ivec2 p = ivec2(gl_GlobalInvocationID.xy);
-    // Safety: if you ever dispatch larger than the image
-    if (p.x >= size.x || p.y >= size.y) {
+    ivec2 center_point = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 image_size = imageSize(image_input);
+
+    if (!isInsideRoi(center_point, image_size)) {
         return;
     }
 
-    uint outv = 255u;
+    int center_brightness = int(imageLoad(image_input, center_point).r);
+    if (isBelowBrightnessThreshold(center_brightness)) {
+        return;
+    }
 
-    imageStore(image_output, p, uvec4(outv, 0u, 0u, 0u));
-
+    if (testFastRing3px(center_point, center_brightness)){
+        recordMarker(center_point);
+    }
 }
+//}
+
+
+
+// FastTestResult evaluateFastRings(ivec2 center_point) {
+//     FastTestResult result;
+//     result.point_coord = center_point;
+//     result.sun_candidate = isSunLikePixel(center_point);
+//     result.sun_test_points = 0;
+
+//     // ring 3
+//     result.ring_idx = 0;
+//     result.marker_candidate = testFastRing3px(center_point);
+//     if (result.marker_candidate) {
+//         result.sun_candidate = false;
+//         return result;
+//     }
+//     else {
+//         if(result.sun_candidate) {
+//             result.sun_test_points += 1;
+//         }
+//     }
+
+//     return result;
+// }
+
+// /* isSunLikePixel //{ */
+// bool isSunLikePixel(ivec2 center_point) {
+//     if (int(imageLoad(image_input, center_point).r) > pc.threshold_sun) {
+//         return true;
+//     }
+//     return false;
+// }
+// //}
