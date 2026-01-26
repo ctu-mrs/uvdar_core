@@ -3,15 +3,13 @@
 
 #include <uvdar_core/uv_led_detector/uv_led_detector.h>
 
-static const int W = 64;
-static const int H = 48;
+static const int W = 960;
+static const int H = 600;
 
 /* createSingleMarkerImage //{ */
 cv::Mat createSingleMarkerImage(const int cx, const int cy) {
 
   cv::Mat image(H, W, CV_8UC1, cv::Scalar(0));
-  // image.at<uint8_t>(cy, cx) = 210;
-
   // Single bright marker (tiny blob)
   for (int dy = -1; dy <= 1; ++dy) {
     for (int dx = -1; dx <= 1; ++dx) {

@@ -3,6 +3,7 @@
 #include <fstream>
 #include <filesystem>
 #include <stdexcept>
+#include <chrono>
 
 #include <kompute/Kompute.hpp>
 
@@ -22,7 +23,9 @@ class UvdarLedDetectFastGpu : public UvLedDetectFastBase {
 
  private:
   void initOnFirstFrame_();
+
   void logGpuProperties_();
+  void initGpuComputing_();
 
   void scanImageForCandidates_(const int mask_id, std::vector<cv::Point2i>& detected_points,
                                std::vector<cv::Point2i>& sun_points);
@@ -40,7 +43,11 @@ class UvdarLedDetectFastGpu : public UvLedDetectFastBase {
   [[nodiscard]] inline bool isAlreadyAssignedToCluster_(const int point_idx) const noexcept;
   inline void addToCluster_(int idx);
 
+  void greyToRgba_(const cv::Mat& gray, std::vector<uint8_t>& out);
+
  private:
+  static constexpr uint32_t MAX_MARKERS_{100};
+
   // const std::string eval_fast_ring_shader_;
   GpuContext& gpu_mgr_;
 

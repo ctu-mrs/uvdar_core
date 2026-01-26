@@ -6,59 +6,68 @@ inline int index2d(int x, int y, int cols) noexcept {
   return cols * y + x;
 }
 
-static std::vector<uint8_t> mat8uc1_to_vector(const cv::Mat& m) {
-  if (m.empty())
-    throw std::runtime_error("Input mat is empty");
-  if (m.type() != CV_8UC1)
-    throw std::runtime_error("Expected CV_8UC1");
-  if (m.channels() != 1)
-    throw std::runtime_error("Expected single channel");
+class Timer {
+ public:
+  using clock = std::chrono::steady_clock;
 
-  cv::Mat contiguous = m.isContinuous() ? m : m.clone();
+  Timer(ILogger& logger) : logger_(logger), start_(clock::now()) {
+  }
 
-  const size_t n = contiguous.total(); // rows*cols for 8UC1
-  std::vector<uint8_t> out(n);
-  std::memcpy(out.data(), contiguous.data, n * sizeof(uint8_t));
-  return out;
-}
+  ~Timer() {
+    const auto end      = clock::now();
+    const auto duration = end - start_;
+
+    logger_.info(std::to_string(std::chrono::duration_cast<std::chrono::milliseconds>(duration).count()) + "ms");
+  }
+
+ private:
+  ILogger& logger_;
+  clock::time_point start_;
+};
 
 /* UvdarLedDetectFastCpu constructor //{ */
 UvdarLedDetectFastGpu::UvdarLedDetectFastGpu(UvLedDetectConfig cfg, ILogger& logger)
     : UvLedDetectFastBase(std::move(cfg), logger), gpu_mgr_(GpuContext::GetInstance()) {
   logGpuProperties_();
   initFastInteriorSet_();
+  initGpuComputing_();
+}
+//}
+
+void UvdarLedDetectFastGpu::greyToRgba_(const cv::Mat& gray, std::vector<uint8_t>& out) {
+  CV_Assert(gray.type() == CV_8UC1);
+  out.resize(gray.total() * 4);
+
+  cv::Mat rgba(gray.rows, gray.cols, CV_8UC4, out.data());
+  cv::cvtColor(gray, rgba, cv::COLOR_GRAY2RGBA);
+}
+
+/* initGpuComputing_ //{ */
+void UvdarLedDetectFastGpu::initGpuComputing_() {
   auto& gpu = gpu_mgr_.manager();
 
-  // clang-format off
-  std::vector<int> pushConfigConst = {
-    static_cast<int>(cfg.threshold), 
-    static_cast<int>(cfg.threshold_diff)
-  };
+  std::vector<int> pushConfigConst = {static_cast<int>(cfg_.threshold), static_cast<int>(cfg_.threshold_diff),
+                                      static_cast<int>(cfg_.threshold_sun)};
 
   cv::Mat img8uc1 = cv::Mat::zeros(cv::Size(960, 600), CV_8UC1);
-  auto hostPixels = mat8uc1_to_vector(img8uc1);
-  image_gpu_in_  =     gpu.imageT<uint8_t>(hostPixels, 960, 600, 1);
-  image_gpu_mask_  =     gpu.imageT<uint8_t>(hostPixels, 960, 600,1);
+  greyToRgba_(img8uc1, image_pixels_in_);
+  image_gpu_in_   = gpu.imageT<uint8_t>(image_pixels_in_, 960, 600, 4);
+  image_gpu_mask_ = gpu.imageT<uint8_t>(image_pixels_in_, 960, 600, 4);
 
-  constexpr uint32_t MAX_MARKERS              = 100;
-  std::vector<uint32_t> markers(2 * MAX_MARKERS, 0u);
-  detected_markers_gpu_ = gpu.tensorT<uint32_t>(markers);
+  // std::vector<uint32_t> markers(2 * MAX_MARKERS_, 0u);
+  detected_markers_gpu_ = gpu.tensorT<uint32_t>(std::vector<uint32_t>(2 * MAX_MARKERS_, 0u));
 
-  std::vector<uint32_t> hostCtr = {0u};
-  marker_counter_gpu_ = gpu.tensorT<uint32_t>(hostCtr);
+  // std::vector<uint32_t> hostCtr = {0u};
+  marker_counter_gpu_ = gpu.tensorT<uint32_t>(std::vector<uint32_t>(1, 0u));
 
   params_ = {image_gpu_in_, image_gpu_mask_, detected_markers_gpu_, marker_counter_gpu_};
 
-  auto ceil_div = [](uint32_t a, uint32_t b){ return (a + b - 1) / b; };
+  auto ceil_div = [](uint32_t a, uint32_t b) { return (a + b - 1) / b; };
 
-  eval_fast_ring_gpu_alg_ = gpu.algorithm(params_, 
-                                          loadPrecompiledShader_(
-                                            "uvdar_core", 
-                                            "eval_fast_ring.spv"),
-                                          kp::Workgroup({ ceil_div(960,16), ceil_div(600,16), 1 }), // this was 16x16
-                                          std::vector<float>{},     // optional
+  eval_fast_ring_gpu_alg_ = gpu.algorithm(params_, loadPrecompiledShader_("uvdar_core", "eval_fast_ring.spv"),
+                                          kp::Workgroup({ceil_div(960, 16), ceil_div(600, 16), 1}), // this was 16x16
+                                          std::vector<float>{},                                     // optional
                                           pushConfigConst);
-  // clang-format on
 }
 //}
 
@@ -66,33 +75,43 @@ UvdarLedDetectFastGpu::UvdarLedDetectFastGpu(UvLedDetectConfig cfg, ILogger& log
 bool UvdarLedDetectFastGpu::processImage(const cv::Mat image, std::vector<cv::Point2i>& detected_points,
                                          std::vector<cv::Point2i>& sun_points, int mask_id) {
 
-  logger_.info("Size: " + std::to_string(image.cols) + ", " + std::to_string(image.rows));
+  // Timer timer(logger_);
   initOnFirstFrame_();
 
+  detected_points.clear();
   sun_points.clear();
-  image_curr_ = image;
 
-  marker_counter_gpu_->setData(std::vector<uint32_t>{0u});
+  if (!image_gpu_in_ || !marker_counter_gpu_ || !detected_markers_gpu_) {
+    logger_.error("GPU Tensors not initialized!");
+    return false;
+  }
 
-  const size_t nbytes = image.total() * image.elemSize(); // elemSize() = 1 for CV_8UC1
-  image_pixels_in_.resize(nbytes);
-  std::memcpy(image_pixels_in_.data(), image.data, nbytes);
-
+  marker_counter_gpu_->setData(std::vector<uint32_t>(1, 0u));
+  // detected_markers_gpu_->setData(std::vector<uint32_t>(2 * MAX_MARKERS_, 0u));
+  greyToRgba_(image, image_pixels_in_);
   image_gpu_in_->setData(image_pixels_in_);
 
   gpu_mgr_.manager()
       .sequence()
-      ->record<kp::OpSyncDevice>({image_gpu_in_, image_gpu_mask_, marker_counter_gpu_})
+      ->record<kp::OpSyncDevice>({image_gpu_in_, image_gpu_mask_, marker_counter_gpu_, detected_markers_gpu_})
       ->record<kp::OpAlgoDispatch>(eval_fast_ring_gpu_alg_)
       ->record<kp::OpSyncLocal>({detected_markers_gpu_, marker_counter_gpu_})
       ->eval();
 
-  const uint32_t count_raw = marker_counter_gpu_->vector()[0];
-  uint32_t count           = std::min(count_raw, 100u);
+  const auto count_raw = marker_counter_gpu_->vector()[0];
 
-  const std::vector<uint32_t> raw = detected_markers_gpu_->vector();
+  uint32_t count = std::min(count_raw, MAX_MARKERS_);
 
-  localizeMarkers(raw, count_raw, detected_points);
+  const std::vector<uint32_t> raw_points = detected_markers_gpu_->vector();
+  for (uint32_t i = 0; i < count; ++i) {
+    const int x = static_cast<int>(raw_points[2 * i + 0]);
+    const int y = static_cast<int>(raw_points[2 * i + 1]);
+    // logger_.info("Point " + std::to_string(i) + ": [" + std::to_string(x) + ", " + std::to_string(y) + "]");
+    detected_points.push_back(cv::Point2i(x, y));
+  }
+
+  // std::sort(detected_points.begin(), detected_points.end(),
+  //           [](const cv::Point2i& a, const cv::Point2i& b) { return (a.y == b.y) ? (a.x < b.x) : (a.y < b.y); });
 
   return true;
 }
@@ -247,6 +266,7 @@ std::vector<uint8_t> UvdarLedDetectFastGpu::getVectorFromImage_(const cv::Mat im
 }
 //}
 
+/* localizeMarkers //{ */
 void UvdarLedDetectFastGpu::localizeMarkers(const std::vector<uint32_t> raw_points, const uint32_t raw_points_count,
                                             std::vector<cv::Point2i>& detected_points) {
   detected_points.clear();
@@ -257,10 +277,13 @@ void UvdarLedDetectFastGpu::localizeMarkers(const std::vector<uint32_t> raw_poin
   for (uint32_t i = 0; i < count; ++i) {
     const int x = static_cast<int>(raw_points[2 * i + 0]);
     const int y = static_cast<int>(raw_points[2 * i + 1]);
+
     localizeMarkerPoint_(cv::Point(x, y), detected_points);
   }
 }
+//}
 
+/* localizeMarkerPoint_ //{ */
 void UvdarLedDetectFastGpu::localizeMarkerPoint_(const cv::Point point, std::vector<cv::Point2i>& detected_points) {
   if (image_curr_.empty() || image_curr_.data == nullptr)
     return;
@@ -299,5 +322,6 @@ void UvdarLedDetectFastGpu::localizeMarkerPoint_(const cv::Point point, std::vec
 
   detected_points.push_back(best_point);
 }
+//}
 
 } // namespace uvdar

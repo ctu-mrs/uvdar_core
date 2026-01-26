@@ -248,6 +248,15 @@ FastTestResult UvdarLedDetectFastCpu::evaluateFastRings_(const int i, const int 
       int neighbor = static_cast<int>(image_curr_.data[index2d(x, y, image_curr_.cols)]);
       // if (!isCenterBrighterThanNeighbor_(image_curr_.data[center_idx], image_curr_.data[neighbor_idx])) {
 
+      // center_bright = 250;
+      // neightbor_bright = 100
+      // threshold_diff = 100
+      // if (250-100) < 100
+      //     150 < 100: //FAlse
+      //     marker_candidate = true
+
+      // marker has bigger gradient than sun
+
       if ((center - neighbor) < cfg_.threshold_diff) {
         result.marker_candidate = false;
 
@@ -256,7 +265,7 @@ FastTestResult UvdarLedDetectFastCpu::evaluateFastRings_(const int i, const int 
         } else {
           result.sun_test_points++;
         }
-      } else {
+      } else { //
         result.sun_candidate = false;
       }
     }
