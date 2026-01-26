@@ -2,14 +2,14 @@ uav_name: "uav1"
 initial_delay: 5.0
 camera_input_topics: ["/my_camera/pylon_ros2_camera_node/image_raw"] # move to launch
 detected_points_topics: ["/detected_points_out"] # move to launch
-publish_sun_points: false
+publish_sun_points: true
 
 uv_led_detector:
   use_gpu: true
   gui: false
   use_masks: false
-  threshold: 200 # minimum pixel brightness to be considered
-  threshold_diff: 150 # minimum brightness difference from surrounding pixels
-  threshold_sun: 150 # brightness threshold for candidate sun pixels
+  threshold: 150 # minimum pixel brightness to be considered
+  threshold_diff: 100 # minimum brightness difference from surrounding pixels
+  threshold_sun: 50 # brightness threshold for candidate sun pixels
   threshold_sun_dist: 25 # max pixel distance to classify a pixel as sun-affected
   threshold_sun_merge: 20 # max pixel distance for merging sun pixel clusters

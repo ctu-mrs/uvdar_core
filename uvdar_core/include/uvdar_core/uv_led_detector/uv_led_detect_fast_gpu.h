@@ -62,6 +62,7 @@ class UvdarLedDetectFastGpu : public UvLedDetectFastBase {
   std::shared_ptr<kp::ImageT<uint8_t>> image_gpu_out_;
   std::shared_ptr<kp::ImageT<uint8_t>> image_gpu_mask_;
   std::shared_ptr<kp::TensorT<uint32_t>> detected_markers_gpu_;
+  std::shared_ptr<kp::TensorT<uint32_t>> detected_suns_gpu_;
   std::shared_ptr<kp::TensorT<uint32_t>> marker_counter_gpu_;
   std::vector<uint8_t> image_pixels_in_;
 

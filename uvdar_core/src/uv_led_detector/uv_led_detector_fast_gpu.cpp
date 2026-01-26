@@ -56,11 +56,12 @@ void UvdarLedDetectFastGpu::initGpuComputing_() {
 
   // std::vector<uint32_t> markers(2 * MAX_MARKERS_, 0u);
   detected_markers_gpu_ = gpu.tensorT<uint32_t>(std::vector<uint32_t>(2 * MAX_MARKERS_, 0u));
+  detected_suns_gpu_    = gpu.tensorT<uint32_t>(std::vector<uint32_t>(2 * MAX_MARKERS_, 0u));
 
   // std::vector<uint32_t> hostCtr = {0u};
-  marker_counter_gpu_ = gpu.tensorT<uint32_t>(std::vector<uint32_t>(1, 0u));
+  marker_counter_gpu_ = gpu.tensorT<uint32_t>(std::vector<uint32_t>(2, 0u));
 
-  params_ = {image_gpu_in_, image_gpu_mask_, detected_markers_gpu_, marker_counter_gpu_};
+  params_ = {image_gpu_in_, image_gpu_mask_, detected_markers_gpu_, marker_counter_gpu_, detected_suns_gpu_};
 
   auto ceil_div = [](uint32_t a, uint32_t b) { return (a + b - 1) / b; };
 
@@ -86,32 +87,35 @@ bool UvdarLedDetectFastGpu::processImage(const cv::Mat image, std::vector<cv::Po
     return false;
   }
 
-  marker_counter_gpu_->setData(std::vector<uint32_t>(1, 0u));
-  // detected_markers_gpu_->setData(std::vector<uint32_t>(2 * MAX_MARKERS_, 0u));
+  marker_counter_gpu_->setData(std::vector<uint32_t>({0u, 0u}));
   greyToRgba_(image, image_pixels_in_);
   image_gpu_in_->setData(image_pixels_in_);
 
   gpu_mgr_.manager()
       .sequence()
-      ->record<kp::OpSyncDevice>({image_gpu_in_, image_gpu_mask_, marker_counter_gpu_, detected_markers_gpu_})
+      ->record<kp::OpSyncDevice>(
+          {image_gpu_in_, image_gpu_mask_, marker_counter_gpu_, detected_markers_gpu_, detected_suns_gpu_})
       ->record<kp::OpAlgoDispatch>(eval_fast_ring_gpu_alg_)
-      ->record<kp::OpSyncLocal>({detected_markers_gpu_, marker_counter_gpu_})
+      ->record<kp::OpSyncLocal>({detected_markers_gpu_, marker_counter_gpu_, detected_suns_gpu_})
       ->eval();
 
-  const auto count_raw = marker_counter_gpu_->vector()[0];
-
-  uint32_t count = std::min(count_raw, MAX_MARKERS_);
-
+  const auto count_raw                   = marker_counter_gpu_->vector()[0];
+  uint32_t count                         = std::min(count_raw, MAX_MARKERS_);
   const std::vector<uint32_t> raw_points = detected_markers_gpu_->vector();
   for (uint32_t i = 0; i < count; ++i) {
     const int x = static_cast<int>(raw_points[2 * i + 0]);
     const int y = static_cast<int>(raw_points[2 * i + 1]);
-    // logger_.info("Point " + std::to_string(i) + ": [" + std::to_string(x) + ", " + std::to_string(y) + "]");
     detected_points.push_back(cv::Point2i(x, y));
   }
 
-  // std::sort(detected_points.begin(), detected_points.end(),
-  //           [](const cv::Point2i& a, const cv::Point2i& b) { return (a.y == b.y) ? (a.x < b.x) : (a.y < b.y); });
+  const auto sun_count_raw                   = marker_counter_gpu_->vector()[1];
+  count                                      = std::min(sun_count_raw, MAX_MARKERS_);
+  const std::vector<uint32_t> raw_sun_points = detected_suns_gpu_->vector();
+  for (uint32_t i = 0; i < count; ++i) {
+    const int x = static_cast<int>(raw_sun_points[2 * i + 0]);
+    const int y = static_cast<int>(raw_sun_points[2 * i + 1]);
+    sun_points.push_back(cv::Point2i(x, y));
+  }
 
   return true;
 }

@@ -3,9 +3,12 @@
 layout (local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
 
 #define MAX_MARKERS 100
+#define MAX_SUNS 100
 #define FAST_RESULT_NONE 0
 #define FAST_RESULT_MARKER 1
 #define FAST_RESULT_SUN 2
+#define FAST_RING3 3
+#define FAST_RING4 4
 
 layout(push_constant) uniform Params {
     int threshold;
@@ -17,7 +20,10 @@ layout(push_constant) uniform Params {
 layout(rgba8ui, set = 0, binding = 0) uniform readonly uimage2D image_input;
 layout(rgba8ui, set = 0, binding = 1) uniform readonly uimage2D image_mask;
 layout(std430, set = 0, binding = 2) buffer MarkerBuf { uint marker_xy[]; } markers;
-layout(std430, set = 0, binding = 3) buffer Counters { uint marker_count;} ctr;
+layout(std430, set = 0, binding = 3) buffer Counters { uint marker_count; 
+                                                       uint sun_count;
+                                                       } ctr;
+layout(std430, set = 0, binding = 4) buffer SunBuf { uint sun_xy[];} suns;
 
 
 #define FAST_RING_P3_SIZE 16
@@ -50,75 +56,49 @@ const ivec2 FAST_RING_P4[FAST_RING_P4_SIZE] = ivec2[](
 
 /* isSunLikePixel //{ */
 bool isSunLikePixel(int center_val) {
-    if (center_val > pc.threshold_sun) {
+    if (center_val >= pc.threshold_sun) {
         return true;
     }
     return false;
 }
 //}
 
-/* testFastRing3px //{ */
-int testFastRing3px(ivec2 center_point, int center_val) {
-    for (int k=0; k < FAST_RING_P3_SIZE; ++k) {
-        int neigh_brigthness = int(imageLoad(image_input, center_point + FAST_RING_P3[k]).r);
-        int diff_brightness = int(center_val - neigh_brigthness);
-        
-        if (diff_brightness >= pc.threshold_diff)
-        {
-            return FAST_RESULT_MARKER;
+/* run_fast //{ */
+int run_fast(ivec2 center_point, int center_val, int radius)
+{
+    int boundary_max = 0;
+    int boundary_min = 255;
+
+    if (radius == 3) {
+        for (int i = 0; i < FAST_RING_P3_SIZE; ++i) {
+            ivec2 p = center_point + FAST_RING_P3[i];
+            int v = int(imageLoad(image_input, p).r);
+            boundary_max = max(boundary_max, v);
+            boundary_min = min(boundary_min, v);
         }
-        else if (isSunLikePixel(center_val) &&
-            diff_brightness < pc.threshold_diff)
-        {
-            return FAST_RESULT_SUN;
+    } 
+    else if (radius == 4) {
+        for (int i = 0; i < FAST_RING_P4_SIZE; ++i) {
+            ivec2 p = center_point + FAST_RING_P4[i];
+            int v = int(imageLoad(image_input, p).r);
+            boundary_max = max(boundary_max, v);
+            boundary_min = min(boundary_min, v);
         }
+    } 
+    else {
+        return FAST_RESULT_NONE;
     }
 
-    for (int k=0; k < FAST_RING_P4_SIZE; ++k) {
-        int neigh_brigthness = int(imageLoad(image_input, center_point + FAST_RING_P4[k]).r);
-        int diff_brightness = int(center_val - neigh_brigthness);
-        
-        if (diff_brightness >= pc.threshold_diff)
-        {
-            return FAST_RESULT_MARKER;
-        }
-        else if (isSunLikePixel(center_val) &&
-            diff_brightness < pc.threshold_diff)
-        {
-            return FAST_RESULT_SUN;
-        }
+    if ((center_val - boundary_max) >= pc.threshold_diff) {
+        return FAST_RESULT_MARKER;
     }
-
+    if (isSunLikePixel(center_val) && (center_val - boundary_min) <= pc.threshold_diff) {
+        return FAST_RESULT_SUN;
+    }
     return FAST_RESULT_NONE;
 }
-
-/* recordMarker //{ */
-void recordMarker(ivec2 point) {
-    uint idx = atomicAdd(ctr.marker_count, 1u);
-    if (idx < MAX_MARKERS) {
-        markers.marker_xy[idx*2+0] = uint(point.x);
-        markers.marker_xy[idx*2+1] = uint(point.y);
-    }
-}
 //}
 
-/* localizeMarkerPoint //{ */
-void localizeMarkerPoint(ivec2 center_point){
-    int best_val = 0;
-    ivec2 best_point = center_point;
-
-    for (int k=0; k<FAST_RING_INTERIOR_P3_SIZE; ++k){
-        ivec2 q = center_point + FAST_INTERIOR_SET_P3[k];
-        int s = int(imageLoad(image_input, q).r);
-
-        if (s > best_val) {
-            best_val = s;
-            best_point = q;
-        } 
-    }
-    recordMarker(best_point);
-}
-//}
 
 /* isInsideRoi //{ */
 bool isInsideRoi(ivec2 center_point, ivec2 image_size){
@@ -130,14 +110,31 @@ bool isInsideRoi(ivec2 center_point, ivec2 image_size){
 }
 //}
 
-
-
 /* isBelowBrightnessThreshold //{ */
 bool isBelowBrightnessThreshold(int center_brightness) {
-    return center_brightness <= pc.threshold;
+    return center_brightness < pc.threshold;
 }
 //}
 
+/* recordMarker //{ */
+void recordMarker(ivec2 point) {
+    uint idx = atomicAdd(ctr.marker_count, 1u);
+    if (idx < MAX_MARKERS) {
+        markers.marker_xy[idx*2+0] = uint(point.x);
+        markers.marker_xy[idx*2+1] = uint(point.y);
+    }
+}
+//}
+
+/* recordSun //{ */
+void recordSun(ivec2 point) {
+    uint idx = atomicAdd(ctr.sun_count, 1u);
+    if (idx < MAX_SUNS) {
+        suns.sun_xy[idx*2+0] = uint(point.x);
+        suns.sun_xy[idx*2+1] = uint(point.y);
+    }
+}
+//}
 
 /* main //{ */
 void main()
@@ -154,21 +151,38 @@ void main()
         return;
     }
 
-    int center_brightness = int(imageLoad(image_input, center_point).r);
+    int center_value = int(imageLoad(image_input, center_point).r);
 
   
-    if (isBelowBrightnessThreshold(center_brightness)) {
+    if (isBelowBrightnessThreshold(center_value)) {
         return;
     }
 
-    int result_FastRing3 = testFastRing3px(center_point, center_brightness);
-    if (result_FastRing3 == FAST_RESULT_MARKER){
+    int result = run_fast(center_point, center_value, FAST_RING3);
+    if (result == FAST_RESULT_MARKER){
         recordMarker(center_point);
     }
-    else if (result_FastRing3 == FAST_RESULT_SUN){
-        //TODO: add to the sun array
+    else if (result == FAST_RESULT_SUN){
+        recordSun(center_point);
     }    
-    
-    
-
+    return;
 }
+
+
+// /* localizeMarkerPoint //{ */
+// void localizeMarkerPoint(ivec2 center_point){
+//     int best_val = 0;
+//     ivec2 best_point = center_point;
+
+//     for (int k=0; k<FAST_RING_INTERIOR_P3_SIZE; ++k){
+//         ivec2 q = center_point + FAST_INTERIOR_SET_P3[k];
+//         int s = int(imageLoad(image_input, q).r);
+
+//         if (s > best_val) {
+//             best_val = s;
+//             best_point = q;
+//         } 
+//     }
+//     recordMarker(best_point);
+// }
+// //}
