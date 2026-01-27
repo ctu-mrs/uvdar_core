@@ -36,6 +36,10 @@ class UvdarLedDetectFastGpu : public UvLedDetectFastBase {
   std::vector<uint32_t> loadPrecompiledShader_(const std::string& pkg, const std::string& rel);
 
   void initFastInteriorSet_();
+  void initFastInteriorSet3pixels_();
+  void initFastInteriorSet4pixels_();
+  void initFastInteriorSet5pixels_();
+
   [[nodiscard]] inline bool isAlreadyAssignedToCluster_(const int point_idx) const noexcept;
   inline void addToCluster_(int idx);
 
@@ -59,7 +63,7 @@ class UvdarLedDetectFastGpu : public UvLedDetectFastBase {
   // const std::string eval_fast_ring_shader_;
   GpuContext& gpu_mgr_;
 
-  std::vector<std::vector<cv::Point>> fast_interior_set_;
+  std::vector<cv::Point> fast_interior_set_;
   cv::Mat image_check_;
   cv::Mat image_view_;
   cv::Rect roi_;

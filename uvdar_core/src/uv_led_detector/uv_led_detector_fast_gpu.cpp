@@ -103,8 +103,6 @@ void UvdarLedDetectFastGpu::handleGpuResults_(const cv::Mat& image, std::vector<
 void UvdarLedDetectFastGpu::localizeMarkers_(const cv::Mat& image, const uint32_t marker_count,
                                              const std::vector<uint32_t>& raw_detected_markers,
                                              std::vector<cv::Point2i>& detected_points) {
-  detected_points.reserve(marker_count);
-
   for (uint32_t i = 0; i < marker_count; ++i) {
     const int x = static_cast<int>(raw_detected_markers[2 * i]);
     const int y = static_cast<int>(raw_detected_markers[2 * i + 1]);
@@ -124,11 +122,9 @@ void UvdarLedDetectFastGpu::localizeMarkerPoint_(const cv::Mat& image, const cv:
   cv::Point best_point   = point;
   unsigned char best_val = 0;
 
-  const auto& interior = fast_interior_set_.back();
-
-  for (const auto& dp : interior) {
-    const int x = point.x + dp.x;
-    const int y = point.y + dp.y;
+  for (const auto& interior_point : fast_interior_set_) {
+    const int x = point.x + interior_point.x;
+    const int y = point.y + interior_point.y;
 
     if (x < 0 || y < 0 || x >= image.cols || y >= image.rows) {
       continue;
@@ -148,7 +144,7 @@ void UvdarLedDetectFastGpu::localizeMarkerPoint_(const cv::Mat& image, const cv:
     addToCluster_(idx);
   }
 
-  detected_points.emplace_back(best_point);
+  detected_points.push_back(best_point);
 }
 //}
 
@@ -225,27 +221,66 @@ void UvdarLedDetectFastGpu::initGpuComputing_() {
 
 /* initFastInteriorSet_ //{ */
 void UvdarLedDetectFastGpu::initFastInteriorSet_() {
+  if (cfg_.fast_ring_size == 3) {
+    initFastInteriorSet3pixels_();
+  } else if (cfg_.fast_ring_size == 4) {
+    initFastInteriorSet4pixels_();
+  } else if (cfg_.fast_ring_size == 5) {
+    initFastInteriorSet5pixels_();
+  } else {
+    throw std::runtime_error("fast_ring_size " + std::to_string(cfg_.fast_ring_size) + " is not supported.");
+  }
+}
+//}
+
+/* initFastInteriorSet3pixels_ //{ */
+void UvdarLedDetectFastGpu::initFastInteriorSet3pixels_() {
   fast_interior_set_.clear();
 
-  // clang-format off
-  fast_interior_set_.push_back({
-    {0,0},  {1,0},  {2,0},
-    {-2,1}, {-1,1},
-    {0,1},  {1,1},  {2,1},
-    {-1,2},
-    {0,2},  {1,2},
-  });
+  for (int y = -2; y <= 2; ++y) {
+    for (int x = -2; x <= 2; ++x) {
+      if (x == 0 && y == 0) {
+        continue;
+      }
+      if (x * x + y * y < 9) {
+        fast_interior_set_.push_back(cv::Point2i(x, y));
+      }
+    }
+  }
+}
+//}
 
-  fast_interior_set_.push_back({
-    {0,0},  {1,0},  {2,0},  {3,0},
-    {-3,1}, {-2,1}, {-1,1},
-    {0,1},  {1,1},  {2,1},  {3,1},
-    {-3,2}, {-2,2}, {-1,2},
-    {0,2},  {1,2},  {2,2},  {3,2},
-    {-2,3}, {-1,3},
-    {0,3},  {1,3},  {2,3},
-  });
-  // clang-format on
+/* initFastInteriorSet4pixels_ //{ */
+void UvdarLedDetectFastGpu::initFastInteriorSet4pixels_() {
+  fast_interior_set_.clear();
+
+  for (int y = -3; y <= 3; ++y) {
+    for (int x = -3; x <= 3; ++x) {
+      if (x == 0 && y == 0) {
+        continue;
+      }
+      if (x * x + y * y < 16) {
+        fast_interior_set_.push_back(cv::Point2i(x, y));
+      }
+    }
+  }
+}
+//}
+
+/* initFastInteriorSet5pixels_ //{ */
+void UvdarLedDetectFastGpu::initFastInteriorSet5pixels_() {
+  fast_interior_set_.clear();
+
+  for (int y = -4; y <= 4; ++y) {
+    for (int x = -4; x <= 4; ++x) {
+      if (x == 0 && y == 0) {
+        continue;
+      }
+      if (x * x + y * y < 25) {
+        fast_interior_set_.push_back(cv::Point2i(x, y));
+      }
+    }
+  }
 }
 //}
 
