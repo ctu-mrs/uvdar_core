@@ -7,13 +7,12 @@ layout (local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
 #define FAST_RESULT_NONE 0
 #define FAST_RESULT_MARKER 1
 #define FAST_RESULT_SUN 2
-#define FAST_RING3 3
-#define FAST_RING4 4
 
 layout(push_constant) uniform Params {
     int threshold;
     int threshold_diff;
     int threshold_sun;
+    int fast_ring_size;
 } pc;
 
 
@@ -29,6 +28,7 @@ layout(std430, set = 0, binding = 4) buffer SunBuf { uint sun_xy[];} suns;
 #define FAST_RING_P3_SIZE 16
 #define FAST_RING_INTERIOR_P3_SIZE 11
 #define FAST_RING_P4_SIZE 24
+#define FAST_RING_P5_SIZE 28
 
 const ivec2 FAST_RING_P3[FAST_RING_P3_SIZE] = ivec2[](
     ivec2( 0, -3), ivec2( 0,  3), ivec2( 3,  0), ivec2(-3,  0),
@@ -52,6 +52,17 @@ const ivec2 FAST_RING_P4[FAST_RING_P4_SIZE] = ivec2[](
     ivec2( 1, -4), ivec2(-1,  4), ivec2( 4,  1), ivec2(-4, -1),
     ivec2(-2, -4), ivec2( 2,  4), ivec2( 4, -2), ivec2(-4,  2),
     ivec2( 2, -4), ivec2(-2,  4), ivec2( 4,  2), ivec2(-4, -2)
+);
+
+
+const ivec2 FAST_RING_P5[FAST_RING_P5_SIZE] = ivec2[](
+    ivec2( 0, -5), ivec2( 0,  5), ivec2( 5,  0), ivec2(-5,  0),
+    ivec2( 3, -4), ivec2(-3,  4), ivec2(-3, -4), ivec2( 3,  4),
+    ivec2( 4, -3), ivec2(-4,  3), ivec2(-4, -3), ivec2( 4,  3),
+    ivec2(-1, -5), ivec2( 1,  5), ivec2( 5, -1), ivec2(-5,  1),
+    ivec2( 1, -5), ivec2(-1,  5), ivec2( 5,  1), ivec2(-5, -1),
+    ivec2(-2, -5), ivec2( 2,  5), ivec2( 5, -2), ivec2(-5,  2),
+    ivec2( 2, -5), ivec2(-2,  5), ivec2( 5,  2), ivec2(-5, -2)
 );
 
 /* isSunLikePixel //{ */
@@ -84,6 +95,14 @@ int run_fast(ivec2 center_point, int center_val, int radius)
             boundary_max = max(boundary_max, v);
             boundary_min = min(boundary_min, v);
         }
+    }
+    else if (radius == 5) {
+        for (int i = 0; i < FAST_RING_P5_SIZE; ++i) {
+            ivec2 p = center_point + FAST_RING_P5[i];
+            int v = int(imageLoad(image_input, p).r);
+            boundary_max = max(boundary_max, v);
+            boundary_min = min(boundary_min, v);
+        }
     } 
     else {
         return FAST_RESULT_NONE;
@@ -102,8 +121,8 @@ int run_fast(ivec2 center_point, int center_val, int radius)
 
 /* isInsideRoi //{ */
 bool isInsideRoi(ivec2 center_point, ivec2 image_size){
-    if (center_point.x >= 4 && center_point.x < image_size.x-4 
-        && center_point.y >= 4 && center_point.y < image_size.y-4 ) {
+    if (center_point.x >= pc.fast_ring_size && center_point.x < image_size.x-pc.fast_ring_size
+        && center_point.y >= pc.fast_ring_size && center_point.y < image_size.y-pc.fast_ring_size ) {
         return true;
     }
     return false;
@@ -147,18 +166,20 @@ void main()
     ivec2 center_point = ivec2(gl_GlobalInvocationID.xy);
     ivec2 image_size = imageSize(image_input);
 
+
     if (!isInsideRoi(center_point, image_size)) {
         return;
     }
 
-    int center_value = int(imageLoad(image_input, center_point).r);
+    int center_value = int((imageLoad(image_input, center_point).r) & (imageLoad(image_mask, center_point).r));
+    // int center_value = int((imageLoad(image_input, center_point).r));
 
   
     if (isBelowBrightnessThreshold(center_value)) {
         return;
     }
 
-    int result = run_fast(center_point, center_value, FAST_RING3);
+    int result = run_fast(center_point, center_value, pc.fast_ring_size);
     if (result == FAST_RESULT_MARKER){
         recordMarker(center_point);
     }

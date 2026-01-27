@@ -2,10 +2,6 @@
 
 namespace uvdar {
 
-inline int index2d(int x, int y, int cols) noexcept {
-  return cols * y + x;
-}
-
 /* UvdarLedDetectFastCpu constructor //{ */
 UvdarLedDetectFastCpu::UvdarLedDetectFastCpu(UvLedDetectConfig cfg, ILogger& logger)
     : UvLedDetectFastBase(std::move(cfg), logger) {

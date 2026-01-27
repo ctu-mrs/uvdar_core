@@ -66,6 +66,7 @@ void UvLedDetectorComponent::loadUvLedDetectParams_() {
   param_loader_->loadParam("uv_led_detector/use_gpu", detect_cfg_.gpu, false);
   param_loader_->loadParam("uv_led_detector/gui", detect_cfg_.gui, false);
   param_loader_->loadParam("uv_led_detector/use_masks", detect_cfg_.use_masks, false);
+  param_loader_->loadParam("uv_led_detector/fast_ring_size", detect_cfg_.fast_ring_size, 3);
   param_loader_->loadParam("uv_led_detector/threshold", detect_cfg_.threshold, 200);
   param_loader_->loadParam("uv_led_detector/threshold_diff", detect_cfg_.threshold_diff, 100);
   param_loader_->loadParam("uv_led_detector/threshold_sun", detect_cfg_.threshold_sun, 150);

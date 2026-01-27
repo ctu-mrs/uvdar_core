@@ -8,8 +8,9 @@ uv_led_detector:
   use_gpu: true
   gui: false
   use_masks: false
-  threshold: 150 # minimum pixel brightness to be considered
-  threshold_diff: 100 # minimum brightness difference from surrounding pixels
-  threshold_sun: 50 # brightness threshold for candidate sun pixels
+  fast_ring_size: 5 # only 3, 4, 5 are supported
+  threshold: 50 # minimum pixel brightness to be considered
+  threshold_diff: 25 # minimum brightness difference from surrounding pixels
+  threshold_sun: 150 # brightness threshold for candidate sun pixels
   threshold_sun_dist: 25 # max pixel distance to classify a pixel as sun-affected
   threshold_sun_merge: 20 # max pixel distance for merging sun pixel clusters

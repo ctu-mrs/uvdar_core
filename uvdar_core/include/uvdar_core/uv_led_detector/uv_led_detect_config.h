@@ -15,6 +15,7 @@ struct UvLedDetectConfig {
   bool gpu;
   bool gui;
   bool use_masks;
+  int fast_ring_size;
   int threshold;
   int threshold_diff;
   int threshold_sun;

@@ -5,6 +5,10 @@
 
 namespace uvdar {
 
+inline int index2d(int x, int y, int cols) noexcept {
+  return cols * y + x;
+}
+
 class UvLedDetectFastBase {
  public:
   virtual ~UvLedDetectFastBase() = default;
