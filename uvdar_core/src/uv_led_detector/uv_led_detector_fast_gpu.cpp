@@ -6,7 +6,6 @@ namespace uvdar {
 UvdarLedDetectFastGpu::UvdarLedDetectFastGpu(UvLedDetectConfig cfg, ILogger& logger)
     : UvLedDetectFastBase(std::move(cfg), logger), gpu_mgr_(GpuContext::GetInstance()) {
   logGpuProperties_();
-  initFastInteriorSet_();
   initGpuComputing_();
 }
 //}
@@ -27,7 +26,7 @@ bool UvdarLedDetectFastGpu::processImage(const cv::Mat image, std::vector<cv::Po
 
   scanImageForCandidates_(image, mask_id, detected_points, sun_points);
 
-  // rejectMarkersNearSun_(detected_points, sun_points);
+  rejectMarkersNearSun_(detected_points, sun_points);
 
   return true;
 }
@@ -37,7 +36,7 @@ bool UvdarLedDetectFastGpu::processImage(const cv::Mat image, std::vector<cv::Po
 void UvdarLedDetectFastGpu::scanImageForCandidates_(const cv::Mat image, const int mask_id,
                                                     std::vector<cv::Point2i>& detected_points,
                                                     std::vector<cv::Point2i>& sun_points) {
-  if (!image_gpu_in_ || !marker_counter_gpu_ || !detected_markers_gpu_) {
+  if (!image_gpu_in_ || !image_gpu_mask_ || !marker_counter_gpu_ || !detected_markers_gpu_ || !detected_suns_gpu_) {
     logger_.error("GPU Tensors not initialized! Skipping detection...");
     return;
   }
@@ -103,48 +102,57 @@ void UvdarLedDetectFastGpu::handleGpuResults_(const cv::Mat& image, std::vector<
 void UvdarLedDetectFastGpu::localizeMarkers_(const cv::Mat& image, const uint32_t marker_count,
                                              const std::vector<uint32_t>& raw_detected_markers,
                                              std::vector<cv::Point2i>& detected_points) {
+  if (marker_count == 0) {
+    return;
+  }
+
+  // TODO: this parameter can be bigger than the fast_ring (something to discuss)
+  const uint32_t distance_threshold = cfg_.fast_ring_size * cfg_.fast_ring_size;
+  uint32_t cluster_count            = 0;
+
   for (uint32_t i = 0; i < marker_count; ++i) {
     const int x = static_cast<int>(raw_detected_markers[2 * i]);
     const int y = static_cast<int>(raw_detected_markers[2 * i + 1]);
-    localizeMarkerPoint_(image, cv::Point2i(x, y), detected_points);
-  }
-}
-//}
 
-/* localizeMarkerPoint_ //{ */
-void UvdarLedDetectFastGpu::localizeMarkerPoint_(const cv::Mat& image, const cv::Point point,
-                                                 std::vector<cv::Point2i>& detected_points) {
-  if (image.empty() || image.data == nullptr)
-    return;
-  if (fast_interior_set_.empty())
-    return;
+    int best_cluster   = -1;
+    uint32_t best_dist = distance_threshold + 1;
 
-  cv::Point best_point   = point;
-  unsigned char best_val = 0;
+    for (uint32_t cluster_id = 0; cluster_id < cluster_count; ++cluster_id) {
+      const int dx        = clusters_[cluster_id].avg_x - x;
+      const int dy        = clusters_[cluster_id].avg_y - y;
+      const uint32_t dist = static_cast<uint32_t>(dx * dx + dy * dy);
 
-  for (const auto& interior_point : fast_interior_set_) {
-    const int x = point.x + interior_point.x;
-    const int y = point.y + interior_point.y;
-
-    if (x < 0 || y < 0 || x >= image.cols || y >= image.rows) {
-      continue;
+      if (dist <= best_dist) {
+        best_cluster = cluster_id;
+        best_dist    = dist;
+        if (dist == 0) {
+          break; // found the exact center
+        }
+      }
     }
 
-    const int idx = index2d(x, y, image.cols);
-
-    if (isAlreadyAssignedToCluster_(idx)) {
-      continue;
+    if (best_cluster != -1 && best_dist <= distance_threshold) {
+      auto& c = clusters_[best_cluster];
+      c.x_sum += x;
+      c.y_sum += y;
+      c.count += 1;
+      c.avg_x = c.x_sum / c.count;
+      c.avg_y = c.y_sum / c.count;
+    } else if (cluster_count < MAX_MARKERS_) {
+      auto& c = clusters_[cluster_count];
+      c.x_sum = x;
+      c.y_sum = y;
+      c.count = 1;
+      c.avg_x = x;
+      c.avg_y = y;
+      cluster_count++;
     }
-
-    if (image.data[idx] > best_val) {
-      best_val   = image.data[idx];
-      best_point = cv::Point(x, y);
-    }
-
-    addToCluster_(idx);
   }
 
-  detected_points.push_back(best_point);
+  detected_points.reserve(cluster_count);
+  for (uint32_t i = 0; i < cluster_count; i++) {
+    detected_points.emplace_back(clusters_[i].x_sum / clusters_[i].count, clusters_[i].y_sum / clusters_[i].count);
+  }
 }
 //}
 
@@ -155,6 +163,7 @@ void UvdarLedDetectFastGpu::localizeSuns_(const uint32_t sun_count, const std::v
   for (uint32_t i = 0; i < sun_count; ++i) {
     const int x = static_cast<int>(raw_sun_markers[2 * i]);
     const int y = static_cast<int>(raw_sun_markers[2 * i + 1]);
+    sun_points.emplace_back(cv::Point2i(x, y));
   }
 }
 //}
@@ -219,71 +228,6 @@ void UvdarLedDetectFastGpu::initGpuComputing_() {
 }
 //}
 
-/* initFastInteriorSet_ //{ */
-void UvdarLedDetectFastGpu::initFastInteriorSet_() {
-  if (cfg_.fast_ring_size == 3) {
-    initFastInteriorSet3pixels_();
-  } else if (cfg_.fast_ring_size == 4) {
-    initFastInteriorSet4pixels_();
-  } else if (cfg_.fast_ring_size == 5) {
-    initFastInteriorSet5pixels_();
-  } else {
-    throw std::runtime_error("fast_ring_size " + std::to_string(cfg_.fast_ring_size) + " is not supported.");
-  }
-}
-//}
-
-/* initFastInteriorSet3pixels_ //{ */
-void UvdarLedDetectFastGpu::initFastInteriorSet3pixels_() {
-  fast_interior_set_.clear();
-
-  for (int y = -2; y <= 2; ++y) {
-    for (int x = -2; x <= 2; ++x) {
-      if (x == 0 && y == 0) {
-        continue;
-      }
-      if (x * x + y * y < 9) {
-        fast_interior_set_.push_back(cv::Point2i(x, y));
-      }
-    }
-  }
-}
-//}
-
-/* initFastInteriorSet4pixels_ //{ */
-void UvdarLedDetectFastGpu::initFastInteriorSet4pixels_() {
-  fast_interior_set_.clear();
-
-  for (int y = -3; y <= 3; ++y) {
-    for (int x = -3; x <= 3; ++x) {
-      if (x == 0 && y == 0) {
-        continue;
-      }
-      if (x * x + y * y < 16) {
-        fast_interior_set_.push_back(cv::Point2i(x, y));
-      }
-    }
-  }
-}
-//}
-
-/* initFastInteriorSet5pixels_ //{ */
-void UvdarLedDetectFastGpu::initFastInteriorSet5pixels_() {
-  fast_interior_set_.clear();
-
-  for (int y = -4; y <= 4; ++y) {
-    for (int x = -4; x <= 4; ++x) {
-      if (x == 0 && y == 0) {
-        continue;
-      }
-      if (x * x + y * y < 25) {
-        fast_interior_set_.push_back(cv::Point2i(x, y));
-      }
-    }
-  }
-}
-//}
-
 /* initDelayed //{ */
 bool UvdarLedDetectFastGpu::initDelayed(const cv::Mat image) {
   return true;
@@ -302,6 +246,7 @@ inline void UvdarLedDetectFastGpu::addToCluster_(int idx) {
 }
 //}
 
+/* initOnFirstFrame_ //{ */
 void UvdarLedDetectFastGpu::initOnFirstFrame_(const cv::Mat& image_curr) {
   if (first_) {
     first_       = false;

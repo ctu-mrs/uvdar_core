@@ -8,7 +8,7 @@ uv_led_detector:
   use_gpu: true
   gui: false
   use_masks: false
-  fast_ring_size: 5 # only 3, 4, 5 are supported
+  fast_ring_size: 4 # only 3, 4 or 5 are supported
   threshold: 50 # minimum pixel brightness to be considered
   threshold_diff: 25 # minimum brightness difference from surrounding pixels
   threshold_sun: 150 # brightness threshold for candidate sun pixels

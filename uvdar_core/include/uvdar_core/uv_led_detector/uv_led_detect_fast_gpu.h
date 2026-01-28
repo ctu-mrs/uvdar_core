@@ -14,6 +14,14 @@
 
 namespace uvdar {
 
+struct Cluster {
+  int x_sum;
+  int y_sum;
+  int count;
+  int avg_x;
+  int avg_y;
+};
+
 class UvdarLedDetectFastGpu : public UvLedDetectFastBase {
  public:
   explicit UvdarLedDetectFastGpu(UvLedDetectConfig cfg, ILogger& logger);
@@ -34,11 +42,6 @@ class UvdarLedDetectFastGpu : public UvLedDetectFastBase {
   void rejectMarkersNearSun_(std::vector<cv::Point2i>& detected_points, const std::vector<cv::Point2i>& sun_points);
 
   std::vector<uint32_t> loadPrecompiledShader_(const std::string& pkg, const std::string& rel);
-
-  void initFastInteriorSet_();
-  void initFastInteriorSet3pixels_();
-  void initFastInteriorSet4pixels_();
-  void initFastInteriorSet5pixels_();
 
   [[nodiscard]] inline bool isAlreadyAssignedToCluster_(const int point_idx) const noexcept;
   inline void addToCluster_(int idx);
@@ -63,7 +66,6 @@ class UvdarLedDetectFastGpu : public UvLedDetectFastBase {
   // const std::string eval_fast_ring_shader_;
   GpuContext& gpu_mgr_;
 
-  std::vector<cv::Point> fast_interior_set_;
   cv::Mat image_check_;
   cv::Mat image_view_;
   cv::Rect roi_;
@@ -80,6 +82,8 @@ class UvdarLedDetectFastGpu : public UvLedDetectFastBase {
 
   std::vector<std::shared_ptr<kp::Memory>> params_;
   std::shared_ptr<kp::Algorithm> eval_fast_ring_gpu_alg_;
+
+  std::array<Cluster, MAX_MARKERS_> clusters_;
 };
 
 } // namespace uvdar
