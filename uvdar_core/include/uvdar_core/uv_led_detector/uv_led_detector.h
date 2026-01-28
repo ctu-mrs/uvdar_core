@@ -10,7 +10,10 @@ class UvLedDetector {
   UvLedDetector(ILogger& logger, const UvLedDetectConfig& cfg);
   ~UvLedDetector();
 
-  bool detect(const cv::Mat i_image, std::vector<cv::Point2i>& detected_points, std::vector<cv::Point2i>& sun_points);
+  [[nodiscard]] bool detect(const cv::Mat& image, std::vector<cv::Point2i>& detected_points,
+                            std::vector<cv::Point2i>& sun_points);
+
+  void initGpuProgram(const cv::Mat& image);
 
  private:
   std::unique_ptr<UvLedDetectFastBase> makeUvLedDetector_();
@@ -18,6 +21,7 @@ class UvLedDetector {
  private:
   ILogger& logger_;
   const UvLedDetectConfig cfg_;
+  bool ready_to_process_{false};
 
   std::unique_ptr<UvLedDetectFastBase> detector_;
 

@@ -214,25 +214,38 @@ bool UvLedDetectorComponent::areAllCamerasDetected_() {
 }
 //}
 
-/* isInitDelayDone_ //{ */
-bool UvLedDetectorComponent::isInitDelayDone_() {
-  /*
-   This delay is necessary to avoid strange segmentation faults with software
-   rendering backend for OpenGL used in the buildfarm testing.
-  */
+/* isReadyToProcess_ //{ */
+bool UvLedDetectorComponent::isReadyToProcess_(const int image_index) {
+  initGpuProgram_(image_index);
+  return hasInitialDelayElapsed_();
+}
+//}
+
+/* initGpuProgram_ //{ */
+void UvLedDetectorComponent::initGpuProgram_(const int image_index) {
   if (initial_delay_done_flag_.load(std::memory_order_acquire)) {
-    return true;
+    return;
   }
 
   std::lock_guard<std::mutex> lk(initial_delay_mtx_);
   // re-check
   if (initial_delay_done_flag_.load(std::memory_order_relaxed)) {
-    return true;
+    return;
   }
 
   if (!initial_delay_started_flag_) {
     initial_delay_started_flag_ = true;
     initial_delay_start_        = node_->get_clock()->now();
+    auto& cam                   = cameras_[image_index];
+    cam.uv_detector->initGpuProgram(cam.current_image);
+  }
+}
+//}
+
+/* hasInitialDelayElapsed_ //{ */
+bool UvLedDetectorComponent::hasInitialDelayElapsed_() {
+  if (initial_delay_done_flag_.load(std::memory_order_acquire)) {
+    return true;
   }
 
   const auto now       = node_->get_clock()->now();
@@ -274,7 +287,7 @@ void UvLedDetectorComponent::processImage_(const int image_index) {
     return;
   }
 
-  if (!isInitDelayDone_()) {
+  if (detect_cfg_.gpu && !isReadyToProcess_(image_index)) {
     return;
   }
 

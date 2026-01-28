@@ -1,9 +1,8 @@
 #version 460
 
+// Do not change kernel's size
 layout (local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
 
-#define MAX_MARKERS 100
-#define MAX_SUNS 100
 #define FAST_RESULT_NONE 0
 #define FAST_RESULT_MARKER 1
 #define FAST_RESULT_SUN 2
@@ -13,6 +12,8 @@ layout(push_constant) uniform Params {
     int threshold_diff;
     int threshold_sun;
     int fast_ring_size;
+    uint max_markers;
+    uint max_suns;
 } pc;
 
 
@@ -26,25 +27,19 @@ layout(std430, set = 0, binding = 4) buffer SunBuf { uint sun_xy[];} suns;
 
 
 #define FAST_RING_P3_SIZE 16
-#define FAST_RING_INTERIOR_P3_SIZE 11
 #define FAST_RING_P4_SIZE 24
 #define FAST_RING_P5_SIZE 28
 
+/* FAST_RING_P3 //{ */
 const ivec2 FAST_RING_P3[FAST_RING_P3_SIZE] = ivec2[](
     ivec2( 0, -3), ivec2( 0,  3), ivec2( 3,  0), ivec2(-3,  0),
     ivec2( 2, -2), ivec2(-2,  2), ivec2(-2, -2), ivec2( 2,  2),
     ivec2(-1, -3), ivec2( 1,  3), ivec2( 3, -1), ivec2(-3,  1),
     ivec2( 1, -3), ivec2(-1,  3), ivec2( 3,  1), ivec2(-3, -1)
 );
+//}
 
-const ivec2 FAST_INTERIOR_SET_P3[FAST_RING_INTERIOR_P3_SIZE] = ivec2[](
-    ivec2( 0, 0), ivec2( 1, 0), ivec2( 2, 0),
-    ivec2(-2, 1), ivec2(-1, 1),
-    ivec2( 0, 1), ivec2( 1, 1), ivec2( 2, 1),
-    ivec2(-1, 2),
-    ivec2( 0, 2), ivec2( 1, 2)
-);
-
+/* FAST_RING_P4 //{ */
 const ivec2 FAST_RING_P4[FAST_RING_P4_SIZE] = ivec2[](
     ivec2( 0, -4), ivec2( 0,  4), ivec2( 4,  0), ivec2(-4,  0),
     ivec2( 3, -3), ivec2(-3,  3), ivec2(-3, -3), ivec2( 3,  3),
@@ -53,8 +48,9 @@ const ivec2 FAST_RING_P4[FAST_RING_P4_SIZE] = ivec2[](
     ivec2(-2, -4), ivec2( 2,  4), ivec2( 4, -2), ivec2(-4,  2),
     ivec2( 2, -4), ivec2(-2,  4), ivec2( 4,  2), ivec2(-4, -2)
 );
+//}
 
-
+/* FAST_RING_P5 //{ */
 const ivec2 FAST_RING_P5[FAST_RING_P5_SIZE] = ivec2[](
     ivec2( 0, -5), ivec2( 0,  5), ivec2( 5,  0), ivec2(-5,  0),
     ivec2( 3, -4), ivec2(-3,  4), ivec2(-3, -4), ivec2( 3,  4),
@@ -64,6 +60,7 @@ const ivec2 FAST_RING_P5[FAST_RING_P5_SIZE] = ivec2[](
     ivec2(-2, -5), ivec2( 2,  5), ivec2( 5, -2), ivec2(-5,  2),
     ivec2( 2, -5), ivec2(-2,  5), ivec2( 5,  2), ivec2(-5, -2)
 );
+//}
 
 /* isSunLikePixel //{ */
 bool isSunLikePixel(int center_val) {
@@ -74,8 +71,8 @@ bool isSunLikePixel(int center_val) {
 }
 //}
 
-/* run_fast //{ */
-int run_fast(ivec2 center_point, int center_val, int radius)
+/* runFast //{ */
+int runFast(ivec2 center_point, int center_val, int radius)
 {
     int boundary_max = 0;
     int boundary_min = 255;
@@ -138,7 +135,7 @@ bool isBelowBrightnessThreshold(int center_brightness) {
 /* recordMarker //{ */
 void recordMarker(ivec2 point) {
     uint idx = atomicAdd(ctr.marker_count, 1u);
-    if (idx < MAX_MARKERS) {
+    if (idx < pc.max_markers) {
         markers.marker_xy[idx*2+0] = uint(point.x);
         markers.marker_xy[idx*2+1] = uint(point.y);
     }
@@ -148,7 +145,7 @@ void recordMarker(ivec2 point) {
 /* recordSun //{ */
 void recordSun(ivec2 point) {
     uint idx = atomicAdd(ctr.sun_count, 1u);
-    if (idx < MAX_SUNS) {
+    if (idx < pc.max_suns) {
         suns.sun_xy[idx*2+0] = uint(point.x);
         suns.sun_xy[idx*2+1] = uint(point.y);
     }
@@ -159,7 +156,7 @@ void recordSun(ivec2 point) {
 void main()
 {
     uint current_count = ctr.marker_count;
-    if (current_count >= MAX_MARKERS) {
+    if (current_count >= pc.max_markers) {
         return;
     }
 
@@ -172,38 +169,19 @@ void main()
     }
 
     int center_value = int((imageLoad(image_input, center_point).r) & (imageLoad(image_mask, center_point).r));
-    // int center_value = int((imageLoad(image_input, center_point).r));
-
   
     if (isBelowBrightnessThreshold(center_value)) {
         return;
     }
 
-    int result = run_fast(center_point, center_value, pc.fast_ring_size);
+    int result = runFast(center_point, center_value, pc.fast_ring_size);
     if (result == FAST_RESULT_MARKER){
         recordMarker(center_point);
+        return;
     }
     else if (result == FAST_RESULT_SUN){
         recordSun(center_point);
+        return;
     }    
-    return;
 }
-
-
-// /* localizeMarkerPoint //{ */
-// void localizeMarkerPoint(ivec2 center_point){
-//     int best_val = 0;
-//     ivec2 best_point = center_point;
-
-//     for (int k=0; k<FAST_RING_INTERIOR_P3_SIZE; ++k){
-//         ivec2 q = center_point + FAST_INTERIOR_SET_P3[k];
-//         int s = int(imageLoad(image_input, q).r);
-
-//         if (s > best_val) {
-//             best_val = s;
-//             best_point = q;
-//         } 
-//     }
-//     recordMarker(best_point);
-// }
-// //}
+//}

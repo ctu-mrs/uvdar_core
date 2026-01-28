@@ -22,20 +22,47 @@ struct Cluster {
   int avg_y;
 };
 
+struct FastGpuResources {
+  std::shared_ptr<kp::ImageT<uint8_t>> image_in;
+  std::shared_ptr<kp::ImageT<uint8_t>> image_mask;
+
+  std::shared_ptr<kp::TensorT<uint32_t>> detected_markers;
+  std::shared_ptr<kp::TensorT<uint32_t>> detected_suns;
+  std::shared_ptr<kp::TensorT<uint32_t>> marker_counter;
+
+  std::shared_ptr<kp::Algorithm> eval_fast_ring_alg;
+
+  std::vector<std::shared_ptr<kp::Memory>> params;
+
+  bool valid() const {
+    return image_in && image_mask && detected_markers && detected_suns && marker_counter && eval_fast_ring_alg;
+  }
+
+  void rebuild_params() {
+    params.clear();
+    params.reserve(5);
+
+    // do not change the order
+    params.push_back(image_in);
+    params.push_back(image_mask);
+    params.push_back(detected_markers);
+    params.push_back(marker_counter);
+    params.push_back(detected_suns);
+  }
+};
+
 class UvdarLedDetectFastGpu : public UvLedDetectFastBase {
  public:
   explicit UvdarLedDetectFastGpu(UvLedDetectConfig cfg, ILogger& logger);
   bool processImage(const cv::Mat image, std::vector<cv::Point2i>& detected_points,
                     std::vector<cv::Point2i>& sun_points, int mask_id = -1) override;
-  bool initDelayed(const cv::Mat image) override;
+  void initGpuProgram(const cv::Mat image) override;
 
  private:
-  void initOnFirstFrame_(const cv::Mat& image_curr);
-  void clearMarks_(const cv::Mat& image_curr);
   [[nodiscard]] bool validateMask_(const cv::Mat& image_curr, const int mask_id) const noexcept;
 
   void logGpuProperties_();
-  void initGpuComputing_();
+  void initGpuComputing_(const int width, const int height);
 
   void scanImageForCandidates_(const cv::Mat image, const int mask_id, std::vector<cv::Point2i>& detected_points,
                                std::vector<cv::Point2i>& sun_points);
@@ -43,45 +70,29 @@ class UvdarLedDetectFastGpu : public UvLedDetectFastBase {
 
   std::vector<uint32_t> loadPrecompiledShader_(const std::string& pkg, const std::string& rel);
 
-  [[nodiscard]] inline bool isAlreadyAssignedToCluster_(const int point_idx) const noexcept;
-  inline void addToCluster_(int idx);
-
   void greyToRgba_(const cv::Mat& gray, std::vector<uint8_t>& out);
 
   void updateGpuInputs_(const cv::Mat& image, const int mask_id);
   void evaluateFastRingsGpu_();
-  void handleGpuResults_(const cv::Mat& image, std::vector<cv::Point2i>& detected_points,
-                         std::vector<cv::Point2i>& sun_points);
+  void handleGpuResults_(std::vector<cv::Point2i>& detected_points, std::vector<cv::Point2i>& sun_points);
 
-  void localizeMarkers_(const cv::Mat& image, const uint32_t marker_count,
-                        const std::vector<uint32_t>& raw_detected_markers, std::vector<cv::Point2i>& detected_points);
-  void localizeMarkerPoint_(const cv::Mat& image, const cv::Point point, std::vector<cv::Point2i>& detected_points);
+  void localizeMarkers_(const uint32_t marker_count, const std::vector<uint32_t>& raw_detected_markers,
+                        std::vector<cv::Point2i>& detected_points);
 
   void localizeSuns_(const uint32_t sun_count, const std::vector<uint32_t>& raw_sun_markers,
                      std::vector<cv::Point2i>& sun_points);
 
  private:
   static constexpr uint32_t MAX_MARKERS_{100};
+  static constexpr uint32_t MAX_SUNS_{100};
   static constexpr uint32_t KERNEL_SIZE_{16};
-  // const std::string eval_fast_ring_shader_;
+
   GpuContext& gpu_mgr_;
 
-  cv::Mat image_check_;
-  cv::Mat image_view_;
-  cv::Rect roi_;
-  bool first_{true};
+  FastGpuResources gpu_resources_;
 
-  std::shared_ptr<kp::ImageT<uint8_t>> image_gpu_in_;
-  std::shared_ptr<kp::ImageT<uint8_t>> image_gpu_out_;
-  std::shared_ptr<kp::ImageT<uint8_t>> image_gpu_mask_;
-  std::shared_ptr<kp::TensorT<uint32_t>> detected_markers_gpu_;
-  std::shared_ptr<kp::TensorT<uint32_t>> detected_suns_gpu_;
-  std::shared_ptr<kp::TensorT<uint32_t>> marker_counter_gpu_;
   std::vector<uint8_t> image_pixels_in_;
   std::vector<uint8_t> image_mask_pixels_in_;
-
-  std::vector<std::shared_ptr<kp::Memory>> params_;
-  std::shared_ptr<kp::Algorithm> eval_fast_ring_gpu_alg_;
 
   std::array<Cluster, MAX_MARKERS_> clusters_;
 };

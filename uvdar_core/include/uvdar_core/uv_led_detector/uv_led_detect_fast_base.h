@@ -40,10 +40,10 @@ class UvLedDetectFastBase {
 
   /**
    * @brief Arbitrary initialization procedures that happen outside of the constructor at a later time, after the first
-   * image is retrieved to use for parameters Must be overriden by inheriting class
+   * image is retrieved to use for parameters Must be overriden by inheriting class. Useful only for GPU detector
    *
    */
-  virtual bool initDelayed(const cv::Mat image) = 0;
+  virtual void initGpuProgram(const cv::Mat image) = 0;
 
  protected:
   explicit UvLedDetectFastBase(UvLedDetectConfig cfg, ILogger& logger) : cfg_(std::move(cfg)), logger_(logger) {

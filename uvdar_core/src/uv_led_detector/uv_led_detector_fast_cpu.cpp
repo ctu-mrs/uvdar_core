@@ -77,9 +77,9 @@ void UvdarLedDetectFastCpu::initOnFirstFrame_() {
 }
 //}
 
-/* initDelayed //{ */
-bool UvdarLedDetectFastCpu::initDelayed([[maybe_unused]] const cv::Mat i_image) {
-  return false;
+/* initGpuProgram //{ */
+void UvdarLedDetectFastCpu::initGpuProgram([[maybe_unused]] const cv::Mat i_image) {
+  return;
 }
 //}
 

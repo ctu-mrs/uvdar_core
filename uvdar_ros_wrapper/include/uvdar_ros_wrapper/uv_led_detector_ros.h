@@ -61,7 +61,9 @@ class UvLedDetectorComponent : public rclcpp::Node {
   void loadUvLedDetectParams_();
 
   [[nodiscard]] bool areAllCamerasDetected_();
-  [[nodiscard]] bool isInitDelayDone_();
+  [[nodiscard]] bool isReadyToProcess_(const int image_index);
+  [[nodiscard]] bool hasInitialDelayElapsed_();
+  void initGpuProgram_(const int image_index);
 
   void checkCameraInputTopics_();
   void checkDetectedPointsTopics_();
