@@ -136,7 +136,6 @@ void UvLedDetectorComponent::initRosInterface_() {
 
 /* initRosProcessImgSubs_ //{ */
 void UvLedDetectorComponent::initRosProcessImgSubs_() {
-
   for (size_t i = 0; i < camera_count_; ++i) {
     auto& cam = cameras_.at(i);
 
@@ -188,6 +187,7 @@ void UvLedDetectorComponent::initRosPublishers_() {
     cam.pub_debug_sp_image =
         mrs_lib::PublisherHandler<sensor_msgs::msg::Image>(pubopts, cam.detected_points_topic + "/sun/raw_image");
 #ifdef DEBUG
+
 #endif
   }
 }
@@ -264,7 +264,6 @@ bool UvLedDetectorComponent::hasInitialDelayElapsed_() {
 
 /* processImage_ //{ */
 void UvLedDetectorComponent::processImage_(const int image_index) {
-
   auto& cam = cameras_[image_index];
   sensor_msgs::msg::Image::ConstSharedPtr msg;
   {
@@ -304,6 +303,7 @@ void UvLedDetectorComponent::processImage_(const int image_index) {
                        cam.detected_points.size());
   RCLCPP_INFO_THROTTLE(node_->get_logger(), *node_->get_clock(), 1000, "Number of sun points: %ld",
                        cam.sun_points.size());
+
   publishDetectedPointsImage_(*cv_ptr, cam);
 
   publishSunPointsImage_(*cv_ptr, cam);

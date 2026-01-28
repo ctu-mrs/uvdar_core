@@ -19,3 +19,13 @@ ament_add_gtest(test_${TEST_NAME}_single_point_gpu
 target_link_libraries(test_${TEST_NAME}_single_point_gpu
   uvdar_core::uvdar_core
 )
+
+# GPU computational time
+ament_add_gtest(test_${TEST_NAME}_comp_time
+  test_comp_time_gpu.cpp
+  TIMEOUT 60
+)
+
+target_link_libraries(test_${TEST_NAME}_comp_time
+  uvdar_core::uvdar_core
+)

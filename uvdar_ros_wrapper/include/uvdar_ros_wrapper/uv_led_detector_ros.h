@@ -18,8 +18,6 @@
 namespace uvdar {
 
 using namespace std::literals::chrono_literals;
-// using image_callback_t = std::function<void(const sensor_msgs::msg::Image::ConstSharedPtr&)>;
-
 using image_point_publisher_t = mrs_lib::PublisherHandler<uvdar_ros_interfaces::msg::ImagePointsWithFloatStamped>;
 
 struct CameraContext {

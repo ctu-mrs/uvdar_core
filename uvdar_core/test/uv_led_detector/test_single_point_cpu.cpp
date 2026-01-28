@@ -21,10 +21,6 @@ cv::Mat createSingleMarkerImage(const int cx, const int cy) {
 //}
 
 /* TEST(UvLedDetector, CPU_RoiBreach) //{ */
-/**
- * @brief Add the marker point to the corner of the image
- *        so that the isInsideRoi_() check is triggered.
- */
 TEST(UvLedDetector, CPU_RoiBreach) {
   DummyLogger logger;
   uvdar::UvLedDetectConfig cfg;
