@@ -128,7 +128,7 @@ include_directories(
   ${OpenCV_INCLUDE_DIRS}
   ${EIGEN3_INCLUDE_DIRS}
   ${OpenGL_INCLUDE_DIRS}
-  ${LIBGBM_INCLUDE_DIRS}
+  ${LGBM_INCLUDE_DIRS}
   )
 
 

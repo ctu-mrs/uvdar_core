@@ -1,0 +1,29 @@
+root: ./
+name: uvdar_tests
+socket_name: mrs
+attach: false
+tmux_options: -f /etc/ctu-mrs/tmux.conf
+# you can modify these
+pre_window:
+  - export UAV_NAME=uav
+  - export MRS_ID=0
+  - export BASLER_UV_LEFT=11111
+  - export BASLER_UV_LEFT_EXPOSE_US=10000
+  - export BASLER_UV_RIGHT=12345
+  - export BASLER_UV_RIGHT_EXPOSE_US=10000
+  - export BASLER_UV_BACK=541231
+  - export BASLER_UV_BACK_EXPOSE_US=10000
+startup_window: uvdar
+windows:
+  - roscore:
+      layout: tiled
+      panes:
+        - roscore
+  - uvdar_uwb:
+      layout: tiled
+      panes:
+        - waitForRos; roslaunch uwb_uvdar_fusion all_test_basler.launch
+  - rviz:
+      layout: tiled
+      panes:
+        - waitForRos; rosrun rviz rviz -d ./rviz.rviz
