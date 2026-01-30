@@ -18,6 +18,23 @@ sudo cmake --install build
 sudo ldconfig
 ```
 
+### ROS2 compilation
+#### Standard build:
+```bash
+colcon build --symlink-install --packages-select uvdar_core uvdar_ros_wrapper uvdar_ros_interfaces --cmake-args -DCMAKE_BUILD_TYPE=Release
+```
+
+#### Tracy Profiler
+To build with [Tracy](https://github.com/wolfpld/tracy) profiler enabled:
+```bash
+colcon build --symlink-install --packages-select uvdar_core uvdar_ros_wrapper uvdar_ros_interfaces --cmake-args -DCMAKE_BUILD_TYPE=Release -DUSE_TRACY=ON
+```
+
+#### Shader compilation
+Shaders are always compiled, however, compilation errors may be hidden unless you use `--event-handlers console_direct+` to see the direct output:
+```bash
+colcon build --symlink-install --packages-select uvdar_core uvdar_ros_wrapper uvdar_ros_interfaces --cmake-args -DCMAKE_BUILD_TYPE=Release --event-handlers console_direct+
+```
 
 ## Description
 This package contains the core signal processing and pose estimation software components of the UVDAR system necessary for running it on a MAV.

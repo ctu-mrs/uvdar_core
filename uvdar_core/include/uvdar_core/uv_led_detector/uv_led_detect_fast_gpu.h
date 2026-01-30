@@ -34,6 +34,8 @@ struct FastGpuResources {
 
   std::vector<std::shared_ptr<kp::Memory>> params;
 
+  std::shared_ptr<kp::Sequence> sequence;
+
   bool valid() const {
     return image_in && image_mask && detected_markers && detected_suns && marker_counter && eval_fast_ring_alg;
   }

@@ -3,14 +3,16 @@
 #include "../dummy_logger.h"
 #include "../timer.h"
 #include <thread>
-
 #include <uvdar_core/uv_led_detector/uv_led_detector.h>
 
-static const int W = 960;
-static const int H = 600;
-// static const int W = 1920;
-// static const int H = 1080;
+static const int W           = 960;
+static const int H           = 600;
+static const int NUM_TESTS   = 10;
+static const int NUM_MARKERS = 10;
+// static const int W           = 1920;
+// static const int H           = 1080;
 
+/* compareGroundTruth //{ */
 bool compareGroundTruth(std::vector<cv::Point2i> ground_truth, std::vector<cv::Point2i> detected_points,
                         int tol_px = 1) {
   if (ground_truth.size() != detected_points.size()) {
@@ -42,6 +44,7 @@ bool compareGroundTruth(std::vector<cv::Point2i> ground_truth, std::vector<cv::P
 
   return true;
 }
+//}
 
 /* createRandomMarkersImage //{ */
 cv::Mat createRandomMarkersImage(int num_markers, uint8_t brightness, std::vector<cv::Point2i>& ground_truth) {
@@ -81,10 +84,8 @@ cv::Mat createRandomMarkersImage(int num_markers, uint8_t brightness, std::vecto
 }
 //}
 
-TEST(UvLedDetector, GPU_CompTimeTest) {
-  int NUM_TESTS   = 100;
-  int NUM_MARKERS = 10;
-
+/* TEST(UvLedDetector, GPU_MultiplePoints_OneTrial) //{ */
+TEST(UvLedDetector, GPU_MultiplePoints_OneTrial) {
   std::vector<cv::Point2i> ground_truth;
   std::vector<cv::Point2i> detected_points;
   std::vector<cv::Point2i> sun_points;
@@ -104,76 +105,24 @@ TEST(UvLedDetector, GPU_CompTimeTest) {
   uvdar::UvdarLedDetectFastGpu uv_detector(cfg, logger);
   uv_detector.initGpuProgram(dummy_image);
 
-  int64_t total_time_ms{0};
   bool success_flag;
-  for (int i = 0; i < NUM_TESTS; ++i) {
-    uvdar::ScopeTimer timer(logger);
+  {
+#ifdef TRACY_ENABLE
+    ZoneScopedNC("GPU_CompTimeTest", tracy::Color::DarkKhaki);
+#endif
     success_flag = uv_detector.processImage(dummy_image, detected_points, sun_points);
-    total_time_ms += timer.stop();
   }
-
-  TEST_COUT << "[UvledDetectorGpu]: Average time: " << std::to_string(total_time_ms / NUM_TESTS) << " ms over "
-            << std::to_string(NUM_TESTS) << " tests" << std::endl;
 
   EXPECT_TRUE(success_flag);
   EXPECT_EQ(detected_points.size(), NUM_MARKERS);
   EXPECT_TRUE(compareGroundTruth(ground_truth, detected_points));
 }
+//}
 
-TEST(UvLedDetector, CPU_CompTimeTest) {
-  int NUM_TESTS   = 100;
-  int NUM_MARKERS = 10;
-
-  std::vector<cv::Point2i> ground_truth;
-  std::vector<cv::Point2i> detected_points;
-  std::vector<cv::Point2i> sun_points;
-
-  auto dummy_image = createRandomMarkersImage(NUM_MARKERS, 255, ground_truth);
-
-  DummyLogger logger;
-  uvdar::UvLedDetectConfig cfg;
-  cfg.gui                 = false;
-  cfg.use_masks           = false;
-  cfg.threshold           = 50;
-  cfg.threshold_diff      = 25;
-  cfg.fast_ring_size      = 3;
-  cfg.threshold_sun       = 150;
-  cfg.threshold_sun_dist  = 25;
-  cfg.threshold_sun_merge = 20;
-  uvdar::UvdarLedDetectFastCpu uv_detector(cfg, logger);
-
-  int64_t total_time_ms{0};
-  bool success_flag;
-  for (int i = 0; i < NUM_TESTS; ++i) {
-    uvdar::ScopeTimer timer(logger);
-    success_flag = uv_detector.processImage(dummy_image, detected_points, sun_points);
-    total_time_ms += timer.stop();
-  }
-
-  TEST_COUT << "[UvledDetectorCpu]: Average time: " << std::to_string(total_time_ms / NUM_TESTS) << " ms over "
-            << std::to_string(NUM_TESTS) << " tests" << std::endl;
-
-  EXPECT_TRUE(success_flag);
-  EXPECT_EQ(detected_points.size(), NUM_MARKERS);
-  EXPECT_TRUE(compareGroundTruth(ground_truth, detected_points));
-}
-
-TEST(UvLedDetector, GPU_CompTimeTest_3Threads) {
-  constexpr int NUM_TESTS   = 100;
-  constexpr int NUM_MARKERS = 10;
+/* TEST(UvLedDetector, GPU_MultiplePoints_3Cameras_10Tests) //{ */
+TEST(UvLedDetector, GPU_MultiplePoints_3Cameras_10Tests) {
   constexpr int NUM_THREADS = 3;
 
-  std::array<std::vector<cv::Point2i>, NUM_THREADS> ground_truths;
-  std::array<cv::Mat, NUM_THREADS> dummy_images;
-  std::array<std::vector<cv::Point2i>, NUM_THREADS> detected_points_per_thread;
-  std::array<std::vector<cv::Point2i>, NUM_THREADS> sun_points_per_thread;
-  std::array<bool, NUM_THREADS> success_flags{};
-
-  for (int i = 0; i < NUM_THREADS; ++i) {
-    dummy_images[i] = createRandomMarkersImage(NUM_MARKERS, 255, ground_truths[i]);
-  }
-  success_flags.fill(false);
-
   DummyLogger logger;
   uvdar::UvLedDetectConfig cfg;
   cfg.gui                 = false;
@@ -185,47 +134,61 @@ TEST(UvLedDetector, GPU_CompTimeTest_3Threads) {
   cfg.threshold_sun_dist  = 25;
   cfg.threshold_sun_merge = 20;
 
-  std::atomic<int64_t> total_time_ms{0};
+  // Initialize detectors for each thread
+  std::vector<std::unique_ptr<uvdar::UvdarLedDetectFastGpu>> detectors;
+  for (int i = 0; i < NUM_THREADS; ++i) {
+    auto det = std::make_unique<uvdar::UvdarLedDetectFastGpu>(cfg, logger);
+
+    // We provide an initial size for OpenCL/Cuda buffer allocation
+    cv::Mat init_img = cv::Mat::zeros(cv::Size(W, H), CV_8UC1);
+    det->initGpuProgram(init_img);
+    detectors.push_back(std::move(det));
+  }
+
   std::atomic<bool> all_ok{true};
 
   auto worker = [&](int tid) {
-    DummyLogger thread_logger;
-    uvdar::UvdarLedDetectFastCpu uv_detector(cfg, thread_logger);
-
-    int64_t local_time_ms = 0;
-
     for (int i = 0; i < NUM_TESTS; ++i) {
-      uvdar::ScopeTimer timer(thread_logger);
-      bool ok =
-          uv_detector.processImage(dummy_images[tid], detected_points_per_thread[tid], sun_points_per_thread[tid]);
-      local_time_ms += timer.stop();
-      all_ok.store(all_ok.load() && ok);
-      success_flags[tid] = ok;
-    }
+      std::vector<cv::Point2i> current_gt;
+      std::vector<cv::Point2i> detected_points;
+      std::vector<cv::Point2i> sun_points;
 
-    total_time_ms.fetch_add(local_time_ms);
+      // Generate UNIQUE image and ground truth for THIS specific trial
+      cv::Mat trial_image = createRandomMarkersImage(NUM_MARKERS, 255, current_gt);
+      bool ok{false};
+      {
+#ifdef TRACY_ENABLE
+        ZoneScopedNC("GPU_MultiplePoints_1CameraProcess", tracy::Color::DarkKhaki);
+#endif
+        ok = detectors[tid]->processImage(trial_image, detected_points, sun_points);
+      }
+      // Verify this specific trial immediately
+      bool match = (detected_points.size() == (size_t)NUM_MARKERS) && compareGroundTruth(current_gt, detected_points);
+
+      if (!ok || !match) {
+        all_ok.store(false);
+      }
+    }
   };
 
   std::vector<std::thread> threads;
   threads.reserve(NUM_THREADS);
-  for (int t = 0; t < NUM_THREADS; ++t) {
-    threads.emplace_back(worker, t);
-  }
-  for (auto& th : threads) {
-    th.join();
+
+  {
+#ifdef TRACY_ENABLE
+    ZoneScopedNC("GPU_MultiplePoints_3Cameras_10Tests", tracy::Color::DarkKhaki);
+#endif
+    for (int t = 0; t < NUM_THREADS; ++t) {
+      threads.emplace_back(worker, t);
+    }
+    for (auto& th : threads) {
+      th.join();
+    }
   }
 
-  TEST_COUT << "[UvledDetectorGPU 3 Threads]: Average time: " << (total_time_ms.load() / NUM_TESTS) << " ms over "
-            << NUM_TESTS << " tests (across " << NUM_THREADS << " threads)\n";
-
-  for (int t = 0; t < NUM_THREADS; ++t) {
-    EXPECT_TRUE(success_flags[t]) << "Thread " << t << " failed";
-    EXPECT_EQ(detected_points_per_thread[t].size(), NUM_MARKERS) << "Thread " << t;
-
-    EXPECT_TRUE(compareGroundTruth(ground_truths[t], detected_points_per_thread[t]));
-  }
-  EXPECT_TRUE(all_ok.load());
+  EXPECT_TRUE(all_ok.load()) << "One or more trials failed detection or ground truth comparison.";
 }
+//}
 
 int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
   srand(time(NULL));

@@ -3,6 +3,10 @@
 #include <uvdar_core/uv_led_detector/uv_led_detect_config.h>
 #include <uvdar_core/utils/i_logger.h>
 
+#ifdef TRACY_ENABLE
+#include <tracy/Tracy.hpp>
+#endif
+
 namespace uvdar {
 
 inline int index2d(int x, int y, int cols) noexcept {

@@ -12,7 +12,14 @@ GpuContext& GpuContext::GetInstance() {
 /* GpuContext //{ */
 GpuContext::GpuContext() {
   gpu_idx_ = gpu_index_cached_();
-  mgr_     = std::make_shared<kp::Manager>(gpu_idx_);
+
+  jobs_tokens_ = computeFamilySequence_();
+  if (jobs_tokens_.empty()) {
+    mgr_ = std::make_shared<kp::Manager>(gpu_idx_);
+
+  } else {
+    mgr_ = std::make_shared<kp::Manager>(gpu_idx_, jobs_tokens_);
+  }
 }
 //}
 
@@ -34,10 +41,91 @@ std::mutex& GpuContext::mutex() {
 }
 //}
 
+/* getNextFreeFamilyIdx //{ */
+uint32_t GpuContext::getNextFreeFamilyIdx() {
+  if (jobs_tokens_.empty()) {
+    return 0u;
+  }
+
+  int next_idx = jobs_tokens_.at(next_token_++);
+  if (next_token_ >= jobs_tokens_.size()) {
+    next_token_ = 0;
+  }
+
+  return next_idx;
+}
+//}
+
+/* computeFamilySequence_ //{ */
+std::vector<uint32_t> GpuContext::computeFamilySequence_() {
+
+  kp::Manager mgr;
+  if (gpu_idx_ == std::numeric_limits<uint32_t>::max()) {
+    throw std::runtime_error("GPU index has not been set. Cannot continue...");
+  }
+
+  auto scan_success = scanComputeFamilies(mgr.getVkInstance()->enumeratePhysicalDevices().at(gpu_idx_));
+  if (!scan_success) {
+    return {};
+  }
+
+  std::vector<uint32_t> tokens;
+  auto gpu_families = compute_families_;
+  size_t idx{0};
+  while (!gpu_families.empty()) {
+    if (idx >= gpu_families.size()) {
+      idx = 0;
+    }
+
+    auto& family = gpu_families[idx];
+    if (family.queue_count > 0) {
+      tokens.push_back(family.id);
+      family.queue_count--;
+      idx++;
+    } else {
+      gpu_families.erase(gpu_families.begin() + idx);
+    }
+  }
+
+  return tokens;
+}
+//}
+
 /* gpu_index_cached_ //{ */
 uint32_t GpuContext::gpu_index_cached_() {
   static const uint32_t idx = pick_discrete_else_integrated_gpu_();
   return idx;
+}
+//}
+
+/* scanComputeFamilies //{ */
+bool GpuContext::scanComputeFamilies(const vk::PhysicalDevice& device) {
+  if (!compute_families_.empty()) {
+    throw std::runtime_error("GPU: compute queue scanning has already happened.");
+  }
+
+  const std::vector<vk::QueueFamilyProperties> families = device.getQueueFamilyProperties();
+
+  for (uint32_t familyIndex = 0; familyIndex < families.size(); ++familyIndex) {
+    const auto& family    = families[familyIndex];
+    const bool hasCompute = static_cast<bool>(family.queueFlags & vk::QueueFlagBits::eCompute);
+
+    if (!hasCompute) {
+      continue;
+    }
+
+    GpuComputeFamily f;
+    f.id          = familyIndex;
+    f.queue_count = family.queueCount;
+
+    compute_families_.push_front(f);
+  }
+
+  if (compute_families_.empty()) {
+    return false;
+  }
+
+  return true;
 }
 //}
 

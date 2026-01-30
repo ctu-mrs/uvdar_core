@@ -8,13 +8,8 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic -fno-omit-frame-pointer)
 endif()
 
-
 option(ENABLE_TESTS "Enable building tests" ON)
-
-# if(NOT MRS_ENABLE_TESTING)
-#   message(WARNING "relwithdebinfo profile detected, building with -O3")
-#   set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} -O3")
-# endif()
+option(USE_TRACY "Enable Tracy profiling" OFF)
 
 if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Build type" FORCE)
@@ -50,31 +45,17 @@ set(DEPENDENCIES
 foreach(DEP IN LISTS DEPENDENCIES)
   find_package(${DEP} REQUIRED)
 endforeach()
-
+find_package(Vulkan REQUIRED)
 
 
 # find_package(kompute CONFIG REQUIRED)
-
-
-# find_package(OpenCV REQUIRED HINTS /usr/local/lib)
-
-# set(OpenGL_GL_PREFERENCE "LEGACY")
-# find_package(OpenGL REQUIRED)
-# find_library(LGBM libgbm.so REQUIRED)
-# find_library(LEGL libEGL.so REQUIRED)
-# find_library(LGL libGL.so REQUIRED)
-# include(FindPackageHandleStandardArgs)
-# FIND_PACKAGE_HANDLE_STANDARD_ARGS(LIBGBM DEFAULT_MSG LIBGBM_LIBRARIES)
-# mark_as_advanced(LIBGBM_INCLUDE_DIRS LIBGBM_LIBRARIES)
-
 
 include_directories(
   include
   ${rclcpp_INCLUDE_DIRS}
   ${mrs_lib_INCLUDE_DIRS}
-  # ${OpenGL_INCLUDE_DIRS}
-  # ${LIBGBM_INCLUDE_DIRS}
-  )
+)
+
 
 set(LIBRARIES
   UvdarCore_UvLedDetectorLib
@@ -101,6 +82,8 @@ add_custom_command(
   VERBATIM
 )
 add_custom_target(uvdar_shaders ALL DEPENDS ${SHADER_SPV})
+## --------------------------------------------------------
+
 
 ## | --------------------- UvdarCore_UvLedDetectorLib --------------------- |
 add_library(UvdarCore_UvLedDetectorLib SHARED
@@ -118,6 +101,7 @@ ament_target_dependencies(UvdarCore_UvLedDetectorLib
 target_link_libraries(UvdarCore_UvLedDetectorLib
   PUBLIC
     kompute
+    Vulkan::Vulkan
 )
 
 # Disable spdlog macros (if anything uses them)
@@ -161,6 +145,35 @@ target_include_directories(uvdar_core_uvdar_core
 )
 
 
+## | --------------------- Tracy profiler --------------------- |
+if(USE_TRACY)
+  message(STATUS "Tracy Profiler is ENABLED")
+  set(TRACY_DIR "${CMAKE_CURRENT_SOURCE_DIR}/third_party/tracy")
+
+  find_package(Threads REQUIRED)
+
+  add_library(tracy_shared SHARED "${TRACY_DIR}/public/TracyClient.cpp")
+  
+  target_include_directories(tracy_shared PUBLIC
+    $<BUILD_INTERFACE:${TRACY_DIR}/public>
+    $<INSTALL_INTERFACE:include/tracy>
+  )  
+  
+  target_compile_definitions(tracy_shared PUBLIC TRACY_ENABLE)
+  target_link_libraries(tracy_shared PUBLIC Threads::Threads ${CMAKE_DL_LIBS})
+
+  # Apply same logic to your main library
+  target_include_directories(UvdarCore_UvLedDetectorLib PUBLIC 
+    $<BUILD_INTERFACE:${TRACY_DIR}/public>
+    $<INSTALL_INTERFACE:include/tracy>
+  )
+  target_compile_definitions(UvdarCore_UvLedDetectorLib PUBLIC TRACY_ENABLE)
+  target_link_libraries(UvdarCore_UvLedDetectorLib PUBLIC tracy_shared)
+endif()
+## ---------------------------------------------------------------
+
+
+
 ## --------------------------------------------------------------
 ## |                           Testing                          |
 ## --------------------------------------------------------------
@@ -173,26 +186,28 @@ endif()
 ## |                           Install                          |
 ## --------------------------------------------------------------
 
-ament_export_libraries(
-  ${LIBRARIES}
-)
-
-install(
-  TARGETS
-    ${LIBRARIES}
+install(TARGETS UvdarCore_UvLedDetectorLib
+  EXPORT export_${PROJECT_NAME}
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin
 )
+
+if(USE_TRACY)
+  install(TARGETS tracy_shared
+    EXPORT export_${PROJECT_NAME}
+    ARCHIVE DESTINATION lib
+    LIBRARY DESTINATION lib
+    RUNTIME DESTINATION bin
+  )
+endif()
+
 
 install(
   DIRECTORY "include/"
   DESTINATION "include/${PROJECT_NAME}"
 )
 
-ament_export_include_directories(
-  "include/${PROJECT_NAME}"
-)
 
 install(FILES ${SHADER_SPV}
   DESTINATION share/${PROJECT_NAME}/gpu_shaders
@@ -201,6 +216,24 @@ install(FILES ${SHADER_SPV}
 install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/gpu_shaders/
   DESTINATION share/${PROJECT_NAME}/gpu_shaders
 )
+
+if(USE_TRACY)
+  install(DIRECTORY "${TRACY_DIR}/public/" DESTINATION "include/tracy")
+endif()
+
+if(USE_TRACY)
+  ament_export_libraries(UvdarCore_UvLedDetectorLib tracy_shared)
+  ament_export_dependencies(${DEPENDENCIES} Threads)
+else()
+  ament_export_libraries(UvdarCore_UvLedDetectorLib)
+  ament_export_dependencies(${DEPENDENCIES})
+endif()
+
+ament_export_include_directories("include/${PROJECT_NAME}")
+if(USE_TRACY)
+  ament_export_include_directories("include/tracy")
+endif()
+
 
 # install(DIRECTORY launch
 #   DESTINATION share/${PROJECT_NAME}
@@ -214,8 +247,5 @@ install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/gpu_shaders/
 #   export_${PROJECT_NAME} HAS_LIBRARY_TARGET
 # )
 
-ament_export_dependencies(
-  ${DEPENDENCIES}
-)
 
 ament_package()

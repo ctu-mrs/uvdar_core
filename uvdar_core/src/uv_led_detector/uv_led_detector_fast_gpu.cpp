@@ -19,7 +19,9 @@ bool UvdarLedDetectFastGpu::processImage(const cv::Mat image, std::vector<cv::Po
   if (!validateMask_(image, mask_id)) {
     return false;
   }
-
+#ifdef TRACY_ENABLE
+  ZoneScopedNC("processImage", tracy::Color::AliceBlue);
+#endif
   scanImageForCandidates_(image, mask_id, detected_points, sun_points);
 
   rejectMarkersNearSun_(detected_points, sun_points);
@@ -32,6 +34,10 @@ bool UvdarLedDetectFastGpu::processImage(const cv::Mat image, std::vector<cv::Po
 void UvdarLedDetectFastGpu::scanImageForCandidates_(const cv::Mat image, const int mask_id,
                                                     std::vector<cv::Point2i>& detected_points,
                                                     std::vector<cv::Point2i>& sun_points) {
+#ifdef TRACY_ENABLE
+  ZoneScopedNC("scanImageForCandidates_", tracy::Color::Aquamarine1);
+#endif
+
   if (!gpu_resources_.valid()) {
     logger_.error("GPU Tensors not initialized! Skipping detection...");
     return;
@@ -47,6 +53,9 @@ void UvdarLedDetectFastGpu::scanImageForCandidates_(const cv::Mat image, const i
 
 /* updateGpuInputs_ //{ */
 void UvdarLedDetectFastGpu::updateGpuInputs_(const cv::Mat& image, const int mask_id) {
+#ifdef TRACY_ENABLE
+  ZoneScopedNC("updateGpuInputs_", tracy::Color::Aquamarine2);
+#endif
   // reset counters
   gpu_resources_.marker_counter->setData(std::vector<uint32_t>({0u, 0u}));
 
@@ -64,27 +73,45 @@ void UvdarLedDetectFastGpu::updateGpuInputs_(const cv::Mat& image, const int mas
 
 /* evaluateFastRingsGpu_ //{ */
 void UvdarLedDetectFastGpu::evaluateFastRingsGpu_() {
-  std::lock_guard<std::mutex> lk(gpu_mgr_.mutex());
+
+#ifdef TRACY_ENABLE
+  ZoneScopedNC("evaluateFastRingsGpu_", tracy::Color::Aquamarine4);
+
+  {
+    ZoneScopedNC("Dispatch eval_fast_ring", tracy::Color::CadetBlue1);
+    gpu_resources_.sequence->evalAsync();
+  }
+  {
+    ZoneScopedNC("Waiting for results from GPU", tracy::Color::Green4);
+    gpu_resources_.sequence->evalAwait();
+  }
+#else
+  gpu_resources_.sequence->evalAsync();
+  gpu_resources_.sequence->evalAwait();
 
   // clang-format off
-  gpu_mgr_.manager()
-      .sequence()
-      ->record<kp::OpSyncDevice>(
-          {gpu_resources_.image_in, 
-           gpu_resources_.image_mask, 
-           gpu_resources_.marker_counter})
-      ->record<kp::OpAlgoDispatch>(gpu_resources_.eval_fast_ring_alg)
-      ->record<kp::OpSyncLocal>({gpu_resources_.detected_markers, 
-                                 gpu_resources_.marker_counter, 
-                                 gpu_resources_.detected_suns})
-      ->eval();
+  // gpu_mgr_.manager()
+  //     .sequence()
+  //     ->record<kp::OpSyncDevice>(
+  //         {gpu_resources_.image_in, 
+  //          gpu_resources_.image_mask, 
+  //          gpu_resources_.marker_counter})
+  //     ->record<kp::OpAlgoDispatch>(gpu_resources_.eval_fast_ring_alg)
+  //     ->record<kp::OpSyncLocal>({gpu_resources_.detected_markers, 
+  //                                gpu_resources_.marker_counter, 
+  //                                gpu_resources_.detected_suns})
+  //     ->eval();
   // clang-format on
+#endif
 }
 //}
 
 /* handleGpuResults_ //{ */
 void UvdarLedDetectFastGpu::handleGpuResults_(std::vector<cv::Point2i>& detected_points,
                                               std::vector<cv::Point2i>& sun_points) {
+#ifdef TRACY_ENABLE
+  ZoneScopedNC("Localize markers", tracy::Color::Aquamarine2);
+#endif
   const auto& counters        = gpu_resources_.marker_counter->vector();
   const uint32_t marker_count = std::min(counters[0], MAX_MARKERS_);
   const uint32_t sun_count    = std::min(counters[1], MAX_SUNS_);
@@ -189,6 +216,9 @@ void UvdarLedDetectFastGpu::initGpuComputing_(const int width, const int height)
   std::lock_guard<std::mutex> lk(gpu_mgr_.mutex());
 
   auto& gpu = gpu_mgr_.manager();
+
+  gpu_resources_.sequence = gpu.sequence(gpu_mgr_.getNextFreeFamilyIdx()); // get free family idx
+
   // clang-format off
   std::vector<uint32_t> pushConfigConst = {
     static_cast<uint32_t>(cfg_.threshold), 
@@ -226,6 +256,12 @@ void UvdarLedDetectFastGpu::initGpuComputing_(const int width, const int height)
                     kp::Workgroup({ceil_div(width, KERNEL_SIZE_), ceil_div(height, KERNEL_SIZE_), 1}),
                     std::vector<float>{}, // optional
                     pushConfigConst);
+
+  gpu_resources_.sequence
+      ->record<kp::OpSyncDevice>({gpu_resources_.image_in, gpu_resources_.image_mask, gpu_resources_.marker_counter})
+      ->record<kp::OpAlgoDispatch>(gpu_resources_.eval_fast_ring_alg)
+      ->record<kp::OpSyncLocal>(
+          {gpu_resources_.detected_markers, gpu_resources_.marker_counter, gpu_resources_.detected_suns});
 }
 //}
 
