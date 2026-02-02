@@ -14,11 +14,11 @@ windows:
       layout: tiled
       panes:
         - ros2 run rmw_zenoh_cpp rmw_zenohd
-  - foxglove:
-      layout: tiled
-      panes:
-        - ros2 launch foxglove_bridge foxglove_bridge_launch.xml 
-        - ros2 bag play /home/mrs/ros2_ws/bags/led_rosbag_v2 --rate 0.5
+  # - foxglove:
+  #     layout: tiled
+  #     panes:
+  #       - ros2 launch foxglove_bridge foxglove_bridge_launch.xml 
+  #       - ros2 bag play /home/mrs/ros2_ws/bags/led_rosbag_v2 --rate 0.5
   - uvled_detector:
       layout: tiled
       panes:

@@ -17,13 +17,15 @@ endif()
 
 set(CMAKE_CXX_FLAGS_DEBUG "-O0 -g" CACHE STRING "" FORCE)
 set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG" CACHE STRING "" FORCE)
-
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 if(COVERAGE)
   message(WARNING "building with --coverage, the performance might be limited")
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} --coverage")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --coverage")
 endif()
+
+include(cmake/UpdateSubmodules.cmake)
 
 set(DEPENDENCIES
   ament_cmake
@@ -39,16 +41,20 @@ set(DEPENDENCIES
   std_msgs
   Eigen3
   tf2_eigen
-  kompute
 )
 
 foreach(DEP IN LISTS DEPENDENCIES)
   find_package(${DEP} REQUIRED)
 endforeach()
-find_package(Vulkan REQUIRED)
 
+find_package(Vulkan)
+if(NOT Vulkan_FOUND)
+    message(FATAL_ERROR 
+        "Vulkan SDK not found! \n"
+        "Please install it using: sudo apt install libvulkan-dev vulkan-tools vulkan-headers")
+endif()
 
-# find_package(kompute CONFIG REQUIRED)
+add_subdirectory(third_party)
 
 include_directories(
   include
@@ -99,7 +105,7 @@ ament_target_dependencies(UvdarCore_UvLedDetectorLib
 )
 
 target_link_libraries(UvdarCore_UvLedDetectorLib
-  PUBLIC
+  PRIVATE
     kompute
     Vulkan::Vulkan
 )
@@ -144,32 +150,6 @@ target_include_directories(uvdar_core_uvdar_core
     $<INSTALL_INTERFACE:include/${PROJECT_NAME}>
 )
 
-
-## | --------------------- Tracy profiler --------------------- |
-if(USE_TRACY)
-  message(STATUS "Tracy Profiler is ENABLED")
-  set(TRACY_DIR "${CMAKE_CURRENT_SOURCE_DIR}/third_party/tracy")
-
-  find_package(Threads REQUIRED)
-
-  add_library(tracy_shared SHARED "${TRACY_DIR}/public/TracyClient.cpp")
-  
-  target_include_directories(tracy_shared PUBLIC
-    $<BUILD_INTERFACE:${TRACY_DIR}/public>
-    $<INSTALL_INTERFACE:include/tracy>
-  )  
-  
-  target_compile_definitions(tracy_shared PUBLIC TRACY_ENABLE)
-  target_link_libraries(tracy_shared PUBLIC Threads::Threads ${CMAKE_DL_LIBS})
-
-  # Apply same logic to your main library
-  target_include_directories(UvdarCore_UvLedDetectorLib PUBLIC 
-    $<BUILD_INTERFACE:${TRACY_DIR}/public>
-    $<INSTALL_INTERFACE:include/tracy>
-  )
-  target_compile_definitions(UvdarCore_UvLedDetectorLib PUBLIC TRACY_ENABLE)
-  target_link_libraries(UvdarCore_UvLedDetectorLib PUBLIC tracy_shared)
-endif()
 ## ---------------------------------------------------------------
 
 
@@ -217,22 +197,13 @@ install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/gpu_shaders/
   DESTINATION share/${PROJECT_NAME}/gpu_shaders
 )
 
-if(USE_TRACY)
-  install(DIRECTORY "${TRACY_DIR}/public/" DESTINATION "include/tracy")
-endif()
 
-if(USE_TRACY)
-  ament_export_libraries(UvdarCore_UvLedDetectorLib tracy_shared)
-  ament_export_dependencies(${DEPENDENCIES} Threads)
-else()
+
   ament_export_libraries(UvdarCore_UvLedDetectorLib)
   ament_export_dependencies(${DEPENDENCIES})
-endif()
 
 ament_export_include_directories("include/${PROJECT_NAME}")
-if(USE_TRACY)
-  ament_export_include_directories("include/tracy")
-endif()
+
 
 
 # install(DIRECTORY launch

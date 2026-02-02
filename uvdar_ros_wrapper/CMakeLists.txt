@@ -41,7 +41,7 @@ set(DEPENDENCIES
   Eigen3
   tf2_eigen
   uvdar_core
-  uvdar_ros_interfaces
+  uvdar_ros_msgs
 )
 
 foreach(DEP IN LISTS DEPENDENCIES)
@@ -66,14 +66,16 @@ ament_target_dependencies(UvdarRosWrapper_UvLedDetectorRos
   ${DEPENDENCIES}
 )
 
-target_link_libraries(UvdarRosWrapper_UvLedDetectorRos
-    ${LIBRARIES}
-)
+# target_link_libraries(UvdarRosWrapper_UvLedDetectorRos
+#   PUBLIC
+#     uvdar_core::UvdarCore_UvLedDetectorLib
+# )
 
 target_compile_definitions(UvdarRosWrapper_UvLedDetectorRos
   PRIVATE
     $<$<CONFIG:Debug>:DEBUG>
 )
+
 rclcpp_components_register_nodes(UvdarRosWrapper_UvLedDetectorRos PLUGIN "uvdar::UvLedDetectorComponent" EXECUTABLE UvdarRosWrapper_UvLedDetectorRos)
 
 ## --------------------------------------------------------------

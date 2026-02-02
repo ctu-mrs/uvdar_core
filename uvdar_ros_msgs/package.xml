@@ -1,9 +1,9 @@
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
-  <name>uvdar_ros_interfaces</name>
+  <name>uvdar_ros_msgs</name>
   <version>1.0.0</version>
-  <description>uvdar_ros_interfaces</description>
+  <description>uvdar_ros_msgs</description>
 
   <maintainer email="viktor.walter@fel.cvut.cz">Viktor Walter</maintainer>
   <maintainer email="merva@fly4future.com">Tomas Merva</maintainer>

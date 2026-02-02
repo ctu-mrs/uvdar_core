@@ -13,13 +13,14 @@
 
 #include <uvdar_core/uv_led_detector/uv_led_detector.h>
 #include <uvdar_ros_wrapper/utils/ros_logger.h>
-#include <uvdar_ros_interfaces/msg/image_points_with_float_stamped.hpp>
+#include <uvdar_ros_msgs/msg/image_points_with_float_stamped.hpp>
 
 namespace uvdar {
 
 using namespace std::literals::chrono_literals;
-using image_point_publisher_t = mrs_lib::PublisherHandler<uvdar_ros_interfaces::msg::ImagePointsWithFloatStamped>;
+using image_point_publisher_t = mrs_lib::PublisherHandler<uvdar_ros_msgs::msg::ImagePointsWithFloatStamped>;
 
+/* CameraContext //{ */
 struct CameraContext {
   std::string camera_topic;
   std::string detected_points_topic;
@@ -41,7 +42,9 @@ struct CameraContext {
 
   std::mutex mtx;
 };
+//}
 
+/* UvLedDetectorComponent //{ */
 class UvLedDetectorComponent : public rclcpp::Node {
  public:
   UvLedDetectorComponent(rclcpp::NodeOptions options);
@@ -99,5 +102,6 @@ class UvLedDetectorComponent : public rclcpp::Node {
   std::deque<CameraContext> cameras_;
   bool all_cameras_detected_{false};
 };
+//}
 
 } // namespace uvdar

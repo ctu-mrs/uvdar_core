@@ -95,6 +95,7 @@ TEST(UvLedDetector, GPU_MultiplePoints_OneTrial) {
   DummyLogger logger;
   uvdar::UvLedDetectConfig cfg;
   cfg.gui                 = true;
+  cfg.gpu                 = true;
   cfg.use_masks           = false;
   cfg.threshold           = 50;
   cfg.threshold_diff      = 25;
@@ -105,13 +106,7 @@ TEST(UvLedDetector, GPU_MultiplePoints_OneTrial) {
   uvdar::UvdarLedDetectFastGpu uv_detector(cfg, logger);
   uv_detector.initGpuProgram(dummy_image);
 
-  bool success_flag;
-  {
-#ifdef TRACY_ENABLE
-    ZoneScopedNC("GPU_CompTimeTest", tracy::Color::DarkKhaki);
-#endif
-    success_flag = uv_detector.processImage(dummy_image, detected_points, sun_points);
-  }
+  bool success_flag = uv_detector.processImage(dummy_image, detected_points, sun_points);
 
   EXPECT_TRUE(success_flag);
   EXPECT_EQ(detected_points.size(), NUM_MARKERS);
@@ -126,6 +121,7 @@ TEST(UvLedDetector, GPU_MultiplePoints_3Cameras_10Tests) {
   DummyLogger logger;
   uvdar::UvLedDetectConfig cfg;
   cfg.gui                 = false;
+  cfg.gpu                 = true;
   cfg.use_masks           = false;
   cfg.threshold           = 50;
   cfg.threshold_diff      = 25;
@@ -139,7 +135,6 @@ TEST(UvLedDetector, GPU_MultiplePoints_3Cameras_10Tests) {
   for (int i = 0; i < NUM_THREADS; ++i) {
     auto det = std::make_unique<uvdar::UvdarLedDetectFastGpu>(cfg, logger);
 
-    // We provide an initial size for OpenCL/Cuda buffer allocation
     cv::Mat init_img = cv::Mat::zeros(cv::Size(W, H), CV_8UC1);
     det->initGpuProgram(init_img);
     detectors.push_back(std::move(det));
@@ -153,16 +148,8 @@ TEST(UvLedDetector, GPU_MultiplePoints_3Cameras_10Tests) {
       std::vector<cv::Point2i> detected_points;
       std::vector<cv::Point2i> sun_points;
 
-      // Generate UNIQUE image and ground truth for THIS specific trial
       cv::Mat trial_image = createRandomMarkersImage(NUM_MARKERS, 255, current_gt);
-      bool ok{false};
-      {
-#ifdef TRACY_ENABLE
-        ZoneScopedNC("GPU_MultiplePoints_1CameraProcess", tracy::Color::DarkKhaki);
-#endif
-        ok = detectors[tid]->processImage(trial_image, detected_points, sun_points);
-      }
-      // Verify this specific trial immediately
+      bool ok             = detectors[tid]->processImage(trial_image, detected_points, sun_points);
       bool match = (detected_points.size() == (size_t)NUM_MARKERS) && compareGroundTruth(current_gt, detected_points);
 
       if (!ok || !match) {
@@ -174,16 +161,11 @@ TEST(UvLedDetector, GPU_MultiplePoints_3Cameras_10Tests) {
   std::vector<std::thread> threads;
   threads.reserve(NUM_THREADS);
 
-  {
-#ifdef TRACY_ENABLE
-    ZoneScopedNC("GPU_MultiplePoints_3Cameras_10Tests", tracy::Color::DarkKhaki);
-#endif
-    for (int t = 0; t < NUM_THREADS; ++t) {
-      threads.emplace_back(worker, t);
-    }
-    for (auto& th : threads) {
-      th.join();
-    }
+  for (int t = 0; t < NUM_THREADS; ++t) {
+    threads.emplace_back(worker, t);
+  }
+  for (auto& th : threads) {
+    th.join();
   }
 
   EXPECT_TRUE(all_ok.load()) << "One or more trials failed detection or ground truth comparison.";

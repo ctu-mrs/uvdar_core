@@ -25,6 +25,7 @@ TEST(UvLedDetector, GPU_singlePoint) {
   DummyLogger logger;
   uvdar::UvLedDetectConfig cfg;
   cfg.gui                 = true;
+  cfg.gpu                 = true;
   cfg.use_masks           = false;
   cfg.threshold           = 50;
   cfg.threshold_diff      = 25;

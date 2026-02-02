@@ -6,9 +6,15 @@
 #include <optional>
 #include <limits>
 #include <deque>
+#include <vector>
 
-#include <kompute/Kompute.hpp>
-#include <vulkan/vulkan.h>
+namespace kp {
+class Manager;
+}
+
+namespace vk {
+class PhysicalDevice;
+}
 
 namespace uvdar {
 
@@ -36,19 +42,13 @@ class GpuContext {
  private:
   GpuContext();
 
-  uint32_t gpu_index_cached_();
-  uint32_t pick_discrete_else_integrated_gpu_();
+  uint32_t getGpuIdx_();
+  uint32_t pickDiscreteElseIntegratedGpu_();
 
  private:
-  uint32_t gpu_idx_{std::numeric_limits<uint32_t>::max()};
-  std::shared_ptr<kp::Manager> mgr_;
+  struct Impl;
+  std::unique_ptr<Impl> pimpl_;
   std::mutex mtx_;
-
-  std::deque<GpuComputeFamily> compute_families_;
-  std::vector<uint32_t> jobs_tokens_;
-  uint32_t next_token_{0u};
-
-  bool initialized{false};
 };
 //}
 

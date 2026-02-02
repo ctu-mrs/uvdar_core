@@ -3,10 +3,6 @@
 #include <uvdar_core/uv_led_detector/uv_led_detect_config.h>
 #include <uvdar_core/utils/i_logger.h>
 
-#ifdef TRACY_ENABLE
-#include <tracy/Tracy.hpp>
-#endif
-
 namespace uvdar {
 
 inline int index2d(int x, int y, int cols) noexcept {
@@ -39,7 +35,7 @@ class UvLedDetectFastBase {
    *
    * @return
    */
-  virtual bool processImage(const cv::Mat image, std::vector<cv::Point2i>& detected_points,
+  virtual bool processImage(const cv::Mat& image, std::vector<cv::Point2i>& detected_points,
                             std::vector<cv::Point2i>& sun_points, int mask_id = -1) = 0;
 
   /**

@@ -113,7 +113,7 @@ bool UvdarLedDetectFastCpu::validateMask_(const int mask_id) const noexcept {
 //}
 
 /* processImage //{ */
-bool UvdarLedDetectFastCpu::processImage(const cv::Mat image, std::vector<cv::Point2i>& detected_points,
+bool UvdarLedDetectFastCpu::processImage(const cv::Mat& image, std::vector<cv::Point2i>& detected_points,
                                          std::vector<cv::Point2i>& sun_points, int mask_id) {
   detected_points.clear();
   sun_points.clear();
@@ -130,9 +130,6 @@ bool UvdarLedDetectFastCpu::processImage(const cv::Mat image, std::vector<cv::Po
   initOnFirstFrame_();
   clearMarks_();
 
-#ifdef TRACY_ENABLE
-  ZoneScopedNC("processImage", tracy::Color::AliceBlue);
-#endif
   scanImageForCandidates_(mask_id, detected_points, sun_points);
 
   rejectMarkersNearSun_(detected_points, sun_points);
@@ -192,10 +189,6 @@ inline bool UvdarLedDetectFastCpu::isSunLikePixel_(const int i, const int j) con
 /* scanImageForCandidates_ //{ */
 void UvdarLedDetectFastCpu::scanImageForCandidates_(const int mask_id, std::vector<cv::Point2i>& detected_points,
                                                     std::vector<cv::Point2i>& sun_points) {
-#ifdef TRACY_ENABLE
-  ZoneScopedNC("scanImageForCandidates_", tracy::Color::Aquamarine1);
-#endif
-
   std::vector<SunCluster> sun_clusters;
 
   for (int j = 0; j < image_curr_.rows; j++) {
@@ -227,9 +220,6 @@ void UvdarLedDetectFastCpu::scanImageForCandidates_(const int mask_id, std::vect
 
 /* evaluateFastRings_ //{ */
 FastTestResult UvdarLedDetectFastCpu::evaluateFastRings_(const int i, const int j) {
-#ifdef TRACY_ENABLE
-  ZoneScopedNC("evaluateFastRingsCpu_", tracy::Color::Aquamarine4);
-#endif
   FastTestResult result;
   result.i             = i;
   result.j             = j;
@@ -279,9 +269,6 @@ FastTestResult UvdarLedDetectFastCpu::evaluateFastRings_(const int i, const int 
 /* localizeMarkerPoint_ //{ */
 void UvdarLedDetectFastCpu::localizeMarkerPoint_(const FastTestResult& fast_result,
                                                  std::vector<cv::Point2i>& detected_points) {
-#ifdef TRACY_ENABLE
-  ZoneScopedNC("Localize markers", tracy::Color::Aquamarine2);
-#endif
   unsigned char best_val = 0;
   cv::Point best_point(fast_result.i, fast_result.j);
 

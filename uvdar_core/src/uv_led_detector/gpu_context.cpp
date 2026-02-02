@@ -1,6 +1,22 @@
 #include <uvdar_core/uv_led_detector/gpu_context.h>
+#include <vulkan/vulkan.h>
+#include <kompute/Kompute.hpp>
 
 namespace uvdar {
+
+/* GpuContext::Impl //{ */
+struct GpuContext::Impl {
+  uint32_t gpu_idx{std::numeric_limits<uint32_t>::max()};
+
+  std::shared_ptr<kp::Manager> mgr;
+
+  std::deque<GpuComputeFamily> compute_families;
+  std::vector<uint32_t> jobs_tokens;
+  uint32_t next_token{0u};
+
+  bool initialized{false};
+};
+//}
 
 /* GetInstance //{ */
 GpuContext& GpuContext::GetInstance() {
@@ -10,28 +26,28 @@ GpuContext& GpuContext::GetInstance() {
 //}
 
 /* GpuContext //{ */
-GpuContext::GpuContext() {
-  gpu_idx_ = gpu_index_cached_();
+GpuContext::GpuContext() : pimpl_(std::make_unique<Impl>()) {
+  pimpl_->gpu_idx = getGpuIdx_();
 
-  jobs_tokens_ = computeFamilySequence_();
-  if (jobs_tokens_.empty()) {
-    mgr_ = std::make_shared<kp::Manager>(gpu_idx_);
+  pimpl_->jobs_tokens = computeFamilySequence_();
+  if (pimpl_->jobs_tokens.empty()) {
+    pimpl_->mgr = std::make_shared<kp::Manager>(pimpl_->gpu_idx);
 
   } else {
-    mgr_ = std::make_shared<kp::Manager>(gpu_idx_, jobs_tokens_);
+    pimpl_->mgr = std::make_shared<kp::Manager>(pimpl_->gpu_idx, pimpl_->jobs_tokens);
   }
 }
 //}
 
 /* gpu_idx //{ */
 uint32_t GpuContext::gpu_idx() const {
-  return gpu_idx_;
+  return pimpl_->gpu_idx;
 }
 //}
 
 /* manager //{ */
 kp::Manager& GpuContext::manager() {
-  return *mgr_;
+  return *pimpl_->mgr;
 }
 //}
 
@@ -43,13 +59,13 @@ std::mutex& GpuContext::mutex() {
 
 /* getNextFreeFamilyIdx //{ */
 uint32_t GpuContext::getNextFreeFamilyIdx() {
-  if (jobs_tokens_.empty()) {
+  if (pimpl_->jobs_tokens.empty()) {
     return 0u;
   }
 
-  int next_idx = jobs_tokens_.at(next_token_++);
-  if (next_token_ >= jobs_tokens_.size()) {
-    next_token_ = 0;
+  int next_idx = pimpl_->jobs_tokens.at(pimpl_->next_token++);
+  if (pimpl_->next_token >= pimpl_->jobs_tokens.size()) {
+    pimpl_->next_token = 0;
   }
 
   return next_idx;
@@ -60,17 +76,17 @@ uint32_t GpuContext::getNextFreeFamilyIdx() {
 std::vector<uint32_t> GpuContext::computeFamilySequence_() {
 
   kp::Manager mgr;
-  if (gpu_idx_ == std::numeric_limits<uint32_t>::max()) {
+  if (pimpl_->gpu_idx == std::numeric_limits<uint32_t>::max()) {
     throw std::runtime_error("GPU index has not been set. Cannot continue...");
   }
 
-  auto scan_success = scanComputeFamilies(mgr.getVkInstance()->enumeratePhysicalDevices().at(gpu_idx_));
+  auto scan_success = scanComputeFamilies(mgr.getVkInstance()->enumeratePhysicalDevices().at(pimpl_->gpu_idx));
   if (!scan_success) {
     return {};
   }
 
   std::vector<uint32_t> tokens;
-  auto gpu_families = compute_families_;
+  auto gpu_families = pimpl_->compute_families;
   size_t idx{0};
   while (!gpu_families.empty()) {
     if (idx >= gpu_families.size()) {
@@ -91,16 +107,16 @@ std::vector<uint32_t> GpuContext::computeFamilySequence_() {
 }
 //}
 
-/* gpu_index_cached_ //{ */
-uint32_t GpuContext::gpu_index_cached_() {
-  static const uint32_t idx = pick_discrete_else_integrated_gpu_();
+/* getGpuIdx_ //{ */
+uint32_t GpuContext::getGpuIdx_() {
+  static const uint32_t idx = pickDiscreteElseIntegratedGpu_();
   return idx;
 }
 //}
 
 /* scanComputeFamilies //{ */
 bool GpuContext::scanComputeFamilies(const vk::PhysicalDevice& device) {
-  if (!compute_families_.empty()) {
+  if (!pimpl_->compute_families.empty()) {
     throw std::runtime_error("GPU: compute queue scanning has already happened.");
   }
 
@@ -118,10 +134,10 @@ bool GpuContext::scanComputeFamilies(const vk::PhysicalDevice& device) {
     f.id          = familyIndex;
     f.queue_count = family.queueCount;
 
-    compute_families_.push_front(f);
+    pimpl_->compute_families.push_front(f);
   }
 
-  if (compute_families_.empty()) {
+  if (pimpl_->compute_families.empty()) {
     return false;
   }
 
@@ -129,8 +145,8 @@ bool GpuContext::scanComputeFamilies(const vk::PhysicalDevice& device) {
 }
 //}
 
-/* pick_discrete_else_integrated_gpu //{ */
-uint32_t GpuContext::pick_discrete_else_integrated_gpu_() {
+/* pickDiscreteElseIntegratedGpu_ //{ */
+uint32_t GpuContext::pickDiscreteElseIntegratedGpu_() {
   VkApplicationInfo app{};
   app.sType      = VK_STRUCTURE_TYPE_APPLICATION_INFO;
   app.apiVersion = VK_API_VERSION_1_1;

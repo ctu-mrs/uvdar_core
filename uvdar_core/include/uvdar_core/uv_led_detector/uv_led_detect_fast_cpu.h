@@ -7,7 +7,7 @@ namespace uvdar {
 class UvdarLedDetectFastCpu : public UvLedDetectFastBase {
  public:
   explicit UvdarLedDetectFastCpu(UvLedDetectConfig cfg, ILogger& logger);
-  bool processImage(const cv::Mat image, std::vector<cv::Point2i>& detected_points,
+  bool processImage(const cv::Mat& image, std::vector<cv::Point2i>& detected_points,
                     std::vector<cv::Point2i>& sun_points, int mask_id = -1) override;
   void initGpuProgram([[maybe_unused]] const cv::Mat image) override;
 

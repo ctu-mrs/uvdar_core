@@ -25,6 +25,7 @@ TEST(UvLedDetector, CPU_RoiBreach) {
   DummyLogger logger;
   uvdar::UvLedDetectConfig cfg;
   cfg.gui                 = false;
+  cfg.gpu                 = false;
   cfg.use_masks           = false;
   cfg.threshold           = 200;
   cfg.threshold_diff      = 100;
@@ -50,6 +51,7 @@ TEST(UvLedDetector, CPU_singlePoint) {
   DummyLogger logger;
   uvdar::UvLedDetectConfig cfg;
   cfg.gui                 = false;
+  cfg.gpu                 = false;
   cfg.use_masks           = false;
   cfg.threshold           = 200;
   cfg.threshold_diff      = 100;

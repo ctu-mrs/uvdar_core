@@ -1,0 +1,4 @@
+[submodule "uvdar_core/third_party/kompute"]
+	path = uvdar_core/third_party/kompute
+	url = https://github.com/KomputeProject/kompute.git
+	branch = main
