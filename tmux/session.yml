@@ -22,4 +22,4 @@ windows:
   - uvled_detector:
       layout: tiled
       panes:
-        - ros2 launch uvdar_ros_wrapper uv_led_detector.launch.py
+        - ros2 launch uvdar_ros uv_led_detector.launch.py
