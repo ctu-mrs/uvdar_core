@@ -48,12 +48,12 @@ foreach(DEP IN LISTS DEPENDENCIES)
   find_package(${DEP} REQUIRED)
 endforeach()
 
-include_directories(
-  include
-  ${rclcpp_INCLUDE_DIRS}
-  ${mrs_lib_INCLUDE_DIRS}
-  ${uvdar_INCLUDE_DIRS}
-)
+# include_directories(
+#   include
+#   ${rclcpp_INCLUDE_DIRS}
+#   ${mrs_lib_INCLUDE_DIRS}
+#   ${uvdar_INCLUDE_DIRS}
+# )
 
 ## | --------------------- UvdarRosWrapper_UvLedDetectorRos --------------------- |
 
@@ -71,8 +71,13 @@ target_compile_definitions(UvdarRosWrapper_UvLedDetectorRos
     $<$<CONFIG:Debug>:DEBUG>
 )
 
-rclcpp_components_register_nodes(UvdarRosWrapper_UvLedDetectorRos PLUGIN "uvdar::UvLedDetectorComponent" EXECUTABLE UvdarRosWrapper_UvLedDetectorRos)
+ target_include_directories(UvdarRosWrapper_UvLedDetectorRos
+    PUBLIC
+      $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
+      $<INSTALL_INTERFACE:include/${PROJECT_NAME}>
+  )
 
+rclcpp_components_register_nodes(UvdarRosWrapper_UvLedDetectorRos "uvdar::UvLedDetectorComponent")
 ## --------------------------------------------------------------
 ## |                           Testing                          |
 ## --------------------------------------------------------------

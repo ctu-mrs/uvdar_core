@@ -11,7 +11,12 @@ inline int index2d(int x, int y, int cols) noexcept {
 
 class UvLedDetectFastBase {
  public:
-  virtual ~UvLedDetectFastBase() = default;
+  virtual ~UvLedDetectFastBase()                             = default;
+  UvLedDetectFastBase(const UvLedDetectFastBase&)            = delete;
+  UvLedDetectFastBase& operator=(const UvLedDetectFastBase&) = delete;
+
+  UvLedDetectFastBase(UvLedDetectFastBase&&)            = delete;
+  UvLedDetectFastBase& operator=(UvLedDetectFastBase&&) = delete;
 
   /**
    * @brief Adds an image matrix used for masking out portions of the input stream

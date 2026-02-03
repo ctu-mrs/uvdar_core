@@ -65,7 +65,7 @@ include_directories(
 
 
 set(LIBRARIES
-  UvdarCore_UvLedDetectorLib
+  Uvdar_UvLedDetectorLib
 )
 
 ## | --------------------- Shaders --------------------- |
@@ -92,31 +92,31 @@ add_custom_target(uvdar_shaders ALL DEPENDS ${SHADER_SPV})
 ## --------------------------------------------------------
 
 
-## | --------------------- UvdarCore_UvLedDetectorLib --------------------- |
-add_library(UvdarCore_UvLedDetectorLib SHARED
+## | --------------------- Uvdar_UvLedDetectorLib --------------------- |
+add_library(Uvdar_UvLedDetectorLib SHARED
   src/uv_led_detector/uv_led_detector_fast_gpu.cpp
   src/uv_led_detector/uv_led_detector_fast_cpu.cpp
   src/uv_led_detector/uv_led_detector.cpp
   src/uv_led_detector/gpu_context.cpp
 )
 
-ament_target_dependencies(UvdarCore_UvLedDetectorLib
+ament_target_dependencies(Uvdar_UvLedDetectorLib
   PUBLIC
     ${DEPENDENCIES}
 )
 
-target_link_libraries(UvdarCore_UvLedDetectorLib
+target_link_libraries(Uvdar_UvLedDetectorLib
   PRIVATE
     kompute
     Vulkan::Vulkan
 )
 
 # Disable spdlog macros (if anything uses them)
-target_compile_definitions(UvdarCore_UvLedDetectorLib PRIVATE SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_OFF)
+target_compile_definitions(Uvdar_UvLedDetectorLib PRIVATE SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_OFF)
 
-target_compile_definitions(UvdarCore_UvLedDetectorLib PRIVATE KOMPUTE_OPT_ACTIVE_LOG_LEVEL=KOMPUTE_LOG_LEVEL_OFF)
+target_compile_definitions(Uvdar_UvLedDetectorLib PRIVATE KOMPUTE_OPT_ACTIVE_LOG_LEVEL=KOMPUTE_LOG_LEVEL_OFF)
 
-add_dependencies(UvdarCore_UvLedDetectorLib uvdar_shaders)
+add_dependencies(Uvdar_UvLedDetectorLib uvdar_shaders)
 
 
 ## | -------------------- export interfaces ------------------- |
@@ -166,7 +166,7 @@ endif()
 ## |                           Install                          |
 ## --------------------------------------------------------------
 
-install(TARGETS UvdarCore_UvLedDetectorLib
+install(TARGETS Uvdar_UvLedDetectorLib
   EXPORT export_${PROJECT_NAME}
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
@@ -199,7 +199,7 @@ install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/gpu_shaders/
 
 
 
-  ament_export_libraries(UvdarCore_UvLedDetectorLib)
+  ament_export_libraries(Uvdar_UvLedDetectorLib)
   ament_export_dependencies(${DEPENDENCIES})
 
 ament_export_include_directories("include/${PROJECT_NAME}")
