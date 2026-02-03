@@ -57,7 +57,7 @@ cv::Mat createRandomMarkersImage(int num_markers, uint8_t brightness, std::vecto
   std::uniform_int_distribution<> disX(10, W - 10);
   std::uniform_int_distribution<> disY(10, H - 10);
 
-  while (ground_truth.size() < num_markers) {
+  while (ground_truth.size() < static_cast<size_t>(num_markers)) {
     int cx = disX(gen);
     int cy = disY(gen);
 

@@ -48,13 +48,6 @@ foreach(DEP IN LISTS DEPENDENCIES)
   find_package(${DEP} REQUIRED)
 endforeach()
 
-# include_directories(
-#   include
-#   ${rclcpp_INCLUDE_DIRS}
-#   ${mrs_lib_INCLUDE_DIRS}
-#   ${uvdar_INCLUDE_DIRS}
-# )
-
 ## | --------------------- UvdarRosWrapper_UvLedDetectorRos --------------------- |
 
 add_library(UvdarRosWrapper_UvLedDetectorRos SHARED
@@ -78,14 +71,6 @@ target_compile_definitions(UvdarRosWrapper_UvLedDetectorRos
   )
 
 rclcpp_components_register_nodes(UvdarRosWrapper_UvLedDetectorRos "uvdar::UvLedDetectorComponent")
-## --------------------------------------------------------------
-## |                           Testing                          |
-## --------------------------------------------------------------
-
-if(ENABLE_TESTS)
-  add_subdirectory(test)
-endif()
-
 
 ## --------------------------------------------------------------
 ## |                           Install                          |
@@ -107,10 +92,6 @@ install(DIRECTORY launch
 install(DIRECTORY config
   DESTINATION share/${PROJECT_NAME}
 )
-
-# ament_export_targets(
-#   export_${PROJECT_NAME} HAS_LIBRARY_TARGET
-# )
 
 ament_export_dependencies(
   ${DEPENDENCIES}

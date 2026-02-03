@@ -58,7 +58,7 @@ cv::Mat createRandomMarkersImage(int num_markers, uint8_t brightness, std::vecto
   std::uniform_int_distribution<> disX(10, W - 10);
   std::uniform_int_distribution<> disY(10, H - 10);
 
-  while (ground_truth.size() < num_markers) {
+  while (ground_truth.size() < static_cast<size_t>(num_markers)) {
     int cx = disX(gen);
     int cy = disY(gen);
 
@@ -104,6 +104,7 @@ TEST(UvLedDetector, CPU_MultiplePoints_OneTrial) {
   cfg.threshold_sun       = 150;
   cfg.threshold_sun_dist  = 25;
   cfg.threshold_sun_merge = 20;
+  cfg.fast_ring_size      = 3; // this has no effect
   uvdar::UvdarLedDetectFastCpu uv_detector(cfg, logger);
 
   bool success_flag;
@@ -130,6 +131,7 @@ TEST(UvLedDetector, CPU_MultiplePoints_3Cameras_10Tests) {
   cfg.threshold_sun       = 150;
   cfg.threshold_sun_dist  = 25;
   cfg.threshold_sun_merge = 20;
+  cfg.fast_ring_size      = 3; // this has no effect
 
   // Initialize detectors for each thread
   std::vector<std::unique_ptr<uvdar::UvdarLedDetectFastCpu>> detectors;

@@ -28,19 +28,10 @@ endif()
 include(cmake/UpdateSubmodules.cmake)
 
 set(DEPENDENCIES
-  ament_cmake
+  ament_cmake  
   ament_index_cpp
-  rclcpp
-  rclcpp_components
   cv_bridge
-  image_transport
-  mrs_lib
-  mrs_modules_msgs
-  mrs_msgs
-  sensor_msgs
-  std_msgs
   Eigen3
-  tf2_eigen
 )
 
 foreach(DEP IN LISTS DEPENDENCIES)
@@ -56,13 +47,6 @@ if(NOT Vulkan_FOUND)
 endif()
 
 add_subdirectory(third_party)
-
-include_directories(
-  include
-  ${rclcpp_INCLUDE_DIRS}
-  ${mrs_lib_INCLUDE_DIRS}
-)
-
 
 set(LIBRARIES
   Uvdar_UvLedDetectorLib
@@ -203,20 +187,6 @@ install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/gpu_shaders/
   ament_export_dependencies(${DEPENDENCIES})
 
 ament_export_include_directories("include/${PROJECT_NAME}")
-
-
-
-# install(DIRECTORY launch
-#   DESTINATION share/${PROJECT_NAME}
-# )
-
-# install(DIRECTORY config
-#   DESTINATION share/${PROJECT_NAME}
-# )
-
-# ament_export_targets(
-#   export_${PROJECT_NAME} HAS_LIBRARY_TARGET
-# )
 
 
 ament_package()
