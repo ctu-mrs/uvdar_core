@@ -9,7 +9,6 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 endif()
 
 option(ENABLE_TESTS "Enable building tests" ON)
-option(USE_TRACY "Enable Tracy profiling" OFF)
 
 if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Build type" FORCE)
@@ -157,21 +156,10 @@ install(TARGETS Uvdar_UvLedDetectorLib
   RUNTIME DESTINATION bin
 )
 
-if(USE_TRACY)
-  install(TARGETS tracy_shared
-    EXPORT export_${PROJECT_NAME}
-    ARCHIVE DESTINATION lib
-    LIBRARY DESTINATION lib
-    RUNTIME DESTINATION bin
-  )
-endif()
-
-
 install(
   DIRECTORY "include/"
   DESTINATION "include/${PROJECT_NAME}"
 )
-
 
 install(FILES ${SHADER_SPV}
   DESTINATION share/${PROJECT_NAME}/gpu_shaders
@@ -181,10 +169,8 @@ install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/gpu_shaders/
   DESTINATION share/${PROJECT_NAME}/gpu_shaders
 )
 
-
-
-  ament_export_libraries(Uvdar_UvLedDetectorLib)
-  ament_export_dependencies(${DEPENDENCIES})
+ament_export_libraries(Uvdar_UvLedDetectorLib)
+ament_export_dependencies(${DEPENDENCIES})
 
 ament_export_include_directories("include/${PROJECT_NAME}")
 
