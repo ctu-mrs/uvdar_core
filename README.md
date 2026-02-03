@@ -13,7 +13,7 @@
 
 ### Dependencies
 ```bash
-sudo apt install vulkan-tools libvulkan-dev vulkan-headers
+sudo apt install vulkan-tools libvulkan-dev vulkan-headers glslang-tools
 ```
 
 ### ROS2 compilation
