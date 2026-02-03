@@ -3,15 +3,9 @@
 namespace uvdar {
 
 /* UvLedDetectorComponent constructor //{ */
-UvLedDetectorComponent::UvLedDetectorComponent(rclcpp::NodeOptions options) : Node("PCLFiltration", options) {
-  timer_init_ = this->create_wall_timer(std::chrono::duration<double>(0.1s),
-                                        std::bind(&UvLedDetectorComponent::initialize_, this));
-}
-//}
+UvLedDetectorComponent::UvLedDetectorComponent(rclcpp::NodeOptions options) : mrs_lib::Node("PCLFiltration", options) {
+  node_ = this_node_ptr();
 
-/* initialize_ //{ */
-void UvLedDetectorComponent::initialize_() {
-  node_   = this->shared_from_this();
   logger_ = std::make_shared<RosLogger>(node_->get_logger());
 
   loadParams_();
@@ -20,7 +14,6 @@ void UvLedDetectorComponent::initialize_() {
 
   initRosInterface_();
 
-  timer_init_->cancel();
   initialized_ = true;
   RCLCPP_INFO(node_->get_logger(), "[UVDARDetector]: Initialized.");
 }
@@ -139,7 +132,7 @@ void UvLedDetectorComponent::initRosProcessImgSubs_() {
   for (size_t i = 0; i < camera_count_; ++i) {
     auto& cam = cameras_.at(i);
 
-    cam.timer = this->create_wall_timer(
+    cam.timer = node_->create_wall_timer(
         std::chrono::milliseconds(1), [this, i]() { processImage_(i); }, processing_callback_group_);
     cam.timer->cancel();
 
@@ -181,13 +174,12 @@ void UvLedDetectorComponent::initRosPublishers_() {
           pubopts, cam.detected_points_topic + "/sun");
     }
 
+#ifdef DEBUG
     cam.pub_debug_dp_image =
         mrs_lib::PublisherHandler<sensor_msgs::msg::Image>(pubopts, cam.detected_points_topic + "/raw_image");
 
     cam.pub_debug_sp_image =
         mrs_lib::PublisherHandler<sensor_msgs::msg::Image>(pubopts, cam.detected_points_topic + "/sun/raw_image");
-#ifdef DEBUG
-
 #endif
   }
 }
@@ -304,11 +296,10 @@ void UvLedDetectorComponent::processImage_(const int image_index) {
   RCLCPP_INFO_THROTTLE(node_->get_logger(), *node_->get_clock(), 1000, "Number of sun points: %ld",
                        cam.sun_points.size());
 
+#ifdef DEBUG
   publishDetectedPointsImage_(*cv_ptr, cam);
 
   publishSunPointsImage_(*cv_ptr, cam);
-#ifdef DEBUG
-
 #endif
 
   cam.timer->cancel();

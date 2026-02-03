@@ -7,6 +7,7 @@
 #include <sensor_msgs/msg/image.hpp>
 #include <cv_bridge/cv_bridge.hpp>
 
+#include <mrs_lib/node.h>
 #include <mrs_lib/param_loader.h>
 #include <mrs_lib/subscriber_handler.h>
 #include <mrs_lib/publisher_handler.h>
@@ -45,14 +46,12 @@ struct CameraContext {
 //}
 
 /* UvLedDetectorComponent //{ */
-class UvLedDetectorComponent : public rclcpp::Node {
+class UvLedDetectorComponent : public mrs_lib::Node {
  public:
   UvLedDetectorComponent(rclcpp::NodeOptions options);
 
  private:
-  void initialize_();
   void initDetector_();
-
   void initRosInterface_();
   void initRosProcessImgSubs_();
   void initRosPublishers_();
@@ -78,7 +77,6 @@ class UvLedDetectorComponent : public rclcpp::Node {
 
  private:
   rclcpp::Node::SharedPtr node_;
-  rclcpp::TimerBase::SharedPtr timer_init_;
   rclcpp::CallbackGroup::SharedPtr image_callback_group_{nullptr};
   rclcpp::CallbackGroup::SharedPtr processing_callback_group_{nullptr};
 
