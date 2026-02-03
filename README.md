@@ -19,13 +19,13 @@ sudo apt install vulkan-tools libvulkan-dev vulkan-headers glslang-tools
 ### ROS2 compilation
 #### Standard build:
 ```bash
-colcon build --symlink-install --packages-select uvdar_core uvdar_ros_wrapper uvdar_ros_interfaces --cmake-args -DCMAKE_BUILD_TYPE=Release
+colcon build --symlink-install --packages-select uvdar uvdar_ros uvdar_ros_msgs --cmake-args -DCMAKE_BUILD_TYPE=Release
 ```
 
 #### Shader compilation
 Shaders are always compiled, however, compilation errors may be hidden unless you use `--event-handlers console_direct+` to see the direct output:
 ```bash
-colcon build --symlink-install --packages-select uvdar_core uvdar_ros_wrapper uvdar_ros_interfaces --cmake-args -DCMAKE_BUILD_TYPE=Release --event-handlers console_direct+
+colcon build --symlink-install --packages-select uvdar uvdar_ros uvdar_ros_msgs --cmake-args -DCMAKE_BUILD_TYPE=Release --event-handlers console_direct+
 ```
 
 
