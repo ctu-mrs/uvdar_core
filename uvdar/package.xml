@@ -1,0 +1,24 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>uvdar</name>
+  <version>1.0.0</version>
+  <description>uvdar</description>
+
+  <maintainer email="viktor.walter@fel.cvut.cz">Viktor Walter</maintainer>
+
+  <license>BSD 3-Clause</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <buildtool_depend>ament_cmake_ros</buildtool_depend>
+  <depend>ament_index_cpp</depend>
+  <depend>eigen</depend>
+  <depend>cv_bridge</depend>
+
+  <test_depend>ament_cmake_gtest</test_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+
+</package>

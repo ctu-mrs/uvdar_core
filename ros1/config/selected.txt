@@ -1,1 +1,0 @@
-blinking_sequences/manchesterPropeties.txt

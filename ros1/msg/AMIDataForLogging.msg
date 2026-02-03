@@ -1,9 +1,0 @@
-time stamp
-int8 pub_rate  
-int8 stored_seq_len_factor 
-int16 max_buffer_length
-int8 default_poly_order
-int8 max_zeros_consecutive
-float32 confidence_probab_t_dist
-float32 decay_factor_weight_func
-uvdar_core/Point2DWithFloat max_px_shift
