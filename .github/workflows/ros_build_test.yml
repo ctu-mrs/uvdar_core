@@ -3,7 +3,7 @@ name: ros_build_test
 on:
 
   push:
-    branches: [ ros2 ]
+    branches: [ ros2_devel ]
 
     paths-ignore:
       - '**/README.md'
