@@ -80,7 +80,8 @@ TEST(SignalMatcher, ShorterLengthSignal) {
 TEST(SignalMatcher, LongerSequenceThan32bits) {
   using namespace uvdar::ami;
 
-  std::vector<Sequence> seqs{Sequence(33, true)};
+  const int LONGER_SEQUENCE{33};
+  std::vector<Sequence> seqs{Sequence(LONGER_SEQUENCE, true)};
   const int allowed_BER_per_seq{0};
 
   EXPECT_THROW({ SignalMatcher matcher(seqs, allowed_BER_per_seq); }, std::runtime_error);

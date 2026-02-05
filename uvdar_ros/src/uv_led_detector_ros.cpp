@@ -3,7 +3,7 @@
 namespace uvdar {
 
 /* UvLedDetectorComponent constructor //{ */
-UvLedDetectorComponent::UvLedDetectorComponent(rclcpp::NodeOptions options) : mrs_lib::Node("PCLFiltration", options) {
+UvLedDetectorComponent::UvLedDetectorComponent(rclcpp::NodeOptions options) : mrs_lib::Node("UvLedDetector", options) {
   node_ = this_node_ptr();
 
   logger_ = std::make_shared<RosLogger>(node_->get_logger());
