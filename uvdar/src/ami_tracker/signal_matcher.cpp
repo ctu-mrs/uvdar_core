@@ -5,7 +5,7 @@ namespace uvdar::ami {
 /* SignalMatcher constructor //{ */
 SignalMatcher::SignalMatcher(const std::vector<Sequence>& sequences, const int allowed_BER_per_seq)
     : SEQUENCE_SIZE_(sequences.at(0).size()), ALLOWED_BER_PER_SEQ_(allowed_BER_per_seq) {
-  if (SEQUENCE_SIZE_ >= 32u) {
+  if (2 * SEQUENCE_SIZE_ >= 64) {
     throw std::runtime_error("[AmiTracker]: Maximum sequence size is bigger than 32 bits.");
   }
   initSequences_(sequences);
@@ -13,9 +13,9 @@ SignalMatcher::SignalMatcher(const std::vector<Sequence>& sequences, const int a
 //}
 
 /* matchSignal //{ */
-int SignalMatcher::matchSignal(const Sequence& signal) {
+int SignalMatcher::matchSignal(const Sequence& signal) const {
   const auto valid_size = checkSequenceSize_(signal);
-  if (valid_size != SignalMatchResult::SIGNAL_SIZE_CORRECT) {
+  if (valid_size != MatchStatus::SIGNAL_SIZE_CORRECT) {
     return valid_size;
   }
 
@@ -36,7 +36,7 @@ int SignalMatcher::matchSignal(const Sequence& signal) {
     }
   }
 
-  return SignalMatchResult::SIGNAL_INVALID;
+  return MatchStatus::SIGNAL_INVALID;
 }
 //}
 
@@ -84,15 +84,15 @@ void SignalMatcher::initSequences_(const std::vector<Sequence>& seqs) {
 //}
 
 /* checkSequenceSize_ //{ */
-SignalMatchResult SignalMatcher::checkSequenceSize_(const Sequence& signal) {
+MatchStatus SignalMatcher::checkSequenceSize_(const Sequence& signal) const {
   // TODO: replace with enums, have no idea what those return values mean
   const auto& seq_size = signal.size();
   if (seq_size == 0) {
-    return SignalMatchResult::SIGNAL_INVALID;
+    return MatchStatus::SIGNAL_INVALID;
   } else if (seq_size < SEQUENCE_SIZE_) {
-    return SignalMatchResult::SIGNAL_TOO_SHORT;
+    return MatchStatus::SIGNAL_TOO_SHORT;
   }
-  return SignalMatchResult::SIGNAL_SIZE_CORRECT;
+  return MatchStatus::SIGNAL_SIZE_CORRECT;
 }
 //}
 

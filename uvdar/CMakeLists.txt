@@ -30,13 +30,13 @@ set(DEPENDENCIES
   ament_cmake  
   ament_index_cpp
   cv_bridge
-  Eigen3
 )
 
 foreach(DEP IN LISTS DEPENDENCIES)
   find_package(${DEP} REQUIRED)
 endforeach()
 
+find_package(Eigen3 REQUIRED)
 find_package(Threads REQUIRED)
 find_package(Vulkan)
 if(NOT Vulkan_FOUND)
@@ -84,16 +84,18 @@ add_library(Uvdar_UvLedDetectorLib SHARED
   src/uv_led_detector/gpu_context.cpp
 )
 
-ament_target_dependencies(Uvdar_UvLedDetectorLib
-  PUBLIC
-    ${DEPENDENCIES}
-)
 
 target_link_libraries(Uvdar_UvLedDetectorLib
   PRIVATE
     kompute
     Vulkan::Vulkan
 )
+
+ament_target_dependencies(Uvdar_UvLedDetectorLib
+  PUBLIC
+    ${DEPENDENCIES}
+)
+
 
 # Disable spdlog macros (if anything uses them)
 target_compile_definitions(Uvdar_UvLedDetectorLib PRIVATE SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_OFF)

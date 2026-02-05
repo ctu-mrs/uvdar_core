@@ -11,11 +11,11 @@ namespace uvdar::ami {
 class SignalMatcher {
  public:
   SignalMatcher(const std::vector<Sequence>& sequences, const int allowed_BER_per_seq);
-  int matchSignal(const Sequence& signal);
+  int matchSignal(const Sequence& signal) const;
 
  private:
   void initSequences_(const std::vector<Sequence>& seqs);
-  SignalMatchResult checkSequenceSize_(const Sequence& signal);
+  MatchStatus checkSequenceSize_(const Sequence& signal) const;
   int computeHammingDistance_(const uint32_t x, const uint32_t y) const;
   uint32_t packSignalPrefix_(const Sequence& signal) const;
 
