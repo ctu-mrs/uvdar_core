@@ -49,6 +49,7 @@ add_subdirectory(third_party)
 
 set(LIBRARIES
   Uvdar_UvLedDetectorLib
+  Uvdar_AmiTrackerLib
 )
 
 ## | --------------------- Shaders --------------------- |
@@ -102,6 +103,18 @@ target_compile_definitions(Uvdar_UvLedDetectorLib PRIVATE KOMPUTE_OPT_ACTIVE_LOG
 add_dependencies(Uvdar_UvLedDetectorLib uvdar_shaders)
 
 
+## | --------------------- Uvdar_AmiTrackerLib --------------------- |
+add_library(Uvdar_AmiTrackerLib SHARED
+  src/ami_tracker/signal_matcher.cpp
+)
+
+target_link_libraries(Uvdar_AmiTrackerLib PUBLIC Eigen3::Eigen)
+
+ament_target_dependencies(Uvdar_AmiTrackerLib
+  PUBLIC
+    ${DEPENDENCIES}
+)
+
 ## | -------------------- export interfaces ------------------- |
 foreach(library IN LISTS LIBRARIES)
   target_include_directories(${library}
@@ -149,7 +162,7 @@ endif()
 ## |                           Install                          |
 ## --------------------------------------------------------------
 
-install(TARGETS Uvdar_UvLedDetectorLib
+install(TARGETS ${LIBRARIES}
   EXPORT export_${PROJECT_NAME}
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
@@ -169,7 +182,7 @@ install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/gpu_shaders/
   DESTINATION share/${PROJECT_NAME}/gpu_shaders
 )
 
-ament_export_libraries(Uvdar_UvLedDetectorLib)
+ament_export_libraries(${LIBRARIES})
 ament_export_dependencies(${DEPENDENCIES})
 
 ament_export_include_directories("include/${PROJECT_NAME}")
