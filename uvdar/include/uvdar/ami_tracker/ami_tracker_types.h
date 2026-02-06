@@ -43,7 +43,7 @@ using SeqPtr = std::shared_ptr<std::vector<PointState>>;
 
 /* AmiTrackerConfig //{ */
 struct AmiTrackerConfig {
-  cv::Point max_px_shift{};
+  cv::Point2d max_px_shift{};
   int max_zeros_consecutive{0};
   // the multiplication factor how long the sequence should be for calculating the trajectory
   int stored_seq_len_factor{0};
@@ -53,6 +53,7 @@ struct AmiTrackerConfig {
   double conf_probab_percent{0.0};
   int allowed_BER_per_seq{0};
   int frame_length{0};
+  size_t blinking_patterns_size{0};
 };
 //}
 

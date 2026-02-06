@@ -8,13 +8,13 @@ SignalMatcher::SignalMatcher(const std::vector<Sequence>& sequences, const int a
   if (2 * SEQUENCE_SIZE_ >= 64) {
     throw std::runtime_error("[AmiTracker]: Maximum sequence size is bigger than 32 bits.");
   }
-  initSequences_(sequences);
+  initReferenceSignalCodes_(sequences);
 }
 //}
 
 /* matchSignal //{ */
 int SignalMatcher::matchSignal(const Sequence& signal) const {
-  const auto valid_size = checkSequenceSize_(signal);
+  const auto valid_size = checkSignalSequenceSize_(signal);
   if (valid_size != MatchStatus::SIGNAL_SIZE_CORRECT) {
     return valid_size;
   }
@@ -22,8 +22,8 @@ int SignalMatcher::matchSignal(const Sequence& signal) const {
   const uint32_t signal_value = packSignalPrefix_(signal);
   const uint32_t mask         = (1ULL << SEQUENCE_SIZE_) - 1;
 
-  for (size_t seq_id = 0; seq_id < sequences_codes_.size(); ++seq_id) {
-    const uint64_t seq = sequences_codes_[seq_id];
+  for (size_t seq_id = 0; seq_id < reference_signal_codes_.size(); ++seq_id) {
+    const uint64_t seq = reference_signal_codes_[seq_id];
 
     for (size_t phase_offset = 0; phase_offset < SEQUENCE_SIZE_; ++phase_offset) {
 
@@ -66,26 +66,24 @@ uint32_t SignalMatcher::packSignalPrefix_(const Sequence& signal) const {
 }
 //}
 
-/* initSequences_ //{ */
-void SignalMatcher::initSequences_(const std::vector<Sequence>& seqs) {
-  sequences_codes_.clear();
+/* initReferenceSignalCodes_ //{ */
+void SignalMatcher::initReferenceSignalCodes_(const std::vector<Sequence>& seqs) {
+  reference_signal_codes_.clear();
   for (const auto& seq : seqs) {
     uint64_t packed = 0;
     // Pack the sequence twice into a 64-bit integer
-    // This allows us to "slide" a window of SEQUENCE_SIZE_ across it
     for (size_t i = 0; i < seq.size() * 2; ++i) {
       if (seq[i % seq.size()]) {
         packed |= (1ULL << i);
       }
     }
-    sequences_codes_.push_back(packed);
+    reference_signal_codes_.push_back(packed);
   }
 }
 //}
 
-/* checkSequenceSize_ //{ */
-MatchStatus SignalMatcher::checkSequenceSize_(const Sequence& signal) const {
-  // TODO: replace with enums, have no idea what those return values mean
+/* checkSignalSequenceSize_ //{ */
+MatchStatus SignalMatcher::checkSignalSequenceSize_(const Sequence& signal) const {
   const auto& seq_size = signal.size();
   if (seq_size == 0) {
     return MatchStatus::SIGNAL_INVALID;

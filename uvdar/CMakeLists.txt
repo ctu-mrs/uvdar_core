@@ -108,6 +108,9 @@ add_dependencies(Uvdar_UvLedDetectorLib uvdar_shaders)
 ## | --------------------- Uvdar_AmiTrackerLib --------------------- |
 add_library(Uvdar_AmiTrackerLib SHARED
   src/ami_tracker/signal_matcher.cpp
+  src/ami_tracker/local_search.cpp
+  src/ami_tracker/tseries_ops.cpp
+  src/ami_tracker/ami_tracker.cpp
 )
 
 target_link_libraries(Uvdar_AmiTrackerLib PUBLIC Eigen3::Eigen)

@@ -14,8 +14,8 @@ class SignalMatcher {
   int matchSignal(const Sequence& signal) const;
 
  private:
-  void initSequences_(const std::vector<Sequence>& seqs);
-  MatchStatus checkSequenceSize_(const Sequence& signal) const;
+  void initReferenceSignalCodes_(const std::vector<Sequence>& seqs);
+  MatchStatus checkSignalSequenceSize_(const Sequence& signal) const;
   int computeHammingDistance_(const uint32_t x, const uint32_t y) const;
   uint32_t packSignalPrefix_(const Sequence& signal) const;
 
@@ -23,7 +23,7 @@ class SignalMatcher {
   const size_t SEQUENCE_SIZE_;
   const int ALLOWED_BER_PER_SEQ_;
 
-  std::vector<uint64_t> sequences_codes_;
+  std::vector<uint64_t> reference_signal_codes_;
 };
 
 } // namespace uvdar::ami

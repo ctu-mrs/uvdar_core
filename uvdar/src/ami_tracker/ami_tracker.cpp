@@ -3,7 +3,10 @@
 namespace uvdar::ami {
 
 /* AmiTracker constructor //{ */
-AmiTracker::AmiTracker(AmiTrackerConfig cfg, ILogger& logger) : cfg_(std::move(cfg)), logger_(logger) {
+AmiTracker::AmiTracker(AmiTrackerConfig cfg, ILogger& logger) : cfg_(cfg), logger_(logger) {
+
+  cfg_.blinking_patterns_size = blinking_patterns_.at(0).size();
+  local_search_               = std::make_unique<LocalSearch>(cfg_);
 }
 //}
 
@@ -45,6 +48,15 @@ void AmiTracker::processBuffer(std::vector<PointState>& current_frame) {
 
 /* findClosestPixelAndInsert_ //{ */
 void AmiTracker::findClosestPixelAndInsert_(std::vector<PointState>& current_frame) {
+  std::vector<SeqPtr> copy_active_tseries_buffer;
+  {
+    std::scoped_lock lock(tseries_buffer_mtx_);
+    // this does not create a copy of data, it only copies the container
+    copy_active_tseries_buffer = active_tseries_buffer_;
+  }
+
+  local_search_->run(current_frame, copy_active_tseries_buffer);
+  // extendedSearch_(current_frame, copy_active_tseries_buffer);
 }
 //}
 
