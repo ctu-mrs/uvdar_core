@@ -80,6 +80,71 @@ TEST(LocalSearch, MatchesPointToSecondTseriesAndRemovesMatchedSeries) {
 }
 //}
 
+/* TEST(LocalSearch, MultiplePointsAndMatchedSeries) //{ */
+TEST(LocalSearch, MultiplePointsAndMatchedSeries) {
+  const int NUM_TIMESTEPS = 3;
+
+  using namespace uvdar::ami;
+
+  AmiTrackerConfig cfg;
+  cfg.max_px_shift           = {10, 10};
+  cfg.stored_seq_len_factor  = 20;
+  cfg.blinking_patterns_size = 8; // 8 bit pattern
+
+  LocalSearch local_search(cfg);
+
+  std::vector<SeqPtr> active_tseries_buffer;
+  SeqPtr first_seq  = std::make_shared<std::vector<PointState>>();
+  SeqPtr second_seq = std::make_shared<std::vector<PointState>>();
+  SeqPtr third_seq  = std::make_shared<std::vector<PointState>>();
+
+  active_tseries_buffer.push_back(first_seq);
+  active_tseries_buffer.push_back(second_seq);
+  active_tseries_buffer.push_back(third_seq);
+
+  // Add markers from past to each t-series (distinct trajectories)
+  for (size_t seq_id = 0; seq_id < active_tseries_buffer.size(); ++seq_id) {
+    auto& seq = active_tseries_buffer[seq_id];
+    for (int t = 0; t < NUM_TIMESTEPS; ++t) {
+      PointState marker;
+      marker.point = cv::Point2d(8 * t + 100 * static_cast<int>(seq_id), 8 * t + 100 * static_cast<int>(seq_id));
+      seq->push_back(marker);
+    }
+  }
+
+  /* Receive a new frame */
+  // - one point near second t-series last point -> should match second
+  // - one point near third t-series last point  -> should match third
+  // - one far point -> should remain unassigned
+  PointState p_match_second, p_match_third, p_far;
+  p_match_second.point = cv::Point2d(118, 114); // within +/-10 of (116,116)
+  p_match_third.point  = cv::Point2d(211, 220); // within +/-10 of (216,216)
+  p_far.point          = cv::Point2d(1000, 1000);
+  std::vector<PointState> unprocessed_markers{p_match_second, p_match_third, p_far};
+
+  local_search.run(unprocessed_markers, active_tseries_buffer);
+
+  EXPECT_EQ(active_tseries_buffer.size(), 1); // 1 umatched t-series
+  EXPECT_EQ(unprocessed_markers.size(), 1);   // 1 point was far from all t-series
+
+  EXPECT_EQ(first_seq->size(), NUM_TIMESTEPS);
+  EXPECT_EQ(second_seq->size(), NUM_TIMESTEPS + 1);
+  EXPECT_EQ(third_seq->size(), NUM_TIMESTEPS + 1);
+
+  // Matched points should be appended as last element
+  EXPECT_DOUBLE_EQ(second_seq->back().point.x, p_match_second.point.x);
+  EXPECT_DOUBLE_EQ(second_seq->back().point.y, p_match_second.point.y);
+  EXPECT_DOUBLE_EQ(third_seq->back().point.x, p_match_third.point.x);
+  EXPECT_DOUBLE_EQ(third_seq->back().point.y, p_match_third.point.y);
+
+  // Previous front should still be the original first element
+  EXPECT_DOUBLE_EQ(second_seq->front().point.x, 100.0); // seq1 at t=0: (100,100)
+  EXPECT_DOUBLE_EQ(second_seq->front().point.y, 100.0);
+  EXPECT_DOUBLE_EQ(third_seq->front().point.x, 200.0); // seq2 at t=0: (200,200)
+  EXPECT_DOUBLE_EQ(third_seq->front().point.y, 200.0);
+}
+//}
+
 int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
   srand(time(NULL));
 
