@@ -28,7 +28,7 @@ void LocalSearch::run(std::vector<PointState>& unassigned_points, std::vector<Se
       continue;
     }
 
-    insertPointSequence_(*tseries, *nearest_point_it);
+    insertPointToSequence_(*tseries, *nearest_point_it);
     // Remove the point from current_frame so it is not reused
     unassigned_points.erase(nearest_point_it);
     // Remove sequence from active buffer
@@ -50,8 +50,8 @@ std::vector<PointState>::iterator LocalSearch::findNearestPoint_(std::vector<Poi
 }
 //}
 
-/* insertPointSequence_ //{ */
-void LocalSearch::insertPointSequence_(std::vector<PointState>& sequence, const PointState signal) {
+/* insertPointToSequence_ //{ */
+void LocalSearch::insertPointToSequence_(std::vector<PointState>& sequence, const PointState signal) {
   sequence.push_back(signal);
   if (sequence.size() > (cfg_.blinking_patterns_size * cfg_.stored_seq_len_factor)) {
     sequence.erase(sequence.begin());

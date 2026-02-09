@@ -107,7 +107,7 @@ TEST(LocalSearch, MultiplePointsAndMatchedSeries) {
     auto& seq = active_tseries_buffer[seq_id];
     for (int t = 0; t < NUM_TIMESTEPS; ++t) {
       PointState marker;
-      marker.point = cv::Point2d(8 * t + 100 * static_cast<int>(seq_id), 8 * t + 100 * static_cast<int>(seq_id));
+      marker.point = cv::Point2d(8 * t + 100 * seq_id, 8 * t + 100 * seq_id);
       seq->push_back(marker);
     }
   }

@@ -111,6 +111,8 @@ add_library(Uvdar_AmiTrackerLib SHARED
   src/ami_tracker/local_search.cpp
   src/ami_tracker/tseries_ops.cpp
   src/ami_tracker/ami_tracker.cpp
+  src/ami_tracker/extended_search.cpp
+  src/ami_tracker/polynomial_regression_predictor.cpp
 )
 
 target_link_libraries(Uvdar_AmiTrackerLib PUBLIC Eigen3::Eigen)

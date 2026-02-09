@@ -16,7 +16,7 @@ class LocalSearch {
 
  private:
   std::vector<PointState>::iterator findNearestPoint_(std::vector<PointState>& points, const PointState& reference);
-  void insertPointSequence_(std::vector<PointState>& sequence, const PointState signal);
+  void insertPointToSequence_(std::vector<PointState>& sequence, const PointState signal);
 
  private:
   const AmiTrackerConfig& cfg_;
