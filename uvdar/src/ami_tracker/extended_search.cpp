@@ -13,10 +13,8 @@ void ExtendedSearch::run(std::vector<PointState>& unassigned_points, std::vector
   if (unassigned_points.empty()) {
     return;
   }
-
   double insert_time =
-      std::chrono::duration_cast<std::chrono::seconds>(unassigned_points[0].insert_time.time_since_epoch()).count() +
-      PREDICTION_MARGIN_;
+      std::chrono::duration<double>(unassigned_points[0].insert_time.time_since_epoch()).count() + PREDICTION_MARGIN_;
 
   auto it = buffer.begin();
   while (it != buffer.end()) {
