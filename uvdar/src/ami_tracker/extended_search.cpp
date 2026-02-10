@@ -15,7 +15,8 @@ void ExtendedSearch::run(std::vector<PointState>& unassigned_points, std::vector
   }
 
   double insert_time =
-      std::chrono::duration_cast<std::chrono::seconds>(unassigned_points[0].insert_time.time_since_epoch()).count();
+      std::chrono::duration_cast<std::chrono::seconds>(unassigned_points[0].insert_time.time_since_epoch()).count() +
+      PREDICTION_MARGIN_;
 
   auto it = buffer.begin();
   while (it != buffer.end()) {
@@ -52,13 +53,6 @@ void ExtendedSearch::run(std::vector<PointState>& unassigned_points, std::vector
     } else {
       ++it;
     }
-  }
-
-  // for sequences with no newly inserted point, add virtual point
-  for (auto seq : buffer) {
-    auto& tseries         = *seq;
-    auto& last_point_time = tseries.back().insert_time;
-    insertVirtualPointToSequence_(tseries, last_point_time);
   }
 }
 //}
@@ -108,16 +102,6 @@ void ExtendedSearch::insertPointToSequence_(std::vector<PointState>& sequence, c
   if (sequence.size() > (cfg_.blinking_patterns_size * cfg_.stored_seq_len_factor)) {
     sequence.erase(sequence.begin());
   }
-}
-//}
-
-/* insertVirtualPointToSequence_ //{ */
-void ExtendedSearch::insertVirtualPointToSequence_(std::vector<PointState>& sequence, const TimePoint& time) {
-  PointState pVirtual;
-  pVirtual             = sequence.back();
-  pVirtual.insert_time = time;
-  pVirtual.led_state   = false;
-  insertPointToSequence_(sequence, pVirtual);
 }
 //}
 
