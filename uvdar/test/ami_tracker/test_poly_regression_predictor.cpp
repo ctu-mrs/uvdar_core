@@ -42,8 +42,8 @@ TEST(PolyRegressionPredictor, NormalizedWeights_SumToOne_AndNewestLargest) {
 }
 //}
 
-/* TEST(PolyRegressionPredictor, ConfidenceInterval) //{ */
-TEST(PolyRegressionPredictor, ConfidenceInterval) {
+/* TEST(PolyRegressionPredictor, LinearPerfectFit_ZeroConfidenceInterval) //{ */
+TEST(PolyRegressionPredictor, LinearPerfectFit_ZeroConfidenceInterval) {
   const double A_COEFF = 10;
   const double B_COEFF = 2;
   using namespace uvdar::ami;
@@ -72,57 +72,40 @@ TEST(PolyRegressionPredictor, ConfidenceInterval) {
 }
 //}
 
-/* TEST(PolyRegressionPredictor, ConfidenceInterval_StaticPoints) //{ */
-// TEST(PolyRegressionPredictor, ConfidenceInterval_StaticPoints) {
-//   const double TRUE_POSITION = 50.0;
-//   const int NUM_SAMPLES      = 30;
-//   const int DELTA_T_MS       = 10;
-//   const double SIGMA         = 2.0;
+TEST(PolyRegressionPredictor, ConfidenceIntervalGrowsWithNoise) {
+  const double A_COEFF = 10;
+  const double B_COEFF = 2;
+  using namespace uvdar::ami;
 
-//   const int TRIALS    = 2000;
-//   const double TARGET = 0.75;
-//   const double TOL    = 0.03;
+  AmiTrackerConfig cfg;
+  cfg.poly_order          = 1;
+  cfg.decay_factor        = 0.0;
+  cfg.conf_probab_percent = 95;
+  PolynomialRegressionPredictor predictor(cfg);
 
-//   using namespace uvdar::ami;
+  std::vector<double> time = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
+  double insert_time       = 10.0;
 
-//   AmiTrackerConfig cfg;
-//   cfg.poly_order          = 0;   // stationary points
-//   cfg.decay_factor        = 0.0; // uniform weights
-//   cfg.conf_probab_percent = 75.0;
-//   PolynomialRegressionPredictor predictor(cfg);
+  // Base line: y = 10 + 2t
+  std::vector<double> clean, noisy_small, noisy_big;
+  for (double t : time) {
+    clean.push_back(A_COEFF + B_COEFF * t);
+    noisy_small.push_back(A_COEFF + B_COEFF * t + gaussianNoise(0.0, 0.2));
+    noisy_big.push_back(A_COEFF + B_COEFF * t + gaussianNoise(0.0, 0.5));
+  }
 
-//   int counter = 0;
-//   for (int trial = 0; trial < TRIALS; ++trial) {
+  auto stats_clean = predictor.selectStatisticsValues(clean, time, insert_time);
+  auto stats_small = predictor.selectStatisticsValues(noisy_small, time, insert_time);
+  auto stats_big   = predictor.selectStatisticsValues(noisy_big, time, insert_time);
 
-//     std::vector<PointState> single_seq;
-//     auto time = Clock::now();
+  ASSERT_TRUE(stats_clean.poly_reg_computed);
+  ASSERT_TRUE(stats_small.poly_reg_computed);
+  ASSERT_TRUE(stats_big.poly_reg_computed);
 
-//     for (size_t n = 0; n < NUM_SAMPLES; ++n) {
-//       auto x = TRUE_POSITION + gaussianNoise(0.0, SIGMA);
-
-//       PointState marker;
-//       marker.insert_time = time + std::chrono::milliseconds(n * DELTA_T_MS);
-//       marker.point       = cv::Point2d(x, 0.0);
-//       marker.led_state   = true;
-//       single_seq.push_back(std::move(marker));
-//     }
-
-//     auto new_time             = time + std::chrono::milliseconds(NUM_SAMPLES * DELTA_T_MS);
-//     double insert_time        = std::chrono::duration<double>(new_time.time_since_epoch()).count();
-//     auto [x_stats, y_ignored] = predictor.predict(insert_time, single_seq);
-
-//     auto x_next = TRUE_POSITION + gaussianNoise(0.0, SIGMA);
-//     if (std::abs(x_next - x_stats.predicted_coordinate) <= x_stats.confidence_interval) {
-//       counter++;
-//     }
-//   }
-
-//   double coverage = static_cast<double>(counter) / TRIALS;
-//   EXPECT_NEAR(coverage, TARGET, TOL);
-// }
-//}
-
-//}
+  EXPECT_NEAR(stats_clean.confidence_interval, 0.0, 1e-9);
+  EXPECT_GT(stats_small.confidence_interval, 0.0);
+  EXPECT_GT(stats_big.confidence_interval, stats_small.confidence_interval);
+}
 
 int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
   srand(time(NULL));
