@@ -10,6 +10,7 @@ while [ ! -e "build/COLCON_IGNORE" ]; do
 done
 
 export CTEST_OUTPUT_ON_FAILURE=1
+export GTEST_COLOR=1
 
 colcon test-result --delete-yes
 

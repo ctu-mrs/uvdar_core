@@ -23,21 +23,21 @@ class PolynomialRegressionPredictor {
   std::tuple<PredictionStatistics, PredictionStatistics> predict(const double insert_time,
                                                                  std::vector<PointState>& tseries);
 
+  std::vector<double> computeNormalizedWeightVect(const std::vector<double>& time);
+
+  PredictionStatistics selectStatisticsValues(const std::vector<double>& coordinates, const std::vector<double>& time,
+                                              const double& insert_time);
+
+  double computeConfidenceInterval_(PredictionStatistics& stats, const std::vector<double>& coordinate,
+                                    const std::vector<double>& time, const std::vector<double>& weights);
+
  private:
   OnLedHistory extractLedOnHistory_(const std::vector<PointState>& tseries);
-
-  PredictionStatistics selectStatisticsValues_(const std::vector<double>& coordinates, const std::vector<double>& time,
-                                               const double& insert_time);
-
-  std::vector<double> computeNormalizedWeightVect_(const std::vector<double>& time);
 
   double computeWeightedMean_(const std::vector<double>& values, const std::vector<double>& weights);
 
   RegressionResult polyReg_(const std::vector<double>& coordinate, const std::vector<double>& time,
-                            const std::vector<double>& weights, const int poly_order);
-
-  double computeConfidenceInterval_(PredictionStatistics& stats, const std::vector<double>& coordinate,
-                                    const std::vector<double>& time, const std::vector<double>& weights);
+                            const std::vector<double>& weights, const size_t poly_order);
 
   double computeWeightedSumSquaredResiduals_(const Eigen::VectorXd& predictions, const std::vector<double>& values,
                                              const std::vector<double>& weights);

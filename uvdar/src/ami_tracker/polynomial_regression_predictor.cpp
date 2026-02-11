@@ -1,4 +1,5 @@
 #include <uvdar/ami_tracker/polynomial_regression_predictor.h>
+#include <boost/math/distributions/students_t.hpp>
 
 namespace uvdar::ami {
 
@@ -11,7 +12,7 @@ PolynomialRegressionPredictor::PolynomialRegressionPredictor(const AmiTrackerCon
 OnLedHistory PolynomialRegressionPredictor::extractLedOnHistory_(const std::vector<PointState>& tseries) {
   OnLedHistory history;
 
-  for (const auto point : tseries) {
+  for (const auto& point : tseries) {
     if (point.led_state) {
       history.x.push_back(point.point.x);
       history.y.push_back(point.point.y);
@@ -30,45 +31,45 @@ PolynomialRegressionPredictor::predict(const double insert_time, std::vector<Poi
 
   auto on_led_history = extractLedOnHistory_(tseries);
 
-  PointState& last_point             = tseries.back();
-  PredictionStatistics x_predictions = selectStatisticsValues_(on_led_history.x, on_led_history.time, insert_time);
-  PredictionStatistics y_predictions = selectStatisticsValues_(on_led_history.y, on_led_history.time, insert_time);
+  PredictionStatistics x_predictions = selectStatisticsValues(on_led_history.x, on_led_history.time, insert_time);
+  PredictionStatistics y_predictions = selectStatisticsValues(on_led_history.y, on_led_history.time, insert_time);
 
   return {x_predictions, y_predictions};
 }
 //}
 
-/* selectStatisticsValues_ //{ */
-PredictionStatistics PolynomialRegressionPredictor::selectStatisticsValues_(const std::vector<double>& coordinates,
-                                                                            const std::vector<double>& time,
-                                                                            const double& insert_time) {
-  auto weights = computeNormalizedWeightVect_(time);
+/* selectStatisticsValues //{ */
+PredictionStatistics PolynomialRegressionPredictor::selectStatisticsValues(const std::vector<double>& coordinates,
+                                                                           const std::vector<double>& time,
+                                                                           const double& insert_time) {
+  auto weights = computeNormalizedWeightVect(time);
 
   PredictionStatistics stats;
-  stats.mean_independent  = computeWeightedMean_(coordinates, weights);
+  stats.mean_independent  = computeWeightedMean_(time, weights);
   stats.time_pred         = insert_time;
   stats.poly_reg_computed = false;
   stats.extended_search   = true;
-  int poly_order          = cfg_.poly_order;
+  size_t poly_order       = static_cast<size_t>(cfg_.poly_order);
 
-  if (coordinates.size() > 0 && coordinates.size() < poly_order) {
+  if (coordinates.size() < poly_order) {
     poly_order = coordinates.size() - 2;
   }
   if (coordinates.size() <= 1) {
     return stats;
   }
 
-  auto reg_result = polyReg_(coordinates, time, weights, poly_order);
-  stats.coeff     = reg_result.coeffs;
-  stats.predicted_vals_past - reg_result.predictions;
+  auto reg_result           = polyReg_(coordinates, time, weights, poly_order);
+  stats.coeff               = reg_result.coeffs;
+  stats.predicted_vals_past = reg_result.predictions;
 
   double t_power{1};
+  stats.predicted_coordinate = 0.0;
   for (const auto& coeff : reg_result.coeffs) {
     stats.predicted_coordinate += coeff * t_power;
     t_power *= insert_time;
   }
 
-  stats.confidence_interval = computeConfidenceInterval_(stats, time, coordinates, weights);
+  stats.confidence_interval = computeConfidenceInterval_(stats, coordinates, time, weights);
 
   stats.poly_reg_computed = true;
 
@@ -76,8 +77,8 @@ PredictionStatistics PolynomialRegressionPredictor::selectStatisticsValues_(cons
 }
 //}
 
-/* computeNormalizedWeightVect_ //{ */
-std::vector<double> PolynomialRegressionPredictor::computeNormalizedWeightVect_(const std::vector<double>& time) {
+/* computeNormalizedWeightVect //{ */
+std::vector<double> PolynomialRegressionPredictor::computeNormalizedWeightVect(const std::vector<double>& time) {
   std::vector<double> weights;
   weights.reserve(time.size());
 
@@ -117,13 +118,14 @@ double PolynomialRegressionPredictor::computeWeightedMean_(const std::vector<dou
 /* polyReg_ //{ */
 RegressionResult PolynomialRegressionPredictor::polyReg_(const std::vector<double>& coordinate,
                                                          const std::vector<double>& time,
-                                                         const std::vector<double>& weights, const int poly_order) {
+                                                         const std::vector<double>& weights, const size_t poly_order) {
 
+  // Vandermonde Matrix
   Eigen::MatrixXd design_mat(time.size(), poly_order + 1);
 
   for (size_t i = 0; i < time.size(); ++i) {
     double t_power{1};
-    for (size_t j = 0; j < poly_order + 1; ++j) {
+    for (size_t j = 0; j <= poly_order; ++j) {
       design_mat(i, j) = t_power;
       t_power *= time[i];
     }
@@ -158,22 +160,46 @@ double PolynomialRegressionPredictor::computeConfidenceInterval_(PredictionStati
     return -1.0;
   }
 
-  // variance of error
   double w_ssr    = computeWeightedSumSquaredResiduals_(stats.predicted_vals_past, coordinate, weights);
-  double sigma_sq = w_ssr / dof;
+  double sigma_sq = w_ssr / dof; // estimated measurement noise
 
   // sum of squares for time
-  Eigen::Map<const Eigen::VectorXd> t_vec(time.data(), n);
-  double sum_sq_diff_time = (t_vec.array() - stats.mean_independent).square().sum();
+  double var_time = 0.0; //
+  for (auto t : time) {
+    var_time += pow((t - stats.mean_independent), 2);
+  }
+  if (var_time <= 0.0) {
+    return -1;
+  }
 
-  // Standard error of prediction
-  double time_diff      = stats.time_pred - stats.mean_independent;
-  double leverage       = (time_diff * time_diff) / sum_sq_diff_time;
-  double standard_error = std::sqrt(sigma_sq * (1.0 + 1.0 / n + leverage));
+  double standard_error =
+      sqrt(sigma_sq * (1.0 + 1.0 / n + (std::pow(stats.time_pred - stats.mean_independent, 2) / var_time)));
+
+  double percentage_scaled    = double(cfg_.conf_probab_percent) / 100.0;
+  double percentage_two_sided = (1 - percentage_scaled) / 2 + percentage_scaled;
+  boost::math::students_t dist(dof);
+  double t = quantile(dist, percentage_two_sided);
+  return t * standard_error;
+
+  // Eigen::Map<const Eigen::VectorXd> t_vec(time.data(), n);
+  // double sum_sq_diff_time = (t_vec.array() - stats.mean_independent).square().sum();
+  // if (sum_sq_diff_time <= 0.0) {
+  //   return -1.0;
+  // }
+
+  // double time_diff = stats.time_pred - stats.mean_independent; // predictions father from data center are more
+  // uncertain double leverage  = (time_diff * time_diff) / sum_sq_diff_time; // how extreme prediction location is
+  // // double standard_error = std::sqrt(sigma_sq * (1.0 + 1.0 / n + leverage));
+  // double standard_error = std::sqrt(sigma_sq * (1.0 + leverage));
+
+  // double percentage_scaled    = double(cfg_.conf_probab_percent) / 100.0;
+  // double percentage_two_sided = (1 - percentage_scaled) / 2 + percentage_scaled;
+  // boost::math::students_t dist(dof);
+  // double t_critical = quantile(dist, percentage_two_sided);
 
   // ChaGPT magic for replacing Boost student's t-distribution
-  double t_critical = getTCriticalValue_(dof, cfg_.conf_probab_percent);
-  return t_critical * standard_error;
+  // double t_critical = getTCriticalValue_(dof, cfg_.conf_probab_percent);
+  // return t_critical * standard_error;
 }
 //}
 
@@ -192,16 +218,15 @@ double PolynomialRegressionPredictor::computeWeightedSumSquaredResiduals_(const 
 /* getTCriticalValue_ //{ */
 double PolynomialRegressionPredictor::getTCriticalValue_(int dof, int percentage) {
   // clang-format off
-  // For 95% confidence
-  if (percentage == 95) {
-      if (dof <= 0)  return 0.0;
-      if (dof == 1)  return 12.706;
-      if (dof == 2)  return 4.303;
-      if (dof == 3)  return 3.182;
-      if (dof == 4)  return 2.776;
-      if (dof == 5)  return 2.571;
-      if (dof < 30)  return 2.042; // Approximation for mid-range
-      return 1.960;               // Large sample size (Normal Distribution)
+  if (percentage == 75) {
+    if (dof <= 0) return 0.0;
+    if (dof == 1) return 2.414;
+    if (dof == 2) return 1.604;
+    if (dof == 3) return 1.423;
+    if (dof == 4) return 1.344;
+    if (dof == 5) return 1.301;
+    if (dof < 30) return 1.174; // ~dof 29
+    return 1.150;              // normal approx
   }
   return 2.0; // Default fallback
   // clang-format on
