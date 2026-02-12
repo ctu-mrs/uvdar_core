@@ -25,6 +25,7 @@ struct PredictionStatistics {
   double mean_independent{0.0};
   double predicted_coordinate{-1.0};
   double confidence_interval{-1.0};
+  Eigen::MatrixXd vandermonde_mat;
 };
 //}
 

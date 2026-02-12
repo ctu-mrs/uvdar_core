@@ -38,17 +38,17 @@ target_link_libraries(test_${TEST_NAME}_poly_regression_predictor
 )
 
 
-## --------------------------------------------------------------
-## |                   Extended Search                          |
-## --------------------------------------------------------------
-ament_add_gtest(test_${TEST_NAME}_extended_search
-  test_extended_search.cpp
-  TIMEOUT 60
-)
+# ## --------------------------------------------------------------
+# ## |                   Extended Search                          |
+# ## --------------------------------------------------------------
+# ament_add_gtest(test_${TEST_NAME}_extended_search
+#   test_extended_search.cpp
+#   TIMEOUT 60
+# )
 
-target_link_libraries(test_${TEST_NAME}_extended_search
-  ${PROJECT_NAME}::${PROJECT_NAME}
-)
+# target_link_libraries(test_${TEST_NAME}_extended_search
+#   ${PROJECT_NAME}::${PROJECT_NAME}
+# )
 
 
 

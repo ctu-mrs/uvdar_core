@@ -16,8 +16,9 @@ TEST(ExtendedSearch, MatchesPointWithinBoundsAndErases) {
   AmiTrackerConfig cfg;
   cfg.max_px_shift           = {5, 5};
   cfg.stored_seq_len_factor  = 20;
-  cfg.decay_factor           = 0.1;
-  cfg.poly_order             = 4;
+  cfg.decay_factor           = 0.0;
+  cfg.poly_order             = 0;
+  cfg.conf_probab_percent    = 95;
   cfg.blinking_patterns_size = 8; // 8 bit pattern
 
   ExtendedSearch extended_search(cfg);

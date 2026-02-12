@@ -5,6 +5,8 @@ namespace uvdar::ami {
 
 /* PredictionStatistics //{ */
 PolynomialRegressionPredictor::PolynomialRegressionPredictor(const AmiTrackerConfig& cfg) : cfg_(cfg) {
+  X_vandermonde_.resize(WINDOW_SEARCH_SIZE_, cfg_.poly_order + 1);
+  y_workspace_.resize(WINDOW_SEARCH_SIZE_);
 }
 //}
 
@@ -16,7 +18,8 @@ OnLedHistory PolynomialRegressionPredictor::extractLedOnHistory_(const std::vect
     if (point.led_state) {
       history.x.push_back(point.point.x);
       history.y.push_back(point.point.y);
-      auto seconds = std::chrono::duration_cast<std::chrono::seconds>(point.insert_time.time_since_epoch()).count();
+      using dsec   = std::chrono::duration<double>;
+      auto seconds = std::chrono::duration_cast<dsec>(point.insert_time.time_since_epoch()).count();
       history.time.push_back(seconds);
     }
   }
@@ -34,6 +37,14 @@ PolynomialRegressionPredictor::predict(const double insert_time, std::vector<Poi
   PredictionStatistics x_predictions = selectStatisticsValues(on_led_history.x, on_led_history.time, insert_time);
   PredictionStatistics y_predictions = selectStatisticsValues(on_led_history.y, on_led_history.time, insert_time);
 
+  int dof = static_cast<int>(on_led_history.x.size()) - (cfg_.poly_order + 1);
+  boost::math::students_t dist(dof);
+  double prob = cfg_.conf_probab_percent / 100.0;
+  double t    = quantile(dist, (1.0 + prob) / 2.0);
+
+  x_predictions.confidence_interval = t * (x_predictions.confidence_interval + cfg_.max_px_shift.x);
+  y_predictions.confidence_interval = t * (y_predictions.confidence_interval + cfg_.max_px_shift.y);
+
   return {x_predictions, y_predictions};
 }
 //}
@@ -45,31 +56,21 @@ PredictionStatistics PolynomialRegressionPredictor::selectStatisticsValues(const
   auto weights = computeNormalizedWeightVect(time);
 
   PredictionStatistics stats;
-  stats.mean_independent  = computeWeightedMean_(time, weights);
+  // stats.mean_independent  = computeWeightedMean_(time, weights);
   stats.time_pred         = insert_time;
   stats.poly_reg_computed = false;
   stats.extended_search   = true;
   size_t poly_order       = static_cast<size_t>(cfg_.poly_order);
 
-  if (coordinates.size() < poly_order) {
-    poly_order = coordinates.size() - 2;
-  }
   if (coordinates.size() <= 1) {
     return stats;
   }
-
-  auto reg_result           = polyReg_(coordinates, time, weights, poly_order);
-  stats.coeff               = reg_result.coeffs;
-  stats.predicted_vals_past = reg_result.predictions;
-
-  double t_power{1};
-  stats.predicted_coordinate = 0.0;
-  for (const auto& coeff : reg_result.coeffs) {
-    stats.predicted_coordinate += coeff * t_power;
-    t_power *= insert_time;
+  if (coordinates.size() < poly_order) {
+    poly_order = coordinates.size() - 2;
   }
 
-  stats.confidence_interval = computeConfidenceInterval_(stats, coordinates, time, weights);
+  std::tie(stats.predicted_coordinate, stats.confidence_interval) =
+      calculatePredictionInterval(coordinates, time, weights, insert_time);
 
   stats.poly_reg_computed = true;
 
@@ -100,106 +101,84 @@ std::vector<double> PolynomialRegressionPredictor::computeNormalizedWeightVect(c
 //}
 
 /* computeWeightedMean_ //{ */
-double PolynomialRegressionPredictor::computeWeightedMean_(const std::vector<double>& values,
-                                                           const std::vector<double>& weights) {
-  if (values.size() != weights.size()) {
-    return -1;
-  }
-
-  double weighted_sum{0.0};
-  for (size_t i = 0; i < values.size(); ++i) {
-    weighted_sum += (values[i] * weights[i]);
-  }
+double PolynomialRegressionPredictor::computeWeightedMean_(const double* values, const double* weights, int n) {
+  double weighted_sum = 0.0;
+  for (int i = 0; i < n; ++i)
+    weighted_sum += values[i] * weights[i];
 
   return weighted_sum;
 }
 //}
 
-/* polyReg_ //{ */
-RegressionResult PolynomialRegressionPredictor::polyReg_(const std::vector<double>& coordinate,
-                                                         const std::vector<double>& time,
-                                                         const std::vector<double>& weights, const size_t poly_order) {
+/* calculatePredictionInterval //{ */
+std::tuple<double, double>
+PolynomialRegressionPredictor::calculatePredictionInterval(const std::vector<double>& coordinate,
+                                                           const std::vector<double>& time,
+                                                           const std::vector<double>& weights, const double time_next) {
+  const int n        = std::min(static_cast<int>(coordinate.size()), WINDOW_SEARCH_SIZE_);
+  const int p        = std::min(cfg_.poly_order, n - 2);
+  const int n_coeffs = p + 1;
+  const int dof      = n - n_coeffs;
 
-  // Vandermonde Matrix
-  Eigen::MatrixXd design_mat(time.size(), poly_order + 1);
+  // Get pointers to the start of the searching window
+  const double* t_ptr = &time.back() - (n - 1);
+  const double* c_ptr = &coordinate.back() - (n - 1);
+  const double* w_ptr = &weights.back() - (n - 1);
 
-  for (size_t i = 0; i < time.size(); ++i) {
-    double t_power{1};
-    for (size_t j = 0; j <= poly_order; ++j) {
-      design_mat(i, j) = t_power;
-      t_power *= time[i];
+  Eigen::Map<const Eigen::VectorXd> t_vec(t_ptr, n);
+  Eigen::Map<const Eigen::VectorXd> w_vec(w_ptr, n);
+  double time_mean = t_vec.dot(w_vec);
+
+  if (time_mean == -1.0 || dof <= 0) {
+    return {std::numeric_limits<double>::quiet_NaN(), 1e10};
+  }
+
+  auto X_active = X_vandermonde_.block(0, 0, n, n_coeffs);
+  auto y_active = y_workspace_.head(n);
+
+  for (int i = 0; i < n; ++i) {
+    const double t_rel = t_ptr[i] - time_mean;
+    const double rw    = std::sqrt(w_ptr[i]);
+
+    y_active(i) = c_ptr[i] * rw;
+
+    double t_pow = rw;
+    for (int j = 0; j < n_coeffs; ++j) {
+      X_active(i, j) = t_pow;
+      t_pow *= t_rel;
     }
   }
 
-  Eigen::Map<const Eigen::VectorXd> pixel_vect(coordinate.data(), coordinate.size());
-  Eigen::Map<const Eigen::VectorXd> weight_vect(weights.data(), weights.size());
+  auto qr              = X_active.householderQr();
+  Eigen::VectorXd beta = qr.solve(y_active);
 
-  // Solve for weighted linear least sequare fit
-  Eigen::VectorXd sqrt_weights = weight_vect.cwiseSqrt();
-  Eigen::MatrixXd weighted_A   = sqrt_weights.asDiagonal() * design_mat;
-  Eigen::VectorXd weighted_y   = sqrt_weights.asDiagonal() * pixel_vect;
+  // residuals
+  double w_ssr  = (X_active * beta - y_active).squaredNorm();
+  double sigma2 = w_ssr / std::max(1, dof);
 
-  RegressionResult ans;
-  Eigen::VectorXd result = weighted_A.householderQr().solve(weighted_y);
-  ans.coeffs             = std::vector<double>(result.data(), result.data() + result.size());
-  ans.predictions        = design_mat * result;
-
-  return ans;
-}
-//}
-
-/* computeConfidenceInterval_ //{ */
-double PolynomialRegressionPredictor::computeConfidenceInterval_(PredictionStatistics& stats,
-                                                                 const std::vector<double>& coordinate,
-                                                                 const std::vector<double>& time,
-                                                                 const std::vector<double>& weights) {
-  const int n   = static_cast<int>(coordinate.size());
-  const int p   = static_cast<int>(stats.coeff.size());
-  const int dof = n - p;
-  if (stats.mean_independent == -1.0 || dof <= 0) {
-    return -1.0;
+  // Prediction using Horner’s Method
+  const double t_next_rel = time_next - time_mean;
+  double mu               = 0.0;
+  for (int j = n_coeffs - 1; j >= 0; --j) {
+    mu = mu * t_next_rel + beta(j);
   }
 
-  double w_ssr    = computeWeightedSumSquaredResiduals_(stats.predicted_vals_past, coordinate, weights);
-  double sigma_sq = w_ssr / dof; // estimated measurement noise
-
-  // sum of squares for time
-  double var_time = 0.0; //
-  for (auto t : time) {
-    var_time += pow((t - stats.mean_independent), 2);
-  }
-  if (var_time <= 0.0) {
-    return -1;
+  // Optimized Leverage
+  Eigen::VectorXd phi_next(n_coeffs);
+  double tn_pow = 1.0;
+  for (int j = 0; j < n_coeffs; ++j) {
+    phi_next(j) = tn_pow;
+    tn_pow *= t_next_rel;
   }
 
-  double standard_error =
-      sqrt(sigma_sq * (1.0 + 1.0 / n + (std::pow(stats.time_pred - stats.mean_independent, 2) / var_time)));
+  Eigen::MatrixXd R = qr.matrixQR().topRows(n_coeffs).triangularView<Eigen::Upper>();
+  Eigen::VectorXd v = R.transpose().triangularView<Eigen::Lower>().solve(phi_next);
+  double leverage   = v.squaredNorm();
 
-  double percentage_scaled    = double(cfg_.conf_probab_percent) / 100.0;
-  double percentage_two_sided = (1 - percentage_scaled) / 2 + percentage_scaled;
-  boost::math::students_t dist(dof);
-  double t = quantile(dist, percentage_two_sided);
-  return t * standard_error;
+  // Final standard error for prediction
+  double s_pred = std::sqrt(sigma2 * (1.0 + leverage));
 
-  // Eigen::Map<const Eigen::VectorXd> t_vec(time.data(), n);
-  // double sum_sq_diff_time = (t_vec.array() - stats.mean_independent).square().sum();
-  // if (sum_sq_diff_time <= 0.0) {
-  //   return -1.0;
-  // }
-
-  // double time_diff = stats.time_pred - stats.mean_independent; // predictions father from data center are more
-  // uncertain double leverage  = (time_diff * time_diff) / sum_sq_diff_time; // how extreme prediction location is
-  // // double standard_error = std::sqrt(sigma_sq * (1.0 + 1.0 / n + leverage));
-  // double standard_error = std::sqrt(sigma_sq * (1.0 + leverage));
-
-  // double percentage_scaled    = double(cfg_.conf_probab_percent) / 100.0;
-  // double percentage_two_sided = (1 - percentage_scaled) / 2 + percentage_scaled;
-  // boost::math::students_t dist(dof);
-  // double t_critical = quantile(dist, percentage_two_sided);
-
-  // ChaGPT magic for replacing Boost student's t-distribution
-  // double t_critical = getTCriticalValue_(dof, cfg_.conf_probab_percent);
-  // return t_critical * standard_error;
+  return {mu, s_pred};
 }
 //}
 
@@ -212,24 +191,6 @@ double PolynomialRegressionPredictor::computeWeightedSumSquaredResiduals_(const 
     sum_squared_residuals += (weights[i] * pow((predictions(i) - values[i]), 2));
   }
   return sum_squared_residuals;
-}
-//}
-
-/* getTCriticalValue_ //{ */
-double PolynomialRegressionPredictor::getTCriticalValue_(int dof, int percentage) {
-  // clang-format off
-  if (percentage == 75) {
-    if (dof <= 0) return 0.0;
-    if (dof == 1) return 2.414;
-    if (dof == 2) return 1.604;
-    if (dof == 3) return 1.423;
-    if (dof == 4) return 1.344;
-    if (dof == 5) return 1.301;
-    if (dof < 30) return 1.174; // ~dof 29
-    return 1.150;              // normal approx
-  }
-  return 2.0; // Default fallback
-  // clang-format on
 }
 //}
 

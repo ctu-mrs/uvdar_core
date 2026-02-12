@@ -34,16 +34,16 @@ void ExtendedSearch::run(std::vector<PointState>& unassigned_points, std::vector
     last_point.x_stats     = x_predictions;
     last_point.y_stats     = y_predictions;
 
-    double x_predicted = last_point.x_stats.predicted_coordinate;
-    double y_predicted = last_point.y_stats.predicted_coordinate;
+    const double& x_predicted = last_point.x_stats.predicted_coordinate;
+    const double& y_predicted = last_point.y_stats.predicted_coordinate;
 
-    last_point.x_stats.confidence_interval =
-        std::clamp(last_point.x_stats.confidence_interval, cfg_.max_px_shift.x, cfg_.max_px_shift.x * 2);
-    last_point.y_stats.confidence_interval =
-        std::clamp(last_point.y_stats.confidence_interval, cfg_.max_px_shift.y, cfg_.max_px_shift.y * 2);
+    // last_point.x_stats.confidence_interval =
+    //     std::clamp(last_point.x_stats.confidence_interval, cfg_.max_px_shift.x, cfg_.max_px_shift.x * 2);
+    // last_point.y_stats.confidence_interval =
+    //     std::clamp(last_point.y_stats.confidence_interval, cfg_.max_px_shift.y, cfg_.max_px_shift.y * 2);
 
-    double x_conf = last_point.x_stats.confidence_interval;
-    double y_conf = last_point.y_stats.confidence_interval;
+    const double& x_conf = last_point.x_stats.confidence_interval;
+    const double& y_conf = last_point.y_stats.confidence_interval;
 
     if (performLocalCheck_(last_point, unassigned_points, *tseries, cv::Point2d(x_predicted, y_predicted),
                            cv::Point2d(x_conf, y_conf))) {

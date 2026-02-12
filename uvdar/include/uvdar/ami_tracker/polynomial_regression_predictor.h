@@ -12,8 +12,8 @@ struct OnLedHistory {
 };
 
 struct RegressionResult {
-  std::vector<double> coeffs;
-  Eigen::VectorXd predictions;
+  Eigen::VectorXd prediction;
+  double std_error;
 };
 
 class PolynomialRegressionPredictor {
@@ -28,25 +28,29 @@ class PolynomialRegressionPredictor {
   PredictionStatistics selectStatisticsValues(const std::vector<double>& coordinates, const std::vector<double>& time,
                                               const double& insert_time);
 
-  double computeConfidenceInterval_(PredictionStatistics& stats, const std::vector<double>& coordinate,
-                                    const std::vector<double>& time, const std::vector<double>& weights);
+  std::tuple<double, double> calculatePredictionInterval(const std::vector<double>& coordinate,
+                                                         const std::vector<double>& time,
+                                                         const std::vector<double>& weights, const double time_next);
 
  private:
   OnLedHistory extractLedOnHistory_(const std::vector<PointState>& tseries);
 
-  double computeWeightedMean_(const std::vector<double>& values, const std::vector<double>& weights);
+  double computeWeightedMean_(const double* values, const double* weights, int n);
 
-  RegressionResult polyReg_(const std::vector<double>& coordinate, const std::vector<double>& time,
-                            const std::vector<double>& weights, const size_t poly_order);
+  // RegressionResult polyReg_(const std::vector<double>& coordinate, const std::vector<double>& time,
+  //                           const std::vector<double>& weights, const size_t poly_order, PredictionStatistics&
+  //                           stats);
 
   double computeWeightedSumSquaredResiduals_(const Eigen::VectorXd& predictions, const std::vector<double>& values,
                                              const std::vector<double>& weights);
 
-  ///@brief Chatgpt magic for replacing boost::math::students_t
-  double getTCriticalValue_(int dof, int percentage);
-
  private:
+  const int WINDOW_SEARCH_SIZE_{100};
   const AmiTrackerConfig& cfg_;
+
+  Eigen::Matrix<double, Eigen::Dynamic, 5> X_vandermonde_;
+  Eigen::VectorXd y_workspace_;
+  std::vector<double> t_quantile_lut_;
 };
 
 } // namespace uvdar::ami
