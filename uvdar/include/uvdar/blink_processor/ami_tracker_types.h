@@ -58,4 +58,9 @@ struct AmiTrackerConfig {
 };
 //}
 
+struct RetrievedSignal {
+  SeqPtr sequence;
+  int id;
+};
+
 } // namespace uvdar::blink_processor

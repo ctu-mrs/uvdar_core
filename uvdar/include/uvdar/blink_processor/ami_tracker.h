@@ -15,33 +15,18 @@ namespace uvdar::blink_processor {
 
 class AmiTracker {
  public:
-  explicit AmiTracker(const std::shared_ptr<AmiTrackerConfig> cfg, ILogger& logger);
+  explicit AmiTracker(const std::shared_ptr<AmiTrackerConfig> cfg, std::shared_ptr<TseriesBuffer> active_tseries_buffer,
+                      ILogger& logger);
   ~AmiTracker() = default;
 
-  [[nodiscard]] bool setSequences(const std::vector<Sequence>& sequences);
   void setFrameRate(const double input);
 
   void processBuffer(std::vector<PointState>& unmatched_points);
 
  private:
-  // void findClosestPixelAndInsert_(std::vector<PointState>& unmatched_points);
-  // void cleanPotentialBuffer_();
-
-  // void insertVirtualPointToSequence_(std::vector<PointState>& sequence, const TimePoint& time);
-
-  // void addVirtualPointsToIdleSequences_(std::vector<SeqPtr> copy_active_tseries_buffer);
-  // void enforceMaxBufferLength_(std::vector<PointState>& unmatched_points);
-  // void startNewSequencesForUnmatchedPoints_(std::vector<PointState>& unmatched_points);
-  // void insertPointToSequence_(std::vector<PointState>& sequence, const PointState signal);
-  // int countNumConsecutiveZerosInTseries_(SeqPtr& tseries, const int max_num_zeros);
-
  private:
   std::shared_ptr<AmiTrackerConfig> cfg_;
   ILogger& logger_;
-
-  std::unique_ptr<SignalMatcher> signal_matcher_;
-
-  std::vector<Sequence> blinking_patterns_;
 
   double frame_rate_;
 

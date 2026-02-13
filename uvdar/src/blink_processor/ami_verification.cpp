@@ -22,26 +22,12 @@ void AmiVerification::run(std::vector<PointState>& unassigned_points, std::vecto
 }
 //}
 
-/* cleanPotentialBuffer_ //{ */
-void AmiVerification::cleanPotentialBuffer_() {
-  std::scoped_lock lock(active_tseries_buffer_->mtx);
-
-  auto it = active_tseries_buffer_->buffer.begin();
-  while (it != active_tseries_buffer_->buffer.end()) {
-    SeqPtr& tseries      = *it;
-    int delete_criterion = cfg_->max_zeros_consecutive + cfg_->allowed_BER_per_seq;
-    if (tseries->size() <= delete_criterion) {
-      ++it;
-      continue;
-    }
-
-    int zero_counter = countNumConsecutiveZerosInTseries_(tseries, delete_criterion);
-
-    if (zero_counter > delete_criterion) {
-      it = active_tseries_buffer_->buffer.erase(it);
-    } else {
-      ++it;
-    }
+/* addVirtualPointsToIdleSequences_ //{ */
+void AmiVerification::addVirtualPointsToIdleSequences_(std::vector<SeqPtr> copy_active_tseries_buffer) {
+  for (auto seq : copy_active_tseries_buffer) {
+    auto& tseries         = *seq;
+    auto& last_point_time = tseries.back().insert_time;
+    insertVirtualPointToSequence_(tseries, last_point_time);
   }
 }
 //}
@@ -57,12 +43,11 @@ void AmiVerification::insertVirtualPointToSequence_(std::vector<PointState>& seq
 }
 //}
 
-/* addVirtualPointsToIdleSequences_ //{ */
-void AmiVerification::addVirtualPointsToIdleSequences_(std::vector<SeqPtr> copy_active_tseries_buffer) {
-  for (auto seq : copy_active_tseries_buffer) {
-    auto& tseries         = *seq;
-    auto& last_point_time = tseries.back().insert_time;
-    insertVirtualPointToSequence_(tseries, last_point_time);
+/* insertPointToSequence_ //{ */
+void AmiVerification::insertPointToSequence_(std::vector<PointState>& sequence, const PointState signal) {
+  sequence.push_back(signal);
+  if (sequence.size() > (cfg_->blinking_patterns_size * cfg_->stored_seq_len_factor)) {
+    sequence.erase(sequence.begin());
   }
 }
 //}
@@ -95,11 +80,26 @@ void AmiVerification::startNewSequencesForUnmatchedPoints_(std::vector<PointStat
 }
 //}
 
-/* insertPointToSequence_ //{ */
-void AmiVerification::insertPointToSequence_(std::vector<PointState>& sequence, const PointState signal) {
-  sequence.push_back(signal);
-  if (sequence.size() > (cfg_->blinking_patterns_size * cfg_->stored_seq_len_factor)) {
-    sequence.erase(sequence.begin());
+/* cleanPotentialBuffer_ //{ */
+void AmiVerification::cleanPotentialBuffer_() {
+  std::scoped_lock lock(active_tseries_buffer_->mtx);
+
+  auto it = active_tseries_buffer_->buffer.begin();
+  while (it != active_tseries_buffer_->buffer.end()) {
+    SeqPtr& tseries      = *it;
+    int delete_criterion = cfg_->max_zeros_consecutive + cfg_->allowed_BER_per_seq;
+    if (tseries->size() <= delete_criterion) {
+      ++it;
+      continue;
+    }
+
+    int zero_counter = countNumConsecutiveZerosInTseries_(tseries, delete_criterion);
+
+    if (zero_counter > delete_criterion) {
+      it = active_tseries_buffer_->buffer.erase(it);
+    } else {
+      ++it;
+    }
   }
 }
 //}
