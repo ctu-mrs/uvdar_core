@@ -37,10 +37,6 @@ class PolynomialRegressionPredictor {
 
   double computeWeightedMean_(const double* values, const double* weights, int n);
 
-  // RegressionResult polyReg_(const std::vector<double>& coordinate, const std::vector<double>& time,
-  //                           const std::vector<double>& weights, const size_t poly_order, PredictionStatistics&
-  //                           stats);
-
   double computeWeightedSumSquaredResiduals_(const Eigen::VectorXd& predictions, const std::vector<double>& values,
                                              const std::vector<double>& weights);
 

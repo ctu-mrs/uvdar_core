@@ -17,10 +17,10 @@ class ExtendedSearch {
   bool performLocalCheck_(PointState& last_point, std::vector<PointState>& unassigned_points,
                           std::vector<PointState>& tseries, const cv::Point2d& pred_point,
                           const cv::Point2d& conf_point);
+
   std::vector<PointState>::iterator findNearestPoint_(std::vector<PointState>& points, const PointState& reference);
+
   void insertPointToSequence_(std::vector<PointState>& sequence, const PointState signal);
-  // void insertVirtualPointToSequence_(std::vector<PointState>& sequence, const TimePoint& time);
-  // void clipBuffer_();
 
  private:
   std::shared_ptr<AmiTrackerConfig> cfg_;

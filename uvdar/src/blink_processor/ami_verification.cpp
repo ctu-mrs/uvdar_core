@@ -4,8 +4,8 @@ namespace uvdar::blink_processor {
 
 /* AmiVerification constructor //{ */
 AmiVerification::AmiVerification(const std::shared_ptr<AmiTrackerConfig> cfg,
-                                 const std::shared_ptr<TseriesBuffer> active_buffer)
-    : cfg_(cfg), active_tseries_buffer_(active_buffer) {
+                                 const std::shared_ptr<TseriesBuffer> active_buffer, ILogger& logger)
+    : cfg_(cfg), active_tseries_buffer_(active_buffer), logger_(logger) {
 }
 //}
 
@@ -70,10 +70,10 @@ void AmiVerification::addVirtualPointsToIdleSequences_(std::vector<SeqPtr> copy_
 /* enforceMaxBufferLength_ //{ */
 void AmiVerification::enforceMaxBufferLength_(std::vector<PointState>& unmatched_points) {
   if (active_tseries_buffer_->buffer.size() > cfg_->max_buffer_length) {
-    // logger_.error("[AmiVerification]: The maximal excepted buffer length of " +
-    //               std::to_string(cfg_->max_buffer_length) + " is reached! " + std::to_string(unmatched_points.size())
-    //               + " points will be discarded. Please consider to set the parameter \"max_buffer_length\" higher, if
-    //               " "the memory has the capacity.");
+    logger_.error("[AmiVerification]: The maximal excepted buffer length of " +
+                  std::to_string(cfg_->max_buffer_length) + " is reached! " + std::to_string(unmatched_points.size()) +
+                  " points will be discarded. Please consider to set the parameter \"max_buffer_length\" higher, if "
+                  "the memory has the capacity.");
     auto diff = active_tseries_buffer_->buffer.size() - cfg_->max_buffer_length;
 
     active_tseries_buffer_->buffer.erase(active_tseries_buffer_->buffer.begin() + cfg_->max_buffer_length,
