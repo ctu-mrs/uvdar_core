@@ -58,9 +58,11 @@ struct AmiTrackerConfig {
 };
 //}
 
-struct RetrievedSignal {
-  SeqPtr sequence;
+/* TrackedMarker //{ */
+struct TrackedMarker {
+  PointState last_point;
   int id;
 };
+//}
 
 } // namespace uvdar::blink_processor

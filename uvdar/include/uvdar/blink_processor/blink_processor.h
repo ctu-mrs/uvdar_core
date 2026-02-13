@@ -14,10 +14,10 @@ class BlinkProcessor {
 
   void processBuffer(std::vector<PointState>& unmatched_points);
 
-  std::vector<RetrievedSignal> getResults();
+  std::vector<TrackedMarker> getResults();
 
  private:
-  std::vector<PointState> extractWindowForPatternMatch_(const SeqPtr& tseries);
+  std::vector<bool> extractLedWindowForPatternMatch_(const SeqPtr& tseries);
 
  private:
   std::shared_ptr<AmiTrackerConfig> cfg_;

@@ -38,36 +38,41 @@ void BlinkProcessor::processBuffer(std::vector<PointState>& unmatched_points) {
 //}
 
 /* getResults //{ */
-std::vector<RetrievedSignal> BlinkProcessor::getResults() {
+std::vector<TrackedMarker> BlinkProcessor::getResults() {
   std::scoped_lock lock(active_tseries_buffer_->mtx);
 
-  std::vector<RetrievedSignal> results;
+  std::vector<TrackedMarker> results;
+  results.reserve(active_tseries_buffer_->buffer.size());
 
-  for (auto& seq : active_tseries_buffer_->buffer) {
-    auto tseries_window = extractWindowForPatternMatch_(seq);
+  for (const auto& seq : active_tseries_buffer_->buffer) {
+    auto led_sequence = extractLedWindowForPatternMatch_(seq);
 
-    std::vector<bool> led_states;
-    led_states.reserve(tseries_window.size());
-    for (const auto& point : tseries_window) {
-      led_states.push_back(point.led_state);
-    }
+    int id = signal_matcher_->matchSignal(led_sequence);
 
-    int id = signal_matcher_->matchSignal(led_states);
-    results.push_back({seq, id});
+    results.push_back({seq->back(), id});
   }
+
   return results;
 }
 //}
 
 /* extractWindowForPatternMatch_ //{ */
-std::vector<PointState> BlinkProcessor::extractWindowForPatternMatch_(const SeqPtr& tseries) {
-  std::vector<PointState> selected;
-  if (tseries->size() > cfg_->blinking_patterns_size) {
-    selected.insert(selected.end(), tseries->end() - cfg_->blinking_patterns_size, tseries->end());
-  } else {
-    selected.insert(selected.end(), tseries->begin(), tseries->end());
+std::vector<bool> BlinkProcessor::extractLedWindowForPatternMatch_(const SeqPtr& tseries) {
+  std::vector<bool> led_sequence;
+
+  if (!tseries || tseries->empty() || cfg_->blinking_patterns_size == 0) {
+    return led_sequence;
   }
-  return selected;
+
+  const std::size_t n     = tseries->size();
+  const std::size_t start = (n > cfg_->blinking_patterns_size) ? (n - cfg_->blinking_patterns_size) : 0;
+
+  led_sequence.reserve(n - start);
+  for (std::size_t i = start; i < n; ++i) {
+    led_sequence.push_back((*tseries)[i].led_state);
+  }
+
+  return led_sequence;
 }
 //}
 
