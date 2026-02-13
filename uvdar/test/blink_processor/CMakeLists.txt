@@ -50,5 +50,16 @@ target_link_libraries(test_${TEST_NAME}_extended_search
   ${PROJECT_NAME}::${PROJECT_NAME}
 )
 
+## --------------------------------------------------------------
+## |                   Blink processor                          |
+## --------------------------------------------------------------
+ament_add_gtest(test_${TEST_NAME}_blink_processor
+  test_blink_processor.cpp
+  TIMEOUT 60
+)
+
+target_link_libraries(test_${TEST_NAME}_blink_processor
+  ${PROJECT_NAME}::${PROJECT_NAME}
+)
 
 

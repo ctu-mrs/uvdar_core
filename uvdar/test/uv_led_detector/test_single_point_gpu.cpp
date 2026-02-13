@@ -22,7 +22,7 @@ cv::Mat createSingleMarkerImage(const int cx, const int cy) {
 
 /* TEST(UvLedDetector, GPU_singlePoint) //{ */
 TEST(UvLedDetector, GPU_singlePoint) {
-  DummyLogger logger;
+  TestLogger logger;
   uvdar::UvLedDetectConfig cfg;
   cfg.gui                 = true;
   cfg.gpu                 = true;

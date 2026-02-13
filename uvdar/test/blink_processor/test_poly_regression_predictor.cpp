@@ -9,6 +9,8 @@
 #include <fstream>
 #include <iostream>
 
+using namespace uvdar::blink_processor;
+
 double gaussianNoise(double mean, double stddev) {
   static std::mt19937 rng(0); //
   std::normal_distribution<double> dist(mean, stddev);
@@ -17,8 +19,6 @@ double gaussianNoise(double mean, double stddev) {
 
 /* TEST(PolyRegressionPredictor, NormalizedWeights_SumToOne_AndNewestLargest) //{ */
 TEST(PolyRegressionPredictor, NormalizedWeights_SumToOne_AndNewestLargest) {
-  using namespace uvdar::blink_processor;
-
   AmiTrackerConfig cfg;
   cfg.poly_order   = 4;
   cfg.decay_factor = 5.0;
@@ -49,7 +49,6 @@ TEST(PolyRegressionPredictor, NormalizedWeights_SumToOne_AndNewestLargest) {
 TEST(PolyRegressionPredictor, LinearPerfectFit_ZeroConfidenceInterval) {
   const double A_COEFF = 10;
   const double B_COEFF = 2;
-  using namespace uvdar::blink_processor;
 
   AmiTrackerConfig cfg;
   cfg.poly_order          = 1;
@@ -80,7 +79,6 @@ TEST(PolyRegressionPredictor, LinearPerfectFit_ZeroConfidenceInterval) {
 TEST(PolyRegressionPredictor, ConfidenceIntervalGrowsWithNoise) {
   const double A_COEFF = 10;
   const double B_COEFF = 2;
-  using namespace uvdar::blink_processor;
 
   AmiTrackerConfig cfg;
   cfg.poly_order          = 1;
@@ -117,7 +115,6 @@ TEST(PolyRegressionPredictor, ConfidenceIntervalGrowsWithNoise) {
 
 /* TEST(PolyRegressionPredictor, NonUniformTimeStressTest) //{ */
 TEST(PolyRegressionPredictor, NonUniformTimeStressTest) {
-  using namespace uvdar::blink_processor;
   AmiTrackerConfig cfg;
   cfg.poly_order          = 2; // Quadratic is safer for irregular gaps
   cfg.decay_factor        = 0.1;

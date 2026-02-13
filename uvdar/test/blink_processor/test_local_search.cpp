@@ -6,10 +6,10 @@
 
 #include <uvdar/blink_processor/local_search.h>
 
+using namespace uvdar::blink_processor;
+
 /* TEST(LocalSearch, MatchesPointWithinBoundsAndErases) //{ */
 TEST(LocalSearch, MatchesPointWithinBoundsAndErases) {
-  using namespace uvdar::blink_processor;
-
   AmiTrackerConfig cfg;
   cfg.max_px_shift           = {10, 10};
   cfg.stored_seq_len_factor  = 20;
@@ -44,8 +44,6 @@ TEST(LocalSearch, MatchesPointWithinBoundsAndErases) {
 
 /* TEST(LocalSearch, MatchesPointToSecondTseriesAndRemovesMatchedSeries) //{ */
 TEST(LocalSearch, MatchesPointToSecondTseriesAndRemovesMatchedSeries) {
-  using namespace uvdar::blink_processor;
-
   AmiTrackerConfig cfg;
   cfg.max_px_shift           = {10, 10};
   cfg.stored_seq_len_factor  = 20;
@@ -85,8 +83,6 @@ TEST(LocalSearch, MatchesPointToSecondTseriesAndRemovesMatchedSeries) {
 /* TEST(LocalSearch, MultiplePointsAndMatchedSeries) //{ */
 TEST(LocalSearch, MultiplePointsAndMatchedSeries) {
   const int NUM_TIMESTEPS = 3;
-
-  using namespace uvdar::blink_processor;
 
   AmiTrackerConfig cfg;
   cfg.max_px_shift           = {10, 10};

@@ -26,7 +26,6 @@ class BlinkProcessor {
   std::unique_ptr<SignalMatcher> signal_matcher_;
 
   std::vector<Sequence> blinking_patterns_;
-  std::shared_ptr<TseriesBuffer> active_tseries_buffer_;
 };
 
 } // namespace uvdar::blink_processor

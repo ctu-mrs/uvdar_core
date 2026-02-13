@@ -6,18 +6,18 @@
 
 #include <uvdar/blink_processor/extended_search.h>
 
+using namespace uvdar::blink_processor;
+
 double gaussianNoise(double mean, double stddev) {
   static std::mt19937 rng(0); //
   std::normal_distribution<double> dist(mean, stddev);
   return dist(rng);
 }
 
-/* TEST(LocalSearch, MultiplePointsAndMatchedSeries) //{ */
+/* TEST(ExtendedSearch, DiverseTrajectories_Poly4) //{ */
 TEST(ExtendedSearch, DiverseTrajectories_Poly4) {
   const int NUM_POINTS  = 30;
   const int NUM_TSERIES = 2;
-
-  using namespace uvdar::blink_processor;
 
   AmiTrackerConfig cfg;
   cfg.max_px_shift           = {10.0, 10.0};

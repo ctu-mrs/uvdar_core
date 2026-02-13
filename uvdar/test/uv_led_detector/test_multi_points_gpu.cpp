@@ -92,7 +92,7 @@ TEST(UvLedDetector, GPU_MultiplePoints_OneTrial) {
 
   auto dummy_image = createRandomMarkersImage(NUM_MARKERS, 255, ground_truth);
 
-  DummyLogger logger;
+  TestLogger logger;
   uvdar::UvLedDetectConfig cfg;
   cfg.gui                 = true;
   cfg.gpu                 = true;
@@ -118,7 +118,7 @@ TEST(UvLedDetector, GPU_MultiplePoints_OneTrial) {
 TEST(UvLedDetector, GPU_MultiplePoints_3Cameras_10Tests) {
   constexpr int NUM_THREADS = 3;
 
-  DummyLogger logger;
+  TestLogger logger;
   uvdar::UvLedDetectConfig cfg;
   cfg.gui                 = false;
   cfg.gpu                 = true;

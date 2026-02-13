@@ -11,13 +11,14 @@ BlinkProcessor::BlinkProcessor(const std::shared_ptr<AmiTrackerConfig> cfg, ILog
 
 /* setBlinkingPatterns //{ */
 bool BlinkProcessor::setBlinkingPatterns(const std::vector<Sequence>& sequences) {
-  blinking_patterns_           = sequences;
-  cfg_->blinking_patterns_size = blinking_patterns_.at(0).size();
+  blinking_patterns_ = sequences;
 
   if (blinking_patterns_.size() == 0) {
     logger_.error("[UVDARBlinkProcessor]: Provided blinking patterns are empty!");
     return false;
   }
+
+  cfg_->blinking_patterns_size = blinking_patterns_.at(0).size();
 
   if ((cfg_->stored_seq_len_factor * blinking_patterns_[0].size()) < cfg_->max_zeros_consecutive) {
     logger_.error("[UVDARBlinkProcessor]: The wanted number of consecutive zeros is higher than the possible sequence "
