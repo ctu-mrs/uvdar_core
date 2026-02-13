@@ -1,5 +1,7 @@
 #pragma once
 
+#include <uvdar/utils/i_logger.h>
+#include <uvdar/blink_processor/signal_matcher.h>
 #include <uvdar/blink_processor/ami_tracker.h>
 
 namespace uvdar::blink_processor {
@@ -15,9 +17,6 @@ class BlinkProcessor {
   void processBuffer(std::vector<PointState>& unmatched_points);
 
   std::vector<TrackedMarker> getResults();
-
- private:
-  std::vector<bool> extractLedWindowForPatternMatch_(const SeqPtr& tseries);
 
  private:
   std::shared_ptr<AmiTrackerConfig> cfg_;

@@ -1,12 +1,8 @@
 #pragma once
 
-#include <memory>
-#include <mutex>
-
 #include <uvdar/utils/i_logger.h>
 #include <uvdar/blink_processor/ami_tracker_types.h>
 #include <uvdar/blink_processor/tseries_buffer.h>
-#include <uvdar/blink_processor/signal_matcher.h>
 #include <uvdar/blink_processor/local_search.h>
 #include <uvdar/blink_processor/extended_search.h>
 #include <uvdar/blink_processor/ami_verification.h>
@@ -15,20 +11,19 @@ namespace uvdar::blink_processor {
 
 class AmiTracker {
  public:
-  explicit AmiTracker(const std::shared_ptr<AmiTrackerConfig> cfg, std::shared_ptr<TseriesBuffer> active_tseries_buffer,
-                      ILogger& logger);
+  explicit AmiTracker(const std::shared_ptr<AmiTrackerConfig> cfg, ILogger& logger);
   ~AmiTracker() = default;
-
-  void setFrameRate(const double input);
 
   void processBuffer(std::vector<PointState>& unmatched_points);
 
+  [[nodiscard]] std::vector<TrackCopyWindow> getActiveTrackCopy(std::size_t window_size) const;
+
  private:
+  std::vector<bool> extractLedWindowForPatternMatch_(const SeqPtr& tseries, const size_t window_size) const;
+
  private:
   std::shared_ptr<AmiTrackerConfig> cfg_;
   ILogger& logger_;
-
-  double frame_rate_;
 
   std::shared_ptr<TseriesBuffer> active_tseries_buffer_;
 

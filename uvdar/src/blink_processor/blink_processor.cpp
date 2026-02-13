@@ -5,8 +5,7 @@ namespace uvdar::blink_processor {
 /* BlinkProcessor constructor //{ */
 BlinkProcessor::BlinkProcessor(const std::shared_ptr<AmiTrackerConfig> cfg, ILogger& logger)
     : cfg_(cfg), logger_(logger) {
-  active_tseries_buffer_ = std::make_shared<TseriesBuffer>();
-  ami_tracker_           = std::make_unique<AmiTracker>(cfg_, active_tseries_buffer_, logger_);
+  ami_tracker_ = std::make_unique<AmiTracker>(cfg_, logger_);
 }
 //}
 
@@ -39,40 +38,17 @@ void BlinkProcessor::processBuffer(std::vector<PointState>& unmatched_points) {
 
 /* getResults //{ */
 std::vector<TrackedMarker> BlinkProcessor::getResults() {
-  std::scoped_lock lock(active_tseries_buffer_->mtx);
+  auto tseries_window_buffer_copy = ami_tracker_->getActiveTrackCopy(cfg_->blinking_patterns_size);
 
   std::vector<TrackedMarker> results;
-  results.reserve(active_tseries_buffer_->buffer.size());
+  results.reserve(tseries_window_buffer_copy.size());
+  for (const auto& seq : tseries_window_buffer_copy) {
+    int id = signal_matcher_->matchSignal(seq.led_window);
 
-  for (const auto& seq : active_tseries_buffer_->buffer) {
-    auto led_sequence = extractLedWindowForPatternMatch_(seq);
-
-    int id = signal_matcher_->matchSignal(led_sequence);
-
-    results.push_back({seq->back(), id});
+    results.push_back({seq.last_point, id});
   }
 
   return results;
-}
-//}
-
-/* extractWindowForPatternMatch_ //{ */
-std::vector<bool> BlinkProcessor::extractLedWindowForPatternMatch_(const SeqPtr& tseries) {
-  std::vector<bool> led_sequence;
-
-  if (!tseries || tseries->empty() || cfg_->blinking_patterns_size == 0) {
-    return led_sequence;
-  }
-
-  const std::size_t n     = tseries->size();
-  const std::size_t start = (n > cfg_->blinking_patterns_size) ? (n - cfg_->blinking_patterns_size) : 0;
-
-  led_sequence.reserve(n - start);
-  for (std::size_t i = start; i < n; ++i) {
-    led_sequence.push_back((*tseries)[i].led_state);
-  }
-
-  return led_sequence;
 }
 //}
 

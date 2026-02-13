@@ -65,4 +65,9 @@ struct TrackedMarker {
 };
 //}
 
+struct TrackCopyWindow {
+  PointState last_point;
+  std::vector<bool> led_window;
+};
+
 } // namespace uvdar::blink_processor
