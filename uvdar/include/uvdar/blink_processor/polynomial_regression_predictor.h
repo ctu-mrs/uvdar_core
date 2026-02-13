@@ -1,9 +1,9 @@
 #pragma once
 
-#include <uvdar/ami_tracker/ami_tracker_types.h>
-#include <uvdar/ami_tracker/tseries_ops.h>
+#include <uvdar/blink_processor/ami_tracker_types.h>
+#include <uvdar/blink_processor/tseries_ops.h>
 
-namespace uvdar::ami {
+namespace uvdar::blink_processor {
 
 struct OnLedHistory {
   std::vector<double> x;
@@ -18,7 +18,7 @@ struct RegressionResult {
 
 class PolynomialRegressionPredictor {
  public:
-  PolynomialRegressionPredictor(const AmiTrackerConfig& cfg);
+  PolynomialRegressionPredictor(const std::shared_ptr<AmiTrackerConfig> cfg);
 
   std::tuple<PredictionStatistics, PredictionStatistics> predict(const double insert_time,
                                                                  std::vector<PointState>& tseries);
@@ -46,11 +46,11 @@ class PolynomialRegressionPredictor {
 
  private:
   const int WINDOW_SEARCH_SIZE_{100};
-  const AmiTrackerConfig& cfg_;
+  std::shared_ptr<AmiTrackerConfig> cfg_;
 
   Eigen::Matrix<double, Eigen::Dynamic, 5> X_vandermonde_;
   Eigen::VectorXd y_workspace_;
   std::vector<double> t_quantile_lut_;
 };
 
-} // namespace uvdar::ami
+} // namespace uvdar::blink_processor

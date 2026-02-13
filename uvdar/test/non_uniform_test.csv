@@ -1,0 +1,12 @@
+type,t,val,ci
+history,0,4.9179,0
+history,0.1,5.11367,0
+history,0.6,5.8231,0
+history,0.8,6.06622,0
+history,2,8.95076,0
+history,2.3,10.1254,0
+history,2.5,10.5429,0
+history,3.5,14.6774,0
+history,3.6,15.1524,0
+history,4,16.892,0
+prediction,5,22.3853,0.167412

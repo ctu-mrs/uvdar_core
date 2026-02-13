@@ -1,9 +1,9 @@
-#include <uvdar/ami_tracker/local_search.h>
+#include <uvdar/blink_processor/local_search.h>
 
-namespace uvdar::ami {
+namespace uvdar::blink_processor {
 
 /* LocalSearch //{ */
-LocalSearch::LocalSearch(const AmiTrackerConfig& cfg) : cfg_(cfg) {
+LocalSearch::LocalSearch(const std::shared_ptr<AmiTrackerConfig> cfg) : cfg_(cfg) {
 }
 //}
 
@@ -14,8 +14,8 @@ void LocalSearch::run(std::vector<PointState>& unassigned_points, std::vector<Se
     auto& tseries             = *it;
     PointState& last_inserted = tseries->back();
 
-    auto bb_left_top     = last_inserted.point - cfg_.max_px_shift;
-    auto bb_right_bottom = last_inserted.point + cfg_.max_px_shift;
+    auto bb_left_top     = last_inserted.point - cfg_->max_px_shift;
+    auto bb_right_bottom = last_inserted.point + cfg_->max_px_shift;
 
     auto nearest_point_it = findNearestPoint_(unassigned_points, last_inserted);
 
@@ -53,10 +53,10 @@ std::vector<PointState>::iterator LocalSearch::findNearestPoint_(std::vector<Poi
 /* insertPointToSequence_ //{ */
 void LocalSearch::insertPointToSequence_(std::vector<PointState>& sequence, const PointState signal) {
   sequence.push_back(signal);
-  if (sequence.size() > (cfg_.blinking_patterns_size * cfg_.stored_seq_len_factor)) {
+  if (sequence.size() > (cfg_->blinking_patterns_size * cfg_->stored_seq_len_factor)) {
     sequence.erase(sequence.begin());
   }
 }
 //}
 
-} // namespace uvdar::ami
+} // namespace uvdar::blink_processor

@@ -1,6 +1,6 @@
-#include <uvdar/ami_tracker/signal_matcher.h>
+#include <uvdar/blink_processor/signal_matcher.h>
 
-namespace uvdar::ami {
+namespace uvdar::blink_processor {
 
 /* SignalMatcher constructor //{ */
 SignalMatcher::SignalMatcher(const std::vector<Sequence>& sequences, const int allowed_BER_per_seq)
@@ -94,4 +94,4 @@ MatchStatus SignalMatcher::checkSignalSequenceSize_(const Sequence& signal) cons
 }
 //}
 
-} // namespace uvdar::ami
+} // namespace uvdar::blink_processor

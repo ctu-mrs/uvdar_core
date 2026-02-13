@@ -49,7 +49,7 @@ add_subdirectory(third_party)
 
 set(LIBRARIES
   Uvdar_UvLedDetectorLib
-  Uvdar_AmiTrackerLib
+  Uvdar_BlinkProcessorLib
 )
 
 ## | --------------------- Shaders --------------------- |
@@ -105,19 +105,19 @@ target_compile_definitions(Uvdar_UvLedDetectorLib PRIVATE KOMPUTE_OPT_ACTIVE_LOG
 add_dependencies(Uvdar_UvLedDetectorLib uvdar_shaders)
 
 
-## | --------------------- Uvdar_AmiTrackerLib --------------------- |
-add_library(Uvdar_AmiTrackerLib SHARED
-  src/ami_tracker/signal_matcher.cpp
-  src/ami_tracker/local_search.cpp
-  src/ami_tracker/tseries_ops.cpp
-  src/ami_tracker/ami_tracker.cpp
-  src/ami_tracker/extended_search.cpp
-  src/ami_tracker/polynomial_regression_predictor.cpp
+## | --------------------- Uvdar_BlinkProcessorLib --------------------- |
+add_library(Uvdar_BlinkProcessorLib SHARED
+  src/blink_processor/signal_matcher.cpp
+  src/blink_processor/local_search.cpp
+  src/blink_processor/tseries_ops.cpp
+  src/blink_processor/ami_tracker.cpp
+  src/blink_processor/extended_search.cpp
+  src/blink_processor/polynomial_regression_predictor.cpp
 )
 
-target_link_libraries(Uvdar_AmiTrackerLib PUBLIC Eigen3::Eigen)
+target_link_libraries(Uvdar_BlinkProcessorLib PUBLIC Eigen3::Eigen)
 
-ament_target_dependencies(Uvdar_AmiTrackerLib
+ament_target_dependencies(Uvdar_BlinkProcessorLib
   PUBLIC
     ${DEPENDENCIES}
 )

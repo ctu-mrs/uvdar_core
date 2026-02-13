@@ -4,16 +4,16 @@
 #include <mutex>
 
 #include <uvdar/utils/i_logger.h>
-#include <uvdar/ami_tracker/ami_tracker_types.h>
-#include <uvdar/ami_tracker/signal_matcher.h>
-#include <uvdar/ami_tracker/local_search.h>
-#include <uvdar/ami_tracker/extended_search.h>
+#include <uvdar/blink_processor/ami_tracker_types.h>
+#include <uvdar/blink_processor/signal_matcher.h>
+#include <uvdar/blink_processor/local_search.h>
+#include <uvdar/blink_processor/extended_search.h>
 
-namespace uvdar::ami {
+namespace uvdar::blink_processor {
 
 class AmiTracker {
  public:
-  explicit AmiTracker(AmiTrackerConfig cfg, ILogger& logger);
+  explicit AmiTracker(const std::shared_ptr<AmiTrackerConfig> cfg, ILogger& logger);
   ~AmiTracker() = default;
 
   [[nodiscard]] bool setSequences(const std::vector<Sequence>& sequences);
@@ -31,10 +31,10 @@ class AmiTracker {
   void enforceMaxBufferLength_(std::vector<PointState>& unmatched_points);
   void startNewSequencesForUnmatchedPoints_(std::vector<PointState>& unmatched_points);
   void insertPointToSequence_(std::vector<PointState>& sequence, const PointState signal);
-  int countNumConsequtiveZerosInTseries_(SeqPtr& tseries, const int max_num_zeros);
+  int countNumConsecutiveZerosInTseries_(SeqPtr& tseries, const int max_num_zeros);
 
  private:
-  AmiTrackerConfig cfg_;
+  std::shared_ptr<AmiTrackerConfig> cfg_;
   ILogger& logger_;
 
   std::unique_ptr<SignalMatcher> signal_matcher_;
@@ -50,4 +50,4 @@ class AmiTracker {
   std::unique_ptr<ExtendedSearch> extended_search_;
 };
 
-} // namespace uvdar::ami
+} // namespace uvdar::blink_processor

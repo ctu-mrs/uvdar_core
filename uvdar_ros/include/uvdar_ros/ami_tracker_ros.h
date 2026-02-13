@@ -2,7 +2,7 @@
 
 #include <rclcpp/rclcpp.hpp>
 
-#include <uvdar/ami_tracker/ami_tracker.h>
+#include <uvdar/blink_processor/ami_tracker.h>
 #include <uvdar_ros/utils/ros_logger.h>
 
 #include <mrs_lib/node.h>

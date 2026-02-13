@@ -1,6 +1,6 @@
-#include <uvdar/ami_tracker/tseries_ops.h>
+#include <uvdar/blink_processor/tseries_ops.h>
 
-namespace uvdar::ami {
+namespace uvdar::blink_processor {
 
 /* euclideanDistanceSq_ //{ */
 double euclideanDistanceSq(const cv::Point2d& p1, const cv::Point2d& p2) {
@@ -17,4 +17,4 @@ bool isInsideBoundingBox(const cv::Point2d& query_point, const cv::Point2d& left
 }
 //}
 
-} // namespace uvdar::ami
+} // namespace uvdar::blink_processor

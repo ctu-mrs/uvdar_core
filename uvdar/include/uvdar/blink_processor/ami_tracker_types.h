@@ -7,7 +7,7 @@
 #include <Eigen/Dense>
 #include <opencv2/core/types.hpp>
 
-namespace uvdar::ami {
+namespace uvdar::blink_processor {
 
 using Clock         = std::chrono::steady_clock;
 using TimePoint     = Clock::time_point;
@@ -58,4 +58,4 @@ struct AmiTrackerConfig {
 };
 //}
 
-} // namespace uvdar::ami
+} // namespace uvdar::blink_processor

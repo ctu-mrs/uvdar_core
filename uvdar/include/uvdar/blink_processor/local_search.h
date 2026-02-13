@@ -3,14 +3,14 @@
 #include <memory>
 #include <mutex>
 
-#include <uvdar/ami_tracker/ami_tracker_types.h>
-#include <uvdar/ami_tracker/tseries_ops.h>
+#include <uvdar/blink_processor/ami_tracker_types.h>
+#include <uvdar/blink_processor/tseries_ops.h>
 
-namespace uvdar::ami {
+namespace uvdar::blink_processor {
 
 class LocalSearch {
  public:
-  explicit LocalSearch(const AmiTrackerConfig& cfg);
+  explicit LocalSearch(const std::shared_ptr<AmiTrackerConfig> cfg);
 
   void run(std::vector<PointState>& unassigned_points, std::vector<SeqPtr>& buffer);
 
@@ -19,7 +19,7 @@ class LocalSearch {
   void insertPointToSequence_(std::vector<PointState>& sequence, const PointState signal);
 
  private:
-  const AmiTrackerConfig& cfg_;
+  std::shared_ptr<AmiTrackerConfig> cfg_;
 };
 
-} // namespace uvdar::ami
+} // namespace uvdar::blink_processor

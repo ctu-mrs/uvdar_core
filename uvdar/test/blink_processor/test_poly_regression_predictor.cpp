@@ -5,7 +5,7 @@
 #include <thread>
 #include <random>
 
-#include <uvdar/ami_tracker/polynomial_regression_predictor.h>
+#include <uvdar/blink_processor/polynomial_regression_predictor.h>
 #include <fstream>
 #include <iostream>
 
@@ -17,14 +17,15 @@ double gaussianNoise(double mean, double stddev) {
 
 /* TEST(PolyRegressionPredictor, NormalizedWeights_SumToOne_AndNewestLargest) //{ */
 TEST(PolyRegressionPredictor, NormalizedWeights_SumToOne_AndNewestLargest) {
-  using namespace uvdar::ami;
+  using namespace uvdar::blink_processor;
 
   AmiTrackerConfig cfg;
   cfg.poly_order   = 4;
   cfg.decay_factor = 5.0;
+  auto shared_cfg  = std::make_shared<AmiTrackerConfig>(cfg);
 
   std::vector<double> time{0.000, 0.005, 0.010};
-  PolynomialRegressionPredictor predictor(cfg);
+  PolynomialRegressionPredictor predictor(shared_cfg);
 
   auto weights = predictor.computeNormalizedWeightVect(time);
 
@@ -48,13 +49,15 @@ TEST(PolyRegressionPredictor, NormalizedWeights_SumToOne_AndNewestLargest) {
 TEST(PolyRegressionPredictor, LinearPerfectFit_ZeroConfidenceInterval) {
   const double A_COEFF = 10;
   const double B_COEFF = 2;
-  using namespace uvdar::ami;
+  using namespace uvdar::blink_processor;
 
   AmiTrackerConfig cfg;
   cfg.poly_order          = 1;
   cfg.decay_factor        = 0;
   cfg.conf_probab_percent = 95;
-  PolynomialRegressionPredictor predictor(cfg);
+  auto shared_cfg         = std::make_shared<AmiTrackerConfig>(cfg);
+
+  PolynomialRegressionPredictor predictor(shared_cfg);
 
   std::vector<double> time = {0, 1, 2, 3, 4};
   double insert_time       = 5;
@@ -76,13 +79,15 @@ TEST(PolyRegressionPredictor, LinearPerfectFit_ZeroConfidenceInterval) {
 TEST(PolyRegressionPredictor, ConfidenceIntervalGrowsWithNoise) {
   const double A_COEFF = 10;
   const double B_COEFF = 2;
-  using namespace uvdar::ami;
+  using namespace uvdar::blink_processor;
 
   AmiTrackerConfig cfg;
   cfg.poly_order          = 1;
   cfg.decay_factor        = 0.0;
   cfg.conf_probab_percent = 95;
-  PolynomialRegressionPredictor predictor(cfg);
+  auto shared_cfg         = std::make_shared<AmiTrackerConfig>(cfg);
+
+  PolynomialRegressionPredictor predictor(shared_cfg);
 
   std::vector<double> time = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
   double insert_time       = 10.0;
@@ -109,14 +114,15 @@ TEST(PolyRegressionPredictor, ConfidenceIntervalGrowsWithNoise) {
 }
 
 TEST(PolyRegressionPredictor, NoiseStressTest_ToCSV) {
-  using namespace uvdar::ami;
+  using namespace uvdar::blink_processor;
   AmiTrackerConfig cfg;
   cfg.poly_order          = 4; // High order
   cfg.decay_factor        = 0.05;
   cfg.conf_probab_percent = 95;
   cfg.max_px_shift.x      = 0.0; // Keep at 0 to see pure statistical CI
+  auto shared_cfg         = std::make_shared<AmiTrackerConfig>(cfg);
 
-  PolynomialRegressionPredictor predictor(cfg);
+  PolynomialRegressionPredictor predictor(shared_cfg);
   std::vector<double> time = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
   double insert_time       = 10.0;
 
@@ -145,14 +151,15 @@ TEST(PolyRegressionPredictor, NoiseStressTest_ToCSV) {
 }
 
 TEST(PolyRegressionPredictor, NonUniformTimeStressTest) {
-  using namespace uvdar::ami;
+  using namespace uvdar::blink_processor;
   AmiTrackerConfig cfg;
   cfg.poly_order          = 2; // Quadratic is safer for irregular gaps
   cfg.decay_factor        = 0.1;
   cfg.conf_probab_percent = 95;
   cfg.max_px_shift.x      = 0.2;
+  auto shared_cfg         = std::make_shared<AmiTrackerConfig>(cfg);
 
-  PolynomialRegressionPredictor predictor(cfg);
+  PolynomialRegressionPredictor predictor(shared_cfg);
 
   // Irregular gaps: [0.1, 0.5, 0.2, 1.2, 0.3...]
   std::vector<double> time = {0.0, 0.1, 0.6, 0.8, 2.0, 2.3, 2.5, 3.5, 3.6, 4.0};
@@ -180,14 +187,15 @@ TEST(PolyRegressionPredictor, NonUniformTimeStressTest) {
 }
 
 TEST(PolyRegressionPredictor, Visualization2D_NonUniform) {
-  using namespace uvdar::ami;
+  using namespace uvdar::blink_processor;
   AmiTrackerConfig cfg;
   cfg.poly_order          = 2;
   cfg.decay_factor        = 0.05;
   cfg.conf_probab_percent = 75;
   cfg.max_px_shift        = {0.5, 0.5}; // Base uncertainty
+  auto shared_cfg         = std::make_shared<AmiTrackerConfig>(cfg);
 
-  PolynomialRegressionPredictor predictor(cfg);
+  PolynomialRegressionPredictor predictor(shared_cfg);
 
   // Irregular timestamps
   std::vector<double> time = {0.0, 0.2, 0.5, 1.1, 1.3, 2.0, 2.8, 3.2, 3.5, 4.0};

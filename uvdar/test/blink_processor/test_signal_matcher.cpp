@@ -4,11 +4,11 @@
 #include "../timer.h"
 #include <thread>
 
-#include <uvdar/ami_tracker/signal_matcher.h>
+#include <uvdar/blink_processor/signal_matcher.h>
 
 /* TEST(SignalMatcher, ExactLengthSignal) //{ */
 TEST(SignalMatcher, ExactLengthSignal) {
-  using namespace uvdar::ami;
+  using namespace uvdar::blink_processor;
 
   // clang-format off
   const int GROUND_TRUTH_ID{1};
@@ -31,7 +31,7 @@ TEST(SignalMatcher, ExactLengthSignal) {
 
 /* TEST(SignalMatcher, LongerLengthSignal) //{ */
 TEST(SignalMatcher, LongerLengthSignal) {
-  using namespace uvdar::ami;
+  using namespace uvdar::blink_processor;
 
   // clang-format off
   const int GROUND_TRUTH_ID{1};
@@ -55,7 +55,7 @@ TEST(SignalMatcher, LongerLengthSignal) {
 
 /* TEST(SignalMatcher, ShorterLengthSignal) //{ */
 TEST(SignalMatcher, ShorterLengthSignal) {
-  using namespace uvdar::ami;
+  using namespace uvdar::blink_processor;
 
   // clang-format off
   const int GROUND_TRUTH_ID{1};
@@ -78,7 +78,7 @@ TEST(SignalMatcher, ShorterLengthSignal) {
 
 /* TEST(SignalMatcher, LongerSequenceThan32bits) //{ */
 TEST(SignalMatcher, LongerSequenceThan32bits) {
-  using namespace uvdar::ami;
+  using namespace uvdar::blink_processor;
 
   const int LONGER_SEQUENCE{33};
   std::vector<Sequence> seqs{Sequence(LONGER_SEQUENCE, true)};

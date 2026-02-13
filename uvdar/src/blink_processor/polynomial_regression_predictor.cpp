@@ -1,11 +1,11 @@
-#include <uvdar/ami_tracker/polynomial_regression_predictor.h>
+#include <uvdar/blink_processor/polynomial_regression_predictor.h>
 #include <boost/math/distributions/students_t.hpp>
 
-namespace uvdar::ami {
+namespace uvdar::blink_processor {
 
 /* PredictionStatistics //{ */
-PolynomialRegressionPredictor::PolynomialRegressionPredictor(const AmiTrackerConfig& cfg) : cfg_(cfg) {
-  X_vandermonde_.resize(WINDOW_SEARCH_SIZE_, cfg_.poly_order + 1);
+PolynomialRegressionPredictor::PolynomialRegressionPredictor(const std::shared_ptr<AmiTrackerConfig> cfg) : cfg_(cfg) {
+  X_vandermonde_.resize(WINDOW_SEARCH_SIZE_, cfg_->poly_order + 1);
   y_workspace_.resize(WINDOW_SEARCH_SIZE_);
 }
 //}
@@ -37,13 +37,13 @@ PolynomialRegressionPredictor::predict(const double insert_time, std::vector<Poi
   PredictionStatistics x_predictions = selectStatisticsValues(on_led_history.x, on_led_history.time, insert_time);
   PredictionStatistics y_predictions = selectStatisticsValues(on_led_history.y, on_led_history.time, insert_time);
 
-  int dof = static_cast<int>(on_led_history.x.size()) - (cfg_.poly_order + 1);
+  int dof = static_cast<int>(on_led_history.x.size()) - (cfg_->poly_order + 1);
   boost::math::students_t dist(dof);
-  double prob = cfg_.conf_probab_percent / 100.0;
+  double prob = cfg_->conf_probab_percent / 100.0;
   double t    = quantile(dist, (1.0 + prob) / 2.0);
 
-  x_predictions.confidence_interval = t * (x_predictions.confidence_interval + cfg_.max_px_shift.x);
-  y_predictions.confidence_interval = t * (y_predictions.confidence_interval + cfg_.max_px_shift.y);
+  x_predictions.confidence_interval = t * (x_predictions.confidence_interval + cfg_->max_px_shift.x);
+  y_predictions.confidence_interval = t * (y_predictions.confidence_interval + cfg_->max_px_shift.y);
 
   return {x_predictions, y_predictions};
 }
@@ -60,7 +60,7 @@ PredictionStatistics PolynomialRegressionPredictor::selectStatisticsValues(const
   stats.time_pred         = insert_time;
   stats.poly_reg_computed = false;
   stats.extended_search   = true;
-  size_t poly_order       = static_cast<size_t>(cfg_.poly_order);
+  size_t poly_order       = static_cast<size_t>(cfg_->poly_order);
 
   if (coordinates.size() <= 1) {
     return stats;
@@ -87,7 +87,7 @@ std::vector<double> PolynomialRegressionPredictor::computeNormalizedWeightVect(c
   double reference_time = time.back();
   for (const auto& t : time) {
     double delta_t = reference_time - t;
-    double w       = exp(-cfg_.decay_factor * delta_t);
+    double w       = exp(-cfg_->decay_factor * delta_t);
     sum_weights += w;
     weights.push_back(w);
   }
@@ -116,7 +116,7 @@ PolynomialRegressionPredictor::calculatePredictionInterval(const std::vector<dou
                                                            const std::vector<double>& time,
                                                            const std::vector<double>& weights, const double time_next) {
   const int n        = std::min(static_cast<int>(coordinate.size()), WINDOW_SEARCH_SIZE_);
-  const int p        = std::min(cfg_.poly_order, n - 2);
+  const int p        = std::min(cfg_->poly_order, n - 2);
   const int n_coeffs = p + 1;
   const int dof      = n - n_coeffs;
 
@@ -194,4 +194,4 @@ double PolynomialRegressionPredictor::computeWeightedSumSquaredResiduals_(const 
 }
 //}
 
-} // namespace uvdar::ami
+} // namespace uvdar::blink_processor

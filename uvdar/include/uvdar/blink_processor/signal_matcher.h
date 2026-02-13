@@ -3,10 +3,10 @@
 #include <vector>
 #include <bit>
 
-#include <uvdar/ami_tracker/ami_tracker_types.h>
-#include <uvdar/ami_tracker/signal_matcher_enums.h>
+#include <uvdar/blink_processor/ami_tracker_types.h>
+#include <uvdar/blink_processor/signal_matcher_enums.h>
 
-namespace uvdar::ami {
+namespace uvdar::blink_processor {
 
 class SignalMatcher {
  public:
@@ -26,4 +26,4 @@ class SignalMatcher {
   std::vector<uint64_t> reference_signal_codes_;
 };
 
-} // namespace uvdar::ami
+} // namespace uvdar::blink_processor
