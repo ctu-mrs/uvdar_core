@@ -19,3 +19,14 @@ class TestCout : public std::stringstream {
 };
 
 #define TEST_COUT TestCout()
+
+class TestLogger : public ILogger {
+ public:
+  void log(LogLevel level, const std::string& msg) override {
+    log_level_discard_.emplace_back(level);
+    TEST_COUT << msg << "\n";
+  }
+
+ private:
+  std::vector<LogLevel> log_level_discard_;
+};

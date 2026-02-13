@@ -2,6 +2,7 @@
 
 #include <uvdar/uv_led_detector/uv_led_detect_config.h>
 #include <uvdar/utils/i_logger.h>
+#include <opencv2/opencv.hpp>
 
 namespace uvdar {
 

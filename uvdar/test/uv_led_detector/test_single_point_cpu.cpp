@@ -22,7 +22,7 @@ cv::Mat createSingleMarkerImage(const int cx, const int cy) {
 
 /* TEST(UvLedDetector, CPU_RoiBreach) //{ */
 TEST(UvLedDetector, CPU_RoiBreach) {
-  DummyLogger logger;
+  TestLogger logger;
   uvdar::UvLedDetectConfig cfg;
   cfg.gui                 = false;
   cfg.gpu                 = false;
@@ -50,7 +50,7 @@ TEST(UvLedDetector, CPU_RoiBreach) {
 
 /* TEST(UvLedDetector, CPU_singlePoint) //{ */
 TEST(UvLedDetector, CPU_singlePoint) {
-  DummyLogger logger;
+  TestLogger logger;
   uvdar::UvLedDetectConfig cfg;
   cfg.gui                 = false;
   cfg.gpu                 = false;

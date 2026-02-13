@@ -48,29 +48,55 @@ foreach(DEP IN LISTS DEPENDENCIES)
   find_package(${DEP} REQUIRED)
 endforeach()
 
-## | --------------------- UvdarRosWrapper_UvLedDetectorRos --------------------- |
+## | --------------------- UvdarRos_UvLedDetectorRos --------------------- |
 
-add_library(UvdarRosWrapper_UvLedDetectorRos SHARED
+add_library(UvdarRos_UvLedDetectorRos SHARED
   src/utils/ros_logger.cpp
   src/uv_led_detector_ros.cpp
 )
 
-ament_target_dependencies(UvdarRosWrapper_UvLedDetectorRos
+ament_target_dependencies(UvdarRos_UvLedDetectorRos
   ${DEPENDENCIES}
 )
 
-target_compile_definitions(UvdarRosWrapper_UvLedDetectorRos
+target_compile_definitions(UvdarRos_UvLedDetectorRos
   PRIVATE
     $<$<CONFIG:Debug>:DEBUG>
 )
 
- target_include_directories(UvdarRosWrapper_UvLedDetectorRos
+ target_include_directories(UvdarRos_UvLedDetectorRos
     PUBLIC
       $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
       $<INSTALL_INTERFACE:include/${PROJECT_NAME}>
   )
 
-rclcpp_components_register_nodes(UvdarRosWrapper_UvLedDetectorRos "uvdar::UvLedDetectorComponent")
+rclcpp_components_register_nodes(UvdarRos_UvLedDetectorRos "uvdar::UvLedDetectorComponent")
+
+
+## | --------------------- UvdarRos_AmiTrackerRos --------------------- |
+
+add_library(UvdarRos_AmiTrackerRos SHARED
+  src/utils/ros_logger.cpp
+  src/ami_tracker_ros.cpp
+)
+
+ament_target_dependencies(UvdarRos_AmiTrackerRos
+  ${DEPENDENCIES}
+)
+
+target_compile_definitions(UvdarRos_AmiTrackerRos
+  PRIVATE
+    $<$<CONFIG:Debug>:DEBUG>
+)
+
+ target_include_directories(UvdarRos_AmiTrackerRos
+    PUBLIC
+      $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
+      $<INSTALL_INTERFACE:include/${PROJECT_NAME}>
+  )
+
+rclcpp_components_register_nodes(UvdarRos_AmiTrackerRos "uvdar::ami::AmiTrackerComponent")
+
 
 ## --------------------------------------------------------------
 ## |                           Install                          |
@@ -78,7 +104,8 @@ rclcpp_components_register_nodes(UvdarRosWrapper_UvLedDetectorRos "uvdar::UvLedD
 
 install(
   TARGETS
-    UvdarRosWrapper_UvLedDetectorRos
+    UvdarRos_UvLedDetectorRos
+    UvdarRos_AmiTrackerRos
   EXPORT export_${PROJECT_NAME}
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib

@@ -9,7 +9,6 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 endif()
 
 option(ENABLE_TESTS "Enable building tests" ON)
-option(USE_TRACY "Enable Tracy profiling" OFF)
 
 if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Build type" FORCE)
@@ -31,13 +30,13 @@ set(DEPENDENCIES
   ament_cmake  
   ament_index_cpp
   cv_bridge
-  Eigen3
 )
 
 foreach(DEP IN LISTS DEPENDENCIES)
   find_package(${DEP} REQUIRED)
 endforeach()
 
+find_package(Eigen3 REQUIRED)
 find_package(Threads REQUIRED)
 find_package(Vulkan)
 if(NOT Vulkan_FOUND)
@@ -50,6 +49,7 @@ add_subdirectory(third_party)
 
 set(LIBRARIES
   Uvdar_UvLedDetectorLib
+  Uvdar_BlinkProcessorLib
 )
 
 ## | --------------------- Shaders --------------------- |
@@ -84,16 +84,18 @@ add_library(Uvdar_UvLedDetectorLib SHARED
   src/uv_led_detector/gpu_context.cpp
 )
 
-ament_target_dependencies(Uvdar_UvLedDetectorLib
-  PUBLIC
-    ${DEPENDENCIES}
-)
 
 target_link_libraries(Uvdar_UvLedDetectorLib
   PRIVATE
     kompute
     Vulkan::Vulkan
 )
+
+ament_target_dependencies(Uvdar_UvLedDetectorLib
+  PUBLIC
+    ${DEPENDENCIES}
+)
+
 
 # Disable spdlog macros (if anything uses them)
 target_compile_definitions(Uvdar_UvLedDetectorLib PRIVATE SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_OFF)
@@ -102,6 +104,25 @@ target_compile_definitions(Uvdar_UvLedDetectorLib PRIVATE KOMPUTE_OPT_ACTIVE_LOG
 
 add_dependencies(Uvdar_UvLedDetectorLib uvdar_shaders)
 
+
+## | --------------------- Uvdar_BlinkProcessorLib --------------------- |
+add_library(Uvdar_BlinkProcessorLib SHARED
+  src/blink_processor/signal_matcher.cpp
+  src/blink_processor/local_search.cpp
+  src/blink_processor/tseries_ops.cpp
+  src/blink_processor/ami_tracker.cpp
+  src/blink_processor/extended_search.cpp
+  src/blink_processor/polynomial_regression_predictor.cpp
+  src/blink_processor/ami_verification.cpp
+  src/blink_processor/blink_processor.cpp
+)
+
+target_link_libraries(Uvdar_BlinkProcessorLib PUBLIC Eigen3::Eigen)
+
+ament_target_dependencies(Uvdar_BlinkProcessorLib
+  PUBLIC
+    ${DEPENDENCIES}
+)
 
 ## | -------------------- export interfaces ------------------- |
 foreach(library IN LISTS LIBRARIES)
@@ -150,28 +171,17 @@ endif()
 ## |                           Install                          |
 ## --------------------------------------------------------------
 
-install(TARGETS Uvdar_UvLedDetectorLib
+install(TARGETS ${LIBRARIES}
   EXPORT export_${PROJECT_NAME}
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin
 )
 
-if(USE_TRACY)
-  install(TARGETS tracy_shared
-    EXPORT export_${PROJECT_NAME}
-    ARCHIVE DESTINATION lib
-    LIBRARY DESTINATION lib
-    RUNTIME DESTINATION bin
-  )
-endif()
-
-
 install(
   DIRECTORY "include/"
   DESTINATION "include/${PROJECT_NAME}"
 )
-
 
 install(FILES ${SHADER_SPV}
   DESTINATION share/${PROJECT_NAME}/gpu_shaders
@@ -181,10 +191,8 @@ install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/gpu_shaders/
   DESTINATION share/${PROJECT_NAME}/gpu_shaders
 )
 
-
-
-  ament_export_libraries(Uvdar_UvLedDetectorLib)
-  ament_export_dependencies(${DEPENDENCIES})
+ament_export_libraries(${LIBRARIES})
+ament_export_dependencies(${DEPENDENCIES})
 
 ament_export_include_directories("include/${PROJECT_NAME}")
 

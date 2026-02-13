@@ -9,8 +9,11 @@ while [ ! -e "build/COLCON_IGNORE" ]; do
   fi
 done
 
+export CTEST_OUTPUT_ON_FAILURE=1
+export GTEST_COLOR=1
+
 colcon test-result --delete-yes
 
-colcon test --packages-select uvdar --event-handlers console_direct+
+colcon test --packages-select uvdar --event-handlers console_direct+ --ctest-args -V
 
 colcon test-result --all --verbose

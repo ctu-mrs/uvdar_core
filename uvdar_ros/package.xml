@@ -21,18 +21,10 @@
   <depend>tf2_eigen</depend>
   <depend>eigen</depend>
 
-  <depend>libgbm-dev</depend>
-
   <depend>mrs_lib</depend>
-  <depend>mrs_modules_msgs</depend>
   <depend>mrs_msgs</depend>
   <depend>uvdar</depend>
   <depend>uvdar_ros_msgs</depend>
-
-  <depend>vulkan-tools</depend>
-  <depend>libvulkan-dev</depend>
-  <depend>vulkan-headers</depend>
-  <depend>glslang-tools</depend>
 
   <export>
     <build_type>ament_cmake</build_type>
