@@ -6,7 +6,7 @@ namespace uvdar::blink_processor {
 SignalMatcher::SignalMatcher(const std::vector<Sequence>& sequences, const int allowed_BER_per_seq)
     : SEQUENCE_SIZE_(sequences.at(0).size()), ALLOWED_BER_PER_SEQ_(allowed_BER_per_seq) {
   if (2 * SEQUENCE_SIZE_ >= 64) {
-    throw std::runtime_error("[AmiTracker]: Maximum sequence size is bigger than 32 bits.");
+    throw std::runtime_error("[UVDARBlinkProcessor]: Maximum sequence size is bigger than 32 bits.");
   }
   initReferenceSignalCodes_(sequences);
 }

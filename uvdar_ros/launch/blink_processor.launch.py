@@ -26,9 +26,9 @@ def generate_launch_description():
             composable_node_descriptions=[
                 ComposableNode(
                     package=pkg_name,
-                    plugin='uvdar::UvLedDetectorComponent',
+                    plugin='uvdar::blink_processor::BlinkProcessorComponent',
                     namespace=namespace,
-                    name='UvLedDetectorComponent',
+                    name='BlinkProcessorComponent',
                     parameters=[
                         {
                             'config_files': config_files

@@ -84,7 +84,6 @@ class UvLedDetectorComponent : public mrs_lib::Node {
   std::shared_ptr<mrs_lib::ParamLoader> param_loader_;
 
   bool initialized_{false};
-  std::string uav_name_;
   double initial_delay_;
   bool initial_delay_started_flag_{false};
   std::atomic_bool initial_delay_done_flag_{false};

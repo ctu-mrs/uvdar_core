@@ -5,3 +5,7 @@
 *.swp
 *.swo
 .tmuxinator.yml
+
+/uvdar_ros/config/blinking_sequences/*
+!/uvdar_ros/config/blinking_sequences/
+!/uvdar_ros/config/blinking_sequences/blinking_sequence.txt

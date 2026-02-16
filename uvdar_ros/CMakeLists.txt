@@ -73,29 +73,29 @@ target_compile_definitions(UvdarRos_UvLedDetectorRos
 rclcpp_components_register_nodes(UvdarRos_UvLedDetectorRos "uvdar::UvLedDetectorComponent")
 
 
-## | --------------------- UvdarRos_AmiTrackerRos --------------------- |
+## | --------------------- UvdarRos_BlinkProcessorRos --------------------- |
 
-add_library(UvdarRos_AmiTrackerRos SHARED
+add_library(UvdarRos_BlinkProcessorRos SHARED
   src/utils/ros_logger.cpp
-  src/ami_tracker_ros.cpp
+  src/blink_processor_ros.cpp
 )
 
-ament_target_dependencies(UvdarRos_AmiTrackerRos
+ament_target_dependencies(UvdarRos_BlinkProcessorRos
   ${DEPENDENCIES}
 )
 
-target_compile_definitions(UvdarRos_AmiTrackerRos
+target_compile_definitions(UvdarRos_BlinkProcessorRos
   PRIVATE
     $<$<CONFIG:Debug>:DEBUG>
 )
 
- target_include_directories(UvdarRos_AmiTrackerRos
+ target_include_directories(UvdarRos_BlinkProcessorRos
     PUBLIC
       $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
       $<INSTALL_INTERFACE:include/${PROJECT_NAME}>
   )
 
-rclcpp_components_register_nodes(UvdarRos_AmiTrackerRos "uvdar::ami::AmiTrackerComponent")
+rclcpp_components_register_nodes(UvdarRos_BlinkProcessorRos "uvdar::blink_processor::BlinkProcessorComponent")
 
 
 ## --------------------------------------------------------------
@@ -105,7 +105,7 @@ rclcpp_components_register_nodes(UvdarRos_AmiTrackerRos "uvdar::ami::AmiTrackerC
 install(
   TARGETS
     UvdarRos_UvLedDetectorRos
-    UvdarRos_AmiTrackerRos
+    UvdarRos_BlinkProcessorRos
   EXPORT export_${PROJECT_NAME}
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
