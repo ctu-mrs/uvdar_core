@@ -42,22 +42,6 @@ struct PointState {
 
 using SeqPtr = std::shared_ptr<std::vector<PointState>>;
 
-/* AmiTrackerConfig //{ */
-struct AmiTrackerConfig {
-  cv::Point2d max_px_shift{};
-  int max_zeros_consecutive{0};
-  // the multiplication factor how long the sequence should be for calculating the trajectory
-  int stored_seq_len_factor{0};
-  int max_buffer_length{0};
-  int poly_order{0};
-  double decay_factor{0.0};
-  double conf_probab_percent{0.0};
-  int allowed_BER_per_seq{0};
-  int frame_length{0};
-  size_t blinking_patterns_size{0};
-};
-//}
-
 /* TrackedMarker //{ */
 struct TrackedMarker {
   PointState last_point;
@@ -65,9 +49,10 @@ struct TrackedMarker {
 };
 //}
 
+/* TrackCopyWindow //{ */
 struct TrackCopyWindow {
   PointState last_point;
   std::vector<bool> led_window;
 };
-
+//}
 } // namespace uvdar::blink_processor

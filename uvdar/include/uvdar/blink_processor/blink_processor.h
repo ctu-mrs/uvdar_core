@@ -1,6 +1,8 @@
 #pragma once
 
 #include <uvdar/utils/i_logger.h>
+
+#include <uvdar/blink_processor/blink_processor_types.h>
 #include <uvdar/blink_processor/signal_matcher.h>
 #include <uvdar/blink_processor/ami_tracker.h>
 
@@ -8,7 +10,7 @@ namespace uvdar::blink_processor {
 
 class BlinkProcessor {
  public:
-  explicit BlinkProcessor(const std::shared_ptr<AmiTrackerConfig> cfg, ILogger& logger);
+  explicit BlinkProcessor(BlinkProcessorConfig& cfg, ILogger& logger);
   ~BlinkProcessor() = default;
 
   [[nodiscard]] bool setBlinkingPatterns(const std::vector<Sequence>& sequences);
@@ -19,7 +21,7 @@ class BlinkProcessor {
   std::vector<TrackedMarker> getResults();
 
  private:
-  std::shared_ptr<AmiTrackerConfig> cfg_;
+  BlinkProcessorConfig cfg_;
   ILogger& logger_;
 
   std::unique_ptr<AmiTracker> ami_tracker_;

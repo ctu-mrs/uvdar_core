@@ -3,12 +3,12 @@
 namespace uvdar::blink_processor {
 
 /* AmiTracker constructor //{ */
-AmiTracker::AmiTracker(const std::shared_ptr<AmiTrackerConfig> cfg, ILogger& logger) : cfg_(cfg), logger_(logger) {
+AmiTracker::AmiTracker(const AmiTrackerConfig& cfg, ILogger& logger) : cfg_(cfg), logger_(logger) {
   active_tseries_buffer_ = std::make_shared<TseriesBuffer>();
 
-  local_search_    = std::make_unique<LocalSearch>(cfg_);
-  extended_search_ = std::make_unique<ExtendedSearch>(cfg_);
-  verification_    = std::make_unique<AmiVerification>(cfg_, active_tseries_buffer_, logger_);
+  local_search_    = std::make_unique<LocalSearch>(cfg_.local);
+  extended_search_ = std::make_unique<ExtendedSearch>(cfg_.extended);
+  verification_    = std::make_unique<AmiVerification>(cfg_.verification, active_tseries_buffer_, logger_);
 }
 //}
 

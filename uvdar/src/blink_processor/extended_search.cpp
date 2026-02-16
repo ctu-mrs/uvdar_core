@@ -6,8 +6,8 @@
 namespace uvdar::blink_processor {
 
 /* ExtendedSearch constructor //{ */
-ExtendedSearch::ExtendedSearch(const std::shared_ptr<AmiTrackerConfig> cfg) : cfg_(cfg) {
-  poly_predictor_ = std::make_unique<PolynomialRegressionPredictor>(cfg);
+ExtendedSearch::ExtendedSearch(const ExtendedSearchConfig& cfg) : cfg_(cfg) {
+  poly_predictor_ = std::make_unique<PolynomialRegressionPredictor>(cfg.poly_reg);
 }
 //}
 
@@ -96,7 +96,7 @@ std::vector<PointState>::iterator ExtendedSearch::findNearestPoint_(std::vector<
 /* insertPointToSequence_ //{ */
 void ExtendedSearch::insertPointToSequence_(std::vector<PointState>& sequence, const PointState signal) {
   sequence.push_back(signal);
-  if (sequence.size() > (cfg_->blinking_patterns_size * cfg_->stored_seq_len_factor)) {
+  if (sequence.size() > cfg_.seq.getMaxSequenceLength()) {
     sequence.erase(sequence.begin());
   }
 }

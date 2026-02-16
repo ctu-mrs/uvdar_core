@@ -1,7 +1,7 @@
 #pragma once
 
 #include <uvdar/utils/i_logger.h>
-#include <uvdar/blink_processor/ami_tracker_types.h>
+#include <uvdar/blink_processor/blink_processor_types.h>
 #include <uvdar/blink_processor/tseries_buffer.h>
 #include <uvdar/blink_processor/local_search.h>
 #include <uvdar/blink_processor/extended_search.h>
@@ -11,7 +11,7 @@ namespace uvdar::blink_processor {
 
 class AmiTracker {
  public:
-  explicit AmiTracker(const std::shared_ptr<AmiTrackerConfig> cfg, ILogger& logger);
+  explicit AmiTracker(const AmiTrackerConfig& cfg, ILogger& logger);
   ~AmiTracker() = default;
 
   void processBuffer(std::vector<PointState>& unmatched_points);
@@ -22,7 +22,7 @@ class AmiTracker {
   std::vector<bool> extractLedWindowForPatternMatch_(const SeqPtr& tseries, const size_t window_size) const;
 
  private:
-  std::shared_ptr<AmiTrackerConfig> cfg_;
+  const AmiTrackerConfig cfg_;
   ILogger& logger_;
 
   std::shared_ptr<TseriesBuffer> active_tseries_buffer_;

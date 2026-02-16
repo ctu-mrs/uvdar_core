@@ -2,7 +2,8 @@
 
 #include <mutex>
 
-#include <uvdar/blink_processor/ami_tracker_types.h>
+#include <uvdar/blink_processor/blink_processor_types.h>
+#include <uvdar/blink_processor/marker_types.h>
 #include <uvdar/blink_processor/tseries_ops.h>
 #include <uvdar/blink_processor/polynomial_regression_predictor.h>
 
@@ -10,7 +11,7 @@ namespace uvdar::blink_processor {
 
 class ExtendedSearch {
  public:
-  explicit ExtendedSearch(const std::shared_ptr<AmiTrackerConfig> cfg);
+  explicit ExtendedSearch(const ExtendedSearchConfig& cfg);
   void run(std::vector<PointState>& unassigned_points, std::vector<SeqPtr>& buffer);
 
  private:
@@ -23,7 +24,7 @@ class ExtendedSearch {
   void insertPointToSequence_(std::vector<PointState>& sequence, const PointState signal);
 
  private:
-  std::shared_ptr<AmiTrackerConfig> cfg_;
+  ExtendedSearchConfig cfg_;
   std::mutex mutex_gen_sequences_;
 
   const double PREDICTION_MARGIN_{0.0};

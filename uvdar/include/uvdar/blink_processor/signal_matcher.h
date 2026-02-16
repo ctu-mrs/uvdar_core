@@ -3,14 +3,15 @@
 #include <vector>
 #include <bit>
 
-#include <uvdar/blink_processor/ami_tracker_types.h>
+#include <uvdar/blink_processor/blink_processor_types.h>
 #include <uvdar/blink_processor/signal_matcher_enums.h>
+#include <uvdar/blink_processor/marker_types.h>
 
 namespace uvdar::blink_processor {
 
 class SignalMatcher {
  public:
-  SignalMatcher(const std::vector<Sequence>& sequences, const int allowed_BER_per_seq);
+  SignalMatcher(const SignalMatcherConfig& config, const std::vector<Sequence>& sequences);
   int matchSignal(const Sequence& signal) const;
 
  private:
@@ -20,8 +21,7 @@ class SignalMatcher {
   uint32_t packSignalPrefix_(const Sequence& signal) const;
 
  private:
-  const size_t SEQUENCE_SIZE_;
-  const int ALLOWED_BER_PER_SEQ_;
+  const SignalMatcherConfig cfg_;
 
   std::vector<uint64_t> reference_signal_codes_;
 };

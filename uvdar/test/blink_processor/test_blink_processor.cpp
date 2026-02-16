@@ -85,19 +85,27 @@ TEST(BlinkProcessor, AssignsCorrectIdForNewMarker_StaticPoint) {
   std::rotate(emitted.begin(), emitted.begin() + 2, emitted.end());
 
   // --- Config ---
-  AmiTrackerConfig cfg;
-  cfg.max_px_shift           = {10.0, 10.0}; // keep association easy
-  cfg.poly_order             = 0;            // static point
-  cfg.decay_factor           = 0.0;
-  cfg.conf_probab_percent    = 95.0;
-  cfg.stored_seq_len_factor  = 20;
-  cfg.blinking_patterns_size = static_cast<int>(patterns[0].size());
-  cfg.max_buffer_length      = 100;
-  cfg.max_zeros_consecutive  = 4;
-  cfg.allowed_BER_per_seq    = 0; // exact match required (in matcher)
-  auto shared_cfg            = std::make_shared<AmiTrackerConfig>(cfg);
+  const double max_x = 10.0;
+  const double max_y = 10.0;
 
-  BlinkProcessor bp(shared_cfg, test_logger);
+  auto cfg =
+      BlinkProcessorConfig()
+          .setSequence({.blinking_patterns_length = 32, .stored_seq_len_factor = 20})
+          .setPoly({.poly_order = 0, .decay_factor = 0.0, .min_prediction_tol_px = 3, .conf_prob_percentage = 95})
+          .setVerification({.max_buffer_length = 100, .max_consecutive_zeros = 4, .allowed_BER_per_seq = 0});
+
+  // BlinkProcessorConfig cfg;
+  // cfg.max_px_shift                                             = {10.0, 10.0}; // keep association easy
+  // cfg.poly_order                                               = 0;            // static point
+  // cfg.poly_decay_factor                                        = 0.0;
+  // cfg.ami_tracker.extended.poly_reg.confidence_prob_percentage = 95.0;
+  // cfg.seq.stored_seq_len_factor                                = 20;
+  // cfg.seq.blinking_patterns_length                             = static_cast<int>(patterns[0].size());
+  // cfg.max_buffer_length                                        = 100;
+  // cfg.max_consecutive_zeros                                    = 4;
+  // cfg.allowed_BER_per_seq                                      = 0; // exact match required (in matcher)
+
+  BlinkProcessor bp(cfg, test_logger);
   ASSERT_TRUE(bp.setBlinkingPatterns(patterns));
 
   const double X = 100.0;

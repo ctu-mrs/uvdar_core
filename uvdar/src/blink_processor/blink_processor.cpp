@@ -3,9 +3,7 @@
 namespace uvdar::blink_processor {
 
 /* BlinkProcessor constructor //{ */
-BlinkProcessor::BlinkProcessor(const std::shared_ptr<AmiTrackerConfig> cfg, ILogger& logger)
-    : cfg_(cfg), logger_(logger) {
-  ami_tracker_ = std::make_unique<AmiTracker>(cfg_, logger_);
+BlinkProcessor::BlinkProcessor(BlinkProcessorConfig& cfg, ILogger& logger) : cfg_(std::move(cfg)), logger_(logger) {
 }
 //}
 
@@ -18,15 +16,16 @@ bool BlinkProcessor::setBlinkingPatterns(const std::vector<Sequence>& sequences)
     return false;
   }
 
-  cfg_->blinking_patterns_size = blinking_patterns_.at(0).size();
+  cfg_.setPatternLength(static_cast<int>(blinking_patterns_[0].size()));
 
-  if ((cfg_->stored_seq_len_factor * blinking_patterns_[0].size()) < cfg_->max_zeros_consecutive) {
+  if (!cfg_.isConfigValid(blinking_patterns_[0].size())) {
     logger_.error("[UVDARBlinkProcessor]: The wanted number of consecutive zeros is higher than the possible sequence "
                   "length in the buffer! Sequence cannot be set.");
     return false;
   }
 
-  signal_matcher_ = std::make_unique<SignalMatcher>(blinking_patterns_, cfg_->allowed_BER_per_seq);
+  ami_tracker_    = std::make_unique<AmiTracker>(cfg_.ami_tracker, logger_);
+  signal_matcher_ = std::make_unique<SignalMatcher>(cfg_.signal_matcher, blinking_patterns_);
   return true;
 }
 //}
@@ -39,7 +38,8 @@ void BlinkProcessor::processBuffer(std::vector<PointState>& unmatched_points) {
 
 /* getResults //{ */
 std::vector<TrackedMarker> BlinkProcessor::getResults() {
-  auto tseries_window_buffer_copy = ami_tracker_->getActiveTrackCopy(cfg_->blinking_patterns_size);
+  // TODO: not sure that this is correct, check whether the given size makes sense
+  auto tseries_window_buffer_copy = ami_tracker_->getActiveTrackCopy(cfg_.getPatternLength());
 
   std::vector<TrackedMarker> results;
   results.reserve(tseries_window_buffer_copy.size());

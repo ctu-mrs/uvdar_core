@@ -44,10 +44,8 @@ void UvLedDetectorComponent::loadParams_() {
 
 /* loadRosParams_ //{ */
 void UvLedDetectorComponent::loadRosParams_() {
-  param_loader_->loadParam("uv_led_detector/camera_input_topics", camera_topics_,
-                           std::vector<std::string>{"camera_in"});
-  param_loader_->loadParam("uv_led_detector/detected_points_topics", detected_points_topics_,
-                           std::vector<std::string>{"detected_points_topics"});
+  param_loader_->loadParam("uv_led_detector/camera_input_topics", camera_topics_);
+  param_loader_->loadParam("uv_led_detector/detected_points_topics", detected_points_topics_);
 
   param_loader_->loadParam("uv_led_detector/initial_delay", initial_delay_, 5.0);
   param_loader_->loadParam("uv_led_detector/publish_sun_points", publish_sun_points_, false);

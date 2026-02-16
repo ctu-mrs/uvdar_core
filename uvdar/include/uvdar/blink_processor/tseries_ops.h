@@ -1,6 +1,6 @@
 #pragma once
 
-#include <uvdar/blink_processor/ami_tracker_types.h>
+#include <uvdar/blink_processor/blink_processor_types.h>
 
 namespace uvdar::blink_processor {
 
