@@ -20,7 +20,8 @@
   <depend>sensor_msgs</depend>
   <depend>tf2_eigen</depend>
   <depend>eigen</depend>
-
+  <depend>ament_index_cpp</depend>
+  
   <depend>mrs_lib</depend>
   <depend>mrs_msgs</depend>
   <depend>uvdar</depend>

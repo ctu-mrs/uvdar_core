@@ -29,6 +29,7 @@ endif()
 
 set(DEPENDENCIES
   ament_cmake
+  ament_index_cpp
   rclcpp
   rclcpp_components
   cv_bridge

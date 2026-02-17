@@ -14,7 +14,7 @@ uv_led_detector:
   publish_sun_points: false
 
 blink_processor:
-  pattern_file: "/blinking_sequences/blinking_sequence.txt" # path to the file with blinking patterns
+  patterns_file: "blinking_sequences/blinking_sequence.csv" # path to the file with blinking patterns
   detected_markers_topics: ["/detected_markers"] # topics with detected markers (coordinates and ID)
   allowed_BER_per_sequence: 0 # allowed Bit Error Rate per blinking sequence
   polynomial_degree: 4 # degree of the polynomial for trajectory fitting
@@ -23,4 +23,4 @@ blink_processor:
   confidence_probability_percentage: 95 # statistical confidence level used to compute the prediction interval width
   max_buffer_length: 100 # maximum number of tracked objects in the buffer (max number of t-series)
   min_prediction_tol_px: 3 # minimum pixel tolerance added to regression uncertainty to prevent zero-width prediction intervals
-  max_zeros_consecutive: 10 # maximum consecutive zeros in the recorded sequence (t-series) for it to be still considered valid
+  max_consecutive_zeros: 10 # maximum consecutive zeros in the recorded sequence (t-series) for it to be still considered valid
