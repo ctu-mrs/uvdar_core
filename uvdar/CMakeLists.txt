@@ -164,9 +164,9 @@ target_include_directories(uvdar_uvdar
 ## |                           Testing                          |
 ## --------------------------------------------------------------
 
-# if(ENABLE_TESTS)
-#   add_subdirectory(test)
-# endif()
+if(ENABLE_TESTS)
+  add_subdirectory(test)
+endif()
 
 ## --------------------------------------------------------------
 ## |                           Install                          |

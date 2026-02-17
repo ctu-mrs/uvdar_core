@@ -10,13 +10,12 @@ using namespace uvdar::blink_processor;
 
 /* TEST(LocalSearch, MatchesPointWithinBoundsAndErases) //{ */
 TEST(LocalSearch, MatchesPointWithinBoundsAndErases) {
-  AmiTrackerConfig cfg;
-  cfg.max_px_shift           = {10, 10};
-  cfg.stored_seq_len_factor  = 20;
-  cfg.blinking_patterns_size = 8; // 8 bit pattern
-  auto shared_cfg            = std::make_shared<AmiTrackerConfig>(cfg);
+  LocalSearchConfig local_cfg;
+  local_cfg.max_px_shift                 = cv::Point2d(10, 10);
+  local_cfg.seq.blinking_patterns_length = 8;
+  local_cfg.seq.stored_seq_len_factor    = 20;
 
-  LocalSearch local_search(shared_cfg);
+  LocalSearch local_search(local_cfg);
   std::vector<SeqPtr> active_tseries_buffer;
   SeqPtr single_seq = std::make_shared<std::vector<PointState>>();
   active_tseries_buffer.push_back(single_seq);
@@ -44,13 +43,12 @@ TEST(LocalSearch, MatchesPointWithinBoundsAndErases) {
 
 /* TEST(LocalSearch, MatchesPointToSecondTseriesAndRemovesMatchedSeries) //{ */
 TEST(LocalSearch, MatchesPointToSecondTseriesAndRemovesMatchedSeries) {
-  AmiTrackerConfig cfg;
-  cfg.max_px_shift           = {10, 10};
-  cfg.stored_seq_len_factor  = 20;
-  cfg.blinking_patterns_size = 8; // 8 bit pattern
-  auto shared_cfg            = std::make_shared<AmiTrackerConfig>(cfg);
+  LocalSearchConfig local_cfg;
+  local_cfg.max_px_shift                 = cv::Point2d(10, 10);
+  local_cfg.seq.blinking_patterns_length = 8;
+  local_cfg.seq.stored_seq_len_factor    = 20;
 
-  LocalSearch local_search(shared_cfg);
+  LocalSearch local_search(local_cfg);
   std::vector<SeqPtr> active_tseries_buffer;
   SeqPtr first_seq  = std::make_shared<std::vector<PointState>>();
   SeqPtr second_seq = std::make_shared<std::vector<PointState>>();
@@ -84,13 +82,12 @@ TEST(LocalSearch, MatchesPointToSecondTseriesAndRemovesMatchedSeries) {
 TEST(LocalSearch, MultiplePointsAndMatchedSeries) {
   const int NUM_TIMESTEPS = 3;
 
-  AmiTrackerConfig cfg;
-  cfg.max_px_shift           = {10, 10};
-  cfg.stored_seq_len_factor  = 20;
-  cfg.blinking_patterns_size = 8; // 8 bit pattern
-  auto shared_cfg            = std::make_shared<AmiTrackerConfig>(cfg);
+  LocalSearchConfig local_cfg;
+  local_cfg.max_px_shift                 = cv::Point2d(10, 10);
+  local_cfg.seq.blinking_patterns_length = 8;
+  local_cfg.seq.stored_seq_len_factor    = 20;
 
-  LocalSearch local_search(shared_cfg);
+  LocalSearch local_search(local_cfg);
 
   std::vector<SeqPtr> active_tseries_buffer;
   SeqPtr first_seq  = std::make_shared<std::vector<PointState>>();

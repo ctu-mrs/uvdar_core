@@ -9,14 +9,14 @@
 
 namespace uvdar::blink_processor {
 
-struct PolyRegressionArgs {
-  int order;
-  double decay_factor;
+struct Shift2d {
+  double x{0.0};
+  double y{0.0};
 };
 
 // --- Data Containers ---
 /* SequenceConfig //{ */
-struct SequenceConfig final {
+struct SequenceConfig {
   int blinking_patterns_length{0};
   int stored_seq_len_factor{0};
 
@@ -27,8 +27,8 @@ struct SequenceConfig final {
 // --- View Structs ---
 /* LocalSearchConfig //{ */
 struct LocalSearchConfig {
-  cv::Point2d max_px_shift{0.0, 0.0};
   SequenceConfig seq;
+  cv::Point2d max_px_shift{0.0, 0.0};
 };
 //}
 
@@ -50,10 +50,10 @@ struct ExtendedSearchConfig {
 
 /* VerificationConfig //{ */
 struct VerificationConfig {
+  SequenceConfig seq;
   int max_buffer_length{0};
   int max_consecutive_zeros{0};
   int allowed_BER_per_seq{0};
-  SequenceConfig seq;
 
   bool hasValidBufferRatios(size_t current_pattern_size) const;
 };
@@ -68,8 +68,8 @@ struct AmiTrackerConfig {
 //}
 
 struct SignalMatcherConfig {
-  int allowed_BER_per_seq{0};
   SequenceConfig seq;
+  int allowed_BER_per_seq{0};
 };
 
 // --- Owner ---
@@ -82,7 +82,6 @@ struct BlinkProcessorConfig {
   int poly_order{0};
   int min_prediction_tol_px{0};
   int conf_prob_percentage{0};
-
   cv::Point2d max_px_shift{0.0, 0.0};
 
   SequenceConfig seq;
@@ -90,18 +89,16 @@ struct BlinkProcessorConfig {
   SignalMatcherConfig signal_matcher;
 
   bool isConfigValid(size_t pattern_size) const;
-
   int getPatternLength() const;
 
   BlinkProcessorConfig& setPatternLength(int size);
   BlinkProcessorConfig& setPoly(PolyRegressionConfig cfg);
   BlinkProcessorConfig& setSequence(SequenceConfig cfg);
   BlinkProcessorConfig& setVerification(VerificationConfig cfg);
+  BlinkProcessorConfig& setMaxShift(Shift2d shift);
 
  private:
   void updateChildConfigs_();
-
- private:
 };
 //}
 
