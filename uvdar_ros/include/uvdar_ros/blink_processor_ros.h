@@ -17,17 +17,19 @@ class BlinkProcessorComponent : public mrs_lib::Node {
   BlinkProcessorComponent(rclcpp::NodeOptions options);
 
  private:
-  void loadParams_();
+  [[nodiscard]] bool loadParams_();
   void loadRosParams_();
   void loadBlinkProcessorParams_();
 
-  void checkLoadedParams_();
+  [[nodiscard]] bool checkLoadedParams_();
   [[nodiscard]] bool checkRosTopics_() const;
   [[nodiscard]] bool checkPatternsFile_();
   [[nodiscard]] bool checkBlinkProcessorConfig_() const;
 
   [[nodiscard]] bool loadPatternsFile_();
   [[nodiscard]] bool initBlinkProcessor_();
+
+  [[nodiscard]] bool initRosCommunication_();
 
  private:
   rclcpp::Node::SharedPtr node_;

@@ -10,27 +10,35 @@ namespace uvdar::blink_processor {
 /* BlinkProcessorComponent //{ */
 BlinkProcessorComponent::BlinkProcessorComponent(rclcpp::NodeOptions options)
     : mrs_lib::Node("BlinkProcessor", options) {
-  node_ = this_node_ptr();
-
+  node_   = this_node_ptr();
   logger_ = std::make_shared<RosLogger>(node_->get_logger());
 
-  loadParams_();
-  checkLoadedParams_();
+  if (!loadParams_()) {
+    throw std::runtime_error("Failed to load parameters from the config file!");
+  }
+
+  if (!checkLoadedParams_()) {
+    throw std::runtime_error("Some loaded parameters are not valid!");
+  }
 
   if (!loadPatternsFile_()) {
-    RCLCPP_ERROR(node_->get_logger(), "Failed to load blinking patterns!");
-    rclcpp::shutdown();
+    throw std::runtime_error("Failed to load blinking patterns!");
   }
 
   if (!initBlinkProcessor_()) {
-    RCLCPP_ERROR(node_->get_logger(), "Failed to initialize blink processor!");
-    rclcpp::shutdown();
+    throw std::runtime_error("Failed to initialize blink processor!");
   }
+
+  if (!initRosCommunication_()) {
+    throw std::runtime_error("Failed to initialize ROS communication!");
+  }
+
+  RCLCPP_INFO(node_->get_logger(), "BlinkProcessor node initialized successfully.");
 }
 //}
 
 /* loadParams_ //{ */
-void BlinkProcessorComponent::loadParams_() {
+bool BlinkProcessorComponent::loadParams_() {
   param_loader_ = std::make_shared<mrs_lib::ParamLoader>(node_, node_->get_name());
 
   std::vector<std::string> config_files;
@@ -40,13 +48,20 @@ void BlinkProcessorComponent::loadParams_() {
     param_loader_->addYamlFile(config_file);
   }
 
-  loadRosParams_();
-  loadBlinkProcessorParams_();
+  try {
+    loadRosParams_();
+    loadBlinkProcessorParams_();
+  } catch (const std::exception& e) {
+    RCLCPP_ERROR(node_->get_logger(), "Failed to load parameters: %s", e.what());
+    return false;
+  }
 
   if (!param_loader_->loadedSuccessfully()) {
     RCLCPP_ERROR(node_->get_logger(), "Some compulsory parameters were not loaded successfully!");
-    rclcpp::shutdown();
+    return false;
   }
+
+  return true;
 }
 //}
 
@@ -73,21 +88,22 @@ void BlinkProcessorComponent::loadBlinkProcessorParams_() {
 //}
 
 /* checkLoadedParams_ //{ */
-void BlinkProcessorComponent::checkLoadedParams_() {
+bool BlinkProcessorComponent::checkLoadedParams_() {
   if (!checkRosTopics_()) {
     RCLCPP_ERROR(node_->get_logger(), "Some ROS topics are not defined!");
-    rclcpp::shutdown();
+    return false;
   }
 
   if (!checkPatternsFile_()) {
     RCLCPP_ERROR(node_->get_logger(), "Blinking patterns file is not valid!");
-    rclcpp::shutdown();
+    return false;
   }
 
   if (!checkBlinkProcessorConfig_()) {
     RCLCPP_ERROR(node_->get_logger(), "Blink processor configuration parameters are not valid!");
-    rclcpp::shutdown();
+    return false;
   }
+  return true;
 }
 //}
 
@@ -249,6 +265,12 @@ bool BlinkProcessorComponent::initBlinkProcessor_() {
     RCLCPP_ERROR(node_->get_logger(), "Failed to set blinking patterns in blink processor!");
     return false;
   }
+
+  return true;
+}
+//}
+
+bool BlinkProcessorComponent::initRosCommunication_() {
 
   return true;
 }

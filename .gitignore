@@ -8,4 +8,4 @@
 
 /uvdar_ros/config/blinking_sequences/*
 !/uvdar_ros/config/blinking_sequences/
-!/uvdar_ros/config/blinking_sequences/blinking_sequence.txt
+!/uvdar_ros/config/blinking_sequences/blinking_sequence.csv
