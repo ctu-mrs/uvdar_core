@@ -9,12 +9,13 @@
 
 namespace uvdar::blink_processor {
 
+/* Shift2d //{ */
 struct Shift2d {
   double x{0.0};
   double y{0.0};
 };
+//}
 
-// --- Data Containers ---
 /* SequenceConfig //{ */
 struct SequenceConfig {
   int blinking_patterns_length{0};
@@ -24,7 +25,6 @@ struct SequenceConfig {
 };
 //}
 
-// --- View Structs ---
 /* LocalSearchConfig //{ */
 struct LocalSearchConfig {
   SequenceConfig seq;
@@ -67,12 +67,13 @@ struct AmiTrackerConfig {
 };
 //}
 
+/* SignalMatcherConfig //{ */
 struct SignalMatcherConfig {
   SequenceConfig seq;
   int allowed_BER_per_seq{0};
 };
+//}
 
-// --- Owner ---
 /* BlinkProcessorConfig //{ */
 struct BlinkProcessorConfig {
   int allowed_BER_per_seq{0};
