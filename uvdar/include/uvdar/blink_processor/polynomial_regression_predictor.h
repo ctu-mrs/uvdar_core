@@ -1,6 +1,7 @@
 #pragma once
 
-#include <uvdar/blink_processor/ami_tracker_types.h>
+#include <uvdar/blink_processor/blink_processor_types.h>
+#include <uvdar/blink_processor/marker_types.h>
 #include <uvdar/blink_processor/tseries_ops.h>
 
 namespace uvdar::blink_processor {
@@ -18,7 +19,7 @@ struct RegressionResult {
 
 class PolynomialRegressionPredictor {
  public:
-  PolynomialRegressionPredictor(const std::shared_ptr<AmiTrackerConfig> cfg);
+  PolynomialRegressionPredictor(const PolyRegressionConfig& cfg);
 
   std::tuple<PredictionStatistics, PredictionStatistics> predict(const double insert_time,
                                                                  std::vector<PointState>& tseries);
@@ -42,7 +43,7 @@ class PolynomialRegressionPredictor {
 
  private:
   const int WINDOW_SEARCH_SIZE_{100};
-  std::shared_ptr<AmiTrackerConfig> cfg_;
+  const PolyRegressionConfig cfg_;
 
   Eigen::Matrix<double, Eigen::Dynamic, 5> X_vandermonde_;
   Eigen::VectorXd y_workspace_;

@@ -19,16 +19,15 @@ TEST(ExtendedSearch, DiverseTrajectories_Poly4) {
   const int NUM_POINTS  = 30;
   const int NUM_TSERIES = 2;
 
-  AmiTrackerConfig cfg;
-  cfg.max_px_shift           = {10.0, 10.0};
-  cfg.poly_order             = 4;
-  cfg.decay_factor           = 0.5;
-  cfg.conf_probab_percent    = 95;
-  cfg.stored_seq_len_factor  = 20;
-  cfg.blinking_patterns_size = 8;
-  auto shared_cfg            = std::make_shared<AmiTrackerConfig>(cfg);
+  ExtendedSearchConfig ext_cfg;
+  ext_cfg.poly_reg.poly_order            = 4;
+  ext_cfg.poly_reg.decay_factor          = 0.5;
+  ext_cfg.poly_reg.min_prediction_tol_px = 10;
+  ext_cfg.poly_reg.conf_prob_percentage  = 95;
+  ext_cfg.seq.blinking_patterns_length   = 8;
+  ext_cfg.seq.stored_seq_len_factor      = 20;
 
-  ExtendedSearch extended_search(shared_cfg);
+  ExtendedSearch extended_search(ext_cfg);
 
   auto t0 = Clock::now();
   std::vector<SeqPtr> active_tseries;
@@ -37,7 +36,6 @@ TEST(ExtendedSearch, DiverseTrajectories_Poly4) {
     SeqPtr seq = std::make_shared<std::vector<PointState>>();
     for (int t = 0; t < NUM_POINTS; ++t) {
       PointState point;
-      // Use t directly as a spatial and temporal coordinate
       double x_val = t * 10.0;
 
       if (s == 0) {

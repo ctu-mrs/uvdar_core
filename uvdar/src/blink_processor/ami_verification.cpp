@@ -3,8 +3,8 @@
 namespace uvdar::blink_processor {
 
 /* AmiVerification constructor //{ */
-AmiVerification::AmiVerification(const std::shared_ptr<AmiTrackerConfig> cfg,
-                                 const std::shared_ptr<TseriesBuffer> active_buffer, ILogger& logger)
+AmiVerification::AmiVerification(const VerificationConfig& cfg, const std::shared_ptr<TseriesBuffer> active_buffer,
+                                 ILogger& logger)
     : cfg_(cfg), active_tseries_buffer_(active_buffer), logger_(logger) {
 }
 //}
@@ -46,7 +46,7 @@ void AmiVerification::insertVirtualPointToSequence_(std::vector<PointState>& seq
 /* insertPointToSequence_ //{ */
 void AmiVerification::insertPointToSequence_(std::vector<PointState>& sequence, const PointState signal) {
   sequence.push_back(signal);
-  if (sequence.size() > (cfg_->blinking_patterns_size * cfg_->stored_seq_len_factor)) {
+  if (sequence.size() > cfg_.seq.getMaxSequenceLength()) {
     sequence.erase(sequence.begin());
   }
 }
@@ -54,14 +54,13 @@ void AmiVerification::insertPointToSequence_(std::vector<PointState>& sequence, 
 
 /* enforceMaxBufferLength_ //{ */
 void AmiVerification::enforceMaxBufferLength_(std::vector<PointState>& unmatched_points) {
-  if (active_tseries_buffer_->buffer.size() > cfg_->max_buffer_length) {
-    logger_.error("[AmiVerification]: The maximal excepted buffer length of " +
-                  std::to_string(cfg_->max_buffer_length) + " is reached! " + std::to_string(unmatched_points.size()) +
+  if (active_tseries_buffer_->buffer.size() > static_cast<size_t>(cfg_.max_buffer_length)) {
+    logger_.error("[AmiVerification]: The maximal excepted buffer length of " + std::to_string(cfg_.max_buffer_length) +
+                  " is reached! " + std::to_string(unmatched_points.size()) +
                   " points will be discarded. Please consider to set the parameter \"max_buffer_length\" higher, if "
                   "the memory has the capacity.");
-    auto diff = active_tseries_buffer_->buffer.size() - cfg_->max_buffer_length;
 
-    active_tseries_buffer_->buffer.erase(active_tseries_buffer_->buffer.begin() + cfg_->max_buffer_length,
+    active_tseries_buffer_->buffer.erase(active_tseries_buffer_->buffer.begin() + cfg_.max_buffer_length,
                                          active_tseries_buffer_->buffer.end());
   }
 }
@@ -73,12 +72,12 @@ void AmiVerification::startNewSequencesForUnmatchedPoints_(std::vector<PointStat
 
   for (auto& point : unmatched_points) {
     std::vector<PointState> vect;
-    vect.reserve(cfg_->stored_seq_len_factor * cfg_->blinking_patterns_size);
+    vect.reserve(cfg_.seq.getMaxSequenceLength());
     vect.emplace_back(point);
     active_tseries_buffer_->buffer.emplace_back(std::make_shared<std::vector<PointState>>(vect));
   }
 }
-//}
+//
 
 /* cleanPotentialBuffer_ //{ */
 void AmiVerification::cleanPotentialBuffer_() {
@@ -87,8 +86,8 @@ void AmiVerification::cleanPotentialBuffer_() {
   auto it = active_tseries_buffer_->buffer.begin();
   while (it != active_tseries_buffer_->buffer.end()) {
     SeqPtr& tseries      = *it;
-    int delete_criterion = cfg_->max_zeros_consecutive + cfg_->allowed_BER_per_seq;
-    if (tseries->size() <= delete_criterion) {
+    int delete_criterion = cfg_.max_consecutive_zeros + cfg_.allowed_BER_per_seq;
+    if (tseries->size() <= static_cast<size_t>(delete_criterion)) {
       ++it;
       continue;
     }

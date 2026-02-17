@@ -6,10 +6,10 @@
 
 #include <uvdar/blink_processor/signal_matcher.h>
 
+using namespace uvdar::blink_processor;
+
 /* TEST(SignalMatcher, ExactLengthSignal) //{ */
 TEST(SignalMatcher, ExactLengthSignal) {
-  using namespace uvdar::blink_processor;
-
   // clang-format off
   const int GROUND_TRUTH_ID{1};
   std::vector<Sequence> seqs{
@@ -21,8 +21,11 @@ TEST(SignalMatcher, ExactLengthSignal) {
   Sequence signal = seqs[GROUND_TRUTH_ID];
   std::rotate(signal.begin(), signal.begin() + 2, signal.end());
 
-  const int allowed_BER_per_seq{0};
-  SignalMatcher matcher(seqs, allowed_BER_per_seq);
+  SignalMatcherConfig cfg;
+  cfg.allowed_BER_per_seq          = 0;
+  cfg.seq.blinking_patterns_length = seqs[0].size();
+  cfg.seq.stored_seq_len_factor    = 20;
+  SignalMatcher matcher(cfg, seqs);
   const int signal_id = matcher.matchSignal(signal);
 
   EXPECT_EQ(GROUND_TRUTH_ID, signal_id);
@@ -31,8 +34,6 @@ TEST(SignalMatcher, ExactLengthSignal) {
 
 /* TEST(SignalMatcher, LongerLengthSignal) //{ */
 TEST(SignalMatcher, LongerLengthSignal) {
-  using namespace uvdar::blink_processor;
-
   // clang-format off
   const int GROUND_TRUTH_ID{1};
   std::vector<Sequence> seqs{
@@ -45,8 +46,11 @@ TEST(SignalMatcher, LongerLengthSignal) {
   signal.insert(signal.end(), seqs[GROUND_TRUTH_ID].begin(), seqs[GROUND_TRUTH_ID].end());
   std::rotate(signal.begin(), signal.begin() + 5, signal.end());
 
-  const int allowed_BER_per_seq{0};
-  SignalMatcher matcher(seqs, allowed_BER_per_seq);
+  SignalMatcherConfig cfg;
+  cfg.allowed_BER_per_seq          = 0;
+  cfg.seq.blinking_patterns_length = seqs[0].size();
+  cfg.seq.stored_seq_len_factor    = 20;
+  SignalMatcher matcher(cfg, seqs);
   const int signal_id = matcher.matchSignal(signal);
 
   EXPECT_EQ(GROUND_TRUTH_ID, signal_id);
@@ -55,8 +59,6 @@ TEST(SignalMatcher, LongerLengthSignal) {
 
 /* TEST(SignalMatcher, ShorterLengthSignal) //{ */
 TEST(SignalMatcher, ShorterLengthSignal) {
-  using namespace uvdar::blink_processor;
-
   // clang-format off
   const int GROUND_TRUTH_ID{1};
   std::vector<Sequence> seqs{
@@ -68,8 +70,11 @@ TEST(SignalMatcher, ShorterLengthSignal) {
   Sequence signal(seqs[GROUND_TRUTH_ID].begin(), seqs[GROUND_TRUTH_ID].begin() + 5);
   std::rotate(signal.begin(), signal.begin() + 2, signal.end());
 
-  const int allowed_BER_per_seq{0};
-  SignalMatcher matcher(seqs, allowed_BER_per_seq);
+  SignalMatcherConfig cfg;
+  cfg.allowed_BER_per_seq          = 0;
+  cfg.seq.blinking_patterns_length = seqs[0].size();
+  cfg.seq.stored_seq_len_factor    = 20;
+  SignalMatcher matcher(cfg, seqs);
   const int signal_id = matcher.matchSignal(signal);
 
   EXPECT_EQ(MatchStatus::SIGNAL_TOO_SHORT, signal_id);
@@ -78,13 +83,15 @@ TEST(SignalMatcher, ShorterLengthSignal) {
 
 /* TEST(SignalMatcher, LongerSequenceThan32bits) //{ */
 TEST(SignalMatcher, LongerSequenceThan32bits) {
-  using namespace uvdar::blink_processor;
-
   const int LONGER_SEQUENCE{33};
   std::vector<Sequence> seqs{Sequence(LONGER_SEQUENCE, true)};
-  const int allowed_BER_per_seq{0};
 
-  EXPECT_THROW({ SignalMatcher matcher(seqs, allowed_BER_per_seq); }, std::runtime_error);
+  SignalMatcherConfig cfg;
+  cfg.allowed_BER_per_seq          = 0;
+  cfg.seq.blinking_patterns_length = seqs[0].size();
+  cfg.seq.stored_seq_len_factor    = 20;
+
+  EXPECT_THROW({ SignalMatcher matcher(cfg, seqs); }, std::runtime_error);
 }
 //}
 

@@ -19,13 +19,14 @@ double gaussianNoise(double mean, double stddev) {
 
 /* TEST(PolyRegressionPredictor, NormalizedWeights_SumToOne_AndNewestLargest) //{ */
 TEST(PolyRegressionPredictor, NormalizedWeights_SumToOne_AndNewestLargest) {
-  AmiTrackerConfig cfg;
-  cfg.poly_order   = 4;
-  cfg.decay_factor = 5.0;
-  auto shared_cfg  = std::make_shared<AmiTrackerConfig>(cfg);
+  PolyRegressionConfig cfg;
+  cfg.poly_order            = 4;
+  cfg.decay_factor          = 0.5;
+  cfg.conf_prob_percentage  = 95;
+  cfg.min_prediction_tol_px = 0;
 
   std::vector<double> time{0.000, 0.005, 0.010};
-  PolynomialRegressionPredictor predictor(shared_cfg);
+  PolynomialRegressionPredictor predictor(cfg);
 
   auto weights = predictor.computeNormalizedWeightVect(time);
 
@@ -50,13 +51,13 @@ TEST(PolyRegressionPredictor, LinearPerfectFit_ZeroConfidenceInterval) {
   const double A_COEFF = 10;
   const double B_COEFF = 2;
 
-  AmiTrackerConfig cfg;
-  cfg.poly_order          = 1;
-  cfg.decay_factor        = 0;
-  cfg.conf_probab_percent = 95;
-  auto shared_cfg         = std::make_shared<AmiTrackerConfig>(cfg);
+  PolyRegressionConfig cfg;
+  cfg.poly_order            = 1;
+  cfg.decay_factor          = 0;
+  cfg.conf_prob_percentage  = 95;
+  cfg.min_prediction_tol_px = 0;
 
-  PolynomialRegressionPredictor predictor(shared_cfg);
+  PolynomialRegressionPredictor predictor(cfg);
 
   std::vector<double> time = {0, 1, 2, 3, 4};
   double insert_time       = 5;
@@ -80,13 +81,13 @@ TEST(PolyRegressionPredictor, ConfidenceIntervalGrowsWithNoise) {
   const double A_COEFF = 10;
   const double B_COEFF = 2;
 
-  AmiTrackerConfig cfg;
-  cfg.poly_order          = 1;
-  cfg.decay_factor        = 0.0;
-  cfg.conf_probab_percent = 95;
-  auto shared_cfg         = std::make_shared<AmiTrackerConfig>(cfg);
+  PolyRegressionConfig cfg;
+  cfg.poly_order            = 1;
+  cfg.decay_factor          = 0.0;
+  cfg.conf_prob_percentage  = 95;
+  cfg.min_prediction_tol_px = 2;
 
-  PolynomialRegressionPredictor predictor(shared_cfg);
+  PolynomialRegressionPredictor predictor(cfg);
 
   std::vector<double> time = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
   double insert_time       = 10.0;
@@ -115,14 +116,13 @@ TEST(PolyRegressionPredictor, ConfidenceIntervalGrowsWithNoise) {
 
 /* TEST(PolyRegressionPredictor, NonUniformTimeStressTest) //{ */
 TEST(PolyRegressionPredictor, NonUniformTimeStressTest) {
-  AmiTrackerConfig cfg;
-  cfg.poly_order          = 2; // Quadratic is safer for irregular gaps
-  cfg.decay_factor        = 0.1;
-  cfg.conf_probab_percent = 95;
-  cfg.max_px_shift.x      = 0.2;
-  auto shared_cfg         = std::make_shared<AmiTrackerConfig>(cfg);
+  PolyRegressionConfig cfg;
+  cfg.poly_order            = 2; // Quadratic is safer for irregular gaps
+  cfg.decay_factor          = 0.1;
+  cfg.conf_prob_percentage  = 95;
+  cfg.min_prediction_tol_px = 2;
 
-  PolynomialRegressionPredictor predictor(shared_cfg);
+  PolynomialRegressionPredictor predictor(cfg);
 
   // Irregular gaps: [0.1, 0.5, 0.2, 1.2, 0.3...]
   std::vector<double> time = {0.0, 0.1, 0.6, 0.8, 2.0, 2.3, 2.5, 3.5, 3.6, 4.0};

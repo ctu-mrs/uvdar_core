@@ -115,6 +115,7 @@ add_library(Uvdar_BlinkProcessorLib SHARED
   src/blink_processor/polynomial_regression_predictor.cpp
   src/blink_processor/ami_verification.cpp
   src/blink_processor/blink_processor.cpp
+  src/blink_processor/blink_processor_types.cpp
 )
 
 target_link_libraries(Uvdar_BlinkProcessorLib PUBLIC Eigen3::Eigen)
