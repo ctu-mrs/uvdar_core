@@ -5,8 +5,8 @@ namespace uvdar::blink_processor {
 
 /* PredictionStatistics //{ */
 PolynomialRegressionPredictor::PolynomialRegressionPredictor(const PolyRegressionConfig& cfg) : cfg_(cfg) {
-  X_vandermonde_.resize(WINDOW_SEARCH_SIZE_, cfg_.poly_order + 1);
-  y_workspace_.resize(WINDOW_SEARCH_SIZE_);
+  X_vandermonde_.resize(cfg_.seq.getMaxSequenceLength(), cfg_.poly_order + 1);
+  y_workspace_.resize(cfg_.seq.getMaxSequenceLength());
 }
 //}
 
@@ -115,7 +115,7 @@ std::tuple<double, double>
 PolynomialRegressionPredictor::calculatePredictionInterval(const std::vector<double>& coordinate,
                                                            const std::vector<double>& time,
                                                            const std::vector<double>& weights, const double time_next) {
-  const int n        = std::min(static_cast<int>(coordinate.size()), WINDOW_SEARCH_SIZE_);
+  const int n        = static_cast<int>(std::min(coordinate.size(), cfg_.seq.getMaxSequenceLength()));
   const int p        = std::min(cfg_.poly_order, n - 2);
   const int n_coeffs = p + 1;
   const int dof      = n - n_coeffs;

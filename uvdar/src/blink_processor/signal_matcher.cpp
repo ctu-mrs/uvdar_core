@@ -86,7 +86,7 @@ MatchStatus SignalMatcher::checkSignalSequenceSize_(const Sequence& signal) cons
   const auto& seq_size = signal.size();
   if (seq_size == 0) {
     return MatchStatus::SIGNAL_INVALID;
-  } else if (seq_size < cfg_.seq.blinking_patterns_length) {
+  } else if (seq_size < static_cast<size_t>(cfg_.seq.blinking_patterns_length)) {
     return MatchStatus::SIGNAL_TOO_SHORT;
   }
   return MatchStatus::SIGNAL_SIZE_CORRECT;

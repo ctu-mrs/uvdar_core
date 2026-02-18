@@ -79,10 +79,11 @@ BlinkProcessorConfig& BlinkProcessorConfig::operator=(BlinkProcessorConfig&& oth
 
 /* BlinkProcessorConfig::updateChildConfigs //{ */
 void BlinkProcessorConfig::updateChildConfigs_() {
-  ami_tracker.local.seq        = seq;
-  ami_tracker.extended.seq     = seq;
-  ami_tracker.verification.seq = seq;
-  signal_matcher.seq           = seq;
+  ami_tracker.local.seq             = seq;
+  ami_tracker.extended.seq          = seq;
+  ami_tracker.extended.poly_reg.seq = seq;
+  ami_tracker.verification.seq      = seq;
+  signal_matcher.seq                = seq;
 
   ami_tracker.local.max_px_shift = max_px_shift;
 
@@ -90,10 +91,9 @@ void BlinkProcessorConfig::updateChildConfigs_() {
   ami_tracker.extended.poly_reg.poly_order            = poly_order;
   ami_tracker.extended.poly_reg.decay_factor          = poly_decay_factor;
   ami_tracker.extended.poly_reg.conf_prob_percentage  = conf_prob_percentage;
-
-  ami_tracker.verification.max_buffer_length     = max_buffer_length;
-  ami_tracker.verification.max_consecutive_zeros = max_consecutive_zeros;
-  ami_tracker.verification.allowed_BER_per_seq   = allowed_BER_per_seq;
+  ami_tracker.verification.max_buffer_length          = max_buffer_length;
+  ami_tracker.verification.max_consecutive_zeros      = max_consecutive_zeros;
+  ami_tracker.verification.allowed_BER_per_seq        = allowed_BER_per_seq;
 
   signal_matcher.allowed_BER_per_seq = allowed_BER_per_seq;
 }

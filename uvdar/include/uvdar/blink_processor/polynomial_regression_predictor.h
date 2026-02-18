@@ -42,7 +42,6 @@ class PolynomialRegressionPredictor {
                                              const std::vector<double>& weights);
 
  private:
-  const int WINDOW_SEARCH_SIZE_{100};
   const PolyRegressionConfig cfg_;
 
   Eigen::Matrix<double, Eigen::Dynamic, 5> X_vandermonde_;

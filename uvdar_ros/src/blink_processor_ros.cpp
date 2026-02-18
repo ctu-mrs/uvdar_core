@@ -76,14 +76,14 @@ void BlinkProcessorComponent::loadRosParams_() {
 void BlinkProcessorComponent::loadBlinkProcessorParams_() {
   param_loader_->loadParam("blink_processor/patterns_file", _patterns_file_path_);
 
-  param_loader_->loadParam("blink_processor/allowed_BER_per_sequence", _cfg_.allowed_BER_per_seq);
-  param_loader_->loadParam("blink_processor/polynomial_degree", _cfg_.poly_order);
-  param_loader_->loadParam("blink_processor/decay_factor", _cfg_.poly_decay_factor);
-  param_loader_->loadParam("blink_processor/stored_seq_len_factor", _cfg_.seq.stored_seq_len_factor);
-  param_loader_->loadParam("blink_processor/confidence_probability_percentage", _cfg_.conf_prob_percentage);
-  param_loader_->loadParam("blink_processor/max_buffer_length", _cfg_.max_buffer_length);
-  param_loader_->loadParam("blink_processor/max_consecutive_zeros", _cfg_.max_consecutive_zeros);
-  param_loader_->loadParam("blink_processor/min_prediction_tol_px", _cfg_.min_prediction_tol_px);
+  param_loader_->loadParam("blink_processor/allowed_BER_per_sequence", _cfg_.allowed_BER_per_seq, 0);
+  param_loader_->loadParam("blink_processor/polynomial_degree", _cfg_.poly_order, 4);
+  param_loader_->loadParam("blink_processor/decay_factor", _cfg_.poly_decay_factor, 0.1);
+  param_loader_->loadParam("blink_processor/stored_seq_len_factor", _cfg_.seq.stored_seq_len_factor, 20);
+  param_loader_->loadParam("blink_processor/confidence_probability_percentage", _cfg_.conf_prob_percentage, 95);
+  param_loader_->loadParam("blink_processor/max_buffer_length", _cfg_.max_buffer_length, 100);
+  param_loader_->loadParam("blink_processor/max_consecutive_zeros", _cfg_.max_consecutive_zeros, 10);
+  param_loader_->loadParam("blink_processor/min_prediction_tol_px", _cfg_.min_prediction_tol_px, 3);
 }
 //}
 
