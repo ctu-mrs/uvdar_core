@@ -5,6 +5,10 @@ namespace uvdar::blink_processor {
 
 /* PredictionStatistics //{ */
 PolynomialRegressionPredictor::PolynomialRegressionPredictor(const PolyRegressionConfig& cfg) : cfg_(cfg) {
+  if (cfg_.seq.getMaxSequenceLength() <= 0) {
+    throw std::invalid_argument("Maximum sequence length for polynomial regression has to be positive!");
+  }
+
   X_vandermonde_.resize(cfg_.seq.getMaxSequenceLength(), cfg_.poly_order + 1);
   y_workspace_.resize(cfg_.seq.getMaxSequenceLength());
 }

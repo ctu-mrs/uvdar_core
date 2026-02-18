@@ -20,12 +20,14 @@ TEST(ExtendedSearch, DiverseTrajectories_Poly4) {
   const int NUM_TSERIES = 2;
 
   ExtendedSearchConfig ext_cfg;
-  ext_cfg.poly_reg.poly_order            = 4;
-  ext_cfg.poly_reg.decay_factor          = 0.5;
-  ext_cfg.poly_reg.min_prediction_tol_px = 10;
-  ext_cfg.poly_reg.conf_prob_percentage  = 95;
-  ext_cfg.seq.blinking_patterns_length   = 8;
-  ext_cfg.seq.stored_seq_len_factor      = 20;
+  ext_cfg.poly_reg.poly_order                   = 4;
+  ext_cfg.poly_reg.decay_factor                 = 0.5;
+  ext_cfg.poly_reg.min_prediction_tol_px        = 10;
+  ext_cfg.poly_reg.conf_prob_percentage         = 95;
+  ext_cfg.seq.blinking_patterns_length          = 8;
+  ext_cfg.seq.stored_seq_len_factor             = 20;
+  ext_cfg.poly_reg.seq.blinking_patterns_length = 8;
+  ext_cfg.poly_reg.seq.stored_seq_len_factor    = 20;
 
   ExtendedSearch extended_search(ext_cfg);
 

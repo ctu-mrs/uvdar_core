@@ -20,10 +20,12 @@ double gaussianNoise(double mean, double stddev) {
 /* TEST(PolyRegressionPredictor, NormalizedWeights_SumToOne_AndNewestLargest) //{ */
 TEST(PolyRegressionPredictor, NormalizedWeights_SumToOne_AndNewestLargest) {
   PolyRegressionConfig cfg;
-  cfg.poly_order            = 4;
-  cfg.decay_factor          = 0.5;
-  cfg.conf_prob_percentage  = 95;
-  cfg.min_prediction_tol_px = 0;
+  cfg.poly_order                   = 4;
+  cfg.decay_factor                 = 0.5;
+  cfg.conf_prob_percentage         = 95;
+  cfg.min_prediction_tol_px        = 0;
+  cfg.seq.stored_seq_len_factor    = 20;
+  cfg.seq.blinking_patterns_length = 8;
 
   std::vector<double> time{0.000, 0.005, 0.010};
   PolynomialRegressionPredictor predictor(cfg);
@@ -52,10 +54,12 @@ TEST(PolyRegressionPredictor, LinearPerfectFit_ZeroConfidenceInterval) {
   const double B_COEFF = 2;
 
   PolyRegressionConfig cfg;
-  cfg.poly_order            = 1;
-  cfg.decay_factor          = 0;
-  cfg.conf_prob_percentage  = 95;
-  cfg.min_prediction_tol_px = 0;
+  cfg.poly_order                   = 1;
+  cfg.decay_factor                 = 0;
+  cfg.conf_prob_percentage         = 95;
+  cfg.min_prediction_tol_px        = 0;
+  cfg.seq.stored_seq_len_factor    = 20;
+  cfg.seq.blinking_patterns_length = 8;
 
   PolynomialRegressionPredictor predictor(cfg);
 
@@ -82,10 +86,12 @@ TEST(PolyRegressionPredictor, ConfidenceIntervalGrowsWithNoise) {
   const double B_COEFF = 2;
 
   PolyRegressionConfig cfg;
-  cfg.poly_order            = 1;
-  cfg.decay_factor          = 0.0;
-  cfg.conf_prob_percentage  = 95;
-  cfg.min_prediction_tol_px = 2;
+  cfg.poly_order                   = 1;
+  cfg.decay_factor                 = 0.0;
+  cfg.conf_prob_percentage         = 95;
+  cfg.min_prediction_tol_px        = 2;
+  cfg.seq.stored_seq_len_factor    = 20;
+  cfg.seq.blinking_patterns_length = 8;
 
   PolynomialRegressionPredictor predictor(cfg);
 
@@ -117,10 +123,12 @@ TEST(PolyRegressionPredictor, ConfidenceIntervalGrowsWithNoise) {
 /* TEST(PolyRegressionPredictor, NonUniformTimeStressTest) //{ */
 TEST(PolyRegressionPredictor, NonUniformTimeStressTest) {
   PolyRegressionConfig cfg;
-  cfg.poly_order            = 2; // Quadratic is safer for irregular gaps
-  cfg.decay_factor          = 0.1;
-  cfg.conf_prob_percentage  = 95;
-  cfg.min_prediction_tol_px = 2;
+  cfg.poly_order                   = 2; // Quadratic is safer for irregular gaps
+  cfg.decay_factor                 = 0.1;
+  cfg.conf_prob_percentage         = 95;
+  cfg.min_prediction_tol_px        = 2;
+  cfg.seq.stored_seq_len_factor    = 20;
+  cfg.seq.blinking_patterns_length = 8;
 
   PolynomialRegressionPredictor predictor(cfg);
 
