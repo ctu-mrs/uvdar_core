@@ -11,9 +11,10 @@
 > :warning: **Attention please: This README is outdated.**
 
 ### Dev Notes
-1. BlinkProcessor may be prone to race conditions
-2. Check active t-series buffer (overflow/sync issues)
-3. Config parameter names are very confusing at this point.
+- [ ] BlinkProcessor may be prone to race conditions
+- [ ] Check active t-series buffer (overflow/sync issues)
+- [x] Config parameter names are very confusing at this point.
+- [ ]  
 
 ### Dependencies
 ```bash

@@ -1,6 +1,6 @@
 uv_led_detector:
   camera_input_topics: ["/my_camera/pylon_ros2_camera_node/image_raw"] 
-  detected_points_topics: ["/detected_points_out"]
+  detected_points_topics: ["/detected_points_out", ]
   use_gpu: true # GPU option is preferable
   gui: false # TODO: remove
   use_masks: false # not implemented yet

@@ -119,6 +119,12 @@ bool BlinkProcessorComponent::checkRosTopics_() const {
     return false;
   }
 
+  if (_detected_raw_points_topics_.size() != _detected_markers_topics_.size()) {
+    RCLCPP_ERROR(node_->get_logger(),
+                 "The number of detected points topics must match the number of detected markers topics!");
+    return false;
+  }
+
   return true;
 }
 //}
@@ -260,19 +266,122 @@ bool BlinkProcessorComponent::initBlinkProcessor_() {
     return false;
   }
 
-  blink_processor_ = std::make_unique<BlinkProcessor>(_cfg_, *logger_);
-  if (!blink_processor_->setBlinkingPatterns(_blinking_patterns_)) {
-    RCLCPP_ERROR(node_->get_logger(), "Failed to set blinking patterns in blink processor!");
-    return false;
-  }
+  camera_count_ = _detected_raw_points_topics_.size();
+  trackers_.clear();
+  trackers_.resize(camera_count_);
+  for (size_t i = 0; i < camera_count_; ++i) {
+    trackers_[i].raw_points_topic       = _detected_raw_points_topics_[i];
+    trackers_[i].detected_markers_topic = _detected_markers_topics_[i];
+    trackers_[i].blink_processor        = std::make_unique<BlinkProcessor>(_cfg_, *logger_);
 
+    if (!trackers_[i].blink_processor->setBlinkingPatterns(_blinking_patterns_)) {
+      RCLCPP_ERROR(node_->get_logger(), "Failed to set blinking patterns in blink processor!");
+      return false;
+    }
+  }
   return true;
 }
 //}
 
+/* initRosCommunication_ //{ */
 bool BlinkProcessorComponent::initRosCommunication_() {
+  receiving_callback_group_  = node_->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
+  processing_callback_group_ = node_->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
 
+  for (size_t i = 0; i < camera_count_; ++i) {
+    auto& tracker = trackers_.at(i);
+
+    mrs_lib::TimerHandlerOptions timer_opts_start;
+    timer_opts_start.node      = node_;
+    timer_opts_start.autostart = true;
+
+    tracker.timer = std::make_shared<TimerType>(timer_opts_start, rclcpp::Rate(std::chrono::milliseconds(1)),
+                                                [this, i]() { processRawPoints_(i); });
+    tracker.timer->stop();
+
+    mrs_lib::SubscriberHandlerOptions shopts;
+    shopts.node                                = node_;
+    shopts.node_name                           = node_->get_name();
+    shopts.no_message_timeout                  = rclcpp::Duration::from_seconds(5.0);
+    shopts.subscription_options.callback_group = receiving_callback_group_;
+
+    tracker.sub_raw_points = mrs_lib::SubscriberHandler<MarkerPointMsg>(
+        shopts, tracker.raw_points_topic, [camera_idx = i, this](const MarkerPointMsg::ConstSharedPtr& points_msg) {
+          auto& tracker = trackers_[camera_idx];
+          {
+            std::lock_guard<std::mutex> lk(tracker.mtx);
+            tracker.last_msg = points_msg;
+          }
+          tracker.timer->start();
+        });
+
+    mrs_lib::PublisherHandlerOptions pubopts;
+    pubopts.node                 = node_;
+    pubopts.qos                  = rclcpp::QoS(1);
+    tracker.pub_detected_markers = mrs_lib::PublisherHandler<uvdar_ros_msgs::msg::ImagePointsWithFloatStamped>(
+        pubopts, tracker.detected_markers_topic);
+  }
   return true;
+}
+//}
+
+/* processRawPoints_ //{ */
+void BlinkProcessorComponent::processRawPoints_(const int camera_idx) {
+  auto& tracker = trackers_[camera_idx];
+  MarkerPointMsg::ConstSharedPtr msg;
+  {
+    std::lock_guard<std::mutex> lk(tracker.mtx);
+    msg = tracker.last_msg;
+  }
+
+  if (!msg) {
+    tracker.timer->stop();
+    return;
+  }
+
+  std::vector<PointState> unassigned_points;
+  unassigned_points.reserve(msg->points.size());
+  for (auto point_time_stamp : msg->points) {
+    PointState p;
+    p.point       = cv::Point2d(point_time_stamp.x, point_time_stamp.y);
+    p.led_state   = true;
+    p.insert_time = rosTimeToTimePoint_(msg->stamp);
+    unassigned_points.push_back(std::move(p));
+  }
+  tracker.blink_processor->processBuffer(unassigned_points);
+
+  std::vector<TrackedMarker> results = tracker.blink_processor->getResults();
+
+  publishDetectedMarkers_(results, tracker);
+
+  tracker.timer->stop();
+}
+//}
+
+/* rosTimeToTimePoint_ //{ */
+TimePoint BlinkProcessorComponent::rosTimeToTimePoint_(const builtin_interfaces::msg::Time& ros_time) {
+  rclcpp::Time rcl_time(ros_time);
+
+  return TimePoint(std::chrono::nanoseconds(rcl_time.nanoseconds()));
+}
+//}
+
+/* publishDetectedMarkers_ //{ */
+void BlinkProcessorComponent::publishDetectedMarkers_(const std::vector<TrackedMarker>& markers,
+                                                      TrackerContext& tracker) {
+  MarkerPointMsg msg;
+  msg.stamp = node_->now();
+  msg.points.reserve(markers.size());
+  for (const auto& marker : markers) {
+    uvdar_ros_msgs::msg::Point2DWithFloat point;
+    point.x     = marker.last_point.point.x;
+    point.y     = marker.last_point.point.y;
+    point.value = static_cast<double>(marker.id);
+
+    msg.points.push_back(point);
+  }
+
+  tracker.pub_detected_markers.publish(msg);
 }
 //}
 

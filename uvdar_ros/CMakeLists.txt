@@ -8,6 +8,15 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic -fno-omit-frame-pointer)
 endif()
 
+
+# 1 == use rclcpp::Timer implementation
+# 0 == use MRS's thread timer implementation
+set(USE_ROS_TIMER 0)
+if(${USE_ROS_TIMER})
+  MESSAGE(WARNING "[uvdar_ros]: Compiling with ROS Timers. This can cause high CPU load in runtime.")
+endif()
+
+
 # if(NOT MRS_ENABLE_TESTING)
 #   message(WARNING "relwithdebinfo profile detected, building with -O3")
 #   set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} -O3")
@@ -88,13 +97,14 @@ ament_target_dependencies(UvdarRos_BlinkProcessorRos
 target_compile_definitions(UvdarRos_BlinkProcessorRos
   PRIVATE
     $<$<CONFIG:Debug>:DEBUG>
+    USE_ROS_TIMER=${USE_ROS_TIMER}
 )
 
- target_include_directories(UvdarRos_BlinkProcessorRos
-    PUBLIC
-      $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
-      $<INSTALL_INTERFACE:include/${PROJECT_NAME}>
-  )
+target_include_directories(UvdarRos_BlinkProcessorRos
+  PUBLIC
+    $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include/${PROJECT_NAME}>
+)
 
 rclcpp_components_register_nodes(UvdarRos_BlinkProcessorRos "uvdar::blink_processor::BlinkProcessorComponent")
 
