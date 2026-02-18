@@ -2,6 +2,81 @@
 
 namespace uvdar::blink_processor {
 
+/* BlinkProcessorConfig constructor //{ */
+BlinkProcessorConfig::BlinkProcessorConfig() {
+  updateChildConfigs_();
+}
+//}
+
+/* BlinkProcessorConfig copy constructor //{ */
+BlinkProcessorConfig::BlinkProcessorConfig(const BlinkProcessorConfig& other)
+    : allowed_BER_per_seq(other.allowed_BER_per_seq), max_buffer_length(other.max_buffer_length),
+      max_consecutive_zeros(other.max_consecutive_zeros), poly_decay_factor(other.poly_decay_factor),
+      poly_order(other.poly_order), min_prediction_tol_px(other.min_prediction_tol_px),
+      conf_prob_percentage(other.conf_prob_percentage), max_px_shift(other.max_px_shift), seq(other.seq),
+      ami_tracker(other.ami_tracker), signal_matcher(other.signal_matcher) {
+  updateChildConfigs_();
+}
+//}
+
+/* BlinkProcessorConfig move constructor //{ */
+BlinkProcessorConfig::BlinkProcessorConfig(BlinkProcessorConfig&& other) noexcept
+    : allowed_BER_per_seq(other.allowed_BER_per_seq), max_buffer_length(other.max_buffer_length),
+      max_consecutive_zeros(other.max_consecutive_zeros), poly_decay_factor(other.poly_decay_factor),
+      poly_order(other.poly_order), min_prediction_tol_px(other.min_prediction_tol_px),
+      conf_prob_percentage(other.conf_prob_percentage), max_px_shift(std::move(other.max_px_shift)),
+      seq(std::move(other.seq)), ami_tracker(std::move(other.ami_tracker)),
+      signal_matcher(std::move(other.signal_matcher)) {
+  updateChildConfigs_();
+}
+//}
+
+/* BlinkProcessorConfig copy assignment //{ */
+BlinkProcessorConfig& BlinkProcessorConfig::operator=(const BlinkProcessorConfig& other) {
+  if (this == &other) {
+    return *this;
+  }
+
+  allowed_BER_per_seq   = other.allowed_BER_per_seq;
+  max_buffer_length     = other.max_buffer_length;
+  max_consecutive_zeros = other.max_consecutive_zeros;
+  poly_decay_factor     = other.poly_decay_factor;
+  poly_order            = other.poly_order;
+  min_prediction_tol_px = other.min_prediction_tol_px;
+  conf_prob_percentage  = other.conf_prob_percentage;
+  max_px_shift          = other.max_px_shift;
+  seq                   = other.seq;
+  ami_tracker           = other.ami_tracker;
+  signal_matcher        = other.signal_matcher;
+
+  updateChildConfigs_();
+  return *this;
+}
+//}
+
+/* BlinkProcessorConfig move assignment //{ */
+BlinkProcessorConfig& BlinkProcessorConfig::operator=(BlinkProcessorConfig&& other) noexcept {
+  if (this == &other) {
+    return *this;
+  }
+
+  allowed_BER_per_seq   = other.allowed_BER_per_seq;
+  max_buffer_length     = other.max_buffer_length;
+  max_consecutive_zeros = other.max_consecutive_zeros;
+  poly_decay_factor     = other.poly_decay_factor;
+  poly_order            = other.poly_order;
+  min_prediction_tol_px = other.min_prediction_tol_px;
+  conf_prob_percentage  = other.conf_prob_percentage;
+  max_px_shift          = std::move(other.max_px_shift);
+  seq                   = std::move(other.seq);
+  ami_tracker           = std::move(other.ami_tracker);
+  signal_matcher        = std::move(other.signal_matcher);
+
+  updateChildConfigs_();
+  return *this;
+}
+//}
+
 /* BlinkProcessorConfig::updateChildConfigs //{ */
 void BlinkProcessorConfig::updateChildConfigs_() {
   ami_tracker.local.seq        = seq;

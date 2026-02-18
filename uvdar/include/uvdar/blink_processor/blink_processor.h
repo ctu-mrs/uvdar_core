@@ -10,7 +10,7 @@ namespace uvdar::blink_processor {
 
 class BlinkProcessor {
  public:
-  explicit BlinkProcessor(BlinkProcessorConfig& cfg, ILogger& logger);
+  explicit BlinkProcessor(BlinkProcessorConfig cfg, ILogger& logger);
   ~BlinkProcessor() = default;
 
   [[nodiscard]] bool setBlinkingPatterns(const std::vector<Sequence>& sequences);

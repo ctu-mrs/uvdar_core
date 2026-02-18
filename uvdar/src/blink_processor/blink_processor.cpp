@@ -3,7 +3,7 @@
 namespace uvdar::blink_processor {
 
 /* BlinkProcessor constructor //{ */
-BlinkProcessor::BlinkProcessor(BlinkProcessorConfig& cfg, ILogger& logger) : cfg_(std::move(cfg)), logger_(logger) {
+BlinkProcessor::BlinkProcessor(BlinkProcessorConfig cfg, ILogger& logger) : cfg_(std::move(cfg)), logger_(logger) {
 }
 //}
 

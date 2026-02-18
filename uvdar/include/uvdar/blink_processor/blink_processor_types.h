@@ -76,6 +76,12 @@ struct SignalMatcherConfig {
 
 /* BlinkProcessorConfig //{ */
 struct BlinkProcessorConfig {
+  BlinkProcessorConfig();
+  BlinkProcessorConfig(const BlinkProcessorConfig& other);
+  BlinkProcessorConfig(BlinkProcessorConfig&& other) noexcept;
+  BlinkProcessorConfig& operator=(const BlinkProcessorConfig& other);
+  BlinkProcessorConfig& operator=(BlinkProcessorConfig&& other) noexcept;
+
   int allowed_BER_per_seq{0};
   int max_buffer_length{0};
   int max_consecutive_zeros{0};
