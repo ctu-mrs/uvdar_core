@@ -8,6 +8,7 @@
 #include <uvdar_ros/utils/ros_logger.h>
 #include <uvdar/blink_processor/blink_processor.h>
 #include <uvdar_ros_msgs/msg/image_points_with_float_stamped.hpp>
+#include <visualization_msgs/msg/marker_array.hpp>
 
 #include <mrs_lib/node.h>
 #include <mrs_lib/param_loader.h>
@@ -29,9 +30,11 @@ using MarkerPointMsg          = uvdar_ros_msgs::msg::ImagePointsWithFloatStamped
 struct TrackerContext {
   std::string raw_points_topic;
   std::string detected_markers_topic;
+  std::string rviz_markers_topic;
 
   mrs_lib::SubscriberHandler<MarkerPointMsg> sub_raw_points;
   mrs_lib::PublisherHandler<MarkerPointMsg> pub_detected_markers;
+  mrs_lib::PublisherHandler<visualization_msgs::msg::MarkerArray> pub_rviz_markers;
   MarkerPointMsg::ConstSharedPtr last_msg;
 
   std::unique_ptr<BlinkProcessor> blink_processor;
@@ -63,7 +66,9 @@ class BlinkProcessorComponent : public mrs_lib::Node {
 
   TimePoint rosTimeToTimePoint_(const builtin_interfaces::msg::Time& ros_time);
 
-  void publishDetectedMarkers_(const std::vector<TrackedMarker>& markers, TrackerContext& tracker);
+  void publishDetectedMarkers_(const std::vector<TrackedMarker>& markers, TrackerContext& tracker,
+                               const builtin_interfaces::msg::Time& time_stamp);
+  void publishRvizMarkers_(const std::vector<TrackedMarker>& markers, TrackerContext& tracker);
 
  private:
   rclcpp::Node::SharedPtr node_;
@@ -77,6 +82,7 @@ class BlinkProcessorComponent : public mrs_lib::Node {
   std::string _patterns_file_path_;
   std::vector<std::string> _detected_raw_points_topics_;
   std::vector<std::string> _detected_markers_topics_;
+  std::string _rviz_frame_id_;
 
   std::vector<Sequence> _blinking_patterns_;
 

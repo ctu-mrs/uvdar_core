@@ -42,12 +42,18 @@ PolynomialRegressionPredictor::predict(const double insert_time, std::vector<Poi
   PredictionStatistics y_predictions = selectStatisticsValues(on_led_history.y, on_led_history.time, insert_time);
 
   int dof = static_cast<int>(on_led_history.x.size()) - (cfg_.poly_order + 1);
-  boost::math::students_t dist(dof);
-  double prob = cfg_.conf_prob_percentage / 100.0;
-  double t    = quantile(dist, (1.0 + prob) / 2.0);
 
-  x_predictions.confidence_interval = t * (x_predictions.confidence_interval + cfg_.min_prediction_tol_px);
-  y_predictions.confidence_interval = t * (y_predictions.confidence_interval + cfg_.min_prediction_tol_px);
+  if (dof > 0) {
+    boost::math::students_t dist(dof);
+    double prob = cfg_.conf_prob_percentage / 100.0;
+    double t    = quantile(dist, (1.0 + prob) / 2.0);
+
+    x_predictions.confidence_interval = t * (x_predictions.confidence_interval + cfg_.min_prediction_tol_px);
+    y_predictions.confidence_interval = t * (y_predictions.confidence_interval + cfg_.min_prediction_tol_px);
+  } else {
+    x_predictions.confidence_interval = cfg_.min_prediction_tol_px;
+    y_predictions.confidence_interval = cfg_.min_prediction_tol_px;
+  }
 
   return {x_predictions, y_predictions};
 }

@@ -48,6 +48,7 @@ set(DEPENDENCIES
   mrs_msgs
   sensor_msgs
   std_msgs
+  visualization_msgs
   Eigen3
   tf2_eigen
   uvdar

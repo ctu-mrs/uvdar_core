@@ -20,7 +20,7 @@ def generate_launch_description():
     ld.add_action(
         ComposableNodeContainer(
             namespace='',
-            name=namespace + '_uvdar_ros',
+            name=namespace + '_uvdar_ros_blink',
             package='rclcpp_components',
             executable='component_container_mt',
             composable_node_descriptions=[
@@ -40,6 +40,7 @@ def generate_launch_description():
                 ),
             ],
             output='screen',
+            # prefix=["gdbserver localhost:3000"],
         ))
 
     return ld

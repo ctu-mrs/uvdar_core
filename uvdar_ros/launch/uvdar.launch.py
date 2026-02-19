@@ -20,15 +20,29 @@ def generate_launch_description():
     ld.add_action(
         ComposableNodeContainer(
             namespace='',
-            name=namespace + '_uvdar_ros_detect',
+            name=namespace + '_uvdar_ros',
             package='rclcpp_components',
             executable='component_container_mt',
             composable_node_descriptions=[
-                ComposableNode(
+                 ComposableNode(
                     package=pkg_name,
                     plugin='uvdar::UvLedDetectorComponent',
                     namespace=namespace,
                     name='UvLedDetectorComponent',
+                    parameters=[
+                        {
+                            'config_files': config_files
+                        },
+                    ],
+                    remappings=[
+                        # ("~/lidar_in", "/velodyne_points"),
+                    ],
+                ),
+                ComposableNode(
+                    package=pkg_name,
+                    plugin='uvdar::blink_processor::BlinkProcessorComponent',
+                    namespace=namespace,
+                    name='BlinkProcessorComponent',
                     parameters=[
                         {
                             'config_files': config_files

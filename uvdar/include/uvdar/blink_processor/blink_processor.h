@@ -21,6 +21,9 @@ class BlinkProcessor {
   std::vector<TrackedMarker> getResults();
 
  private:
+  static Sequence downsampleSignal_(const Sequence& signal, std::size_t window_size);
+  void printBuffer_() const;
+
   BlinkProcessorConfig cfg_;
   ILogger& logger_;
 

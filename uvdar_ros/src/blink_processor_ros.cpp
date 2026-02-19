@@ -1,5 +1,8 @@
 #include <uvdar_ros/blink_processor_ros.h>
 #include <ament_index_cpp/get_package_share_directory.hpp>
+#include <geometry_msgs/msg/point.hpp>
+#include <visualization_msgs/msg/marker.hpp>
+#include <visualization_msgs/msg/marker_array.hpp>
 
 #include <filesystem>
 #include <fstream>
@@ -69,6 +72,7 @@ bool BlinkProcessorComponent::loadParams_() {
 void BlinkProcessorComponent::loadRosParams_() {
   param_loader_->loadParam("uv_led_detector/detected_points_topics", _detected_raw_points_topics_);
   param_loader_->loadParam("blink_processor/detected_markers_topics", _detected_markers_topics_);
+  param_loader_->loadParam("blink_processor/rviz_frame_id", _rviz_frame_id_, std::string("map"));
 }
 //}
 
@@ -84,6 +88,10 @@ void BlinkProcessorComponent::loadBlinkProcessorParams_() {
   param_loader_->loadParam("blink_processor/max_buffer_length", _cfg_.max_buffer_length, 100);
   param_loader_->loadParam("blink_processor/max_consecutive_zeros", _cfg_.max_consecutive_zeros, 10);
   param_loader_->loadParam("blink_processor/min_prediction_tol_px", _cfg_.min_prediction_tol_px, 3);
+
+  int max_px_shift{0};
+  param_loader_->loadParam("blink_processor/max_px_shift", max_px_shift, 3);
+  _cfg_.max_px_shift = cv::Point2d(max_px_shift, max_px_shift);
 }
 //}
 
@@ -205,6 +213,11 @@ bool BlinkProcessorComponent::checkBlinkProcessorConfig_() const {
     return false;
   }
 
+  if (_cfg_.max_px_shift.x < 0.0 || _cfg_.max_px_shift.y < 0.0) {
+    RCLCPP_ERROR(node_->get_logger(), "Max pixel shift cannot be negative!");
+    return false;
+  }
+
   return true;
 }
 //}
@@ -289,7 +302,8 @@ bool BlinkProcessorComponent::initRosCommunication_() {
   processing_callback_group_ = node_->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
 
   for (size_t i = 0; i < camera_count_; ++i) {
-    auto& tracker = trackers_.at(i);
+    auto& tracker              = trackers_.at(i);
+    tracker.rviz_markers_topic = tracker.detected_markers_topic + "/rviz";
 
     mrs_lib::TimerHandlerOptions timer_opts_start;
     timer_opts_start.node      = node_;
@@ -320,6 +334,8 @@ bool BlinkProcessorComponent::initRosCommunication_() {
     pubopts.qos                  = rclcpp::QoS(1);
     tracker.pub_detected_markers = mrs_lib::PublisherHandler<uvdar_ros_msgs::msg::ImagePointsWithFloatStamped>(
         pubopts, tracker.detected_markers_topic);
+    tracker.pub_rviz_markers =
+        mrs_lib::PublisherHandler<visualization_msgs::msg::MarkerArray>(pubopts, tracker.rviz_markers_topic);
   }
   return true;
 }
@@ -352,7 +368,7 @@ void BlinkProcessorComponent::processRawPoints_(const int camera_idx) {
 
   std::vector<TrackedMarker> results = tracker.blink_processor->getResults();
 
-  publishDetectedMarkers_(results, tracker);
+  publishDetectedMarkers_(results, tracker, msg->stamp);
 
   tracker.timer->stop();
 }
@@ -368,20 +384,68 @@ TimePoint BlinkProcessorComponent::rosTimeToTimePoint_(const builtin_interfaces:
 
 /* publishDetectedMarkers_ //{ */
 void BlinkProcessorComponent::publishDetectedMarkers_(const std::vector<TrackedMarker>& markers,
-                                                      TrackerContext& tracker) {
+                                                      TrackerContext& tracker,
+                                                      const builtin_interfaces::msg::Time& time_stamp) {
   MarkerPointMsg msg;
-  msg.stamp = node_->now();
+  msg.stamp = time_stamp;
   msg.points.reserve(markers.size());
   for (const auto& marker : markers) {
+    auto id = static_cast<double>(marker.id);
+    if (id < 0) {
+      continue;
+    }
     uvdar_ros_msgs::msg::Point2DWithFloat point;
     point.x     = marker.last_point.point.x;
     point.y     = marker.last_point.point.y;
     point.value = static_cast<double>(marker.id);
-
     msg.points.push_back(point);
   }
 
   tracker.pub_detected_markers.publish(msg);
+  publishRvizMarkers_(markers, tracker);
+}
+//}
+
+/* publishRvizMarkers_ //{ */
+void BlinkProcessorComponent::publishRvizMarkers_(const std::vector<TrackedMarker>& markers, TrackerContext& tracker) {
+  visualization_msgs::msg::MarkerArray marker_array;
+
+  visualization_msgs::msg::Marker marker;
+  marker.header.frame_id    = _rviz_frame_id_;
+  marker.header.stamp       = node_->now();
+  marker.ns                 = "tracked_markers";
+  marker.id                 = 0;
+  marker.type               = visualization_msgs::msg::Marker::SPHERE_LIST;
+  marker.action             = visualization_msgs::msg::Marker::ADD;
+  marker.pose.orientation.w = 1.0;
+
+  marker.scale.x = 0.1;
+  marker.scale.y = 0.1;
+  marker.scale.z = 0.1;
+
+  marker.color.r = 0.0f;
+  marker.color.g = 1.0f;
+  marker.color.b = 0.0f;
+  marker.color.a = 1.0f;
+
+  marker.points.reserve(markers.size());
+  for (const auto& tracked_marker : markers) {
+    if (tracked_marker.id < 0) {
+      continue;
+    }
+
+    geometry_msgs::msg::Point point;
+    point.x = tracked_marker.last_point.point.y / 1000;
+    point.y = tracked_marker.last_point.point.x / 1000;
+    point.z = 0.0;
+    marker.points.push_back(point);
+  }
+
+  if (marker.points.empty()) {
+    return;
+  }
+  marker_array.markers.push_back(marker);
+  tracker.pub_rviz_markers.publish(marker_array);
 }
 //}
 

@@ -19,6 +19,8 @@ void AmiVerification::run(std::vector<PointState>& unassigned_points, std::vecto
   startNewSequencesForUnmatchedPoints_(unassigned_points);
 
   cleanPotentialBuffer_();
+
+  // printBuffer_();
 }
 //}
 

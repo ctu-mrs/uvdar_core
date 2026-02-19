@@ -29,6 +29,8 @@ class AmiVerification {
 
   int countNumConsecutiveZerosInTseries_(SeqPtr& tseries, const int max_num_zeros);
 
+  void printBuffer_() const;
+
  private:
   const VerificationConfig cfg_;
   std::shared_ptr<TseriesBuffer> active_tseries_buffer_;

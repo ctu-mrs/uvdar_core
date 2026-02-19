@@ -1,6 +1,6 @@
 uv_led_detector:
   camera_input_topics: ["/my_camera/pylon_ros2_camera_node/image_raw"] 
-  detected_points_topics: ["/detected_points_out", ]
+  detected_points_topics: ["/detected_points_out"]
   use_gpu: true # GPU option is preferable
   gui: false # TODO: remove
   use_masks: false # not implemented yet
@@ -18,9 +18,10 @@ blink_processor:
   detected_markers_topics: ["/detected_markers"] # topics with detected markers (coordinates and ID)
   allowed_BER_per_sequence: 0 # allowed Bit Error Rate per blinking sequence
   polynomial_degree: 4 # degree of the polynomial for trajectory fitting
-  decay_factor: 0.2 # the factor for exponential decay of the weights of older detections in the trajectory calculation
+  decay_factor: 0.1 # the factor for exponential decay of the weights of older detections in the trajectory calculation
   stored_seq_len_factor: 20 # the multiplication factor how long the sequence should be for calculating the trajectory   
   confidence_probability_percentage: 95 # statistical confidence level used to compute the prediction interval width
   max_buffer_length: 100 # maximum number of tracked objects in the buffer (max number of t-series)
-  min_prediction_tol_px: 3 # minimum pixel tolerance added to regression uncertainty to prevent zero-width prediction intervals
+  min_prediction_tol_px: 5 # minimum pixel tolerance added to regression uncertainty to prevent zero-width prediction intervals
   max_consecutive_zeros: 10 # maximum consecutive zeros in the recorded sequence (t-series) for it to be still considered valid
+  max_px_shift: 10 # maximum pixel shift for local search

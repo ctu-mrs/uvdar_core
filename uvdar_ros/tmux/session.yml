@@ -14,12 +14,15 @@ windows:
       layout: tiled
       panes:
         - ros2 run rmw_zenoh_cpp rmw_zenohd
-  # - foxglove:
-  #     layout: tiled
-  #     panes:
-  #       - ros2 launch foxglove_bridge foxglove_bridge_launch.xml 
-  #       - ros2 bag play /home/mrs/ros2_ws/bags/led_rosbag_v2 --rate 0.5
+  - foxglove:
+      layout: tiled
+      panes:
+        - ros2 launch foxglove_bridge foxglove_bridge_launch.xml 
+        - ros2 launch pylon_ros2_camera_wrapper pylon_ros2_camera.launch.py
+        # - ros2 bag play /home/tomas/ros2_ws/bags/two_uv_markers --rate 0.5
   - uvdar::
       layout: tiled
       panes:
+        # - ros2 launch uvdar_ros uvdar.launch.py
+        - ros2 launch uvdar_ros uv_led_detector.launch.py
         - ros2 launch uvdar_ros blink_processor.launch.py
