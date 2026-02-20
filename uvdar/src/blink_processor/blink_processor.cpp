@@ -41,42 +41,47 @@ void BlinkProcessor::processBuffer(std::vector<PointState>& unmatched_points) {
 
 /* getResults //{ */
 std::vector<TrackedMarker> BlinkProcessor::getResults() {
-  constexpr std::size_t kDownsampleWindow = 5;
-  const std::size_t raw_window_size       = static_cast<std::size_t>(cfg_.getPatternLength()) * kDownsampleWindow;
+  constexpr std::size_t kDownsampleWindow = 3;
+  const std::size_t raw_window_size       = static_cast<std::size_t>(cfg_.seq.getMaxSequenceLength());
   auto tseries_window_buffer_copy         = ami_tracker_->getActiveTrackCopy(raw_window_size);
 
   logger_.info("[BlinkProcessor] getResults: " + std::to_string(tseries_window_buffer_copy.size()) +
                " tracks, patternLen=" + std::to_string(cfg_.getPatternLength()) +
                ", rawWindow=" + std::to_string(raw_window_size));
-  for (size_t i = 0; i < tseries_window_buffer_copy.size(); ++i) {
-    const auto& seq = tseries_window_buffer_copy[i];
-    std::string led_str;
-    for (bool b : seq.led_window)
-      led_str += b ? '1' : '0';
-    logger_.info("  track[" + std::to_string(i) + "] led_window(" + std::to_string(seq.led_window.size()) +
-                 ")=" + led_str + "  lastPt=(" + std::to_string(seq.last_point.point.x) + "," +
-                 std::to_string(seq.last_point.point.y) + ")");
-  }
+
+  // Bounding boxes are computed and visualized in the ROS node (publishDebugImage_)
+
+  // for (size_t i = 0; i < tseries_window_buffer_copy.size(); ++i) {
+  //   const auto& seq = tseries_window_buffer_copy[i];
+  //   std::string led_str;
+  //   for (bool b : seq.led_window)
+  //     led_str += b ? '1' : '0';
+  //   logger_.info("  track[" + std::to_string(i) + "] led_window(" + std::to_string(seq.led_window.size()) +
+  //                ")=" + led_str + "  lastPt=(" + std::to_string(seq.last_point.point.x) + "," +
+  //                std::to_string(seq.last_point.point.y) + ")");
+  // }
 
   std::vector<TrackedMarker> results;
   results.reserve(tseries_window_buffer_copy.size());
 
-  std::string out = "\n=== Matching Results (" + std::to_string(tseries_window_buffer_copy.size()) + " tracks) ===\n";
+  // std::string out = "\n=== Matching Results (" + std::to_string(tseries_window_buffer_copy.size()) + " tracks)
+  // ===\n";
   for (size_t i = 0; i < tseries_window_buffer_copy.size(); ++i) {
     const auto& seq = tseries_window_buffer_copy[i];
 
-    Sequence downsampled = downsampleSignal_(seq.led_window, kDownsampleWindow);
-    int id               = signal_matcher_->matchSignal(downsampled);
+    // Sequence downsampled = downsampleSignal_(seq.led_window, kDownsampleWindow);
+    // int id               = signal_matcher_->matchSignal(downsampled);
+    int id = signal_matcher_->matchSignal(seq.led_window);
 
     std::string raw_str, ds_str;
-    for (bool b : downsampled)
-      ds_str += b ? '1' : '0';
-    out += "  [" + std::to_string(i) + "] ds=" + ds_str + "  id=" + std::to_string(id) + "\n";
+    // for (bool b : downsampled)
+    //   ds_str += b ? '1' : '0';
+    // out += "  [" + std::to_string(i) + "] ds=" + ds_str + "  id=" + std::to_string(id) + "\n";
 
     results.push_back({seq.last_point, id});
   }
-  out += "================================";
-  logger_.info(out);
+  // out += "================================";
+  // logger_.info(out);
 
   return results;
 }

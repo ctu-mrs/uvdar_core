@@ -91,6 +91,8 @@ void BlinkProcessorConfig::updateChildConfigs_() {
   ami_tracker.extended.poly_reg.poly_order            = poly_order;
   ami_tracker.extended.poly_reg.decay_factor          = poly_decay_factor;
   ami_tracker.extended.poly_reg.conf_prob_percentage  = conf_prob_percentage;
+  ami_tracker.extended.poly_reg.max_px_shift_x        = max_px_shift.x;
+  ami_tracker.extended.poly_reg.max_px_shift_y        = max_px_shift.y;
   ami_tracker.verification.max_buffer_length          = max_buffer_length;
   ami_tracker.verification.max_consecutive_zeros      = max_consecutive_zeros;
   ami_tracker.verification.allowed_BER_per_seq        = allowed_BER_per_seq;

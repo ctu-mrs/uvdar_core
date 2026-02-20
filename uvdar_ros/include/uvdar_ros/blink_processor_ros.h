@@ -9,6 +9,9 @@
 #include <uvdar/blink_processor/blink_processor.h>
 #include <uvdar_ros_msgs/msg/image_points_with_float_stamped.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
+#include <sensor_msgs/msg/image.hpp>
+#include <cv_bridge/cv_bridge.hpp>
+#include <opencv2/imgproc.hpp>
 
 #include <mrs_lib/node.h>
 #include <mrs_lib/param_loader.h>
@@ -35,6 +38,7 @@ struct TrackerContext {
   mrs_lib::SubscriberHandler<MarkerPointMsg> sub_raw_points;
   mrs_lib::PublisherHandler<MarkerPointMsg> pub_detected_markers;
   mrs_lib::PublisherHandler<visualization_msgs::msg::MarkerArray> pub_rviz_markers;
+  mrs_lib::PublisherHandler<sensor_msgs::msg::Image> pub_debug_image;
   MarkerPointMsg::ConstSharedPtr last_msg;
 
   std::unique_ptr<BlinkProcessor> blink_processor;
@@ -69,6 +73,9 @@ class BlinkProcessorComponent : public mrs_lib::Node {
   void publishDetectedMarkers_(const std::vector<TrackedMarker>& markers, TrackerContext& tracker,
                                const builtin_interfaces::msg::Time& time_stamp);
   void publishRvizMarkers_(const std::vector<TrackedMarker>& markers, TrackerContext& tracker);
+  void publishDebugImage_(const std::vector<TrackedMarker>& markers, TrackerContext& tracker,
+                          const builtin_interfaces::msg::Time& time_stamp,
+                          const std::vector<PointState>& backup_points);
 
  private:
   rclcpp::Node::SharedPtr node_;

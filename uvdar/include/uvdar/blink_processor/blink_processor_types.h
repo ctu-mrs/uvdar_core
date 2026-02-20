@@ -38,6 +38,8 @@ struct PolyRegressionConfig {
   double decay_factor{0.0};
   int min_prediction_tol_px{0};
   int conf_prob_percentage{0};
+  double max_px_shift_x{10.0};
+  double max_px_shift_y{10.0};
   SequenceConfig seq;
 };
 //}

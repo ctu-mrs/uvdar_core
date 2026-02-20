@@ -48,8 +48,8 @@ PolynomialRegressionPredictor::predict(const double insert_time, std::vector<Poi
     double prob = cfg_.conf_prob_percentage / 100.0;
     double t    = quantile(dist, (1.0 + prob) / 2.0);
 
-    x_predictions.confidence_interval = t * (x_predictions.confidence_interval + cfg_.min_prediction_tol_px);
-    y_predictions.confidence_interval = t * (y_predictions.confidence_interval + cfg_.min_prediction_tol_px);
+    x_predictions.confidence_interval = t * x_predictions.confidence_interval + cfg_.min_prediction_tol_px;
+    y_predictions.confidence_interval = t * y_predictions.confidence_interval + cfg_.min_prediction_tol_px;
   } else {
     x_predictions.confidence_interval = cfg_.min_prediction_tol_px;
     y_predictions.confidence_interval = cfg_.min_prediction_tol_px;
@@ -63,7 +63,7 @@ PolynomialRegressionPredictor::predict(const double insert_time, std::vector<Poi
 PredictionStatistics PolynomialRegressionPredictor::selectStatisticsValues(const std::vector<double>& coordinates,
                                                                            const std::vector<double>& time,
                                                                            const double& insert_time) {
-  auto weights = computeNormalizedWeightVect(time);
+  auto [weights, sum_raw_weights] = computeNormalizedWeightVect(time);
 
   PredictionStatistics stats;
   // stats.mean_independent  = computeWeightedMean_(time, weights);
@@ -80,7 +80,7 @@ PredictionStatistics PolynomialRegressionPredictor::selectStatisticsValues(const
   }
 
   std::tie(stats.predicted_coordinate, stats.confidence_interval) =
-      calculatePredictionInterval(coordinates, time, weights, insert_time);
+      calculatePredictionInterval(coordinates, time, weights, sum_raw_weights, insert_time);
 
   stats.poly_reg_computed = true;
 
@@ -89,7 +89,8 @@ PredictionStatistics PolynomialRegressionPredictor::selectStatisticsValues(const
 //}
 
 /* computeNormalizedWeightVect //{ */
-std::vector<double> PolynomialRegressionPredictor::computeNormalizedWeightVect(const std::vector<double>& time) {
+std::pair<std::vector<double>, double>
+PolynomialRegressionPredictor::computeNormalizedWeightVect(const std::vector<double>& time) {
   std::vector<double> weights;
   weights.reserve(time.size());
 
@@ -102,11 +103,13 @@ std::vector<double> PolynomialRegressionPredictor::computeNormalizedWeightVect(c
     weights.push_back(w);
   }
 
+  // Normalize weights to sum to 1 for numerical stability.
+  // The raw sum is returned separately for use in the prediction interval.
   for (auto& w : weights) {
     w /= sum_weights;
   }
 
-  return weights;
+  return {weights, sum_weights};
 }
 //}
 
@@ -121,10 +124,9 @@ double PolynomialRegressionPredictor::computeWeightedMean_(const double* values,
 //}
 
 /* calculatePredictionInterval //{ */
-std::tuple<double, double>
-PolynomialRegressionPredictor::calculatePredictionInterval(const std::vector<double>& coordinate,
-                                                           const std::vector<double>& time,
-                                                           const std::vector<double>& weights, const double time_next) {
+std::tuple<double, double> PolynomialRegressionPredictor::calculatePredictionInterval(
+    const std::vector<double>& coordinate, const std::vector<double>& time, const std::vector<double>& weights,
+    double sum_raw_weights, const double time_next) {
   const int n        = static_cast<int>(std::min(coordinate.size(), cfg_.seq.getMaxSequenceLength()));
   const int p        = std::min(cfg_.poly_order, n - 2);
   const int n_coeffs = p + 1;
@@ -137,7 +139,7 @@ PolynomialRegressionPredictor::calculatePredictionInterval(const std::vector<dou
 
   Eigen::Map<const Eigen::VectorXd> t_vec(t_ptr, n);
   Eigen::Map<const Eigen::VectorXd> w_vec(w_ptr, n);
-  double time_mean = t_vec.dot(w_vec);
+  double time_mean = t_vec.dot(w_vec) / w_vec.sum();
 
   if (time_mean == -1.0 || dof <= 0) {
     return {std::numeric_limits<double>::quiet_NaN(), 1e10};
@@ -185,8 +187,11 @@ PolynomialRegressionPredictor::calculatePredictionInterval(const std::vector<dou
   Eigen::VectorXd v = R.transpose().triangularView<Eigen::Lower>().solve(phi_next);
   double leverage   = v.squaredNorm();
 
-  // Final standard error for prediction
-  double s_pred = std::sqrt(sigma2 * (1.0 + leverage));
+  // Final standard error for prediction.
+  // With normalized weights, the new-observation term is 1/w_new.
+  // Since w_new_raw = exp(0) = 1, w_new_normalized = 1/sum_raw_weights,
+  // so 1/w_new_normalized = sum_raw_weights.
+  double s_pred = std::sqrt(sigma2 * (sum_raw_weights + leverage));
 
   return {mu, s_pred};
 }

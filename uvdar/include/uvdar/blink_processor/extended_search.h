@@ -15,8 +15,8 @@ class ExtendedSearch {
   void run(std::vector<PointState>& unassigned_points, std::vector<SeqPtr>& buffer);
 
  private:
-  bool performLocalCheck_(PointState& last_point, std::vector<PointState>& unassigned_points,
-                          std::vector<PointState>& tseries, const cv::Point2d& pred_point,
+  bool performLocalCheck_(const PointState& last_observed, const PointState& predicted_point,
+                          std::vector<PointState>& unassigned_points, std::vector<PointState>& tseries,
                           const cv::Point2d& conf_point);
 
   std::vector<PointState>::iterator findNearestPoint_(std::vector<PointState>& points, const PointState& reference);

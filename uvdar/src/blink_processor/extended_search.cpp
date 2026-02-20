@@ -1,4 +1,5 @@
 #include <uvdar/blink_processor/extended_search.h>
+#include <algorithm>
 #include <iostream>
 #include <fstream>
 #include <iomanip>
@@ -40,11 +41,25 @@ void ExtendedSearch::run(std::vector<PointState>& unassigned_points, std::vector
     PointState predicted_point;
     predicted_point.point.x = x_predictions.predicted_coordinate;
     predicted_point.point.y = y_predictions.predicted_coordinate;
+    predicted_point.x_stats = x_predictions;
+    predicted_point.y_stats = y_predictions;
 
-    const double& x_conf = x_predictions.confidence_interval;
-    const double& y_conf = y_predictions.confidence_interval;
+    // Clamp confidence interval: [max_px_shift, max_px_shift * 2]
+    const double max_shift_x = cfg_.poly_reg.max_px_shift_x;
+    const double max_shift_y = cfg_.poly_reg.max_px_shift_y;
+    predicted_point.x_stats.confidence_interval =
+        std::clamp(predicted_point.x_stats.confidence_interval, max_shift_x, max_shift_x * 2.0);
+    predicted_point.y_stats.confidence_interval =
+        std::clamp(predicted_point.y_stats.confidence_interval, max_shift_y, max_shift_y * 2.0);
 
-    if (performLocalCheck_(predicted_point, unassigned_points, *tseries, predicted_point.point,
+    const double& x_conf = predicted_point.x_stats.confidence_interval;
+    const double& y_conf = predicted_point.y_stats.confidence_interval;
+
+    PointState& last_point = tseries->back();
+    last_point.x_stats     = predicted_point.x_stats;
+    last_point.y_stats     = predicted_point.y_stats;
+
+    if (performLocalCheck_(tseries->back(), predicted_point, unassigned_points, *tseries,
                            cv::Point2d(x_conf, y_conf))) {
       it = buffer.erase(it);
     } else {
@@ -56,13 +71,15 @@ void ExtendedSearch::run(std::vector<PointState>& unassigned_points, std::vector
 //}
 
 /* performLocalCheck_ //{ */
-bool ExtendedSearch::performLocalCheck_(PointState& last_point, std::vector<PointState>& unassigned_points,
-                                        std::vector<PointState>& tseries, const cv::Point2d& pred_point,
+bool ExtendedSearch::performLocalCheck_(const PointState& last_observed, const PointState& predicted_point,
+                                        std::vector<PointState>& unassigned_points, std::vector<PointState>& tseries,
                                         const cv::Point2d& conf_point) {
+  cv::Point2d pred_point(predicted_point.point);
   cv::Point2d bb_left_top     = pred_point - conf_point;
   cv::Point2d bb_right_bottom = pred_point + conf_point;
 
-  auto nearest_point_it = findNearestPoint_(unassigned_points, last_point);
+  // Find nearest unassigned point to the LAST OBSERVED position (not predicted)
+  auto nearest_point_it = findNearestPoint_(unassigned_points, last_observed);
   if (nearest_point_it == unassigned_points.end()) {
     return false;
   }
@@ -71,8 +88,8 @@ bool ExtendedSearch::performLocalCheck_(PointState& last_point, std::vector<Poin
     return false;
   }
 
-  nearest_point_it->x_stats = last_point.x_stats;
-  nearest_point_it->y_stats = last_point.y_stats;
+  nearest_point_it->x_stats = predicted_point.x_stats;
+  nearest_point_it->y_stats = predicted_point.y_stats;
   insertPointToSequence_(tseries, *nearest_point_it);
 
   unassigned_points.erase(nearest_point_it);

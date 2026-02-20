@@ -30,9 +30,10 @@ TEST(PolyRegressionPredictor, NormalizedWeights_SumToOne_AndNewestLargest) {
   std::vector<double> time{0.000, 0.005, 0.010};
   PolynomialRegressionPredictor predictor(cfg);
 
-  auto weights = predictor.computeNormalizedWeightVect(time);
+  auto [weights, sum_raw] = predictor.computeNormalizedWeightVect(time);
 
   ASSERT_EQ(weights.size(), time.size()); // a weight for each timestep
+  EXPECT_GT(sum_raw, 0.0);                // raw sum must be positive
 
   // all positive and sum==1
   double sum = 0.0;

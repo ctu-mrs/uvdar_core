@@ -3,6 +3,7 @@
 #include <geometry_msgs/msg/point.hpp>
 #include <visualization_msgs/msg/marker.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
+#include <opencv2/imgproc.hpp>
 
 #include <filesystem>
 #include <fstream>
@@ -336,6 +337,9 @@ bool BlinkProcessorComponent::initRosCommunication_() {
         pubopts, tracker.detected_markers_topic);
     tracker.pub_rviz_markers =
         mrs_lib::PublisherHandler<visualization_msgs::msg::MarkerArray>(pubopts, tracker.rviz_markers_topic);
+
+    tracker.pub_debug_image =
+        mrs_lib::PublisherHandler<sensor_msgs::msg::Image>(pubopts, tracker.detected_markers_topic + "/debug_image");
   }
   return true;
 }
@@ -364,11 +368,13 @@ void BlinkProcessorComponent::processRawPoints_(const int camera_idx) {
     p.insert_time = rosTimeToTimePoint_(msg->stamp);
     unassigned_points.push_back(std::move(p));
   }
+  std::vector<PointState> backup_points = unassigned_points;
   tracker.blink_processor->processBuffer(unassigned_points);
 
   std::vector<TrackedMarker> results = tracker.blink_processor->getResults();
 
   publishDetectedMarkers_(results, tracker, msg->stamp);
+  publishDebugImage_(results, tracker, msg->stamp, backup_points);
 
   tracker.timer->stop();
 }
@@ -446,6 +452,73 @@ void BlinkProcessorComponent::publishRvizMarkers_(const std::vector<TrackedMarke
   }
   marker_array.markers.push_back(marker);
   tracker.pub_rviz_markers.publish(marker_array);
+}
+//}
+
+/* publishDebugImage_ //{ */
+void BlinkProcessorComponent::publishDebugImage_(const std::vector<TrackedMarker>& markers, TrackerContext& tracker,
+                                                 const builtin_interfaces::msg::Time& time_stamp,
+                                                 const std::vector<PointState>& backup_points) {
+  // Hardcoded frame size — change as needed
+  constexpr int kWidth  = 1920;
+  constexpr int kHeight = 1200;
+
+  cv::Mat frame = cv::Mat::zeros(kHeight, kWidth, CV_8UC3);
+
+  // Draw raw input points as colored blobs
+  // for (size_t i = 0; i < backup_points.size(); ++i) {
+  //   const auto& bp = backup_points[i];
+  //   cv::Point center(static_cast<int>(bp.point.x), static_cast<int>(bp.point.y));
+
+  //   cv::circle(frame, center, 6, cv::Scalar(0, 255, 255), cv::FILLED);
+  //   cv::putText(frame, std::to_string(i), cv::Point(center.x + 8, center.y - 4), cv::FONT_HERSHEY_SIMPLEX, 0.4,
+  //               cv::Scalar(0, 255, 255), 1);
+  // }
+
+  for (const auto& m : markers) {
+    const auto& ps            = m.last_point;
+    const bool has_prediction = ps.x_stats.poly_reg_computed && ps.y_stats.poly_reg_computed;
+
+    if (!has_prediction) {
+      // No prediction — draw a yellow dot at the raw point position if ID is valid
+      cv::Point raw_pt(static_cast<int>(ps.point.x), static_cast<int>(ps.point.y));
+      cv::circle(frame, raw_pt, 5, cv::Scalar(0, 255, 255), cv::FILLED);
+
+      std::string label = "id=" + std::to_string(m.id);
+      cv::putText(frame, label, cv::Point(raw_pt.x + 6, raw_pt.y - 4), cv::FONT_HERSHEY_SIMPLEX, 0.5,
+                  cv::Scalar(0, 255, 255), 1);
+
+      continue;
+    }
+
+    const cv::Point2d center(ps.x_stats.predicted_coordinate, ps.y_stats.predicted_coordinate);
+
+    const double half_w = (ps.x_stats.confidence_interval > 0.0) ? ps.x_stats.confidence_interval : 5.0;
+    const double half_h = (ps.y_stats.confidence_interval > 0.0) ? ps.y_stats.confidence_interval : 5.0;
+
+    cv::Point tl(static_cast<int>(center.x - half_w), static_cast<int>(center.y - half_h));
+    cv::Point br(static_cast<int>(center.x + half_w), static_cast<int>(center.y + half_h));
+
+    // Choose colour based on matched ID
+    const cv::Scalar palette[] = {{0, 255, 0},   {255, 200, 0}, {255, 0, 255},
+                                  {0, 255, 255}, {255, 128, 0}, {128, 255, 128}};
+    cv::Scalar color           = (m.id < 0) ? cv::Scalar(0, 0, 255) : palette[m.id % 6];
+
+    cv::rectangle(frame, tl, br, color, 2);
+
+    // Draw center cross-hair
+    cv::drawMarker(frame, cv::Point(static_cast<int>(center.x), static_cast<int>(center.y)), color, cv::MARKER_CROSS, 8,
+                   1);
+
+    // Label with ID
+    std::string label = "id=" + std::to_string(m.id);
+    cv::putText(frame, label, cv::Point(tl.x, tl.y - 4), cv::FONT_HERSHEY_SIMPLEX, 0.5, color, 1);
+  }
+
+  auto img_msg             = cv_bridge::CvImage(std_msgs::msg::Header(), "bgr8", frame).toImageMsg();
+  img_msg->header.stamp    = time_stamp;
+  img_msg->header.frame_id = _rviz_frame_id_;
+  tracker.pub_debug_image.publish(*img_msg);
 }
 //}
 
