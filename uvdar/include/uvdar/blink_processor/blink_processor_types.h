@@ -38,8 +38,7 @@ struct PolyRegressionConfig {
   double decay_factor{0.0};
   int min_prediction_tol_px{0};
   int conf_prob_percentage{0};
-  double max_px_shift_x{10.0};
-  double max_px_shift_y{10.0};
+  int max_predict_interval_px{0};
   SequenceConfig seq;
 };
 //}
@@ -92,6 +91,7 @@ struct BlinkProcessorConfig {
   int poly_order{0};
   int min_prediction_tol_px{0};
   int conf_prob_percentage{0};
+  int max_predict_interval_px{0};
   cv::Point2d max_px_shift{0.0, 0.0};
 
   SequenceConfig seq;

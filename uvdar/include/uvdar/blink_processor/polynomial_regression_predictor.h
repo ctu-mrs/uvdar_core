@@ -12,11 +12,6 @@ struct OnLedHistory {
   std::vector<double> time;
 };
 
-struct RegressionResult {
-  Eigen::VectorXd prediction;
-  double std_error;
-};
-
 class PolynomialRegressionPredictor {
  public:
   PolynomialRegressionPredictor(const PolyRegressionConfig& cfg);
@@ -47,7 +42,6 @@ class PolynomialRegressionPredictor {
 
   Eigen::Matrix<double, Eigen::Dynamic, 5> X_vandermonde_;
   Eigen::VectorXd y_workspace_;
-  std::vector<double> t_quantile_lut_;
 };
 
 } // namespace uvdar::blink_processor

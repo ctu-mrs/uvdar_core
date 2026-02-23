@@ -74,8 +74,7 @@ class BlinkProcessorComponent : public mrs_lib::Node {
                                const builtin_interfaces::msg::Time& time_stamp);
   void publishRvizMarkers_(const std::vector<TrackedMarker>& markers, TrackerContext& tracker);
   void publishDebugImage_(const std::vector<TrackedMarker>& markers, TrackerContext& tracker,
-                          const builtin_interfaces::msg::Time& time_stamp,
-                          const std::vector<PointState>& backup_points);
+                          const builtin_interfaces::msg::Time& time_stamp);
 
  private:
   rclcpp::Node::SharedPtr node_;

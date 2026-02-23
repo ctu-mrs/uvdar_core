@@ -19,9 +19,10 @@ blink_processor:
   allowed_BER_per_sequence: 1 # allowed Bit Error Rate per blinking sequence
   polynomial_degree: 4 # degree of the polynomial for trajectory fitting
   decay_factor: 0.2 # the factor for exponential decay of the weights of older detections in the trajectory calculation
-  stored_seq_len_factor: 100 # the multiplication factor how long the sequence should be for calculating the trajectory   
+  stored_seq_len_factor: 100 # the multiplication factor how long the sequence should be stored in the buffer for a marker ID 
   confidence_probability_percentage: 95 # statistical confidence level used to compute the prediction interval width
   max_buffer_length: 100 # maximum number of tracked objects in the buffer (max number of t-series)
   min_prediction_tol_px: 5 # minimum pixel tolerance added to regression uncertainty to prevent zero-width prediction intervals
+  max_prediction_interval_px: 20 # maximum width of the prediction interval in pixels to prevent excessively large prediction windows
   max_consecutive_zeros: 20 # maximum consecutive zeros in the recorded sequence (t-series) for it to be still considered valid
   max_px_shift: 10 # maximum pixel shift for local search

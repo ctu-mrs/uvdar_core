@@ -89,6 +89,7 @@ void BlinkProcessorComponent::loadBlinkProcessorParams_() {
   param_loader_->loadParam("blink_processor/max_buffer_length", _cfg_.max_buffer_length, 100);
   param_loader_->loadParam("blink_processor/max_consecutive_zeros", _cfg_.max_consecutive_zeros, 10);
   param_loader_->loadParam("blink_processor/min_prediction_tol_px", _cfg_.min_prediction_tol_px, 3);
+  param_loader_->loadParam("blink_processor/max_prediction_interval_px", _cfg_.max_predict_interval_px, 20);
 
   int max_px_shift{0};
   param_loader_->loadParam("blink_processor/max_px_shift", max_px_shift, 3);
@@ -216,6 +217,11 @@ bool BlinkProcessorComponent::checkBlinkProcessorConfig_() const {
 
   if (_cfg_.max_px_shift.x < 0.0 || _cfg_.max_px_shift.y < 0.0) {
     RCLCPP_ERROR(node_->get_logger(), "Max pixel shift cannot be negative!");
+    return false;
+  }
+
+  if (_cfg_.max_predict_interval_px < 0) {
+    RCLCPP_ERROR(node_->get_logger(), "Maximum prediction interval for the extended search cannot be negative!");
     return false;
   }
 
@@ -368,13 +374,12 @@ void BlinkProcessorComponent::processRawPoints_(const int camera_idx) {
     p.insert_time = rosTimeToTimePoint_(msg->stamp);
     unassigned_points.push_back(std::move(p));
   }
-  std::vector<PointState> backup_points = unassigned_points;
   tracker.blink_processor->processBuffer(unassigned_points);
 
   std::vector<TrackedMarker> results = tracker.blink_processor->getResults();
 
   publishDetectedMarkers_(results, tracker, msg->stamp);
-  publishDebugImage_(results, tracker, msg->stamp, backup_points);
+  publishDebugImage_(results, tracker, msg->stamp);
 
   tracker.timer->stop();
 }
@@ -457,8 +462,7 @@ void BlinkProcessorComponent::publishRvizMarkers_(const std::vector<TrackedMarke
 
 /* publishDebugImage_ //{ */
 void BlinkProcessorComponent::publishDebugImage_(const std::vector<TrackedMarker>& markers, TrackerContext& tracker,
-                                                 const builtin_interfaces::msg::Time& time_stamp,
-                                                 const std::vector<PointState>& backup_points) {
+                                                 const builtin_interfaces::msg::Time& time_stamp) {
   // Hardcoded frame size — change as needed
   constexpr int kWidth  = 1920;
   constexpr int kHeight = 1200;

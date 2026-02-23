@@ -15,19 +15,20 @@ class ExtendedSearch {
   void run(std::vector<PointState>& unassigned_points, std::vector<SeqPtr>& buffer);
 
  private:
-  bool performLocalCheck_(const PointState& last_observed, const PointState& predicted_point,
-                          std::vector<PointState>& unassigned_points, std::vector<PointState>& tseries,
-                          const cv::Point2d& conf_point);
+  [[nodiscard]] bool performLocalCheck_(const PointState& last_observed, const PointState& predicted_point,
+                                        std::vector<PointState>& unassigned_points, std::vector<PointState>& tseries,
+                                        const cv::Point2d& conf_point);
 
   std::vector<PointState>::iterator findNearestPoint_(std::vector<PointState>& points, const PointState& reference);
 
   void insertPointToSequence_(std::vector<PointState>& sequence, const PointState signal);
 
+  void clipPredictionInterval_(PointState& predicted_point);
+
  private:
   ExtendedSearchConfig cfg_;
   std::mutex mutex_gen_sequences_;
 
-  const double PREDICTION_MARGIN_{0.0};
   std::unique_ptr<PolynomialRegressionPredictor> poly_predictor_;
 };
 

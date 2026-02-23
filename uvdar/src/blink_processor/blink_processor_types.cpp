@@ -87,15 +87,14 @@ void BlinkProcessorConfig::updateChildConfigs_() {
 
   ami_tracker.local.max_px_shift = max_px_shift;
 
-  ami_tracker.extended.poly_reg.min_prediction_tol_px = min_prediction_tol_px;
-  ami_tracker.extended.poly_reg.poly_order            = poly_order;
-  ami_tracker.extended.poly_reg.decay_factor          = poly_decay_factor;
-  ami_tracker.extended.poly_reg.conf_prob_percentage  = conf_prob_percentage;
-  ami_tracker.extended.poly_reg.max_px_shift_x        = max_px_shift.x;
-  ami_tracker.extended.poly_reg.max_px_shift_y        = max_px_shift.y;
-  ami_tracker.verification.max_buffer_length          = max_buffer_length;
-  ami_tracker.verification.max_consecutive_zeros      = max_consecutive_zeros;
-  ami_tracker.verification.allowed_BER_per_seq        = allowed_BER_per_seq;
+  ami_tracker.extended.poly_reg.min_prediction_tol_px   = min_prediction_tol_px;
+  ami_tracker.extended.poly_reg.poly_order              = poly_order;
+  ami_tracker.extended.poly_reg.decay_factor            = poly_decay_factor;
+  ami_tracker.extended.poly_reg.conf_prob_percentage    = conf_prob_percentage;
+  ami_tracker.extended.poly_reg.max_predict_interval_px = max_predict_interval_px;
+  ami_tracker.verification.max_buffer_length            = max_buffer_length;
+  ami_tracker.verification.max_consecutive_zeros        = max_consecutive_zeros;
+  ami_tracker.verification.allowed_BER_per_seq          = allowed_BER_per_seq;
 
   signal_matcher.allowed_BER_per_seq = allowed_BER_per_seq;
 }
@@ -149,11 +148,15 @@ BlinkProcessorConfig& BlinkProcessorConfig::setPoly(PolyRegressionConfig cfg) {
   if (cfg.conf_prob_percentage < 0 || cfg.conf_prob_percentage > 100) {
     throw std::invalid_argument("Confidence probability percentage has to be in the range [0, 100].");
   }
+  if (cfg.max_predict_interval_px < 0) {
+    throw std::invalid_argument("Max prediction interval has to be positive.");
+  }
 
-  this->poly_order            = cfg.poly_order;
-  this->poly_decay_factor     = cfg.decay_factor;
-  this->min_prediction_tol_px = cfg.min_prediction_tol_px;
-  this->conf_prob_percentage  = cfg.conf_prob_percentage;
+  this->poly_order              = cfg.poly_order;
+  this->poly_decay_factor       = cfg.decay_factor;
+  this->min_prediction_tol_px   = cfg.min_prediction_tol_px;
+  this->conf_prob_percentage    = cfg.conf_prob_percentage;
+  this->max_predict_interval_px = cfg.max_predict_interval_px;
 
   updateChildConfigs_();
   return *this;

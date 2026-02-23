@@ -14,16 +14,12 @@ class BlinkProcessor {
   ~BlinkProcessor() = default;
 
   [[nodiscard]] bool setBlinkingPatterns(const std::vector<Sequence>& sequences);
-  // void setFrameRate(const double input);
 
   void processBuffer(std::vector<PointState>& unmatched_points);
 
   std::vector<TrackedMarker> getResults();
 
  private:
-  static Sequence downsampleSignal_(const Sequence& signal, std::size_t window_size);
-  void printBuffer_() const;
-
   BlinkProcessorConfig cfg_;
   ILogger& logger_;
 

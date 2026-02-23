@@ -66,10 +66,8 @@ PredictionStatistics PolynomialRegressionPredictor::selectStatisticsValues(const
   auto [weights, sum_raw_weights] = computeNormalizedWeightVect(time);
 
   PredictionStatistics stats;
-  // stats.mean_independent  = computeWeightedMean_(time, weights);
   stats.time_pred         = insert_time;
   stats.poly_reg_computed = false;
-  stats.extended_search   = true;
   size_t poly_order       = static_cast<size_t>(cfg_.poly_order);
 
   if (coordinates.size() <= 1) {
