@@ -469,16 +469,6 @@ void BlinkProcessorComponent::publishDebugImage_(const std::vector<TrackedMarker
 
   cv::Mat frame = cv::Mat::zeros(kHeight, kWidth, CV_8UC3);
 
-  // Draw raw input points as colored blobs
-  // for (size_t i = 0; i < backup_points.size(); ++i) {
-  //   const auto& bp = backup_points[i];
-  //   cv::Point center(static_cast<int>(bp.point.x), static_cast<int>(bp.point.y));
-
-  //   cv::circle(frame, center, 6, cv::Scalar(0, 255, 255), cv::FILLED);
-  //   cv::putText(frame, std::to_string(i), cv::Point(center.x + 8, center.y - 4), cv::FONT_HERSHEY_SIMPLEX, 0.4,
-  //               cv::Scalar(0, 255, 255), 1);
-  // }
-
   for (const auto& m : markers) {
     const auto& ps            = m.last_point;
     const bool has_prediction = ps.x_stats.poly_reg_computed && ps.y_stats.poly_reg_computed;
