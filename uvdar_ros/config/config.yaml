@@ -1,10 +1,13 @@
+# The order of camera input topics and camera calibration files should match,
+# as they are associated by their index in the list.
+
 uv_led_detector:
   camera_input_topics: ["/my_camera/pylon_ros2_camera_node/image_raw"] 
   detected_points_topics: ["/detected_points_out"]
   use_gpu: true # GPU option is preferable
   gui: false # TODO: remove
   use_masks: false # not implemented yet
-  fast_ring_size: 5 # only 3, 4 or 5 are supported
+  fast_ring_size: 3 # only 3, 4 or 5 are supported
   threshold: 50 # minimum pixel brightness to be considered
   threshold_diff: 25 # minimum brightness difference from surrounding pixels
   threshold_sun: 150 # brightness threshold for candidate sun pixels
@@ -16,12 +19,16 @@ uv_led_detector:
 blink_processor:
   patterns_file: "blinking_sequences/blinking_sequence.csv" # path to the file with blinking patterns
   detected_markers_topics: ["/detected_markers"] # topics with detected markers (coordinates and ID)
-  allowed_BER_per_sequence: 0 # allowed Bit Error Rate per blinking sequence
+  camera_calibration_file: ["camera_calibration/cam_calib_results.txt"]
+  rviz_frame_id: "pylon_camera" # frame ID for RViz visualization
+  debug: true # enable debug mode for additional logging and visualization
+  allowed_BER_per_sequence: 1 # allowed Bit Error Rate per blinking sequence
   polynomial_degree: 4 # degree of the polynomial for trajectory fitting
-  decay_factor: 0.1 # the factor for exponential decay of the weights of older detections in the trajectory calculation
-  stored_seq_len_factor: 20 # the multiplication factor how long the sequence should be for calculating the trajectory   
+  decay_factor: 0.2 # the factor for exponential decay of the weights of older detections in the trajectory calculation
+  stored_seq_len_factor: 100 # the multiplication factor how long the sequence should be stored in the buffer for a marker ID 
   confidence_probability_percentage: 95 # statistical confidence level used to compute the prediction interval width
   max_buffer_length: 100 # maximum number of tracked objects in the buffer (max number of t-series)
   min_prediction_tol_px: 5 # minimum pixel tolerance added to regression uncertainty to prevent zero-width prediction intervals
-  max_consecutive_zeros: 10 # maximum consecutive zeros in the recorded sequence (t-series) for it to be still considered valid
+  max_prediction_interval_px: 20 # maximum width of the prediction interval in pixels to prevent excessively large prediction windows
+  max_consecutive_zeros: 20 # maximum consecutive zeros in the recorded sequence (t-series) for it to be still considered valid
   max_px_shift: 10 # maximum pixel shift for local search

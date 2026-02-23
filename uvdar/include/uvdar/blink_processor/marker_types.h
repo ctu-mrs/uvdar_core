@@ -18,14 +18,9 @@ using SequenceBytes = std::vector<uint8_t>;
 struct PredictionStatistics {
   double time_pred{-1.0};
   bool poly_reg_computed{false};
-  bool extended_search{false};
   std::vector<double> coeff{};
-  Eigen::VectorXd predicted_vals_past;
-  double mean_dependent{0.0};
-  double mean_independent{0.0};
   double predicted_coordinate{-1.0};
   double confidence_interval{-1.0};
-  Eigen::MatrixXd vandermonde_mat;
 };
 //}
 

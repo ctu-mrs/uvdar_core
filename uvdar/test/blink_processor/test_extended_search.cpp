@@ -28,6 +28,7 @@ TEST(ExtendedSearch, DiverseTrajectories_Poly4) {
   ext_cfg.seq.stored_seq_len_factor             = 20;
   ext_cfg.poly_reg.seq.blinking_patterns_length = 8;
   ext_cfg.poly_reg.seq.stored_seq_len_factor    = 20;
+  ext_cfg.poly_reg.max_predict_interval_px      = 20;
 
   ExtendedSearch extended_search(ext_cfg);
 

@@ -9,3 +9,7 @@
 /uvdar_ros/config/blinking_sequences/*
 !/uvdar_ros/config/blinking_sequences/
 !/uvdar_ros/config/blinking_sequences/blinking_sequence.csv
+
+/uvdar_ros/config/camera_calibration/*
+!/uvdar_ros/config/camera_calibration/
+!/uvdar_ros/config/camera_calibration/cam_calib_results.txt

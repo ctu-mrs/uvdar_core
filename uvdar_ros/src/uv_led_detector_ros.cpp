@@ -213,13 +213,13 @@ bool UvLedDetectorComponent::isReadyToProcess_(const int image_index) {
 
 /* initGpuProgram_ //{ */
 void UvLedDetectorComponent::initGpuProgram_(const int image_index) {
-  if (initial_delay_done_flag_.load(std::memory_order_acquire)) {
+  if (initial_delay_done_flag_) {
     return;
   }
 
   std::lock_guard<std::mutex> lk(initial_delay_mtx_);
   // re-check
-  if (initial_delay_done_flag_.load(std::memory_order_relaxed)) {
+  if (initial_delay_done_flag_) {
     return;
   }
 
@@ -234,7 +234,7 @@ void UvLedDetectorComponent::initGpuProgram_(const int image_index) {
 
 /* hasInitialDelayElapsed_ //{ */
 bool UvLedDetectorComponent::hasInitialDelayElapsed_() {
-  if (initial_delay_done_flag_.load(std::memory_order_acquire)) {
+  if (initial_delay_done_flag_) {
     return true;
   }
 
@@ -258,7 +258,8 @@ void UvLedDetectorComponent::processImage_(const int image_index) {
   sensor_msgs::msg::Image::ConstSharedPtr msg;
   {
     std::lock_guard<std::mutex> lk(cam.mtx);
-    msg = cam.last_msg;
+    msg          = cam.last_msg;
+    cam.last_msg = nullptr;
   }
 
   if (!msg) {

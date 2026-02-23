@@ -18,8 +18,9 @@ windows:
       layout: tiled
       panes:
         - ros2 launch foxglove_bridge foxglove_bridge_launch.xml 
-        - ros2 launch pylon_ros2_camera_wrapper pylon_ros2_camera.launch.py
+        # - ros2 launch pylon_ros2_camera_wrapper pylon_ros2_camera.launch.py
         # - ros2 bag play /home/tomas/ros2_ws/bags/two_uv_markers --rate 0.5
+        - ros2 bag play /home/tomas/ros2_ws/bags/one_uv_marker --rate 0.5
   - uvdar::
       layout: tiled
       panes:

@@ -2,7 +2,3 @@
 	path = uvdar/third_party/kompute
 	url = https://github.com/KomputeProject/kompute.git
 	branch = main
-[submodule "uvdar/third_party/ami"]
-	path = uvdar/third_party/ami
-	url = https://github.com/TimLakemann/ami.git
-	branch = master

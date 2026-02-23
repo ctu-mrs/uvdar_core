@@ -12,11 +12,6 @@ struct OnLedHistory {
   std::vector<double> time;
 };
 
-struct RegressionResult {
-  Eigen::VectorXd prediction;
-  double std_error;
-};
-
 class PolynomialRegressionPredictor {
  public:
   PolynomialRegressionPredictor(const PolyRegressionConfig& cfg);
@@ -24,14 +19,15 @@ class PolynomialRegressionPredictor {
   std::tuple<PredictionStatistics, PredictionStatistics> predict(const double insert_time,
                                                                  std::vector<PointState>& tseries);
 
-  std::vector<double> computeNormalizedWeightVect(const std::vector<double>& time);
+  std::pair<std::vector<double>, double> computeNormalizedWeightVect(const std::vector<double>& time);
 
   PredictionStatistics selectStatisticsValues(const std::vector<double>& coordinates, const std::vector<double>& time,
                                               const double& insert_time);
 
   std::tuple<double, double> calculatePredictionInterval(const std::vector<double>& coordinate,
                                                          const std::vector<double>& time,
-                                                         const std::vector<double>& weights, const double time_next);
+                                                         const std::vector<double>& weights, double sum_raw_weights,
+                                                         const double time_next);
 
  private:
   OnLedHistory extractLedOnHistory_(const std::vector<PointState>& tseries);
@@ -46,7 +42,6 @@ class PolynomialRegressionPredictor {
 
   Eigen::Matrix<double, Eigen::Dynamic, 5> X_vandermonde_;
   Eigen::VectorXd y_workspace_;
-  std::vector<double> t_quantile_lut_;
 };
 
 } // namespace uvdar::blink_processor

@@ -24,32 +24,14 @@ foreach(DEP IN LISTS DEPENDENCIES)
 endforeach()
 
 set(MSG_FILES
-  "msg/DefaultMsg.msg"
-  "msg/FrequencySet.msg"
   "msg/ImagePointsWithFloatStamped.msg"
-  "msg/Int32MultiArrayStamped.msg"
   "msg/Point2DWithFloat.msg"
-  "msg/RecMsg.msg"
-  "msg/USM.msg"
 )
 
-set(AMI_MSG_FILES
-  "msg/ami/AMIAllSequences.msg"
-  "msg/ami/AMIDataForLogging.msg"
-  "msg/ami/AMISeqPoint.msg"
-  "msg/ami/AMISeqVariables.msg"
-)
-
-set(SRV_FILES
-  "srv/SetInts.srv"
-  "srv/SetLedMessage.srv"
-)
 
 
 rosidl_generate_interfaces(${PROJECT_NAME}
   ${MSG_FILES}
-  ${AMI_MSG_FILES}
-  ${SRV_FILES}
   DEPENDENCIES 
     builtin_interfaces 
     geometry_msgs

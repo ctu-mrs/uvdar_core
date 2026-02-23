@@ -1,9 +1,0 @@
-builtin_interfaces/Time inserted_time
-int8 signal_id
-bool[] extended_search
-bool[] poly_reg_computed
-Point2DWithFloat predicted_point
-Point2DWithFloat confidence_interval
-float32[] x_coeff_reg
-float32[] y_coeff_reg
-AMISeqPoint[] sequence
