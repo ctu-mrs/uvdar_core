@@ -29,6 +29,10 @@ BlinkProcessorComponent::BlinkProcessorComponent(rclcpp::NodeOptions options)
     throw std::runtime_error("Failed to load blinking patterns!");
   }
 
+  if (!checkCameraCalibrationFiles_()) {
+    throw std::runtime_error("Camera calibration files are not valid!");
+  }
+
   if (!initBlinkProcessor_()) {
     throw std::runtime_error("Failed to initialize blink processor!");
   }
@@ -73,26 +77,27 @@ bool BlinkProcessorComponent::loadParams_() {
 void BlinkProcessorComponent::loadRosParams_() {
   param_loader_->loadParam("uv_led_detector/detected_points_topics", _detected_raw_points_topics_);
   param_loader_->loadParam("blink_processor/detected_markers_topics", _detected_markers_topics_);
-  param_loader_->loadParam("blink_processor/rviz_frame_id", _rviz_frame_id_, std::string("map"));
+  param_loader_->loadParam("blink_processor/rviz_frame_id", _rviz_frame_id_);
 }
 //}
 
 /* loadBlinkProcessorParams_ //{ */
 void BlinkProcessorComponent::loadBlinkProcessorParams_() {
+  param_loader_->loadParam("blink_processor/debug", _debug_mode_);
   param_loader_->loadParam("blink_processor/patterns_file", _patterns_file_path_);
-
-  param_loader_->loadParam("blink_processor/allowed_BER_per_sequence", _cfg_.allowed_BER_per_seq, 0);
-  param_loader_->loadParam("blink_processor/polynomial_degree", _cfg_.poly_order, 4);
-  param_loader_->loadParam("blink_processor/decay_factor", _cfg_.poly_decay_factor, 0.1);
-  param_loader_->loadParam("blink_processor/stored_seq_len_factor", _cfg_.seq.stored_seq_len_factor, 20);
-  param_loader_->loadParam("blink_processor/confidence_probability_percentage", _cfg_.conf_prob_percentage, 95);
-  param_loader_->loadParam("blink_processor/max_buffer_length", _cfg_.max_buffer_length, 100);
-  param_loader_->loadParam("blink_processor/max_consecutive_zeros", _cfg_.max_consecutive_zeros, 10);
-  param_loader_->loadParam("blink_processor/min_prediction_tol_px", _cfg_.min_prediction_tol_px, 3);
-  param_loader_->loadParam("blink_processor/max_prediction_interval_px", _cfg_.max_predict_interval_px, 20);
+  param_loader_->loadParam("blink_processor/camera_calibration_file", _camera_calib_files_);
+  param_loader_->loadParam("blink_processor/allowed_BER_per_sequence", _cfg_.allowed_BER_per_seq);
+  param_loader_->loadParam("blink_processor/polynomial_degree", _cfg_.poly_order);
+  param_loader_->loadParam("blink_processor/decay_factor", _cfg_.poly_decay_factor);
+  param_loader_->loadParam("blink_processor/stored_seq_len_factor", _cfg_.seq.stored_seq_len_factor);
+  param_loader_->loadParam("blink_processor/confidence_probability_percentage", _cfg_.conf_prob_percentage);
+  param_loader_->loadParam("blink_processor/max_buffer_length", _cfg_.max_buffer_length);
+  param_loader_->loadParam("blink_processor/max_consecutive_zeros", _cfg_.max_consecutive_zeros);
+  param_loader_->loadParam("blink_processor/min_prediction_tol_px", _cfg_.min_prediction_tol_px);
+  param_loader_->loadParam("blink_processor/max_prediction_interval_px", _cfg_.max_predict_interval_px);
 
   int max_px_shift{0};
-  param_loader_->loadParam("blink_processor/max_px_shift", max_px_shift, 3);
+  param_loader_->loadParam("blink_processor/max_px_shift", max_px_shift);
   _cfg_.max_px_shift = cv::Point2d(max_px_shift, max_px_shift);
 }
 //}
@@ -167,6 +172,49 @@ bool BlinkProcessorComponent::checkPatternsFile_() {
         "otherwise, it is treated as relative to the 'config' directory of the 'uvdar_ros' package.",
         _patterns_file_path_.c_str());
     return false;
+  }
+
+  return true;
+}
+//}
+
+/* checkCameraCalibrationFiles_ */
+bool BlinkProcessorComponent::checkCameraCalibrationFiles_() {
+  if (_camera_calib_files_.empty()) {
+    RCLCPP_ERROR(node_->get_logger(), "No camera calibration files specified!");
+    return false;
+  }
+
+  if (_camera_calib_files_.size() != _detected_raw_points_topics_.size()) {
+    RCLCPP_ERROR(node_->get_logger(),
+                 "The camera calibration files count must match the detected points topics count!");
+    return false;
+  }
+
+  for (auto& calib_file : _camera_calib_files_) {
+    std::filesystem::path file_path(calib_file);
+    if (!file_path.is_absolute()) {
+      std::string package_share_dir;
+      try {
+        package_share_dir = ament_index_cpp::get_package_share_directory("uvdar_ros");
+      } catch (const std::exception& e) {
+        RCLCPP_ERROR(node_->get_logger(), "Failed to find package 'uvdar_ros': %s", e.what());
+        return false;
+      }
+      file_path = std::filesystem::path(package_share_dir) / "config" / calib_file;
+    }
+
+    std::ifstream f(file_path);
+    if (!f.good()) {
+      RCLCPP_ERROR(node_->get_logger(),
+                   "Camera calibration file '%s' does not exist or is not readable! If it starts with /, it is treated "
+                   "as an absolute path; "
+                   "otherwise, it is treated as relative to the 'config' directory of the 'uvdar_ros' package.",
+                   calib_file.c_str());
+      return false;
+    }
+
+    calib_file = file_path.string();
   }
 
   return true;
@@ -293,6 +341,8 @@ bool BlinkProcessorComponent::initBlinkProcessor_() {
     trackers_[i].raw_points_topic       = _detected_raw_points_topics_[i];
     trackers_[i].detected_markers_topic = _detected_markers_topics_[i];
     trackers_[i].blink_processor        = std::make_unique<BlinkProcessor>(_cfg_, *logger_);
+    trackers_[i].camera_calib =
+        std::make_unique<CameraCalibration>(CameraCalibration::loadCalibration(_camera_calib_files_[i]));
 
     if (!trackers_[i].blink_processor->setBlinkingPatterns(_blinking_patterns_)) {
       RCLCPP_ERROR(node_->get_logger(), "Failed to set blinking patterns in blink processor!");
@@ -309,45 +359,63 @@ bool BlinkProcessorComponent::initRosCommunication_() {
   processing_callback_group_ = node_->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
 
   for (size_t i = 0; i < camera_count_; ++i) {
-    auto& tracker              = trackers_.at(i);
+    initRosSubscribers_(i);
+    initRosPublishers_(i);
+  }
+  return true;
+}
+//}
+
+/* initRosSubscribers_ //{ */
+void BlinkProcessorComponent::initRosSubscribers_(const size_t tracker_idx) {
+  auto& tracker = trackers_.at(tracker_idx);
+
+  mrs_lib::TimerHandlerOptions timer_opts_start;
+  timer_opts_start.node      = node_;
+  timer_opts_start.autostart = true;
+
+  tracker.timer = std::make_shared<TimerType>(timer_opts_start, rclcpp::Rate(std::chrono::milliseconds(1)),
+                                              [this, tracker_idx]() { processRawPoints_(tracker_idx); });
+  tracker.timer->stop();
+
+  mrs_lib::SubscriberHandlerOptions shopts;
+  shopts.node                                = node_;
+  shopts.node_name                           = node_->get_name();
+  shopts.no_message_timeout                  = rclcpp::Duration::from_seconds(5.0);
+  shopts.subscription_options.callback_group = receiving_callback_group_;
+
+  tracker.sub_raw_points = mrs_lib::SubscriberHandler<MarkerPointMsg>(
+      shopts, tracker.raw_points_topic,
+      [camera_idx = tracker_idx, this](const MarkerPointMsg::ConstSharedPtr& points_msg) {
+        auto& tracker = trackers_[camera_idx];
+        {
+          std::lock_guard<std::mutex> lk(tracker.mtx);
+          tracker.last_msg = points_msg;
+        }
+        tracker.timer->start();
+      });
+}
+//}
+
+/* initRosPublishers_ //{ */
+void BlinkProcessorComponent::initRosPublishers_(const size_t tracker_idx) {
+  auto& tracker = trackers_.at(tracker_idx);
+
+  mrs_lib::PublisherHandlerOptions pubopts;
+  pubopts.node                 = node_;
+  pubopts.qos                  = rclcpp::QoS(1);
+  tracker.pub_detected_markers = mrs_lib::PublisherHandler<uvdar_ros_msgs::msg::ImagePointsWithFloatStamped>(
+      pubopts, tracker.detected_markers_topic);
+
+  if (_debug_mode_) {
     tracker.rviz_markers_topic = tracker.detected_markers_topic + "/rviz";
 
-    mrs_lib::TimerHandlerOptions timer_opts_start;
-    timer_opts_start.node      = node_;
-    timer_opts_start.autostart = true;
-
-    tracker.timer = std::make_shared<TimerType>(timer_opts_start, rclcpp::Rate(std::chrono::milliseconds(1)),
-                                                [this, i]() { processRawPoints_(i); });
-    tracker.timer->stop();
-
-    mrs_lib::SubscriberHandlerOptions shopts;
-    shopts.node                                = node_;
-    shopts.node_name                           = node_->get_name();
-    shopts.no_message_timeout                  = rclcpp::Duration::from_seconds(5.0);
-    shopts.subscription_options.callback_group = receiving_callback_group_;
-
-    tracker.sub_raw_points = mrs_lib::SubscriberHandler<MarkerPointMsg>(
-        shopts, tracker.raw_points_topic, [camera_idx = i, this](const MarkerPointMsg::ConstSharedPtr& points_msg) {
-          auto& tracker = trackers_[camera_idx];
-          {
-            std::lock_guard<std::mutex> lk(tracker.mtx);
-            tracker.last_msg = points_msg;
-          }
-          tracker.timer->start();
-        });
-
-    mrs_lib::PublisherHandlerOptions pubopts;
-    pubopts.node                 = node_;
-    pubopts.qos                  = rclcpp::QoS(1);
-    tracker.pub_detected_markers = mrs_lib::PublisherHandler<uvdar_ros_msgs::msg::ImagePointsWithFloatStamped>(
-        pubopts, tracker.detected_markers_topic);
     tracker.pub_rviz_markers =
         mrs_lib::PublisherHandler<visualization_msgs::msg::MarkerArray>(pubopts, tracker.rviz_markers_topic);
 
     tracker.pub_debug_image =
         mrs_lib::PublisherHandler<sensor_msgs::msg::Image>(pubopts, tracker.detected_markers_topic + "/debug_image");
   }
-  return true;
 }
 //}
 
@@ -357,7 +425,8 @@ void BlinkProcessorComponent::processRawPoints_(const int camera_idx) {
   MarkerPointMsg::ConstSharedPtr msg;
   {
     std::lock_guard<std::mutex> lk(tracker.mtx);
-    msg = tracker.last_msg;
+    msg              = tracker.last_msg;
+    tracker.last_msg = nullptr;
   }
 
   if (!msg) {
@@ -379,7 +448,14 @@ void BlinkProcessorComponent::processRawPoints_(const int camera_idx) {
   std::vector<TrackedMarker> results = tracker.blink_processor->getResults();
 
   publishDetectedMarkers_(results, tracker, msg->stamp);
-  publishDebugImage_(results, tracker, msg->stamp);
+
+  RCLCPP_INFO_THROTTLE(node_->get_logger(), *node_->get_clock(), 1000, "Number of detected markers: %ld",
+                       results.size());
+
+  if (_debug_mode_) {
+    publishDebugImage_(results, tracker, msg->stamp);
+    publishRvizMarkers_(results, tracker);
+  }
 
   tracker.timer->stop();
 }
@@ -401,24 +477,29 @@ void BlinkProcessorComponent::publishDetectedMarkers_(const std::vector<TrackedM
   msg.stamp = time_stamp;
   msg.points.reserve(markers.size());
   for (const auto& marker : markers) {
-    auto id = static_cast<double>(marker.id);
-    if (id < 0) {
-      continue;
-    }
+    // auto id = static_cast<double>(marker.id);
+    // if (id < 0) {
+    //   continue;
+    // }
+
+    auto world_point = tracker.camera_calib->camToWorld(marker.last_point.point);
     uvdar_ros_msgs::msg::Point2DWithFloat point;
-    point.x     = marker.last_point.point.x;
-    point.y     = marker.last_point.point.y;
+    point.x     = world_point.x;
+    point.y     = world_point.y;
+    point.z     = world_point.z;
     point.value = static_cast<double>(marker.id);
     msg.points.push_back(point);
   }
 
   tracker.pub_detected_markers.publish(msg);
-  publishRvizMarkers_(markers, tracker);
 }
 //}
 
 /* publishRvizMarkers_ //{ */
 void BlinkProcessorComponent::publishRvizMarkers_(const std::vector<TrackedMarker>& markers, TrackerContext& tracker) {
+  if (!_debug_mode_) {
+    return;
+  }
   visualization_msgs::msg::MarkerArray marker_array;
 
   visualization_msgs::msg::Marker marker;
@@ -426,8 +507,6 @@ void BlinkProcessorComponent::publishRvizMarkers_(const std::vector<TrackedMarke
   marker.header.stamp       = node_->now();
   marker.ns                 = "tracked_markers";
   marker.id                 = 0;
-  marker.type               = visualization_msgs::msg::Marker::SPHERE_LIST;
-  marker.action             = visualization_msgs::msg::Marker::ADD;
   marker.pose.orientation.w = 1.0;
 
   marker.scale.x = 0.1;
@@ -445,16 +524,23 @@ void BlinkProcessorComponent::publishRvizMarkers_(const std::vector<TrackedMarke
       continue;
     }
 
+    auto world_point = tracker.camera_calib->camToWorld(tracked_marker.last_point.point);
+
     geometry_msgs::msg::Point point;
-    point.x = tracked_marker.last_point.point.y / 1000;
-    point.y = tracked_marker.last_point.point.x / 1000;
-    point.z = 0.0;
+    point.x = world_point.x;
+    point.y = world_point.y;
+    point.z = world_point.z;
     marker.points.push_back(point);
   }
 
   if (marker.points.empty()) {
-    return;
+    marker.action = visualization_msgs::msg::Marker::DELETE;
+    marker.type   = visualization_msgs::msg::Marker::SPHERE_LIST;
+  } else {
+    marker.action = visualization_msgs::msg::Marker::ADD;
+    marker.type   = visualization_msgs::msg::Marker::SPHERE_LIST;
   }
+
   marker_array.markers.push_back(marker);
   tracker.pub_rviz_markers.publish(marker_array);
 }
@@ -463,50 +549,31 @@ void BlinkProcessorComponent::publishRvizMarkers_(const std::vector<TrackedMarke
 /* publishDebugImage_ //{ */
 void BlinkProcessorComponent::publishDebugImage_(const std::vector<TrackedMarker>& markers, TrackerContext& tracker,
                                                  const builtin_interfaces::msg::Time& time_stamp) {
-  // Hardcoded frame size — change as needed
-  constexpr int kWidth  = 1920;
-  constexpr int kHeight = 1200;
+  if (!_debug_mode_) {
+    return;
+  }
+  const int kWidth  = tracker.camera_calib->model.width;
+  const int kHeight = tracker.camera_calib->model.height;
 
   cv::Mat frame = cv::Mat::zeros(kHeight, kWidth, CV_8UC3);
 
   for (const auto& m : markers) {
-    const auto& ps            = m.last_point;
-    const bool has_prediction = ps.x_stats.poly_reg_computed && ps.y_stats.poly_reg_computed;
+    const auto& ps = m.last_point;
 
-    if (!has_prediction) {
-      // No prediction — draw a yellow dot at the raw point position if ID is valid
-      cv::Point raw_pt(static_cast<int>(ps.point.x), static_cast<int>(ps.point.y));
-      cv::circle(frame, raw_pt, 5, cv::Scalar(0, 255, 255), cv::FILLED);
-
-      std::string label = "id=" + std::to_string(m.id);
-      cv::putText(frame, label, cv::Point(raw_pt.x + 6, raw_pt.y - 4), cv::FONT_HERSHEY_SIMPLEX, 0.5,
-                  cv::Scalar(0, 255, 255), 1);
-
-      continue;
+    cv::Point pt;
+    if (ps.x_stats.poly_reg_computed && ps.y_stats.poly_reg_computed) {
+      pt = cv::Point(static_cast<int>(ps.x_stats.predicted_coordinate),
+                     static_cast<int>(ps.y_stats.predicted_coordinate));
+    } else {
+      pt = cv::Point(static_cast<int>(ps.point.x), static_cast<int>(ps.point.y));
     }
 
-    const cv::Point2d center(ps.x_stats.predicted_coordinate, ps.y_stats.predicted_coordinate);
+    cv::Scalar color = (m.id < 0) ? cv::Scalar(0, 0, 255) : cv::Scalar(0, 255, 0);
 
-    const double half_w = (ps.x_stats.confidence_interval > 0.0) ? ps.x_stats.confidence_interval : 5.0;
-    const double half_h = (ps.y_stats.confidence_interval > 0.0) ? ps.y_stats.confidence_interval : 5.0;
+    cv::circle(frame, pt, 5, color, cv::FILLED);
 
-    cv::Point tl(static_cast<int>(center.x - half_w), static_cast<int>(center.y - half_h));
-    cv::Point br(static_cast<int>(center.x + half_w), static_cast<int>(center.y + half_h));
-
-    // Choose colour based on matched ID
-    const cv::Scalar palette[] = {{0, 255, 0},   {255, 200, 0}, {255, 0, 255},
-                                  {0, 255, 255}, {255, 128, 0}, {128, 255, 128}};
-    cv::Scalar color           = (m.id < 0) ? cv::Scalar(0, 0, 255) : palette[m.id % 6];
-
-    cv::rectangle(frame, tl, br, color, 2);
-
-    // Draw center cross-hair
-    cv::drawMarker(frame, cv::Point(static_cast<int>(center.x), static_cast<int>(center.y)), color, cv::MARKER_CROSS, 8,
-                   1);
-
-    // Label with ID
     std::string label = "id=" + std::to_string(m.id);
-    cv::putText(frame, label, cv::Point(tl.x, tl.y - 4), cv::FONT_HERSHEY_SIMPLEX, 0.5, color, 1);
+    cv::putText(frame, label, cv::Point(pt.x + 6, pt.y - 4), cv::FONT_HERSHEY_SIMPLEX, 0.5, color, 1);
   }
 
   auto img_msg             = cv_bridge::CvImage(std_msgs::msg::Header(), "bgr8", frame).toImageMsg();

@@ -1,2 +1,0 @@
-builtin_interfaces/Time insert_time
-Point2DWithFloat point

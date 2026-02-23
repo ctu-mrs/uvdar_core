@@ -167,7 +167,7 @@ void CameraCalibration::extractImageSize_(std::string& line, CameraModel& camera
 //}
 
 /* camToWorld //{ */
-cv::Point3d CameraCalibration::camToWorld(cv::Point2d& point_px) const {
+cv::Point3d CameraCalibration::camToWorld(const cv::Point2d& point_px) const {
   double inv_det = 1 / (model.c - model.d * model.e);
 
   // point_px.y = row, point_px.x = column; xc = row center, yc = column center
@@ -196,7 +196,7 @@ cv::Point3d CameraCalibration::camToWorld(cv::Point2d& point_px) const {
 //}
 
 /* worldToCam //{ */
-cv::Point2d CameraCalibration::worldToCam(cv::Point3d& point) const {
+cv::Point2d CameraCalibration::worldToCam(const cv::Point3d& point) const {
   double norm = sqrt(point.x * point.x + point.y * point.y);
 
   if (norm == 0) {

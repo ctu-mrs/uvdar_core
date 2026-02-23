@@ -41,9 +41,9 @@ std::vector<TrackedMarker> BlinkProcessor::getResults() {
   const std::size_t raw_window_size = static_cast<std::size_t>(cfg_.seq.getMaxSequenceLength());
   auto tseries_window_buffer_copy   = ami_tracker_->getActiveTrackCopy(raw_window_size);
 
-  logger_.info("[BlinkProcessor] getResults: " + std::to_string(tseries_window_buffer_copy.size()) +
-               " tracks, patternLen=" + std::to_string(cfg_.getPatternLength()) +
-               ", rawWindow=" + std::to_string(raw_window_size));
+  // logger_.info("[BlinkProcessor] getResults: " + std::to_string(tseries_window_buffer_copy.size()) +
+  //              " tracks, patternLen=" + std::to_string(cfg_.getPatternLength()) +
+  //              ", rawWindow=" + std::to_string(raw_window_size));
 
   std::vector<TrackedMarker> results;
   results.reserve(tseries_window_buffer_copy.size());

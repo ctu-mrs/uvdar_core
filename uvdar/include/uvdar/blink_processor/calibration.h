@@ -37,8 +37,8 @@ class CameraCalibration {
  public:
   static CameraCalibration loadCalibration(const std::filesystem::path& file_path);
 
-  cv::Point3d camToWorld(cv::Point2d& point_px) const;
-  cv::Point2d worldToCam(cv::Point3d& point) const;
+  cv::Point3d camToWorld(const cv::Point2d& point_px) const;
+  cv::Point2d worldToCam(const cv::Point3d& point) const;
 
  public:
   const CameraModel model;

@@ -1,17 +1,19 @@
 #pragma once
 
-#include <rclcpp/rclcpp.hpp>
-
 #include <deque>
 #include <mutex>
 
-#include <uvdar_ros/utils/ros_logger.h>
-#include <uvdar/blink_processor/blink_processor.h>
-#include <uvdar_ros_msgs/msg/image_points_with_float_stamped.hpp>
+#include <rclcpp/rclcpp.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
 #include <sensor_msgs/msg/image.hpp>
 #include <cv_bridge/cv_bridge.hpp>
 #include <opencv2/imgproc.hpp>
+
+#include <uvdar_ros/utils/ros_logger.h>
+#include <uvdar/blink_processor/blink_processor.h>
+#include <uvdar/blink_processor/calibration.h>
+
+#include <uvdar_ros_msgs/msg/image_points_with_float_stamped.hpp>
 
 #include <mrs_lib/node.h>
 #include <mrs_lib/param_loader.h>
@@ -37,11 +39,14 @@ struct TrackerContext {
 
   mrs_lib::SubscriberHandler<MarkerPointMsg> sub_raw_points;
   mrs_lib::PublisherHandler<MarkerPointMsg> pub_detected_markers;
+
   mrs_lib::PublisherHandler<visualization_msgs::msg::MarkerArray> pub_rviz_markers;
   mrs_lib::PublisherHandler<sensor_msgs::msg::Image> pub_debug_image;
+
   MarkerPointMsg::ConstSharedPtr last_msg;
 
   std::unique_ptr<BlinkProcessor> blink_processor;
+  std::unique_ptr<CameraCalibration> camera_calib;
 
   std::shared_ptr<TimerType> timer;
   std::mutex mtx;
@@ -59,12 +64,16 @@ class BlinkProcessorComponent : public mrs_lib::Node {
   [[nodiscard]] bool checkLoadedParams_();
   [[nodiscard]] bool checkRosTopics_() const;
   [[nodiscard]] bool checkPatternsFile_();
+  [[nodiscard]] bool checkCameraCalibrationFiles_();
+
   [[nodiscard]] bool checkBlinkProcessorConfig_() const;
 
   [[nodiscard]] bool loadPatternsFile_();
   [[nodiscard]] bool initBlinkProcessor_();
 
   [[nodiscard]] bool initRosCommunication_();
+  void initRosSubscribers_(const size_t tracker_idx);
+  void initRosPublishers_(const size_t tracker_idx);
 
   void processRawPoints_(const int camera_idx);
 
@@ -88,7 +97,9 @@ class BlinkProcessorComponent : public mrs_lib::Node {
   std::string _patterns_file_path_;
   std::vector<std::string> _detected_raw_points_topics_;
   std::vector<std::string> _detected_markers_topics_;
+  std::vector<std::string> _camera_calib_files_;
   std::string _rviz_frame_id_;
+  bool _debug_mode_{false};
 
   std::vector<Sequence> _blinking_patterns_;
 

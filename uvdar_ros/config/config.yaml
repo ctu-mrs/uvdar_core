@@ -1,3 +1,6 @@
+# The order of camera input topics and camera calibration files should match,
+# as they are associated by their index in the list.
+
 uv_led_detector:
   camera_input_topics: ["/my_camera/pylon_ros2_camera_node/image_raw"] 
   detected_points_topics: ["/detected_points_out"]
@@ -16,6 +19,9 @@ uv_led_detector:
 blink_processor:
   patterns_file: "blinking_sequences/blinking_sequence.csv" # path to the file with blinking patterns
   detected_markers_topics: ["/detected_markers"] # topics with detected markers (coordinates and ID)
+  camera_calibration_file: ["camera_calibration/cam_calib_results.txt"]
+  rviz_frame_id: "pylon_camera" # frame ID for RViz visualization
+  debug: true # enable debug mode for additional logging and visualization
   allowed_BER_per_sequence: 1 # allowed Bit Error Rate per blinking sequence
   polynomial_degree: 4 # degree of the polynomial for trajectory fitting
   decay_factor: 0.2 # the factor for exponential decay of the weights of older detections in the trajectory calculation
