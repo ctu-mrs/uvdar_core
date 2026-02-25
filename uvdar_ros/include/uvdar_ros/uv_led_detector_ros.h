@@ -14,12 +14,14 @@
 
 #include <uvdar/uv_led_detector/uv_led_detector.h>
 #include <uvdar_ros/utils/ros_logger.h>
-#include <uvdar_ros_msgs/msg/image_points_with_float_stamped.hpp>
+
+#include <uvdar_ros_msgs/msg/image_point2d_array_stamped.hpp>
 
 namespace uvdar {
 
 using namespace std::literals::chrono_literals;
-using image_point_publisher_t = mrs_lib::PublisherHandler<uvdar_ros_msgs::msg::ImagePointsWithFloatStamped>;
+using RawImagePointArrayMsg   = uvdar_ros_msgs::msg::ImagePoint2dArrayStamped;
+using image_point_publisher_t = mrs_lib::PublisherHandler<RawImagePointArrayMsg>;
 
 /* CameraContext //{ */
 struct CameraContext {

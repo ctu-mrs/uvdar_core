@@ -1,4 +1,4 @@
 builtin_interfaces/Time stamp
 uint32 image_height
 uint32 image_width
-Point2DWithFloat[] points
+Point2d[] points

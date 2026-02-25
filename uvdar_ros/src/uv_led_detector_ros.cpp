@@ -164,12 +164,11 @@ void UvLedDetectorComponent::initRosPublishers_() {
   for (size_t i = 0; i < camera_count_; ++i) {
     auto& cam = cameras_.at(i);
 
-    cam.pub_detected_points =
-        mrs_lib::PublisherHandler<uvdar_ros_msgs::msg::ImagePointsWithFloatStamped>(pubopts, cam.detected_points_topic);
+    cam.pub_detected_points = mrs_lib::PublisherHandler<RawImagePointArrayMsg>(pubopts, cam.detected_points_topic);
 
     if (publish_sun_points_) {
-      cam.pub_sun_points = mrs_lib::PublisherHandler<uvdar_ros_msgs::msg::ImagePointsWithFloatStamped>(
-          pubopts, cam.detected_points_topic + "/sun");
+      cam.pub_sun_points =
+          mrs_lib::PublisherHandler<RawImagePointArrayMsg>(pubopts, cam.detected_points_topic + "/sun");
     }
 
 #ifdef DEBUG
@@ -307,12 +306,12 @@ void UvLedDetectorComponent::processImage_(const int image_index) {
 
 /* publishDetectedPoints_ //{ */
 void UvLedDetectorComponent::publishDetectedPoints_(const cv_bridge::CvImage& image, CameraContext& camera) {
-  uvdar_ros_msgs::msg::ImagePointsWithFloatStamped msg_detected;
+  RawImagePointArrayMsg msg_detected;
   msg_detected.stamp        = image.header.stamp;
   msg_detected.image_width  = image.image.cols;
   msg_detected.image_height = image.image.rows;
   for (const auto& detected_point : camera.detected_points) {
-    uvdar_ros_msgs::msg::Point2DWithFloat point;
+    uvdar_ros_msgs::msg::Point2d point;
     point.x = detected_point.x;
     point.y = detected_point.y;
     msg_detected.points.push_back(point);
@@ -323,12 +322,12 @@ void UvLedDetectorComponent::publishDetectedPoints_(const cv_bridge::CvImage& im
 
 /* publishSunPoints_ //{ */
 void UvLedDetectorComponent::publishSunPoints_(const cv_bridge::CvImage& image, CameraContext& camera) {
-  uvdar_ros_msgs::msg::ImagePointsWithFloatStamped msg_detected;
+  RawImagePointArrayMsg msg_detected;
   msg_detected.stamp        = image.header.stamp;
   msg_detected.image_width  = image.image.cols;
   msg_detected.image_height = image.image.rows;
   for (const auto& sun_point : camera.sun_points) {
-    uvdar_ros_msgs::msg::Point2DWithFloat point;
+    uvdar_ros_msgs::msg::Point2d point;
     point.x = sun_point.x;
     point.y = sun_point.y;
     msg_detected.points.push_back(point);

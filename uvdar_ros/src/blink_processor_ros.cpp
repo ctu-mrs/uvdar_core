@@ -366,9 +366,9 @@ void BlinkProcessorComponent::initRosSubscribers_(const size_t tracker_idx) {
   shopts.no_message_timeout                  = rclcpp::Duration::from_seconds(5.0);
   shopts.subscription_options.callback_group = receiving_callback_group_;
 
-  tracker.sub_raw_points = mrs_lib::SubscriberHandler<MarkerPointMsg>(
+  tracker.sub_raw_points = mrs_lib::SubscriberHandler<RawImagePointArrayMsg>(
       shopts, tracker.raw_points_topic,
-      [camera_idx = tracker_idx, this](const MarkerPointMsg::ConstSharedPtr& points_msg) {
+      [camera_idx = tracker_idx, this](const RawImagePointArrayMsg::ConstSharedPtr& points_msg) {
         auto& tracker = trackers_[camera_idx];
         {
           std::lock_guard<std::mutex> lk(tracker.mtx);
@@ -384,10 +384,10 @@ void BlinkProcessorComponent::initRosPublishers_(const size_t tracker_idx) {
   auto& tracker = trackers_.at(tracker_idx);
 
   mrs_lib::PublisherHandlerOptions pubopts;
-  pubopts.node                 = node_;
-  pubopts.qos                  = rclcpp::QoS(1);
-  tracker.pub_detected_markers = mrs_lib::PublisherHandler<uvdar_ros_msgs::msg::ImagePointsWithFloatStamped>(
-      pubopts, tracker.detected_markers_topic);
+  pubopts.node = node_;
+  pubopts.qos  = rclcpp::QoS(1);
+  tracker.pub_detected_markers =
+      mrs_lib::PublisherHandler<MarkerPointArrayMsg>(pubopts, tracker.detected_markers_topic);
 
   if (_debug_mode_) {
     tracker.rviz_markers_topic = tracker.detected_markers_topic + "/rviz";
@@ -404,7 +404,7 @@ void BlinkProcessorComponent::initRosPublishers_(const size_t tracker_idx) {
 /* processRawPoints_ //{ */
 void BlinkProcessorComponent::processRawPoints_(const int camera_idx) {
   auto& tracker = trackers_[camera_idx];
-  MarkerPointMsg::ConstSharedPtr msg;
+  RawImagePointArrayMsg::ConstSharedPtr msg;
   {
     std::lock_guard<std::mutex> lk(tracker.mtx);
     msg              = tracker.last_msg;
@@ -455,7 +455,7 @@ TimePoint BlinkProcessorComponent::rosTimeToTimePoint_(const builtin_interfaces:
 void BlinkProcessorComponent::publishDetectedMarkers_(const std::vector<TrackedMarker>& markers,
                                                       TrackerContext& tracker,
                                                       const builtin_interfaces::msg::Time& time_stamp) {
-  MarkerPointMsg msg;
+  MarkerPointArrayMsg msg;
   msg.stamp = time_stamp;
   msg.points.reserve(markers.size());
   for (const auto& marker : markers) {
@@ -465,11 +465,11 @@ void BlinkProcessorComponent::publishDetectedMarkers_(const std::vector<TrackedM
     // }
 
     auto world_point = tracker.camera_calib->camToWorld(marker.last_point.point);
-    uvdar_ros_msgs::msg::Point2DWithFloat point;
-    point.x     = world_point.x;
-    point.y     = world_point.y;
-    point.z     = world_point.z;
-    point.value = static_cast<double>(marker.id);
+    MarkerPointMsg point;
+    point.x  = world_point.x;
+    point.y  = world_point.y;
+    point.z  = world_point.z;
+    point.id = marker.id;
     msg.points.push_back(point);
   }
 

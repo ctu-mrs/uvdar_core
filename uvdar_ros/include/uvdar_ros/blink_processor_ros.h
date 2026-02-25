@@ -13,7 +13,8 @@
 #include <uvdar/blink_processor/blink_processor.h>
 #include <uvdar/blink_processor/calibration.h>
 
-#include <uvdar_ros_msgs/msg/image_points_with_float_stamped.hpp>
+#include <uvdar_ros_msgs/msg/identified_point3d_array_stamped.hpp>
+#include <uvdar_ros_msgs/msg/image_point2d_array_stamped.hpp>
 
 #include <mrs_lib/node.h>
 #include <mrs_lib/param_loader.h>
@@ -29,21 +30,23 @@ typedef mrs_lib::ThreadTimer TimerType;
 namespace uvdar::blink_processor {
 
 using namespace std::literals::chrono_literals;
-using image_point_publisher_t = mrs_lib::PublisherHandler<uvdar_ros_msgs::msg::ImagePointsWithFloatStamped>;
-using MarkerPointMsg          = uvdar_ros_msgs::msg::ImagePointsWithFloatStamped;
+
+using RawImagePointArrayMsg = uvdar_ros_msgs::msg::ImagePoint2dArrayStamped;
+using MarkerPointMsg        = uvdar_ros_msgs::msg::IdentifiedPoint3d;
+using MarkerPointArrayMsg   = uvdar_ros_msgs::msg::IdentifiedPoint3dArrayStamped;
 
 struct TrackerContext {
   std::string raw_points_topic;
   std::string detected_markers_topic;
   std::string rviz_markers_topic;
 
-  mrs_lib::SubscriberHandler<MarkerPointMsg> sub_raw_points;
-  mrs_lib::PublisherHandler<MarkerPointMsg> pub_detected_markers;
+  mrs_lib::SubscriberHandler<RawImagePointArrayMsg> sub_raw_points;
+  mrs_lib::PublisherHandler<MarkerPointArrayMsg> pub_detected_markers;
 
   mrs_lib::PublisherHandler<visualization_msgs::msg::MarkerArray> pub_rviz_markers;
   mrs_lib::PublisherHandler<sensor_msgs::msg::Image> pub_debug_image;
 
-  MarkerPointMsg::ConstSharedPtr last_msg;
+  RawImagePointArrayMsg::ConstSharedPtr last_msg;
 
   std::unique_ptr<BlinkProcessor> blink_processor;
   std::unique_ptr<CameraCalibration> camera_calib;

@@ -24,8 +24,10 @@ foreach(DEP IN LISTS DEPENDENCIES)
 endforeach()
 
 set(MSG_FILES
-  "msg/ImagePointsWithFloatStamped.msg"
-  "msg/Point2DWithFloat.msg"
+  "msg/ImagePoint2dArrayStamped.msg"
+  "msg/Point2d.msg"
+  "msg/IdentifiedPoint3d.msg"
+  "msg/IdentifiedPoint3dArrayStamped.msg"
 )
 
 rosidl_generate_interfaces(${PROJECT_NAME}
