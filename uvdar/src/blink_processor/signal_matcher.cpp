@@ -4,7 +4,7 @@ namespace uvdar::blink_processor {
 
 /* SignalMatcher constructor //{ */
 SignalMatcher::SignalMatcher(const SignalMatcherConfig& config, const std::vector<Sequence>& sequences) : cfg_(config) {
-  if (2 * cfg_.seq.blinking_patterns_length >= 64) {
+  if (2 * cfg_.seq.blinking_patterns_length > 64) {
     throw std::runtime_error("[UVDARBlinkProcessor]: Maximum sequence size is bigger than 32 bits.");
   }
   initReferenceSignalCodes_(sequences);
