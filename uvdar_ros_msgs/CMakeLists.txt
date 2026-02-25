@@ -28,8 +28,6 @@ set(MSG_FILES
   "msg/Point2DWithFloat.msg"
 )
 
-
-
 rosidl_generate_interfaces(${PROJECT_NAME}
   ${MSG_FILES}
   DEPENDENCIES 
