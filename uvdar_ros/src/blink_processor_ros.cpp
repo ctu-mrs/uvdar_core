@@ -17,36 +17,24 @@ BlinkProcessorComponent::BlinkProcessorComponent(rclcpp::NodeOptions options)
   node_   = this_node_ptr();
   logger_ = std::make_shared<RosLogger>(node_->get_logger());
 
-  if (!loadParams_()) {
-    throw std::runtime_error("Failed to load parameters from the config file!");
-  }
+  loadParams_();
 
-  if (!checkLoadedParams_()) {
-    throw std::runtime_error("Some loaded parameters are not valid!");
-  }
+  checkLoadedParams_();
 
-  if (!loadPatternsFile_()) {
-    throw std::runtime_error("Failed to load blinking patterns!");
-  }
+  loadPatternsFile_();
 
-  if (!checkCameraCalibrationFiles_()) {
-    throw std::runtime_error("Camera calibration files are not valid!");
-  }
+  checkCameraCalibrationFiles_();
 
-  if (!initBlinkProcessor_()) {
-    throw std::runtime_error("Failed to initialize blink processor!");
-  }
+  initBlinkProcessor_();
 
-  if (!initRosCommunication_()) {
-    throw std::runtime_error("Failed to initialize ROS communication!");
-  }
+  initRosCommunication_();
 
   RCLCPP_INFO(node_->get_logger(), "BlinkProcessor node initialized successfully.");
 }
 //}
 
 /* loadParams_ //{ */
-bool BlinkProcessorComponent::loadParams_() {
+void BlinkProcessorComponent::loadParams_() {
   param_loader_ = std::make_shared<mrs_lib::ParamLoader>(node_, node_->get_name());
 
   std::vector<std::string> config_files;
@@ -61,15 +49,13 @@ bool BlinkProcessorComponent::loadParams_() {
     loadBlinkProcessorParams_();
   } catch (const std::exception& e) {
     RCLCPP_ERROR(node_->get_logger(), "Failed to load parameters: %s", e.what());
-    return false;
+    throw std::runtime_error("Failed to load parameters!");
   }
 
   if (!param_loader_->loadedSuccessfully()) {
     RCLCPP_ERROR(node_->get_logger(), "Some compulsory parameters were not loaded successfully!");
-    return false;
+    throw std::runtime_error("Failed to load parameters!");
   }
-
-  return true;
 }
 //}
 
@@ -103,22 +89,21 @@ void BlinkProcessorComponent::loadBlinkProcessorParams_() {
 //}
 
 /* checkLoadedParams_ //{ */
-bool BlinkProcessorComponent::checkLoadedParams_() {
+void BlinkProcessorComponent::checkLoadedParams_() {
   if (!checkRosTopics_()) {
     RCLCPP_ERROR(node_->get_logger(), "Some ROS topics are not defined!");
-    return false;
+    throw std::runtime_error("Some ROS topics are not defined!");
   }
 
   if (!checkPatternsFile_()) {
     RCLCPP_ERROR(node_->get_logger(), "Blinking patterns file is not valid!");
-    return false;
+    throw std::runtime_error("Blinking patterns file is not valid!");
   }
 
   if (!checkBlinkProcessorConfig_()) {
     RCLCPP_ERROR(node_->get_logger(), "Blink processor configuration parameters are not valid!");
-    return false;
+    throw std::runtime_error("Blink processor configuration parameters are not valid!");
   }
-  return true;
 }
 //}
 
@@ -179,16 +164,16 @@ bool BlinkProcessorComponent::checkPatternsFile_() {
 //}
 
 /* checkCameraCalibrationFiles_ */
-bool BlinkProcessorComponent::checkCameraCalibrationFiles_() {
+void BlinkProcessorComponent::checkCameraCalibrationFiles_() {
   if (_camera_calib_files_.empty()) {
     RCLCPP_ERROR(node_->get_logger(), "No camera calibration files specified!");
-    return false;
+    throw std::runtime_error("No camera calibration files specified!");
   }
 
   if (_camera_calib_files_.size() != _detected_raw_points_topics_.size()) {
     RCLCPP_ERROR(node_->get_logger(),
                  "The camera calibration files count must match the detected points topics count!");
-    return false;
+    throw std::runtime_error("Camera calibration files count does not match detected points topics count!");
   }
 
   for (auto& calib_file : _camera_calib_files_) {
@@ -199,7 +184,7 @@ bool BlinkProcessorComponent::checkCameraCalibrationFiles_() {
         package_share_dir = ament_index_cpp::get_package_share_directory("uvdar_ros");
       } catch (const std::exception& e) {
         RCLCPP_ERROR(node_->get_logger(), "Failed to find package 'uvdar_ros': %s", e.what());
-        return false;
+        throw std::runtime_error("Failed to find package 'uvdar_ros': " + std::string(e.what()));
       }
       file_path = std::filesystem::path(package_share_dir) / "config" / calib_file;
     }
@@ -211,13 +196,11 @@ bool BlinkProcessorComponent::checkCameraCalibrationFiles_() {
                    "as an absolute path; "
                    "otherwise, it is treated as relative to the 'config' directory of the 'uvdar_ros' package.",
                    calib_file.c_str());
-      return false;
+      throw std::runtime_error("Camera calibration file '" + calib_file + "' does not exist or is not readable!");
     }
 
     calib_file = file_path.string();
   }
-
-  return true;
 }
 //}
 
@@ -278,11 +261,11 @@ bool BlinkProcessorComponent::checkBlinkProcessorConfig_() const {
 //}
 
 /* loadPatternsFile_ //{ */
-bool BlinkProcessorComponent::loadPatternsFile_() {
+void BlinkProcessorComponent::loadPatternsFile_() {
   std::ifstream file(_patterns_file_path_);
   if (!file.is_open()) {
     RCLCPP_ERROR(node_->get_logger(), "Failed to open patterns file '%s'!", _patterns_file_path_.c_str());
-    return false;
+    throw std::runtime_error("Failed to open patterns file: '" + _patterns_file_path_ + "'!");
   }
 
   _blinking_patterns_.clear();
@@ -304,13 +287,15 @@ bool BlinkProcessorComponent::loadPatternsFile_() {
         int val = std::stoi(token);
         if (val != 0 && val != 1) {
           RCLCPP_ERROR(node_->get_logger(), "Invalid value '%s' on line %d — expected 0 or 1", token.c_str(), line_num);
-          return false;
+          throw std::runtime_error("Invalid value '" + token + "' on line " + std::to_string(line_num) +
+                                   " — expected 0 or 1");
         }
         seq.push_back(val != 0);
       } catch (const std::exception& e) {
         RCLCPP_ERROR(node_->get_logger(), "Invalid value '%s' on line %d of patterns file: %s", token.c_str(), line_num,
                      e.what());
-        return false;
+        throw std::runtime_error("Invalid value '" + token + "' on line " + std::to_string(line_num) +
+                                 " of patterns file: " + e.what());
       }
     }
     _blinking_patterns_.push_back(seq);
@@ -318,20 +303,19 @@ bool BlinkProcessorComponent::loadPatternsFile_() {
 
   if (_blinking_patterns_.empty()) {
     RCLCPP_ERROR(node_->get_logger(), "No patterns found in file '%s'!", _patterns_file_path_.c_str());
-    return false;
+    throw std::runtime_error("No patterns found in file '" + _patterns_file_path_ + "'!");
   }
 
   RCLCPP_INFO(node_->get_logger(), "Loaded %zu blinking patterns from '%s'", _blinking_patterns_.size(),
               _patterns_file_path_.c_str());
-  return true;
 }
 //}
 
 /* initBlinkProcessor_ //{ */
-bool BlinkProcessorComponent::initBlinkProcessor_() {
+void BlinkProcessorComponent::initBlinkProcessor_() {
   if (_blinking_patterns_.empty()) {
     RCLCPP_ERROR(node_->get_logger(), "Cannot initialize blink processor: no blinking patterns loaded!");
-    return false;
+    throw std::runtime_error("Cannot initialize blink processor: no blinking patterns loaded!");
   }
 
   camera_count_ = _detected_raw_points_topics_.size();
@@ -346,15 +330,14 @@ bool BlinkProcessorComponent::initBlinkProcessor_() {
 
     if (!trackers_[i].blink_processor->setBlinkingPatterns(_blinking_patterns_)) {
       RCLCPP_ERROR(node_->get_logger(), "Failed to set blinking patterns in blink processor!");
-      return false;
+      throw std::runtime_error("Failed to set blinking patterns in blink processor!");
     }
   }
-  return true;
 }
 //}
 
 /* initRosCommunication_ //{ */
-bool BlinkProcessorComponent::initRosCommunication_() {
+void BlinkProcessorComponent::initRosCommunication_() {
   receiving_callback_group_  = node_->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
   processing_callback_group_ = node_->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
 
@@ -362,7 +345,6 @@ bool BlinkProcessorComponent::initRosCommunication_() {
     initRosSubscribers_(i);
     initRosPublishers_(i);
   }
-  return true;
 }
 //}
 
