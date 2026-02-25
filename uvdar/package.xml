@@ -17,6 +17,7 @@
   <depend>cv_bridge</depend>
   <depend>libvulkan-dev</depend>
   <depend>glslang-tools</depend>
+  <depend>libboost-math-dev</depend>
 
   <test_depend>ament_cmake_gtest</test_depend>
 

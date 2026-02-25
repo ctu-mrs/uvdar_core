@@ -7,8 +7,8 @@
 namespace uvdar::blink_processor {
 
 /* ExtendedSearch constructor //{ */
-ExtendedSearch::ExtendedSearch(const ExtendedSearchConfig& cfg) : cfg_(cfg) {
-  poly_predictor_ = std::make_unique<PolynomialRegressionPredictor>(cfg.poly_reg);
+ExtendedSearch::ExtendedSearch(const ExtendedSearchConfig& cfg)
+    : cfg_(cfg), poly_predictor_(std::make_unique<PolynomialRegressionPredictor>(cfg.poly_reg)) {
 }
 //}
 
