@@ -24,7 +24,8 @@ int SignalMatcher::matchSignal(const Sequence& signal) const {
   for (size_t seq_id = 0; seq_id < reference_signal_codes_.size(); ++seq_id) {
     const uint64_t seq = reference_signal_codes_[seq_id];
 
-    for (size_t phase_offset = 0; phase_offset < cfg_.seq.blinking_patterns_length; ++phase_offset) {
+    for (size_t phase_offset = 0; phase_offset < static_cast<size_t>(cfg_.seq.blinking_patterns_length);
+         ++phase_offset) {
 
       uint32_t current_window = static_cast<uint32_t>((seq >> phase_offset) & mask);
 
@@ -58,7 +59,7 @@ int SignalMatcher::computeHammingDistance_(const uint32_t x, const uint32_t y) c
 /* packSignalPrefix_ //{ */
 uint32_t SignalMatcher::packSignalPrefix_(const Sequence& signal) const {
   uint32_t v = 0;
-  for (size_t i = 0; i < cfg_.seq.blinking_patterns_length; ++i) {
+  for (size_t i = 0; i < static_cast<size_t>(cfg_.seq.blinking_patterns_length); ++i) {
     v |= (uint32_t(signal[i]) << i); // LSB-first
   }
   return v;
