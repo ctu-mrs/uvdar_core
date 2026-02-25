@@ -11,6 +11,8 @@
 
 namespace uvdar::blink_processor {
 
+using namespace std::literals::chrono_literals;
+
 /* BlinkProcessorComponent //{ */
 BlinkProcessorComponent::BlinkProcessorComponent(rclcpp::NodeOptions options)
     : mrs_lib::Node("BlinkProcessor", options) {

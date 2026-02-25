@@ -29,8 +29,6 @@ typedef mrs_lib::ThreadTimer TimerType;
 
 namespace uvdar::blink_processor {
 
-using namespace std::literals::chrono_literals;
-
 using RawImagePointArrayMsg = uvdar_ros_msgs::msg::ImagePoint2dArrayStamped;
 using MarkerPointMsg        = uvdar_ros_msgs::msg::IdentifiedPoint3d;
 using MarkerPointArrayMsg   = uvdar_ros_msgs::msg::IdentifiedPoint3dArrayStamped;

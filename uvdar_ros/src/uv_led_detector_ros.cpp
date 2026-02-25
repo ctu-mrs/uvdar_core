@@ -2,6 +2,8 @@
 
 namespace uvdar {
 
+using namespace std::literals::chrono_literals;
+
 /* UvLedDetectorComponent constructor //{ */
 UvLedDetectorComponent::UvLedDetectorComponent(rclcpp::NodeOptions options) : mrs_lib::Node("UvLedDetector", options) {
   node_ = this_node_ptr();

@@ -19,7 +19,6 @@
 
 namespace uvdar {
 
-using namespace std::literals::chrono_literals;
 using RawImagePointArrayMsg   = uvdar_ros_msgs::msg::ImagePoint2dArrayStamped;
 using image_point_publisher_t = mrs_lib::PublisherHandler<RawImagePointArrayMsg>;
 
