@@ -111,16 +111,6 @@ PolynomialRegressionPredictor::computeNormalizedWeightVect(const std::vector<dou
 }
 //}
 
-/* computeWeightedMean_ //{ */
-double PolynomialRegressionPredictor::computeWeightedMean_(const double* values, const double* weights, int n) {
-  double weighted_sum = 0.0;
-  for (int i = 0; i < n; ++i)
-    weighted_sum += values[i] * weights[i];
-
-  return weighted_sum;
-}
-//}
-
 /* calculatePredictionInterval //{ */
 std::tuple<double, double> PolynomialRegressionPredictor::calculatePredictionInterval(
     const std::vector<double>& coordinate, const std::vector<double>& time, const std::vector<double>& weights,

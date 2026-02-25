@@ -32,8 +32,6 @@ class PolynomialRegressionPredictor {
  private:
   OnLedHistory extractLedOnHistory_(const std::vector<PointState>& tseries);
 
-  double computeWeightedMean_(const double* values, const double* weights, int n);
-
   double computeWeightedSumSquaredResiduals_(const Eigen::VectorXd& predictions, const std::vector<double>& values,
                                              const std::vector<double>& weights);
 
