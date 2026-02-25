@@ -78,11 +78,7 @@ struct SignalMatcherConfig {
 
 /* BlinkProcessorConfig //{ */
 struct BlinkProcessorConfig {
-  BlinkProcessorConfig();
-  BlinkProcessorConfig(const BlinkProcessorConfig& other);
-  BlinkProcessorConfig(BlinkProcessorConfig&& other) noexcept;
-  BlinkProcessorConfig& operator=(const BlinkProcessorConfig& other);
-  BlinkProcessorConfig& operator=(BlinkProcessorConfig&& other) noexcept;
+  BlinkProcessorConfig() = default;
 
   int allowed_BER_per_seq{0};
   int max_buffer_length{0};
@@ -93,10 +89,15 @@ struct BlinkProcessorConfig {
   int conf_prob_percentage{0};
   int max_predict_interval_px{0};
   cv::Point2d max_px_shift{0.0, 0.0};
-
   SequenceConfig seq;
-  AmiTrackerConfig ami_tracker;
-  SignalMatcherConfig signal_matcher;
+
+  SequenceConfig getSequenceConfig() const;
+  PolyRegressionConfig getPolyRegressionConfig() const;
+  LocalSearchConfig getLocalSearchConfig() const;
+  ExtendedSearchConfig getExtendedSearchConfig() const;
+  VerificationConfig getVerificationConfig() const;
+  AmiTrackerConfig getAmiTrackerConfig() const;
+  SignalMatcherConfig getSignalMatcherConfig() const;
 
   bool isConfigValid(size_t pattern_size) const;
   int getPatternLength() const;
@@ -106,9 +107,6 @@ struct BlinkProcessorConfig {
   BlinkProcessorConfig& setSequence(SequenceConfig cfg);
   BlinkProcessorConfig& setVerification(VerificationConfig cfg);
   BlinkProcessorConfig& setMaxShift(Shift2d shift);
-
- private:
-  void updateChildConfigs_();
 };
 //}
 

@@ -24,8 +24,8 @@ bool BlinkProcessor::setBlinkingPatterns(const std::vector<Sequence>& sequences)
     return false;
   }
 
-  ami_tracker_    = std::make_unique<AmiTracker>(cfg_.ami_tracker, logger_);
-  signal_matcher_ = std::make_unique<SignalMatcher>(cfg_.signal_matcher, blinking_patterns_);
+  ami_tracker_    = std::make_unique<AmiTracker>(cfg_.getAmiTrackerConfig(), logger_);
+  signal_matcher_ = std::make_unique<SignalMatcher>(cfg_.getSignalMatcherConfig(), blinking_patterns_);
   return true;
 }
 //}
