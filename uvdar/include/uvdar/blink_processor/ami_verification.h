@@ -19,13 +19,13 @@ class AmiVerification {
 
   void insertVirtualPointToSequence_(std::vector<PointState>& sequence, const TimePoint& time);
 
-  void addVirtualPointsToIdleSequences_(std::vector<SeqPtr> copy_active_tseries_buffer);
+  void addVirtualPointsToIdleSequences_(std::vector<SeqPtr>& copy_active_tseries_buffer);
 
   void enforceMaxBufferLength_(std::vector<PointState>& unmatched_points);
 
   void startNewSequencesForUnmatchedPoints_(std::vector<PointState>& unmatched_points);
 
-  void insertPointToSequence_(std::vector<PointState>& sequence, const PointState signal);
+  void insertPointToSequence_(std::vector<PointState>& sequence, const PointState& signal);
 
   int countNumConsecutiveZerosInTseries_(SeqPtr& tseries, const int max_num_zeros);
 

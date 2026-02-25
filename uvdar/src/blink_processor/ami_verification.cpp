@@ -25,7 +25,7 @@ void AmiVerification::run(std::vector<PointState>& unassigned_points, std::vecto
 //}
 
 /* addVirtualPointsToIdleSequences_ //{ */
-void AmiVerification::addVirtualPointsToIdleSequences_(std::vector<SeqPtr> copy_active_tseries_buffer) {
+void AmiVerification::addVirtualPointsToIdleSequences_(std::vector<SeqPtr>& copy_active_tseries_buffer) {
   for (auto seq : copy_active_tseries_buffer) {
     auto& tseries         = *seq;
     auto& last_point_time = tseries.back().insert_time;
@@ -46,7 +46,7 @@ void AmiVerification::insertVirtualPointToSequence_(std::vector<PointState>& seq
 //}
 
 /* insertPointToSequence_ //{ */
-void AmiVerification::insertPointToSequence_(std::vector<PointState>& sequence, const PointState signal) {
+void AmiVerification::insertPointToSequence_(std::vector<PointState>& sequence, const PointState& signal) {
   sequence.push_back(signal);
   if (sequence.size() > cfg_.seq.getMaxSequenceLength()) {
     sequence.erase(sequence.begin());
