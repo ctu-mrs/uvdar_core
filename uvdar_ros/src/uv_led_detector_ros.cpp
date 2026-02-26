@@ -119,8 +119,7 @@ void UvLedDetectorComponent::checkDetectedPointsTopics_() {
 
 /* initRosInterface_ //{ */
 void UvLedDetectorComponent::initRosInterface_() {
-  image_callback_group_      = node_->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
-  processing_callback_group_ = node_->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
+  image_callback_group_ = node_->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
 
   initRosProcessImgSubs_();
   initRosPublishers_();
@@ -132,9 +131,13 @@ void UvLedDetectorComponent::initRosProcessImgSubs_() {
   for (size_t i = 0; i < camera_count_; ++i) {
     auto& cam = cameras_.at(i);
 
-    cam.timer = node_->create_wall_timer(
-        std::chrono::milliseconds(1), [this, i]() { processImage_(i); }, processing_callback_group_);
-    cam.timer->cancel();
+    mrs_lib::TimerHandlerOptions timer_opts_start;
+    timer_opts_start.node      = node_;
+    timer_opts_start.autostart = true;
+
+    cam.timer = std::make_shared<TimerType>(timer_opts_start, rclcpp::Rate(std::chrono::milliseconds(1)),
+                                            [this, i]() { processImage_(i); });
+    cam.timer->stop();
 
     mrs_lib::SubscriberHandlerOptions shopts;
     shopts.node                                = node_;
@@ -150,7 +153,7 @@ void UvLedDetectorComponent::initRosProcessImgSubs_() {
             std::lock_guard<std::mutex> lk(cam.mtx);
             cam.last_msg = image_msg;
           }
-          cameras_[image_idx].timer->reset();
+          cameras_[image_idx].timer->start();
         });
     // clang-format on
   }
@@ -264,7 +267,7 @@ void UvLedDetectorComponent::processImage_(const int image_index) {
   }
 
   if (!msg) {
-    cam.timer->cancel();
+    cam.timer->stop();
     return;
   }
 
@@ -302,7 +305,7 @@ void UvLedDetectorComponent::processImage_(const int image_index) {
   publishSunPointsImage_(*cv_ptr, cam);
 #endif
 
-  cam.timer->cancel();
+  cam.timer->stop();
 }
 //}
 

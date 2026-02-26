@@ -17,6 +17,12 @@
 
 #include <uvdar_ros_msgs/msg/image_point2d_array_stamped.hpp>
 
+#if USE_ROS_TIMER == 1
+typedef mrs_lib::ROSTimer TimerType;
+#else
+typedef mrs_lib::ThreadTimer TimerType;
+#endif
+
 namespace uvdar {
 
 using RawImagePointArrayMsg   = uvdar_ros_msgs::msg::ImagePoint2dArrayStamped;
@@ -33,7 +39,7 @@ struct CameraContext {
   mrs_lib::PublisherHandler<sensor_msgs::msg::Image> pub_debug_dp_image;
   mrs_lib::PublisherHandler<sensor_msgs::msg::Image> pub_debug_sp_image;
 
-  rclcpp::TimerBase::SharedPtr timer;
+  std::shared_ptr<TimerType> timer;
   sensor_msgs::msg::Image::ConstSharedPtr last_msg;
 
   cv::Size image_size{0, 0};
@@ -79,7 +85,6 @@ class UvLedDetectorComponent : public mrs_lib::Node {
  private:
   rclcpp::Node::SharedPtr node_;
   rclcpp::CallbackGroup::SharedPtr image_callback_group_{nullptr};
-  rclcpp::CallbackGroup::SharedPtr processing_callback_group_{nullptr};
 
   std::shared_ptr<RosLogger> logger_;
   std::shared_ptr<mrs_lib::ParamLoader> param_loader_;
