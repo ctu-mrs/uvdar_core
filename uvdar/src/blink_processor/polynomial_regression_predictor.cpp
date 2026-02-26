@@ -68,13 +68,9 @@ PredictionStatistics PolynomialRegressionPredictor::selectStatisticsValues(const
   PredictionStatistics stats;
   stats.time_pred         = insert_time;
   stats.poly_reg_computed = false;
-  size_t poly_order       = static_cast<size_t>(cfg_.poly_order);
 
   if (coordinates.size() <= 1) {
     return stats;
-  }
-  if (coordinates.size() < poly_order) {
-    poly_order = coordinates.size() - 2;
   }
 
   std::tie(stats.predicted_coordinate, stats.confidence_interval) =

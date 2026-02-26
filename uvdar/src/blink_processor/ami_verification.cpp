@@ -56,6 +56,7 @@ void AmiVerification::insertPointToSequence_(std::vector<PointState>& sequence, 
 
 /* enforceMaxBufferLength_ //{ */
 void AmiVerification::enforceMaxBufferLength_(std::vector<PointState>& unmatched_points) {
+  std::scoped_lock lock(active_tseries_buffer_->mtx);
   if (active_tseries_buffer_->buffer.size() > static_cast<size_t>(cfg_.max_buffer_length)) {
     logger_.error("[AmiVerification]: The maximal excepted buffer length of " + std::to_string(cfg_.max_buffer_length) +
                   " is reached! " + std::to_string(unmatched_points.size()) +
