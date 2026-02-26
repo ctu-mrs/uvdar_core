@@ -94,11 +94,3 @@ TEST(SignalMatcher, LongerSequenceThan32bits) {
   EXPECT_THROW({ SignalMatcher matcher(cfg, seqs); }, std::runtime_error);
 }
 //}
-
-int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
-  srand(time(NULL));
-
-  testing::InitGoogleTest(&argc, argv);
-
-  return RUN_ALL_TESTS();
-}

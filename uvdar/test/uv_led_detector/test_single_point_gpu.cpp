@@ -50,12 +50,3 @@ TEST(UvLedDetector, GPU_singlePoint) {
   EXPECT_NEAR(detected_points[0].y, H / 2, 1); // 1px tolerance
 }
 //}
-
-int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
-  // initialize the random number generator
-  srand(time(NULL));
-
-  testing::InitGoogleTest(&argc, argv);
-
-  return RUN_ALL_TESTS();
-}

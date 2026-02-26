@@ -140,11 +140,3 @@ TEST(LocalSearch, MultiplePointsAndMatchedSeries) {
   EXPECT_DOUBLE_EQ(third_seq->front().point.y, 200.0);
 }
 //}
-
-int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
-  srand(time(NULL));
-
-  testing::InitGoogleTest(&argc, argv);
-
-  return RUN_ALL_TESTS();
-}

@@ -93,11 +93,3 @@ TEST(ExtendedSearch, DiverseTrajectories_Poly4) {
   EXPECT_NEAR(original_tseries_buffer[0]->back().point.y, 900.0, 1.0);
 }
 //}
-
-int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
-  srand(time(NULL));
-
-  testing::InitGoogleTest(&argc, argv);
-
-  return RUN_ALL_TESTS();
-}

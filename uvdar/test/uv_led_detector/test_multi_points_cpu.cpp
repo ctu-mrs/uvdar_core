@@ -174,11 +174,3 @@ TEST(UvLedDetector, CPU_MultiplePoints_3Cameras_10Tests) {
   EXPECT_TRUE(all_ok.load()) << "One or more trials failed detection or ground truth comparison.";
 }
 //}
-
-int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
-  srand(time(NULL));
-
-  testing::InitGoogleTest(&argc, argv);
-
-  return RUN_ALL_TESTS();
-}
