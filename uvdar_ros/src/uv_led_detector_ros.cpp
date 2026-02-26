@@ -83,7 +83,7 @@ void UvLedDetectorComponent::initDetector_() {
   cameras_.clear();
   cameras_.resize(camera_count_);
   for (size_t i = 0; i < camera_count_; ++i) {
-    cameras_[i].uv_detector           = std::make_unique<UvLedDetector>(*logger_, detect_cfg_);
+    cameras_[i].uv_detector           = std::make_unique<UvLedDetector>(logger_.get(), detect_cfg_);
     cameras_[i].camera_topic          = camera_topics_[i];
     cameras_[i].detected_points_topic = detected_points_topics_[i];
   }

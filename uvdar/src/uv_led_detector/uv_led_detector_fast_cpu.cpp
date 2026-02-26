@@ -3,7 +3,7 @@
 namespace uvdar {
 
 /* UvdarLedDetectFastCpu constructor //{ */
-UvdarLedDetectFastCpu::UvdarLedDetectFastCpu(UvLedDetectConfig cfg, ILogger& logger)
+UvdarLedDetectFastCpu::UvdarLedDetectFastCpu(UvLedDetectConfig cfg, ILogger* logger)
     : UvLedDetectFastBase(std::move(cfg), logger) {
   initFast_();
 }
@@ -99,12 +99,12 @@ void UvdarLedDetectFastCpu::clearMarks_() {
 bool UvdarLedDetectFastCpu::validateMask_(const int mask_id) const noexcept {
   if (mask_id >= 0) {
     if (mask_id >= static_cast<int>(cfg_.masks.size())) {
-      logger_.error("[UVDARDetectorFastCpu]: Mask index " + std::to_string(mask_id) +
-                    " is greater than the current number of loaded masks!");
+      logger_->error("[UVDARDetectorFastCpu]: Mask index " + std::to_string(mask_id) +
+                     " is greater than the current number of loaded masks!");
       return false;
     }
     if (image_curr_.size() != cfg_.masks[mask_id].size()) {
-      logger_.error("[UVDARDetectorFastCpu]: The size of the selected mask does not match the current image!");
+      logger_->error("[UVDARDetectorFastCpu]: The size of the selected mask does not match the current image!");
       return false;
     }
   }

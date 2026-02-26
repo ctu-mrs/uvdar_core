@@ -33,7 +33,7 @@ TEST(UvLedDetector, GPU_singlePoint) {
   cfg.threshold_sun       = 150;
   cfg.threshold_sun_dist  = 25;
   cfg.threshold_sun_merge = 20;
-  uvdar::UvdarLedDetectFastGpu uv_detector(cfg, logger);
+  uvdar::UvdarLedDetectFastGpu uv_detector(cfg, &logger);
 
   std::vector<cv::Point2i> detected_points;
   std::vector<cv::Point2i> sun_points;

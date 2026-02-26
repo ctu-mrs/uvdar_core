@@ -105,7 +105,7 @@ TEST(UvLedDetector, CPU_MultiplePoints_OneTrial) {
   cfg.threshold_sun_dist  = 25;
   cfg.threshold_sun_merge = 20;
   cfg.fast_ring_size      = 3; // this has no effect
-  uvdar::UvdarLedDetectFastCpu uv_detector(cfg, logger);
+  uvdar::UvdarLedDetectFastCpu uv_detector(cfg, &logger);
 
   bool success_flag;
   { success_flag = uv_detector.processImage(dummy_image, detected_points, sun_points); }
@@ -136,7 +136,7 @@ TEST(UvLedDetector, CPU_MultiplePoints_3Cameras_10Tests) {
   // Initialize detectors for each thread
   std::vector<std::unique_ptr<uvdar::UvdarLedDetectFastCpu>> detectors;
   for (int i = 0; i < NUM_THREADS; ++i) {
-    auto det = std::make_unique<uvdar::UvdarLedDetectFastCpu>(cfg, logger);
+    auto det = std::make_unique<uvdar::UvdarLedDetectFastCpu>(cfg, &logger);
 
     // We provide an initial size for OpenCL/Cuda buffer allocation
     cv::Mat init_img = cv::Mat::zeros(cv::Size(W, H), CV_8UC1);

@@ -52,12 +52,12 @@ class UvLedDetectFastBase {
   virtual void initGpuProgram(const cv::Mat image) = 0;
 
  protected:
-  explicit UvLedDetectFastBase(UvLedDetectConfig cfg, ILogger& logger) : cfg_(std::move(cfg)), logger_(logger) {
+  explicit UvLedDetectFastBase(UvLedDetectConfig cfg, ILogger* logger) : cfg_(std::move(cfg)), logger_(logger) {
   }
 
  protected:
   UvLedDetectConfig cfg_;
-  ILogger& logger_;
+  ILogger* logger_;
 };
 
 } // namespace uvdar

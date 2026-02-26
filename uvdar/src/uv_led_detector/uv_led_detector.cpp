@@ -3,7 +3,7 @@
 namespace uvdar {
 
 /* UvLedDetector constructor //{ */
-UvLedDetector::UvLedDetector(ILogger& logger, const UvLedDetectConfig& cfg) : logger_(logger), cfg_(cfg) {
+UvLedDetector::UvLedDetector(ILogger* logger, const UvLedDetectConfig& cfg) : logger_(logger), cfg_(cfg) {
   detector_ = makeUvLedDetector_();
 }
 //}
@@ -17,11 +17,11 @@ UvLedDetector::~UvLedDetector() {
 std::unique_ptr<UvLedDetectFastBase> UvLedDetector::makeUvLedDetector_() {
   if (cfg_.gpu) {
     ready_to_process_ = false;
-    logger_.info("[UVDARDetector]: Initializing FAST-based marker detection running on GPU...");
+    logger_->info("[UVDARDetector]: Initializing FAST-based marker detection running on GPU...");
     return std::make_unique<UvdarLedDetectFastGpu>(cfg_, logger_);
   } else {
     ready_to_process_ = true;
-    logger_.info("[UVDARDetector]: Initializing FAST-based marker detection running on CPU...");
+    logger_->info("[UVDARDetector]: Initializing FAST-based marker detection running on CPU...");
     return std::make_unique<UvdarLedDetectFastCpu>(cfg_, logger_);
   }
 }
@@ -33,7 +33,7 @@ bool UvLedDetector::detect(const cv::Mat& image, std::vector<cv::Point2i>& detec
   if (ready_to_process_) {
     return detector_->processImage(image, detected_points, sun_points);
   }
-  logger_.warn("[UvLedDetector]: Not ready to detect. The GPU program has not been initialized.");
+  logger_->warn("[UvLedDetector]: Not ready to detect. The GPU program has not been initialized.");
   return false;
 }
 //}

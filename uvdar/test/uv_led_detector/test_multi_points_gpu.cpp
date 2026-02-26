@@ -103,7 +103,7 @@ TEST(UvLedDetector, GPU_MultiplePoints_OneTrial) {
   cfg.threshold_sun       = 150;
   cfg.threshold_sun_dist  = 25;
   cfg.threshold_sun_merge = 20;
-  uvdar::UvdarLedDetectFastGpu uv_detector(cfg, logger);
+  uvdar::UvdarLedDetectFastGpu uv_detector(cfg, &logger);
   uv_detector.initGpuProgram(dummy_image);
 
   bool success_flag = uv_detector.processImage(dummy_image, detected_points, sun_points);
@@ -133,7 +133,7 @@ TEST(UvLedDetector, GPU_MultiplePoints_3Cameras_10Tests) {
   // Initialize detectors for each thread
   std::vector<std::unique_ptr<uvdar::UvdarLedDetectFastGpu>> detectors;
   for (int i = 0; i < NUM_THREADS; ++i) {
-    auto det = std::make_unique<uvdar::UvdarLedDetectFastGpu>(cfg, logger);
+    auto det = std::make_unique<uvdar::UvdarLedDetectFastGpu>(cfg, &logger);
 
     cv::Mat init_img = cv::Mat::zeros(cv::Size(W, H), CV_8UC1);
     det->initGpuProgram(init_img);

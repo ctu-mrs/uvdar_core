@@ -29,7 +29,7 @@ struct FastGpuResources {
 //}
 
 /* UvdarLedDetectFastCpu constructor //{ */
-UvdarLedDetectFastGpu::UvdarLedDetectFastGpu(UvLedDetectConfig cfg, ILogger& logger)
+UvdarLedDetectFastGpu::UvdarLedDetectFastGpu(UvLedDetectConfig cfg, ILogger* logger)
     : UvLedDetectFastBase(std::move(cfg), logger), gpu_mgr_(GpuContext::GetInstance()),
       gpu_resources_(std::make_unique<FastGpuResources>()) {
   logGpuProperties_();
@@ -61,7 +61,7 @@ void UvdarLedDetectFastGpu::scanImageForCandidates_(const cv::Mat& image, const 
                                                     std::vector<cv::Point2i>& detected_points,
                                                     std::vector<cv::Point2i>& sun_points) {
   if (!gpu_resources_->valid()) {
-    logger_.error("GPU Tensors not initialized! Skipping detection...");
+    logger_->error("GPU Tensors not initialized! Skipping detection...");
     return;
   }
 
@@ -273,12 +273,12 @@ void UvdarLedDetectFastGpu::greyToRgba_(const cv::Mat& gray, std::vector<uint8_t
 bool UvdarLedDetectFastGpu::validateMask_(const cv::Mat& image_curr, const int mask_id) const noexcept {
   if (mask_id >= 0) {
     if (mask_id >= static_cast<int>(cfg_.masks.size())) {
-      logger_.error("[UVDARDetectorFastGpu]: Mask index " + std::to_string(mask_id) +
-                    " is greater than the current number of loaded masks!");
+      logger_->error("[UVDARDetectorFastGpu]: Mask index " + std::to_string(mask_id) +
+                     " is greater than the current number of loaded masks!");
       return false;
     }
     if (image_curr.size() != cfg_.masks[mask_id].size()) {
-      logger_.error("[UVDARDetectorFastGpu]: The size of the selected mask does not match the current image!");
+      logger_->error("[UVDARDetectorFastGpu]: The size of the selected mask does not match the current image!");
       return false;
     }
   }
@@ -308,7 +308,7 @@ void UvdarLedDetectFastGpu::logGpuProperties_() {
     }
   };
 
-  logger_.info("[UVDARDetectorFastGpu]: Using GPU: " + gpu_name + " Type: " + deviceTypeToStr(props.deviceType));
+  logger_->info("[UVDARDetectorFastGpu]: Using GPU: " + gpu_name + " Type: " + deviceTypeToStr(props.deviceType));
 }
 //}
 

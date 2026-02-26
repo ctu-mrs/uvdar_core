@@ -32,9 +32,9 @@ TEST(UvLedDetector, CPU_RoiBreach) {
   cfg.threshold_sun       = 150;
   cfg.threshold_sun_dist  = 25;
   cfg.threshold_sun_merge = 20;
-  cfg.fast_ring_size      = 3; // this has no effect
+  cfg.fast_ring_size      = 3; // this has no effect for cpu version
 
-  uvdar::UvdarLedDetectFastCpu uv_detector(cfg, logger);
+  uvdar::UvdarLedDetectFastCpu uv_detector(cfg, &logger);
 
   std::vector<cv::Point2i> detected_points;
   std::vector<cv::Point2i> sun_points;
@@ -60,9 +60,9 @@ TEST(UvLedDetector, CPU_singlePoint) {
   cfg.threshold_sun       = 150;
   cfg.threshold_sun_dist  = 25;
   cfg.threshold_sun_merge = 20;
-  cfg.fast_ring_size      = 3; // this has no effect
+  cfg.fast_ring_size      = 3; // this has no effect for cpu version
 
-  uvdar::UvdarLedDetectFastCpu uv_detector(cfg, logger);
+  uvdar::UvdarLedDetectFastCpu uv_detector(cfg, &logger);
 
   std::vector<cv::Point2i> detected_points;
   std::vector<cv::Point2i> sun_points;

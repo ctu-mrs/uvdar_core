@@ -6,20 +6,14 @@ namespace uvdar {
 
 class UvdarLedDetectFastCpu : public UvLedDetectFastBase {
  public:
-  explicit UvdarLedDetectFastCpu(UvLedDetectConfig cfg, ILogger& logger);
+  explicit UvdarLedDetectFastCpu(UvLedDetectConfig cfg, ILogger* logger);
   bool processImage(const cv::Mat& image, std::vector<cv::Point2i>& detected_points,
                     std::vector<cv::Point2i>& sun_points, int mask_id = -1) override;
   void initGpuProgram([[maybe_unused]] const cv::Mat image) override;
 
  private:
-  /**
-   * @brief Resets a helper matrix used for suppression of clustered bright pixels
-   */
   void clearMarks_();
 
-  /**
-   * @brief Initializes points used in FAST-like bright point detection
-   */
   void initFast_();
   void initOnFirstFrame_();
   void initFastPointsSet_();

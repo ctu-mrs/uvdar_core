@@ -22,10 +22,9 @@ struct Cluster {
   int avg_y;
 };
 
-
 class UvdarLedDetectFastGpu : public UvLedDetectFastBase {
  public:
-  explicit UvdarLedDetectFastGpu(UvLedDetectConfig cfg, ILogger& logger);
+  explicit UvdarLedDetectFastGpu(UvLedDetectConfig cfg, ILogger* logger);
   ~UvdarLedDetectFastGpu();
   bool processImage(const cv::Mat& image, std::vector<cv::Point2i>& detected_points,
                     std::vector<cv::Point2i>& sun_points, int mask_id = -1) override;
