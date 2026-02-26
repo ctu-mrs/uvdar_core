@@ -21,7 +21,7 @@ class AmiTracker {
   std::vector<bool> extractLedWindowForPatternMatch_(const SeqPtr& tseries, const size_t window_size) const;
 
  private:
-  const AmiTrackerConfig cfg_;
+  AmiTrackerConfig cfg_;
   ILogger* logger_;
 
   std::shared_ptr<TseriesBuffer> active_tseries_buffer_;

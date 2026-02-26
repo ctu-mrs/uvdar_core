@@ -20,7 +20,7 @@ class UvLedDetector {
 
  private:
   ILogger* logger_;
-  const UvLedDetectConfig cfg_;
+  UvLedDetectConfig cfg_;
   bool ready_to_process_{false};
 
   std::unique_ptr<UvLedDetectFastBase> detector_;

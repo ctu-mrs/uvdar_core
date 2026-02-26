@@ -22,7 +22,7 @@ class SignalMatcher {
   uint32_t packSignalPrefix_(const Sequence& signal) const;
 
  private:
-  const SignalMatcherConfig cfg_;
+  SignalMatcherConfig cfg_;
 
   std::vector<uint64_t> reference_signal_codes_;
 };

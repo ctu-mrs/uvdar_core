@@ -36,7 +36,7 @@ class PolynomialRegressionPredictor {
                                              const std::vector<double>& weights);
 
  private:
-  const PolyRegressionConfig cfg_;
+  PolyRegressionConfig cfg_;
 
   Eigen::Matrix<double, Eigen::Dynamic, 5> X_vandermonde_;
   Eigen::VectorXd y_workspace_;

@@ -21,7 +21,7 @@ class LocalSearch {
   void insertPointToSequence_(std::vector<PointState>& sequence, const PointState signal);
 
  private:
-  const LocalSearchConfig cfg_;
+  LocalSearchConfig cfg_;
 };
 
 } // namespace uvdar::blink_processor

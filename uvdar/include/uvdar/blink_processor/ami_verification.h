@@ -33,7 +33,7 @@ class AmiVerification {
   void printBuffer_() const;
 
  private:
-  const VerificationConfig cfg_;
+  VerificationConfig cfg_;
   std::shared_ptr<TseriesBuffer> active_tseries_buffer_;
   ILogger* logger_;
 };
