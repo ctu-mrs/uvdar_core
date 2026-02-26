@@ -12,6 +12,7 @@ namespace uvdar::blink_processor {
 class ExtendedSearch {
  public:
   explicit ExtendedSearch(const ExtendedSearchConfig& cfg);
+
   void run(std::vector<PointState>& unassigned_points, std::vector<SeqPtr>& buffer);
 
  private:

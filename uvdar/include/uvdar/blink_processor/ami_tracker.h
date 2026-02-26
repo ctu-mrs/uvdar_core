@@ -11,7 +11,7 @@ namespace uvdar::blink_processor {
 
 class AmiTracker {
  public:
-  explicit AmiTracker(const AmiTrackerConfig& cfg, ILogger& logger);
+  explicit AmiTracker(const AmiTrackerConfig& cfg, ILogger* logger);
 
   void processBuffer(std::vector<PointState>& unmatched_points);
 
@@ -22,7 +22,7 @@ class AmiTracker {
 
  private:
   const AmiTrackerConfig cfg_;
-  ILogger& logger_;
+  ILogger* logger_;
 
   std::shared_ptr<TseriesBuffer> active_tseries_buffer_;
 

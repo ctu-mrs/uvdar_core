@@ -10,8 +10,9 @@ namespace uvdar::blink_processor {
 
 class AmiVerification {
  public:
-  explicit AmiVerification(const VerificationConfig& cfg, const std::shared_ptr<TseriesBuffer> active_buffer,
-                           ILogger& logger);
+  explicit AmiVerification(const VerificationConfig& cfg, std::shared_ptr<TseriesBuffer> active_buffer,
+                           ILogger* logger);
+
   void run(std::vector<PointState>& unassigned_points, std::vector<SeqPtr>& buffer);
 
  private:
@@ -34,7 +35,7 @@ class AmiVerification {
  private:
   const VerificationConfig cfg_;
   std::shared_ptr<TseriesBuffer> active_tseries_buffer_;
-  ILogger& logger_;
+  ILogger* logger_;
 };
 
 } // namespace uvdar::blink_processor

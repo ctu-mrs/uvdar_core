@@ -92,7 +92,7 @@ TEST(BlinkProcessor, AssignsCorrectIdForNewMarker_StaticPoint) {
           .setVerification({.max_buffer_length = 100, .max_consecutive_zeros = 4, .allowed_BER_per_seq = 0})
           .setMaxShift({.x = 10.0, .y = 10.0});
 
-  BlinkProcessor bp(cfg, test_logger);
+  BlinkProcessor bp(cfg, &test_logger);
   ASSERT_TRUE(bp.setBlinkingPatterns(patterns));
 
   const double X = 100.0;
@@ -136,7 +136,7 @@ TEST(BlinkProcessor, TwoMarkers_ComplexTrajectories_AssignsCorrectIds) {
           .setVerification({.max_buffer_length = 100, .max_consecutive_zeros = 4, .allowed_BER_per_seq = 0})
           .setMaxShift({.x = 10.0, .y = 10.0});
 
-  BlinkProcessor bp(cfg, test_logger);
+  BlinkProcessor bp(cfg, &test_logger);
   ASSERT_TRUE(bp.setBlinkingPatterns(patterns));
 
   Sequence emitA = patterns[ID_A];

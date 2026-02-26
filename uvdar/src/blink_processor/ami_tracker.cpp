@@ -3,7 +3,7 @@
 namespace uvdar::blink_processor {
 
 /* AmiTracker constructor //{ */
-AmiTracker::AmiTracker(const AmiTrackerConfig& cfg, ILogger& logger)
+AmiTracker::AmiTracker(const AmiTrackerConfig& cfg, ILogger* logger)
     : cfg_(cfg), logger_(logger), active_tseries_buffer_(std::make_shared<TseriesBuffer>()),
       local_search_(std::make_unique<LocalSearch>(cfg_.local)),
       extended_search_(std::make_unique<ExtendedSearch>(cfg_.extended)),

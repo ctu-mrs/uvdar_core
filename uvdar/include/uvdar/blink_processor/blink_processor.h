@@ -10,7 +10,7 @@ namespace uvdar::blink_processor {
 
 class BlinkProcessor {
  public:
-  explicit BlinkProcessor(BlinkProcessorConfig cfg, ILogger& logger);
+  explicit BlinkProcessor(BlinkProcessorConfig cfg, ILogger* logger);
   ~BlinkProcessor() = default;
 
   [[nodiscard]] bool setBlinkingPatterns(const std::vector<Sequence>& sequences);
@@ -21,7 +21,7 @@ class BlinkProcessor {
 
  private:
   BlinkProcessorConfig cfg_;
-  ILogger& logger_;
+  ILogger* logger_;
 
   std::unique_ptr<AmiTracker> ami_tracker_;
   std::unique_ptr<SignalMatcher> signal_matcher_;

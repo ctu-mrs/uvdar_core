@@ -326,7 +326,7 @@ void BlinkProcessorComponent::initBlinkProcessor_() {
   for (size_t i = 0; i < camera_count_; ++i) {
     trackers_[i].raw_points_topic       = _detected_raw_points_topics_[i];
     trackers_[i].detected_markers_topic = _detected_markers_topics_[i];
-    trackers_[i].blink_processor        = std::make_unique<BlinkProcessor>(_cfg_, *logger_);
+    trackers_[i].blink_processor        = std::make_unique<BlinkProcessor>(_cfg_, logger_.get());
     trackers_[i].camera_calib =
         std::make_unique<CameraCalibration>(CameraCalibration::loadCalibration(_camera_calib_files_[i]));
 
@@ -461,10 +461,10 @@ void BlinkProcessorComponent::publishDetectedMarkers_(const std::vector<TrackedM
   msg.stamp = time_stamp;
   msg.points.reserve(markers.size());
   for (const auto& marker : markers) {
-    // auto id = static_cast<double>(marker.id);
-    // if (id < 0) {
-    //   continue;
-    // }
+    auto id = static_cast<double>(marker.id);
+    if (!_debug_mode_ && id < 0) {
+      continue;
+    }
 
     auto world_point = tracker.camera_calib->camToWorld(marker.last_point.point);
     MarkerPointMsg point;

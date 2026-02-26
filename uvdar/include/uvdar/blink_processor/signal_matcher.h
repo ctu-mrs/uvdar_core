@@ -12,6 +12,7 @@ namespace uvdar::blink_processor {
 class SignalMatcher {
  public:
   SignalMatcher(const SignalMatcherConfig& config, const std::vector<Sequence>& sequences);
+
   int matchSignal(const Sequence& signal) const;
 
  private:

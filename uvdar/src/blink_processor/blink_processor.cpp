@@ -3,7 +3,7 @@
 namespace uvdar::blink_processor {
 
 /* BlinkProcessor constructor //{ */
-BlinkProcessor::BlinkProcessor(BlinkProcessorConfig cfg, ILogger& logger) : cfg_(std::move(cfg)), logger_(logger) {
+BlinkProcessor::BlinkProcessor(BlinkProcessorConfig cfg, ILogger* logger) : cfg_(std::move(cfg)), logger_(logger) {
 }
 //}
 
@@ -12,15 +12,15 @@ bool BlinkProcessor::setBlinkingPatterns(const std::vector<Sequence>& sequences)
   blinking_patterns_ = sequences;
 
   if (blinking_patterns_.size() == 0) {
-    logger_.error("[UVDARBlinkProcessor]: Provided blinking patterns are empty!");
+    logger_->error("[UVDARBlinkProcessor]: Provided blinking patterns are empty!");
     return false;
   }
 
   cfg_.setPatternLength(static_cast<int>(blinking_patterns_[0].size()));
 
   if (!cfg_.isConfigValid(blinking_patterns_[0].size())) {
-    logger_.error("[UVDARBlinkProcessor]: The wanted number of consecutive zeros is higher than the possible sequence "
-                  "length in the buffer! Sequence cannot be set.");
+    logger_->error("[UVDARBlinkProcessor]: The wanted number of consecutive zeros is higher than the possible sequence "
+                   "length in the buffer! Sequence cannot be set.");
     return false;
   }
 
@@ -41,7 +41,7 @@ std::vector<TrackedMarker> BlinkProcessor::getResults() {
   const std::size_t raw_window_size = static_cast<std::size_t>(cfg_.seq.getMaxSequenceLength());
   auto tseries_window_buffer_copy   = ami_tracker_->getActiveTrackCopy(raw_window_size);
 
-  // logger_.info("[BlinkProcessor] getResults: " + std::to_string(tseries_window_buffer_copy.size()) +
+  // logger_->info("[BlinkProcessor] getResults: " + std::to_string(tseries_window_buffer_copy.size()) +
   //              " tracks, patternLen=" + std::to_string(cfg_.getPatternLength()) +
   //              ", rawWindow=" + std::to_string(raw_window_size));
 
