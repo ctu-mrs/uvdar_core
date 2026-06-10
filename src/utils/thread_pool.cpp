@@ -4,6 +4,9 @@
 
 namespace uvdar_core::utils {
 
+/**
+ * @brief Construct fixed-size worker pool.
+ */
 ThreadPool::ThreadPool(std::size_t thread_count)
 {
     if (thread_count == 0) {
@@ -16,6 +19,9 @@ ThreadPool::ThreadPool(std::size_t thread_count)
     }
 }
 
+/**
+ * @brief Stop all workers and join threads.
+ */
 ThreadPool::~ThreadPool()
 {
     {
@@ -31,6 +37,9 @@ ThreadPool::~ThreadPool()
     }
 }
 
+/**
+ * @brief Push task into queue and wake one worker.
+ */
 void ThreadPool::enqueue(std::function<void()> task)
 {
     {
@@ -40,6 +49,9 @@ void ThreadPool::enqueue(std::function<void()> task)
     condition_.notify_one();
 }
 
+/**
+ * @brief Worker loop: wait for and execute queued tasks.
+ */
 void ThreadPool::runWorker()
 {
     while (true) {

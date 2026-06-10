@@ -11,6 +11,9 @@ namespace uvdar_core::detection::fimd {
 
 class GeneratedFimdCpuKernel {
 public:
+    /**
+     * @brief Construct fallback compiled runtime kernel.
+     */
     GeneratedFimdCpuKernel(
         std::shared_ptr<const RuntimeFimdRadiusModule> module,
         unsigned char threshold_center           = 120,
@@ -20,11 +23,17 @@ public:
         unsigned max_markers_count               = 0,
         unsigned max_sun_points_count            = 0,
         bool detect_sun_points                   = true);
+    /**
+     * @brief Release generated resources.
+     */
     ~GeneratedFimdCpuKernel();
 
     GeneratedFimdCpuKernel(const GeneratedFimdCpuKernel&)            = delete;
     GeneratedFimdCpuKernel& operator=(const GeneratedFimdCpuKernel&) = delete;
 
+    /**
+     * @brief Detect markers and optional sun points from raw image.
+     */
     unsigned detectRaw(
         const unsigned char* image,
         unsigned (*markers)[2],
@@ -33,8 +42,17 @@ public:
         unsigned* sun_points_count,
         bool make_copy = true);
 
+    /**
+     * @brief Whether dynamic code generation succeeded.
+     */
     bool isUsingGeneratedPath() const;
+    /**
+     * @brief Maximum markers capacity for this kernel instance.
+     */
     unsigned get_max_markers_count() const;
+    /**
+     * @brief Maximum sun point capacity for this kernel instance.
+     */
     unsigned get_max_sun_points_count() const;
 
 private:

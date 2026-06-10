@@ -1,5 +1,6 @@
 *.bmp
 
+__pycache__/
 .vscode/
 
 *.swp

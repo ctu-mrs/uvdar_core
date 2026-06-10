@@ -19,11 +19,21 @@
 
 namespace uvdar_core::app {
 
+/**
+ * @brief ROS2 node that runs configured FIMD detector pipelines.
+ */
 class DetectorNode : public rclcpp::Node {
 public:
+    /**
+     * @brief Construct detector node.
+     * @param options Node options for ROS2 initialization.
+     */
     explicit DetectorNode(const rclcpp::NodeOptions& options = rclcpp::NodeOptions());
 
 private:
+    /**
+     * @brief Runtime state for one detector input stream.
+     */
     struct InputPipeline {
         DetectorInputConfig config;
         std::vector<cv::Mat> masks;
@@ -38,16 +48,37 @@ private:
         std::mutex mutex;
     };
 
+    /**
+     * @brief Load node parameters and package config.
+     */
     void loadConfig();
+    /**
+     * @brief Create subscriptions and publishers for all enabled detector streams.
+     */
     void createInterfaces();
+    /**
+     * @brief Load optional mask image for one input stream.
+     */
     std::vector<cv::Mat> loadMasks(const DetectorInputConfig& input_config) const;
+    /**
+     * @brief ROS image callback.
+     */
     void onImage(const sensor_msgs::msg::Image::ConstSharedPtr& image_msg, std::size_t image_index);
+    /**
+     * @brief Run detector on one image and publish all outputs.
+     */
     void processImage(const sensor_msgs::msg::Image::ConstSharedPtr& image_msg, std::size_t image_index);
+    /**
+     * @brief Publish candidate and sun points with intensity metadata.
+     */
     void publishPoints(
         const InputPipeline& pipeline,
         const sensor_msgs::msg::Image::ConstSharedPtr& image_msg,
         const uvdar_core::detection::DetectorOutput& output,
         const cv::Mat& image);
+    /**
+     * @brief Publish marker visualization image when configured.
+     */
     void publishVisualization(
         const InputPipeline& pipeline,
         const sensor_msgs::msg::Image::ConstSharedPtr& image_msg,

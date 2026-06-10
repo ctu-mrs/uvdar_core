@@ -26,21 +26,44 @@ detector:
       radii: [3, 5]
 
 tracking:
-  enabled: false
   implementation: ami
+  debug: false
+  gui: false
+  initial_delay_sec: 0.0
+  queue_depth: 10
+  thread_pool_size: 2
+  max_points_per_image: 100
+  max_px_shift_x: 5
+  max_px_shift_y: 5
+  max_zeros_consecutive: 3
+  stored_seq_len_factor: 3
+  max_buffer_length: 2000
+  poly_order: 3
+  decay_factor: 0.01
+  conf_probab_percent: 95.0
+  allowed_BER_per_seq: 1
+  manchester_code: false
+  sequence_file: ""
+  sequences:
+    - "111001011"
+    - "11001101"
+  inputs:
+    - name: camera_0
+      enabled: true
+      input_topic: /detector/camera_0/points_seen
+      input_image_topic: /my_camera/pylon_ros2_camera_node/image_raw
+      output_topic: /tracker/camera_0/blinkers
+      publish_visualization: true
+      visualization_topic: /tracker/camera_0/visualization
 
 pose_estimation:
-  enabled: false
   implementation: pnp
 
 filtering:
-  enabled: false
   implementation: unscented
 
 calibration:
-  enabled: false
   implementation: ocamcalib
 
 simulation:
-  enabled: false
   implementation: default

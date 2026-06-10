@@ -9,6 +9,11 @@
 
 namespace uvdar_core::detection::fimd {
 
+/**
+ * @brief Remove detected markers that are too close to sun points.
+ * @param output Detection output to filter in-place.
+ * @param min_sun_marker_distance Minimum Euclidean distance in pixels.
+ */
 inline void filterMarkersNearSunPoints(DetectorOutput& output, unsigned min_sun_marker_distance)
 {
     if (min_sun_marker_distance == 0 || output.sun_points.empty() || output.detected_points.empty()) {

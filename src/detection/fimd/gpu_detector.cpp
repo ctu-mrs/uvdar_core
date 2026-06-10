@@ -30,6 +30,9 @@ namespace {
         std::uint64_t count = 0;
     };
 
+    /**
+     * @brief Cluster adjacent raw points by distance to reduce duplicates.
+     */
     std::vector<cv::Point2i> collapseRawPoints(const std::vector<std::uint32_t>& raw_points, unsigned count, unsigned distance_px)
     {
         std::vector<std::uint32_t> points(raw_points.begin(), raw_points.begin() + count);
@@ -92,11 +95,17 @@ namespace {
         return collapsed;
     }
 
+    /**
+     * @brief Build shader source string from embedded binary span.
+     */
     std::string shaderSourceFromEmbedded(const unsigned char* start, const unsigned char* end)
     {
         return std::string(reinterpret_cast<const char*>(start), end - start);
     }
 
+    /**
+     * @brief Initialize SSBO and clear previous state.
+     */
     bool initBuffer(
         uvdar_core::utils::compute_shader::SSBO& buffer,
         GLuint binding,
@@ -113,6 +122,9 @@ namespace {
         return true;
     }
 
+    /**
+     * @brief Initialize ACBO and clear previous state.
+     */
     bool initBuffer(
         uvdar_core::utils::compute_shader::ACBO& buffer,
         GLuint binding,
@@ -129,6 +141,9 @@ namespace {
         return true;
     }
 
+    /**
+     * @brief Print queued GL messages for a stage.
+     */
     void reportGlErrors(const std::string& stage, uvdar_core::utils::compute_shader::Context& context)
     {
         const GLuint count = context.instance().flush_errors(stderr);
@@ -137,6 +152,9 @@ namespace {
         }
     }
 
+    /**
+     * @brief Write SSBO contents and report errors.
+     */
     bool writeBuffer(uvdar_core::utils::compute_shader::SSBO& buffer, const void* data, std::size_t element_count, const char* name)
     {
         if (buffer.write(data, static_cast<GLint>(element_count)) != GL_NO_ERROR) {
@@ -146,6 +164,9 @@ namespace {
         return true;
     }
 
+    /**
+     * @brief Convert image bytes to packed 32-bit format for shader access.
+     */
     void packImageToUint32(const std::uint8_t* source, std::size_t pixel_count, std::vector<std::uint32_t>& destination)
     {
         const std::size_t packed_count = (pixel_count + 3U) >> 2;
@@ -157,6 +178,9 @@ namespace {
         }
     }
 
+    /**
+     * @brief Reset atomic counter buffer to value.
+     */
     bool writeCounter(uvdar_core::utils::compute_shader::ACBO& buffer, GLuint value, const char* name)
     {
         if (buffer.write_uint_val(value) != GL_NO_ERROR) {
@@ -171,6 +195,9 @@ namespace {
         bool active;
         std::string message;
 
+        /**
+         * @brief Bind context for current thread and keep active flag.
+         */
         ContextScope(
             uvdar_core::utils::compute_shader::Context& context_,
             const std::string& message_)
@@ -190,6 +217,9 @@ namespace {
             }
         }
 
+        /**
+         * @brief Convert scope to boolean state.
+         */
         explicit operator bool() const
         {
             return active;
@@ -199,11 +229,17 @@ namespace {
 } // namespace
 
 struct GpuDetector::Impl {
+    /**
+     * @brief Implementation holds all GPU runtime state.
+     */
     explicit Impl(GpuDetectorConfig cfg)
         : config(std::move(cfg))
     {
     }
 
+    /**
+     * @brief Initialize GPU resources and shaders for first frame.
+     */
     bool initDelayed(const cv::Mat& image)
     {
         if (image.type() != CV_8UC1) {
@@ -303,6 +339,9 @@ struct GpuDetector::Impl {
         return true;
     }
 
+    /**
+     * @brief Build packed scalar config vector for compute shader.
+     */
     std::vector<std::uint32_t> makeConfig() const
     {
         std::vector<std::uint32_t> values;
@@ -321,6 +360,9 @@ struct GpuDetector::Impl {
         return values;
     }
 
+    /**
+     * @brief Process one frame through compute shader and decode points.
+     */
     bool processImage(const cv::Mat& image, DetectorOutput& output, int mask_id)
     {
         std::scoped_lock<std::mutex> guard(context_mutex_);
@@ -449,43 +491,106 @@ GpuDetector::GpuDetector(GpuDetectorConfig config)
 {
 }
 
+/**
+ * @brief Default destructor.
+ */
 GpuDetector::~GpuDetector() = default;
 
+/**
+ * @brief Initialize lazily.
+ */
 bool GpuDetector::initDelayed(const cv::Mat& image) { return impl_->initDelayed(image); }
+/**
+ * @brief Process one frame via impl.
+ */
 bool GpuDetector::processImage(const cv::Mat& image, DetectorOutput& output, int mask_id) { return impl_->processImage(image, output, mask_id); }
+/**
+ * @brief Return debug flag.
+ */
 bool GpuDetector::get_debug() const { return impl_->config.debug; }
+/**
+ * @brief Set debug flag.
+ */
 void GpuDetector::set_debug(bool debug) { impl_->config.debug = debug; }
+/**
+ * @brief Whether sun detection is enabled.
+ */
 bool GpuDetector::get_detect_sun_points() const { return impl_->config.detect_sun_points; }
+/**
+ * @brief Enable/disable sun detection and force reinitialize.
+ */
 void GpuDetector::set_detect_sun_points(bool detect_sun_points)
 {
     impl_->config.detect_sun_points = detect_sun_points;
     impl_->initialized              = false;
 }
+/**
+ * @brief Return marker threshold.
+ */
 int GpuDetector::get_threshold() const { return impl_->config.threshold; }
+/**
+ * @brief Set marker threshold.
+ */
 void GpuDetector::set_threshold(int threshold) { impl_->config.threshold = threshold; }
+/**
+ * @brief Return threshold difference.
+ */
 int GpuDetector::get_threshold_diff() const { return impl_->config.threshold_diff; }
+/**
+ * @brief Set threshold difference.
+ */
 void GpuDetector::set_threshold_diff(int threshold_diff) { impl_->config.threshold_diff = threshold_diff; }
+/**
+ * @brief Return sun threshold.
+ */
 int GpuDetector::get_threshold_sun() const { return impl_->config.threshold_sun; }
+/**
+ * @brief Set sun threshold.
+ */
 void GpuDetector::set_threshold_sun(int threshold_sun) { impl_->config.threshold_sun = threshold_sun; }
+/**
+ * @brief Return marker cap.
+ */
 unsigned GpuDetector::get_max_markers_count() const { return impl_->config.max_markers_count; }
+/**
+ * @brief Set marker cap and rebuild lazily.
+ */
 void GpuDetector::set_max_markers_count(unsigned max_markers_count)
 {
     impl_->config.max_markers_count = max_markers_count;
     impl_->initialized              = false;
 }
+/**
+ * @brief Return sun cap.
+ */
 unsigned GpuDetector::get_max_sun_points_count() const { return impl_->config.max_sun_points_count; }
+/**
+ * @brief Set sun cap and rebuild lazily.
+ */
 void GpuDetector::set_max_sun_points_count(unsigned max_sun_points_count)
 {
     impl_->config.max_sun_points_count = max_sun_points_count;
     impl_->initialized                 = false;
 }
+/**
+ * @brief Return radii list.
+ */
 const std::vector<unsigned>& GpuDetector::get_radii() const { return impl_->config.radii; }
+/**
+ * @brief Replace radii and rebuild lazily.
+ */
 void GpuDetector::set_radii(std::vector<unsigned> radii)
 {
     impl_->config.radii = std::move(radii);
     impl_->initialized  = false;
 }
+/**
+ * @brief Access configured masks.
+ */
 const std::vector<cv::Mat>& GpuDetector::get_masks() const { return impl_->config.masks; }
+/**
+ * @brief Replace mask list.
+ */
 void GpuDetector::set_masks(std::vector<cv::Mat> masks) { impl_->config.masks = std::move(masks); }
 
 } // namespace uvdar_core::detection::fimd

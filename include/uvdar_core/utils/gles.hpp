@@ -79,6 +79,9 @@ struct vec4 {
     GLfloat w;
 };
 
+/**
+ * @brief Translate numeric GL enum-like constants to a human-readable representation.
+ */
 inline const char* get_define_name(GLuint64 define_value)
 {
     switch (define_value) {

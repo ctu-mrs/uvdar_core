@@ -14,6 +14,9 @@ namespace uvdar_core::utils::compute_shader {
 
 namespace {
 
+    /**
+     * @brief Replace all occurrences of a token in shader source text.
+     */
     void replaceAll(std::string& source, const std::string& token, const std::string& value)
     {
         std::size_t offset = 0;
@@ -25,16 +28,25 @@ namespace {
 
 } // namespace
 
+/**
+ * @brief Push an error entry to the queue.
+ */
 void ErrorQueue::push(std::unique_ptr<Error> error)
 {
     queue_.push(std::move(error));
 }
 
+/**
+ * @brief Return number of currently queued errors.
+ */
 std::size_t ErrorQueue::size() const
 {
     return queue_.size();
 }
 
+/**
+ * @brief Pop and return one queued error, or `nullptr` when empty.
+ */
 std::unique_ptr<Error> ErrorQueue::pop()
 {
     if (queue_.empty()) {
@@ -45,6 +57,9 @@ std::unique_ptr<Error> ErrorQueue::pop()
     return result;
 }
 
+/**
+ * @brief Clear all queued errors.
+ */
 void ErrorQueue::clear()
 {
     while (!queue_.empty()) {
@@ -52,16 +67,25 @@ void ErrorQueue::clear()
     }
 }
 
+/**
+ * @brief Create compute context instance with chosen DRM path.
+ */
 Instance::Instance(const std::string& path)
     : dri_path(path)
 {
 }
 
+/**
+ * @brief Destroying instance releases all resources.
+ */
 Instance::~Instance()
 {
     deinit();
 }
 
+/**
+ * @brief Enumerate available render/card devices from `/dev/dri`.
+ */
 std::vector<std::string> Instance::render_devices()
 {
     std::vector<std::string> devices;
@@ -86,6 +110,9 @@ std::vector<std::string> Instance::render_devices()
     return devices;
 }
 
+/**
+ * @brief Return the first available render instance.
+ */
 Instance Instance::first_available()
 {
     const auto devices = render_devices();
@@ -95,6 +122,9 @@ Instance Instance::first_available()
     return Instance(devices.front());
 }
 
+/**
+ * @brief OpenGL debug callback for queueing GL errors.
+ */
 void Instance::gl_debug_callback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const void* user_param)
 {
     auto* instance = static_cast<Instance*>(const_cast<void*>(user_param));
@@ -110,6 +140,9 @@ void Instance::gl_debug_callback(GLenum source, GLenum type, GLuint id, GLenum s
     instance->error_total_cnt++;
 }
 
+/**
+ * @brief Initialize EGL/GBM/OpenGL context.
+ */
 GLint Instance::init()
 {
     if (initialised) {
@@ -192,6 +225,9 @@ GLint Instance::init()
     return 0;
 }
 
+/**
+ * @brief Deinitialize resources and clear state.
+ */
 void Instance::deinit()
 {
     if (ctx != EGL_NO_CONTEXT && dpy != EGL_NO_DISPLAY) {
@@ -221,6 +257,9 @@ void Instance::deinit()
     initialised = false;
 }
 
+/**
+ * @brief Flush queued GL errors to output.
+ */
 GLuint Instance::flush_errors(FILE* out)
 {
     if (!error_queue) {
@@ -246,6 +285,9 @@ GLuint Instance::flush_errors(FILE* out)
     return count;
 }
 
+/**
+ * @brief Print a readable error message for initialization error codes.
+ */
 void Instance::print_error(GLint err_code, FILE* out)
 {
     switch (err_code) {
@@ -297,6 +339,9 @@ void Instance::print_error(GLint err_code, FILE* out)
     }
 }
 
+/**
+ * @brief Return count of pending GL errors.
+ */
 GLuint Instance::gl_errors_count()
 {
     GLuint count = 0;
@@ -306,6 +351,9 @@ GLuint Instance::gl_errors_count()
     return count;
 }
 
+/**
+ * @brief Compute optimal local work-group dimensions for image size.
+ */
 std::tuple<unsigned, unsigned, unsigned> Instance::get_local_sizes(unsigned image_width, unsigned image_height)
 {
     GLint max_invocations  = 256;
@@ -328,16 +376,25 @@ std::tuple<unsigned, unsigned, unsigned> Instance::get_local_sizes(unsigned imag
     return { std::max(1u, local_x), std::max(1u, local_y), 1u };
 }
 
+/**
+ * @brief Create context wrapper around an `Instance`.
+ */
 Context::Context()
     : instance_(std::make_unique<Instance>())
 {
 }
 
+/**
+ * @brief Destroy context and release resources.
+ */
 Context::~Context()
 {
     deinit();
 }
 
+/**
+ * @brief Initialize first available render device.
+ */
 bool Context::initFirstAvailable()
 {
     const auto devices = Instance::render_devices();
@@ -364,6 +421,9 @@ bool Context::initFirstAvailable()
     return false;
 }
 
+/**
+ * @brief Make context current on caller thread.
+ */
 bool Context::makeCurrent()
 {
     if (!isInitialized()) {
@@ -375,6 +435,9 @@ bool Context::makeCurrent()
     return eglMakeCurrent(instance_->dpy, EGL_NO_SURFACE, EGL_NO_SURFACE, instance_->ctx) == EGL_TRUE;
 }
 
+/**
+ * @brief Release current context binding from caller thread.
+ */
 bool Context::releaseCurrent()
 {
     if (!isInitialized()) {
@@ -386,6 +449,9 @@ bool Context::releaseCurrent()
     return eglMakeCurrent(instance_->dpy, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT) == EGL_TRUE;
 }
 
+/**
+ * @brief Deinitialize owned instance.
+ */
 void Context::deinit()
 {
     if (instance_) {
@@ -393,26 +459,41 @@ void Context::deinit()
     }
 }
 
+/**
+ * @brief Check whether context has been initialized.
+ */
 bool Context::isInitialized() const
 {
     return instance_ && instance_->initialised;
 }
 
+/**
+ * @brief Get local work-group sizes via context.
+ */
 std::tuple<unsigned, unsigned, unsigned> Context::getLocalSizes(unsigned image_width, unsigned image_height) const
 {
     return Instance::get_local_sizes(image_width, image_height);
 }
 
+/**
+ * @brief Access mutable underlying instance.
+ */
 Instance& Context::instance()
 {
     return *instance_;
 }
 
+/**
+ * @brief Access const underlying instance.
+ */
 const Instance& Context::instance() const
 {
     return *instance_;
 }
 
+/**
+ * @brief Base resource descriptor constructor.
+ */
 Resource::Resource(const std::string& name_, GLuint type_)
     : name(name_)
     , type(type_)
@@ -420,23 +501,35 @@ Resource::Resource(const std::string& name_, GLuint type_)
 {
 }
 
+/**
+ * @brief Create framebuffer binding target.
+ */
 Framebuffer::Framebuffer(GLenum attachment_)
     : attachment(attachment_)
     , handle(0)
 {
 }
 
+/**
+ * @brief Destroy framebuffer resources.
+ */
 Framebuffer::~Framebuffer()
 {
     destroy();
 }
 
+/**
+ * @brief Allocate framebuffer handle.
+ */
 GLuint Framebuffer::init()
 {
     glGenFramebuffers(1, &handle);
     return Instance::gl_errors_count();
 }
 
+/**
+ * @brief Delete framebuffer handle.
+ */
 GLuint Framebuffer::destroy()
 {
     if (handle != 0) {
@@ -446,6 +539,9 @@ GLuint Framebuffer::destroy()
     return Instance::gl_errors_count();
 }
 
+/**
+ * @brief Construct 2D image resource descriptor.
+ */
 Image2D::Image2D(const std::string& name, GLenum texture_, GLsizei width_, GLsizei height_, GLenum access_, GLuint num_components_, GLenum type_)
     : resource(name, GL_IMAGE_2D)
     , texture(texture_)
@@ -466,11 +562,17 @@ Image2D::Image2D(const std::string& name, GLenum texture_, GLsizei width_, GLsiz
 {
 }
 
+/**
+ * @brief Destroy image resource on teardown.
+ */
 Image2D::~Image2D()
 {
     destroy();
 }
 
+/**
+ * @brief Resolve OpenGL image formats for this type/component combination.
+ */
 void Image2D::setup_format()
 {
     switch (type) {
@@ -656,6 +758,9 @@ void Image2D::setup_format()
     compatibility_format = uvdar_core::utils::GLES::get_image2d_compatibility_format(internal_format);
 }
 
+/**
+ * @brief Allocate texture storage and optional framebuffer attachment.
+ */
 GLuint Image2D::init(GLenum framebuffer_attachment)
 {
     glGenTextures(1, &handle);
@@ -680,6 +785,9 @@ GLuint Image2D::init(GLenum framebuffer_attachment)
     return Instance::gl_errors_count();
 }
 
+/**
+ * @brief Build GLSL image layout qualifier string.
+ */
 std::string Image2D::glsl_layout()
 {
     char* str        = nullptr;
@@ -698,6 +806,9 @@ std::string Image2D::glsl_layout()
     return out;
 }
 
+/**
+ * @brief Destroy image texture and framebuffer linkage.
+ */
 GLuint Image2D::destroy()
 {
     framebuffer.destroy();
@@ -708,6 +819,9 @@ GLuint Image2D::destroy()
     return Instance::gl_errors_count();
 }
 
+/**
+ * @brief Replace all pixels with provided value.
+ */
 GLuint Image2D::reset(const void* px_data)
 {
     void* image_data = std::malloc(data_size);
@@ -720,6 +834,9 @@ GLuint Image2D::reset(const void* px_data)
     return Instance::gl_errors_count();
 }
 
+/**
+ * @brief Reset rectangular patch with provided value.
+ */
 GLuint Image2D::reset_patch(const void* px_data, GLint x_min, GLint x_max, GLint y_min, GLint y_max)
 {
     const GLint patch_width  = x_max - x_min;
@@ -736,6 +853,9 @@ GLuint Image2D::reset_patch(const void* px_data, GLint x_min, GLint x_max, GLint
     return Instance::gl_errors_count();
 }
 
+/**
+ * @brief Upload full texture contents.
+ */
 GLuint Image2D::write(const void* image_data)
 {
     glBindTexture(GL_TEXTURE_2D, handle);
@@ -743,6 +863,9 @@ GLuint Image2D::write(const void* image_data)
     return Instance::gl_errors_count();
 }
 
+/**
+ * @brief Read back full image content.
+ */
 GLuint Image2D::read(void* image_data)
 {
     if (framebuffer.handle != 0) {
@@ -754,6 +877,9 @@ GLuint Image2D::read(void* image_data)
     return Instance::gl_errors_count();
 }
 
+/**
+ * @brief Read back a rectangular patch.
+ */
 GLuint Image2D::read_patch(void* image_data, GLint x_min, GLint x_max, GLint y_min, GLint y_max, bool render)
 {
     if (framebuffer.handle != 0) {
@@ -777,6 +903,9 @@ GLuint Image2D::read_patch(void* image_data, GLint x_min, GLint x_max, GLint y_m
     return Instance::gl_errors_count();
 }
 
+/**
+ * @brief Construct atomic counter buffer object.
+ */
 ACBO::ACBO(const std::string& name, GLenum type_, GLenum usage_)
     : resource(name, GL_ATOMIC_COUNTER_BUFFER)
     , type(type_)
@@ -785,11 +914,17 @@ ACBO::ACBO(const std::string& name, GLenum type_, GLenum usage_)
 {
 }
 
+/**
+ * @brief Destroy ACBO resources.
+ */
 ACBO::~ACBO()
 {
     destroy();
 }
 
+/**
+ * @brief Allocate and optionally initialize ACBO.
+ */
 GLuint ACBO::init(const void* data, GLint len)
 {
     glGenBuffers(1, &handle);
@@ -799,6 +934,9 @@ GLuint ACBO::init(const void* data, GLint len)
     return Instance::gl_errors_count();
 }
 
+/**
+ * @brief Deallocate ACBO storage.
+ */
 GLuint ACBO::destroy()
 {
     if (handle != 0) {
@@ -808,6 +946,9 @@ GLuint ACBO::destroy()
     return Instance::gl_errors_count();
 }
 
+/**
+ * @brief Upload ACBO data.
+ */
 GLuint ACBO::write(const void* data, GLint len)
 {
     glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, handle);
@@ -816,11 +957,17 @@ GLuint ACBO::write(const void* data, GLint len)
     return Instance::gl_errors_count();
 }
 
+/**
+ * @brief Upload single unsigned integer value.
+ */
 GLuint ACBO::write_uint_val(GLuint value)
 {
     return write(&value, 1);
 }
 
+/**
+ * @brief Read ACBO data to host memory.
+ */
 GLuint ACBO::read(void* data, GLint len)
 {
     glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, handle);
@@ -835,11 +982,17 @@ GLuint ACBO::read(void* data, GLint len)
     return Instance::gl_errors_count();
 }
 
+/**
+ * @brief Read one unsigned integer value from ACBO.
+ */
 GLuint ACBO::read_uint_val(GLuint* value)
 {
     return read(value, 1);
 }
 
+/**
+ * @brief Construct SSBO descriptor.
+ */
 SSBO::SSBO(const std::string& name, GLenum type_, GLenum usage_)
     : resource(name, GL_SHADER_STORAGE_BUFFER)
     , type(type_)
@@ -848,11 +1001,17 @@ SSBO::SSBO(const std::string& name, GLenum type_, GLenum usage_)
 {
 }
 
+/**
+ * @brief Destroy SSBO resources.
+ */
 SSBO::~SSBO()
 {
     destroy();
 }
 
+/**
+ * @brief Allocate and optionally initialize SSBO.
+ */
 GLuint SSBO::init(const void* data, GLint len)
 {
     glGenBuffers(1, &handle);
@@ -862,6 +1021,9 @@ GLuint SSBO::init(const void* data, GLint len)
     return Instance::gl_errors_count();
 }
 
+/**
+ * @brief Deallocate SSBO storage.
+ */
 GLuint SSBO::destroy()
 {
     if (handle != 0) {
@@ -871,6 +1033,9 @@ GLuint SSBO::destroy()
     return Instance::gl_errors_count();
 }
 
+/**
+ * @brief Generate SSBO GLSL buffer declaration.
+ */
 std::string SSBO::glsl_layout()
 {
     char* str        = nullptr;
@@ -888,6 +1053,9 @@ std::string SSBO::glsl_layout()
     return out;
 }
 
+/**
+ * @brief Write data into SSBO.
+ */
 GLuint SSBO::write(const void* data, GLint len)
 {
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, handle);
@@ -896,6 +1064,9 @@ GLuint SSBO::write(const void* data, GLint len)
     return Instance::gl_errors_count();
 }
 
+/**
+ * @brief Read SSBO data into host memory.
+ */
 GLuint SSBO::read(void* data, GLint len)
 {
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, handle);
@@ -910,6 +1081,9 @@ GLuint SSBO::read(void* data, GLint len)
     return Instance::gl_errors_count();
 }
 
+/**
+ * @brief Uniform handle descriptor constructor.
+ */
 Uniform::Uniform(const std::string& name_)
     : name(name_)
     , location(0)
@@ -919,11 +1093,17 @@ Uniform::Uniform(const std::string& name_)
 {
 }
 
+/**
+ * @brief Destructor tears down program resources.
+ */
 Program::~Program()
 {
     destroy(false);
 }
 
+/**
+ * @brief Compile and link compute shader source.
+ */
 bool Program::init()
 {
     const char* src_ptr = source.c_str();
@@ -974,6 +1154,12 @@ bool Program::init()
     return true;
 }
 
+/**
+ * @brief Initialize program from shader file path.
+ */
+/**
+ * @brief Initialize program from inline shader source.
+ */
 bool Program::init(
     const Context& context,
     const std::filesystem::path& shader_path,
@@ -1018,6 +1204,9 @@ bool Program::init(
     return init();
 }
 
+/**
+ * @brief Return compute shader local-size layout qualifier.
+ */
 std::string Program::glsl_layout() const
 {
     char* str        = nullptr;
@@ -1029,6 +1218,9 @@ std::string Program::glsl_layout() const
     return out;
 }
 
+/**
+ * @brief Dispatch compute workgroups and wait for completion.
+ */
 bool Program::dispatch(unsigned width, unsigned height, unsigned depth) const
 {
     glUseProgram(handle);
@@ -1053,6 +1245,9 @@ bool Program::dispatch(unsigned width, unsigned height, unsigned depth) const
     return Instance::gl_errors_count() == GL_NO_ERROR;
 }
 
+/**
+ * @brief Delete program/shader resources.
+ */
 GLuint Program::destroy(bool free_source)
 {
     if (free_source) {
@@ -1069,6 +1264,9 @@ GLuint Program::destroy(bool free_source)
     return Instance::gl_errors_count();
 }
 
+/**
+ * @brief Resolve and cache resource binding information.
+ */
 GLuint Program::find_resource(Resource& resource) const
 {
     if (resource.value >= 0) {
@@ -1094,6 +1292,9 @@ GLuint Program::find_resource(Resource& resource) const
     return Instance::gl_errors_count();
 }
 
+/**
+ * @brief Initialize uniform metadata.
+ */
 GLuint Program::uniform_init(Uniform& uniform) const
 {
     GLuint index     = 0;
@@ -1105,6 +1306,9 @@ GLuint Program::uniform_init(Uniform& uniform) const
     return Instance::gl_errors_count();
 }
 
+/**
+ * @brief Write uniform by type into active shader.
+ */
 GLuint Program::uniform_write(const Uniform& uniform, const void* data) const
 {
     glUseProgram(handle);
@@ -1179,6 +1383,12 @@ GLuint Program::uniform_write(const Uniform& uniform, const void* data) const
     return Instance::gl_errors_count();
 }
 
+/**
+ * @brief Load shader source and apply replacements.
+ */
+/**
+ * @brief Load shader source text from file and apply replacements.
+ */
 std::string loadShaderSource(
     const std::string& shader_source,
     const std::vector<std::pair<std::string, std::string>>& replacements)

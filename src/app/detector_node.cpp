@@ -14,6 +14,9 @@ namespace uvdar_core::app {
 
 namespace {
 
+    /**
+     * @brief Read pixel value in bounds for annotation output.
+     */
     double pointValue(const cv::Mat& image, const cv::Point2i& point)
     {
         if (point.y < 0 || point.y >= image.rows || point.x < 0 || point.x >= image.cols) {
@@ -35,12 +38,18 @@ DetectorNode::DetectorNode(const rclcpp::NodeOptions& options)
     RCLCPP_INFO(get_logger(), "UVDAR detector node initialized.");
 }
 
+/**
+ * @brief Load YAML config and setup runtime path.
+ */
 void DetectorNode::loadConfig()
 {
     config_path_ = declare_parameter<std::string>("config_path", std::string { });
     config_      = loadPackageConfig(config_path_);
 }
 
+/**
+ * @brief Parse optional mask from filesystem.
+ */
 std::vector<cv::Mat> DetectorNode::loadMasks(const DetectorInputConfig& input_config) const
 {
     std::vector<cv::Mat> masks;
@@ -61,6 +70,9 @@ std::vector<cv::Mat> DetectorNode::loadMasks(const DetectorInputConfig& input_co
     return masks;
 }
 
+/**
+ * @brief Build all ROS interfaces for configured detector inputs.
+ */
 void DetectorNode::createInterfaces()
 {
     pipelines_.clear();
@@ -132,6 +144,9 @@ void DetectorNode::createInterfaces()
     }
 }
 
+/**
+ * @brief Image callback that enforces startup delay and schedules processing.
+ */
 void DetectorNode::onImage(const sensor_msgs::msg::Image::ConstSharedPtr& image_msg, std::size_t image_index)
 {
     if ((now() - startup_time_).seconds() < config_.detector.initial_delay_sec) {
@@ -144,6 +159,9 @@ void DetectorNode::onImage(const sensor_msgs::msg::Image::ConstSharedPtr& image_
     });
 }
 
+/**
+ * @brief Run detector for one image and publish outputs/visualization.
+ */
 void DetectorNode::processImage(const sensor_msgs::msg::Image::ConstSharedPtr& image_msg, std::size_t image_index)
 {
     if (image_index >= pipelines_.size()) {
@@ -183,6 +201,9 @@ void DetectorNode::processImage(const sensor_msgs::msg::Image::ConstSharedPtr& i
     publishVisualization(*pipeline, image_msg, cv_image->image, output);
 }
 
+/**
+ * @brief Publish detected markers and optional sun points as custom message.
+ */
 void DetectorNode::publishPoints(
     const InputPipeline& pipeline,
     const sensor_msgs::msg::Image::ConstSharedPtr& image_msg,
@@ -211,6 +232,9 @@ void DetectorNode::publishPoints(
     }
 }
 
+/**
+ * @brief Render and publish visualization when enabled.
+ */
 void DetectorNode::publishVisualization(
     const InputPipeline& pipeline,
     const sensor_msgs::msg::Image::ConstSharedPtr& image_msg,

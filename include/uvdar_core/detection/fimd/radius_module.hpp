@@ -12,8 +12,14 @@ struct RuntimeCirclePoint {
     int x = 0;
 };
 
+/**
+ * @brief Precomputes radius-dependent offsets for boundary/interior pixels.
+ */
 class RuntimeFimdRadiusModule {
 public:
+    /**
+     * @brief Construct module for one image shape and radius.
+     */
     RuntimeFimdRadiusModule(unsigned radius, unsigned image_width, unsigned image_height)
         : radius_(radius)
         , image_width_(image_width)
@@ -25,29 +31,59 @@ public:
         rebuild();
     }
 
+    /**
+     * @brief Active circle radius.
+     */
     unsigned radius() const { return radius_; }
+    /**
+     * @brief Current image width.
+     */
     unsigned image_width() const { return image_width_; }
+    /**
+     * @brief Current image height.
+     */
     unsigned image_height() const { return image_height_; }
+    /**
+     * @brief Pixel offset to top-left border margin.
+     */
     unsigned offset() const { return offset_; }
+    /**
+     * @brief Boundary offsets used for local-threshold test.
+     */
     const std::vector<int>& boundary_offsets() const { return boundary_offsets_; }
+    /**
+     * @brief Interior offsets used when clearing/finding peaks.
+     */
     const std::vector<int>& interior_offsets() const { return interior_offsets_; }
 
+    /**
+     * @brief Build stable cache key for this radius/image pair.
+     */
     static std::uint64_t key(unsigned radius, unsigned image_width, unsigned image_height)
     {
         return (static_cast<std::uint64_t>(radius) << 48U) | (static_cast<std::uint64_t>(image_width) << 24U) | static_cast<std::uint64_t>(image_height);
     }
 
 private:
+    /**
+     * @brief Construct 2D coordinate helper from components.
+     */
     static RuntimeCirclePoint makePoint(int y, int x)
     {
         return RuntimeCirclePoint { y, x };
     }
 
+    /**
+     * @brief Project 2D point into row-major index.
+     */
     static int coord2to1(const RuntimeCirclePoint& point, unsigned image_width)
     {
         return (point.y * static_cast<int>(image_width)) + point.x;
     }
 
+    /**
+     * @brief Compute circle boundary points with midpoint algorithm.
+     */
     static std::vector<RuntimeCirclePoint> generateBoundary(int radius)
     {
         std::vector<RuntimeCirclePoint> boundary;
@@ -88,6 +124,9 @@ private:
         return boundary;
     }
 
+    /**
+     * @brief Compute interior integer points for peak search and clearing.
+     */
     static std::vector<RuntimeCirclePoint> generateInterior(int radius)
     {
         std::vector<RuntimeCirclePoint> interior;
@@ -128,6 +167,9 @@ private:
         return interior;
     }
 
+    /**
+     * @brief Order boundary points to provide stable probe sequence.
+     */
     static std::vector<RuntimeCirclePoint> orderBoundaryEvaluation(const std::vector<RuntimeCirclePoint>& boundary)
     {
         std::vector<RuntimeCirclePoint> quadrant;
@@ -184,6 +226,9 @@ private:
         return ordered;
     }
 
+    /**
+     * @brief Recompute all cached offsets for the configured geometry.
+     */
     void rebuild()
     {
         offset_ = (image_width_ * radius_) + radius_;

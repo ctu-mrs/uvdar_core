@@ -1,0 +1,13 @@
+float64 x
+float64 y
+int32 id
+builtin_interfaces/Time stamp
+float64 predicted_x
+float64 predicted_y
+float64 confidence_x
+float64 confidence_y
+float64[] x_coeff
+float64[] y_coeff
+bool poly_reg_computed
+bool extended_search
+bool virtual_point

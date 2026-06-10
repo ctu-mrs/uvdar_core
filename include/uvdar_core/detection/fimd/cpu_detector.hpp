@@ -18,6 +18,9 @@
 
 namespace uvdar_core::detection::fimd {
 
+/**
+ * @brief Configuration for CPU-based FIMD detector.
+ */
 struct CpuDetectorConfig {
     bool debug                       = false;
     bool detect_sun_points           = true;
@@ -31,10 +34,16 @@ struct CpuDetectorConfig {
     std::vector<cv::Mat> masks;
 };
 
+/**
+ * @brief Runtime pure-CPU FIMD kernel implementation.
+ */
 class RuntimeFimdCpuKernel {
 public:
     using Point2D = std::array<int, 2>;
 
+    /**
+     * @brief Construct kernel from radius and image geometry.
+     */
     RuntimeFimdCpuKernel(
         unsigned radius,
         unsigned image_width,
@@ -58,6 +67,9 @@ public:
     {
     }
 
+    /**
+     * @brief Construct kernel from cached radius module.
+     */
     RuntimeFimdCpuKernel(
         std::shared_ptr<const RuntimeFimdRadiusModule> module,
         unsigned char threshold_center           = 120,
@@ -86,6 +98,9 @@ public:
     RuntimeFimdCpuKernel(const RuntimeFimdCpuKernel&)            = delete;
     RuntimeFimdCpuKernel& operator=(const RuntimeFimdCpuKernel&) = delete;
 
+    /**
+     * @brief Move constructor.
+     */
     RuntimeFimdCpuKernel(RuntimeFimdCpuKernel&& other) noexcept
         : module_(std::move(other.module_))
         , threshold_center_(other.threshold_center_)
@@ -101,6 +116,9 @@ public:
         other.frame_ = nullptr;
     }
 
+    /**
+     * @brief Move assignment.
+     */
     RuntimeFimdCpuKernel& operator=(RuntimeFimdCpuKernel&& other) noexcept
     {
         if (this != &other) {
@@ -122,6 +140,9 @@ public:
         return *this;
     }
 
+    /**
+     * @brief Release heap-allocated frame buffer.
+     */
     ~RuntimeFimdCpuKernel()
     {
         if (frame_ != nullptr) {
@@ -129,6 +150,9 @@ public:
         }
     }
 
+    /**
+     * @brief Detect markers and sun points from byte image.
+     */
     unsigned detect(const unsigned char* image, std::vector<Point2D>& markers, std::vector<Point2D>& sun_points, bool make_copy = true)
     {
         std::vector<std::array<unsigned, 2>> raw_markers(marker_limit_ == std::numeric_limits<unsigned>::max() ? 0 : marker_limit_);
@@ -155,6 +179,9 @@ public:
         return static_cast<unsigned>(markers_count + sun_points_count);
     }
 
+    /**
+     * @brief Detect markers/sun points with preallocated arrays.
+     */
     unsigned detectRaw(
         const unsigned char* image,
         unsigned (*markers)[2],
@@ -250,24 +277,69 @@ public:
         }
     }
 
+    /**
+     * @brief Current kernel radius.
+     */
     unsigned get_radius() const { return module_->radius(); }
+    /**
+     * @brief Current image width.
+     */
     unsigned get_image_width() const { return module_->image_width(); }
+    /**
+     * @brief Current image height.
+     */
     unsigned get_image_height() const { return module_->image_height(); }
+    /**
+     * @brief Threshold used for center pixel.
+     */
     unsigned char get_threshold_center() const { return threshold_center_; }
+    /**
+     * @brief Threshold used for boundary difference.
+     */
     unsigned char get_threshold_diff() const { return threshold_diff_; }
+    /**
+     * @brief Threshold used to qualify sun points.
+     */
     unsigned char get_threshold_sun() const { return threshold_sun_; }
+    /**
+     * @brief Set center threshold.
+     */
     void set_threshold_center(unsigned char value) { threshold_center_ = value; }
+    /**
+     * @brief Set boundary difference threshold.
+     */
     void set_threshold_diff(unsigned char value) { threshold_diff_ = value; }
+    /**
+     * @brief Set sun threshold.
+     */
     void set_threshold_sun(unsigned char value) { threshold_sun_ = value; }
+    /**
+     * @brief Current termination sequence.
+     */
     std::array<unsigned char, 2> get_termination() const { return termination_; }
+    /**
+     * @brief Replace termination sequence.
+     */
     void set_termination(std::array<unsigned char, 2> termination) { termination_ = termination; }
+    /**
+     * @brief Configured max markers count.
+     */
     unsigned get_max_markers_count() const { return configured_max_markers_count_; }
+    /**
+     * @brief Configured max sun count.
+     */
     unsigned get_max_sun_points_count() const { return configured_max_sun_points_count_; }
+    /**
+     * @brief Set max markers count.
+     */
     void set_max_markers_count(unsigned value)
     {
         configured_max_markers_count_ = value;
         updateLimits();
     }
+    /**
+     * @brief Set max sun points count.
+     */
     void set_max_sun_points_count(unsigned value)
     {
         configured_max_sun_points_count_ = value;
@@ -275,32 +347,50 @@ public:
     }
 
 private:
+    /**
+     * @brief Convert 1D pixel index to integer coordinates.
+     */
     Point2D coord1to2(std::size_t coordinate) const
     {
         return Point2D { static_cast<int>(coordinate % module_->image_width()), static_cast<int>(coordinate / module_->image_width()) };
     }
 
+    /**
+     * @brief Compute frame size in bytes.
+     */
     std::size_t frameBytes() const
     {
         return static_cast<std::size_t>(module_->image_width()) * static_cast<std::size_t>(module_->image_height()) * sizeof(unsigned char);
     }
 
+    /**
+     * @brief Recompute internal hard limits for allocations.
+     */
     void updateLimits()
     {
         marker_limit_ = (configured_max_markers_count_ == 0) ? std::numeric_limits<unsigned>::max() : configured_max_markers_count_;
         sun_limit_    = (configured_max_sun_points_count_ == 0) ? std::numeric_limits<unsigned>::max() : configured_max_sun_points_count_;
     }
 
+    /**
+     * @brief Check whether scan position contains termination marker.
+     */
     bool hasTermination(const unsigned char* position) const
     {
         return *reinterpret_cast<const std::uint16_t*>(position) == *reinterpret_cast<const std::uint16_t*>(termination_.data());
     }
 
+    /**
+     * @brief Write termination marker to scan buffer.
+     */
     void writeTermination(unsigned char* position) const
     {
         *reinterpret_cast<std::uint16_t*>(position) = *reinterpret_cast<const std::uint16_t*>(termination_.data());
     }
 
+    /**
+     * @brief Check whether sun point should be rejected by boundary test.
+     */
     bool sunBoundaryRejected(const unsigned char* cursor, unsigned char pixel_value, const std::vector<int>& boundary_offsets) const
     {
         for (std::size_t index = 1; index < boundary_offsets.size(); ++index) {
@@ -311,6 +401,9 @@ private:
         return false;
     }
 
+    /**
+     * @brief Check whether marker should be rejected by boundary test.
+     */
     bool markerBoundaryRejected(const unsigned char* cursor, unsigned char pixel_value, const std::vector<int>& boundary_offsets) const
     {
         for (std::size_t index = 1; index < boundary_offsets.size(); ++index) {
@@ -321,6 +414,9 @@ private:
         return false;
     }
 
+    /**
+     * @brief Clear all interior neighbors used by current candidate.
+     */
     void clearInterior(unsigned char* cursor, const std::vector<int>& interior_offsets) const
     {
         for (int offset : interior_offsets) {
@@ -328,6 +424,9 @@ private:
         }
     }
 
+    /**
+     * @brief Scan interior neighbors for local peak and clear candidates.
+     */
     void scanInterior(unsigned char* cursor, unsigned char* target_image, unsigned char& peak, std::size_t& peak_position, const std::vector<int>& interior_offsets) const
     {
         for (int offset : interior_offsets) {
@@ -354,29 +453,95 @@ private:
 
 class CpuDetector final : public uvdar_core::detection::IDetector {
 public:
+    /**
+     * @brief Construct CPU detector.
+     */
     explicit CpuDetector(CpuDetectorConfig config = { });
+    /**
+     * @brief Release implementation pointer.
+     */
     ~CpuDetector() override;
 
+    /**
+     * @brief Initialize kernels on first frame.
+     */
     bool initDelayed(const cv::Mat& image) override;
+    /**
+     * @brief Process one image and populate output points.
+     */
     bool processImage(const cv::Mat& image, DetectorOutput& output, int mask_id = -1) override;
 
+    /**
+     * @brief Whether debug is enabled.
+     */
     bool get_debug() const;
+    /**
+     * @brief Set debug mode.
+     */
     void set_debug(bool debug);
+    /**
+     * @brief Whether sun detection is enabled.
+     */
     bool get_detect_sun_points() const;
+    /**
+     * @brief Enable/disable sun point detection.
+     */
     void set_detect_sun_points(bool detect_sun_points);
+    /**
+     * @brief Return marker threshold.
+     */
     int get_threshold() const;
+    /**
+     * @brief Set marker threshold and reinitialize.
+     */
     void set_threshold(int threshold);
+    /**
+     * @brief Return boundary delta threshold.
+     */
     int get_threshold_diff() const;
+    /**
+     * @brief Set boundary delta threshold and reinitialize.
+     */
     void set_threshold_diff(int threshold_diff);
+    /**
+     * @brief Return sun threshold.
+     */
     int get_threshold_sun() const;
+    /**
+     * @brief Set sun threshold.
+     */
     void set_threshold_sun(int threshold_sun);
+    /**
+     * @brief Current maximum markers cap.
+     */
     unsigned get_max_markers_count() const;
+    /**
+     * @brief Set markers cap and reinitialize kernels.
+     */
     void set_max_markers_count(unsigned max_markers_count);
+    /**
+     * @brief Current maximum sun cap.
+     */
     unsigned get_max_sun_points_count() const;
+    /**
+     * @brief Set sun cap and reinitialize kernels.
+     */
     void set_max_sun_points_count(unsigned max_sun_points_count);
+    /**
+     * @brief Configured radii list.
+     */
     const std::vector<unsigned>& get_radii() const;
+    /**
+     * @brief Replace radii and reinitialize kernels.
+     */
     void set_radii(std::vector<unsigned> radii);
+    /**
+     * @brief Configured masks.
+     */
     const std::vector<cv::Mat>& get_masks() const;
+    /**
+     * @brief Replace mask set.
+     */
     void set_masks(std::vector<cv::Mat> masks);
 
 private:

@@ -15,13 +15,22 @@ namespace uvdar_core::detection::fimd {
 
 namespace {
 
+    /**
+     * @brief Function signature produced by generated shared object.
+     */
     using GeneratedDetectFn = unsigned char* (*)(unsigned char*, uintptr_t*, std::uint32_t*, uintptr_t*, std::uint32_t*);
 
+    /**
+     * @brief Return OS cache directory for generated kernels.
+     */
     std::filesystem::path cacheDirectory()
     {
         return std::filesystem::temp_directory_path() / "uvdar_core_fimd_cache";
     }
 
+    /**
+     * @brief Build stable cache key from kernel configuration.
+     */
     std::string makeKey(
         const RuntimeFimdRadiusModule& module,
         unsigned char threshold_center,
@@ -45,6 +54,9 @@ namespace {
         return stream.str();
     }
 
+    /**
+     * @brief Generate C source implementing the FIMD kernel.
+     */
     std::string generateSource(
         const RuntimeFimdRadiusModule& module,
         unsigned char threshold_center,
@@ -123,6 +135,9 @@ namespace {
         return source.str();
     }
 
+    /**
+     * @brief Compile generated C source into a shared object.
+     */
     bool compileModule(const std::filesystem::path& source_path, const std::filesystem::path& output_path)
     {
         const std::string command = "cc -shared -fPIC -O3 -DNDEBUG -march=native -mtune=native -fomit-frame-pointer -fno-semantic-interposition -o " + output_path.string() + " " + source_path.string();
@@ -131,7 +146,13 @@ namespace {
 
 } // namespace
 
-struct GeneratedFimdCpuKernel::Impl {
+    struct GeneratedFimdCpuKernel::Impl {
+    /**
+     * @brief Runtime state for generated module loading and fallback execution.
+     */
+    /**
+     * @brief Construct implementation and generate or load shared module.
+     */
     Impl(
         std::shared_ptr<const RuntimeFimdRadiusModule> radius_module,
         unsigned char center_threshold,
@@ -175,6 +196,9 @@ struct GeneratedFimdCpuKernel::Impl {
         }
     }
 
+    /**
+     * @brief Release generated library handle and allocated frame.
+     */
     ~Impl()
     {
         if (handle != nullptr) {
@@ -185,6 +209,9 @@ struct GeneratedFimdCpuKernel::Impl {
         }
     }
 
+    /**
+     * @brief Run generated detector or fallback path.
+     */
     unsigned detectRaw(
         const unsigned char* image,
         unsigned (*markers)[2],
@@ -275,8 +302,14 @@ GeneratedFimdCpuKernel::GeneratedFimdCpuKernel(
 {
 }
 
+/**
+ * @brief Default destructor.
+ */
 GeneratedFimdCpuKernel::~GeneratedFimdCpuKernel() = default;
 
+/**
+ * @brief Run raw detection and decode point arrays.
+ */
 unsigned GeneratedFimdCpuKernel::detectRaw(
     const unsigned char* image,
     unsigned (*markers)[2],
@@ -288,16 +321,25 @@ unsigned GeneratedFimdCpuKernel::detectRaw(
     return impl_->detectRaw(image, markers, markers_count, sun_points, sun_points_count, make_copy);
 }
 
+/**
+ * @brief Whether generated shared library path was successfully loaded.
+ */
 bool GeneratedFimdCpuKernel::isUsingGeneratedPath() const
 {
     return impl_->generated_ready;
 }
 
+/**
+ * @brief Return max marker count.
+ */
 unsigned GeneratedFimdCpuKernel::get_max_markers_count() const
 {
     return impl_->max_markers_count;
 }
 
+/**
+ * @brief Return max sun point count.
+ */
 unsigned GeneratedFimdCpuKernel::get_max_sun_points_count() const
 {
     return impl_->max_sun_points_count;
