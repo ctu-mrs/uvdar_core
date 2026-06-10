@@ -1,0 +1,64 @@
+#pragma once
+
+#include <opencv2/core.hpp>
+
+#include <memory>
+#include <mutex>
+#include <string>
+#include <vector>
+
+#include <rclcpp/rclcpp.hpp>
+#include <sensor_msgs/msg/image.hpp>
+
+#include "uvdar_core/app/package_config.hpp"
+#include "uvdar_core/detection/fimd/cpu_detector.hpp"
+#include "uvdar_core/detection/fimd/gpu_detector.hpp"
+#include "uvdar_core/detection/i_detector.hpp"
+#include "uvdar_core/msg/image_points_with_float_stamped.hpp"
+#include "uvdar_core/utils/thread_pool.hpp"
+
+namespace uvdar_core::app {
+
+class DetectorNode : public rclcpp::Node {
+public:
+    explicit DetectorNode(const rclcpp::NodeOptions& options = rclcpp::NodeOptions());
+
+private:
+    struct InputPipeline {
+        DetectorInputConfig config;
+        std::vector<cv::Mat> masks;
+        std::unique_ptr<uvdar_core::detection::IDetector> detector;
+        bool detector_initialized = false;
+        cv::Mat latest_image;
+        uvdar_core::detection::DetectorOutput latest_output;
+        rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr subscription;
+        rclcpp::Publisher<uvdar_core::msg::ImagePointsWithFloatStamped>::SharedPtr candidate_publisher;
+        rclcpp::Publisher<uvdar_core::msg::ImagePointsWithFloatStamped>::SharedPtr sun_publisher;
+        rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr visualization_publisher;
+        std::mutex mutex;
+    };
+
+    void loadConfig();
+    void createInterfaces();
+    std::vector<cv::Mat> loadMasks(const DetectorInputConfig& input_config) const;
+    void onImage(const sensor_msgs::msg::Image::ConstSharedPtr& image_msg, std::size_t image_index);
+    void processImage(const sensor_msgs::msg::Image::ConstSharedPtr& image_msg, std::size_t image_index);
+    void publishPoints(
+        const InputPipeline& pipeline,
+        const sensor_msgs::msg::Image::ConstSharedPtr& image_msg,
+        const uvdar_core::detection::DetectorOutput& output,
+        const cv::Mat& image);
+    void publishVisualization(
+        const InputPipeline& pipeline,
+        const sensor_msgs::msg::Image::ConstSharedPtr& image_msg,
+        const cv::Mat& image,
+        const uvdar_core::detection::DetectorOutput& output) const;
+
+    PackageConfig config_;
+    std::vector<std::unique_ptr<InputPipeline>> pipelines_;
+    std::unique_ptr<uvdar_core::utils::ThreadPool> thread_pool_;
+    rclcpp::Time startup_time_;
+    std::string config_path_;
+};
+
+} // namespace uvdar_core::app

@@ -1,0 +1,46 @@
+detector:
+  debug: false
+  gui: false
+  initial_delay_sec: 0.0
+  queue_depth: 10
+  thread_pool_size: 3
+  max_points_per_image: 100
+  inputs:
+    - name: camera_0
+      enabled: true
+      input_topic: /my_camera/pylon_ros2_camera_node/image_raw
+      output_topic: /detector/camera_0/points_seen
+      detect_sun_points: true
+      publish_sun_points: false
+      sun_output_topic: /detector/camera_0/points_seen/sun
+      publish_visualization: false
+      visualization_topic: /detector/camera_0/detection_visualization
+      mask_file: ""
+      backend: gpu
+      threshold: 120
+      threshold_diff: 60
+      threshold_sun: 240
+      min_sun_marker_distance: 20
+      max_markers_count: 300
+      max_sun_points_count: 10000
+      radii: [3, 5]
+
+tracking:
+  enabled: false
+  implementation: ami
+
+pose_estimation:
+  enabled: false
+  implementation: pnp
+
+filtering:
+  enabled: false
+  implementation: unscented
+
+calibration:
+  enabled: false
+  implementation: ocamcalib
+
+simulation:
+  enabled: false
+  implementation: default

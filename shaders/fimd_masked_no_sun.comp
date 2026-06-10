@@ -1,0 +1,173 @@
+#version 310 es
+
+layout(local_size_x = {{LOCAL_SIZE_X}}, local_size_y = {{LOCAL_SIZE_Y}}, local_size_z = {{LOCAL_SIZE_Z}}) in;
+
+layout(std430, binding = 0) readonly buffer image_in_buffer {
+    uint image_in[];
+};
+
+layout(std430, binding = 1) readonly buffer mask_buffer {
+    uint mask[];
+};
+
+layout(binding = 3, offset = 0) uniform atomic_uint markers_count;
+
+layout(std430, binding = 4) readonly buffer configuration_buffer { uint configuration[]; };
+layout(std430, binding = 5) buffer markers_buffer { uint markers[]; };
+
+uint config_threshold = 0U;
+uint config_threshold_diff = 0U;
+uint config_max_markers_count = 0U;
+uint config_radii_count = 0U;
+
+ivec2 image_size = ivec2(-1, -1);
+ivec2 center_pos = ivec2(-1, -1);
+int center_val = -1;
+
+int x, y, P, state;
+
+#define MICHENER_EMIT_PY_MX 0
+#define MICHENER_EMIT_MY_PX 1
+#define MICHENER_EMIT_PX_MY 2
+#define MICHENER_EMIT_MX_PY 3
+#define MICHENER_EMIT_PY_PX 4
+#define MICHENER_EMIT_MY_MX 5
+#define MICHENER_EMIT_PX_PY 6
+#define MICHENER_EMIT_MX_MY 7
+#define MICHENER_UPDATE_X_Y 8
+
+void michener_circle_init(int radius)
+{
+    x = 0;
+    y = radius;
+    P = 3 - 2*radius;
+    state = MICHENER_EMIT_PY_MX;
+}
+
+ivec2 michener_circle_next_pt()
+{
+    if (state == MICHENER_UPDATE_X_Y) {
+        if (P < 0) {
+            x += 1;
+            P += 4*x + 6;
+        } else {
+            x += 1;
+            y -= 1;
+            P += 4*(x - y) + 10;
+        }
+        state = MICHENER_EMIT_PY_MX;
+    }
+
+    if (x <= y) {
+        switch (state) {
+            case MICHENER_EMIT_PY_MX:
+                state = MICHENER_EMIT_MY_PX;
+                return center_pos + ivec2(+y, -x);
+            case MICHENER_EMIT_MY_PX:
+                if (x < y) {
+                    state = MICHENER_EMIT_PX_MY;
+                } else if (x > 0) {
+                    state = MICHENER_EMIT_PY_PX;
+                } else {
+                    state = MICHENER_UPDATE_X_Y;
+                }
+                return center_pos + ivec2(-y, +x);
+            case MICHENER_EMIT_PX_MY:
+                state = MICHENER_EMIT_MX_PY;
+                return center_pos + ivec2(+x, -y);
+            case MICHENER_EMIT_MX_PY:
+                if (x > 0) {
+                    state = MICHENER_EMIT_PY_PX;
+                } else {
+                    state = MICHENER_UPDATE_X_Y;
+                }
+                return center_pos + ivec2(-x, +y);
+            case MICHENER_EMIT_PY_PX:
+                state = MICHENER_EMIT_MY_MX;
+                return center_pos + ivec2(+y, +x);
+            case MICHENER_EMIT_MY_MX:
+                if (x < y) {
+                    state = MICHENER_EMIT_PX_PY;
+                } else {
+                    state = MICHENER_UPDATE_X_Y;
+                }
+                return center_pos + ivec2(-y, -x);
+            case MICHENER_EMIT_PX_PY:
+                state = MICHENER_EMIT_MX_MY;
+                return center_pos + ivec2(+x, +y);
+            case MICHENER_EMIT_MX_MY:
+                state = MICHENER_UPDATE_X_Y;
+                return center_pos + ivec2(-x, -y);
+        }
+    }
+    return ivec2(-1, -1);
+}
+
+int get_pixel_image(ivec2 pos)
+{
+    if (pos.x < 0 || pos.y < 0 || pos.x >= image_size.x || pos.y >= image_size.y) {
+        return 0;
+    }
+    uint linear_pos = (uint(pos.y) * uint(image_size.x)) + uint(pos.x);
+    uint byte_pos   = linear_pos & 3u;
+    uint dword_pos  = linear_pos >> 2;
+    return int((image_in[dword_pos] >> (8u * byte_pos)) & 0xFFu);
+}
+
+int get_pixel_mask(ivec2 pos)
+{
+    if (pos.x < 0 || pos.y < 0 || pos.x >= image_size.x || pos.y >= image_size.y) {
+        return 0;
+    }
+    uint linear_pos = (uint(pos.y) * uint(image_size.x)) + uint(pos.x);
+    uint byte_pos   = linear_pos & 3u;
+    uint dword_pos  = linear_pos >> 2;
+    return int((mask[dword_pos] >> (8u * byte_pos)) & 0xFFu);
+}
+
+bool marker_passes(int radius)
+{
+    michener_circle_init(radius);
+    while (true) {
+        ivec2 pos = michener_circle_next_pt();
+        if (pos.x == -1 && pos.y == -1) {
+            return true;
+        }
+        int val = get_pixel_image(pos) & get_pixel_mask(pos);
+        if ((center_val - val) <= int(config_threshold_diff)) {
+            return false;
+        }
+    }
+}
+
+void main()
+{
+    image_size = ivec2(int(configuration[0]), int(configuration[1]));
+    config_threshold = configuration[2];
+    config_threshold_diff = configuration[3];
+    config_max_markers_count = configuration[5];
+    config_radii_count = configuration[7];
+
+    if (atomicCounter(markers_count) >= uint(config_max_markers_count)) { return; }
+
+    center_pos = ivec2(gl_GlobalInvocationID.xy);
+    if (center_pos.x < 0 || center_pos.x >= image_size.x || center_pos.y < 0 || center_pos.y >= image_size.y) { return; }
+
+    center_val = get_pixel_image(center_pos) & get_pixel_mask(center_pos);
+
+    if (center_val >= int(config_threshold)) {
+        for (int i = 0; i < int(config_radii_count); i++) {
+            int radius = int(configuration[8 + i]);
+            if (center_pos.x < radius || center_pos.x >= (image_size.x - radius) || center_pos.y < radius || center_pos.y >= (image_size.y - radius)) {
+                return;
+            }
+            if (atomicCounter(markers_count) >= uint(config_max_markers_count)) { return; }
+            if (marker_passes(radius)) {
+                uint index = atomicCounterIncrement(markers_count);
+                if (index >= uint(config_max_markers_count)) { return; }
+                markers[index] = ((uint(center_pos.x) & uint(0x0000FFFF)) << 16) | (uint(center_pos.y) & uint(0x0000FFFF));
+                return;
+            }
+        }
+    }
+}
