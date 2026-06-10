@@ -4,7 +4,6 @@
 #include <array>
 #include <cstdio>
 #include <cstdint>
-#include <filesystem>
 #include <mutex>
 #include <numeric>
 #include <string>
@@ -13,6 +12,13 @@
 
 #include "uvdar_core/detection/fimd/postprocess.hpp"
 #include "uvdar_core/utils/compute_shader.hpp"
+
+extern "C" {
+extern const unsigned char _binary_shaders_fimd_masked_no_sun_comp_start[];
+extern const unsigned char _binary_shaders_fimd_masked_no_sun_comp_end[];
+extern const unsigned char _binary_shaders_fimd_masked_with_sun_comp_start[];
+extern const unsigned char _binary_shaders_fimd_masked_with_sun_comp_end[];
+}
 
 namespace uvdar_core::detection::fimd {
 
@@ -86,9 +92,9 @@ namespace {
         return collapsed;
     }
 
-    std::filesystem::path shaderDirectory()
+    std::string shaderSourceFromEmbedded(const unsigned char* start, const unsigned char* end)
     {
-        return std::filesystem::path(UVDAR_CORE_SHADER_DIR);
+        return std::string(reinterpret_cast<const char*>(start), end - start);
     }
 
     bool initBuffer(
@@ -280,7 +286,7 @@ struct GpuDetector::Impl {
             }
             sun_counter.destroy();
             sun_buffer.destroy();
-            if (!program.init(context, shaderDirectory() / "fimd_masked_no_sun.comp", local_x, local_y, local_z)) {
+            if (!program.init(context, shaderSourceFromEmbedded(_binary_shaders_fimd_masked_no_sun_comp_start, _binary_shaders_fimd_masked_no_sun_comp_end), local_x, local_y, local_z)) {
                 reportGlErrors("Failed to init no-sun program", context);
                 return false;
             }
@@ -288,7 +294,7 @@ struct GpuDetector::Impl {
             return true;
         }
 
-        if (!program.init(context, shaderDirectory() / "fimd_masked_with_sun.comp", local_x, local_y, local_z)) {
+        if (!program.init(context, shaderSourceFromEmbedded(_binary_shaders_fimd_masked_with_sun_comp_start, _binary_shaders_fimd_masked_with_sun_comp_end), local_x, local_y, local_z)) {
             reportGlErrors("Failed to init with-sun program", context);
             return false;
         }

@@ -996,6 +996,28 @@ bool Program::init(
     return init();
 }
 
+bool Program::init(
+    const Context& context,
+    const std::string& shader_source,
+    unsigned local_size_x_,
+    unsigned local_size_y_,
+    unsigned local_size_z_,
+    const std::vector<std::pair<std::string, std::string>>& replacements)
+{
+    if (!context.isInitialized()) {
+        return false;
+    }
+    local_size_x = local_size_x_;
+    local_size_y = local_size_y_;
+    local_size_z = local_size_z_;
+    auto merged  = replacements;
+    merged.emplace_back("{{LOCAL_SIZE_X}}", std::to_string(local_size_x));
+    merged.emplace_back("{{LOCAL_SIZE_Y}}", std::to_string(local_size_y));
+    merged.emplace_back("{{LOCAL_SIZE_Z}}", std::to_string(local_size_z));
+    source = loadShaderSource(shader_source, merged);
+    return init();
+}
+
 std::string Program::glsl_layout() const
 {
     char* str        = nullptr;
@@ -1158,6 +1180,17 @@ GLuint Program::uniform_write(const Uniform& uniform, const void* data) const
 }
 
 std::string loadShaderSource(
+    const std::string& shader_source,
+    const std::vector<std::pair<std::string, std::string>>& replacements)
+{
+    std::string source = shader_source;
+    for (const auto& [token, value] : replacements) {
+        replaceAll(source, token, value);
+    }
+    return source;
+}
+
+std::string loadShaderSource(
     const std::filesystem::path& shader_path,
     const std::vector<std::pair<std::string, std::string>>& replacements)
 {
@@ -1168,11 +1201,7 @@ std::string loadShaderSource(
 
     std::stringstream buffer;
     buffer << input.rdbuf();
-    std::string source = buffer.str();
-    for (const auto& [token, value] : replacements) {
-        replaceAll(source, token, value);
-    }
-    return source;
+    return loadShaderSource(buffer.str(), replacements);
 }
 
 } // namespace uvdar_core::utils::compute_shader

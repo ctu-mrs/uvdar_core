@@ -266,6 +266,13 @@ public:
         unsigned local_size_y,
         unsigned local_size_z,
         const std::vector<std::pair<std::string, std::string>>& replacements = { });
+    bool init(
+        const Context& context,
+        const std::string& shader_source,
+        unsigned local_size_x,
+        unsigned local_size_y,
+        unsigned local_size_z,
+        const std::vector<std::pair<std::string, std::string>>& replacements = { });
     std::string glsl_layout() const;
     bool dispatch(unsigned width, unsigned height, unsigned depth) const;
     GLuint destroy(bool free_source = false);
@@ -281,6 +288,9 @@ public:
     GLuint shader_handle = 0;
 };
 
+std::string loadShaderSource(
+    const std::string& shader_source,
+    const std::vector<std::pair<std::string, std::string>>& replacements = { });
 std::string loadShaderSource(
     const std::filesystem::path& shader_path,
     const std::vector<std::pair<std::string, std::string>>& replacements = { });

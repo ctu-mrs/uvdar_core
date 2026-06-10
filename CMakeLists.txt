@@ -27,6 +27,22 @@ set(msg_files
 	"msg/ImagePointsWithFloatStamped.msg"
 )
 
+file(GLOB_RECURSE SHADER_FILES_PATHS CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/shaders/*.comp")
+set(SHADER_OBJECTS)
+foreach(SHADER_FILE_PATH ${SHADER_FILES_PATHS})
+	file(RELATIVE_PATH SHADER_FILE ${CMAKE_CURRENT_SOURCE_DIR} ${SHADER_FILE_PATH})
+	get_filename_component(SHADER_NAME_WE ${SHADER_FILE_PATH} NAME_WE)
+	set(SHADER_OBJ "${CMAKE_CURRENT_BINARY_DIR}/${SHADER_NAME_WE}.o")
+	add_custom_command(
+		OUTPUT ${SHADER_OBJ}
+		COMMAND ld -r -z noexecstack -b binary -o ${SHADER_OBJ} ${SHADER_FILE}
+		DEPENDS ${SHADER_FILE_PATH}
+		WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+		VERBATIM
+	)
+	list(APPEND SHADER_OBJECTS ${SHADER_OBJ})
+endforeach()
+
 rosidl_generate_interfaces(${PROJECT_NAME}
 	${msg_files}
 	DEPENDENCIES builtin_interfaces
@@ -40,6 +56,7 @@ add_library(${PROJECT_NAME}_detector STATIC
 	src/utils/compute_shader.cpp
 	src/app/package_config.cpp
 	src/app/detector_node.cpp
+	${SHADER_OBJECTS}
 )
 target_include_directories(${PROJECT_NAME}_detector PUBLIC
 	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
@@ -47,9 +64,6 @@ target_include_directories(${PROJECT_NAME}_detector PUBLIC
 )
 target_include_directories(${PROJECT_NAME}_detector PRIVATE
 	${CMAKE_CURRENT_SOURCE_DIR}/include
-)
-target_compile_definitions(${PROJECT_NAME}_detector PRIVATE
-	UVDAR_CORE_SHADER_DIR="${CMAKE_CURRENT_SOURCE_DIR}/shaders"
 )
 target_link_libraries(${PROJECT_NAME}_detector
 	yaml-cpp::yaml-cpp
