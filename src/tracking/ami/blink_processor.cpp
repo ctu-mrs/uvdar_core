@@ -43,7 +43,7 @@ void BlinkProcessor::updateSequences(const std::vector<std::vector<bool>>& seque
 /**
  * @brief Convert detector frame to AMI state and return matched blinkers.
  */
-std::vector<std::pair<PointState, int>> BlinkProcessor::processFrame(std::shared_ptr<const ImagePointsWithFloatStamped> image_points)
+std::vector<std::pair<PointState, int>> BlinkProcessor::processFrame(std::shared_ptr<const ImagePointsWithCovariancesStamped> image_points)
 {
     std::vector<std::pair<PointState, int>> blinkers;
     if (!image_points) {

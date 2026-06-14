@@ -1,14 +1,27 @@
 #pragma once
 
+#include <cstddef>
 #include <opencv2/core.hpp>
 
 #include <vector>
 
 namespace uvdar_core::detection {
 
+/**
+ * @brief Point extracted from a detector with optional covariance estimate.
+ */
+struct DetectorPoint {
+    cv::Point2f point = { 0.0F, 0.0F };
+    float covariance_00 = 0.0F;
+    float covariance_01 = 0.0F;
+    float covariance_10 = 0.0F;
+    float covariance_11 = 0.0F;
+    std::size_t sample_count = 1;
+};
+
 struct DetectorOutput {
-    std::vector<cv::Point2i> detected_points;
-    std::vector<cv::Point2i> sun_points;
+    std::vector<DetectorPoint> detected_points;
+    std::vector<DetectorPoint> sun_points;
 };
 
 class IDetector {

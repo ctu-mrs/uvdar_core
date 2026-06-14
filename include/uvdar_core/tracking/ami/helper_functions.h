@@ -70,7 +70,7 @@ struct Point2D {
 /**
  * @brief Lightweight stamped list of points consumed by AMI.
  */
-struct ImagePointsWithFloatStamped {
+struct ImagePointsWithCovariancesStamped {
     double stamp = 0.0;
     uint16_t img_height = 0;
     uint16_t img_width = 0;

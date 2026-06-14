@@ -7,7 +7,6 @@ detector:
   max_points_per_image: 100
   inputs:
     - name: camera_0
-      enabled: true
       input_topic: /my_camera/pylon_ros2_camera_node/image_raw
       output_topic: /detector/camera_0/points_seen
       detect_sun_points: true
@@ -49,7 +48,6 @@ tracking:
     - "11001101"
   inputs:
     - name: camera_0
-      enabled: true
       input_topic: /detector/camera_0/points_seen
       input_image_topic: /my_camera/pylon_ros2_camera_node/image_raw
       output_topic: /tracker/camera_0/blinkers

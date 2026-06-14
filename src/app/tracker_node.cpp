@@ -53,17 +53,13 @@ double TrackerNode::toSeconds(const builtin_interfaces::msg::Time& stamp)
 void TrackerNode::createInterfaces()
 {
     if (config_.tracking.inputs.empty()) {
-        throw std::runtime_error("No enabled tracking input pipelines were configured.");
+        throw std::runtime_error("No tracking input pipelines configured.");
     }
 
     pipelines_.clear();
     pipelines_.reserve(config_.tracking.inputs.size());
 
     for (const TrackerInputConfig& input_config : config_.tracking.inputs) {
-        if (!input_config.enabled) {
-            continue;
-        }
-
         auto pipeline = std::make_unique<InputPipeline>();
         pipeline->config = input_config;
 
@@ -91,10 +87,10 @@ void TrackerNode::createInterfaces()
         }
 
         const auto image_qos = rclcpp::QoS(rclcpp::KeepLast(config_.tracking.queue_depth)).best_effort();
-        pipeline->input_subscription = create_subscription<uvdar_core::msg::ImagePointsWithFloatStamped>(
+        pipeline->input_subscription = create_subscription<uvdar_core::msg::ImagePointsWithCovariancesStamped>(
             input_config.input_topic,
             image_qos,
-            [this, image_index = pipelines_.size()](const uvdar_core::msg::ImagePointsWithFloatStamped::ConstSharedPtr& msg) {
+            [this, image_index = pipelines_.size()](const uvdar_core::msg::ImagePointsWithCovariancesStamped::ConstSharedPtr& msg) {
                 onImagePoints(msg, image_index);
             });
 
@@ -111,14 +107,14 @@ void TrackerNode::createInterfaces()
     }
 
     if (pipelines_.empty()) {
-        throw std::runtime_error("No enabled tracking pipelines were created.");
+        throw std::runtime_error("No tracking pipelines configured.");
     }
 }
 
 /**
  * @brief Queue incoming image point cloud for asynchronous processing.
  */
-void TrackerNode::onImagePoints(const uvdar_core::msg::ImagePointsWithFloatStamped::ConstSharedPtr& msg, std::size_t image_index)
+void TrackerNode::onImagePoints(const uvdar_core::msg::ImagePointsWithCovariancesStamped::ConstSharedPtr& msg, std::size_t image_index)
 {
     if ((now() - startup_time_).seconds() < config_.tracking.initial_delay_sec) {
         RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 1000, "Tracker startup delay active.");
@@ -158,7 +154,7 @@ void TrackerNode::onImage(const sensor_msgs::msg::Image::ConstSharedPtr& image_m
 /**
  * @brief Run AMI tracker pipeline and publish output.
  */
-void TrackerNode::processImagePoints(const uvdar_core::msg::ImagePointsWithFloatStamped::ConstSharedPtr& image_msg, std::size_t image_index)
+void TrackerNode::processImagePoints(const uvdar_core::msg::ImagePointsWithCovariancesStamped::ConstSharedPtr& image_msg, std::size_t image_index)
 {
     if (image_index >= pipelines_.size() || !image_msg) {
         return;
@@ -169,7 +165,7 @@ void TrackerNode::processImagePoints(const uvdar_core::msg::ImagePointsWithFloat
         return;
     }
 
-    uvdar_core::tracking::ami::ImagePointsWithFloatStamped input_points;
+    uvdar_core::tracking::ami::ImagePointsWithCovariancesStamped input_points;
     input_points.stamp = toSeconds(image_msg->stamp);
     input_points.img_width = static_cast<uint16_t>(image_msg->image_width);
     input_points.img_height = static_cast<uint16_t>(image_msg->image_height);
@@ -184,7 +180,7 @@ void TrackerNode::processImagePoints(const uvdar_core::msg::ImagePointsWithFloat
     std::vector<std::pair<uvdar_core::tracking::ami::PointState, int>> detected;
     {
         std::scoped_lock lock(pipeline->mutex);
-        detected = pipeline->blink_processor->processFrame(std::make_shared<const uvdar_core::tracking::ami::ImagePointsWithFloatStamped>(input_points));
+        detected = pipeline->blink_processor->processFrame(std::make_shared<const uvdar_core::tracking::ami::ImagePointsWithCovariancesStamped>(input_points));
     }
 
     if (detected.size() > config_.tracking.max_points_per_image) {

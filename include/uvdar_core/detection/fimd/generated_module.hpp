@@ -36,9 +36,9 @@ public:
      */
     unsigned detectRaw(
         const unsigned char* image,
-        unsigned (*markers)[2],
+        std::uint32_t* markers,
         unsigned* markers_count,
-        unsigned (*sun_points)[2],
+        std::uint32_t* sun_points,
         unsigned* sun_points_count,
         bool make_copy = true);
 

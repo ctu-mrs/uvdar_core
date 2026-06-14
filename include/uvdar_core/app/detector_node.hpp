@@ -14,7 +14,7 @@
 #include "uvdar_core/detection/fimd/cpu_detector.hpp"
 #include "uvdar_core/detection/fimd/gpu_detector.hpp"
 #include "uvdar_core/detection/i_detector.hpp"
-#include "uvdar_core/msg/image_points_with_float_stamped.hpp"
+#include "uvdar_core/msg/image_points_with_covariances_stamped.hpp"
 #include "uvdar_core/utils/thread_pool.hpp"
 
 namespace uvdar_core::app {
@@ -42,8 +42,8 @@ private:
         cv::Mat latest_image;
         uvdar_core::detection::DetectorOutput latest_output;
         rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr subscription;
-        rclcpp::Publisher<uvdar_core::msg::ImagePointsWithFloatStamped>::SharedPtr candidate_publisher;
-        rclcpp::Publisher<uvdar_core::msg::ImagePointsWithFloatStamped>::SharedPtr sun_publisher;
+        rclcpp::Publisher<uvdar_core::msg::ImagePointsWithCovariancesStamped>::SharedPtr candidate_publisher;
+        rclcpp::Publisher<uvdar_core::msg::ImagePointsWithCovariancesStamped>::SharedPtr sun_publisher;
         rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr visualization_publisher;
         std::mutex mutex;
     };

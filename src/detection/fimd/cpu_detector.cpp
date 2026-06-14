@@ -4,7 +4,6 @@
 #include <cstdint>
 #include <memory>
 #include <unordered_map>
-#include <unordered_set>
 #include <utility>
 
 #include <opencv2/imgproc.hpp>
@@ -28,14 +27,6 @@ namespace {
         cv::Mat masked;
         cv::bitwise_and(image, masks[mask_id], masked);
         return std::vector<unsigned char>(masked.data, masked.data + masked.total());
-    }
-
-    /**
-     * @brief Compute a hashable key for point deduplication.
-     */
-    std::uint64_t pointKey(const cv::Point2i& point)
-    {
-        return (static_cast<std::uint64_t>(static_cast<std::uint32_t>(point.x)) << 32U) | static_cast<std::uint32_t>(point.y);
     }
 
 } // namespace
@@ -134,47 +125,71 @@ bool CpuDetector::processImage(const cv::Mat& image, DetectorOutput& output, int
     }
 
     const std::vector<unsigned char> prepared = applyMask(image, impl_->config.masks, mask_id);
-    std::unordered_set<std::uint64_t> marker_keys;
-    std::unordered_set<std::uint64_t> sun_keys;
+    const auto image_width = static_cast<std::uint32_t>(image.cols);
+    std::vector<WeightedPoint> raw_marker_points;
+    std::vector<WeightedPoint> raw_sun_points;
     output.detected_points.clear();
     output.sun_points.clear();
+    output.detected_points.reserve(100);
+    output.sun_points.reserve(100);
 
     for (auto& kernel : impl_->kernels) {
-        std::vector<std::array<unsigned, 2>> raw_markers(kernel->get_max_markers_count());
+        std::vector<std::uint32_t> raw_markers(kernel->get_max_markers_count());
         unsigned raw_markers_count = 0;
 
-        std::vector<std::array<unsigned, 2>> raw_sun_points;
+        std::vector<std::uint32_t> raw_sun_points_raw;
         unsigned raw_sun_points_count = 0;
-        unsigned (*sun_points)[2] = nullptr;
+        std::uint32_t* sun_points = nullptr;
         unsigned* sun_points_count = nullptr;
 
         if (impl_->config.detect_sun_points) {
-            raw_sun_points.resize(kernel->get_max_sun_points_count());
-            sun_points      = reinterpret_cast<unsigned (*)[2]>(raw_sun_points.data());
+            raw_sun_points_raw.resize(kernel->get_max_sun_points_count());
+            sun_points      = raw_sun_points_raw.data();
             sun_points_count = &raw_sun_points_count;
         }
 
         kernel->detectRaw(
             prepared.data(),
-            reinterpret_cast<unsigned (*)[2]>(raw_markers.data()),
+            raw_markers.data(),
             &raw_markers_count,
             sun_points,
             sun_points_count,
             true);
 
         for (unsigned index = 0; index < raw_markers_count; ++index) {
-            const cv::Point2i point(static_cast<int>(raw_markers[index][0]), static_cast<int>(raw_markers[index][1]));
-            if (marker_keys.insert(pointKey(point)).second) {
-                output.detected_points.push_back(point);
-            }
+            const std::uint32_t raw_marker = raw_markers[index];
+            const std::uint32_t linear_pos = raw_marker >> 8u;
+            raw_marker_points.push_back(WeightedPoint {
+                cv::Point2f(
+                    static_cast<float>(linear_pos % image_width),
+                    static_cast<float>(linear_pos / image_width)),
+                static_cast<float>(raw_marker & 0xFFu),
+            });
         }
         if (impl_->config.detect_sun_points) {
             for (unsigned index = 0; index < raw_sun_points_count; ++index) {
-                const cv::Point2i point(static_cast<int>(raw_sun_points[index][0]), static_cast<int>(raw_sun_points[index][1]));
-                if (sun_keys.insert(pointKey(point)).second) {
-                    output.sun_points.push_back(point);
-                }
+                const std::uint32_t raw_sun_point = raw_sun_points_raw[index];
+                const std::uint32_t linear_pos   = raw_sun_point >> 8u;
+                raw_sun_points.push_back(WeightedPoint {
+                    cv::Point2f(static_cast<float>(linear_pos % image_width), static_cast<float>(linear_pos / image_width)),
+                    static_cast<float>(raw_sun_point & 0xFFu),
+                });
             }
+        }
+    }
+
+    output.detected_points = collapseRawPoints(raw_marker_points, 5);
+    if (impl_->config.detect_sun_points) {
+        output.sun_points.reserve(raw_sun_points.size());
+        for (const auto& raw_sun_point : raw_sun_points) {
+            output.sun_points.push_back(uvdar_core::detection::DetectorPoint {
+                raw_sun_point.point,
+                1.0F / 12.0F,
+                0.0F,
+                0.0F,
+                1.0F / 12.0F,
+                1,
+            });
         }
     }
 

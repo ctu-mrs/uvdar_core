@@ -18,7 +18,6 @@ enum class DetectorBackend {
  */
 struct DetectorInputConfig {
     std::string name;
-    bool enabled;
     std::string input_topic;
     std::string output_topic;
     bool detect_sun_points;
@@ -63,7 +62,6 @@ struct ModuleConfig {
  */
 struct TrackerInputConfig {
     std::string name;
-    bool enabled;
     std::string input_topic;
     std::string input_image_topic;
     std::string output_topic;

@@ -82,12 +82,13 @@ DetectorBackend parseBackend(const std::string& value)
 }
 
 /**
- * @brief Parse module configuration pair {enabled, implementation}.
+ * @brief Parse module configuration with backward-compatible support for optional
+ *        legacy key 'enabled'. New configurations only require 'implementation'.
  */
 ModuleConfig parseModuleConfig(const YAML::Node& node)
 {
     return ModuleConfig {
-        requireScalar<bool>(node, "enabled"),
+        optionalScalar<bool>(node, "enabled", true),
         requireScalar<std::string>(node, "implementation"),
     };
 }
@@ -304,7 +305,6 @@ PackageConfig loadPackageConfig(const std::string& config_path_string)
     for (const YAML::Node& input_node : inputs_node) {
         config.detector.inputs.push_back(DetectorInputConfig {
             requireScalar<std::string>(input_node, "name"),
-            requireScalar<bool>(input_node, "enabled"),
             requireScalar<std::string>(input_node, "input_topic"),
             requireScalar<std::string>(input_node, "output_topic"),
             requireScalar<bool>(input_node, "detect_sun_points"),
@@ -366,7 +366,6 @@ PackageConfig loadPackageConfig(const std::string& config_path_string)
         for (const YAML::Node& input_node : tracking_inputs_node) {
             TrackerInputConfig input;
             input.name = requireScalar<std::string>(input_node, "name");
-            input.enabled = optionalScalar<bool>(input_node, "enabled", true);
             input.input_topic = requireScalar<std::string>(input_node, "input_topic");
             input.input_image_topic = optionalScalar<std::string>(input_node, "input_image_topic", std::string {});
             input.output_topic = requireScalar<std::string>(input_node, "output_topic");

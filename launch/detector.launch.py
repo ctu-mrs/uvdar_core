@@ -19,12 +19,12 @@ def generate_launch_description():
 			]),
 		),
 		DeclareLaunchArgument("namespace", default_value=""),
-			Node(
-				package="uvdar_core",
-				executable="detector_node",
-				name="detector",
-				namespace=namespace,
-				output="screen",
-				parameters=[{"config_path": config_file}],
-			),
-		])
+		Node(
+			package="uvdar_core",
+			executable="detector_node",
+			name="detector",
+			namespace=namespace,
+			output="screen",
+			parameters=[{"config_path": config_file}],
+		),
+	])

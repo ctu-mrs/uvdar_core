@@ -165,7 +165,8 @@ void main()
             if (marker_passes(radius)) {
                 uint index = atomicCounterIncrement(markers_count);
                 if (index >= uint(config_max_markers_count)) { return; }
-                markers[index] = ((uint(center_pos.x) & uint(0x0000FFFF)) << 16) | (uint(center_pos.y) & uint(0x0000FFFF));
+                uint linear_pos = (uint(center_pos.y) * uint(image_size.x)) + uint(center_pos.x);
+                markers[index] = (linear_pos << 8u) | (uint(center_val) & 0xFFu);
                 return;
             }
         }

@@ -4,11 +4,11 @@
 #include <array>
 #include <cstdio>
 #include <cstdint>
+#include <vector>
 #include <mutex>
 #include <numeric>
 #include <string>
 #include <utility>
-#include <vector>
 
 #include "uvdar_core/detection/fimd/postprocess.hpp"
 #include "uvdar_core/utils/compute_shader.hpp"
@@ -22,77 +22,45 @@ extern const unsigned char _binary_shaders_fimd_masked_with_sun_comp_end[];
 
 namespace uvdar_core::detection::fimd {
 
-namespace {
-
-    struct AccumulatorPoint {
-        std::uint64_t x     = 0;
-        std::uint64_t y     = 0;
-        std::uint64_t count = 0;
-    };
-
+    namespace {
     /**
-     * @brief Cluster adjacent raw points by distance to reduce duplicates.
+     * @brief Decode packed 32-bit GPU coordinates.
      */
-    std::vector<cv::Point2i> collapseRawPoints(const std::vector<std::uint32_t>& raw_points, unsigned count, unsigned distance_px)
+    std::vector<WeightedPoint> decodePackedPoints(const std::vector<std::uint32_t>& raw_points, std::size_t count, unsigned width)
     {
-        std::vector<std::uint32_t> points(raw_points.begin(), raw_points.begin() + count);
-        std::sort(points.begin(), points.end(), [](std::uint32_t lhs, std::uint32_t rhs) {
-            const std::uint16_t lhs_y = static_cast<std::uint16_t>(lhs & 0x0000FFFFU);
-            const std::uint16_t rhs_y = static_cast<std::uint16_t>(rhs & 0x0000FFFFU);
-            if (lhs_y == rhs_y) {
-                return static_cast<std::uint16_t>((lhs >> 16) & 0x0000FFFFU) < static_cast<std::uint16_t>((rhs >> 16) & 0x0000FFFFU);
-            }
-            return lhs_y < rhs_y;
-        });
-
-        std::vector<AccumulatorPoint> accumulators;
-        accumulators.reserve(points.size());
-        const std::uint32_t max_distance_squared = distance_px * distance_px;
-        std::size_t min_index                    = 0;
-
-        for (std::uint32_t raw : points) {
-            const std::uint32_t x = (raw >> 16) & 0x0000FFFFU;
-            const std::uint32_t y = raw & 0x0000FFFFU;
-
-            std::uint32_t best_distance = max_distance_squared;
-            long best_index             = -1;
-
-            for (std::size_t index = min_index; index < accumulators.size(); ++index) {
-                const auto& accumulator        = accumulators[index];
-                const std::uint32_t centroid_x = static_cast<std::uint32_t>(accumulator.x / accumulator.count);
-                const std::uint32_t centroid_y = static_cast<std::uint32_t>(accumulator.y / accumulator.count);
-                if (y > centroid_y && (y - centroid_y) >= distance_px) {
-                    min_index = index;
-                    continue;
-                }
-
-                const std::int64_t dx                = static_cast<std::int64_t>(centroid_x) - static_cast<std::int64_t>(x);
-                const std::int64_t dy                = static_cast<std::int64_t>(centroid_y) - static_cast<std::int64_t>(y);
-                const std::uint32_t distance_squared = static_cast<std::uint32_t>(dx * dx + dy * dy);
-                if (distance_squared < best_distance) {
-                    best_distance = distance_squared;
-                    best_index    = static_cast<long>(index);
-                }
-            }
-
-            if (best_index >= 0) {
-                auto& accumulator = accumulators[best_index];
-                accumulator.x += x;
-                accumulator.y += y;
-                accumulator.count += 1;
-            } else {
-                accumulators.push_back(AccumulatorPoint { x, y, 1 });
-            }
+        std::vector<WeightedPoint> points;
+        points.reserve(count);
+        for (std::size_t index = 0; index < count; ++index) {
+            const auto raw_point   = raw_points[index];
+            const auto linear_pos  = raw_point >> 8u;
+            points.push_back(WeightedPoint {
+                cv::Point2f(
+                    static_cast<float>(linear_pos % static_cast<std::uint32_t>(width)),
+                    static_cast<float>(linear_pos / static_cast<std::uint32_t>(width))),
+                static_cast<float>(raw_point & 0xFFu),
+            });
         }
+        return points;
+    }
 
-        std::vector<cv::Point2i> collapsed;
-        collapsed.reserve(accumulators.size());
-        for (const auto& accumulator : accumulators) {
-            collapsed.emplace_back(
-                static_cast<int>(accumulator.x / accumulator.count),
-                static_cast<int>(accumulator.y / accumulator.count));
+    std::vector<uvdar_core::detection::DetectorPoint> decodeSunPoints(const std::vector<std::uint32_t>& raw_points, std::size_t count, unsigned width)
+    {
+        std::vector<uvdar_core::detection::DetectorPoint> points;
+        points.reserve(count);
+        for (std::size_t index = 0; index < count; ++index) {
+            const auto linear_pos = static_cast<std::uint32_t>(raw_points[index] >> 8u);
+            const auto y = linear_pos / width;
+            const auto x = linear_pos - y * width;
+            points.push_back(uvdar_core::detection::DetectorPoint {
+                cv::Point2f(static_cast<float>(x), static_cast<float>(y)),
+                1.0F / 12.0F,
+                0.0F,
+                0.0F,
+                1.0F / 12.0F,
+                1,
+            });
         }
-        return collapsed;
+        return points;
     }
 
     /**
@@ -439,7 +407,8 @@ struct GpuDetector::Impl {
                 return false;
             }
         }
-        output.detected_points = collapseRawPoints(raw_markers, marker_count, 5);
+        const auto collapsed_markers = decodePackedPoints(raw_markers, marker_count, width);
+        output.detected_points = collapseRawPoints(collapsed_markers, 5);
 
         output.sun_points.clear();
         if (config.detect_sun_points) {
@@ -456,7 +425,7 @@ struct GpuDetector::Impl {
                     return false;
                 }
             }
-            output.sun_points = collapseRawPoints(raw_sun, sun_count, 5);
+            output.sun_points = decodeSunPoints(raw_sun, sun_count, width);
         }
 
         filterMarkersNearSunPoints(output, config.min_sun_marker_distance);

@@ -121,7 +121,7 @@ public:
     /**
      * @brief Process one frame of point detections.
      */
-    void processBuffer(const ImagePointsWithFloatStamped& points);
+    void processBuffer(const ImagePointsWithCovariancesStamped& points);
     /**
      * @brief Retrieve matched blinkers for current buffer state.
      */

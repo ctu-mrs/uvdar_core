@@ -13,7 +13,7 @@
 #include <std_msgs/msg/header.hpp>
 
 #include "uvdar_core/app/package_config.hpp"
-#include "uvdar_core/msg/image_points_with_float_stamped.hpp"
+#include "uvdar_core/msg/image_points_with_covariances_stamped.hpp"
 #include "uvdar_core/msg/tracker_output.hpp"
 #include "uvdar_core/tracking/ami/blink_processor.h"
 #include "uvdar_core/utils/thread_pool.hpp"
@@ -41,7 +41,7 @@ private:
         cv::Mat latest_image;
         bool image_received = false;
         uvdar_core::msg::TrackerOutput latest_output;
-        rclcpp::Subscription<uvdar_core::msg::ImagePointsWithFloatStamped>::SharedPtr input_subscription;
+        rclcpp::Subscription<uvdar_core::msg::ImagePointsWithCovariancesStamped>::SharedPtr input_subscription;
         rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr image_subscription;
         rclcpp::Publisher<uvdar_core::msg::TrackerOutput>::SharedPtr output_publisher;
         rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr visualization_publisher;
@@ -59,7 +59,7 @@ private:
     /**
      * @brief Image-points callback from detector output.
      */
-    void onImagePoints(const uvdar_core::msg::ImagePointsWithFloatStamped::ConstSharedPtr& msg, std::size_t image_index);
+    void onImagePoints(const uvdar_core::msg::ImagePointsWithCovariancesStamped::ConstSharedPtr& msg, std::size_t image_index);
     /**
      * @brief Input image callback for optional visualization.
      */
@@ -67,7 +67,7 @@ private:
     /**
      * @brief Run tracker pipeline on one frame.
      */
-    void processImagePoints(const uvdar_core::msg::ImagePointsWithFloatStamped::ConstSharedPtr& image_msg, std::size_t image_index);
+    void processImagePoints(const uvdar_core::msg::ImagePointsWithCovariancesStamped::ConstSharedPtr& image_msg, std::size_t image_index);
     /**
      * @brief Publish outputs and invoke visualization if configured.
      */

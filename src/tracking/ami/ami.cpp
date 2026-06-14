@@ -39,7 +39,7 @@ void AMI::setupSequenceMatcher(std::vector<std::vector<bool>> i_sequences)
 /**
  * @brief Convert and append new detections, then prune old tracks.
  */
-void AMI::processBuffer(const ImagePointsWithFloatStamped& points)
+void AMI::processBuffer(const ImagePointsWithCovariancesStamped& points)
 {
     if (!matcher_) {
         return;

@@ -25,8 +25,8 @@ find_library(GBM_LIBRARY gbm REQUIRED)
 find_library(GLESV2_LIBRARY GLESv2 REQUIRED)
 
 set(msg_files
-    "msg/Point2DWithFloat.msg"
-    "msg/ImagePointsWithFloatStamped.msg"
+    "msg/Point2DWithCovariance.msg"
+    "msg/ImagePointsWithCovariancesStamped.msg"
     "msg/TrackedBlinker.msg"
     "msg/TrackerOutput.msg"
 )
@@ -83,6 +83,15 @@ add_library(${PROJECT_NAME}_common STATIC ${SHARED_SOURCES})
 add_library(${PROJECT_NAME}_utils STATIC ${UTIL_SOURCES})
 add_library(${PROJECT_NAME}_detector STATIC ${DETECTOR_SOURCES})
 add_library(${PROJECT_NAME}_tracker STATIC ${TRACKER_SOURCES})
+
+set(UVDAR_FIMD_GENERATOR_CFLAGS
+    "-shared -fPIC -O3 -DNDEBUG -march=native -mtune=native -fomit-frame-pointer -fno-semantic-interposition"
+)
+
+target_compile_definitions(${PROJECT_NAME}_detector PRIVATE
+    "UVDAR_FIMD_GENERATOR_COMPILER=\"$<SHELL_PATH:${CMAKE_C_COMPILER}>\""
+    "UVDAR_FIMD_GENERATOR_CFLAGS=\"${UVDAR_FIMD_GENERATOR_CFLAGS}\""
+)
 
 # Shared include directories.
 target_include_directories(${PROJECT_NAME}_common PUBLIC

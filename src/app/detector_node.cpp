@@ -1,29 +1,19 @@
 #include "uvdar_core/app/detector_node.hpp"
 
+#include <cmath>
 #include <filesystem>
 #include <stdexcept>
 #include <utility>
 
 #include <cv_bridge/cv_bridge.hpp>
-#include <opencv2/highgui.hpp>
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/imgproc.hpp>
+#include <opencv2/highgui.hpp>
 #include <sensor_msgs/image_encodings.hpp>
 
 namespace uvdar_core::app {
 
 namespace {
-
-    /**
-     * @brief Read pixel value in bounds for annotation output.
-     */
-    double pointValue(const cv::Mat& image, const cv::Point2i& point)
-    {
-        if (point.y < 0 || point.y >= image.rows || point.x < 0 || point.x >= image.cols) {
-            return 0.0;
-        }
-        return static_cast<double>(image.at<unsigned char>(point.y, point.x));
-    }
 
 } // namespace
 
@@ -78,10 +68,6 @@ void DetectorNode::createInterfaces()
     pipelines_.clear();
 
     for (const DetectorInputConfig& input_config : config_.detector.inputs) {
-        if (!input_config.enabled) {
-            continue;
-        }
-
         auto pipeline    = std::make_unique<InputPipeline>();
         pipeline->config = input_config;
         pipeline->masks  = loadMasks(input_config);
@@ -112,12 +98,12 @@ void DetectorNode::createInterfaces()
                 pipeline->masks,
             });
         }
-        pipeline->candidate_publisher = create_publisher<uvdar_core::msg::ImagePointsWithFloatStamped>(
+        pipeline->candidate_publisher = create_publisher<uvdar_core::msg::ImagePointsWithCovariancesStamped>(
             input_config.output_topic,
             config_.detector.queue_depth);
 
         if (input_config.publish_sun_points) {
-            pipeline->sun_publisher = create_publisher<uvdar_core::msg::ImagePointsWithFloatStamped>(
+            pipeline->sun_publisher = create_publisher<uvdar_core::msg::ImagePointsWithCovariancesStamped>(
                 input_config.sun_output_topic,
                 config_.detector.queue_depth);
         }
@@ -140,7 +126,7 @@ void DetectorNode::createInterfaces()
     }
 
     if (pipelines_.empty()) {
-        throw std::runtime_error("No enabled detector input pipelines were configured.");
+        throw std::runtime_error("No detector input pipelines configured.");
     }
 }
 
@@ -210,17 +196,20 @@ void DetectorNode::publishPoints(
     const uvdar_core::detection::DetectorOutput& output,
     const cv::Mat& image)
 {
-    auto fill_message = [&](const std::vector<cv::Point2i>& points) {
-        uvdar_core::msg::ImagePointsWithFloatStamped msg;
+    auto fill_message = [&](const std::vector<uvdar_core::detection::DetectorPoint>& points) {
+        uvdar_core::msg::ImagePointsWithCovariancesStamped msg;
         msg.stamp        = image_msg->header.stamp;
         msg.image_height = static_cast<std::uint32_t>(image.rows);
         msg.image_width  = static_cast<std::uint32_t>(image.cols);
         msg.points.reserve(points.size());
-        for (const cv::Point2i& point : points) {
-            uvdar_core::msg::Point2DWithFloat msg_point;
-            msg_point.x     = static_cast<double>(point.x);
-            msg_point.y     = static_cast<double>(point.y);
-            msg_point.value = pointValue(image, point);
+        for (const auto& point : points) {
+            uvdar_core::msg::Point2DWithCovariance msg_point;
+            msg_point.x             = static_cast<double>(point.point.x);
+            msg_point.y             = static_cast<double>(point.point.y);
+            msg_point.covariance_00 = static_cast<double>(point.covariance_00);
+            msg_point.covariance_01 = static_cast<double>(point.covariance_01);
+            msg_point.covariance_10 = static_cast<double>(point.covariance_10);
+            msg_point.covariance_11 = static_cast<double>(point.covariance_11);
             msg.points.push_back(msg_point);
         }
         return msg;
@@ -248,11 +237,13 @@ void DetectorNode::publishVisualization(
     cv::Mat visualization;
     cv::cvtColor(image, visualization, cv::COLOR_GRAY2BGR);
 
-    for (const cv::Point2i& point : output.detected_points) {
-        cv::circle(visualization, point, 5, cv::Scalar(255, 255, 0), 1);
+    for (const auto& point : output.detected_points) {
+        const cv::Point center(std::lround(point.point.x), std::lround(point.point.y));
+        cv::circle(visualization, center, 5, cv::Scalar(255, 255, 0), 1);
     }
-    for (const cv::Point2i& point : output.sun_points) {
-        cv::circle(visualization, point, 3, cv::Scalar(0, 255, 255), 2);
+    for (const auto& point : output.sun_points) {
+        const cv::Point center(std::lround(point.point.x), std::lround(point.point.y));
+        cv::circle(visualization, center, 3, cv::Scalar(0, 255, 255), 2);
     }
 
     if (pipeline.config.publish_visualization && pipeline.visualization_publisher) {

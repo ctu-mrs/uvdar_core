@@ -41,7 +41,7 @@ public:
     /**
      * @brief Process one timestamped frame of detector points.
      */
-    std::vector<std::pair<PointState, int>> processFrame(std::shared_ptr<const ImagePointsWithFloatStamped> image_points);
+    std::vector<std::pair<PointState, int>> processFrame(std::shared_ptr<const ImagePointsWithCovariancesStamped> image_points);
 };
 
 } // namespace uvdar_core::tracking::ami

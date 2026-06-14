@@ -90,6 +90,7 @@ public:
         if (!module_) {
             throw std::runtime_error("RuntimeFimdCpuKernel requires a valid radius module.");
         }
+        updateLimits();
         if (allocate_frame) {
             frame_ = static_cast<unsigned char*>(std::malloc(frameBytes()));
         }
@@ -155,15 +156,31 @@ public:
      */
     unsigned detect(const unsigned char* image, std::vector<Point2D>& markers, std::vector<Point2D>& sun_points, bool make_copy = true)
     {
-        std::vector<std::array<unsigned, 2>> raw_markers(marker_limit_ == std::numeric_limits<unsigned>::max() ? 0 : marker_limit_);
-        std::vector<std::array<unsigned, 2>> raw_sun_points(sun_limit_ == std::numeric_limits<unsigned>::max() ? 0 : sun_limit_);
+        const auto image_width = module_->image_width();
+        auto decode_marker_point = [image_width](std::uint32_t packed) {
+            const auto linear_pos = packed >> 8u;
+            return Point2D {
+                static_cast<int>(linear_pos % image_width),
+                static_cast<int>(linear_pos / image_width),
+            };
+        };
+        auto decode_sun_point = [image_width](std::uint32_t packed) {
+            const auto linear_pos = packed >> 8u;
+            return Point2D {
+                static_cast<int>(linear_pos % image_width),
+                static_cast<int>(linear_pos / image_width),
+            };
+        };
+
+        std::vector<std::uint32_t> raw_markers(marker_limit_ == std::numeric_limits<unsigned>::max() ? 0 : marker_limit_);
+        std::vector<std::uint32_t> raw_sun_points(sun_limit_ == std::numeric_limits<unsigned>::max() ? 0 : sun_limit_);
         unsigned markers_count    = 0;
         unsigned sun_points_count = 0;
         detectRaw(
             image,
-            raw_markers.empty() ? nullptr : reinterpret_cast<unsigned (*)[2]>(raw_markers.data()),
+            raw_markers.empty() ? nullptr : raw_markers.data(),
             &markers_count,
-            raw_sun_points.empty() ? nullptr : reinterpret_cast<unsigned (*)[2]>(raw_sun_points.data()),
+            raw_sun_points.empty() ? nullptr : raw_sun_points.data(),
             &sun_points_count,
             make_copy);
         markers.clear();
@@ -171,10 +188,10 @@ public:
         markers.reserve(markers_count);
         sun_points.reserve(sun_points_count);
         for (unsigned index = 0; index < markers_count; ++index) {
-            markers.push_back(Point2D { static_cast<int>(raw_markers[index][0]), static_cast<int>(raw_markers[index][1]) });
+            markers.push_back(decode_marker_point(raw_markers[index]));
         }
         for (unsigned index = 0; index < sun_points_count; ++index) {
-            sun_points.push_back(Point2D { static_cast<int>(raw_sun_points[index][0]), static_cast<int>(raw_sun_points[index][1]) });
+            sun_points.push_back(decode_sun_point(raw_sun_points[index]));
         }
         return static_cast<unsigned>(markers_count + sun_points_count);
     }
@@ -184,9 +201,9 @@ public:
      */
     unsigned detectRaw(
         const unsigned char* image,
-        unsigned (*markers)[2],
+        std::uint32_t* markers,
         unsigned* markers_count,
-        unsigned (*sun_points)[2],
+        std::uint32_t* sun_points,
         unsigned* sun_points_count,
         bool make_copy = true)
     {
@@ -226,13 +243,14 @@ public:
 
         while (true) {
             if (hasTermination(cursor + offset - termination_.size())) {
-                return static_cast<unsigned>((cursor - target_image) - static_cast<std::ptrdiff_t>(offset));
+                return static_cast<unsigned>((cursor - target_image));
             }
 
             const unsigned char pixel_value = *(++cursor);
             if (pixel_value <= threshold_center_) {
                 continue;
             }
+            const auto point_position = static_cast<std::size_t>(cursor - target_image);
 
             if ((pixel_value - *(cursor + boundary_offsets[0])) <= threshold_diff_) {
                 if (pixel_value >= threshold_sun_) {
@@ -241,40 +259,37 @@ public:
                     }
 
                     clearInterior(cursor, interior_offsets);
-                    const auto point = coord1to2(static_cast<std::size_t>(cursor - target_image));
                     if (sun_points != nullptr) {
-                        sun_points[sun_count][0] = static_cast<unsigned>(point[0]);
-                        sun_points[sun_count][1] = static_cast<unsigned>(point[1]);
+                        if (sun_count < sun_limit_) {
+                            sun_points[sun_count] = (static_cast<std::uint32_t>(point_position) << 8u) | static_cast<std::uint32_t>(pixel_value);
+                        }
                     }
                     ++sun_count;
                     if (sun_points_count != nullptr)
-                        *sun_points_count = sun_count;
-                    if (sun_count == sun_limit_) {
-                        writeTermination(cursor + offset - termination_.size());
-                    }
+                        *sun_points_count = std::min(sun_count, sun_limit_);
+                if (sun_count >= sun_limit_) {
+                    writeTermination(cursor + offset - termination_.size());
                 }
-                continue;
             }
+            continue;
+        }
 
             if (markerBoundaryRejected(cursor, pixel_value, boundary_offsets)) {
                 continue;
             }
 
-            unsigned char peak        = 0;
-            std::size_t peak_position = 0;
-            scanInterior(cursor, target_image, peak, peak_position, interior_offsets);
-            const auto point = coord1to2(peak_position);
-            if (markers != nullptr) {
-                markers[marker_count][0] = static_cast<unsigned>(point[0]);
-                markers[marker_count][1] = static_cast<unsigned>(point[1]);
-            }
-            ++marker_count;
-            if (markers_count != nullptr)
-                *markers_count = marker_count;
-            if (marker_count == marker_limit_) {
-                writeTermination(cursor + offset - termination_.size());
+        if (markers != nullptr) {
+            if (marker_count < marker_limit_) {
+                markers[marker_count] = (static_cast<std::uint32_t>(point_position) << 8u) | static_cast<std::uint32_t>(pixel_value);
             }
         }
+        ++marker_count;
+        if (markers_count != nullptr)
+            *markers_count = std::min(marker_count, marker_limit_);
+        if (marker_count >= marker_limit_) {
+            writeTermination(cursor + offset - termination_.size());
+        }
+    }
     }
 
     /**
@@ -421,21 +436,6 @@ private:
     {
         for (int offset : interior_offsets) {
             *(cursor + offset) = static_cast<unsigned char>(0x00);
-        }
-    }
-
-    /**
-     * @brief Scan interior neighbors for local peak and clear candidates.
-     */
-    void scanInterior(unsigned char* cursor, unsigned char* target_image, unsigned char& peak, std::size_t& peak_position, const std::vector<int>& interior_offsets) const
-    {
-        for (int offset : interior_offsets) {
-            unsigned char* interior_ptr = cursor + offset;
-            if (*interior_ptr > peak) {
-                peak          = *interior_ptr;
-                peak_position = static_cast<std::size_t>(interior_ptr - target_image);
-            }
-            *interior_ptr = static_cast<unsigned char>(0x00);
         }
     }
 
