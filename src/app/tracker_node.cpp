@@ -34,8 +34,12 @@ void TrackerNode::loadConfig()
     if (!config_.tracking.module.enabled) {
         throw std::runtime_error("tracking module is disabled in config.");
     }
-    if (config_.tracking.module.implementation != "ami") {
-        throw std::runtime_error("Only ami tracker implementation is supported in this build.");
+    if (config_.tracking.module.implementation == "ami") {
+        tracker_implementation_ = TrackerImplementation::Ami;
+    } else if (config_.tracking.module.implementation == "generalized") {
+        tracker_implementation_ = TrackerImplementation::Generalized;
+    } else {
+        throw std::runtime_error("Supported tracker implementations are 'ami' and 'generalized'.");
     }
 }
 
@@ -45,6 +49,26 @@ void TrackerNode::loadConfig()
 double TrackerNode::toSeconds(const builtin_interfaces::msg::Time& stamp)
 {
     return rclcpp::Time(stamp).seconds();
+}
+
+/**
+ * @brief Convert seconds to builtin ROS time.
+ */
+builtin_interfaces::msg::Time TrackerNode::toRosTime(double seconds)
+{
+    if (seconds <= 0.0) {
+        return builtin_interfaces::msg::Time {};
+    }
+
+    const double integral_seconds = std::floor(seconds);
+    builtin_interfaces::msg::Time stamp;
+    stamp.sec = static_cast<std::int32_t>(integral_seconds);
+    stamp.nanosec = static_cast<std::uint32_t>(std::llround((seconds - integral_seconds) * 1.0e9));
+    if (stamp.nanosec >= 1000000000U) {
+        ++stamp.sec;
+        stamp.nanosec -= 1000000000U;
+    }
+    return stamp;
 }
 
 /**
@@ -63,17 +87,31 @@ void TrackerNode::createInterfaces()
         auto pipeline = std::make_unique<InputPipeline>();
         pipeline->config = input_config;
 
-        uvdar_core::tracking::ami::ParamsAMI params
-            = uvdar_core::tracking::ami::ParamsAMI::create(config_.tracking.sequence_file, config_.tracking.debug, false);
-        params.allowed_BER_per_seq = config_.tracking.allowed_BER_per_seq;
-        params.stored_seq_len_factor = config_.tracking.stored_seq_len_factor;
-        params.poly_order = config_.tracking.poly_order;
-        params.max_px_shift = uvdar_core::tracking::ami::Point2D(config_.tracking.max_px_shift_x, config_.tracking.max_px_shift_y);
-        params.max_zeros_consecutive = config_.tracking.max_zeros_consecutive;
-        params.max_buffer_length = config_.tracking.max_buffer_length;
-        params.decay_factor = config_.tracking.decay_factor;
-        params.conf_probab_percent = config_.tracking.conf_probab_percent;
-        pipeline->blink_processor = std::make_unique<uvdar_core::tracking::ami::BlinkProcessor>(params, config_.tracking.sequences);
+        if (tracker_implementation_ == TrackerImplementation::Ami) {
+            uvdar_core::tracking::ami::ParamsAMI params
+                = uvdar_core::tracking::ami::ParamsAMI::create(config_.tracking.sequence_file, config_.tracking.debug, false);
+            params.allowed_BER_per_seq = config_.tracking.allowed_BER_per_seq;
+            params.stored_seq_len_factor = config_.tracking.stored_seq_len_factor;
+            params.poly_order = config_.tracking.poly_order;
+            params.max_px_shift = uvdar_core::tracking::ami::Point2D(config_.tracking.max_px_shift_x, config_.tracking.max_px_shift_y);
+            params.max_zeros_consecutive = config_.tracking.max_zeros_consecutive;
+            params.max_buffer_length = config_.tracking.max_buffer_length;
+            params.decay_factor = config_.tracking.decay_factor;
+            params.conf_probab_percent = config_.tracking.conf_probab_percent;
+            pipeline->ami_processor = std::make_unique<uvdar_core::tracking::ami::BlinkProcessor>(params, config_.tracking.sequences);
+        } else {
+            uvdar_core::tracking::generalized::ParamsGeneralized params = uvdar_core::tracking::generalized::ParamsGeneralized::create(config_.tracking.debug);
+            params.allowed_BER_per_seq = config_.tracking.allowed_BER_per_seq;
+            params.stored_seq_len_factor = config_.tracking.stored_seq_len_factor;
+            params.model_order = config_.tracking.poly_order;
+            params.max_px_shift_x = static_cast<double>(config_.tracking.max_px_shift_x);
+            params.max_px_shift_y = static_cast<double>(config_.tracking.max_px_shift_y);
+            params.max_zeros_consecutive = config_.tracking.max_zeros_consecutive;
+            params.max_buffer_length = config_.tracking.max_buffer_length;
+            params.decay_factor = config_.tracking.decay_factor;
+            params.conf_probab_percent = config_.tracking.conf_probab_percent;
+            pipeline->generalized_processor = std::make_unique<uvdar_core::tracking::generalized::BlinkProcessor>(params, config_.tracking.sequences);
+        }
         pipeline->tracker_initialized = true;
 
         pipeline->output_publisher = create_publisher<uvdar_core::msg::TrackerOutput>(
@@ -152,7 +190,7 @@ void TrackerNode::onImage(const sensor_msgs::msg::Image::ConstSharedPtr& image_m
 }
 
 /**
- * @brief Run AMI tracker pipeline and publish output.
+ * @brief Run selected tracker pipeline and publish shared output.
  */
 void TrackerNode::processImagePoints(const uvdar_core::msg::ImagePointsWithCovariancesStamped::ConstSharedPtr& image_msg, std::size_t image_index)
 {
@@ -161,30 +199,7 @@ void TrackerNode::processImagePoints(const uvdar_core::msg::ImagePointsWithCovar
     }
 
     auto& pipeline = pipelines_[image_index];
-    if (!pipeline->tracker_initialized || !pipeline->blink_processor) {
-        return;
-    }
-
-    uvdar_core::tracking::ami::ImagePointsWithCovariancesStamped input_points;
-    input_points.stamp = toSeconds(image_msg->stamp);
-    input_points.img_width = static_cast<uint16_t>(image_msg->image_width);
-    input_points.img_height = static_cast<uint16_t>(image_msg->image_height);
-    input_points.points.reserve(image_msg->points.size());
-
-    for (const auto& point : image_msg->points) {
-        input_points.points.emplace_back(
-            static_cast<int>(std::llround(point.x)),
-            static_cast<int>(std::llround(point.y)));
-    }
-
-    std::vector<std::pair<uvdar_core::tracking::ami::PointState, int>> detected;
-    {
-        std::scoped_lock lock(pipeline->mutex);
-        detected = pipeline->blink_processor->processFrame(std::make_shared<const uvdar_core::tracking::ami::ImagePointsWithCovariancesStamped>(input_points));
-    }
-
-    if (detected.size() > config_.tracking.max_points_per_image) {
-        RCLCPP_WARN(get_logger(), "Tracker output has %zu points > max_points_per_image.", detected.size());
+    if (!pipeline->tracker_initialized) {
         return;
     }
 
@@ -192,30 +207,132 @@ void TrackerNode::processImagePoints(const uvdar_core::msg::ImagePointsWithCovar
     output.stamp = image_msg->stamp;
     output.image_width = image_msg->image_width;
     output.image_height = image_msg->image_height;
-    output.blinkers.reserve(detected.size());
 
-    for (const auto& detected_point : detected) {
-        uvdar_core::msg::TrackedBlinker tracker_point;
-        const auto& point_state = detected_point.first;
-        tracker_point.x = point_state.px_cord.x;
-        tracker_point.y = point_state.px_cord.y;
-        tracker_point.id = detected_point.second;
-        tracker_point.stamp = image_msg->stamp;
-        tracker_point.predicted_x = point_state.x_statistics.predicted_coordinate;
-        tracker_point.predicted_y = point_state.y_statistics.predicted_coordinate;
-        tracker_point.confidence_x = point_state.x_statistics.confidence_interval;
-        tracker_point.confidence_y = point_state.y_statistics.confidence_interval;
-        tracker_point.poly_reg_computed = point_state.x_statistics.poly_reg_computed || point_state.y_statistics.poly_reg_computed;
-        tracker_point.extended_search = point_state.x_statistics.extended_search || point_state.y_statistics.extended_search;
-        tracker_point.virtual_point = !point_state.led_state;
+    if (tracker_implementation_ == TrackerImplementation::Ami) {
+        if (!pipeline->ami_processor) {
+            return;
+        }
 
-        for (const double coeff : point_state.x_statistics.coeff) {
-            tracker_point.x_coeff.push_back(coeff);
+        uvdar_core::tracking::ami::ImagePointsWithCovariancesStamped input_points;
+        input_points.stamp = toSeconds(image_msg->stamp);
+        input_points.img_width = static_cast<uint16_t>(image_msg->image_width);
+        input_points.img_height = static_cast<uint16_t>(image_msg->image_height);
+        input_points.points.reserve(image_msg->points.size());
+
+        for (const auto& point : image_msg->points) {
+            input_points.points.emplace_back(
+                static_cast<int>(std::llround(point.x)),
+                static_cast<int>(std::llround(point.y)));
         }
-        for (const double coeff : point_state.y_statistics.coeff) {
-            tracker_point.y_coeff.push_back(coeff);
+
+        std::vector<std::pair<uvdar_core::tracking::ami::PointState, int>> detected;
+        {
+            std::scoped_lock lock(pipeline->mutex);
+            detected = pipeline->ami_processor->processFrame(std::make_shared<const uvdar_core::tracking::ami::ImagePointsWithCovariancesStamped>(input_points));
         }
-        output.blinkers.push_back(std::move(tracker_point));
+
+        if (detected.size() > config_.tracking.max_points_per_image) {
+            RCLCPP_WARN(get_logger(), "Tracker output has %zu points > max_points_per_image.", detected.size());
+            return;
+        }
+
+        output.blinkers.reserve(detected.size());
+        for (const auto& detected_point : detected) {
+            uvdar_core::msg::TrackedBlinker tracker_point;
+            const auto& point_state = detected_point.first;
+            tracker_point.x = point_state.px_cord.x;
+            tracker_point.y = point_state.px_cord.y;
+            tracker_point.id = detected_point.second;
+            tracker_point.stamp = image_msg->stamp;
+            tracker_point.predicted_x = point_state.x_statistics.predicted_coordinate;
+            tracker_point.predicted_y = point_state.y_statistics.predicted_coordinate;
+            tracker_point.confidence_x = point_state.x_statistics.confidence_interval;
+            tracker_point.confidence_y = point_state.y_statistics.confidence_interval;
+            tracker_point.poly_reg_computed = point_state.x_statistics.poly_reg_computed || point_state.y_statistics.poly_reg_computed;
+            tracker_point.extended_search = point_state.x_statistics.extended_search || point_state.y_statistics.extended_search;
+            tracker_point.virtual_point = !point_state.led_state;
+
+            for (const double coeff : point_state.x_statistics.coeff) {
+                tracker_point.x_coeff.push_back(coeff);
+            }
+            for (const double coeff : point_state.y_statistics.coeff) {
+                tracker_point.y_coeff.push_back(coeff);
+            }
+            output.blinkers.push_back(std::move(tracker_point));
+        }
+    } else {
+        if (!pipeline->generalized_processor) {
+            return;
+        }
+
+        uvdar_core::tracking::generalized::ImagePointsWithCovariancesStamped input_points;
+        input_points.stamp = toSeconds(image_msg->stamp);
+        input_points.img_width = static_cast<uint16_t>(image_msg->image_width);
+        input_points.img_height = static_cast<uint16_t>(image_msg->image_height);
+        input_points.points.reserve(image_msg->points.size());
+
+        for (const auto& point : image_msg->points) {
+            uvdar_core::tracking::generalized::ImagePoint tracker_point;
+            tracker_point.x = point.x;
+            tracker_point.y = point.y;
+            tracker_point.covariance.c00 = point.covariance_00;
+            tracker_point.covariance.c01 = point.covariance_01;
+            tracker_point.covariance.c10 = point.covariance_10;
+            tracker_point.covariance.c11 = point.covariance_11;
+            input_points.points.push_back(tracker_point);
+        }
+
+        std::vector<uvdar_core::tracking::generalized::TrackResult> detected;
+        {
+            std::scoped_lock lock(pipeline->mutex);
+            detected = pipeline->generalized_processor->processFrame(
+                std::make_shared<const uvdar_core::tracking::generalized::ImagePointsWithCovariancesStamped>(input_points));
+        }
+
+        if (detected.size() > config_.tracking.max_points_per_image) {
+            RCLCPP_WARN(get_logger(), "Tracker output has %zu points > max_points_per_image.", detected.size());
+            return;
+        }
+
+        output.blinkers.reserve(detected.size());
+        for (const auto& detected_track : detected) {
+            uvdar_core::msg::TrackedBlinker tracker_point;
+            const auto& point_state = detected_track.state;
+            tracker_point.x = point_state.position.x();
+            tracker_point.y = point_state.position.y();
+            tracker_point.id = detected_track.id;
+            tracker_point.track_id = detected_track.track_id;
+            tracker_point.stamp = image_msg->stamp;
+            tracker_point.covariance_00 = point_state.covariance.c00;
+            tracker_point.covariance_01 = point_state.covariance.c01;
+            tracker_point.covariance_10 = point_state.covariance.c10;
+            tracker_point.covariance_11 = point_state.covariance.c11;
+            tracker_point.measurement_covariance_00 = point_state.measurement_covariance.c00;
+            tracker_point.measurement_covariance_01 = point_state.measurement_covariance.c01;
+            tracker_point.measurement_covariance_10 = point_state.measurement_covariance.c10;
+            tracker_point.measurement_covariance_11 = point_state.measurement_covariance.c11;
+            tracker_point.predicted_x = point_state.predicted_position.x();
+            tracker_point.predicted_y = point_state.predicted_position.y();
+            tracker_point.prediction_covariance_00 = point_state.prediction_covariance.c00;
+            tracker_point.prediction_covariance_01 = point_state.prediction_covariance.c01;
+            tracker_point.prediction_covariance_10 = point_state.prediction_covariance.c10;
+            tracker_point.prediction_covariance_11 = point_state.prediction_covariance.c11;
+            tracker_point.confidence_x = point_state.x_statistics.confidence_interval;
+            tracker_point.confidence_y = point_state.y_statistics.confidence_interval;
+            tracker_point.prediction_reference_time = toRosTime(point_state.x_statistics.reference_time);
+            tracker_point.poly_reg_computed = point_state.x_statistics.model_reg_computed || point_state.y_statistics.model_reg_computed;
+            tracker_point.extended_search = point_state.x_statistics.extended_search || point_state.y_statistics.extended_search;
+            tracker_point.virtual_point = point_state.virtual_point;
+            tracker_point.associated_with_detection = point_state.associated_with_detection;
+
+            for (const double coeff : point_state.x_statistics.coeff) {
+                tracker_point.x_coeff.push_back(coeff);
+            }
+            for (const double coeff : point_state.y_statistics.coeff) {
+                tracker_point.y_coeff.push_back(coeff);
+            }
+            output.blinkers.push_back(std::move(tracker_point));
+        }
     }
 
     publishOutput(*pipeline, output);

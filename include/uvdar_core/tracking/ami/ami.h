@@ -166,7 +166,7 @@ private:
      */
     double calcWSSR(const Eigen::VectorXd&, const std::vector<double>&, const std::vector<double>&) const;
     /**
-     * @brief Fit weighted polynomial regression model and predict trajectory values.
+     * @brief Fit weighted motion model and predict trajectory values.
      */
     std::tuple<std::vector<double>, Eigen::VectorXd> polyReg(const std::vector<double>&, const std::vector<double>&, const std::vector<double>&, int) const;
     /**

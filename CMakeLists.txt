@@ -72,10 +72,12 @@ set(DETECTOR_SOURCES
     ${SHADER_OBJECTS}
 )
 
-# Tracker + AMI sources.
+# Tracker backend sources.
 set(TRACKER_SOURCES
     src/tracking/ami/ami.cpp
     src/tracking/ami/blink_processor.cpp
+    src/tracking/generalized/generalized_tracker.cpp
+    src/tracking/generalized/blink_processor.cpp
     src/app/tracker_node.cpp
 )
 

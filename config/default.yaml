@@ -25,6 +25,7 @@ detector:
       radii: [3, 5]
 
 tracking:
+  # Select "ami" for the legacy tracker or "generalized" for covariance-aware tracking.
   implementation: ami
   debug: false
   gui: false

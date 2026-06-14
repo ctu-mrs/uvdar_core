@@ -2,9 +2,11 @@
 
 #include <memory>
 #include <mutex>
+#include <cstdint>
 #include <string>
 #include <vector>
 
+#include <builtin_interfaces/msg/time.hpp>
 #include <cv_bridge/cv_bridge.hpp>
 #include <opencv2/core.hpp>
 #include <opencv2/imgproc.hpp>
@@ -16,6 +18,7 @@
 #include "uvdar_core/msg/image_points_with_covariances_stamped.hpp"
 #include "uvdar_core/msg/tracker_output.hpp"
 #include "uvdar_core/tracking/ami/blink_processor.h"
+#include "uvdar_core/tracking/generalized/blink_processor.h"
 #include "uvdar_core/utils/thread_pool.hpp"
 
 namespace uvdar_core::app {
@@ -31,12 +34,18 @@ public:
     explicit TrackerNode(const rclcpp::NodeOptions& options = rclcpp::NodeOptions());
 
 private:
+    enum class TrackerImplementation {
+        Ami,
+        Generalized,
+    };
+
     /**
      * @brief Internal tracker input pipeline description.
      */
     struct InputPipeline {
         TrackerInputConfig config;
-        std::unique_ptr<uvdar_core::tracking::ami::BlinkProcessor> blink_processor;
+        std::unique_ptr<uvdar_core::tracking::ami::BlinkProcessor> ami_processor;
+        std::unique_ptr<uvdar_core::tracking::generalized::BlinkProcessor> generalized_processor;
         bool tracker_initialized = false;
         cv::Mat latest_image;
         bool image_received = false;
@@ -84,8 +93,13 @@ private:
      * @brief Convert builtin ROS time to floating-point seconds.
      */
     static double toSeconds(const builtin_interfaces::msg::Time& stamp);
+    /**
+     * @brief Convert floating-point seconds back to builtin ROS time.
+     */
+    static builtin_interfaces::msg::Time toRosTime(double seconds);
 
     PackageConfig config_;
+    TrackerImplementation tracker_implementation_ = TrackerImplementation::Ami;
     std::vector<std::unique_ptr<InputPipeline>> pipelines_;
     std::unique_ptr<uvdar_core::utils::ThreadPool> thread_pool_;
     rclcpp::Time startup_time_;

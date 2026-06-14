@@ -138,7 +138,7 @@ void AMI::findClosestPixelAndInsert(std::vector<PointState>& current_frame)
 }
 
 /**
- * @brief Use polynomial extrapolation to continue tracks where no direct match exists.
+ * @brief Use generalized extrapolation to continue tracks where no direct match exists.
  */
 void AMI::extendedSearch(std::vector<PointState>& no_nn_current_frame, std::vector<seqPointer>& sequences_no_insert)
 {
@@ -284,13 +284,13 @@ PredictionStats AMI::selectStatisticsValues(const std::vector<double>& values, c
     stats.time_pred = insert_time;
     stats.poly_reg_computed = false;
 
-    int polynomial_order = params_ami_.poly_order;
-    if (!values.empty() && static_cast<int>(values.size()) < polynomial_order) {
-        polynomial_order = static_cast<int>(values.size()) - 2;
+    int model_order = params_ami_.poly_order;
+    if (!values.empty() && static_cast<int>(values.size()) < model_order) {
+        model_order = static_cast<int>(values.size()) - 2;
     }
 
-    if (static_cast<int>(values.size()) > 1 && polynomial_order >= 0) {
-        auto [coeff, predicted_vals_past] = polyReg(values, time, calcNormalizedWeightVect(time), polynomial_order);
+    if (static_cast<int>(values.size()) > 1 && model_order >= 0) {
+        auto [coeff, predicted_vals_past] = polyReg(values, time, calcNormalizedWeightVect(time), model_order);
         stats.coeff = coeff;
         stats.predicted_vals_past = predicted_vals_past;
 
@@ -308,25 +308,25 @@ PredictionStats AMI::selectStatisticsValues(const std::vector<double>& values, c
 }
 
 /**
- * @brief Fit weighted polynomial and return coefficients and predicted history.
+ * @brief Fit weighted model and return coefficients and predicted history.
  */
 std::tuple<std::vector<double>, Eigen::VectorXd> AMI::polyReg(
     const std::vector<double>& coordinate,
     const std::vector<double>& time,
     const std::vector<double>& weights,
-    const int polynomial_order) const
+    const int model_order) const
 {
     const int sample_count = static_cast<int>(time.size());
-    Eigen::MatrixXd design_matrix(sample_count, polynomial_order + 1);
+    Eigen::MatrixXd design_matrix(sample_count, model_order + 1);
     Eigen::VectorXd pixel_vect = Eigen::VectorXd::Map(coordinate.data(), coordinate.size());
     Eigen::VectorXd weight_vect = Eigen::VectorXd::Map(weights.data(), weights.size());
-    Eigen::VectorXd result(polynomial_order + 1);
+    Eigen::VectorXd result(model_order + 1);
 
     Eigen::MatrixXd weight_mat = weight_vect.asDiagonal();
     weight_mat = weight_mat.cwiseSqrt();
 
     for (int index = 0; index < sample_count; ++index) {
-        for (int degree = 0; degree < polynomial_order + 1; ++degree) {
+        for (int degree = 0; degree < model_order + 1; ++degree) {
             design_matrix(index, degree) = (degree == 0) ? 1.0 : std::pow(time[index], degree);
         }
     }
