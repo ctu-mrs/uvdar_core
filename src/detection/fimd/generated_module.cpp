@@ -160,18 +160,13 @@ namespace {
     /**
      * @brief Compile generated C source into a shared object.
      */
-    std::string quoteForShell(const std::string& value)
-    {
-        return "\"" + value + "\"";
-    }
-
     bool compileModule(const std::filesystem::path& source_path, const std::filesystem::path& output_path)
     {
         const std::string command = std::string(UVDAR_FIMD_GENERATOR_COMPILER) + " "
                                   + UVDAR_FIMD_GENERATOR_CFLAGS + " "
                                   + "-o "
-                                  + quoteForShell(output_path.string()) + " "
-                                  + quoteForShell(source_path.string());
+                                  + "\"" + output_path.string() + "\" "
+                                  + "\"" + source_path.string() + "\"";
         return std::system(command.c_str()) == 0;
     }
 

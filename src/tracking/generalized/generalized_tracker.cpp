@@ -63,6 +63,23 @@ namespace {
 
 constexpr double kMinimumVariance = 1.0e-6;
 
+double validVarianceOrFallback(double variance, double fallback)
+{
+    const double sanitized_fallback = std::isfinite(fallback) && fallback > 0.0 ? fallback : kMinimumVariance;
+    if (!std::isfinite(variance) || variance <= 0.0) {
+        return std::max(sanitized_fallback, kMinimumVariance);
+    }
+    return std::max(variance, kMinimumVariance);
+}
+
+double validNonNegativeVarianceOrZero(double variance)
+{
+    if (!std::isfinite(variance) || variance < 0.0) {
+        return 0.0;
+    }
+    return variance;
+}
+
 Eigen::VectorXd basisRow(double tau, int order)
 {
     Eigen::VectorXd row(order + 1);
@@ -142,10 +159,13 @@ void GeneralizedTracker::localSearch(std::vector<PointState>& current_frame, std
         const PointState& last_inserted = (*seq)->back();
         auto selected = current_frame.end();
         double best_score = std::numeric_limits<double>::max();
+        const Covariance2D last_position_covariance = last_inserted.associated_with_detection
+            ? last_inserted.measurement_covariance
+            : last_inserted.prediction_covariance;
 
         for (auto point = current_frame.begin(); point != current_frame.end(); ++point) {
             // Local search trusts the last state, but widens the gate with detector uncertainty.
-            Covariance2D gate_covariance = addCovariances(last_inserted.covariance, point->measurement_covariance);
+            Covariance2D gate_covariance = addCovariances(last_position_covariance, point->measurement_covariance);
             gate_covariance = addProcessNoise(gate_covariance);
             const double score = mahalanobisSquared(point->position, last_inserted.position, gate_covariance);
             const Eigen::Vector2d delta = (point->position - last_inserted.position).cwiseAbs();
@@ -164,7 +184,7 @@ void GeneralizedTracker::localSearch(std::vector<PointState>& current_frame, std
         }
 
         selected->predicted_position = last_inserted.position;
-        selected->prediction_covariance = addProcessNoise(last_inserted.covariance);
+        selected->prediction_covariance = addProcessNoise(last_position_covariance);
         // Publish a conservative state covariance for the next estimator.
         selected->covariance = addCovariances(selected->measurement_covariance, selected->prediction_covariance);
         selected->x_statistics.extended_search = false;
@@ -285,7 +305,10 @@ void GeneralizedTracker::addVirtualPointToSequence(const SeqPointer& sequence, d
     if (!predictSequence(*sequence, stamp, virtual_point)) {
         virtual_point = sequence->back();
         virtual_point.predicted_position = virtual_point.position;
-        virtual_point.prediction_covariance = addProcessNoise(virtual_point.covariance);
+        const Covariance2D last_position_covariance = virtual_point.associated_with_detection
+            ? virtual_point.measurement_covariance
+            : virtual_point.prediction_covariance;
+        virtual_point.prediction_covariance = addProcessNoise(last_position_covariance);
         virtual_point.covariance = virtual_point.prediction_covariance;
         virtual_point.stamp = stamp;
     }
@@ -326,9 +349,9 @@ bool GeneralizedTracker::predictSequence(const std::vector<PointState>& sequence
         x_values.push_back(point.position.x());
         y_values.push_back(point.position.y());
         times.push_back(point.stamp);
-        const Covariance2D covariance = regularizeCovariance(point.covariance);
-        x_variances.push_back(std::max(covariance.c00, params_.default_measurement_variance));
-        y_variances.push_back(std::max(covariance.c11, params_.default_measurement_variance));
+        const Covariance2D covariance = regularizeCovariance(point.measurement_covariance);
+        x_variances.push_back(validVarianceOrFallback(covariance.c00, params_.default_measurement_variance));
+        y_variances.push_back(validVarianceOrFallback(covariance.c11, params_.default_measurement_variance));
     }
 
     if (x_values.size() < 2 || y_values.size() < 2) {
@@ -389,7 +412,7 @@ PredictionStats GeneralizedTracker::selectStatisticsValues(
     Eigen::VectorXd observed(sample_count);
     double mean_measurement_variance = 0.0;
     for (int index = 0; index < sample_count; ++index) {
-        const double variance = std::max(variances[index], params_.default_measurement_variance);
+        const double variance = validVarianceOrFallback(variances[index], params_.default_measurement_variance);
         // Recent and precise detections influence the model more strongly.
         weights(index) = temporal_weights[index] / variance;
         observed(index) = values[index];
@@ -473,8 +496,8 @@ double GeneralizedTracker::mahalanobisSquared(const Eigen::Vector2d& query, cons
     Eigen::Matrix2d matrix = regularizeCovariance(covariance).matrix();
     const double determinant = matrix.determinant();
     if (std::abs(determinant) < kMinimumVariance) {
-        matrix(0, 0) += params_.default_measurement_variance;
-        matrix(1, 1) += params_.default_measurement_variance;
+        matrix(0, 0) += validVarianceOrFallback(0.0, params_.default_measurement_variance);
+        matrix(1, 1) += validVarianceOrFallback(0.0, params_.default_measurement_variance);
     }
     return delta.transpose() * matrix.inverse() * delta;
 }
@@ -483,16 +506,34 @@ Covariance2D GeneralizedTracker::regularizeCovariance(const Covariance2D& covari
 {
     Eigen::Matrix2d matrix = covariance.matrix();
     matrix = 0.5 * (matrix + matrix.transpose());
-    matrix(0, 0) = std::max(matrix(0, 0), params_.default_measurement_variance);
-    matrix(1, 1) = std::max(matrix(1, 1), params_.default_measurement_variance);
+    matrix(0, 0) = validVarianceOrFallback(matrix(0, 0), params_.default_measurement_variance);
+    matrix(1, 1) = validVarianceOrFallback(matrix(1, 1), params_.default_measurement_variance);
+    if (!std::isfinite(matrix(0, 1)) || !std::isfinite(matrix(1, 0))) {
+        matrix(0, 1) = 0.0;
+        matrix(1, 0) = 0.0;
+    }
+
+    Eigen::SelfAdjointEigenSolver<Eigen::Matrix2d> solver(matrix);
+    if (solver.info() != Eigen::Success) {
+        matrix.setZero();
+        matrix(0, 0) = validVarianceOrFallback(0.0, params_.default_measurement_variance);
+        matrix(1, 1) = validVarianceOrFallback(0.0, params_.default_measurement_variance);
+        return Covariance2D::fromMatrix(matrix);
+    }
+
+    Eigen::Vector2d eigenvalues = solver.eigenvalues();
+    eigenvalues(0) = std::max(eigenvalues(0), kMinimumVariance);
+    eigenvalues(1) = std::max(eigenvalues(1), kMinimumVariance);
+    matrix = solver.eigenvectors() * eigenvalues.asDiagonal() * solver.eigenvectors().transpose();
     return Covariance2D::fromMatrix(matrix);
 }
 
 Covariance2D GeneralizedTracker::addProcessNoise(const Covariance2D& covariance) const
 {
     Eigen::Matrix2d matrix = regularizeCovariance(covariance).matrix();
-    matrix(0, 0) += params_.process_noise_variance;
-    matrix(1, 1) += params_.process_noise_variance;
+    const double process_noise_variance = validNonNegativeVarianceOrZero(params_.process_noise_variance);
+    matrix(0, 0) += process_noise_variance;
+    matrix(1, 1) += process_noise_variance;
     return Covariance2D::fromMatrix(matrix);
 }
 

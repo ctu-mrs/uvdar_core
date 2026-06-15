@@ -88,6 +88,9 @@ struct TrackerConfig {
     int poly_order;
     double decay_factor;
     double conf_probab_percent;
+    double association_gate_sigma;
+    double default_measurement_variance;
+    double process_noise_variance;
     int allowed_BER_per_seq;
     bool manchester_code;
     std::string sequence_file;

@@ -344,6 +344,9 @@ PackageConfig loadPackageConfig(const std::string& config_path_string)
     config.tracking.poly_order = optionalScalar<int>(tracking_node, "poly_order", 3);
     config.tracking.decay_factor = optionalScalar<double>(tracking_node, "decay_factor", 0.01);
     config.tracking.conf_probab_percent = optionalScalar<double>(tracking_node, "conf_probab_percent", 95.0);
+    config.tracking.association_gate_sigma = optionalScalar<double>(tracking_node, "association_gate_sigma", 3.0);
+    config.tracking.default_measurement_variance = optionalScalar<double>(tracking_node, "default_measurement_variance", 1.0);
+    config.tracking.process_noise_variance = optionalScalar<double>(tracking_node, "process_noise_variance", 1.0);
     config.tracking.allowed_BER_per_seq = optionalScalar<int>(tracking_node, "allowed_BER_per_seq", 1);
     config.tracking.manchester_code = optionalScalar<bool>(tracking_node, "manchester_code", false);
     config.tracking.sequence_file = optionalScalar<std::string>(tracking_node, "sequence_file", std::string {});

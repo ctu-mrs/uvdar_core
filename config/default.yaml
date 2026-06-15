@@ -41,6 +41,12 @@ tracking:
   poly_order: 3
   decay_factor: 0.01
   conf_probab_percent: 95.0
+  # Generalized tracker only: Mahalanobis gate width in standard deviations.
+  association_gate_sigma: 3.0
+  # Generalized tracker only: fallback variance for invalid or missing detector covariance.
+  default_measurement_variance: 1.0
+  # Generalized tracker only: isotropic per-frame prediction noise added in px^2.
+  process_noise_variance: 1.0
   allowed_BER_per_seq: 1
   manchester_code: false
   sequence_file: ""

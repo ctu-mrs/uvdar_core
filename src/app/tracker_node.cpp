@@ -110,6 +110,9 @@ void TrackerNode::createInterfaces()
             params.max_buffer_length = config_.tracking.max_buffer_length;
             params.decay_factor = config_.tracking.decay_factor;
             params.conf_probab_percent = config_.tracking.conf_probab_percent;
+            params.association_gate_sigma = config_.tracking.association_gate_sigma;
+            params.default_measurement_variance = config_.tracking.default_measurement_variance;
+            params.process_noise_variance = config_.tracking.process_noise_variance;
             pipeline->generalized_processor = std::make_unique<uvdar_core::tracking::generalized::BlinkProcessor>(params, config_.tracking.sequences);
         }
         pipeline->tracker_initialized = true;
