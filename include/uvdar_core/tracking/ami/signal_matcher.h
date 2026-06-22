@@ -27,6 +27,11 @@ public:
         if (sequence_size_ <= 0) {
             throw std::invalid_argument("[tracker] SignalMatcher - empty sequence provided.");
         }
+        for (const auto& sequence : sequences_) {
+            if (static_cast<int>(sequence.size()) != sequence_size_) {
+                throw std::invalid_argument("[tracker] SignalMatcher - all sequences must have equal length.");
+            }
+        }
         for (auto& sequence : sequences_) {
             const auto duplicated = sequence;
             sequence.insert(sequence.end(), duplicated.begin(), duplicated.end() - 1);

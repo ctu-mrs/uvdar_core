@@ -6,6 +6,7 @@
 #include <fstream>
 #include <stdexcept>
 #include <sstream>
+#include <string>
 
 #include <yaml-cpp/yaml.h>
 
@@ -256,6 +257,30 @@ std::vector<std::vector<bool>> parseSequenceFile(const std::filesystem::path& co
 }
 
 /**
+ * @brief Ensure tracking templates match assumptions used by AMI matching.
+ */
+void validateTrackingSequences(const std::vector<std::vector<bool>>& sequences)
+{
+    if (sequences.empty()) {
+        throw std::runtime_error("At least one tracking blinking sequence is required.");
+    }
+
+    const std::size_t sequence_size = sequences.front().size();
+    if (sequence_size == 0U) {
+        throw std::runtime_error("Tracking blinking sequence 0 is empty.");
+    }
+
+    for (std::size_t index = 0; index < sequences.size(); ++index) {
+        if (sequences[index].empty()) {
+            throw std::runtime_error("Tracking blinking sequence " + std::to_string(index) + " is empty.");
+        }
+        if (sequences[index].size() != sequence_size) {
+            throw std::runtime_error("All tracking blinking sequences must have equal length.");
+        }
+    }
+}
+
+/**
  * @brief Parse and validate configured marker radii.
  */
 std::vector<unsigned> parseRadii(const YAML::Node& node)
@@ -356,13 +381,15 @@ PackageConfig loadPackageConfig(const std::string& config_path_string)
     }
     if (!config.tracking.sequence_file.empty()) {
         const auto file_sequences = parseSequenceFile(config_path, config.tracking.sequence_file, config.tracking.manchester_code);
-        if (!file_sequences.empty()) {
-            config.tracking.sequences = file_sequences;
+        if (file_sequences.empty()) {
+            throw std::runtime_error("tracking.sequence_file is set but no valid blinking sequences were loaded.");
         }
+        config.tracking.sequences = file_sequences;
     }
     if (config.tracking.sequences.empty()) {
         config.tracking.sequences = std::vector<std::vector<bool>> { { true, false, true, true, false, false } };
     }
+    validateTrackingSequences(config.tracking.sequences);
 
     const YAML::Node tracking_inputs_node = tracking_node["inputs"];
     if (tracking_inputs_node && !tracking_inputs_node.IsNull()) {

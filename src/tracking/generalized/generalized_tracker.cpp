@@ -5,6 +5,7 @@
 #include <iostream>
 #include <limits>
 #include <stdexcept>
+#include <string>
 
 /*
  * Generalized tracker vs. AMI tracker
@@ -106,6 +107,15 @@ void GeneralizedTracker::setupSequenceMatcher(std::vector<std::vector<bool>> seq
     }
     if (sequences[0].empty()) {
         throw std::invalid_argument("[tracker] GeneralizedTracker - first sequence is empty.");
+    }
+    const std::size_t sequence_size = sequences[0].size();
+    for (std::size_t index = 0; index < sequences.size(); ++index) {
+        if (sequences[index].empty()) {
+            throw std::invalid_argument("[tracker] GeneralizedTracker - sequence " + std::to_string(index) + " is empty.");
+        }
+        if (sequences[index].size() != sequence_size) {
+            throw std::invalid_argument("[tracker] GeneralizedTracker - all sequences must have equal length.");
+        }
     }
 
     sequences_ = std::move(sequences);

@@ -15,7 +15,7 @@ detector:
       publish_visualization: true
       visualization_topic: /detector/camera_0/detection_visualization
       mask_file: ""
-      backend: cpu
+      backend: gpu
       threshold: 120
       threshold_diff: 60
       threshold_sun: 240
@@ -49,10 +49,14 @@ tracking:
   process_noise_variance: 1.0
   allowed_BER_per_seq: 1
   manchester_code: false
+  # If set, sequence_file replaces the inline library below. All loaded
+  # sequences must be non-empty and have equal length.
   sequence_file: ""
   sequences:
     - "111001011"
-    - "11001101"
+    - "110011010"
+    - "101100111"
+    - "100111010"
   inputs:
     - name: camera_0
       input_topic: /detector/camera_0/points_seen

@@ -5,6 +5,7 @@
 #include <iostream>
 #include <limits>
 #include <stdexcept>
+#include <string>
 
 namespace uvdar_core::tracking::ami {
 
@@ -26,6 +27,15 @@ void AMI::setupSequenceMatcher(std::vector<std::vector<bool>> i_sequences)
     }
     if (i_sequences[0].empty()) {
         throw std::invalid_argument("[tracker] AMI - first sequence is empty.");
+    }
+    const std::size_t sequence_size = i_sequences[0].size();
+    for (std::size_t index = 0; index < i_sequences.size(); ++index) {
+        if (i_sequences[index].empty()) {
+            throw std::invalid_argument("[tracker] AMI - sequence " + std::to_string(index) + " is empty.");
+        }
+        if (i_sequences[index].size() != sequence_size) {
+            throw std::invalid_argument("[tracker] AMI - all sequences must have equal length.");
+        }
     }
 
     sequences_ = std::move(i_sequences);
