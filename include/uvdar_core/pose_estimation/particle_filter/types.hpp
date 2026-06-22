@@ -22,10 +22,10 @@ using uvdar_core::pose_estimation::rpyToQuaternion;
 using uvdar_core::pose_estimation::transformPose;
 
 /**
- * @brief Integer image observation used by the ROS1-compatible particle filter.
+ * @brief Integer image observation used by the particle-filter scoring model.
  *
  * The generalized tracker emits subpixel values, but this backend intentionally
- * rounds to the integer scoring model used by ROS1.
+ * rounds to the integer reprojection scorer.
  */
 struct ImagePointIdentified {
     int id = -1;
@@ -74,7 +74,7 @@ struct AssociatedHypotheses {
     int verified_count = 0;
 
     /**
-     * @brief Iterator access by list index, matching ROS1 list-based storage.
+     * @brief Iterator access by list index for list-based hypothesis storage.
      */
     std::list<Hypothesis>::iterator at(int index)
     {

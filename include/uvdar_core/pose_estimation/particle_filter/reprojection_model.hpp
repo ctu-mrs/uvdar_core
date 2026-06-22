@@ -28,14 +28,14 @@ struct ReprojectionContext {
 /**
  * @brief Reprojection and sampling model used by the particle-filter estimator.
  *
- * This class ports the ROS1 stochastic initializer: sample candidate body poses,
- * project directional LEDs through the calibrated lens model, compare signal
- * ids in image space, then refine viable hypotheses by random mutation.
+ * This class implements stochastic initialization: sample candidate body poses,
+ * project directional LEDs through the calibrated lens model, compare signal ids
+ * in image space, then refine viable hypotheses by random mutation.
  */
 class ReprojectionModel final {
 public:
     /**
-     * @brief Sampling and reprojection thresholds for the ROS1 particle model.
+     * @brief Sampling and reprojection thresholds for the particle model.
      */
     struct Options {
         bool debug = false;
@@ -110,7 +110,7 @@ public:
     double reprojectionThresholdUnfit(std::size_t camera_index) const;
 
     /**
-     * @brief ROS1 range heuristic proportional to image width.
+     * @brief Range heuristic proportional to image width.
      */
     double uvdarRange(std::size_t camera_index) const;
 
@@ -125,7 +125,7 @@ private:
     /**
      * @brief Project all visible LEDs and compute nearest-neighbor residual cost.
      *
-     * The LED brightness term uses the ROS1 empirical formula
+     * The LED brightness term uses the empirical formula
      * max(0, cos(theta)) * (a + b / (range + c)^2).
      */
     double modelError(const ReprojectionContext& context) const;

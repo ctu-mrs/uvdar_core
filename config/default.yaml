@@ -25,7 +25,7 @@ detector:
       radii: [3, 5]
 
 tracking:
-  # Select "ami" for the legacy tracker or "generalized" for covariance-aware tracking.
+  # Select "ami" for the AMI tracker or "generalized" for covariance-aware tracking.
   implementation: ami
   debug: false
   gui: false
@@ -66,7 +66,7 @@ tracking:
       visualization_topic: /tracker/camera_0/visualization
 
 pose_estimation:
-  # Select "particle_filter" for the ROS1-compatible hypothesis filter or
+  # Select "particle_filter" for stochastic hypothesis filtering or
   # "geometric_solver" for direct P2P/P3P/P4P/PnP pose estimation.
   implementation: particle_filter
   debug: false

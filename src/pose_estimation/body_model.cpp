@@ -132,7 +132,7 @@ void BodyModel::parseModelFile(const std::string& model_file)
         LEDMarker marker;
         marker.pose.position = Eigen::Vector3d(x, y, z);
         // Model files store LED pointing direction as yaw then pitch in the
-        // body frame. This matches the ROS1 model-file convention.
+        // body frame.
         marker.pose.orientation =
             Eigen::AngleAxisd(yaw, Eigen::Vector3d::UnitZ())
             * Eigen::AngleAxisd(pitch, Eigen::Vector3d::UnitY());

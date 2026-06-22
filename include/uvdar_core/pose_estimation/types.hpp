@@ -18,7 +18,7 @@ struct Pose {
 };
 
 /**
- * @brief Minimal velocity state used by the ROS1 particle filter: linear part only.
+ * @brief Minimal velocity state used by the particle filter: linear part only.
  */
 struct Twist {
     Eigen::Vector3d linear = Eigen::Vector3d::Zero();
@@ -88,7 +88,7 @@ inline Eigen::Vector3d quaternionToRpy(const Eigen::Quaterniond& q)
 /**
  * @brief Convert fixed-axis roll-pitch-yaw angles to a quaternion.
  *
- * The multiplication order matches the ROS1 UVDAR code: Rx * Ry * Rz.
+ * The multiplication order is Rx * Ry * Rz.
  */
 inline Eigen::Quaterniond rpyToQuaternion(const Eigen::Vector3d& rpy)
 {

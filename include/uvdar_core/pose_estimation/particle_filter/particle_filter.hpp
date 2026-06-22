@@ -26,9 +26,9 @@ struct ParticleFilterConfig {
  *
  * The class owns only estimator state. ROS2 nodes provide tracker observations,
  * calibrated camera transforms, and publish the returned measurements. The
- * algorithm is the ROS1 UVDAR hypothesis filter: sample candidate poses from
- * image clusters, score them by reprojection residual, mutate verified
- * particles, and publish the hull of the verified particle cloud.
+ * algorithm samples candidate poses from image clusters, scores them by
+ * reprojection residual, mutates verified particles, and publishes the hull of
+ * the verified particle cloud.
  */
 class ParticleFilter : public uvdar_core::pose_estimation::IPoseEstimator {
 public:

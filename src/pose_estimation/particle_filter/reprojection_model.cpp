@@ -11,7 +11,7 @@ namespace {
 constexpr double unmatched_observed_point_penalty = 15.0 * 15.0;
 constexpr double unmatched_projected_point_penalty = 0.0;
 constexpr double max_initial_velocity = 1.0;
-// Empirical ROS1 LED brightness model: a + b / (range + c)^2, scaled by cos(view).
+// Empirical LED brightness model: a + b / (range + c)^2, scaled by cos(view).
 constexpr double led_projection_coefs[3] = {1.3398, 31.4704, 0.0154};
 
 double squared(double value)
@@ -77,7 +77,7 @@ std::vector<Hypothesis> ReprojectionModel::extractHypotheses(
 
     Eigen::Vector3d furthest_position = Eigen::Vector3d::Zero();
     if (points.size() == 1U || largestAngle(directions) < 0.01 || averageIsNearEdge(points, options_.edge_detection_margin, camera_index)) {
-        // With weak angular baseline, fall back to the ROS1 far-range ray prior.
+        // With weak angular baseline, fall back to the far-range ray prior.
         furthest_position = directionFromImagePoint(points.front().position.cast<double>(), camera_index) * uvdarRange(camera_index);
     } else {
         // Otherwise estimate range from angular diameter: r ~= D / (2 tan(alpha/2)).
@@ -186,7 +186,7 @@ double ReprojectionModel::modelError(const ReprojectionContext& context) const
         }
     }
 
-    // ROS1 merged same-signal projections closer than about one LED blob.
+    // Merge same-signal projections closer than about one LED blob.
     for (std::size_t i = 0; i + 1 < selected_markers.size(); ++i) {
         for (std::size_t j = i + 1; j < selected_markers.size(); ++j) {
             if ((selected_markers[i].position - selected_markers[j].position).norm() < 3.0

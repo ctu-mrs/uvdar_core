@@ -14,7 +14,7 @@ constexpr int max_polynomial_length = 64;
 /**
  * @brief OCamCalib polynomial lens model.
  *
- * The stored coefficients mirror Davide Scaramuzza's calibration text format,
+ * The stored coefficients follow Davide Scaramuzza's calibration text format,
  * while the public methods implement the common lens API used by pose solvers.
  */
 class OcamModel final : public uvdar_core::calibration::ILensModel {

@@ -68,7 +68,7 @@ private:
     void prepareGroups();
 
     /**
-     * @brief Parse ROS1 model-file rows: x y z type pitch yaw signal_id.
+     * @brief Parse model-file rows: x y z type pitch yaw signal_id.
      */
     void parseModelFile(const std::string& model_file);
 

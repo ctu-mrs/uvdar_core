@@ -18,8 +18,8 @@ bool hasNan(const Eigen::MatrixXd& matrix)
 DkfPose::DkfPose(DkfPoseConfig config)
     : config_(std::move(config))
 {
-    // ROS1 tuned lower process noise for indoor motion and larger position
-    // noise when odometry is unavailable.
+    // Use lower process noise for indoor motion and larger position noise when
+    // odometry is unavailable.
     if (config_.indoor) {
         vl_ = 1.0;
         vv_ = 0.5;
@@ -94,8 +94,8 @@ void DkfPose::initiateNew(const DkfPoseMeasurement& measurement, int id)
     }
 
     DkfPoseMeasurement local = measurement;
-    // ROS1 guards anonymous long-range initializations whose covariance is
-    // larger than the observed range by pulling them to a conservative ray.
+    // Guard anonymous long-range initializations whose covariance is larger
+    // than the observed range by pulling them to a conservative ray.
     Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> solver(local.covariance.topLeftCorner<3, 3>());
     if (solver.info() == Eigen::Success) {
         Eigen::Vector3d eigenvalues = solver.eigenvalues();
@@ -255,8 +255,8 @@ DkfPoseState DkfPose::correctWithMeasurement(FilterData& data, const DkfPoseMeas
     if (!std::isfinite(match_level) || match_level < 1.0e-9) {
         r = Eigen::MatrixXd::Identity(6, 6) * 10000.0;
     } else {
-        // ROS1 UVDARKalman inflates position covariance by inverse positional
-        // overlap before correction, then applies the eigenvalue padding below.
+        // Inflate position covariance by inverse positional overlap before
+        // correction, then apply the eigenvalue padding below.
         r.topLeftCorner(3, 3) *= 1.0 / match_level;
     }
 
@@ -366,7 +366,7 @@ Eigen::MatrixXd DkfPose::h() const
 Eigen::MatrixXd DkfPose::qDt(double dt) const
 {
     if (config_.anonymous_measurements) {
-        // Anonymous mode uses ROS1's direct pose random-walk process noise.
+        // Anonymous mode uses direct pose random-walk process noise.
         Eigen::MatrixXd q(6, 6);
         q << vl_, 0, 0, 0, 0, 0,
             0, vl_, 0, 0, 0, 0,
@@ -383,7 +383,7 @@ Eigen::MatrixXd DkfPose::qDt(double dt) const
         return q;
     }
 
-    // Non-velocity mode keeps ROS1's integrated position-noise heuristic.
+    // Non-velocity mode uses the integrated position-noise heuristic.
     Eigen::MatrixXd q(6, 6);
     q << 0.5 * sn_ * sn_ + 0.16667 * vl_ * vl_ * dt * dt, 0, 0, 0, 0, 0,
         0, 0.5 * sn_ * sn_ + 0.16667 * vl_ * vl_ * dt * dt, 0, 0, 0, 0,

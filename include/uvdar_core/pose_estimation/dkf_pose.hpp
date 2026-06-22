@@ -40,7 +40,7 @@ struct DkfPoseState {
 };
 
 /**
- * @brief Parameters of the ROS1-compatible relative-pose DKF.
+ * @brief Parameters of the relative-pose degenerate Kalman filter.
  */
 struct DkfPoseConfig {
     bool debug = false;
@@ -57,12 +57,12 @@ struct DkfPoseConfig {
 };
 
 /**
- * @brief ROS1-compatible degenerate Kalman filter for UVDAR relative poses.
+ * @brief Degenerate Kalman filter for UVDAR relative poses.
  *
- * The filter uses a linear Gaussian prediction/correction model. Its
- * "degenerate" behavior comes from ROS1: measurements already contain full
- * pose covariance, position overlap gates association, and process noise is a
- * fixed heuristic rather than a full target dynamics model.
+ * The filter uses a linear Gaussian prediction/correction model. Measurements
+ * already contain full pose covariance, position overlap gates association,
+ * and process noise is a fixed heuristic rather than a full target dynamics
+ * model.
  */
 class DkfPose {
 public:
@@ -119,7 +119,7 @@ private:
     DkfPoseState predictTillTime(FilterData& data, double target_time, bool apply_update);
 
     /**
-     * @brief Standard linear Kalman correction with ROS1 covariance inflation.
+     * @brief Standard linear Kalman correction with position-overlap covariance inflation.
      */
     DkfPoseState correctWithMeasurement(FilterData& data, const DkfPoseMeasurement& measurement, double& match_level, bool prior_predict, bool apply_update);
 
@@ -149,7 +149,7 @@ private:
     Eigen::MatrixXd h() const;
 
     /**
-     * @brief Process-noise covariance Q(dt) from ROS1 UVDAR heuristics.
+     * @brief Process-noise covariance Q(dt) from UVDAR motion heuristics.
      */
     Eigen::MatrixXd qDt(double dt) const;
 
