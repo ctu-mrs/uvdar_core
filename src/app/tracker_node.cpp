@@ -11,6 +11,11 @@ constexpr int kMinImageRows = 100;
 constexpr int kMinImageCols = 100;
 constexpr int kLineThickness = 1;
 
+int publishedSignalId(int id, std::size_t sequence_count)
+{
+    return (0 <= id && id <= static_cast<int>(sequence_count)) ? id : -2;
+}
+
 } // namespace
 
 TrackerNode::TrackerNode(const rclcpp::NodeOptions& options)
@@ -18,7 +23,7 @@ TrackerNode::TrackerNode(const rclcpp::NodeOptions& options)
 {
     loadConfig();
     startup_time_ = now();
-    thread_pool_ = std::make_unique<uvdar_core::utils::ThreadPool>(config_.tracking.thread_pool_size);
+    thread_pool_ = std::make_unique<uvdar_core::app::ThreadPool>(config_.tracking.thread_pool_size);
     createInterfaces();
 
     RCLCPP_INFO(get_logger(), "UVDAR tracker node initialized.");
@@ -93,7 +98,8 @@ void TrackerNode::createInterfaces()
             params.allowed_BER_per_seq = config_.tracking.allowed_BER_per_seq;
             params.stored_seq_len_factor = config_.tracking.stored_seq_len_factor;
             params.poly_order = config_.tracking.poly_order;
-            params.max_px_shift = uvdar_core::tracking::ami::Point2D(config_.tracking.max_px_shift_x, config_.tracking.max_px_shift_y);
+            params.max_px_shift_x = static_cast<double>(config_.tracking.max_px_shift_x);
+            params.max_px_shift_y = static_cast<double>(config_.tracking.max_px_shift_y);
             params.max_zeros_consecutive = config_.tracking.max_zeros_consecutive;
             params.max_buffer_length = config_.tracking.max_buffer_length;
             params.decay_factor = config_.tracking.decay_factor;
@@ -216,19 +222,24 @@ void TrackerNode::processImagePoints(const uvdar_core::msg::ImagePointsWithCovar
             return;
         }
 
-        uvdar_core::tracking::ami::ImagePointsWithCovariancesStamped input_points;
+        uvdar_core::tracking::ImagePointsWithCovariancesStamped input_points;
         input_points.stamp = toSeconds(image_msg->stamp);
         input_points.img_width = static_cast<uint16_t>(image_msg->image_width);
         input_points.img_height = static_cast<uint16_t>(image_msg->image_height);
         input_points.points.reserve(image_msg->points.size());
 
         for (const auto& point : image_msg->points) {
-            input_points.points.emplace_back(
-                static_cast<int>(std::llround(point.x)),
-                static_cast<int>(std::llround(point.y)));
+            uvdar_core::tracking::ImagePoint tracker_point;
+            tracker_point.x = point.x;
+            tracker_point.y = point.y;
+            tracker_point.covariance.c00 = point.covariance_00;
+            tracker_point.covariance.c01 = point.covariance_01;
+            tracker_point.covariance.c10 = point.covariance_10;
+            tracker_point.covariance.c11 = point.covariance_11;
+            input_points.points.push_back(tracker_point);
         }
 
-        std::vector<std::pair<uvdar_core::tracking::ami::PointState, int>> detected;
+        std::vector<uvdar_core::tracking::TrackResult> detected;
         {
             std::scoped_lock lock(pipeline->mutex);
             detected = pipeline->ami_processor->processFrame(std::make_shared<const uvdar_core::tracking::ami::ImagePointsWithCovariancesStamped>(input_points));
@@ -240,20 +251,35 @@ void TrackerNode::processImagePoints(const uvdar_core::msg::ImagePointsWithCovar
         }
 
         output.blinkers.reserve(detected.size());
-        for (const auto& detected_point : detected) {
+        for (const auto& detected_track : detected) {
             uvdar_core::msg::TrackedBlinker tracker_point;
-            const auto& point_state = detected_point.first;
-            tracker_point.x = point_state.px_cord.x;
-            tracker_point.y = point_state.px_cord.y;
-            tracker_point.id = detected_point.second;
+            const auto& point_state = detected_track.state;
+            tracker_point.x = point_state.position.x();
+            tracker_point.y = point_state.position.y();
+            tracker_point.id = publishedSignalId(detected_track.id, config_.tracking.sequences.size());
+            tracker_point.track_id = detected_track.track_id;
             tracker_point.stamp = image_msg->stamp;
+            tracker_point.covariance_00 = point_state.covariance.c00;
+            tracker_point.covariance_01 = point_state.covariance.c01;
+            tracker_point.covariance_10 = point_state.covariance.c10;
+            tracker_point.covariance_11 = point_state.covariance.c11;
+            tracker_point.measurement_covariance_00 = point_state.measurement_covariance.c00;
+            tracker_point.measurement_covariance_01 = point_state.measurement_covariance.c01;
+            tracker_point.measurement_covariance_10 = point_state.measurement_covariance.c10;
+            tracker_point.measurement_covariance_11 = point_state.measurement_covariance.c11;
             tracker_point.predicted_x = point_state.x_statistics.predicted_coordinate;
             tracker_point.predicted_y = point_state.y_statistics.predicted_coordinate;
+            tracker_point.prediction_covariance_00 = point_state.prediction_covariance.c00;
+            tracker_point.prediction_covariance_01 = point_state.prediction_covariance.c01;
+            tracker_point.prediction_covariance_10 = point_state.prediction_covariance.c10;
+            tracker_point.prediction_covariance_11 = point_state.prediction_covariance.c11;
             tracker_point.confidence_x = point_state.x_statistics.confidence_interval;
             tracker_point.confidence_y = point_state.y_statistics.confidence_interval;
-            tracker_point.poly_reg_computed = point_state.x_statistics.poly_reg_computed || point_state.y_statistics.poly_reg_computed;
+            tracker_point.prediction_reference_time = toRosTime(point_state.x_statistics.reference_time);
+            tracker_point.poly_reg_computed = point_state.x_statistics.model_reg_computed || point_state.y_statistics.model_reg_computed;
             tracker_point.extended_search = point_state.x_statistics.extended_search || point_state.y_statistics.extended_search;
-            tracker_point.virtual_point = !point_state.led_state;
+            tracker_point.virtual_point = point_state.virtual_point;
+            tracker_point.associated_with_detection = point_state.associated_with_detection;
 
             for (const double coeff : point_state.x_statistics.coeff) {
                 tracker_point.x_coeff.push_back(coeff);
@@ -303,7 +329,7 @@ void TrackerNode::processImagePoints(const uvdar_core::msg::ImagePointsWithCovar
             const auto& point_state = detected_track.state;
             tracker_point.x = point_state.position.x();
             tracker_point.y = point_state.position.y();
-            tracker_point.id = detected_track.id;
+            tracker_point.id = publishedSignalId(detected_track.id, config_.tracking.sequences.size());
             tracker_point.track_id = detected_track.track_id;
             tracker_point.stamp = image_msg->stamp;
             tracker_point.covariance_00 = point_state.covariance.c00;

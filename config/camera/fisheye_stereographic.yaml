@@ -1,0 +1,10 @@
+# Stereographic radial fisheye model.
+#
+# intrinsics is [fx, fy, cx, cy].
+# distortion is [k1, k2, k3, k4] applied to the ideal radial projection radius.
+# Replace the example values with a real calibration before use.
+calibration_model: fisheye_stereographic
+intrinsics: [500.0, 500.0, 376.0, 240.0]
+distortion: [0.0, 0.0, 0.0, 0.0]
+image_width: 752
+image_height: 480

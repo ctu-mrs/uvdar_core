@@ -7,6 +7,9 @@
 #include <stdexcept>
 #include <string>
 
+#include "uvdar_core/tracking/sequence_buffer.hpp"
+#include "uvdar_core/tracking/time_weights.hpp"
+
 /*
  * Generalized tracker vs. AMI tracker
  *
@@ -25,18 +28,14 @@
  *   as measured image locations.
  * - Both trackers use exponentially decayed time weights, so recent detections
  *   influence the fitted motion model more strongly than old detections.
- * - Both trackers reuse the AMI SignalMatcher to assign marker IDs from the
+ * - Both trackers reuse the shared SignalMatcher to assign marker IDs from the
  *   trailing ON/OFF sequence.
  * - Both trackers keep per-track history bounded by the configured sequence
  *   length factor and remove tracks with too many consecutive OFF states.
  *
  * What is different:
- * - AMI stores image positions as integer pixels. The generalized tracker stores
- *   positions as Eigen::Vector2d so subpixel detector outputs and continuous
- *   predictions can be passed forward without rounding.
- * - AMI accepts point detections without carrying their detector covariance
- *   through the tracker. The generalized tracker consumes and preserves 2D
- *   detector covariance for every associated detection.
+ * - Both trackers consume the same detector point format. The generalized
+ *   tracker additionally preserves and propagates the detector covariance.
  * - AMI local search uses an axis-aligned max-pixel-shift window around the last
  *   point. The generalized tracker still respects max pixel shifts, but also
  *   gates candidates with Mahalanobis distance using the current state and
@@ -50,12 +49,12 @@
  * - AMI fits on absolute timestamps. The generalized tracker fits the same
  *   kind of weighted motion model around a reference time at the newest sample,
  *   keeping basis powers numerically smaller.
- * - AMI fills the legacy fields of TrackedBlinker. The generalized backend
+ * - AMI fills the basic fields of TrackedBlinker. The generalized backend
  *   fills the same shared message plus covariance and uncertainty fields for
  *   the next pose-estimation stage.
  * - AMI exposes AMI-specific parameter names and types. The generalized tracker
  *   uses ParamsGeneralized and a separate namespace/path so it can evolve
- *   without changing the legacy AMI implementation.
+ *   without changing the AMI-specific implementation.
  */
 
 namespace uvdar_core::tracking::generalized {
@@ -83,6 +82,7 @@ double validNonNegativeVarianceOrZero(double variance)
 
 Eigen::VectorXd basisRow(double tau, int order)
 {
+    // Polynomial basis [1, tau, tau^2, ...] around the newest sample time.
     Eigen::VectorXd row(order + 1);
     row(0) = 1.0;
     for (int degree = 1; degree <= order; ++degree) {
@@ -119,7 +119,7 @@ void GeneralizedTracker::setupSequenceMatcher(std::vector<std::vector<bool>> seq
     }
 
     sequences_ = std::move(sequences);
-    matcher_ = std::make_unique<uvdar_core::tracking::ami::SignalMatcher>(sequences_, params_.allowed_BER_per_seq);
+    matcher_ = std::make_unique<uvdar_core::tracking::SignalMatcher>(sequences_, params_.allowed_BER_per_seq);
 
     if (params_.stored_seq_len_factor * static_cast<int>(sequences_[0].size()) < params_.max_zeros_consecutive) {
         throw std::invalid_argument("[tracker] GeneralizedTracker - max_zeros_consecutive does not fit the configured sequence buffer.");
@@ -271,18 +271,11 @@ void GeneralizedTracker::extendedSearch(std::vector<PointState>& unmatched_point
 
 void GeneralizedTracker::cleanPotentialBuffer()
 {
+    const int number_zeros_till_seq_deleted = params_.max_zeros_consecutive + params_.allowed_BER_per_seq;
     for (std::size_t index = 0; index < buffer_.size();) {
         const SeqPointer& sequence = buffer_[index];
-        int consecutive_zeros = 0;
-        for (auto point = sequence->rbegin(); point != sequence->rend(); ++point) {
-            if (!point->led_state) {
-                ++consecutive_zeros;
-            } else {
-                break;
-            }
-        }
-
-        if (consecutive_zeros > params_.max_zeros_consecutive) {
+        if (static_cast<int>(sequence->size()) > number_zeros_till_seq_deleted
+            && uvdar_core::tracking::hasOffRunLongerThan(*sequence, number_zeros_till_seq_deleted)) {
             buffer_.erase(buffer_.begin() + static_cast<std::ptrdiff_t>(index));
             track_ids_.erase(track_ids_.begin() + static_cast<std::ptrdiff_t>(index));
             continue;
@@ -298,11 +291,8 @@ void GeneralizedTracker::cleanPotentialBuffer()
 
 void GeneralizedTracker::addPointToSequenceAndCheckLength(std::vector<PointState>& sequence, const PointState& point)
 {
-    sequence.push_back(point);
     const int max_size = static_cast<int>(sequences_[0].size()) * params_.stored_seq_len_factor;
-    if (static_cast<int>(sequence.size()) > max_size) {
-        sequence.erase(sequence.begin());
-    }
+    uvdar_core::tracking::appendBounded(sequence, point, max_size);
 }
 
 void GeneralizedTracker::addVirtualPointToSequence(const SeqPointer& sequence, double stamp)
@@ -473,35 +463,12 @@ PredictionStats GeneralizedTracker::selectStatisticsValues(
 
 std::vector<double> GeneralizedTracker::calcNormalizedWeightVect(const std::vector<double>& times) const
 {
-    std::vector<double> weights;
-    weights.reserve(times.size());
-    if (times.empty()) {
-        return weights;
-    }
-
-    const double reference_time = times.back();
-    double sum = 0.0;
-    for (const double time : times) {
-        const double time_distance = reference_time - time;
-        const double weight = std::exp(-params_.decay_factor * std::max(0.0, time_distance));
-        weights.push_back(weight);
-        sum += weight;
-    }
-
-    if (sum <= 0.0) {
-        const double uniform = 1.0 / static_cast<double>(weights.size());
-        std::fill(weights.begin(), weights.end(), uniform);
-        return weights;
-    }
-
-    for (double& weight : weights) {
-        weight /= sum;
-    }
-    return weights;
+    return uvdar_core::tracking::normalizedExponentialWeights(times, params_.decay_factor);
 }
 
 double GeneralizedTracker::mahalanobisSquared(const Eigen::Vector2d& query, const Eigen::Vector2d& center, const Covariance2D& covariance) const
 {
+    // d^2 = (x - mu)^T Sigma^-1 (x - mu).
     const Eigen::Vector2d delta = query - center;
     Eigen::Matrix2d matrix = regularizeCovariance(covariance).matrix();
     const double determinant = matrix.determinant();
@@ -514,6 +481,8 @@ double GeneralizedTracker::mahalanobisSquared(const Eigen::Vector2d& query, cons
 
 Covariance2D GeneralizedTracker::regularizeCovariance(const Covariance2D& covariance) const
 {
+    // Project covariance back to a symmetric positive semi-definite matrix with
+    // a small eigenvalue floor for stable inverse gates.
     Eigen::Matrix2d matrix = covariance.matrix();
     matrix = 0.5 * (matrix + matrix.transpose());
     matrix(0, 0) = validVarianceOrFallback(matrix(0, 0), params_.default_measurement_variance);
@@ -554,20 +523,10 @@ Covariance2D GeneralizedTracker::addCovariances(const Covariance2D& left, const 
 
 std::vector<PointState> GeneralizedTracker::processSequenceBasic(const SeqPointer& sequence, const std::vector<bool>& original_sequence) const
 {
-    std::vector<PointState> selected;
     if (!sequence) {
-        return selected;
+        return {};
     }
-
-    if (static_cast<int>(sequence->size()) > static_cast<int>(original_sequence.size())) {
-        const int diff = static_cast<int>(sequence->size()) - static_cast<int>(original_sequence.size());
-        for (int index = diff; index < static_cast<int>(sequence->size()); ++index) {
-            selected.push_back((*sequence)[index]);
-        }
-    } else {
-        selected = *sequence;
-    }
-    return selected;
+    return uvdar_core::tracking::trailingSamples(*sequence, original_sequence.size());
 }
 
 std::vector<TrackResult> GeneralizedTracker::getResults() const

@@ -1,4 +1,4 @@
-#include "uvdar_core/tracking/ami/ami.h"
+#include "uvdar_core/tracking/ami/ami.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -6,6 +6,9 @@
 #include <limits>
 #include <stdexcept>
 #include <string>
+
+#include "uvdar_core/tracking/sequence_buffer.hpp"
+#include "uvdar_core/tracking/time_weights.hpp"
 
 namespace uvdar_core::tracking::ami {
 
@@ -39,7 +42,7 @@ void AMI::setupSequenceMatcher(std::vector<std::vector<bool>> i_sequences)
     }
 
     sequences_ = std::move(i_sequences);
-    matcher_ = std::make_unique<SignalMatcher>(sequences_, params_ami_.allowed_BER_per_seq);
+    matcher_ = std::make_unique<uvdar_core::tracking::SignalMatcher>(sequences_, params_ami_.allowed_BER_per_seq);
 
     if (params_ami_.stored_seq_len_factor * static_cast<int>(sequences_[0].size()) < params_ami_.max_zeros_consecutive) {
         throw std::invalid_argument("[tracker] AMI - max_zeros_consecutive does not fit the configured sequence buffer.");
@@ -54,21 +57,24 @@ void AMI::processBuffer(const ImagePointsWithCovariancesStamped& points)
     if (!matcher_) {
         return;
     }
-    if (points.points.empty()) {
-        return;
-    }
 
     std::vector<PointState> current_frame;
     current_frame.reserve(points.points.size());
-    for (const Point2D& point_time_stamp : points.points) {
+    for (const ImagePoint& point : points.points) {
         PointState state;
-        state.px_cord = point_time_stamp;
+        state.position = Eigen::Vector2d(point.x, point.y);
+        state.predicted_position = state.position;
+        state.measurement_covariance = point.covariance;
+        state.prediction_covariance = point.covariance;
+        state.covariance = point.covariance;
         state.led_state = true;
+        state.virtual_point = false;
+        state.associated_with_detection = true;
         state.stamp = points.stamp;
         current_frame.push_back(state);
     }
 
-    findClosestPixelAndInsert(current_frame);
+    findClosestPixelAndInsert(current_frame, points.stamp);
     cleanPotentialBuffer();
 }
 
@@ -78,36 +84,20 @@ void AMI::processBuffer(const ImagePointsWithCovariancesStamped& points)
 void AMI::cleanPotentialBuffer()
 {
     for (auto it_seq = buffer_.begin(); it_seq != buffer_.end();) {
-        bool deleted = false;
         const int number_zeros_till_seq_deleted = (params_ami_.max_zeros_consecutive + params_ami_.allowed_BER_per_seq);
-        if (static_cast<int>((*it_seq)->size()) > number_zeros_till_seq_deleted) {
-            int cnt = 0;
-            for (const auto frame_state : *(*it_seq)) {
-                if (!frame_state.led_state) {
-                    ++cnt;
-                    if (cnt > number_zeros_till_seq_deleted) {
-                        break;
-                    }
-                } else {
-                    cnt = 0;
-                }
-            }
-            if (cnt > number_zeros_till_seq_deleted) {
-                deleted = true;
-                it_seq = buffer_.erase(it_seq);
-                continue;
-            }
+        if (static_cast<int>((*it_seq)->size()) > number_zeros_till_seq_deleted
+            && uvdar_core::tracking::hasOffRunLongerThan(**it_seq, number_zeros_till_seq_deleted)) {
+            it_seq = buffer_.erase(it_seq);
+            continue;
         }
-        if (!deleted) {
-            ++it_seq;
-        }
+        ++it_seq;
     }
 }
 
 /**
  * @brief Associate unmatched detections with active trajectories using nearest-neighbour search.
  */
-void AMI::findClosestPixelAndInsert(std::vector<PointState>& current_frame)
+void AMI::findClosestPixelAndInsert(std::vector<PointState>& current_frame, double stamp)
 {
     std::vector<seqPointer> buffer_local = buffer_;
 
@@ -118,13 +108,14 @@ void AMI::findClosestPixelAndInsert(std::vector<PointState>& current_frame)
         }
 
         const PointState& last_inserted = (*seq)->back();
-        const Point2D bb_left_top = last_inserted.px_cord - params_ami_.max_px_shift;
-        const Point2D bb_right_bottom = last_inserted.px_cord + params_ami_.max_px_shift;
+        const Eigen::Vector2d max_shift(params_ami_.max_px_shift_x, params_ami_.max_px_shift_y);
+        const Eigen::Vector2d box_left_top = last_inserted.position - max_shift;
+        const Eigen::Vector2d box_right_bottom = last_inserted.position + max_shift;
 
         std::vector<PointState>::iterator it_2 = current_frame.end();
         double closest_distance = std::numeric_limits<double>::max();
         for (auto it = current_frame.begin(); it != current_frame.end(); ++it) {
-            const double curr_dist = euclideanDistance((*it).px_cord, last_inserted.px_cord);
+            const double curr_dist = euclideanDistance((*it).position, last_inserted.position);
             if (curr_dist <= closest_distance) {
                 closest_distance = curr_dist;
                 it_2 = it;
@@ -132,7 +123,7 @@ void AMI::findClosestPixelAndInsert(std::vector<PointState>& current_frame)
         }
 
         if (it_2 != current_frame.end()) {
-            if (isInsideBB((*it_2).px_cord, bb_left_top, bb_right_bottom)) {
+            if (isInsideBox((*it_2).position, box_left_top, box_right_bottom)) {
                 addPointToSequenceAndCheckLength(**seq, *it_2);
                 seq = buffer_local.erase(seq);
                 current_frame.erase(it_2);
@@ -144,13 +135,13 @@ void AMI::findClosestPixelAndInsert(std::vector<PointState>& current_frame)
         }
     }
 
-    extendedSearch(current_frame, buffer_local);
+    extendedSearch(current_frame, buffer_local, stamp);
 }
 
 /**
  * @brief Use generalized extrapolation to continue tracks where no direct match exists.
  */
-void AMI::extendedSearch(std::vector<PointState>& no_nn_current_frame, std::vector<seqPointer>& sequences_no_insert)
+void AMI::extendedSearch(std::vector<PointState>& no_nn_current_frame, std::vector<seqPointer>& sequences_no_insert, double stamp)
 {
     if (!no_nn_current_frame.empty()) {
         const double insert_time = no_nn_current_frame.front().stamp;
@@ -166,8 +157,8 @@ void AMI::extendedSearch(std::vector<PointState>& no_nn_current_frame, std::vect
             std::vector<double> time;
             for (const auto& point : **it_seq) {
                 if (point.led_state) {
-                    x.push_back(point.px_cord.x);
-                    y.push_back(point.px_cord.y);
+                    x.push_back(point.position.x());
+                    y.push_back(point.position.y());
                     time.push_back(point.stamp);
                 }
             }
@@ -175,7 +166,7 @@ void AMI::extendedSearch(std::vector<PointState>& no_nn_current_frame, std::vect
             PointState& last_point = (*it_seq)->end()[-1];
             PredictionStats x_predictions = selectStatisticsValues(x, time, insert_time);
             PredictionStats y_predictions = selectStatisticsValues(y, time, insert_time);
-            if (!x_predictions.poly_reg_computed || !y_predictions.poly_reg_computed) {
+            if (!x_predictions.model_reg_computed || !y_predictions.model_reg_computed) {
                 ++it_seq;
                 continue;
             }
@@ -185,22 +176,22 @@ void AMI::extendedSearch(std::vector<PointState>& no_nn_current_frame, std::vect
             const double x_predicted = last_point.x_statistics.predicted_coordinate;
             const double y_predicted = last_point.y_statistics.predicted_coordinate;
 
-            last_point.x_statistics.confidence_interval = std::min(last_point.x_statistics.confidence_interval * 2.0, static_cast<double>(params_ami_.max_px_shift.x * 2));
-            last_point.y_statistics.confidence_interval = std::min(last_point.y_statistics.confidence_interval * 2.0, static_cast<double>(params_ami_.max_px_shift.y * 2));
-            last_point.x_statistics.confidence_interval = std::max(last_point.x_statistics.confidence_interval, static_cast<double>(params_ami_.max_px_shift.x));
-            last_point.y_statistics.confidence_interval = std::max(last_point.y_statistics.confidence_interval, static_cast<double>(params_ami_.max_px_shift.y));
+            last_point.x_statistics.confidence_interval = std::min(last_point.x_statistics.confidence_interval * 2.0, params_ami_.max_px_shift_x * 2.0);
+            last_point.y_statistics.confidence_interval = std::min(last_point.y_statistics.confidence_interval * 2.0, params_ami_.max_px_shift_y * 2.0);
+            last_point.x_statistics.confidence_interval = std::max(last_point.x_statistics.confidence_interval, params_ami_.max_px_shift_x);
+            last_point.y_statistics.confidence_interval = std::max(last_point.y_statistics.confidence_interval, params_ami_.max_px_shift_y);
 
-            const Point2D bb_left_top = Point2D(
-                static_cast<int>(std::floor(x_predicted - last_point.x_statistics.confidence_interval)),
-                static_cast<int>(std::floor(y_predicted - last_point.y_statistics.confidence_interval)));
-            const Point2D bb_right_bottom = Point2D(
-                static_cast<int>(std::ceil(x_predicted + last_point.x_statistics.confidence_interval)),
-                static_cast<int>(std::ceil(y_predicted + last_point.y_statistics.confidence_interval)));
+            const Eigen::Vector2d box_left_top(
+                x_predicted - last_point.x_statistics.confidence_interval,
+                y_predicted - last_point.y_statistics.confidence_interval);
+            const Eigen::Vector2d box_right_bottom(
+                x_predicted + last_point.x_statistics.confidence_interval,
+                y_predicted + last_point.y_statistics.confidence_interval);
 
             double closest_distance = std::numeric_limits<double>::max();
             std::vector<PointState>::iterator selected_it = no_nn_current_frame.end();
             for (auto it_frame = no_nn_current_frame.begin(); it_frame != no_nn_current_frame.end(); ++it_frame) {
-                const double curr_dist = euclideanDistance((*it_frame).px_cord, last_point.px_cord);
+                const double curr_dist = euclideanDistance((*it_frame).position, last_point.position);
                 if (curr_dist <= closest_distance) {
                     closest_distance = curr_dist;
                     selected_it = it_frame;
@@ -208,7 +199,7 @@ void AMI::extendedSearch(std::vector<PointState>& no_nn_current_frame, std::vect
             }
 
             if (selected_it != no_nn_current_frame.end()) {
-                if (isInsideBB((*selected_it).px_cord, bb_left_top, bb_right_bottom)) {
+                if (isInsideBox((*selected_it).position, box_left_top, box_right_bottom)) {
                     selected_it->x_statistics = last_point.x_statistics;
                     selected_it->y_statistics = last_point.y_statistics;
                     addPointToSequenceAndCheckLength(*(*it_seq), *selected_it);
@@ -223,12 +214,12 @@ void AMI::extendedSearch(std::vector<PointState>& no_nn_current_frame, std::vect
         }
     }
 
-    // for sequences with no newly inserted point, add virtual point
+    // Tracks with no inserted detection get an OFF sample to preserve blink timing.
     for (auto seq : sequences_no_insert) {
-        addVirtualPointToSequencesWithNoInsert(seq);
+        addVirtualPointToSequencesWithNoInsert(seq, stamp);
     }
 
-    // delete the sequences that are over the max_buffer_length. Elements are deleted from the back.
+    // Bound the total number of candidate tracks.
     if (params_ami_.max_buffer_length < static_cast<int>(buffer_.size())) {
         const int diff = static_cast<int>(buffer_.size()) - params_ami_.max_buffer_length;
         for (int i = 0; i < diff; ++i) {
@@ -237,7 +228,7 @@ void AMI::extendedSearch(std::vector<PointState>& no_nn_current_frame, std::vect
         return;
     }
 
-    // for the points, still no NN found -> start new sequence
+    // Unmatched detections become new candidate tracks.
     for (auto point : no_nn_current_frame) {
         std::vector<PointState> vect;
         vect.reserve(params_ami_.stored_seq_len_factor * static_cast<int>(sequences_[0].size()));
@@ -247,19 +238,20 @@ void AMI::extendedSearch(std::vector<PointState>& no_nn_current_frame, std::vect
 }
 
 /**
- * @brief Check if a point is inside an axis-aligned integer window.
+ * @brief Check if a point is inside an axis-aligned image-plane window.
  */
-bool AMI::isInsideBB(const Point2D& query, const Point2D& left_top, const Point2D& right_bottom) const
+bool AMI::isInsideBox(const Eigen::Vector2d& query, const Eigen::Vector2d& left_top, const Eigen::Vector2d& right_bottom) const
 {
-    return left_top.x <= query.x && query.x <= right_bottom.x && left_top.y <= query.y && query.y <= right_bottom.y;
+    return left_top.x() <= query.x() && query.x() <= right_bottom.x()
+        && left_top.y() <= query.y() && query.y() <= right_bottom.y();
 }
 
 /**
  * @brief Euclidean distance in image space.
  */
-double AMI::euclideanDistance(const Point2D& point1, const Point2D& point2) const
+double AMI::euclideanDistance(const Eigen::Vector2d& point1, const Eigen::Vector2d& point2) const
 {
-    return std::sqrt(std::pow(point1.x - point2.x, 2) + std::pow(point1.y - point2.y, 2));
+    return (point1 - point2).norm();
 }
 
 /**
@@ -267,20 +259,20 @@ double AMI::euclideanDistance(const Point2D& point1, const Point2D& point2) cons
  */
 void AMI::addPointToSequenceAndCheckLength(std::vector<PointState>& insert_seq, const PointState& point)
 {
-    insert_seq.push_back(point);
     const int max_size = static_cast<int>(sequences_[0].size()) * params_ami_.stored_seq_len_factor;
-    if (static_cast<int>(insert_seq.size()) > max_size) {
-        insert_seq.erase(insert_seq.begin());
-    }
+    uvdar_core::tracking::appendBounded(insert_seq, point, max_size);
 }
 
 /**
  * @brief Add an artificial zero point when no sample was matched.
  */
-void AMI::addVirtualPointToSequencesWithNoInsert(seqPointer& seq)
+void AMI::addVirtualPointToSequencesWithNoInsert(seqPointer& seq, double stamp)
 {
     PointState virtual_point = seq->back();
     virtual_point.led_state = false;
+    virtual_point.virtual_point = true;
+    virtual_point.associated_with_detection = false;
+    virtual_point.stamp = stamp;
     addPointToSequenceAndCheckLength(*seq, virtual_point);
 }
 
@@ -291,8 +283,9 @@ PredictionStats AMI::selectStatisticsValues(const std::vector<double>& values, c
 {
     PredictionStats stats;
     stats.mean_independent = calcWeightedMean(time, calcNormalizedWeightVect(time));
-    stats.time_pred = insert_time;
-    stats.poly_reg_computed = false;
+    stats.target_time = insert_time;
+    stats.reference_time = time.empty() ? insert_time : time.back();
+    stats.model_reg_computed = false;
 
     int model_order = params_ami_.poly_order;
     if (!values.empty() && static_cast<int>(values.size()) < model_order) {
@@ -311,7 +304,7 @@ PredictionStats AMI::selectStatisticsValues(const std::vector<double>& values, c
             }
         }
         stats.confidence_interval = confidenceInterval(stats, time, values, calcNormalizedWeightVect(time), static_cast<int>(params_ami_.conf_probab_percent));
-        stats.poly_reg_computed = true;
+        stats.model_reg_computed = true;
     }
     stats.extended_search = true;
     return stats;
@@ -332,6 +325,8 @@ std::tuple<std::vector<double>, Eigen::VectorXd> AMI::polyReg(
     Eigen::VectorXd weight_vect = Eigen::VectorXd::Map(weights.data(), weights.size());
     Eigen::VectorXd result(model_order + 1);
 
+    // Weighted polynomial least squares:
+    // argmin_c || W^(1/2) (A c - y) ||^2, A_ij = t_i^j.
     Eigen::MatrixXd weight_mat = weight_vect.asDiagonal();
     weight_mat = weight_mat.cwiseSqrt();
 
@@ -360,27 +355,7 @@ std::tuple<std::vector<double>, Eigen::VectorXd> AMI::polyReg(
  */
 std::vector<double> AMI::calcNormalizedWeightVect(const std::vector<double>& time) const
 {
-    std::vector<double> weights;
-    weights.reserve(time.size());
-    if (time.empty()) {
-        weights.push_back(1.0);
-        return weights;
-    }
-
-    const double reference_time = time.back();
-    double sum = 0.0;
-
-    for (int i = 0; i < static_cast<int>(time.size()); ++i) {
-        const double time_dist = reference_time - time[i];
-        const double weight = std::exp(-params_ami_.decay_factor * time_dist);
-        sum += weight;
-        weights.push_back(weight);
-    }
-
-    for (double& weight : weights) {
-        weight /= sum;
-    }
-    return weights;
+    return uvdar_core::tracking::normalizedExponentialWeights(time, params_ami_.decay_factor, true);
 }
 
 /**
@@ -429,13 +404,14 @@ double AMI::confidenceInterval(
         return -1.0;
     }
 
+    // Student-t prediction interval from weighted residual variance.
     const double unb_estimate_error_var = wssr / dof;
     double var_time = 0.0;
     for (const double t : time) {
         var_time += std::pow(t - stats.mean_independent, 2);
     }
 
-    const double standard_error = std::sqrt(unb_estimate_error_var + (1 + 1.0 / n + ((stats.time_pred - stats.mean_independent) / var_time)));
+    const double standard_error = std::sqrt(unb_estimate_error_var + (1 + 1.0 / n + ((stats.target_time - stats.mean_independent) / var_time)));
     const double percentage_scaled = static_cast<double>(wanted_percentage) / 100.0;
     const double percentage_two_sided = (1 - percentage_scaled) / 2 + percentage_scaled;
 
@@ -449,26 +425,17 @@ double AMI::confidenceInterval(
  */
 std::vector<PointState> AMI::processSequenceBasic(const seqPointer& sequence, const std::vector<bool>& original_sequence) const
 {
-    std::vector<PointState> selected;
-    if (static_cast<int>(sequence->size()) > static_cast<int>(original_sequence.size())) {
-        const int diff = static_cast<int>(sequence->size()) - static_cast<int>(original_sequence.size());
-        for (int i = diff; i < static_cast<int>(sequence->size()); ++i) {
-            selected.push_back((*sequence)[i]);
-        }
-    } else {
-        selected = *sequence;
-    }
-    return selected;
+    return uvdar_core::tracking::trailingSamples(*sequence, original_sequence.size());
 }
 
 /**
  * @brief Evaluate all active sequences and perform final AMI matching.
  */
-std::vector<std::pair<std::pair<PointState, int>, std::vector<int>>> AMI::getResults()
+std::vector<TrackResult> AMI::getResults() const
 {
     constexpr int frame_length = 16;
     constexpr bool com_mode = false;
-    std::vector<std::pair<std::pair<PointState, int>, std::vector<int>>> retrieved_signals;
+    std::vector<TrackResult> results;
 
     if (params_ami_.debug) {
         std::cout << "[AMI] Retrieved signals:{\n";
@@ -556,18 +523,20 @@ std::vector<std::pair<std::pair<PointState, int>, std::vector<int>>> AMI::getRes
         }
 
         const int id = matcher_ ? matcher_->matchSignal(led_states) : -2;
-        PointState last_element;
-        if (!selected.empty()) {
-            last_element = selected.back();
+        if (selected.empty()) {
+            continue;
         }
-        retrieved_signals.push_back(std::make_pair(std::make_pair(last_element, id), msg_frame));
+        TrackResult result;
+        result.state = selected.back();
+        result.id = id;
+        results.push_back(result);
     }
 
     if (params_ami_.debug) {
         std::cout << "}\n";
     }
 
-    return retrieved_signals;
+    return results;
 }
 
 /**

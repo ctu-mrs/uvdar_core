@@ -6,11 +6,19 @@
 #include <boost/math/distributions/normal.hpp>
 #include <boost/math/distributions/students_t.hpp>
 
-#include "uvdar_core/tracking/ami/signal_matcher.h"
+#include "uvdar_core/tracking/blink_processor.hpp"
 #include "uvdar_core/tracking/i_tracker.hpp"
-#include "uvdar_core/tracking/generalized/types.hpp"
+#include "uvdar_core/tracking/signal_matcher.hpp"
+#include "uvdar_core/tracking/types.hpp"
 
 namespace uvdar_core::tracking::generalized {
+
+using Covariance2D = uvdar_core::tracking::Covariance2D;
+using ImagePoint = uvdar_core::tracking::ImagePoint;
+using ImagePointsWithCovariancesStamped = uvdar_core::tracking::ImagePointsWithCovariancesStamped;
+using PointState = uvdar_core::tracking::TrackState;
+using PredictionStats = uvdar_core::tracking::PredictionStats;
+using TrackResult = uvdar_core::tracking::TrackResult;
 
 /**
  * @brief Generalized tracker tuning parameters.
@@ -31,7 +39,7 @@ struct ParamsGeneralized {
     bool debug = false;
 
     /**
-     * @brief Create parameters matching the legacy AMI defaults plus uncertainty gates.
+     * @brief Create parameters matching AMI defaults plus uncertainty gates.
      */
     static ParamsGeneralized create(bool debug = false)
     {
@@ -58,15 +66,15 @@ public:
     /**
      * @brief Load blinking templates and reconfigure the ID matcher.
      */
-    void setupSequenceMatcher(std::vector<std::vector<bool>> sequences);
+    void setupSequenceMatcher(std::vector<std::vector<bool>> sequences) override;
     /**
      * @brief Process one timestamped frame of covariance-bearing detections.
      */
-    void processBuffer(const ImagePointsWithCovariancesStamped& points);
+    void processBuffer(const ImagePointsWithCovariancesStamped& points) override;
     /**
      * @brief Retrieve matched tracks with propagated uncertainties.
      */
-    std::vector<TrackResult> getResults() const;
+    std::vector<TrackResult> getResults() const override;
 
 private:
     using SeqPointer = std::shared_ptr<std::vector<PointState>>;
@@ -133,11 +141,20 @@ private:
     std::vector<PointState> processSequenceBasic(const SeqPointer& sequence, const std::vector<bool>& original_sequence) const;
 
     ParamsGeneralized params_;
-    std::unique_ptr<uvdar_core::tracking::ami::SignalMatcher> matcher_;
+    std::unique_ptr<uvdar_core::tracking::SignalMatcher> matcher_;
     std::vector<std::vector<bool>> sequences_;
     std::vector<SeqPointer> buffer_;
     std::vector<std::uint32_t> track_ids_;
     std::uint32_t next_track_id_ = 1;
 };
+
+struct BlinkProcessorTraits {
+    using Params = ParamsGeneralized;
+    using Tracker = GeneralizedTracker;
+
+    static const char* name() { return "GeneralizedTracker"; }
+};
+
+using BlinkProcessor = uvdar_core::tracking::BlinkProcessor<BlinkProcessorTraits>;
 
 } // namespace uvdar_core::tracking::generalized

@@ -11,11 +11,11 @@
 #include <sensor_msgs/msg/image.hpp>
 
 #include "uvdar_core/app/package_config.hpp"
+#include "uvdar_core/app/thread_pool.hpp"
 #include "uvdar_core/detection/fimd/cpu_detector.hpp"
 #include "uvdar_core/detection/fimd/gpu_detector.hpp"
 #include "uvdar_core/detection/i_detector.hpp"
 #include "uvdar_core/msg/image_points_with_covariances_stamped.hpp"
-#include "uvdar_core/utils/thread_pool.hpp"
 
 namespace uvdar_core::app {
 
@@ -87,7 +87,7 @@ private:
 
     PackageConfig config_;
     std::vector<std::unique_ptr<InputPipeline>> pipelines_;
-    std::unique_ptr<uvdar_core::utils::ThreadPool> thread_pool_;
+    std::unique_ptr<uvdar_core::app::ThreadPool> thread_pool_;
     rclcpp::Time startup_time_;
     std::string config_path_;
 };

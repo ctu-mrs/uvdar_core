@@ -1,0 +1,14 @@
+# OCamCalib camera model.
+#
+# Polynomial coefficient order follows the original OCamCalib export:
+#   direct_polynomial maps image radius -> camera z for cam2world/backProject.
+#   inverse_polynomial maps elevation angle -> image radius for world2cam/project.
+# center is [row, column] in the OCamCalib convention, starting from zero.
+# affine is [c, d, e] from the OCamCalib affine matrix.
+# image_size is [height, width].
+calibration_model: ocamcalib
+direct_polynomial: [-259.5395, 0.0, 0.001626945, -0.000002328091, 0.000000006601777]
+inverse_polynomial: [388.557547, 220.910537, -10.127377, 31.174444, 16.299989, 0.874110, 31.882430, 44.770601, 21.586002, 3.593416]
+center: [229.581672, 364.430465]
+affine: [1.000314, -0.000012, -0.000158]
+image_size: [480, 752]
