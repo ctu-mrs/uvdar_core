@@ -11,6 +11,8 @@
 
 #include <Eigen/Dense>
 
+#include "uvdar_core/pose_estimation/math.hpp"
+
 namespace uvdar_core::pose_estimation::geometric_solver {
 
 // ============================================================================
@@ -332,13 +334,9 @@ public:
         out.reserve(pose_jacs.size());
 
         for (const auto& pj : pose_jacs) {
-            const Eigen::Matrix<double,6,12>& Jpose_pi = pj.dpose_dpi;
-            Eigen::Matrix<double,6,6> JJt = Jpose_pi * Jpose_pi.transpose();
-            JJt.diagonal().array() += std::max(damping, 1e-15);
-
             BearingJacobian bj;
             bj.sol = pj.sol;
-            bj.dpi_dpose = Jpose_pi.transpose() * JJt.ldlt().solve(Eigen::Matrix<double,6,6>::Identity());
+            bj.dpi_dpose = dampedRightPseudoInverse(pj.dpose_dpi, std::max(damping, 1.0e-15));
 
             if (!bj.dpi_dpose.allFinite()) {
                 continue;
@@ -350,15 +348,6 @@ public:
     }
 
 private:
-
-    static Eigen::Matrix3d skew(const Eigen::Vector3d& v) {
-        Eigen::Matrix3d S;
-        S <<   0.0, -v(2),  v(1),
-             v(2),   0.0, -v(0),
-            -v(1),  v(0),   0.0;
-        return S;
-    }
-
     // =====================================================================
     // Polynomial term structure
     // =====================================================================

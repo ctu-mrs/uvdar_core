@@ -9,6 +9,7 @@
 #include <tf2/time.h>
 #include <yaml-cpp/yaml.h>
 
+#include "uvdar_core/app/ros_conversions.hpp"
 #include "uvdar_core/calibration/fisheye/equidistant_model.hpp"
 #include "uvdar_core/calibration/fisheye/ocam_model.hpp"
 #include "uvdar_core/calibration/fisheye/radial_model.hpp"
@@ -52,45 +53,6 @@ std::string resolvePath(const std::filesystem::path& config_path, const std::str
         return path.string();
     }
     return (config_path.parent_path() / path).lexically_normal().string();
-}
-
-double toSeconds(const builtin_interfaces::msg::Time& stamp)
-{
-    return static_cast<double>(stamp.sec) + static_cast<double>(stamp.nanosec) * 1.0e-9;
-}
-
-Eigen::Isometry3d toEigen(const geometry_msgs::msg::TransformStamped& transform)
-{
-    const auto& t = transform.transform.translation;
-    const auto& q = transform.transform.rotation;
-    Eigen::Isometry3d output = Eigen::Isometry3d::Identity();
-    output.translation() = Eigen::Vector3d(t.x, t.y, t.z);
-    output.linear() = Eigen::Quaterniond(q.w, q.x, q.y, q.z).normalized().toRotationMatrix();
-    return output;
-}
-
-geometry_msgs::msg::Pose toMsg(const pe::Pose& pose)
-{
-    geometry_msgs::msg::Pose output;
-    output.position.x = pose.position.x();
-    output.position.y = pose.position.y();
-    output.position.z = pose.position.z();
-    output.orientation.w = pose.orientation.w();
-    output.orientation.x = pose.orientation.x();
-    output.orientation.y = pose.orientation.y();
-    output.orientation.z = pose.orientation.z();
-    return output;
-}
-
-std::array<double, 36> covarianceToMsg(const Eigen::Matrix<double, 6, 6>& covariance)
-{
-    std::array<double, 36> output {};
-    for (int i = 0; i < 6; ++i) {
-        for (int j = 0; j < 6; ++j) {
-            output[static_cast<std::size_t>(6 * j + i)] = covariance(j, i);
-        }
-    }
-    return output;
 }
 
 std::vector<double> readVector(const YAML::Node& node, const std::string& key)

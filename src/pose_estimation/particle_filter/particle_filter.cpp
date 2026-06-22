@@ -10,11 +10,6 @@ namespace uvdar_core::pose_estimation::particle_filter {
 
 namespace {
 
-double squared(double value)
-{
-    return value * value;
-}
-
 Eigen::Matrix<double, 6, 6> singletonCovariance()
 {
     // A single verified particle has no sample spread; keep a finite covariance

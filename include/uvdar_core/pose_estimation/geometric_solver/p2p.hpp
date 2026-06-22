@@ -9,6 +9,8 @@
 
 #include <Eigen/Dense>
 
+#include "uvdar_core/pose_estimation/math.hpp"
+
 namespace uvdar_core::pose_estimation::geometric_solver {
 
 /**
@@ -107,17 +109,7 @@ public:
 		for (const auto& pj : pose_jacs) {
 			BearingJacobian bj;
 			bj.sol = pj.sol;
-			const Eigen::Matrix<double, 6, 6>& Jpose_pi = pj.dpose_dpi;
-			Eigen::Matrix<double, 6, 6> JJt = Jpose_pi * Jpose_pi.transpose();
-
-			double lambda = 1e-12;
-			if (std::isfinite(JJt.trace())) {
-				lambda = std::max(1e-14, 1e-12 * JJt.trace() / 6.0);
-			}
-
-			JJt.diagonal().array() += lambda;
-			bj.dpi_dpose = Jpose_pi.transpose() * JJt.ldlt().solve(Eigen::Matrix<double, 6, 6>::Identity());
-
+			bj.dpi_dpose = dampedRightPseudoInverse(pj.dpose_dpi);
 			out.emplace_back(bj);
 		}
 
@@ -198,7 +190,7 @@ public:
 				alpha = std::atan2(sin_a, cos_a);
 			}
 
-			const Eigen::Matrix3d Rp = rotz(alpha);
+			const Eigen::Matrix3d Rp = rotationZ(alpha);
 
 			const Eigen::Matrix3d R = prep.Rc.transpose() * Rp * prep.Rw;
 			const Eigen::Vector3d t = prep.Rc.transpose() * (Pc1 - Rp * Pw1);
@@ -255,7 +247,7 @@ public:
 		sols.reserve(s_vals.size());
 		for (double s : s_vals) {
 			const double alpha = 2.0 * std::atan(s);
-			const Eigen::Matrix3d Rp = rotz(alpha);
+			const Eigen::Matrix3d Rp = rotationZ(alpha);
 
 			const Eigen::Vector3d R_delta = Rp * delta;
 			const Eigen::Vector3d lhs = p2.cross(p1);
@@ -296,75 +288,6 @@ private:
 		Eigen::Vector3d Pw1;
 		Eigen::Vector3d Pw2;
 	};
-
-	static Eigen::Matrix3d skew(const Eigen::Vector3d& v) {
-		Eigen::Matrix3d K;
-		K << 0.0, -v.z(), v.y(),
-			 v.z(), 0.0, -v.x(),
-			-v.y(), v.x(), 0.0;
-		return K;
-	}
-
-	static Eigen::Matrix3d rotationBetween(const Eigen::Vector3d& from, const Eigen::Vector3d& to) {
-		const double nf = from.norm();
-		const double nt = to.norm();
-		if (nf < 1e-15 || nt < 1e-15) {
-			return Eigen::Matrix3d::Identity();
-		}
-
-		const Eigen::Vector3d vf = from / nf;
-		const Eigen::Vector3d vt = to / nt;
-		const double c = vf.dot(vt);
-
-		if (c > 1.0 - 1e-12) {
-			return Eigen::Matrix3d::Identity();
-		}
-
-		if (c < -1.0 + 1e-12) {
-			Eigen::Vector3d perp(1.0, 0.0, 0.0);
-			if (std::abs(vf.dot(perp)) > 0.9) {
-				perp = Eigen::Vector3d(0.0, 1.0, 0.0);
-			}
-			Eigen::Vector3d axis = vf.cross(perp);
-			const double na = axis.norm();
-			if (na < 1e-15) {
-				return Eigen::Matrix3d::Identity();
-			}
-			axis /= na;
-			return 2.0 * (axis * axis.transpose()) - Eigen::Matrix3d::Identity();
-		}
-
-		const Eigen::Vector3d k = vf.cross(vt);
-		const Eigen::Matrix3d K = skew(k);
-		return Eigen::Matrix3d::Identity() + K + (K * K) / (1.0 + c);
-	}
-
-	static Eigen::Matrix3d rotz(double a) {
-		const double c = std::cos(a);
-		const double s = std::sin(a);
-		Eigen::Matrix3d R;
-		R << c, -s, 0.0,
-			 s,  c, 0.0,
-			 0.0, 0.0, 1.0;
-		return R;
-	}
-
-	static Eigen::Matrix3d drotz_dalpha(double a) {
-		const double c = std::cos(a);
-		const double s = std::sin(a);
-		Eigen::Matrix3d dR;
-		dR << -s, -c, 0.0,
-			   c, -s, 0.0,
-			   0.0, 0.0, 0.0;
-		return dR;
-	}
-
-	static Eigen::Vector3d omegaFromdR(const Eigen::Matrix3d& R, const Eigen::Matrix3d& dR) {
-		const Eigen::Matrix3d S = R.transpose() * dR - dR.transpose() * R;
-		Eigen::Vector3d w;
-		w << S(2, 1), S(0, 2), S(1, 0);
-		return 0.5 * w;
-	}
 
 	static PrealignData prealign(
 		const Eigen::Matrix<double, 3, 2>& Pw,
@@ -437,8 +360,8 @@ private:
 
 		for (double s : s_vals) {
 			const double alpha = 2.0 * std::atan(s);
-			const Eigen::Matrix3d Rp = rotz(alpha);
-			const Eigen::Matrix3d dRp_da = drotz_dalpha(alpha);
+			const Eigen::Matrix3d Rp = rotationZ(alpha);
+			const Eigen::Matrix3d dRp_da = rotationZDerivative(alpha);
 			const Eigen::Vector3d R_delta = Rp * delta;
 
 			const Eigen::Vector3d lhs = p2.cross(p1);
@@ -511,7 +434,7 @@ private:
 				const Eigen::Matrix3d dR = prep.Rc.transpose() * dRp * prep.Rw;
 				const Eigen::Vector3d dt = prep.Rc.transpose() * dtp;
 
-				const Eigen::Vector3d domega = omegaFromdR(R, dR);
+				const Eigen::Vector3d domega = omegaFromRotationDerivative(R, dR);
 				J.block<3, 1>(0, k) = domega;
 				J.block<3, 1>(3, k) = dt;
 			}
@@ -594,8 +517,8 @@ private:
 				alpha = std::atan2(sin_a, cos_a);
 			}
 
-			const Eigen::Matrix3d Rp = rotz(alpha);
-			const Eigen::Matrix3d dRp_da = drotz_dalpha(alpha);
+			const Eigen::Matrix3d Rp = rotationZ(alpha);
+			const Eigen::Matrix3d dRp_da = rotationZDerivative(alpha);
 
 			const Eigen::Matrix3d R = prep.Rc.transpose() * Rp * prep.Rw;
 			const Eigen::Vector3d Pc1 = lam1 * p1;
@@ -668,7 +591,7 @@ private:
 				const Eigen::Matrix3d dR = prep.Rc.transpose() * dRp * prep.Rw;
 				const Eigen::Vector3d dt = prep.Rc.transpose() * dtp;
 
-				const Eigen::Vector3d domega = omegaFromdR(R, dR);
+				const Eigen::Vector3d domega = omegaFromRotationDerivative(R, dR);
 				J.block<3, 1>(0, k) = domega;
 				J.block<3, 1>(3, k) = dt;
 			}

@@ -234,8 +234,7 @@ std::optional<GeometricSolver::CameraPose> GeometricSolver::solvePnP(const std::
 
     std::optional<CameraPose> seed;
     if (observations.size() >= 3U) {
-        // Match the monocular_pose_estimation implementation: seed iterative
-        // PnP from the deterministic first P3P triplet when possible.
+        // seed iterative PnP from the deterministic first P3P triplet when possible.
         const std::vector<Observation> first_triplet(observations.begin(), observations.begin() + 3);
         const std::vector<CameraPose> candidates = solveP3P(first_triplet);
         double best_cost = std::numeric_limits<double>::infinity();
@@ -267,8 +266,7 @@ std::optional<GeometricSolver::CameraPose> GeometricSolver::solvePnP(const std::
             break;
         }
 
-        // Finite-difference LM on tangent [omega, translation], exactly the
-        // structure used by the reference Python PnP.
+        // Finite-difference LM on tangent [omega, translation]
         Eigen::MatrixXd jacobian(residual->size(), 6);
         for (int parameter = 0; parameter < 6; ++parameter) {
             Eigen::Matrix<double, 6, 1> delta = Eigen::Matrix<double, 6, 1>::Zero();
@@ -276,7 +274,7 @@ std::optional<GeometricSolver::CameraPose> GeometricSolver::solvePnP(const std::
 
             CameraPose perturbed = pose;
             if (parameter < 3) {
-                perturbed.rotation = unc::expSO3(delta.head<3>()) * pose.rotation;
+                perturbed.rotation = expSO3(delta.head<3>()) * pose.rotation;
             } else {
                 perturbed.translation(parameter - 3) += config_.pnp_finite_difference_eps;
             }
@@ -293,7 +291,7 @@ std::optional<GeometricSolver::CameraPose> GeometricSolver::solvePnP(const std::
         }
 
         // Left-multiplicative SO(3) update, additive translation update.
-        pose.rotation = unc::expSO3(step.head<3>()) * pose.rotation;
+        pose.rotation = expSO3(step.head<3>()) * pose.rotation;
         pose.translation += step.tail<3>();
     }
 
@@ -342,7 +340,7 @@ GeometricSolver::CameraPose GeometricSolver::refinePose(const CameraPose& seed, 
             break;
         }
         pose.translation += delta.head<3>();
-        pose.rotation = unc::expSO3(delta.tail<3>()) * pose.rotation;
+        pose.rotation = expSO3(delta.tail<3>()) * pose.rotation;
     }
     return pose;
 }

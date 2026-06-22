@@ -89,15 +89,6 @@ private:
      * @brief Deterministic color mapping for blinker IDs.
      */
     static cv::Scalar idColor(int id);
-    /**
-     * @brief Convert builtin ROS time to floating-point seconds.
-     */
-    static double toSeconds(const builtin_interfaces::msg::Time& stamp);
-    /**
-     * @brief Convert floating-point seconds back to builtin ROS time.
-     */
-    static builtin_interfaces::msg::Time toRosTime(double seconds);
-
     PackageConfig config_;
     TrackerImplementation tracker_implementation_ = TrackerImplementation::Ami;
     std::vector<std::unique_ptr<InputPipeline>> pipelines_;

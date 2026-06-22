@@ -6,6 +6,7 @@
 #include <Eigen/Geometry>
 
 #include "uvdar_core/pose_estimation/camera_model.hpp"
+#include "uvdar_core/pose_estimation/math.hpp"
 
 namespace uvdar_core::pose_estimation::uncertainty {
 
@@ -18,20 +19,6 @@ struct CameraPose {
     Eigen::Matrix3d rotation = Eigen::Matrix3d::Identity();
     Eigen::Vector3d translation = Eigen::Vector3d::Zero();
 };
-
-/**
- * @brief Skew-symmetric matrix [v]x.
- *
- * Satisfies [v]x w = v x w and appears in SO(3) Jacobians.
- */
-Eigen::Matrix3d skew(const Eigen::Vector3d& value);
-
-/**
- * @brief Exponential map from an so(3) vector to SO(3).
- *
- * Uses Rodrigues' formula, with a first-order small-angle branch.
- */
-Eigen::Matrix3d expSO3(const Eigen::Vector3d& omega);
 
 /**
  * @brief Symmetrize and regularize a 2D covariance.

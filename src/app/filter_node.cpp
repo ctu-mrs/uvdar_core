@@ -7,6 +7,8 @@
 #include <tf2/time.h>
 #include <yaml-cpp/yaml.h>
 
+#include "uvdar_core/app/ros_conversions.hpp"
+
 namespace uvdar_core::app {
 
 namespace pe = uvdar_core::pose_estimation;
@@ -18,60 +20,6 @@ T optionalScalar(const YAML::Node& node, const std::string& key, T fallback)
 {
     const YAML::Node value = node[key];
     return value ? value.as<T>() : fallback;
-}
-
-double toSeconds(const builtin_interfaces::msg::Time& stamp)
-{
-    return static_cast<double>(stamp.sec) + static_cast<double>(stamp.nanosec) * 1.0e-9;
-}
-
-Eigen::Isometry3d toEigen(const geometry_msgs::msg::TransformStamped& transform)
-{
-    const auto& t = transform.transform.translation;
-    const auto& q = transform.transform.rotation;
-    Eigen::Isometry3d output = Eigen::Isometry3d::Identity();
-    output.translation() = Eigen::Vector3d(t.x, t.y, t.z);
-    output.linear() = Eigen::Quaterniond(q.w, q.x, q.y, q.z).normalized().toRotationMatrix();
-    return output;
-}
-
-Eigen::Matrix<double, 6, 6> covarianceFromMsg(const std::array<double, 36>& input)
-{
-    Eigen::Matrix<double, 6, 6> output;
-    for (int i = 0; i < 6; ++i) {
-        for (int j = 0; j < 6; ++j) {
-            output(j, i) = input[static_cast<std::size_t>(6 * j + i)];
-        }
-    }
-    return output;
-}
-
-std::array<double, 36> covarianceToMsg(const Eigen::MatrixXd& input, bool velocity_state)
-{
-    std::array<double, 36> output {};
-    Eigen::Matrix<double, 6, 6> covariance = Eigen::Matrix<double, 6, 6>::Zero();
-    if (velocity_state) {
-        covariance.topLeftCorner<3, 3>() = input.topLeftCorner<3, 3>();
-        covariance.bottomRightCorner<3, 3>() = input.bottomRightCorner<3, 3>();
-    } else {
-        covariance = input.topLeftCorner<6, 6>();
-    }
-    for (int i = 0; i < 6; ++i) {
-        for (int j = 0; j < 6; ++j) {
-            output[static_cast<std::size_t>(6 * j + i)] = covariance(j, i);
-        }
-    }
-    return output;
-}
-
-Eigen::Matrix<double, 6, 6> rotateCovariance(const Eigen::Matrix<double, 6, 6>& covariance, const Eigen::Matrix3d& rotation)
-{
-    Eigen::Matrix<double, 6, 6> output = covariance;
-    output.topLeftCorner<3, 3>() = rotation * covariance.topLeftCorner<3, 3>() * rotation.transpose();
-    output.bottomRightCorner<3, 3>() = rotation * covariance.bottomRightCorner<3, 3>() * rotation.transpose();
-    output.topRightCorner<3, 3>() = rotation * covariance.topRightCorner<3, 3>() * rotation.transpose();
-    output.bottomLeftCorner<3, 3>() = rotation * covariance.bottomLeftCorner<3, 3>() * rotation.transpose();
-    return output;
 }
 
 } // namespace
@@ -163,7 +111,7 @@ void FilterNode::onMeasurement(const uvdar_core::msg::PoseWithCovarianceArraySta
         measurement.id = pose.id;
         measurement.x = Eigen::VectorXd::Zero(6);
         measurement.x << position.x(), position.y(), position.z(), rpy.x(), rpy.y(), rpy.z();
-        measurement.covariance = rotateCovariance(covarianceFromMsg(pose.covariance), transform.rotation());
+        measurement.covariance = rotatePoseCovariance(covarianceFromMsg(pose.covariance), transform.rotation());
         measurement.stamp = toSeconds(msg->header.stamp);
         measurement.camera_frame = msg->header.frame_id;
         if (!measurement.x.array().isNaN().any() && !measurement.covariance.array().isNaN().any()) {
@@ -204,7 +152,7 @@ void FilterNode::publishStates(
         pose.pose.orientation.x = q.x();
         pose.pose.orientation.y = q.y();
         pose.pose.orientation.z = q.z();
-        pose.covariance = covarianceToMsg(state.covariance, state.x.size() == 9);
+        pose.covariance = stateCovarianceToMsg(state.covariance, state.x.size() == 9);
         msg.poses.push_back(std::move(pose));
     }
     publisher->publish(msg);

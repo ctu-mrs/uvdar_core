@@ -2,21 +2,13 @@
 
 #include <cmath>
 
+#include "uvdar_core/pose_estimation/math.hpp"
+
 namespace uvdar_core::calibration::pinhole {
 
 namespace {
 
 constexpr double epsilon = 1.0e-12;
-
-Eigen::Matrix3d normalizedVectorJacobian(const Eigen::Vector3d& vector)
-{
-    // d(v / ||v||) / dv = I/||v|| - vv^T/||v||^3.
-    const double norm = vector.norm();
-    if (norm < epsilon) {
-        return Eigen::Matrix3d::Zero();
-    }
-    return Eigen::Matrix3d::Identity() / norm - (vector * vector.transpose()) / (norm * norm * norm);
-}
 
 } // namespace
 
@@ -119,7 +111,7 @@ Eigen::Matrix<double, 3, 2> PinholeModel::backProjectJacobian(const Eigen::Vecto
     ray_jacobian << 1.0, 0.0,
         0.0, 1.0,
         0.0, 0.0;
-    return normalizedVectorJacobian(Eigen::Vector3d(x, y, 1.0)) * ray_jacobian * undistorted_jacobian;
+    return pose_estimation::normalizedVectorJacobian(Eigen::Vector3d(x, y, 1.0), epsilon) * ray_jacobian * undistorted_jacobian;
 }
 
 } // namespace uvdar_core::calibration::pinhole

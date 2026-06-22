@@ -5,31 +5,6 @@
 
 namespace uvdar_core::pose_estimation::uncertainty {
 
-namespace {
-
-constexpr double epsilon = 1.0e-12;
-
-} // namespace
-
-Eigen::Matrix3d skew(const Eigen::Vector3d& value)
-{
-    Eigen::Matrix3d output;
-    output << 0.0, -value.z(), value.y(),
-        value.z(), 0.0, -value.x(),
-        -value.y(), value.x(), 0.0;
-    return output;
-}
-
-Eigen::Matrix3d expSO3(const Eigen::Vector3d& omega)
-{
-    const double angle = omega.norm();
-    if (angle < epsilon) {
-        // First-order Rodrigues expansion: exp([w]x) ~= I + [w]x.
-        return Eigen::Matrix3d::Identity() + skew(omega);
-    }
-    return Eigen::AngleAxisd(angle, omega / angle).toRotationMatrix();
-}
-
 Eigen::Matrix2d regularizedCovariance(const Eigen::Matrix2d& covariance, double regularization)
 {
     Eigen::Matrix2d output = 0.5 * (covariance + covariance.transpose());

@@ -1,11 +1,12 @@
 #pragma once
 
-#include <cmath>
 #include <string>
 #include <vector>
 
 #include <Eigen/Dense>
 #include <Eigen/Geometry>
+
+#include "uvdar_core/pose_estimation/math.hpp"
 
 namespace uvdar_core::pose_estimation {
 
@@ -69,33 +70,6 @@ struct TimedPoseMeasurements {
     std::string frame_id;
     std::vector<PoseMeasurement> poses;
 };
-
-/**
- * @brief Convert quaternion to fixed-axis roll-pitch-yaw angles.
- *
- * Uses the standard ZYX extraction formulas applied to the rotation matrix.
- */
-inline Eigen::Vector3d quaternionToRpy(const Eigen::Quaterniond& q)
-{
-    const Eigen::Matrix3d m = q.toRotationMatrix();
-    return {
-        std::atan2(m(2, 1), m(2, 2)),
-        std::atan2(-m(2, 0), std::sqrt(m(2, 1) * m(2, 1) + m(2, 2) * m(2, 2))),
-        std::atan2(m(1, 0), m(0, 0)),
-    };
-}
-
-/**
- * @brief Convert fixed-axis roll-pitch-yaw angles to a quaternion.
- *
- * The multiplication order is Rx * Ry * Rz.
- */
-inline Eigen::Quaterniond rpyToQuaternion(const Eigen::Vector3d& rpy)
-{
-    return Eigen::AngleAxisd(rpy.x(), Eigen::Vector3d::UnitX())
-        * Eigen::AngleAxisd(rpy.y(), Eigen::Vector3d::UnitY())
-        * Eigen::AngleAxisd(rpy.z(), Eigen::Vector3d::UnitZ());
-}
 
 /**
  * @brief Apply a rigid transform to a pose.

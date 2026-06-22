@@ -3,6 +3,8 @@
 #include <cmath>
 #include <sensor_msgs/image_encodings.hpp>
 
+#include "uvdar_core/app/ros_conversions.hpp"
+
 namespace uvdar_core::app {
 
 namespace {
@@ -46,34 +48,6 @@ void TrackerNode::loadConfig()
     } else {
         throw std::runtime_error("Supported tracker implementations are 'ami' and 'generalized'.");
     }
-}
-
-/**
- * @brief Convert builtin time to seconds.
- */
-double TrackerNode::toSeconds(const builtin_interfaces::msg::Time& stamp)
-{
-    return rclcpp::Time(stamp).seconds();
-}
-
-/**
- * @brief Convert seconds to builtin ROS time.
- */
-builtin_interfaces::msg::Time TrackerNode::toRosTime(double seconds)
-{
-    if (seconds <= 0.0) {
-        return builtin_interfaces::msg::Time {};
-    }
-
-    const double integral_seconds = std::floor(seconds);
-    builtin_interfaces::msg::Time stamp;
-    stamp.sec = static_cast<std::int32_t>(integral_seconds);
-    stamp.nanosec = static_cast<std::uint32_t>(std::llround((seconds - integral_seconds) * 1.0e9));
-    if (stamp.nanosec >= 1000000000U) {
-        ++stamp.sec;
-        stamp.nanosec -= 1000000000U;
-    }
-    return stamp;
 }
 
 /**

@@ -7,6 +7,8 @@
 #include <stdexcept>
 #include <string>
 
+#include "uvdar_core/pose_estimation/math.hpp"
+
 namespace uvdar_core::calibration::fisheye {
 
 namespace {
@@ -50,15 +52,6 @@ void evalPolynomialAndDerivative(
         derivative = derivative * x + value;
         value = value * x + coefficients[static_cast<std::size_t>(i)];
     }
-}
-
-Eigen::Matrix3d normalizedVectorJacobian(const Eigen::Vector3d& vector)
-{
-    const double norm = vector.norm();
-    if (norm < epsilon) {
-        return Eigen::Matrix3d::Zero();
-    }
-    return Eigen::Matrix3d::Identity() / norm - (vector * vector.transpose()) / (norm * norm * norm);
 }
 
 } // namespace
@@ -238,7 +231,8 @@ Eigen::Matrix<double, 3, 2> OcamModel::backProjectJacobian(const Eigen::Vector2d
         0.0, 1.0,
         dz_dx, dz_dy;
     const Eigen::Vector3d raw_vector(x, y, z);
-    const Eigen::Matrix<double, 3, 2> draw_draw_image = normalizedVectorJacobian(raw_vector) * draw_dxy * affine_inverse;
+    const Eigen::Matrix<double, 3, 2> draw_draw_image =
+        pose_estimation::normalizedVectorJacobian(raw_vector, epsilon) * draw_dxy * affine_inverse;
 
     Eigen::Matrix3d public_axis = Eigen::Matrix3d::Zero();
     public_axis(0, 1) = 1.0;

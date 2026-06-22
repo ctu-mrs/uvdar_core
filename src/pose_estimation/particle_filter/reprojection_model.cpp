@@ -14,11 +14,6 @@ constexpr double max_initial_velocity = 1.0;
 // Empirical LED brightness model: a + b / (range + c)^2, scaled by cos(view).
 constexpr double led_projection_coefs[3] = {1.3398, 31.4704, 0.0154};
 
-double squared(double value)
-{
-    return value * value;
-}
-
 int cameraWidth(const CameraModel& camera)
 {
     return camera.image_width > 0 ? camera.image_width : camera.lens->imageWidth();
