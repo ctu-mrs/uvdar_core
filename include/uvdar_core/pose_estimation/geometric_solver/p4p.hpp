@@ -21,7 +21,7 @@ namespace uvdar_core::pose_estimation::geometric_solver {
 // D. Lehavi and B. Osserman, "A polynomial formula for the perspective four
 // points problem," arXiv:2501.13058v2, 2025.
 //
-// Direct algebraic formula — no iteration, no SVD.  Given four 3-D world
+// Direct algebraic formula.  Given four 3-D world
 // points and four bearing vectors through the camera centre, compute depths
 // z_i by:
 //   1.  Map inputs to invariant coordinates (a, b, c, d).
@@ -30,7 +30,7 @@ namespace uvdar_core::pose_estimation::geometric_solver {
 //   3.  Solve each quadratic, enumerate all sign combinations, and select
 //       the one minimising the constraint residuals.
 //   4.  Recover original-canvas depths and compute R, t via Davenport
-//       quaternion (Horn's method — fully algebraic, no SVD).
+//       quaternion (Horn's method — fully algebraic).
 // ============================================================================
 
 /**
@@ -943,7 +943,7 @@ private:
 
     // =====================================================================
     // Davenport / Horn: find the dominant eigenvector of the 4x4 K matrix
-    // built from B = Qw * Qc^T (no SVD — uses symmetric eigendecomposition).
+    // built from B = Qw * Qc^T (uses symmetric eigendecomposition).
     // =====================================================================
     static bool davenportQuaternion(const Eigen::Matrix3d& B, Eigen::Vector4d& q) {
         double sigma = B.trace();
@@ -957,7 +957,7 @@ private:
         K(2,0) = z(1); K(2,1) = S(1,0); K(2,2) = S(1,1) - sigma; K(2,3) = S(1,2);
         K(3,0) = z(2); K(3,1) = S(2,0); K(3,2) = S(2,1); K(3,3) = S(2,2) - sigma;
 
-        // Symmetric eigendecomposition (NOT SVD)
+        // Symmetric eigendecomposition
         Eigen::SelfAdjointEigenSolver<Eigen::Matrix4d> eig(K);
         if (eig.info() != Eigen::Success) return false;
 
