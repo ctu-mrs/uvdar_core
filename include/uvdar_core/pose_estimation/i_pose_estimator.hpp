@@ -47,7 +47,7 @@ public:
      * @brief Return accepted backend hypotheses as pose measurements.
      *
      * Particle filtering exposes verified particles; direct solvers expose the
-     * solved poses as verified hypotheses for visualization compatibility.
+     * solved poses as verified hypotheses for visualization consistency.
      */
     virtual std::vector<PoseMeasurement> verifiedHypotheses() const = 0;
 

@@ -94,7 +94,7 @@ set(POSE_ESTIMATION_SOURCES
     src/pose_estimation/geometric_solver/geometric_solver.cpp
     src/pose_estimation/particle_filter/reprojection_model.cpp
     src/pose_estimation/particle_filter/particle_filter.cpp
-    src/pose_estimation/dkf_pose.cpp
+    src/pose_estimation/kf_pose.cpp
 )
 
 add_library(${PROJECT_NAME}_common STATIC ${SHARED_SOURCES})

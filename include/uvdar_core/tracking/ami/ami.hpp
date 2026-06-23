@@ -76,14 +76,14 @@ struct ParamsAMI : public DefaultParams {
             std::move(sequence_file),
             debug,
             minimal_output,
-            1,
-            3,
-            3,
-            5.0,
-            5.0,
-            3,
-            2000,
-            0.01,
+            0,
+            20,
+            4,
+            3.0,
+            3.0,
+            10,
+            5000,
+            0.1,
             95.0);
     }
 };
@@ -129,7 +129,7 @@ private:
     /**
      * @brief Extend tracking with predictive model for unmatched trajectories.
      */
-    void extendedSearch(std::vector<PointState>& no_nn_current_frame, std::vector<seqPointer>& sequences_no_insert, double stamp);
+    void extendedSearch(std::vector<PointState>& no_nn_current_frame, std::vector<seqPointer>& sequences_no_insert);
     /**
      * @brief Check if point lies in a bounding box.
      */
@@ -145,7 +145,7 @@ private:
     /**
      * @brief Append virtual zero point when no real point is associated.
      */
-    void addVirtualPointToSequencesWithNoInsert(seqPointer&, double stamp);
+    void addVirtualPointToSequencesWithNoInsert(seqPointer&);
     /**
      * @brief Build statistics for coordinate prediction.
      */

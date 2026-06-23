@@ -395,7 +395,7 @@ std::optional<PoseMeasurement> ParticleFilter::measurementHull(const AssociatedH
             mean_position += hypothesis.pose.position;
         }
     }
-    mean_position /= static_cast<double>(hypotheses.hypotheses.size());
+    mean_position /= static_cast<double>(positions.size());
 
     const Eigen::Quaterniond mean_orientation = averageOrientation(hypotheses.verified());
     std::vector<Eigen::Vector3d> position_diff;

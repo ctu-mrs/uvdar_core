@@ -1,4 +1,4 @@
-#include "uvdar_core/pose_estimation/dkf_pose.hpp"
+#include "uvdar_core/pose_estimation/kf_pose.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -15,7 +15,7 @@ bool hasNan(const Eigen::MatrixXd& matrix)
 
 } // namespace
 
-DkfPose::DkfPose(DkfPoseConfig config)
+KfPose::KfPose(KfPoseConfig config)
     : config_(std::move(config))
 {
     // Use lower process noise for indoor motion and larger position noise when
@@ -29,7 +29,7 @@ DkfPose::DkfPose(DkfPoseConfig config)
     }
 }
 
-void DkfPose::applyMeasurements(const std::vector<DkfPoseMeasurement>& measurements)
+void KfPose::applyMeasurements(const std::vector<KfPoseMeasurement>& measurements)
 {
     if (measurements.empty()) {
         return;
@@ -41,7 +41,7 @@ void DkfPose::applyMeasurements(const std::vector<DkfPoseMeasurement>& measureme
     }
 }
 
-void DkfPose::spin(double now)
+void KfPose::spin(double now)
 {
     removeNans();
     if (config_.anonymous_measurements) {
@@ -65,9 +65,9 @@ void DkfPose::spin(double now)
     }
 }
 
-std::vector<DkfPoseState> DkfPose::validatedStates() const
+std::vector<KfPoseState> KfPose::validatedStates() const
 {
-    std::vector<DkfPoseState> output;
+    std::vector<KfPoseState> output;
     for (const auto& state : states_) {
         if (state.state.update_count >= config_.min_measurements_to_validation) {
             output.push_back(state.state);
@@ -76,9 +76,9 @@ std::vector<DkfPoseState> DkfPose::validatedStates() const
     return output;
 }
 
-std::vector<DkfPoseState> DkfPose::tentativeStates() const
+std::vector<KfPoseState> KfPose::tentativeStates() const
 {
-    std::vector<DkfPoseState> output;
+    std::vector<KfPoseState> output;
     for (const auto& state : states_) {
         if (state.state.update_count < config_.min_measurements_to_validation) {
             output.push_back(state.state);
@@ -87,13 +87,13 @@ std::vector<DkfPoseState> DkfPose::tentativeStates() const
     return output;
 }
 
-void DkfPose::initiateNew(const DkfPoseMeasurement& measurement, int id)
+void KfPose::initiateNew(const KfPoseMeasurement& measurement, int id)
 {
     if (states_.size() > 20U) {
         return;
     }
 
-    DkfPoseMeasurement local = measurement;
+    KfPoseMeasurement local = measurement;
     // Guard anonymous long-range initializations whose covariance is larger
     // than the observed range by pulling them to a conservative ray.
     Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> solver(local.covariance.topLeftCorner<3, 3>());
@@ -112,28 +112,23 @@ void DkfPose::initiateNew(const DkfPoseMeasurement& measurement, int id)
         }
     }
 
-    DkfPoseState state;
+    KfPoseState state;
     state.id = id < 0 ? next_id_++ : id;
     state.covariance = local.covariance;
     state.covariance.topRightCorner(3, 3).setZero();
     state.covariance.bottomLeftCorner(3, 3).setZero();
 
     if (config_.use_velocity && !config_.anonymous_measurements) {
-        state.x = Eigen::VectorXd::Zero(9);
-        state.x.head<3>() = local.x.head<3>();
-        state.x.tail<3>() = local.x.tail<3>();
-        Eigen::MatrixXd covariance = Eigen::MatrixXd::Identity(9, 9) * 10.0;
-        covariance.topLeftCorner<3, 3>() = state.covariance.topLeftCorner<3, 3>();
-        covariance.bottomRightCorner<3, 3>() = state.covariance.bottomRightCorner<3, 3>();
-        state.covariance = covariance;
-    } else {
-        state.x = local.x;
+        // Velocity matrices are available, but velocity states cannot be
+        // initialized from pose-only measurements.
+        return;
     }
+    state.x = local.x;
 
     states_.push_back({state, local.stamp, local.stamp});
 }
 
-void DkfPose::applyMeasurementsAnonymous(const std::vector<DkfPoseMeasurement>& measurements)
+void KfPose::applyMeasurementsAnonymous(const std::vector<KfPoseMeasurement>& measurements)
 {
     if (states_.empty()) {
         for (const auto& measurement : measurements) {
@@ -150,6 +145,14 @@ void DkfPose::applyMeasurementsAnonymous(const std::vector<DkfPoseMeasurement>& 
             tentative[m].push_back(states_[s]);
             double match_level = 0.0;
             correctWithMeasurement(tentative[m].back(), measurements[m], match_level, true, true);
+            constexpr double camera_burst_padding = 0.1;
+            if (measurements[m].receipt_stamp > 0.0
+                && measurements[m].receipt_stamp - states_[s].latest_measurement < camera_burst_padding) {
+                tentative[m].back().state = predictTillTime(
+                    tentative[m].back(),
+                    measurements[m].receipt_stamp + camera_burst_padding,
+                    false);
+            }
             match_matrix(static_cast<int>(m), static_cast<int>(s)) = match_level;
         }
     }
@@ -199,7 +202,7 @@ void DkfPose::applyMeasurementsAnonymous(const std::vector<DkfPoseMeasurement>& 
     }
 }
 
-void DkfPose::applyMeasurementsWithIdentity(const std::vector<DkfPoseMeasurement>& measurements)
+void KfPose::applyMeasurementsWithIdentity(const std::vector<KfPoseMeasurement>& measurements)
 {
     for (const auto& measurement : measurements) {
         const int id = measurement.id % 1000;
@@ -215,11 +218,11 @@ void DkfPose::applyMeasurementsWithIdentity(const std::vector<DkfPoseMeasurement
     }
 }
 
-DkfPoseState DkfPose::predictTillTime(FilterData& data, double target_time, bool apply_update)
+KfPoseState KfPose::predictTillTime(FilterData& data, double target_time, bool apply_update)
 {
     const double dt = std::max(0.0, std::min(target_time - data.latest_update, target_time - data.latest_measurement));
     const Eigen::MatrixXd a = aDt(dt);
-    DkfPoseState predicted = data.state;
+    KfPoseState predicted = data.state;
     // Linear Gaussian prediction: x'=A x, P'=A P A^T + Q.
     predicted.x = a * data.state.x;
     predicted.covariance = a * data.state.covariance * a.transpose() + qDt(dt);
@@ -230,7 +233,7 @@ DkfPoseState DkfPose::predictTillTime(FilterData& data, double target_time, bool
     return predicted;
 }
 
-DkfPoseState DkfPose::correctWithMeasurement(FilterData& data, const DkfPoseMeasurement& measurement, double& match_level, bool prior_predict, bool apply_update)
+KfPoseState KfPose::correctWithMeasurement(FilterData& data, const KfPoseMeasurement& measurement, double& match_level, bool prior_predict, bool apply_update)
 {
     FilterData local = data;
     if (prior_predict) {
@@ -273,36 +276,40 @@ DkfPoseState DkfPose::correctWithMeasurement(FilterData& data, const DkfPoseMeas
     local.state.x[angle_offset + 0] = fixAngle(local.state.x[angle_offset + 0], 0.0);
     local.state.x[angle_offset + 1] = fixAngle(local.state.x[angle_offset + 1], 0.0);
     local.state.x[angle_offset + 2] = fixAngle(local.state.x[angle_offset + 2], 0.0);
-    local.latest_update = measurement.stamp;
-    local.latest_measurement = measurement.stamp;
-    ++local.state.update_count;
+    const bool accepted = !config_.accepts_correction
+        || config_.accepts_correction(local.state.x.head<3>(), measurement.camera_frame, measurement.stamp);
+    if (accepted) {
+        local.latest_update = measurement.stamp;
+        local.latest_measurement = measurement.stamp;
+        ++local.state.update_count;
+    }
 
-    if (apply_update) {
+    if (apply_update && accepted) {
         data = local;
     }
     return local.state;
 }
 
-double DkfPose::gaussJointMaxVal(const Eigen::MatrixXd& sigma0, const Eigen::MatrixXd& sigma1, const Eigen::VectorXd& mu0, const Eigen::VectorXd& mu1) const
+double KfPose::gaussJointMaxVal(const Eigen::MatrixXd& sigma0, const Eigen::MatrixXd& sigma1, const Eigen::VectorXd& mu0, const Eigen::VectorXd& mu1) const
 {
-    const int k = static_cast<int>(mu0.size());
-    // Product of two Gaussians is proportional to N(mu1-mu0; 0, S0+S1).
-    const Eigen::MatrixXd sigma_sum = sigma0 + sigma1;
-    const double determinant = std::max(1.0e-12, sigma_sum.determinant());
+    const Eigen::MatrixXd gain = sigma0 * (sigma0 + sigma1).inverse();
     const Eigen::VectorXd delta = mu1 - mu0;
-    const double exponent = -0.5 * (delta.transpose() * sigma_sum.inverse() * delta)(0, 0);
-    const double normalizer = std::sqrt(std::pow(2.0 * M_PI, k) * determinant);
-    return std::exp(exponent) / normalizer;
+    const Eigen::VectorXd d0 = gain * delta;
+    const Eigen::VectorXd d1 = (gain - Eigen::MatrixXd::Identity(gain.rows(), gain.cols())) * delta;
+    const double exponent = -0.5 * (
+        (d0.transpose() * sigma0.inverse() * d0)(0, 0)
+        + (d1.transpose() * sigma1.inverse() * d1)(0, 0));
+    return std::exp(exponent);
 }
 
-void DkfPose::removeNans()
+void KfPose::removeNans()
 {
     states_.erase(std::remove_if(states_.begin(), states_.end(), [](const FilterData& data) {
         return hasNan(data.state.x) || hasNan(data.state.covariance);
     }), states_.end());
 }
 
-void DkfPose::removeOverlaps()
+void KfPose::removeOverlaps()
 {
     for (std::size_t i = 0; i + 1 < states_.size(); ++i) {
         bool removed_first = false;
@@ -339,7 +346,7 @@ void DkfPose::removeOverlaps()
     }
 }
 
-Eigen::MatrixXd DkfPose::aDt(double dt) const
+Eigen::MatrixXd KfPose::aDt(double dt) const
 {
     if (config_.use_velocity && !config_.anonymous_measurements) {
         // Constant-velocity model for position; orientation is static.
@@ -352,7 +359,7 @@ Eigen::MatrixXd DkfPose::aDt(double dt) const
     return Eigen::MatrixXd::Identity(6, 6);
 }
 
-Eigen::MatrixXd DkfPose::h() const
+Eigen::MatrixXd KfPose::h() const
 {
     if (config_.use_velocity && !config_.anonymous_measurements) {
         Eigen::MatrixXd h_matrix = Eigen::MatrixXd::Zero(6, 9);
@@ -363,7 +370,7 @@ Eigen::MatrixXd DkfPose::h() const
     return Eigen::MatrixXd::Identity(6, 6);
 }
 
-Eigen::MatrixXd DkfPose::qDt(double dt) const
+Eigen::MatrixXd KfPose::qDt(double dt) const
 {
     if (config_.anonymous_measurements) {
         // Anonymous mode uses direct pose random-walk process noise.
@@ -394,7 +401,7 @@ Eigen::MatrixXd DkfPose::qDt(double dt) const
     return q;
 }
 
-double DkfPose::fixAngle(double original, double measurement) const
+double KfPose::fixAngle(double original, double measurement) const
 {
     double fixed = std::fmod(original, 2.0 * M_PI);
     if (fixed > M_PI) {

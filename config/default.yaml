@@ -33,14 +33,14 @@ tracking:
   queue_depth: 10
   thread_pool_size: 2
   max_points_per_image: 100
-  max_px_shift_x: 2
-  max_px_shift_y: 2
+  max_px_shift_x: 3
+  max_px_shift_y: 3
   max_zeros_consecutive: 10
   stored_seq_len_factor: 20
-  max_buffer_length: 1000
+  max_buffer_length: 5000
   poly_order: 4
   decay_factor: 0.1
-  confidence_probability: 75.0
+  confidence_probability: 95.0
   # Generalized tracker only: Mahalanobis gate width in standard deviations.
   association_gate_sigma: 3.0
   # Generalized tracker only: fallback variance for invalid or missing detector covariance.
@@ -107,7 +107,7 @@ pose_estimation:
       calib_file: camera/ocam.yaml
 
 filtering:
-  implementation: dkf_pose
+  implementation: kf_pose
   debug: false
   output_frame: local_origin
   measured_poses_topics: [/pose_estimator/measured_poses]
@@ -118,8 +118,8 @@ filtering:
   indoor: false
   odometry_available: true
   use_velocity: false
-  min_measurements_to_validation: 3
-  decay_age_normal: 1.0
-  decay_age_unvalidated: 0.3
-  match_level_threshold_associate: 0.15
-  match_level_threshold_remove: 0.35
+  min_measurements_to_validation: 10
+  decay_age_normal: 3.0
+  decay_age_unvalidated: 1.0
+  match_level_threshold_associate: 0.3
+  match_level_threshold_remove: 0.5

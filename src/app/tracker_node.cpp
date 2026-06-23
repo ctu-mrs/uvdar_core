@@ -241,19 +241,19 @@ void TrackerNode::processImagePoints(const uvdar_core::msg::ImagePointsWithCovar
             tracker_point.measurement_covariance_01 = point_state.measurement_covariance.c01;
             tracker_point.measurement_covariance_10 = point_state.measurement_covariance.c10;
             tracker_point.measurement_covariance_11 = point_state.measurement_covariance.c11;
-            tracker_point.predicted_x = point_state.x_statistics.predicted_coordinate;
-            tracker_point.predicted_y = point_state.y_statistics.predicted_coordinate;
+            tracker_point.predicted_x = point_state.position.x();
+            tracker_point.predicted_y = point_state.position.y();
             tracker_point.prediction_covariance_00 = point_state.prediction_covariance.c00;
             tracker_point.prediction_covariance_01 = point_state.prediction_covariance.c01;
             tracker_point.prediction_covariance_10 = point_state.prediction_covariance.c10;
             tracker_point.prediction_covariance_11 = point_state.prediction_covariance.c11;
             tracker_point.confidence_x = point_state.x_statistics.confidence_interval;
             tracker_point.confidence_y = point_state.y_statistics.confidence_interval;
-            tracker_point.prediction_reference_time = toRosTime(point_state.x_statistics.reference_time);
-            tracker_point.poly_reg_computed = point_state.x_statistics.model_reg_computed || point_state.y_statistics.model_reg_computed;
-            tracker_point.extended_search = point_state.x_statistics.extended_search || point_state.y_statistics.extended_search;
-            tracker_point.virtual_point = point_state.virtual_point;
-            tracker_point.associated_with_detection = point_state.associated_with_detection;
+            tracker_point.prediction_reference_time = image_msg->stamp;
+            tracker_point.poly_reg_computed = false;
+            tracker_point.extended_search = false;
+            tracker_point.virtual_point = false;
+            tracker_point.associated_with_detection = true;
 
             for (const double coeff : point_state.x_statistics.coeff) {
                 tracker_point.x_coeff.push_back(coeff);

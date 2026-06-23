@@ -15,6 +15,9 @@ namespace pe = uvdar_core::pose_estimation;
 
 namespace {
 
+constexpr double kPi = 3.141592653589793238462643383279502884;
+constexpr double kUnobservableAngleVariance = 666.0 * 666.0;
+
 template <typename T>
 T optionalScalar(const YAML::Node& node, const std::string& key, T fallback)
 {
@@ -43,20 +46,38 @@ void FilterNode::loadConfiguration(const std::string& config_path)
         throw std::runtime_error("Missing filtering config section.");
     }
 
-    pe::DkfPoseConfig config;
+    pe::KfPoseConfig config;
     config.debug = optionalScalar<bool>(node, "debug", false);
     config.anonymous_measurements = optionalScalar<bool>(node, "anonymous_measurements", false);
     config.indoor = optionalScalar<bool>(node, "indoor", false);
     config.odometry_available = optionalScalar<bool>(node, "odometry_available", true);
     config.use_velocity = optionalScalar<bool>(node, "use_velocity", false);
-    config.min_measurements_to_validation = optionalScalar<int>(node, "min_measurements_to_validation", 3);
-    config.decay_age_normal = optionalScalar<double>(node, "decay_age_normal", 1.0);
-    config.decay_age_unvalidated = optionalScalar<double>(node, "decay_age_unvalidated", 0.3);
-    config.match_level_threshold_associate = optionalScalar<double>(node, "match_level_threshold_associate", 0.15);
-    config.match_level_threshold_remove = optionalScalar<double>(node, "match_level_threshold_remove", 0.35);
+    config.min_measurements_to_validation = optionalScalar<int>(node, "min_measurements_to_validation", 10);
+    config.decay_age_normal = optionalScalar<double>(node, "decay_age_normal", 3.0);
+    config.decay_age_unvalidated = optionalScalar<double>(node, "decay_age_unvalidated", 1.0);
+    config.match_level_threshold_associate = optionalScalar<double>(node, "match_level_threshold_associate", 0.3);
+    config.match_level_threshold_remove = optionalScalar<double>(node, "match_level_threshold_remove", 0.5);
     output_frame_ = optionalScalar<std::string>(node, "output_frame", std::string("local_origin"));
     config.output_frame = output_frame_;
-    filter_ = std::make_unique<pe::DkfPose>(config);
+    config.accepts_correction = [this](const Eigen::Vector3d& position, const std::string& camera_frame, double stamp) {
+        if (camera_frame.empty()) {
+            return true;
+        }
+        geometry_msgs::msg::TransformStamped transform_msg;
+        try {
+            rclcpp::Time time(static_cast<int64_t>(std::llround(stamp * 1.0e9)), RCL_ROS_TIME);
+            transform_msg = tf_buffer_.lookupTransform(camera_frame, output_frame_, time, tf2::durationFromSec(0.005));
+        } catch (const tf2::TransformException&) {
+            return false;
+        }
+        const Eigen::Vector3d target_camera = toEigen(transform_msg) * position;
+        const double norm = target_camera.norm();
+        if (norm <= 1.5) {
+            return false;
+        }
+        return target_camera.normalized().dot(Eigen::Vector3d::UnitZ()) > -0.173648;
+    };
+    filter_ = std::make_unique<pe::KfPose>(config);
 
     std::vector<std::string> input_topics;
     if (const YAML::Node topics = node["measured_poses_topics"]; topics && topics.IsSequence()) {
@@ -99,7 +120,7 @@ void FilterNode::onMeasurement(const uvdar_core::msg::PoseWithCovarianceArraySta
     }
 
     const Eigen::Isometry3d transform = toEigen(transform_msg);
-    std::vector<pe::DkfPoseMeasurement> measurements;
+    std::vector<pe::KfPoseMeasurement> measurements;
     measurements.reserve(msg->poses.size());
     for (const auto& pose : msg->poses) {
         const Eigen::Vector3d position = transform * Eigen::Vector3d(pose.pose.position.x, pose.pose.position.y, pose.pose.position.z);
@@ -107,12 +128,28 @@ void FilterNode::onMeasurement(const uvdar_core::msg::PoseWithCovarianceArraySta
             * Eigen::Quaterniond(pose.pose.orientation.w, pose.pose.orientation.x, pose.pose.orientation.y, pose.pose.orientation.z);
         const Eigen::Vector3d rpy = pe::quaternionToRpy(orientation.normalized());
 
-        pe::DkfPoseMeasurement measurement;
+        pe::KfPoseMeasurement measurement;
         measurement.id = pose.id;
         measurement.x = Eigen::VectorXd::Zero(6);
         measurement.x << position.x(), position.y(), position.z(), rpy.x(), rpy.y(), rpy.z();
         measurement.covariance = rotatePoseCovariance(covarianceFromMsg(pose.covariance), transform.rotation());
+        Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> orientation_covariance(measurement.covariance.bottomRightCorner<3, 3>());
+        if (orientation_covariance.info() == Eigen::Success) {
+            Eigen::Vector3d eigenvalues = orientation_covariance.eigenvalues();
+            bool changed = false;
+            for (int i = 0; i < eigenvalues.size(); ++i) {
+                if (eigenvalues(i) >= kPi * kPi) {
+                    eigenvalues(i) = kUnobservableAngleVariance;
+                    changed = true;
+                }
+            }
+            if (changed) {
+                measurement.covariance.bottomRightCorner<3, 3>() =
+                    orientation_covariance.eigenvectors() * eigenvalues.asDiagonal() * orientation_covariance.eigenvectors().transpose();
+            }
+        }
         measurement.stamp = toSeconds(msg->header.stamp);
+        measurement.receipt_stamp = get_clock()->now().seconds();
         measurement.camera_frame = msg->header.frame_id;
         if (!measurement.x.array().isNaN().any() && !measurement.covariance.array().isNaN().any()) {
             measurements.push_back(std::move(measurement));
@@ -133,7 +170,7 @@ void FilterNode::onTimer()
 }
 
 void FilterNode::publishStates(
-    const std::vector<pe::DkfPoseState>& states,
+    const std::vector<pe::KfPoseState>& states,
     const rclcpp::Publisher<uvdar_core::msg::PoseWithCovarianceArrayStamped>::SharedPtr& publisher)
 {
     uvdar_core::msg::PoseWithCovarianceArrayStamped msg;

@@ -361,17 +361,17 @@ PackageConfig loadPackageConfig(const std::string& config_path_string)
     config.tracking.thread_pool_size = optionalScalar<std::size_t>(tracking_node, "thread_pool_size", 2);
     config.tracking.max_points_per_image = optionalScalar<std::size_t>(tracking_node, "max_points_per_image", 100);
     const bool ami_defaults = config.tracking.module.implementation == "ami";
-    config.tracking.max_px_shift_x = optionalScalar<int>(tracking_node, "max_px_shift_x", ami_defaults ? 2 : 5);
-    config.tracking.max_px_shift_y = optionalScalar<int>(tracking_node, "max_px_shift_y", ami_defaults ? 2 : 5);
+    config.tracking.max_px_shift_x = optionalScalar<int>(tracking_node, "max_px_shift_x", ami_defaults ? 3 : 5);
+    config.tracking.max_px_shift_y = optionalScalar<int>(tracking_node, "max_px_shift_y", ami_defaults ? 3 : 5);
     config.tracking.max_zeros_consecutive = optionalScalar<int>(tracking_node, "max_zeros_consecutive", ami_defaults ? 10 : 3);
     config.tracking.stored_seq_len_factor = optionalScalar<int>(tracking_node, "stored_seq_len_factor", ami_defaults ? 20 : 3);
-    config.tracking.max_buffer_length = optionalScalar<int>(tracking_node, "max_buffer_length", ami_defaults ? 1000 : 2000);
+    config.tracking.max_buffer_length = optionalScalar<int>(tracking_node, "max_buffer_length", ami_defaults ? 5000 : 2000);
     config.tracking.poly_order = optionalScalar<int>(tracking_node, "poly_order", ami_defaults ? 4 : 3);
     config.tracking.decay_factor = optionalScalar<double>(tracking_node, "decay_factor", ami_defaults ? 0.1 : 0.01);
     config.tracking.conf_probab_percent = optionalScalar<double>(
         tracking_node,
         "conf_probab_percent",
-        optionalScalar<double>(tracking_node, "confidence_probability", ami_defaults ? 75.0 : 95.0));
+        optionalScalar<double>(tracking_node, "confidence_probability", 95.0));
     config.tracking.association_gate_sigma = optionalScalar<double>(tracking_node, "association_gate_sigma", 3.0);
     config.tracking.default_measurement_variance = optionalScalar<double>(tracking_node, "default_measurement_variance", 1.0);
     config.tracking.process_noise_variance = optionalScalar<double>(tracking_node, "process_noise_variance", 1.0);

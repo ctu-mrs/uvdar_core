@@ -135,16 +135,17 @@ void AMI::findClosestPixelAndInsert(std::vector<PointState>& current_frame, doub
         }
     }
 
-    extendedSearch(current_frame, buffer_local, stamp);
+    (void)stamp;
+    extendedSearch(current_frame, buffer_local);
 }
 
 /**
- * @brief Use generalized extrapolation to continue tracks where no direct match exists.
+ * @brief Use the AMI polynomial window to continue tracks without a direct match.
  */
-void AMI::extendedSearch(std::vector<PointState>& no_nn_current_frame, std::vector<seqPointer>& sequences_no_insert, double stamp)
+void AMI::extendedSearch(std::vector<PointState>& no_nn_current_frame, std::vector<seqPointer>& sequences_no_insert)
 {
     if (!no_nn_current_frame.empty()) {
-        const double insert_time = no_nn_current_frame.front().stamp;
+        const double insert_time = -1.0;
 
         for (auto it_seq = sequences_no_insert.begin(); it_seq != sequences_no_insert.end();) {
             if ((*it_seq)->empty()) {
@@ -176,10 +177,10 @@ void AMI::extendedSearch(std::vector<PointState>& no_nn_current_frame, std::vect
             const double x_predicted = last_point.x_statistics.predicted_coordinate;
             const double y_predicted = last_point.y_statistics.predicted_coordinate;
 
-            last_point.x_statistics.confidence_interval = std::min(last_point.x_statistics.confidence_interval * 2.0, params_ami_.max_px_shift_x * 2.0);
-            last_point.y_statistics.confidence_interval = std::min(last_point.y_statistics.confidence_interval * 2.0, params_ami_.max_px_shift_y * 2.0);
+            last_point.x_statistics.confidence_interval = std::min(last_point.x_statistics.confidence_interval, params_ami_.max_px_shift_x * 2.0);
+            last_point.y_statistics.confidence_interval = std::min(last_point.y_statistics.confidence_interval, params_ami_.max_px_shift_y * 2.0);
             last_point.x_statistics.confidence_interval = std::max(last_point.x_statistics.confidence_interval, params_ami_.max_px_shift_x);
-            last_point.y_statistics.confidence_interval = std::max(last_point.y_statistics.confidence_interval, params_ami_.max_px_shift_y);
+            last_point.y_statistics.confidence_interval = std::max(last_point.y_statistics.confidence_interval, params_ami_.max_px_shift_x);
 
             const Eigen::Vector2d box_left_top(
                 x_predicted - last_point.x_statistics.confidence_interval,
@@ -216,7 +217,7 @@ void AMI::extendedSearch(std::vector<PointState>& no_nn_current_frame, std::vect
 
     // Tracks with no inserted detection get an OFF sample to preserve blink timing.
     for (auto seq : sequences_no_insert) {
-        addVirtualPointToSequencesWithNoInsert(seq, stamp);
+        addVirtualPointToSequencesWithNoInsert(seq);
     }
 
     // Bound the total number of candidate tracks.
@@ -266,13 +267,13 @@ void AMI::addPointToSequenceAndCheckLength(std::vector<PointState>& insert_seq, 
 /**
  * @brief Add an artificial zero point when no sample was matched.
  */
-void AMI::addVirtualPointToSequencesWithNoInsert(seqPointer& seq, double stamp)
+void AMI::addVirtualPointToSequencesWithNoInsert(seqPointer& seq)
 {
     PointState virtual_point = seq->back();
     virtual_point.led_state = false;
     virtual_point.virtual_point = true;
     virtual_point.associated_with_detection = false;
-    virtual_point.stamp = stamp;
+    virtual_point.stamp = -1.0;
     addPointToSequenceAndCheckLength(*seq, virtual_point);
 }
 
@@ -411,7 +412,7 @@ double AMI::confidenceInterval(
         var_time += std::pow(t - stats.mean_independent, 2);
     }
 
-    const double standard_error = std::sqrt(unb_estimate_error_var + (1 + 1.0 / n + ((stats.target_time - stats.mean_independent) / var_time)));
+    const double standard_error = std::sqrt(unb_estimate_error_var + (1 + 1 / n + ((stats.target_time - stats.mean_independent) / var_time)));
     const double percentage_scaled = static_cast<double>(wanted_percentage) / 100.0;
     const double percentage_two_sided = (1 - percentage_scaled) / 2 + percentage_scaled;
 

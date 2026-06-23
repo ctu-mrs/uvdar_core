@@ -99,7 +99,7 @@ inline std::array<double, 36> covarianceToMsg(const Eigen::Matrix<double, 6, 6>&
 }
 
 /**
- * @brief Extract the published 6D covariance from a 6D or 9D DKF state covariance.
+ * @brief Extract the published 6D covariance from a 6D or 9D filter state covariance.
  */
 inline std::array<double, 36> stateCovarianceToMsg(const Eigen::MatrixXd& input, bool velocity_state)
 {
