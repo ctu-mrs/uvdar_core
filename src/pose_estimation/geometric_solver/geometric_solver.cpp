@@ -43,7 +43,7 @@ void GeometricSolver::processFrame(
     const CameraModel& camera = cameras_[camera_index];
     std::map<int, std::vector<Observation>> by_target;
     for (const TrackedPoint& point : points) {
-        if (point.id < 0 || point.virtual_point) {
+        if (point.id < 0) {
             continue;
         }
         const int target = classifyMatch(point.id);
