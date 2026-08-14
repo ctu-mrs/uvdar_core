@@ -19,7 +19,10 @@ def generate_launch_description():
 				"default.yaml",
 			]),
 		),
-		DeclareLaunchArgument("namespace", default_value=""),
+		DeclareLaunchArgument(
+			"namespace",
+			default_value=EnvironmentVariable("UAV_NAME", default_value="uav1"),
+		),
 		DeclareLaunchArgument(
 		    "use_sim_time",
 		    default_value=EnvironmentVariable("USE_SIM_TIME", default_value="false"),

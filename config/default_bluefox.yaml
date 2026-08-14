@@ -7,13 +7,13 @@ detector:
   max_points_per_image: 100
   inputs:
     - name: camera_0
-      input_topic: /my_camera/pylon_ros2_camera_node/image_raw
-      output_topic: /detector/camera_0/points_seen
+      input_topic: my_camera/pylon_ros2_camera_node/image_raw
+      output_topic: detector/camera_0/points_seen
       detect_sun_points: true
       publish_sun_points: true
-      sun_output_topic: /detector/camera_0/points_seen/sun
+      sun_output_topic: detector/camera_0/points_seen/sun
       publish_visualization: true
-      visualization_topic: /detector/camera_0/detection_visualization
+      visualization_topic: detector/camera_0/detection_visualization
       mask_file: ""
       backend: gpu
       threshold: 120
@@ -59,11 +59,11 @@ tracking:
     - "100111010"
   inputs:
     - name: camera_0
-      input_topic: /detector/camera_0/points_seen
-      input_image_topic: /my_camera/pylon_ros2_camera_node/image_raw
-      output_topic: /tracker/camera_0/blinkers
+      input_topic: detector/camera_0/points_seen
+      input_image_topic: my_camera/pylon_ros2_camera_node/image_raw
+      output_topic: tracker/camera_0/blinkers
       publish_visualization: true
-      visualization_topic: /tracker/camera_0/visualization
+      visualization_topic: tracker/camera_0/visualization
 
 pose_estimation:
   # Select "particle_filter" for stochastic hypothesis filtering or
@@ -71,7 +71,7 @@ pose_estimation:
   implementation: particle_filter
   debug: false
   output_frame: local_origin
-  output_topic: /pose_estimator/measured_poses
+  output_topic: pose_estimator/measured_poses
   publish_constituents: false
   model_file: models/quadrotor.txt
   signal_ids: [0, 1, 2, 3, 4, 5, 6, 7, 8]
@@ -102,7 +102,7 @@ pose_estimation:
     pnp_residual_tolerance: 1.0e-10
   inputs:
     - name: camera_0
-      input_topic: /tracker/camera_0/blinkers
+      input_topic: tracker/camera_0/blinkers
       camera_frame: camera_0_optical_frame
       calib_file: camera/ocam.yaml
 
@@ -110,9 +110,9 @@ filtering:
   implementation: kf_pose
   debug: false
   output_frame: local_origin
-  measured_poses_topics: [/pose_estimator/measured_poses]
-  output_topic: /filter/filtered_poses
-  tentative_output_topic: /filter/filtered_poses/tentative
+  measured_poses_topics: [pose_estimator/measured_poses]
+  output_topic: filter/filtered_poses
+  tentative_output_topic: filter/filtered_poses/tentative
   output_framerate: 20.0
   anonymous_measurements: false
   indoor: false
