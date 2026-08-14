@@ -6,7 +6,7 @@ from launch.actions import DeclareLaunchArgument, GroupAction, OpaqueFunction
 from launch.conditions import IfCondition, UnlessCondition
 from launch.substitutions import LaunchConfiguration, EnvironmentVariable, TextSubstitution, PathJoinSubstitution
 from launch_ros.actions import Node, LoadComposableNodes
-from launch.substitutions import PythonExpression
+from launch.substitutions import PythonExpression, IfElseSubstitution
 from launch.actions import LogInfo
 from launch_ros.actions import ComposableNodeContainer
 from launch_ros.descriptions import ComposableNode
@@ -104,7 +104,20 @@ def generate_launch_description():
     declare_view = DeclareLaunchArgument('view', default_value='false', description='Run camera viewer')
 
     declare_image = DeclareLaunchArgument('image', default_value='image_raw', description='Image topic for viewer')
-    
+
+    # Per-camera namespace: uav_name/camera_name when a camera_name is given
+    # (the two_bluefox.launch.py case -- 'left'/'right' -- so each camera's
+    # image_raw/camera_info/etc. live under their own namespace instead of
+    # colliding), else just uav_name (single-camera case). All topic
+    # remappings below stay relative to this namespace, matching hw_api's
+    # convention of relative topics + namespace push instead of manually
+    # splicing uav_name/camera_name into remap targets.
+    camera_ns = IfElseSubstitution(
+        condition=PythonExpression(['"', LaunchConfiguration('camera_name'), '" != ""']),
+        if_value=PathJoinSubstitution([LaunchConfiguration('uav_name'), LaunchConfiguration('camera_name')]),
+        else_value=LaunchConfiguration('uav_name'),
+    )
+
     # Environment setup for custom libusb
     env_vars = {
         'LD_LIBRARY_PATH': '/opt/mvIMPACT_acquire_libusb:' + os.environ.get('LD_LIBRARY_PATH', '')
@@ -166,27 +179,28 @@ def generate_launch_description():
             package='bluefox2',
             plugin='bluefox2::BluefoxSingleComponent',  # Assuming the nodelet is converted to a regular node
             name=['bluefox_', camera_name] if camera_name != '' else "bluefox",
-            namespace=LaunchConfiguration('uav_name'),
+            namespace=camera_ns,
             parameters=parameters,
             extra_arguments=[{'use_intra_process_comms': True}],
             remappings=[
-                ('expose_us', PathJoinSubstitution(['/', LaunchConfiguration('uav_name'), LaunchConfiguration('camera_name'),  'bluefox', 'expose_us'])),
-                ('gain_db',   PathJoinSubstitution(['/', LaunchConfiguration('uav_name'), LaunchConfiguration('camera_name'), 'bluefox', 'gain_db'])),
+                ('expose_us', 'bluefox/expose_us'),
+                ('gain_db', 'bluefox/gain_db'),
             ],
         )
-        
+
+        # Relative to camera_ns, so this subscribes to exactly what
+        # camera_node published (<camera_ns>/image_raw, <camera_ns>/camera_info)
+        # without needing to know uav_name/camera_name itself.
         rectify_remappings=[
-            ('image', [LaunchConfiguration('uav_name'), '/' , LaunchConfiguration('camera_name'), '/image_raw']),
-            ('camera_info', [LaunchConfiguration('uav_name'), '/', LaunchConfiguration('camera_name'), '/camera_info'])
+            ('image', 'image_raw'),
+            ('camera_info', 'camera_info'),
         ]
-                    
-        print("rectify_remappings:\n", rectify_remappings)
-        
+
         rectify_node = ComposableNode(
             package='image_proc',
             plugin='image_proc::RectifyNode',
             name='rectify_mono',
-            namespace=LaunchConfiguration('uav_name'),
+            namespace=camera_ns,
             condition=IfCondition(LaunchConfiguration('rectify')),
             remappings=rectify_remappings
         )
@@ -223,7 +237,7 @@ def generate_launch_description():
         package='image_view',
         executable='image_view',
         name='viewer',
-        namespace=LaunchConfiguration('camera_name'),
+        namespace=camera_ns,
         condition=IfCondition(LaunchConfiguration('view')),
         output=LaunchConfiguration('output'),
         arguments=[PythonExpression(['image:=', LaunchConfiguration('image')])]

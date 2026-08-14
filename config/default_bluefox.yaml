@@ -1,3 +1,14 @@
+# RW config for the two_bluefox.launch.py rig (left/right bluefox cameras).
+#
+# Topic layout: detector/tracker/pose_estimator/filter are each launched
+# standalone (detector.launch.py etc.) with their `namespace` defaulting to
+# $UAV_NAME (see hw_api.launch.py's pattern). single_bluefox.launch.py
+# namespaces each camera as $UAV_NAME/left and $UAV_NAME/right. Because both
+# sides resolve under the same $UAV_NAME, the camera inputs below can stay
+# *relative* ("left/image_raw") and still land on exactly what the camera
+# publishes ($UAV_NAME/left/image_raw) -- no hardcoded uav name needed. Every
+# other topic here is entirely internal to uvdar_core and is relative for the
+# same reason (namespace push, matching mrs_uav_hw_api's convention).
 detector:
   debug: false
   gui: false
@@ -6,14 +17,31 @@ detector:
   thread_pool_size: 3
   max_points_per_image: 100
   inputs:
-    - name: camera_0
-      input_topic: my_camera/pylon_ros2_camera_node/image_raw
-      output_topic: detector/camera_0/points_seen
+    - name: left
+      input_topic: left/bluefox_left/image_raw
+      output_topic: detector/left/points_seen
       detect_sun_points: true
       publish_sun_points: true
-      sun_output_topic: detector/camera_0/points_seen/sun
+      sun_output_topic: detector/left/points_seen/sun
       publish_visualization: true
-      visualization_topic: detector/camera_0/detection_visualization
+      visualization_topic: detector/left/detection_visualization
+      mask_file: ""
+      backend: gpu
+      threshold: 120
+      threshold_diff: 60
+      threshold_sun: 240
+      min_sun_marker_distance: 20
+      max_markers_count: 300
+      max_sun_points_count: 72000
+      radii: [3, 5]
+    - name: right
+      input_topic: right/bluefox_right/image_raw
+      output_topic: detector/right/points_seen
+      detect_sun_points: true
+      publish_sun_points: true
+      sun_output_topic: detector/right/points_seen/sun
+      publish_visualization: true
+      visualization_topic: detector/right/detection_visualization
       mask_file: ""
       backend: gpu
       threshold: 120
@@ -58,19 +86,28 @@ tracking:
     - "101100111"
     - "100111010"
   inputs:
-    - name: camera_0
-      input_topic: detector/camera_0/points_seen
-      input_image_topic: my_camera/pylon_ros2_camera_node/image_raw
-      output_topic: tracker/camera_0/blinkers
+    - name: left
+      input_topic: detector/left/points_seen
+      input_image_topic: left/image_raw
+      output_topic: tracker/left/blinkers
       publish_visualization: true
-      visualization_topic: tracker/camera_0/visualization
+      visualization_topic: tracker/left/visualization
+    - name: right
+      input_topic: detector/right/points_seen
+      input_image_topic: right/image_raw
+      output_topic: tracker/right/blinkers
+      publish_visualization: true
+      visualization_topic: tracker/right/visualization
 
 pose_estimation:
   # Select "particle_filter" for stochastic hypothesis filtering or
   # "geometric_solver" for direct P2P/P3P/P4P/PnP pose estimation.
   implementation: particle_filter
   debug: false
-  output_frame: local_origin
+  # "local_origin" doesn't exist in the ROS2 MRS TF tree (ROS1 naming) --
+  # this is the observing robot's own body frame, uav_name/fcu. Hardcoded to
+  # uav1 for the same reason as camera_frame below; update per deployment.
+  output_frame: uav1/fcu
   output_topic: pose_estimator/measured_poses
   publish_constituents: false
   model_file: models/quadrotor.txt
@@ -100,16 +137,32 @@ pose_estimation:
     pnp_finite_difference_eps: 1.0e-6
     pnp_step_tolerance: 1.0e-10
     pnp_residual_tolerance: 1.0e-10
+  # camera_frame is a TF frame name, not a topic -- it's not namespace-pushed,
+  # so it must be the fully-qualified frame single_bluefox.launch.py actually
+  # publishes: $UAV_NAME/bluefox_<camera_name> (see its frame_id construction).
+  # Hardcoded to uav1 here for the same reason the two_drones_uvdar sim
+  # configs hardcode TF frames -- update if UAV_NAME differs.
+  #
+  # calib_file points at the generic ocam.yaml; per-device calibrations exist
+  # at camera/bluefox_ocam_calib/bf_uv_25001879.yaml and bf_uv_25001954.yaml
+  # -- swap in whichever matches BLUEFOX_LEFT_ID/BLUEFOX_RIGHT_ID once you
+  # know which serial is mounted on which side.
   inputs:
-    - name: camera_0
-      input_topic: tracker/camera_0/blinkers
-      camera_frame: camera_0_optical_frame
-      calib_file: camera/ocam.yaml
+    - name: left
+      input_topic: tracker/left/blinkers
+      camera_frame: uav1/bluefox_left
+      calib_file: camera/bluefox_ocam_calib/bf_left.yaml
+    - name: right
+      input_topic: tracker/right/blinkers
+      camera_frame: uav1/bluefox_right
+      calib_file: camera/bluefox_ocam_calib/bf_right.yaml
 
 filtering:
   implementation: kf_pose
   debug: false
-  output_frame: local_origin
+  # World-fixed frame (ROS2 MRS's equivalent of ROS1's "local_origin");
+  # hardcoded to uav1 for the same reason as camera_frame above.
+  output_frame: uav1/fixed_origin
   measured_poses_topics: [pose_estimator/measured_poses]
   output_topic: filter/filtered_poses
   tentative_output_topic: filter/filtered_poses/tentative
@@ -123,3 +176,12 @@ filtering:
   decay_age_unvalidated: 1.0
   match_level_threshold_associate: 0.3
   match_level_threshold_remove: 0.5
+
+
+calibration:
+  enabled: false
+  implementation: none
+
+simulation:
+  enabled: false
+  implementation: none
