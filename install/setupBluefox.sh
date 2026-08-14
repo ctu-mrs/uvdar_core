@@ -92,26 +92,47 @@ update_calib_symlinks() {
         return
     fi
 
+    echo -e "\n---------------------- Calib symlink update ----------------------"
+
     local left_target="$CALIB_DIR/bf_uv_${id_left_cam}.yaml"
     local right_target="$CALIB_DIR/bf_uv_${id_right_cam}.yaml"
+    local left_ok=0
+    local right_ok=0
 
     if [[ -f "$left_target" ]]; then
-        ln -sf "$left_target" "$CALIB_DIR/bf_left.yaml"
-        echo "bf_left.yaml -> $(basename "$left_target")"
+        if ln -sf "$left_target" "$CALIB_DIR/bf_left.yaml" && \
+           [[ "$(readlink -f "$CALIB_DIR/bf_left.yaml")" == "$(readlink -f "$left_target")" ]]; then
+            echo -e "\033[0;32m[OK]\033[0m   bf_left.yaml  -> $(basename "$left_target")"
+            left_ok=1
+        else
+            echo -e "\033[0;31m[FAIL]\033[0m bf_left.yaml symlink was not created correctly."
+        fi
     else
-        echo -e "\033[0;33mNo calib file found for LEFT serial $id_left_cam ($left_target). Symlink not updated - camera may be uncalibrated.\033[0m"
+        echo -e "\033[0;33m[SKIP]\033[0m No calib file for LEFT serial $id_left_cam ($left_target) - camera may be uncalibrated. bf_left.yaml left unchanged."
     fi
 
     if [[ -f "$right_target" ]]; then
-        ln -sf "$right_target" "$CALIB_DIR/bf_right.yaml"
-        echo "bf_right.yaml -> $(basename "$right_target")"
+        if ln -sf "$right_target" "$CALIB_DIR/bf_right.yaml" && \
+           [[ "$(readlink -f "$CALIB_DIR/bf_right.yaml")" == "$(readlink -f "$right_target")" ]]; then
+            echo -e "\033[0;32m[OK]\033[0m   bf_right.yaml -> $(basename "$right_target")"
+            right_ok=1
+        else
+            echo -e "\033[0;31m[FAIL]\033[0m bf_right.yaml symlink was not created correctly."
+        fi
     else
-        echo -e "\033[0;33mNo calib file found for RIGHT serial $id_right_cam ($right_target). Symlink not updated - camera may be uncalibrated.\033[0m"
+        echo -e "\033[0;33m[SKIP]\033[0m No calib file for RIGHT serial $id_right_cam ($right_target) - camera may be uncalibrated. bf_right.yaml left unchanged."
     fi
 
+    echo "--------------------------------------------------------------------"
+    if [[ "$left_ok" -eq 1 && "$right_ok" -eq 1 ]]; then
+        echo -e "\033[0;32mBoth calib symlinks updated and verified successfully.\033[0m"
+    else
+        echo -e "\033[0;33mOne or more calib symlinks were NOT updated - detection/streaming will still work, but calibration for the affected camera(s) may be stale or missing.\033[0m"
+    fi
     echo -e "\033[0;33mNote: if this workspace is NOT built with --symlink-install, rebuild\033[0m"
     echo -e "\033[0;33m(colcon build --packages-select uvdar_core) so these symlink changes\033[0m"
     echo -e "\033[0;33mpropagate to the installed package used at launch time.\033[0m"
+    echo "--------------------------------------------------------------------"
 }
 
 write_ids_to_bashrc() {
