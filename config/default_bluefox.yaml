@@ -1,0 +1,125 @@
+detector:
+  debug: false
+  gui: false
+  initial_delay_sec: 0.0
+  queue_depth: 10
+  thread_pool_size: 3
+  max_points_per_image: 100
+  inputs:
+    - name: camera_0
+      input_topic: /my_camera/pylon_ros2_camera_node/image_raw
+      output_topic: /detector/camera_0/points_seen
+      detect_sun_points: true
+      publish_sun_points: true
+      sun_output_topic: /detector/camera_0/points_seen/sun
+      publish_visualization: true
+      visualization_topic: /detector/camera_0/detection_visualization
+      mask_file: ""
+      backend: gpu
+      threshold: 120
+      threshold_diff: 60
+      threshold_sun: 240
+      min_sun_marker_distance: 20
+      max_markers_count: 300
+      max_sun_points_count: 72000
+      radii: [3, 5]
+
+tracking:
+  # Select "ami" for the AMI tracker or "generalized" for covariance-aware tracking.
+  implementation: ami
+  debug: false
+  gui: false
+  initial_delay_sec: 0.0
+  queue_depth: 10
+  thread_pool_size: 2
+  max_points_per_image: 100
+  max_px_shift_x: 3
+  max_px_shift_y: 3
+  max_zeros_consecutive: 10
+  stored_seq_len_factor: 20
+  max_buffer_length: 5000
+  poly_order: 4
+  decay_factor: 0.1
+  confidence_probability: 95.0
+  # Generalized tracker only: Mahalanobis gate width in standard deviations.
+  association_gate_sigma: 3.0
+  # Generalized tracker only: fallback variance for invalid or missing detector covariance.
+  default_measurement_variance: 1.0
+  # Generalized tracker only: isotropic per-frame prediction noise added in px^2.
+  process_noise_variance: 1.0
+  allowed_BER_per_seq: 0
+  manchester_code: false
+  # If set, sequence_file replaces the inline library below. All loaded
+  # sequences must be non-empty and have equal length.
+  sequence_file: "./selected.txt"
+  sequences:
+    - "111001011"
+    - "110011010"
+    - "101100111"
+    - "100111010"
+  inputs:
+    - name: camera_0
+      input_topic: /detector/camera_0/points_seen
+      input_image_topic: /my_camera/pylon_ros2_camera_node/image_raw
+      output_topic: /tracker/camera_0/blinkers
+      publish_visualization: true
+      visualization_topic: /tracker/camera_0/visualization
+
+pose_estimation:
+  # Select "particle_filter" for stochastic hypothesis filtering or
+  # "geometric_solver" for direct P2P/P3P/P4P/PnP pose estimation.
+  implementation: particle_filter
+  debug: false
+  output_frame: local_origin
+  output_topic: /pose_estimator/measured_poses
+  publish_constituents: false
+  model_file: models/quadrotor.txt
+  signal_ids: [0, 1, 2, 3, 4, 5, 6, 7, 8]
+  # Used by non-filtered implementations that do not own a natural scatter step.
+  publish_period_sec: 0.1
+  particle_filter:
+    separate_by_distance: true
+    max_cluster_distance: 100.0
+    scatter_time_step: 0.1
+    mutation_position_max_step: 1.0
+    mutation_orientation_max_step: 1.0
+    mutation_velocity_max_step: 1.0
+    max_hypothesis_count: 1000
+    max_hypothesis_age: 1.5
+    edge_detection_margin: 10
+    initial_rough_hypothesis_count: 200
+    initial_hypothesis_count: 10
+    max_init_iterations: 10000
+    max_mutation_refine_iterations: 1000
+  geometric_solver:
+    p4p_reprojection_threshold_rad: 0.01
+    covariance_regularization_px: 1.0e-6
+    refinement_iterations: 8
+    pnp_max_iterations: 40
+    pnp_damping: 1.0e-8
+    pnp_finite_difference_eps: 1.0e-6
+    pnp_step_tolerance: 1.0e-10
+    pnp_residual_tolerance: 1.0e-10
+  inputs:
+    - name: camera_0
+      input_topic: /tracker/camera_0/blinkers
+      camera_frame: camera_0_optical_frame
+      calib_file: camera/ocam.yaml
+
+filtering:
+  implementation: kf_pose
+  debug: false
+  output_frame: local_origin
+  measured_poses_topics: [/pose_estimator/measured_poses]
+  output_topic: /filter/filtered_poses
+  tentative_output_topic: /filter/filtered_poses/tentative
+  output_framerate: 20.0
+  anonymous_measurements: false
+  indoor: false
+  odometry_available: true
+  use_velocity: false
+  min_measurements_to_validation: 10
+  decay_age_normal: 3.0
+  decay_age_unvalidated: 1.0
+  match_level_threshold_associate: 0.3
+  match_level_threshold_remove: 0.5
