@@ -28,11 +28,16 @@ struct CameraPose {
 Eigen::Matrix2d regularizedCovariance(const Eigen::Matrix2d& covariance, double regularization);
 
 /**
- * @brief Convert a symmetric information matrix to covariance by pseudo-inverse.
+ * @brief Convert a symmetric information matrix to covariance by bounded inverse.
  *
- * Eigenvalues below tolerance are treated as unobservable pose directions.
+ * Eigenvalues below tolerance are unobservable pose directions and saturate at
+ * max_variance, so degenerate LED geometry yields a very uncertain measurement
+ * rather than a falsely confident one.
  */
-Eigen::Matrix<double, 6, 6> covarianceFromInformation(const Eigen::Matrix<double, 6, 6>& information, double eps = 1.0e-12);
+Eigen::Matrix<double, 6, 6> covarianceFromInformation(
+    const Eigen::Matrix<double, 6, 6>& information,
+    double eps = 1.0e-12,
+    double max_variance = 1.0e4);
 
 /**
  * @brief Projection Jacobian d(pixel residual)/d([translation, rotation]).
@@ -69,6 +74,7 @@ Eigen::Matrix<double, 6, 6> poseCovarianceFromPixelsLinearized(
     const std::vector<Eigen::Matrix2d>& pixel_covariances,
     const CameraModel& camera,
     double covariance_regularization,
-    double eps = 1.0e-12);
+    double eps = 1.0e-12,
+    double max_variance = 1.0e4);
 
 } // namespace uvdar_core::pose_estimation::uncertainty

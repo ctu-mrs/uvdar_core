@@ -47,6 +47,12 @@ private:
     std::string output_frame_;
     double latest_primary_input_stamp_ = 0.0;
     bool publish_constituents_ = false;
+
+    long int frame_count_ = 0;
+    long int usable_point_count_ = 0;
+     
+    long int publish_count_ = 0;
+    long int populated_publish_count_ = 0;
 };
 
 } // namespace uvdar_core::app

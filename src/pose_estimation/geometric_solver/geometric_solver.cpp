@@ -43,7 +43,17 @@ void GeometricSolver::processFrame(
     const CameraModel& camera = cameras_[camera_index];
     std::map<int, std::vector<Observation>> by_target;
     for (const TrackedPoint& point : points) {
-        if (point.id < 0) {
+        // Virtual points are kept. They are not tracking failures: the tracker
+        // inserts one whenever a marker is in an OFF bit of its blink sequence,
+        // which is how the LED encodes its identity, so discarding them threw
+        // away ~40% of observations for a reason unrelated to how well the
+        // position is known. That question is answered by the covariance
+        // instead -- makeObservation() takes the predicted position and
+        // poseCovariance() folds prediction_covariance into the information
+        // matrix, so an extrapolated point simply carries less weight, and
+        // keeps losing weight the longer it stays dark.
+        if (point.id < 0 || point.virtual_point ) {
+        //if (point.id < 0) {
             continue;
         }
         const int target = classifyMatch(point.id);
@@ -380,7 +390,9 @@ Eigen::Matrix<double, 6, 6> GeometricSolver::poseCovariance(
         world_points,
         pixel_covariances,
         camera,
-        config_.covariance_regularization_px);
+        config_.covariance_regularization_px,
+        1.0e-12,
+        config_.max_pose_variance);
     // Rotate both position and small-angle covariance blocks into output frame.
     Eigen::Matrix<double, 6, 6> transform = Eigen::Matrix<double, 6, 6>::Zero();
     transform.topLeftCorner<3, 3>() = camera_to_output_rotation;

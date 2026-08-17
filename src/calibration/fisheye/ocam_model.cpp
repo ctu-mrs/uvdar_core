@@ -158,14 +158,22 @@ Eigen::Matrix<double, 2, 3> OcamModel::projectJacobian(const Eigen::Vector3d& ca
     }
 
     // Chain rule: point -> theta -> rho(theta) -> affine pixel.
-    const double theta = std::atan2(r, z);
+    //
+    // theta must be the same quantity world2cam() feeds to invpol, namely the
+    // elevation angle atan(z / r) measured from the image plane. Using the
+    // polar angle atan2(r, z) instead evaluates the 10th-order inverse
+    // polynomial at pi/2 - theta -- a different argument entirely -- and flips
+    // the sign of both chain-rule terms, which is what made this Jacobian
+    // disagree with finite differences of project() by two to four orders of
+    // magnitude.
+    const double theta = std::atan(z / r);
     double rho = 0.0;
     double drho_dtheta = 0.0;
     evalPolynomialAndDerivative(invpol, length_invpol, theta, rho, drho_dtheta);
 
     const double denom = z * z + r * r;
-    const double dtheta_dr = z / denom;
-    const double dtheta_dz = -r / denom;
+    const double dtheta_dr = -z / denom;
+    const double dtheta_dz = r / denom;
     const double dr_dx = x / r;
     const double dr_dy = y / r;
     const double drho_dx = drho_dtheta * dtheta_dr * dr_dx;

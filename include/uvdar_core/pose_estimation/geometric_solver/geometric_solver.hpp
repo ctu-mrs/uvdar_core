@@ -22,6 +22,9 @@ struct GeometricSolverConfig {
     int signals_per_target = 1;
     double p4p_reprojection_threshold_rad = 0.01;
     double covariance_regularization_px = 1.0e-6;
+    // Upper bound on a pose variance eigenvalue. Directions the LED geometry
+    // cannot constrain saturate here instead of collapsing to zero variance.
+    double max_pose_variance = 1.0e4;
     int refinement_iterations = 8;
     int pnp_max_iterations = 40;
     double pnp_damping = 1.0e-8;

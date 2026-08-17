@@ -258,4 +258,16 @@ install(FILES README.md
     DESTINATION share/${PROJECT_NAME}
 )
 
+if(BUILD_TESTING)
+    find_package(ament_cmake_gtest REQUIRED)
+    ament_add_gtest(${PROJECT_NAME}_projection_jacobian_test test/projection_jacobian_test.cpp)
+    if(TARGET ${PROJECT_NAME}_projection_jacobian_test)
+        target_link_libraries(${PROJECT_NAME}_projection_jacobian_test
+            ${PROJECT_NAME}_pose_estimation
+            ${PROJECT_NAME}_calibration
+            Eigen3::Eigen
+        )
+    endif()
+endif()
+
 ament_package()

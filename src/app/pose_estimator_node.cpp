@@ -337,6 +337,7 @@ void PoseEstimatorNode::loadConfiguration(const std::string& config_path_string)
         geometric_config.signals_per_target = signals_per_target;
         geometric_config.p4p_reprojection_threshold_rad = optionalScalarAny<double>(geometric_node, pose_node, "p4p_reprojection_threshold_rad", 0.01);
         geometric_config.covariance_regularization_px = optionalScalarAny<double>(geometric_node, pose_node, "covariance_regularization_px", 1.0e-6);
+        geometric_config.max_pose_variance = optionalScalarAny<double>(geometric_node, pose_node, "max_pose_variance", 1.0e4);
         geometric_config.refinement_iterations = optionalScalarAny<int>(geometric_node, pose_node, "refinement_iterations", 8);
         geometric_config.pnp_max_iterations = optionalScalarAny<int>(geometric_node, pose_node, "pnp_max_iterations", 40);
         geometric_config.pnp_damping = optionalScalarAny<double>(geometric_node, pose_node, "pnp_damping", 1.0e-8);
@@ -412,6 +413,8 @@ void PoseEstimatorNode::onTrackerOutput(const uvdar_core::msg::TrackerOutput::Co
     if (camera_index == 0U) {
         latest_primary_input_stamp_ = toSeconds(msg->stamp);
     }
+    ++frame_count_;
+    usable_point_count_ += points.size();
 
     pose_estimator_->processFrame(
         camera_index,
@@ -433,6 +436,24 @@ void PoseEstimatorNode::onScatterTimer()
     const double stamp_sec = latest_primary_input_stamp_ > 0.0 ? latest_primary_input_stamp_ : now_sec;
     auto measurements = pose_estimator_->scatterAndMeasure(now_sec, stamp_sec);
     publishMeasurements(measurements, measured_publisher_);
+
+    // An estimator that publishes empty batches on its timer looks identical
+    // from outside to one that is not publishing at all, so report both the
+    // input it consumed and the output it produced.
+    ++publish_count_;
+    if (!measurements.poses.empty()) {
+        ++populated_publish_count_;
+    }
+    RCLCPP_INFO_THROTTLE(
+        get_logger(),
+        *get_clock(),
+        5000,
+        "frames in: %lu (%lu usable points), published: %lu (%lu populated, %.0f%%)",
+        frame_count_,
+        usable_point_count_,
+        publish_count_,
+        populated_publish_count_,
+        publish_count_ > 0 ? 100.0 * static_cast<double>(populated_publish_count_) / static_cast<double>(publish_count_) : 0.0);
 
     if (publish_constituents_) {
         pe::TimedPoseMeasurements verified;
