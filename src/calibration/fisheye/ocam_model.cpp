@@ -15,6 +15,11 @@ namespace {
 
 constexpr double epsilon = 1.0e-12;
 
+double affineDeterminant(const OcamModel& model)
+{
+    return model.c - model.d * model.e;
+}
+
 std::string nextDataLine(std::ifstream& input)
 {
     std::string line;
@@ -66,31 +71,51 @@ OcamModel loadModel(const std::string& filename)
     OcamModel model;
 
     std::stringstream direct_polynomial(nextDataLine(input));
-    direct_polynomial >> model.length_pol;
+    if (!(direct_polynomial >> model.length_pol)) {
+        throw std::runtime_error("Invalid direct polynomial length in '" + filename + "'.");
+    }
     if (model.length_pol < 0 || model.length_pol > max_polynomial_length) {
         throw std::runtime_error("Invalid direct polynomial length in '" + filename + "'.");
     }
     for (int i = 0; i < model.length_pol; ++i) {
-        direct_polynomial >> model.pol[i];
+        if (!(direct_polynomial >> model.pol[i])) {
+            throw std::runtime_error("Invalid direct polynomial coefficient in '" + filename + "'.");
+        }
     }
 
     std::stringstream inverse_polynomial(nextDataLine(input));
-    inverse_polynomial >> model.length_invpol;
+    if (!(inverse_polynomial >> model.length_invpol)) {
+        throw std::runtime_error("Invalid inverse polynomial length in '" + filename + "'.");
+    }
     if (model.length_invpol < 0 || model.length_invpol > max_polynomial_length) {
         throw std::runtime_error("Invalid inverse polynomial length in '" + filename + "'.");
     }
     for (int i = 0; i < model.length_invpol; ++i) {
-        inverse_polynomial >> model.invpol[i];
+        if (!(inverse_polynomial >> model.invpol[i])) {
+            throw std::runtime_error("Invalid inverse polynomial coefficient in '" + filename + "'.");
+        }
     }
 
     std::stringstream center(nextDataLine(input));
-    center >> model.xc >> model.yc;
+    if (!(center >> model.xc >> model.yc)) {
+        throw std::runtime_error("Invalid image center in '" + filename + "'.");
+    }
 
     std::stringstream affine(nextDataLine(input));
-    affine >> model.c >> model.d >> model.e;
+    if (!(affine >> model.c >> model.d >> model.e)) {
+        throw std::runtime_error("Invalid affine parameters in '" + filename + "'.");
+    }
 
     std::stringstream dimensions(nextDataLine(input));
-    dimensions >> model.height >> model.width;
+    if (!(dimensions >> model.height >> model.width)) {
+        throw std::runtime_error("Invalid dimensions in '" + filename + "'.");
+    }
+    if (model.width <= 0 || model.height <= 0) {
+        throw std::runtime_error("Invalid dimensions in '" + filename + "'.");
+    }
+    if (std::abs(affineDeterminant(model)) < epsilon) {
+        throw std::runtime_error("Invalid affine matrix in '" + filename + "': c - d*e is singular.");
+    }
 
     if (!input.good() && !input.eof()) {
         throw std::runtime_error("Failed while parsing OCamCalib file '" + filename + "'.");
@@ -101,7 +126,11 @@ OcamModel loadModel(const std::string& filename)
 Eigen::Vector3d cam2world(const Eigen::Vector2d& point_2d, const OcamModel& model)
 {
     // Invert the OCamCalib affine image transform before evaluating z = pol(r).
-    const double invdet = 1.0 / (model.c - model.d * model.e);
+    const double det = affineDeterminant(model);
+    if (std::abs(det) < epsilon) {
+        throw std::runtime_error("Invalid OCamCalib affine transform (singular determinant).");
+    }
+    const double invdet = 1.0 / det;
     const double xp = invdet * ((point_2d.x() - model.xc) - model.d * (point_2d.y() - model.yc));
     const double yp = invdet * (-model.e * (point_2d.x() - model.xc) + model.c * (point_2d.y() - model.yc));
 
@@ -148,6 +177,10 @@ Eigen::Matrix<double, 2, 3> OcamModel::projectJacobian(const Eigen::Vector3d& ca
     const double x = raw_point.x();
     const double y = raw_point.y();
     const double z = raw_point.z();
+    const double det = affineDeterminant(*this);
+    if (std::abs(det) < epsilon) {
+        throw std::runtime_error("Invalid OCamCalib affine transform (singular determinant).");
+    }
     const double r = std::hypot(x, y);
     if (r < epsilon || length_invpol <= 0) {
         Eigen::Matrix<double, 2, 3> jacobian = Eigen::Matrix<double, 2, 3>::Zero();
@@ -158,14 +191,14 @@ Eigen::Matrix<double, 2, 3> OcamModel::projectJacobian(const Eigen::Vector3d& ca
     }
 
     // Chain rule: point -> theta -> rho(theta) -> affine pixel.
-    const double theta = std::atan2(r, z);
+    const double theta = std::atan2(z, r);
     double rho = 0.0;
     double drho_dtheta = 0.0;
     evalPolynomialAndDerivative(invpol, length_invpol, theta, rho, drho_dtheta);
 
     const double denom = z * z + r * r;
-    const double dtheta_dr = z / denom;
-    const double dtheta_dz = -r / denom;
+    const double dtheta_dr = -z / denom;
+    const double dtheta_dz = r / denom;
     const double dr_dx = x / r;
     const double dr_dy = y / r;
     const double drho_dx = drho_dtheta * dtheta_dr * dr_dx;
@@ -204,10 +237,14 @@ Eigen::Matrix<double, 3, 2> OcamModel::backProjectJacobian(const Eigen::Vector2d
 {
     // Public pixels are x,y; OCamCalib stores rows,columns.
     const Eigen::Vector2d raw_image(image_point.y(), image_point.x());
-    const double invdet = 1.0 / (c - d * e);
+    const double det = affineDeterminant(*this);
+    if (std::abs(det) < epsilon) {
+        throw std::runtime_error("Invalid OCamCalib affine transform (singular determinant).");
+    }
+    const double safe_invdet = 1.0 / det;
     Eigen::Matrix2d affine_inverse;
-    affine_inverse << invdet, -d * invdet,
-        -e * invdet, c * invdet;
+    affine_inverse << safe_invdet, -d * safe_invdet,
+        -e * safe_invdet, c * safe_invdet;
 
     const Eigen::Vector2d centered(raw_image.x() - xc, raw_image.y() - yc);
     const Eigen::Vector2d xy = affine_inverse * centered;
