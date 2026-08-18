@@ -21,6 +21,9 @@ find_package(tf2_ros REQUIRED)
 find_package(cv_bridge REQUIRED)
 find_package(OpenCV REQUIRED)
 find_package(std_msgs REQUIRED)
+find_package(std_srvs REQUIRED)
+find_package(mrs_msgs REQUIRED)
+find_package(mrs_modules_msgs REQUIRED)
 find_package(yaml-cpp REQUIRED)
 
 find_library(EGL_LIBRARY EGL REQUIRED)
@@ -34,6 +37,11 @@ set(msg_files
     "msg/TrackerOutput.msg"
     "msg/PoseWithCovarianceIdentified.msg"
     "msg/PoseWithCovarianceArrayStamped.msg"
+)
+
+set(srv_files
+    "srv/SetInts.srv"
+    "srv/SetLedMessage.srv"
 )
 
 file(GLOB_RECURSE SHADER_FILES_PATHS CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/shaders/*.comp")
@@ -52,9 +60,10 @@ foreach(SHADER_FILE_PATH ${SHADER_FILES_PATHS})
     list(APPEND SHADER_OBJECTS ${SHADER_OBJ})
 endforeach()
 
-# Message interfaces for points and tracker outputs.
+# Message and service interfaces for points, tracker outputs and LED manager control.
 rosidl_generate_interfaces(${PROJECT_NAME}
     ${msg_files}
+    ${srv_files}
     DEPENDENCIES builtin_interfaces std_msgs geometry_msgs
 )
 
@@ -194,6 +203,10 @@ add_executable(filter_node
     src/app/main_filter_node.cpp
     src/app/filter_node.cpp
 )
+add_executable(led_manager_node
+    src/app/main_led_manager_node.cpp
+    src/app/led_manager_node.cpp
+)
 
 target_link_libraries(detector_node
     ${PROJECT_NAME}_detector
@@ -212,6 +225,12 @@ target_link_libraries(filter_node
 )
 target_link_libraries(pose_estimator_node ${cpp_typesupport_target})
 target_link_libraries(filter_node ${cpp_typesupport_target})
+target_link_libraries(led_manager_node ${cpp_typesupport_target})
+
+target_include_directories(led_manager_node PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>
+)
 
 ament_target_dependencies(detector_node
     rclcpp
@@ -234,6 +253,12 @@ ament_target_dependencies(filter_node
     tf2
     tf2_ros
 )
+ament_target_dependencies(led_manager_node
+    rclcpp
+    std_srvs
+    mrs_msgs
+    mrs_modules_msgs
+)
 
 install(TARGETS
     ${PROJECT_NAME}_common
@@ -245,6 +270,7 @@ install(TARGETS
     tracker_node
     pose_estimator_node
     filter_node
+    led_manager_node
     DESTINATION lib/${PROJECT_NAME}
 )
 

@@ -17,12 +17,16 @@
 	<depend>tf2</depend>
 	<depend>tf2_ros</depend>
 	<depend>std_msgs</depend>
+	<depend>std_srvs</depend>
+	<depend>mrs_msgs</depend>
+	<depend>mrs_modules_msgs</depend>
 	<depend>cv_bridge</depend>
 	<build_depend>yaml-cpp</build_depend>
 	<exec_depend>yaml-cpp</exec_depend>
 
 	<depend>launch</depend>
 	<depend>launch_ros</depend>
+	<exec_depend>mrs_serial</exec_depend>
 
 	<exec_depend>rosidl_default_runtime</exec_depend>
 	<member_of_group>rosidl_interface_packages</member_of_group>
