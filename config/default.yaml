@@ -72,6 +72,9 @@ pose_estimation:
   debug: false
   output_frame: local_origin
   output_topic: /pose_estimator/measured_poses
+  publish_visualization: true
+  visualization_topic: /pose_estimator/visualization
+  visualization_fps: 5.0
   publish_constituents: false
   model_file: models/quadrotor.txt
   signal_ids: [0, 1, 2, 3, 4, 5, 6, 7, 8]

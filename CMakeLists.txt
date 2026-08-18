@@ -7,6 +7,22 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 include(GNUInstallDirs)
+include(FetchContent)
+
+FetchContent_Declare(
+  cvplot
+  GIT_REPOSITORY https://github.com/Profactor/cv-plot.git
+  GIT_TAG v1.2.2
+)
+
+FetchContent_GetProperties(cvplot)
+if(NOT cvplot_POPULATED)
+  FetchContent_Populate(cvplot)
+endif()
+
+add_library(cvplot INTERFACE)
+target_include_directories(cvplot INTERFACE "${cvplot_SOURCE_DIR}/CvPlot/inc")
+target_compile_definitions(cvplot INTERFACE CVPLOT_HEADER_ONLY)
 
 find_package(ament_cmake REQUIRED)
 find_package(Eigen3 REQUIRED)
@@ -217,7 +233,9 @@ target_link_libraries(tracker_node
 target_link_libraries(pose_estimator_node
     ${PROJECT_NAME}_pose_estimation
     ${PROJECT_NAME}_calibration
+    cvplot
     yaml-cpp::yaml-cpp
+    ${OpenCV_LIBRARIES}
 )
 target_link_libraries(filter_node
     ${PROJECT_NAME}_pose_estimation
@@ -243,6 +261,9 @@ ament_target_dependencies(pose_estimator_node
     rclcpp
     builtin_interfaces
     geometry_msgs
+    std_msgs
+    sensor_msgs
+    cv_bridge
     tf2
     tf2_ros
 )
