@@ -347,7 +347,7 @@ GeometricSolver::Tangent GeometricSolver::tangentFromBase(const CameraPose& base
 {
     Tangent delta;
     delta.head<3>() = candidate_pose.translation - base_pose.translation;
-    const Eigen::Matrix3d relative_rotation = base_pose.rotation.transpose() * candidate_pose.rotation;
+    const Eigen::Matrix3d relative_rotation = candidate_pose.rotation * base_pose.rotation.transpose();
     const Eigen::AngleAxisd angle_axis(relative_rotation);
     const double angle = angle_axis.angle();
     if (angle < epsilon) {
@@ -439,12 +439,12 @@ Eigen::Matrix<double, 6, 6> GeometricSolver::rotateCovarianceToOutput(
     return transform * covariance * transform.transpose();
 }
 
-Eigen::Matrix<double, 6, 6> GeometricSolver::poseCovarianceByEllipseTransform(
-    const std::vector<CameraPose>& base_poses,
-    const std::vector<double>&,
-    const std::vector<Observation>& observations,
-    const CameraModel& camera,
-    int selected_index) const
+    Eigen::Matrix<double, 6, 6> GeometricSolver::poseCovarianceByEllipseTransform(
+        const std::vector<CameraPose>& base_poses,
+        const std::vector<double>&,
+        const std::vector<Observation>& observations,
+        const CameraModel& camera,
+        int selected_index) const
 {
     if (base_poses.empty() || selected_index < 0 || static_cast<std::size_t>(selected_index) >= base_poses.size()) {
         return Eigen::Matrix<double, 6, 6>::Identity() * fallback_covariance;
@@ -462,8 +462,8 @@ Eigen::Matrix<double, 6, 6> GeometricSolver::poseCovarianceByEllipseTransform(
     }
     const Eigen::MatrixXd cholesky_factor = cholesky.matrixL();
 
-    const std::size_t branch_count = base_poses.size();
-    std::vector<TangentCollection> branch_samples(branch_count);
+    const std::size_t selected_pose_index = static_cast<std::size_t>(selected_index);
+    TangentCollection selected_samples;
 
     for (Eigen::Index axis = 0; axis < cholesky_factor.cols(); ++axis) {
         const Eigen::VectorXd perturbation = cholesky_factor.col(axis);
@@ -475,17 +475,13 @@ Eigen::Matrix<double, 6, 6> GeometricSolver::poseCovarianceByEllipseTransform(
         for (const Eigen::VectorXd& sigma_point : sigma_points) {
             const auto sample_observations = observationsFromVector(observations, sigma_point, camera);
             if (sample_observations.empty()) {
-                for (TangentCollection& branch_sample : branch_samples) {
-                    branch_sample.push_back(Tangent::Zero());
-                }
+                selected_samples.push_back(Tangent::Zero());
                 continue;
             }
 
             const std::vector<CameraPose> sample_candidates = solveCameraPoses(sample_observations, camera);
             if (sample_candidates.empty()) {
-                for (TangentCollection& branch_sample : branch_samples) {
-                    branch_sample.push_back(Tangent::Zero());
-                }
+                selected_samples.push_back(Tangent::Zero());
                 continue;
             }
 
@@ -495,35 +491,33 @@ Eigen::Matrix<double, 6, 6> GeometricSolver::poseCovarianceByEllipseTransform(
                 refined_candidates.push_back(refinePose(sample_candidate, sample_observations, camera));
             }
             if (refined_candidates.empty()) {
-                for (TangentCollection& branch_sample : branch_samples) {
-                    branch_sample.push_back(Tangent::Zero());
-                }
+                selected_samples.push_back(Tangent::Zero());
                 continue;
             }
 
-            for (std::size_t branch_index = 0U; branch_index < branch_count; ++branch_index) {
-                const CameraPose& base_pose = base_poses[branch_index];
-                double best_distance = std::numeric_limits<double>::infinity();
-                Tangent best_delta = Tangent::Zero();
-                for (const CameraPose& candidate : refined_candidates) {
-                    const Tangent delta = tangentFromBase(base_pose, candidate);
-                    const double distance = delta.head<3>().norm() + delta.tail<3>().norm();
-                    if (distance < best_distance) {
-                        best_distance = distance;
-                        best_delta = delta;
-                    }
+            const CameraPose& base_pose = base_poses[selected_pose_index];
+            double best_distance = std::numeric_limits<double>::infinity();
+            Tangent best_delta = Tangent::Zero();
+            for (const CameraPose& candidate : refined_candidates) {
+                const Tangent delta = tangentFromBase(base_pose, candidate);
+                const double distance = delta.head<3>().norm() + delta.tail<3>().norm();
+                if (distance < best_distance) {
+                    best_distance = distance;
+                    best_delta = delta;
                 }
-
-                if (best_distance < ellipse_branch_distance_threshold) {
-                    branch_samples[branch_index].push_back(best_delta);
-                } else {
-                    branch_samples[branch_index].push_back(Tangent::Zero());
-                }
+            }
+            if (best_distance < ellipse_branch_distance_threshold) {
+                selected_samples.push_back(best_delta);
+            } else {
+                selected_samples.push_back(Tangent::Zero());
             }
         }
     }
 
-    return covarianceFromPoseSamples(branch_samples[static_cast<std::size_t>(selected_index)], ellipse_transform_scale);
+    if (selected_samples.size() < 2U) {
+        return Eigen::Matrix<double, 6, 6>::Identity() * fallback_covariance;
+    }
+    return covarianceFromPoseSamples(selected_samples, ellipse_transform_scale);
 }
 
 Eigen::Matrix<double, 6, 6> GeometricSolver::poseCovarianceByMonteCarlo(
@@ -546,6 +540,7 @@ Eigen::Matrix<double, 6, 6> GeometricSolver::poseCovarianceByMonteCarlo(
     if (sample_count <= 0) {
         return Eigen::Matrix<double, 6, 6>::Identity() * fallback_covariance;
     }
+    const std::size_t selected_pose_index = static_cast<std::size_t>(selected_index);
 
     Eigen::MatrixXd covariance_pixel = detectorCovariance(observations);
     Eigen::LLT<Eigen::MatrixXd> cholesky(covariance_pixel);
@@ -559,8 +554,8 @@ Eigen::Matrix<double, 6, 6> GeometricSolver::poseCovarianceByMonteCarlo(
         static_cast<std::mt19937_64::result_type>(std::chrono::high_resolution_clock::now().time_since_epoch().count()));
     std::normal_distribution<double> normal_distribution(0.0, 1.0);
 
-    const std::size_t branch_count = base_poses.size();
-    std::vector<TangentCollection> branch_samples(branch_count);
+    TangentCollection selected_samples;
+
     for (int sample_index = 0; sample_index < sample_count; ++sample_index) {
         Eigen::VectorXd noise(static_cast<Eigen::Index>(dimension));
         for (std::size_t i = 0; i < dimension; ++i) {
@@ -585,25 +580,26 @@ Eigen::Matrix<double, 6, 6> GeometricSolver::poseCovarianceByMonteCarlo(
             continue;
         }
 
-        for (std::size_t branch_index = 0U; branch_index < branch_count; ++branch_index) {
+        int best_branch = -1;
+        double best_branch_distance = std::numeric_limits<double>::infinity();
+        Tangent best_delta = Tangent::Zero();
+        for (std::size_t branch_index = 0U; branch_index < base_poses.size(); ++branch_index) {
             const CameraPose& base_pose = base_poses[branch_index];
-            double best_distance = std::numeric_limits<double>::infinity();
-            Tangent best_delta = Tangent::Zero();
             for (const CameraPose& candidate : refined_candidates) {
                 const Tangent delta = tangentFromBase(base_pose, candidate);
                 const double distance = delta.head<3>().norm() + delta.tail<3>().norm();
-                if (distance < best_distance) {
-                    best_distance = distance;
+                if (distance < best_branch_distance) {
+                    best_branch_distance = distance;
                     best_delta = delta;
+                    best_branch = static_cast<int>(branch_index);
                 }
             }
-            if (best_distance < monte_carlo_branch_distance_threshold) {
-                branch_samples[branch_index].push_back(best_delta);
-            }
+        }
+        if (best_branch == static_cast<int>(selected_pose_index) && best_branch_distance < monte_carlo_branch_distance_threshold) {
+            selected_samples.push_back(best_delta);
         }
     }
 
-    const TangentCollection& selected_samples = branch_samples[static_cast<std::size_t>(selected_index)];
     if (selected_samples.empty() || selected_samples.size() == 1U) {
         return Eigen::Matrix<double, 6, 6>::Identity() * fallback_covariance;
     }
