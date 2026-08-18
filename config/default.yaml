@@ -92,6 +92,8 @@ pose_estimation:
     max_init_iterations: 10000
     max_mutation_refine_iterations: 1000
   geometric_solver:
+    uncertainty_solver: jacobian_propagation # Options: jacobian_propagation, monte_carlo, ellipse_transform
+    uncertainty_samples: 5000 # for monte-carlo only
     p4p_reprojection_threshold_rad: 0.01
     covariance_regularization_px: 1.0e-6
     refinement_iterations: 8

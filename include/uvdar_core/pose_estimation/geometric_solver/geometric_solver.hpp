@@ -13,9 +13,20 @@
 namespace uvdar_core::pose_estimation::geometric_solver {
 
 /**
+ * @brief Supported uncertainty propagation methods.
+ */
+enum class UncertaintySolver {
+    JacobianPropagation,
+    MonteCarlo,
+    EllipseTransform,
+};
+
+/**
  * @brief Parameters for the deterministic geometric pose-estimation backend.
  */
 struct GeometricSolverConfig {
+    UncertaintySolver uncertainty_solver = UncertaintySolver::JacobianPropagation;
+    int uncertainty_samples = 5000;
     bool debug = false;
     std::string output_frame = "local_origin";
     std::vector<int> signal_ids;
@@ -70,6 +81,9 @@ public:
     std::vector<PoseMeasurement> tentativeHypotheses() const override;
 
 private:
+    using Tangent = Eigen::Matrix<double, 6, 1>;
+    using TangentCollection = std::vector<Tangent>;
+
     /**
      * @brief One 2D-3D correspondence after signal association.
      */
@@ -130,12 +144,75 @@ private:
     /**
      * @brief Propagate 2D tracker covariance through projection Jacobians to 6D pose.
      */
-    Eigen::Matrix<double, 6, 6> poseCovariance(const CameraPose& pose, const std::vector<Observation>& observations, const CameraModel& camera, const Eigen::Matrix3d& camera_to_output_rotation) const;
+    Eigen::Matrix<double, 6, 6> poseCovarianceByJacobianPropagation(
+        const CameraPose& pose,
+        const std::vector<Observation>& observations,
+        const CameraModel& camera) const;
+
+    /**
+     * @brief Propagate detector uncertainty by Monte-Carlo sampling.
+     */
+    Eigen::Matrix<double, 6, 6> poseCovarianceByMonteCarlo(
+        const std::vector<CameraPose>& base_poses,
+        const std::vector<double>& base_errors,
+        const std::vector<Observation>& observations,
+        const CameraModel& camera,
+        int selected_index) const;
+
+    /**
+     * @brief Propagate detector uncertainty with deterministic ellipse-transform points.
+     */
+    Eigen::Matrix<double, 6, 6> poseCovarianceByEllipseTransform(
+        const std::vector<CameraPose>& base_poses,
+        const std::vector<double>& base_errors,
+        const std::vector<Observation>& observations,
+        const CameraModel& camera,
+        int selected_index) const;
+
+    /**
+     * @brief Estimate pose uncertainty in output frame from a set of 6D tangent samples.
+     */
+    Eigen::Matrix<double, 6, 6> covarianceFromPoseSamples(const TangentCollection& samples, double covariance_scale) const;
+
+    /**
+     * @brief Convert pose to local tangent-space coordinate vector (x,y,z,rx,ry,rz).
+     */
+    Tangent poseTangent(const CameraPose& pose) const;
+
+    /**
+     * @brief Build 2N x 2N detector pixel covariance from observations.
+     */
+    Eigen::MatrixXd detectorCovariance(const std::vector<Observation>& observations) const;
+
+    /**
+     * @brief Return stacked pixel coordinates for all observations.
+     */
+    Eigen::VectorXd observationVector(const std::vector<Observation>& observations) const;
+
+    /**
+     * @brief Build observations from a sampled detector vector.
+     */
+    std::vector<Observation> observationsFromVector(
+        const std::vector<Observation>& base_observations,
+        const Eigen::VectorXd& sample,
+        const CameraModel& camera) const;
+
+    /**
+     * @brief Compute relative tangent perturbation from base pose to candidate pose.
+     */
+    Tangent tangentFromBase(const CameraPose& base_pose, const CameraPose& candidate_pose) const;
 
     /**
      * @brief Transform body-to-camera pose into the configured output frame.
      */
     PoseMeasurement toMeasurement(int target, const CameraPose& camera_pose, const Eigen::Isometry3d& camera_to_output, const Eigen::Matrix<double, 6, 6>& covariance) const;
+
+    /**
+     * @brief Rotate a local pose covariance to output frame.
+     */
+    Eigen::Matrix<double, 6, 6> rotateCovarianceToOutput(
+        const Eigen::Matrix<double, 6, 6>& covariance,
+        const Eigen::Matrix3d& camera_to_output_rotation) const;
 
     /**
      * @brief Map global signal id to target id, or reject unknown signals.

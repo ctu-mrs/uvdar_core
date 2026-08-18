@@ -331,10 +331,21 @@ void PoseEstimatorNode::loadConfiguration(const std::string& config_path_string)
         pose_estimator_ = std::make_unique<pf::ParticleFilter>(filter_config, body, signal_ids, reprojection_model);
     } else if (implementation == "geometric_solver") {
         gs::GeometricSolverConfig geometric_config;
+        const std::string uncertainty_solver = optionalScalarAny<std::string>(geometric_node, pose_node, "uncertainty_solver", "jacobian_propagation");
+        if (uncertainty_solver == "jacobian_propagation") {
+            geometric_config.uncertainty_solver = gs::UncertaintySolver::JacobianPropagation;
+        } else if (uncertainty_solver == "monte_carlo") {
+            geometric_config.uncertainty_solver = gs::UncertaintySolver::MonteCarlo;
+        } else if (uncertainty_solver == "ellipse_transform") {
+            geometric_config.uncertainty_solver = gs::UncertaintySolver::EllipseTransform;
+        } else {
+            throw std::runtime_error("Unsupported geometric_solver.uncertainty_solver '" + uncertainty_solver + "'.");
+        }
         geometric_config.debug = optionalScalar<bool>(pose_node, "debug", false);
         geometric_config.output_frame = output_frame_;
         geometric_config.signal_ids = signal_ids;
         geometric_config.signals_per_target = signals_per_target;
+        geometric_config.uncertainty_samples = optionalScalarAny<int>(geometric_node, pose_node, "uncertainty_samples", 5000);
         geometric_config.p4p_reprojection_threshold_rad = optionalScalarAny<double>(geometric_node, pose_node, "p4p_reprojection_threshold_rad", 0.01);
         geometric_config.covariance_regularization_px = optionalScalarAny<double>(geometric_node, pose_node, "covariance_regularization_px", 1.0e-6);
         geometric_config.refinement_iterations = optionalScalarAny<int>(geometric_node, pose_node, "refinement_iterations", 8);

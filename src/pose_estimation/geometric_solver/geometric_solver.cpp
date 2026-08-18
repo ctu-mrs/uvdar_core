@@ -1,8 +1,11 @@
 #include "uvdar_core/pose_estimation/geometric_solver/geometric_solver.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
+#include <chrono>
 #include <limits>
+#include <random>
 
 #include "uvdar_core/pose_estimation/geometric_solver/p2p.hpp"
 #include "uvdar_core/pose_estimation/geometric_solver/p3p.hpp"
@@ -16,6 +19,11 @@ namespace unc = uvdar_core::pose_estimation::uncertainty;
 namespace {
 
 constexpr double epsilon = 1.0e-12;
+constexpr double ellipse_branch_distance_threshold = 1.5;
+constexpr double monte_carlo_branch_distance_threshold = 2.5;
+constexpr double ellipse_transform_scale = 0.5;
+constexpr double fallback_covariance = 1.0e-6;
+constexpr double monte_carlo_covariance_scale = 1.0;
 
 } // namespace
 
@@ -71,23 +79,46 @@ void GeometricSolver::processFrame(
             continue;
         }
 
-        double best_error = std::numeric_limits<double>::infinity();
-        CameraPose best_pose;
-        bool found = false;
+        std::vector<CameraPose> refined_candidates;
+        std::vector<double> refined_errors;
+        refined_candidates.reserve(candidates.size());
+        refined_errors.reserve(candidates.size());
+
         for (const CameraPose& candidate : candidates) {
             const CameraPose refined = refinePose(candidate, observations, camera);
             const double error = reprojectionError(refined, observations, camera);
-            if (std::isfinite(error) && error < best_error) {
-                best_error = error;
-                best_pose = refined;
-                found = true;
+            if (std::isfinite(error)) {
+                refined_candidates.push_back(refined);
+                refined_errors.push_back(error);
             }
         }
-        if (!found) {
+        if (refined_candidates.empty()) {
             continue;
         }
 
-        const Eigen::Matrix<double, 6, 6> covariance = poseCovariance(best_pose, observations, camera, camera_to_output.rotation());
+        const auto best_it = std::min_element(refined_errors.begin(), refined_errors.end());
+        const std::size_t best_index = static_cast<std::size_t>(best_it - refined_errors.begin());
+        const CameraPose best_pose = refined_candidates[best_index];
+
+        Eigen::Matrix<double, 6, 6> covariance_camera = Eigen::Matrix<double, 6, 6>::Identity() * fallback_covariance;
+        switch (config_.uncertainty_solver) {
+            case UncertaintySolver::JacobianPropagation:
+                covariance_camera = poseCovarianceByJacobianPropagation(best_pose, observations, camera);
+                break;
+            case UncertaintySolver::MonteCarlo:
+                covariance_camera = poseCovarianceByMonteCarlo(refined_candidates, refined_errors, observations, camera, static_cast<int>(best_index));
+                break;
+            case UncertaintySolver::EllipseTransform:
+                covariance_camera = poseCovarianceByEllipseTransform(
+                    refined_candidates,
+                    refined_errors,
+                    observations,
+                    camera,
+                    static_cast<int>(best_index));
+                break;
+        }
+
+        const Eigen::Matrix<double, 6, 6> covariance = rotateCovarianceToOutput(covariance_camera, camera_to_output.rotation());
         measurements.poses.push_back(toMeasurement(target, best_pose, camera_to_output, covariance));
     }
 
@@ -298,6 +329,288 @@ std::optional<GeometricSolver::CameraPose> GeometricSolver::solvePnP(const std::
     return pose;
 }
 
+GeometricSolver::Tangent GeometricSolver::poseTangent(const CameraPose& pose) const
+{
+    Tangent tangent;
+    tangent.head<3>() = pose.translation;
+    const Eigen::AngleAxisd angle_axis(pose.rotation);
+    const double angle = angle_axis.angle();
+    if (angle < epsilon) {
+        tangent.tail<3>() = Eigen::Vector3d::Zero();
+    } else {
+        tangent.tail<3>() = angle_axis.axis() * angle;
+    }
+    return tangent;
+}
+
+GeometricSolver::Tangent GeometricSolver::tangentFromBase(const CameraPose& base_pose, const CameraPose& candidate_pose) const
+{
+    Tangent delta;
+    delta.head<3>() = candidate_pose.translation - base_pose.translation;
+    const Eigen::Matrix3d relative_rotation = base_pose.rotation.transpose() * candidate_pose.rotation;
+    const Eigen::AngleAxisd angle_axis(relative_rotation);
+    const double angle = angle_axis.angle();
+    if (angle < epsilon) {
+        delta.tail<3>() = Eigen::Vector3d::Zero();
+    } else {
+        delta.tail<3>() = angle_axis.axis() * angle;
+    }
+    return delta;
+}
+
+Eigen::VectorXd GeometricSolver::observationVector(const std::vector<Observation>& observations) const
+{
+    Eigen::VectorXd output(static_cast<Eigen::Index>(observations.size() * 2U));
+    for (std::size_t i = 0; i < observations.size(); ++i) {
+        output(static_cast<Eigen::Index>(2 * i)) = observations[i].image_point.x();
+        output(static_cast<Eigen::Index>(2 * i + 1)) = observations[i].image_point.y();
+    }
+    return output;
+}
+
+Eigen::MatrixXd GeometricSolver::detectorCovariance(const std::vector<Observation>& observations) const
+{
+    const std::size_t dimensions = observations.size() * 2U;
+    Eigen::MatrixXd covariance = Eigen::MatrixXd::Zero(
+        static_cast<Eigen::Index>(dimensions),
+        static_cast<Eigen::Index>(dimensions));
+    for (std::size_t i = 0; i < observations.size(); ++i) {
+        const std::size_t index = 2U * i;
+        const Eigen::Matrix2d point_covariance = unc::regularizedCovariance(
+            observations[i].point.has_prediction ? observations[i].point.prediction_covariance : observations[i].point.covariance,
+            config_.covariance_regularization_px);
+        covariance.block<2, 2>(static_cast<Eigen::Index>(index), static_cast<Eigen::Index>(index)) = point_covariance;
+    }
+    for (Eigen::Index i = 0; i < static_cast<Eigen::Index>(dimensions); ++i) {
+        covariance(i, i) += config_.covariance_regularization_px;
+    }
+    return covariance;
+}
+
+std::vector<GeometricSolver::Observation> GeometricSolver::observationsFromVector(
+    const std::vector<Observation>& base_observations,
+    const Eigen::VectorXd& sample,
+    const CameraModel& camera) const
+{
+    if (sample.size() != static_cast<Eigen::Index>(base_observations.size() * 2U)) {
+        return {};
+    }
+
+    std::vector<Observation> output = base_observations;
+    for (std::size_t i = 0; i < output.size(); ++i) {
+        output[i].image_point = sample.segment<2>(static_cast<Eigen::Index>(2 * i));
+        const Eigen::Vector3d bearing = camera.lens->backProject(output[i].image_point);
+        if (!bearing.allFinite() || bearing.squaredNorm() < epsilon) {
+            return {};
+        }
+        output[i].bearing = bearing.normalized();
+    }
+    return output;
+}
+
+Eigen::Matrix<double, 6, 6> GeometricSolver::covarianceFromPoseSamples(const TangentCollection& samples, double covariance_scale) const
+{
+    if (samples.empty()) {
+        return Eigen::Matrix<double, 6, 6>::Identity() * fallback_covariance;
+    }
+
+    Tangent mean = Tangent::Zero();
+    for (const Tangent& sample : samples) {
+        mean += sample;
+    }
+    mean /= static_cast<double>(samples.size());
+
+    Eigen::Matrix<double, 6, 6> covariance = Eigen::Matrix<double, 6, 6>::Zero();
+    for (const Tangent& sample : samples) {
+        const Tangent diff = sample - mean;
+        covariance += diff * diff.transpose();
+    }
+
+    return covariance_scale * covariance;
+}
+
+Eigen::Matrix<double, 6, 6> GeometricSolver::rotateCovarianceToOutput(
+    const Eigen::Matrix<double, 6, 6>& covariance,
+    const Eigen::Matrix3d& camera_to_output_rotation) const
+{
+    Eigen::Matrix<double, 6, 6> transform = Eigen::Matrix<double, 6, 6>::Zero();
+    transform.topLeftCorner<3, 3>() = camera_to_output_rotation;
+    transform.bottomRightCorner<3, 3>() = camera_to_output_rotation;
+    return transform * covariance * transform.transpose();
+}
+
+Eigen::Matrix<double, 6, 6> GeometricSolver::poseCovarianceByEllipseTransform(
+    const std::vector<CameraPose>& base_poses,
+    const std::vector<double>&,
+    const std::vector<Observation>& observations,
+    const CameraModel& camera,
+    int selected_index) const
+{
+    if (base_poses.empty() || selected_index < 0 || static_cast<std::size_t>(selected_index) >= base_poses.size()) {
+        return Eigen::Matrix<double, 6, 6>::Identity() * fallback_covariance;
+    }
+
+    const Eigen::VectorXd mean_pixel = observationVector(observations);
+    if (mean_pixel.size() == 0) {
+        return Eigen::Matrix<double, 6, 6>::Identity() * fallback_covariance;
+    }
+
+    Eigen::MatrixXd covariance_pixel = detectorCovariance(observations);
+    Eigen::LLT<Eigen::MatrixXd> cholesky(covariance_pixel);
+    if (cholesky.info() != Eigen::Success) {
+        return Eigen::Matrix<double, 6, 6>::Identity() * fallback_covariance;
+    }
+    const Eigen::MatrixXd cholesky_factor = cholesky.matrixL();
+
+    const std::size_t branch_count = base_poses.size();
+    std::vector<TangentCollection> branch_samples(branch_count);
+
+    for (Eigen::Index axis = 0; axis < cholesky_factor.cols(); ++axis) {
+        const Eigen::VectorXd perturbation = cholesky_factor.col(axis);
+        const std::array<Eigen::VectorXd, 2> sigma_points{
+            mean_pixel + perturbation,
+            mean_pixel - perturbation,
+        };
+
+        for (const Eigen::VectorXd& sigma_point : sigma_points) {
+            const auto sample_observations = observationsFromVector(observations, sigma_point, camera);
+            if (sample_observations.empty()) {
+                for (TangentCollection& branch_sample : branch_samples) {
+                    branch_sample.push_back(Tangent::Zero());
+                }
+                continue;
+            }
+
+            const std::vector<CameraPose> sample_candidates = solveCameraPoses(sample_observations, camera);
+            if (sample_candidates.empty()) {
+                for (TangentCollection& branch_sample : branch_samples) {
+                    branch_sample.push_back(Tangent::Zero());
+                }
+                continue;
+            }
+
+            std::vector<CameraPose> refined_candidates;
+            refined_candidates.reserve(sample_candidates.size());
+            for (const CameraPose& sample_candidate : sample_candidates) {
+                refined_candidates.push_back(refinePose(sample_candidate, sample_observations, camera));
+            }
+            if (refined_candidates.empty()) {
+                for (TangentCollection& branch_sample : branch_samples) {
+                    branch_sample.push_back(Tangent::Zero());
+                }
+                continue;
+            }
+
+            for (std::size_t branch_index = 0U; branch_index < branch_count; ++branch_index) {
+                const CameraPose& base_pose = base_poses[branch_index];
+                double best_distance = std::numeric_limits<double>::infinity();
+                Tangent best_delta = Tangent::Zero();
+                for (const CameraPose& candidate : refined_candidates) {
+                    const Tangent delta = tangentFromBase(base_pose, candidate);
+                    const double distance = delta.head<3>().norm() + delta.tail<3>().norm();
+                    if (distance < best_distance) {
+                        best_distance = distance;
+                        best_delta = delta;
+                    }
+                }
+
+                if (best_distance < ellipse_branch_distance_threshold) {
+                    branch_samples[branch_index].push_back(best_delta);
+                } else {
+                    branch_samples[branch_index].push_back(Tangent::Zero());
+                }
+            }
+        }
+    }
+
+    return covarianceFromPoseSamples(branch_samples[static_cast<std::size_t>(selected_index)], ellipse_transform_scale);
+}
+
+Eigen::Matrix<double, 6, 6> GeometricSolver::poseCovarianceByMonteCarlo(
+    const std::vector<CameraPose>& base_poses,
+    const std::vector<double>&,
+    const std::vector<Observation>& observations,
+    const CameraModel& camera,
+    int selected_index) const
+{
+    if (base_poses.empty() || selected_index < 0 || static_cast<std::size_t>(selected_index) >= base_poses.size()) {
+        return Eigen::Matrix<double, 6, 6>::Identity() * fallback_covariance;
+    }
+
+    const Eigen::VectorXd mean_pixel = observationVector(observations);
+    if (mean_pixel.size() == 0) {
+        return Eigen::Matrix<double, 6, 6>::Identity() * fallback_covariance;
+    }
+
+    const int sample_count = std::max(1, config_.uncertainty_samples);
+    if (sample_count <= 0) {
+        return Eigen::Matrix<double, 6, 6>::Identity() * fallback_covariance;
+    }
+
+    Eigen::MatrixXd covariance_pixel = detectorCovariance(observations);
+    Eigen::LLT<Eigen::MatrixXd> cholesky(covariance_pixel);
+    if (cholesky.info() != Eigen::Success) {
+        return Eigen::Matrix<double, 6, 6>::Identity() * fallback_covariance;
+    }
+    const Eigen::MatrixXd cholesky_factor = cholesky.matrixL();
+
+    const std::size_t dimension = static_cast<std::size_t>(covariance_pixel.rows());
+    std::mt19937_64 random_generator(
+        static_cast<std::mt19937_64::result_type>(std::chrono::high_resolution_clock::now().time_since_epoch().count()));
+    std::normal_distribution<double> normal_distribution(0.0, 1.0);
+
+    const std::size_t branch_count = base_poses.size();
+    std::vector<TangentCollection> branch_samples(branch_count);
+    for (int sample_index = 0; sample_index < sample_count; ++sample_index) {
+        Eigen::VectorXd noise(static_cast<Eigen::Index>(dimension));
+        for (std::size_t i = 0; i < dimension; ++i) {
+            noise(static_cast<Eigen::Index>(i)) = normal_distribution(random_generator);
+        }
+        const Eigen::VectorXd sample_point = mean_pixel + cholesky_factor * noise;
+        const auto sample_observations = observationsFromVector(observations, sample_point, camera);
+        if (sample_observations.empty()) {
+            continue;
+        }
+
+        const std::vector<CameraPose> sample_candidates = solveCameraPoses(sample_observations, camera);
+        if (sample_candidates.empty()) {
+            continue;
+        }
+        std::vector<CameraPose> refined_candidates;
+        refined_candidates.reserve(sample_candidates.size());
+        for (const CameraPose& sample_candidate : sample_candidates) {
+            refined_candidates.push_back(refinePose(sample_candidate, sample_observations, camera));
+        }
+        if (refined_candidates.empty()) {
+            continue;
+        }
+
+        for (std::size_t branch_index = 0U; branch_index < branch_count; ++branch_index) {
+            const CameraPose& base_pose = base_poses[branch_index];
+            double best_distance = std::numeric_limits<double>::infinity();
+            Tangent best_delta = Tangent::Zero();
+            for (const CameraPose& candidate : refined_candidates) {
+                const Tangent delta = tangentFromBase(base_pose, candidate);
+                const double distance = delta.head<3>().norm() + delta.tail<3>().norm();
+                if (distance < best_distance) {
+                    best_distance = distance;
+                    best_delta = delta;
+                }
+            }
+            if (best_distance < monte_carlo_branch_distance_threshold) {
+                branch_samples[branch_index].push_back(best_delta);
+            }
+        }
+    }
+
+    const TangentCollection& selected_samples = branch_samples[static_cast<std::size_t>(selected_index)];
+    if (selected_samples.empty() || selected_samples.size() == 1U) {
+        return Eigen::Matrix<double, 6, 6>::Identity() * fallback_covariance;
+    }
+    const double covariance_scale = monte_carlo_covariance_scale / static_cast<double>(selected_samples.size() - 1U);
+    return covarianceFromPoseSamples(selected_samples, covariance_scale);
+}
+
 std::optional<Eigen::VectorXd> GeometricSolver::bearingResidualVector(const std::vector<Observation>& observations, const CameraPose& pose) const
 {
     Eigen::VectorXd residual(static_cast<int>(observations.size() * 3U));
@@ -358,11 +671,10 @@ double GeometricSolver::reprojectionError(const CameraPose& pose, const std::vec
     return error;
 }
 
-Eigen::Matrix<double, 6, 6> GeometricSolver::poseCovariance(
+Eigen::Matrix<double, 6, 6> GeometricSolver::poseCovarianceByJacobianPropagation(
     const CameraPose& pose,
     const std::vector<Observation>& observations,
-    const CameraModel& camera,
-    const Eigen::Matrix3d& camera_to_output_rotation) const
+    const CameraModel& camera) const
 {
     std::vector<Eigen::Vector3d> world_points;
     std::vector<Eigen::Matrix2d> pixel_covariances;
@@ -375,17 +687,12 @@ Eigen::Matrix<double, 6, 6> GeometricSolver::poseCovariance(
 
     // Linearize each pixel residual around the refined pose and invert the
     // accumulated Fisher information matrix.
-    Eigen::Matrix<double, 6, 6> covariance_camera = unc::poseCovarianceFromPixelsLinearized(
+    return unc::poseCovarianceFromPixelsLinearized(
         pose,
         world_points,
         pixel_covariances,
         camera,
         config_.covariance_regularization_px);
-    // Rotate both position and small-angle covariance blocks into output frame.
-    Eigen::Matrix<double, 6, 6> transform = Eigen::Matrix<double, 6, 6>::Zero();
-    transform.topLeftCorner<3, 3>() = camera_to_output_rotation;
-    transform.bottomRightCorner<3, 3>() = camera_to_output_rotation;
-    return transform * covariance_camera * transform.transpose();
 }
 
 PoseMeasurement GeometricSolver::toMeasurement(
