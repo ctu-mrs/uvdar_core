@@ -112,7 +112,7 @@ pose_estimation:
   publish_visualization: true
   visualization_topic: pose_estimator/visualization
   publish_constituents: false
-  model_file: models/quadrotor.txt
+  model_file: models/quadrotor_foursided_px4_motor_aligned_charlotte.txt
   signal_ids: [0, 1, 2, 3, 4, 5, 6, 7, 8]
   # Used by non-filtered implementations that do not own a natural scatter step.
   publish_period_sec: 0.1
