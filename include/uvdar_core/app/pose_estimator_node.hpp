@@ -49,6 +49,7 @@ private:
     void visualizationWorker();
 
     std::vector<InputConfig> inputs_;
+    std::vector<bool> tf_logged_once_;
     std::vector<rclcpp::Subscription<uvdar_core::msg::TrackerOutput>::SharedPtr> subscriptions_;
     rclcpp::Publisher<uvdar_core::msg::PoseWithCovarianceArrayStamped>::SharedPtr measured_publisher_;
     rclcpp::Publisher<uvdar_core::msg::PoseWithCovarianceArrayStamped>::SharedPtr hypotheses_publisher_;
