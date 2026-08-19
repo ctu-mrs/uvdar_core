@@ -22,9 +22,9 @@ detector:
       output_topic: detector/left/points_seen
       detect_sun_points: true
       publish_sun_points: true
-      sun_output_topic: detector/left/points_seen/sun
+      sun_output_topic: uvdar/detector/left/points_seen/sun
       publish_visualization: true
-      visualization_topic: detector/left/detection_visualization
+      visualization_topic: uvdar/detector/left/detection_visualization
       mask_file: ""
       backend: gpu
       threshold: 120
@@ -36,12 +36,12 @@ detector:
       radii: [3, 5]
     - name: right
       input_topic: right/bluefox_right/image_raw
-      output_topic: detector/right/points_seen
+      output_topic: uvdar/detector/right/points_seen
       detect_sun_points: true
       publish_sun_points: true
-      sun_output_topic: detector/right/points_seen/sun
+      sun_output_topic: uvdar/detector/right/points_seen/sun
       publish_visualization: true
-      visualization_topic: detector/right/detection_visualization
+      visualization_topic: uvdar/detector/right/detection_visualization
       mask_file: ""
       backend: gpu
       threshold: 120
@@ -54,7 +54,7 @@ detector:
 
 tracking:
   # Select "ami" for the AMI tracker or "generalized" for covariance-aware tracking.
-  implementation: ami
+  implementation: generalized
   debug: false
   gui: false
   initial_delay_sec: 0.0
@@ -87,30 +87,30 @@ tracking:
     - "100111010"
   inputs:
     - name: left
-      input_topic: detector/left/points_seen
-      input_image_topic: left/image_raw
-      output_topic: tracker/left/blinkers
+      input_topic: uvdar/detector/left/points_seen
+      input_image_topic: left/bluefox_left/image_raw
+      output_topic: uvdar/tracker/left/blinkers
       publish_visualization: true
-      visualization_topic: tracker/left/visualization
+      visualization_topic: uvdar/tracker/left/visualization
     - name: right
-      input_topic: detector/right/points_seen
-      input_image_topic: right/image_raw
-      output_topic: tracker/right/blinkers
+      input_topic: uvdar/detector/right/points_seen
+      input_image_topic: right/bluefox_left/image_raw
+      output_topic: uvdar/tracker/right/blinkers
       publish_visualization: true
-      visualization_topic: tracker/right/visualization
+      visualization_topic: uvdar/tracker/right/visualization
 
 pose_estimation:
   # Select "particle_filter" for stochastic hypothesis filtering or
   # "geometric_solver" for direct P2P/P3P/P4P/PnP pose estimation.
-  implementation: particle_filter
+  implementation: geometric_solver 
   debug: false
   # "local_origin" doesn't exist in the ROS2 MRS TF tree (ROS1 naming) --
   # this is the observing robot's own body frame, uav_name/fcu. Hardcoded to
   # uav1 for the same reason as camera_frame below; update per deployment.
   output_frame: fcu
-  output_topic: pose_estimator/measured_poses
+  output_topic: uvdar/pose_estimator/measured_poses
   publish_visualization: true
-  visualization_topic: pose_estimator/visualization
+  visualization_topic: uvdar/pose_estimator/visualization
   publish_constituents: false
   model_file: models/quadrotor_foursided_px4_motor_aligned_charlotte.txt
   signal_ids: [0, 1, 2, 3, 4, 5, 6, 7, 8]
@@ -153,11 +153,11 @@ pose_estimation:
   # know which serial is mounted on which side.
   inputs:
     - name: left
-      input_topic: tracker/left/blinkers
+      input_topic: uvdar/tracker/left/blinkers
       camera_frame: bluefox_left
       calib_file: camera/bluefox_ocam_calib/bf_left.yaml
     - name: right
-      input_topic: tracker/right/blinkers
+      input_topic: uvdar/tracker/right/blinkers
       camera_frame: bluefox_right
       calib_file: camera/bluefox_ocam_calib/bf_right.yaml
 
@@ -167,9 +167,9 @@ filtering:
   # World-fixed frame (ROS2 MRS's equivalent of ROS1's "local_origin");
   # hardcoded to uav1 for the same reason as camera_frame above.
   output_frame: fixed_origin
-  measured_poses_topics: [pose_estimator/measured_poses]
-  output_topic: filter/filtered_poses
-  tentative_output_topic: filter/filtered_poses/tentative
+  measured_poses_topics: [uvdar/pose_estimator/measured_poses]
+  output_topic: uvdar/filter/filtered_poses
+  tentative_output_topic: uvdar/filter/filtered_poses/tentative
   output_framerate: 20.0
   anonymous_measurements: false
   indoor: false
