@@ -86,7 +86,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
 # Shared helpers used by both detector and tracker nodes.
 set(SHARED_SOURCES
     src/app/package_config.cpp
-    src/app/thread_pool.cpp
+    src/helpers/thread_pool.cpp
 )
 
 # Detector sources and GPU shader objects.
@@ -94,7 +94,7 @@ set(DETECTOR_SOURCES
     src/detection/fimd/generated_module.cpp
     src/detection/fimd/cpu_detector.cpp
     src/detection/fimd/gpu_detector.cpp
-    src/detection/fimd/compute_shader.cpp
+    src/helpers/compute_shader.cpp
     src/app/detector_node.cpp
     ${SHADER_OBJECTS}
 )
