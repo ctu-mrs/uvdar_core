@@ -125,32 +125,32 @@ std::vector<Hypothesis> ReprojectionModel::extractHypotheses(
 
 double ReprojectionModel::reprojectionThresholdInitial(std::size_t camera_index) const
 {
-    return squared(cameraWidth(cameras_.at(camera_index)) / 50.0);
+    return uvdar_core::helpers::squared(cameraWidth(cameras_.at(camera_index)) / 50.0);
 }
 
 double ReprojectionModel::reprojectionThresholdMutation1(std::size_t camera_index) const
 {
-    return squared(cameraWidth(cameras_.at(camera_index)) / 75.0);
+    return uvdar_core::helpers::squared(cameraWidth(cameras_.at(camera_index)) / 75.0);
 }
 
 double ReprojectionModel::reprojectionThresholdMutation2(std::size_t camera_index) const
 {
-    return squared(cameraWidth(cameras_.at(camera_index)) / 100.0);
+    return uvdar_core::helpers::squared(cameraWidth(cameras_.at(camera_index)) / 100.0);
 }
 
 double ReprojectionModel::reprojectionThresholdMutation3(std::size_t camera_index) const
 {
-    return squared(cameraWidth(cameras_.at(camera_index)) / 150.0);
+    return uvdar_core::helpers::squared(cameraWidth(cameras_.at(camera_index)) / 150.0);
 }
 
 double ReprojectionModel::reprojectionThresholdVerified(std::size_t camera_index) const
 {
-    return squared(cameraWidth(cameras_.at(camera_index)) / 150.0);
+    return uvdar_core::helpers::squared(cameraWidth(cameras_.at(camera_index)) / 150.0);
 }
 
 double ReprojectionModel::reprojectionThresholdUnfit(std::size_t camera_index) const
 {
-    return squared(cameraWidth(cameras_.at(camera_index)) / 50.0);
+    return uvdar_core::helpers::squared(cameraWidth(cameras_.at(camera_index)) / 50.0);
 }
 
 double ReprojectionModel::uvdarRange(std::size_t camera_index) const
@@ -175,7 +175,7 @@ double ReprojectionModel::modelError(const ReprojectionContext& context) const
     for (const auto& marker : projected_markers) {
         // Directional LEDs fade with viewing angle and inverse-square range.
         const double intensity = std::round(std::max(0.0, marker.cos_view_angle)
-            * (led_projection_coefs[0] + led_projection_coefs[1] / squared(marker.distance + led_projection_coefs[2])));
+            * (led_projection_coefs[0] + led_projection_coefs[1] / uvdar_core::helpers::squared(marker.distance + led_projection_coefs[2])));
         if (intensity > 0.0) {
             selected_markers.push_back(marker);
         }
@@ -210,7 +210,7 @@ double ReprojectionModel::modelError(const ReprojectionContext& context) const
                 found = true;
             }
         }
-        total_error += found ? squared(closest_distance) : unmatched_observed_point_penalty;
+        total_error += found ? uvdar_core::helpers::squared(closest_distance) : unmatched_observed_point_penalty;
     }
 
     total_error += unmatched_projected_point_penalty

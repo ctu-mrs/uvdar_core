@@ -1,6 +1,7 @@
 #include "uvdar_core/app/filter_node.hpp"
 
-#include "uvdar_core/app/frame_namespace.hpp"
+#include "uvdar_core/helpers/frame_namespace.hpp"
+#include "uvdar_core/helpers/math.hpp"
 
 #include <filesystem>
 
@@ -9,7 +10,7 @@
 #include <tf2/time.h>
 #include <yaml-cpp/yaml.h>
 
-#include "uvdar_core/app/ros_conversions.hpp"
+#include "uvdar_core/helpers/ros_conversions.hpp"
 
 namespace uvdar_core::app {
 
@@ -25,6 +26,18 @@ T optionalScalar(const YAML::Node& node, const std::string& key, T fallback)
 {
     const YAML::Node value = node[key];
     return value ? value.as<T>() : fallback;
+}
+
+std::array<double, 36> stateCovarianceToMsg(const Eigen::MatrixXd& input, bool velocity_state)
+{
+    Eigen::Matrix<double, 6, 6> covariance = Eigen::Matrix<double, 6, 6>::Zero();
+    if (velocity_state) {
+        covariance.topLeftCorner<3, 3>() = input.topLeftCorner<3, 3>();
+        covariance.bottomRightCorner<3, 3>() = input.bottomRightCorner<3, 3>();
+    } else {
+        covariance = input.topLeftCorner<6, 6>();
+    }
+    return uvdar_core::helpers::covarianceToMsg(covariance);
 }
 
 } // namespace
@@ -59,7 +72,7 @@ void FilterNode::loadConfiguration(const std::string& config_path)
     config.decay_age_unvalidated = optionalScalar<double>(node, "decay_age_unvalidated", 1.0);
     config.match_level_threshold_associate = optionalScalar<double>(node, "match_level_threshold_associate", 0.3);
     config.match_level_threshold_remove = optionalScalar<double>(node, "match_level_threshold_remove", 0.5);
-    output_frame_ = resolveFrameName(optionalScalar<std::string>(node, "output_frame", std::string("local_origin")));
+    output_frame_ = uvdar_core::helpers::resolveFrameName(optionalScalar<std::string>(node, "output_frame", std::string("local_origin")));
     config.output_frame = output_frame_;
     config.accepts_correction = [this](const Eigen::Vector3d& position, const std::string& camera_frame, double stamp) {
         if (camera_frame.empty()) {
@@ -72,7 +85,7 @@ void FilterNode::loadConfiguration(const std::string& config_path)
         } catch (const tf2::TransformException&) {
             return false;
         }
-        const Eigen::Vector3d target_camera = toEigen(transform_msg) * position;
+        const Eigen::Vector3d target_camera = uvdar_core::helpers::toEigen(transform_msg) * position;
         const double norm = target_camera.norm();
         if (norm <= 1.5) {
             return false;
@@ -121,20 +134,20 @@ void FilterNode::onMeasurement(const uvdar_core::msg::PoseWithCovarianceArraySta
         return;
     }
 
-    const Eigen::Isometry3d transform = toEigen(transform_msg);
+    const Eigen::Isometry3d transform = uvdar_core::helpers::toEigen(transform_msg);
     std::vector<pe::KfPoseMeasurement> measurements;
     measurements.reserve(msg->poses.size());
     for (const auto& pose : msg->poses) {
         const Eigen::Vector3d position = transform * Eigen::Vector3d(pose.pose.position.x, pose.pose.position.y, pose.pose.position.z);
         const Eigen::Quaterniond orientation = Eigen::Quaterniond(transform.rotation())
             * Eigen::Quaterniond(pose.pose.orientation.w, pose.pose.orientation.x, pose.pose.orientation.y, pose.pose.orientation.z);
-        const Eigen::Vector3d rpy = pe::quaternionToRpy(orientation.normalized());
+        const Eigen::Vector3d rpy = uvdar_core::helpers::quaternionToRpy(orientation.normalized());
 
         pe::KfPoseMeasurement measurement;
         measurement.id = pose.id;
         measurement.x = Eigen::VectorXd::Zero(6);
         measurement.x << position.x(), position.y(), position.z(), rpy.x(), rpy.y(), rpy.z();
-        measurement.covariance = rotatePoseCovariance(covarianceFromMsg(pose.covariance), transform.rotation());
+        measurement.covariance = uvdar_core::helpers::rotatePoseCovariance(uvdar_core::helpers::covarianceFromMsg(pose.covariance), transform.rotation());
         Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> orientation_covariance(measurement.covariance.bottomRightCorner<3, 3>());
         if (orientation_covariance.info() == Eigen::Success) {
             Eigen::Vector3d eigenvalues = orientation_covariance.eigenvalues();
@@ -150,7 +163,7 @@ void FilterNode::onMeasurement(const uvdar_core::msg::PoseWithCovarianceArraySta
                     orientation_covariance.eigenvectors() * eigenvalues.asDiagonal() * orientation_covariance.eigenvectors().transpose();
             }
         }
-        measurement.stamp = toSeconds(msg->header.stamp);
+        measurement.stamp = uvdar_core::helpers::toSeconds(msg->header.stamp);
         measurement.receipt_stamp = get_clock()->now().seconds();
         measurement.camera_frame = msg->header.frame_id;
         if (!measurement.x.array().isNaN().any() && !measurement.covariance.array().isNaN().any()) {
@@ -181,7 +194,7 @@ void FilterNode::publishStates(
     msg.poses.reserve(states.size());
     for (const auto& state : states) {
         const int angle_offset = state.x.size() == 9 ? 6 : 3;
-        const Eigen::Quaterniond q = pe::rpyToQuaternion(state.x.segment<3>(angle_offset));
+        const Eigen::Quaterniond q = uvdar_core::helpers::rpyToQuaternion(state.x.segment<3>(angle_offset));
         uvdar_core::msg::PoseWithCovarianceIdentified pose;
         pose.id = state.id;
         pose.pose.position.x = state.x[0];

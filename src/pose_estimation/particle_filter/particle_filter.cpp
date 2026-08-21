@@ -403,7 +403,7 @@ std::optional<PoseMeasurement> ParticleFilter::measurementHull(const AssociatedH
     for (const auto& hypothesis : hypotheses.hypotheses) {
         if (hypothesis.flag == HypothesisFlag::Verified) {
             position_diff.push_back(hypothesis.pose.position - mean_position);
-            orientation_diff.push_back(quaternionToRpy(hypothesis.pose.orientation * mean_orientation.inverse()));
+            orientation_diff.push_back(uvdar_core::helpers::quaternionToRpy(hypothesis.pose.orientation * mean_orientation.inverse()));
         }
     }
 
@@ -422,7 +422,7 @@ std::optional<PoseMeasurement> ParticleFilter::measurementHull(const AssociatedH
 
     Pose pose;
     pose.position = mean_position + position_hull.first;
-    pose.orientation = mean_orientation * rpyToQuaternion(orientation_hull.first);
+    pose.orientation = mean_orientation * uvdar_core::helpers::rpyToQuaternion(orientation_hull.first);
     return PoseMeasurement {hypotheses.target, pose, covariance};
 }
 

@@ -8,7 +8,7 @@
 #include <thread>
 #include <vector>
 
-namespace uvdar_core::app {
+namespace uvdar_core::helpers {
 
 class ThreadPool {
 public:
@@ -40,4 +40,4 @@ private:
     bool stop_ = false;
 };
 
-} // namespace uvdar_core::app
+} // namespace uvdar_core::helpers

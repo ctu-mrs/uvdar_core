@@ -4,7 +4,7 @@
 #include <stdexcept>
 #include <string>
 
-namespace uvdar_core::app {
+namespace uvdar_core::helpers {
 
 /**
  * @brief Resolve a TF frame name from a config file into this robot's
@@ -49,4 +49,4 @@ inline std::string resolveFrameName(const std::string& value)
     return std::string(uav_name) + "/" + value;
 }
 
-} // namespace uvdar_core::app
+} // namespace uvdar_core::helpers

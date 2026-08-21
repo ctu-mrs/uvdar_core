@@ -3,7 +3,7 @@
 #include <cmath>
 #include <sensor_msgs/image_encodings.hpp>
 
-#include "uvdar_core/app/ros_conversions.hpp"
+#include "uvdar_core/helpers/ros_conversions.hpp"
 
 namespace uvdar_core::app {
 
@@ -25,7 +25,7 @@ TrackerNode::TrackerNode(const rclcpp::NodeOptions& options)
 {
     loadConfig();
     startup_time_ = now();
-    thread_pool_ = std::make_unique<uvdar_core::app::ThreadPool>(config_.tracking.thread_pool_size);
+    thread_pool_ = std::make_unique<uvdar_core::helpers::ThreadPool>(config_.tracking.thread_pool_size);
     createInterfaces();
 
     RCLCPP_INFO(get_logger(), "UVDAR tracker node initialized.");
@@ -197,7 +197,7 @@ void TrackerNode::processImagePoints(const uvdar_core::msg::ImagePointsWithCovar
         }
 
         uvdar_core::tracking::ImagePointsWithCovariancesStamped input_points;
-        input_points.stamp = toSeconds(image_msg->stamp);
+        input_points.stamp = uvdar_core::helpers::toSeconds(image_msg->stamp);
         input_points.img_width = static_cast<uint16_t>(image_msg->image_width);
         input_points.img_height = static_cast<uint16_t>(image_msg->image_height);
         input_points.points.reserve(image_msg->points.size());
@@ -269,7 +269,7 @@ void TrackerNode::processImagePoints(const uvdar_core::msg::ImagePointsWithCovar
         }
 
         uvdar_core::tracking::generalized::ImagePointsWithCovariancesStamped input_points;
-        input_points.stamp = toSeconds(image_msg->stamp);
+        input_points.stamp = uvdar_core::helpers::toSeconds(image_msg->stamp);
         input_points.img_width = static_cast<uint16_t>(image_msg->image_width);
         input_points.img_height = static_cast<uint16_t>(image_msg->image_height);
         input_points.points.reserve(image_msg->points.size());
@@ -322,7 +322,7 @@ void TrackerNode::processImagePoints(const uvdar_core::msg::ImagePointsWithCovar
             tracker_point.prediction_covariance_11 = point_state.prediction_covariance.c11;
             tracker_point.confidence_x = point_state.x_statistics.confidence_interval;
             tracker_point.confidence_y = point_state.y_statistics.confidence_interval;
-            tracker_point.prediction_reference_time = toRosTime(point_state.x_statistics.reference_time);
+            tracker_point.prediction_reference_time = uvdar_core::helpers::toRosTime(point_state.x_statistics.reference_time);
             tracker_point.poly_reg_computed = point_state.x_statistics.model_reg_computed || point_state.y_statistics.model_reg_computed;
             tracker_point.extended_search = point_state.x_statistics.extended_search || point_state.y_statistics.extended_search;
             tracker_point.virtual_point = point_state.virtual_point;

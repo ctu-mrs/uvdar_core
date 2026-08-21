@@ -7,6 +7,7 @@
 
 #include <Eigen/Dense>
 
+#include "uvdar_core/helpers/math.hpp"
 #include "uvdar_core/pose_estimation/types.hpp"
 
 namespace uvdar_core::pose_estimation::particle_filter {
@@ -17,8 +18,8 @@ using uvdar_core::pose_estimation::PoseMeasurement;
 using uvdar_core::pose_estimation::TimedPoseMeasurements;
 using uvdar_core::pose_estimation::TrackedPoint;
 using uvdar_core::pose_estimation::Twist;
-using uvdar_core::pose_estimation::quaternionToRpy;
-using uvdar_core::pose_estimation::rpyToQuaternion;
+using uvdar_core::helpers::quaternionToRpy;
+using uvdar_core::helpers::rpyToQuaternion;
 using uvdar_core::pose_estimation::transformPose;
 
 /**

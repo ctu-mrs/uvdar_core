@@ -11,7 +11,7 @@
 #include <utility>
 
 #include "uvdar_core/detection/fimd/postprocess.hpp"
-#include "uvdar_core/detection/fimd/compute_shader.hpp"
+#include "uvdar_core/helpers/compute_shader.hpp"
 
 extern "C" {
 extern const unsigned char _binary_shaders_fimd_masked_no_sun_comp_start[];
@@ -75,7 +75,7 @@ namespace uvdar_core::detection::fimd {
      * @brief Initialize SSBO and clear previous state.
      */
     bool initBuffer(
-        uvdar_core::detection::fimd::compute_shader::SSBO& buffer,
+        uvdar_core::helpers::compute_shader::SSBO& buffer,
         GLuint binding,
         std::size_t element_count,
         const char* name)
@@ -94,7 +94,7 @@ namespace uvdar_core::detection::fimd {
      * @brief Initialize ACBO and clear previous state.
      */
     bool initBuffer(
-        uvdar_core::detection::fimd::compute_shader::ACBO& buffer,
+        uvdar_core::helpers::compute_shader::ACBO& buffer,
         GLuint binding,
         std::size_t element_count,
         const char* name)
@@ -112,7 +112,7 @@ namespace uvdar_core::detection::fimd {
     /**
      * @brief Print queued GL messages for a stage.
      */
-    void reportGlErrors(const std::string& stage, uvdar_core::detection::fimd::compute_shader::Context& context)
+    void reportGlErrors(const std::string& stage, uvdar_core::helpers::compute_shader::Context& context)
     {
         const GLuint count = context.instance().flush_errors(stderr);
         if (count > 0) {
@@ -123,7 +123,7 @@ namespace uvdar_core::detection::fimd {
     /**
      * @brief Write SSBO contents and report errors.
      */
-    bool writeBuffer(uvdar_core::detection::fimd::compute_shader::SSBO& buffer, const void* data, std::size_t element_count, const char* name)
+    bool writeBuffer(uvdar_core::helpers::compute_shader::SSBO& buffer, const void* data, std::size_t element_count, const char* name)
     {
         if (buffer.write(data, static_cast<GLint>(element_count)) != GL_NO_ERROR) {
             std::fprintf(stderr, "[gpu_detector] Failed to write SSBO '%s'.\n", name);
@@ -149,7 +149,7 @@ namespace uvdar_core::detection::fimd {
     /**
      * @brief Reset atomic counter buffer to value.
      */
-    bool writeCounter(uvdar_core::detection::fimd::compute_shader::ACBO& buffer, GLuint value, const char* name)
+    bool writeCounter(uvdar_core::helpers::compute_shader::ACBO& buffer, GLuint value, const char* name)
     {
         if (buffer.write_uint_val(value) != GL_NO_ERROR) {
             std::fprintf(stderr, "[gpu_detector] Failed to reset ACBO '%s'.\n", name);
@@ -159,7 +159,7 @@ namespace uvdar_core::detection::fimd {
     }
 
     struct ContextScope {
-        uvdar_core::detection::fimd::compute_shader::Context& context;
+        uvdar_core::helpers::compute_shader::Context& context;
         bool active;
         std::string message;
 
@@ -167,7 +167,7 @@ namespace uvdar_core::detection::fimd {
          * @brief Bind context for current thread and keep active flag.
          */
         ContextScope(
-            uvdar_core::detection::fimd::compute_shader::Context& context_,
+            uvdar_core::helpers::compute_shader::Context& context_,
             const std::string& message_)
             : context(context_)
             , active(context.makeCurrent())
@@ -439,15 +439,15 @@ struct GpuDetector::Impl {
     unsigned context_init_retry_count_ = 0;
     unsigned width   = 0;
     unsigned height  = 0;
-    uvdar_core::detection::fimd::compute_shader::Context context;
-    uvdar_core::detection::fimd::compute_shader::Program program;
-    uvdar_core::detection::fimd::compute_shader::SSBO image_buffer { "image_in", GL_UNSIGNED_INT, GL_DYNAMIC_DRAW };
-    uvdar_core::detection::fimd::compute_shader::SSBO mask_buffer { "mask", GL_UNSIGNED_INT, GL_DYNAMIC_DRAW };
-    uvdar_core::detection::fimd::compute_shader::ACBO marker_counter { "markers_count", GL_UNSIGNED_INT, GL_DYNAMIC_DRAW };
-    uvdar_core::detection::fimd::compute_shader::ACBO sun_counter { "sun_pts_count", GL_UNSIGNED_INT, GL_DYNAMIC_DRAW };
-    uvdar_core::detection::fimd::compute_shader::SSBO config_buffer { "configuration_buffer", GL_UNSIGNED_INT, GL_DYNAMIC_DRAW };
-    uvdar_core::detection::fimd::compute_shader::SSBO marker_buffer { "markers_buffer", GL_UNSIGNED_INT, GL_DYNAMIC_DRAW };
-    uvdar_core::detection::fimd::compute_shader::SSBO sun_buffer { "sun_pts_buffer", GL_UNSIGNED_INT, GL_DYNAMIC_DRAW };
+    uvdar_core::helpers::compute_shader::Context context;
+    uvdar_core::helpers::compute_shader::Program program;
+    uvdar_core::helpers::compute_shader::SSBO image_buffer { "image_in", GL_UNSIGNED_INT, GL_DYNAMIC_DRAW };
+    uvdar_core::helpers::compute_shader::SSBO mask_buffer { "mask", GL_UNSIGNED_INT, GL_DYNAMIC_DRAW };
+    uvdar_core::helpers::compute_shader::ACBO marker_counter { "markers_count", GL_UNSIGNED_INT, GL_DYNAMIC_DRAW };
+    uvdar_core::helpers::compute_shader::ACBO sun_counter { "sun_pts_count", GL_UNSIGNED_INT, GL_DYNAMIC_DRAW };
+    uvdar_core::helpers::compute_shader::SSBO config_buffer { "configuration_buffer", GL_UNSIGNED_INT, GL_DYNAMIC_DRAW };
+    uvdar_core::helpers::compute_shader::SSBO marker_buffer { "markers_buffer", GL_UNSIGNED_INT, GL_DYNAMIC_DRAW };
+    uvdar_core::helpers::compute_shader::SSBO sun_buffer { "sun_pts_buffer", GL_UNSIGNED_INT, GL_DYNAMIC_DRAW };
     std::vector<unsigned char> full_mask_;
     std::vector<std::uint32_t> packed_image_buffer_;
     std::vector<std::uint32_t> packed_mask_buffer_;

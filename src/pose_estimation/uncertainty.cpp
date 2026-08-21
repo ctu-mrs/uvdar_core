@@ -44,7 +44,7 @@ Eigen::Matrix<double, 2, 6> imageProjectionJacobian(
 
     // For a left-multiplied small rotation, d(RX+t)/dtheta = -[X_c]x.
     Eigen::Matrix<double, 2, 6> jacobian;
-    jacobian << project_jacobian, -project_jacobian * skew(camera_point);
+    jacobian << project_jacobian, -project_jacobian * uvdar_core::helpers::skew(camera_point);
     return jacobian;
 }
 

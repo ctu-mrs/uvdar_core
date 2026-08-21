@@ -9,7 +9,7 @@
 
 #include <Eigen/Dense>
 
-#include "uvdar_core/pose_estimation/math.hpp"
+#include "uvdar_core/helpers/math.hpp"
 
 namespace uvdar_core::pose_estimation::geometric_solver {
 
@@ -109,7 +109,7 @@ public:
 		for (const auto& pj : pose_jacs) {
 			BearingJacobian bj;
 			bj.sol = pj.sol;
-			bj.dpi_dpose = dampedRightPseudoInverse(pj.dpose_dpi);
+			bj.dpi_dpose = uvdar_core::helpers::dampedRightPseudoInverse(pj.dpose_dpi);
 			out.emplace_back(bj);
 		}
 
@@ -190,7 +190,7 @@ public:
 				alpha = std::atan2(sin_a, cos_a);
 			}
 
-			const Eigen::Matrix3d Rp = rotationZ(alpha);
+			const Eigen::Matrix3d Rp = uvdar_core::helpers::rotationZ(alpha);
 
 			const Eigen::Matrix3d R = prep.Rc.transpose() * Rp * prep.Rw;
 			const Eigen::Vector3d t = prep.Rc.transpose() * (Pc1 - Rp * Pw1);
@@ -247,7 +247,7 @@ public:
 		sols.reserve(s_vals.size());
 		for (double s : s_vals) {
 			const double alpha = 2.0 * std::atan(s);
-			const Eigen::Matrix3d Rp = rotationZ(alpha);
+			const Eigen::Matrix3d Rp = uvdar_core::helpers::rotationZ(alpha);
 
 			const Eigen::Vector3d R_delta = Rp * delta;
 			const Eigen::Vector3d lhs = p2.cross(p1);
@@ -303,8 +303,8 @@ private:
 		}
 
 		const Eigen::Vector3d z(0.0, 0.0, 1.0);
-		out.Rc = rotationBetween(v_cam / nvc, z);
-		out.Rw = rotationBetween(v_world / nvw, z);
+		out.Rc = uvdar_core::helpers::rotationBetween(v_cam / nvc, z);
+		out.Rw = uvdar_core::helpers::rotationBetween(v_world / nvw, z);
 
 		out.p1 = out.Rc * Pi.col(0);
 		out.p2 = out.Rc * Pi.col(1);
@@ -360,8 +360,8 @@ private:
 
 		for (double s : s_vals) {
 			const double alpha = 2.0 * std::atan(s);
-			const Eigen::Matrix3d Rp = rotationZ(alpha);
-			const Eigen::Matrix3d dRp_da = rotationZDerivative(alpha);
+			const Eigen::Matrix3d Rp = uvdar_core::helpers::rotationZ(alpha);
+			const Eigen::Matrix3d dRp_da = uvdar_core::helpers::rotationZDerivative(alpha);
 			const Eigen::Vector3d R_delta = Rp * delta;
 
 			const Eigen::Vector3d lhs = p2.cross(p1);
@@ -434,7 +434,7 @@ private:
 				const Eigen::Matrix3d dR = prep.Rc.transpose() * dRp * prep.Rw;
 				const Eigen::Vector3d dt = prep.Rc.transpose() * dtp;
 
-				const Eigen::Vector3d domega = omegaFromRotationDerivative(R, dR);
+				const Eigen::Vector3d domega = uvdar_core::helpers::omegaFromRotationDerivative(R, dR);
 				J.block<3, 1>(0, k) = domega;
 				J.block<3, 1>(3, k) = dt;
 			}
@@ -517,8 +517,8 @@ private:
 				alpha = std::atan2(sin_a, cos_a);
 			}
 
-			const Eigen::Matrix3d Rp = rotationZ(alpha);
-			const Eigen::Matrix3d dRp_da = rotationZDerivative(alpha);
+			const Eigen::Matrix3d Rp = uvdar_core::helpers::rotationZ(alpha);
+			const Eigen::Matrix3d dRp_da = uvdar_core::helpers::rotationZDerivative(alpha);
 
 			const Eigen::Matrix3d R = prep.Rc.transpose() * Rp * prep.Rw;
 			const Eigen::Vector3d Pc1 = lam1 * p1;
@@ -591,7 +591,7 @@ private:
 				const Eigen::Matrix3d dR = prep.Rc.transpose() * dRp * prep.Rw;
 				const Eigen::Vector3d dt = prep.Rc.transpose() * dtp;
 
-				const Eigen::Vector3d domega = omegaFromRotationDerivative(R, dR);
+				const Eigen::Vector3d domega = uvdar_core::helpers::omegaFromRotationDerivative(R, dR);
 				J.block<3, 1>(0, k) = domega;
 				J.block<3, 1>(3, k) = dt;
 			}

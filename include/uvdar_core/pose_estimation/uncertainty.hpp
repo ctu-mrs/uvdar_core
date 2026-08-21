@@ -6,7 +6,7 @@
 #include <Eigen/Geometry>
 
 #include "uvdar_core/pose_estimation/camera_model.hpp"
-#include "uvdar_core/pose_estimation/math.hpp"
+#include "uvdar_core/helpers/math.hpp"
 
 namespace uvdar_core::pose_estimation::uncertainty {
 

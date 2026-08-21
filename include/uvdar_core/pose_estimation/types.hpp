@@ -6,8 +6,6 @@
 #include <Eigen/Dense>
 #include <Eigen/Geometry>
 
-#include "uvdar_core/pose_estimation/math.hpp"
-
 namespace uvdar_core::pose_estimation {
 
 /**

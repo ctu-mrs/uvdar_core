@@ -1,4 +1,4 @@
-#include "uvdar_core/detection/fimd/compute_shader.hpp"
+#include "uvdar_core/helpers/compute_shader.hpp"
 
 #include <cerrno>
 #include <cstring>
@@ -10,7 +10,7 @@
 #include <sstream>
 #include <algorithm>
 
-namespace uvdar_core::detection::fimd::compute_shader {
+namespace uvdar_core::helpers::compute_shader {
 
 namespace {
 
@@ -274,9 +274,9 @@ GLuint Instance::flush_errors(FILE* out)
                 out,
                 "gpu: GL error #%u: %s (0x%X), severity: %s (0x%X), message = %s\n",
                 error->err_id,
-                uvdar_core::detection::fimd::GLES::get_define_name(error->type),
+        uvdar_core::helpers::gles::get_define_name(error->type),
                 error->type,
-                uvdar_core::detection::fimd::GLES::get_define_name(error->severity),
+        uvdar_core::helpers::gles::get_define_name(error->severity),
                 error->severity,
                 error->message.c_str());
         }
@@ -755,7 +755,7 @@ void Image2D::setup_format()
     default:
         break;
     }
-    compatibility_format = uvdar_core::detection::fimd::GLES::get_image2d_compatibility_format(internal_format);
+    compatibility_format = uvdar_core::helpers::gles::get_image2d_compatibility_format(internal_format);
 }
 
 /**
@@ -773,7 +773,7 @@ GLuint Image2D::init(GLenum framebuffer_attachment)
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, texture_filter);
     glTexStorage2D(GL_TEXTURE_2D, 1, internal_format, width, height);
     glBindImageTexture(resource.value, handle, 0, GL_FALSE, 0, access, compatibility_format);
-    const std::size_t type_size = uvdar_core::detection::fimd::GLES::get_type_size(type);
+    const std::size_t type_size = uvdar_core::helpers::gles::get_type_size(type);
     px_size                     = static_cast<GLuint>(type_size * num_components);
     data_size                   = px_size * width * height;
     if (framebuffer_attachment != 0) {
@@ -794,10 +794,10 @@ std::string Image2D::glsl_layout()
     const int result = asprintf(
         &str,
         "layout(%s, binding=%d) %s uniform highp %s %s",
-        uvdar_core::detection::fimd::GLES::get_glsl_image2d_format_qualifier(compatibility_format),
+        uvdar_core::helpers::gles::get_glsl_image2d_format_qualifier(compatibility_format),
         resource.value,
-        uvdar_core::detection::fimd::GLES::get_glsl_image2d_access(access),
-        uvdar_core::detection::fimd::GLES::get_glsl_image2d_type(compatibility_format),
+        uvdar_core::helpers::gles::get_glsl_image2d_access(access),
+        uvdar_core::helpers::gles::get_glsl_image2d_type(compatibility_format),
         resource.name.c_str());
     std::string out = (result < 0 || str == nullptr) ? std::string { } : std::string(str);
     if (str != nullptr) {
@@ -952,7 +952,7 @@ GLuint ACBO::destroy()
 GLuint ACBO::write(const void* data, GLint len)
 {
     glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, handle);
-    glBufferData(GL_ATOMIC_COUNTER_BUFFER, uvdar_core::detection::fimd::GLES::get_type_size(type) * len, data, usage);
+    glBufferData(GL_ATOMIC_COUNTER_BUFFER, uvdar_core::helpers::gles::get_type_size(type) * len, data, usage);
     glBindBufferBase(GL_ATOMIC_COUNTER_BUFFER, resource.value, handle);
     return Instance::gl_errors_count();
 }
@@ -971,7 +971,7 @@ GLuint ACBO::write_uint_val(GLuint value)
 GLuint ACBO::read(void* data, GLint len)
 {
     glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, handle);
-    const GLsizei size = uvdar_core::detection::fimd::GLES::get_type_size(type) * len;
+    const GLsizei size = uvdar_core::helpers::gles::get_type_size(type) * len;
     const void* ptr = glMapBufferRange(GL_ATOMIC_COUNTER_BUFFER, 0, size, GL_MAP_READ_BIT);
     if (ptr == nullptr) {
         std::fprintf(stderr, "Failed to map ACBO '%s'!\n", resource.name.c_str());
@@ -1044,7 +1044,7 @@ std::string SSBO::glsl_layout()
         "layout(std430, binding=%d) buffer %s { %s %s_data[]; }",
         resource.value,
         resource.name.c_str(),
-        uvdar_core::detection::fimd::GLES::get_glsl_data_type(type),
+        uvdar_core::helpers::gles::get_glsl_data_type(type),
         resource.name.c_str());
     std::string out = (result < 0 || str == nullptr) ? std::string { } : std::string(str);
     if (str != nullptr) {
@@ -1059,7 +1059,7 @@ std::string SSBO::glsl_layout()
 GLuint SSBO::write(const void* data, GLint len)
 {
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, handle);
-    glBufferData(GL_SHADER_STORAGE_BUFFER, uvdar_core::detection::fimd::GLES::get_type_size(type) * len, data, usage);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, uvdar_core::helpers::gles::get_type_size(type) * len, data, usage);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, resource.value, handle);
     return Instance::gl_errors_count();
 }
@@ -1070,7 +1070,7 @@ GLuint SSBO::write(const void* data, GLint len)
 GLuint SSBO::read(void* data, GLint len)
 {
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, handle);
-    const GLint size = uvdar_core::detection::fimd::GLES::get_type_size(type) * len;
+    const GLint size = uvdar_core::helpers::gles::get_type_size(type) * len;
     const void* ptr = glMapBufferRange(GL_SHADER_STORAGE_BUFFER, 0, size, GL_MAP_READ_BIT);
     if (ptr == nullptr) {
         std::fprintf(stderr, "Failed to map SSBO '%s'!\n", resource.name.c_str());
@@ -1414,4 +1414,4 @@ std::string loadShaderSource(
     return loadShaderSource(buffer.str(), replacements);
 }
 
-} // namespace uvdar_core::detection::fimd::compute_shader
+} // namespace uvdar_core::helpers::compute_shader

@@ -7,7 +7,7 @@
 #include <stdexcept>
 #include <string>
 
-#include "uvdar_core/pose_estimation/math.hpp"
+#include "uvdar_core/helpers/math.hpp"
 
 namespace uvdar_core::calibration::fisheye {
 
@@ -269,7 +269,7 @@ Eigen::Matrix<double, 3, 2> OcamModel::backProjectJacobian(const Eigen::Vector2d
         dz_dx, dz_dy;
     const Eigen::Vector3d raw_vector(x, y, z);
     const Eigen::Matrix<double, 3, 2> draw_draw_image =
-        pose_estimation::normalizedVectorJacobian(raw_vector, epsilon) * draw_dxy * affine_inverse;
+        uvdar_core::helpers::normalizedVectorJacobian(raw_vector, epsilon) * draw_dxy * affine_inverse;
 
     Eigen::Matrix3d public_axis = Eigen::Matrix3d::Zero();
     public_axis(0, 1) = 1.0;

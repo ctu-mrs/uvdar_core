@@ -11,7 +11,7 @@
 
 #include <Eigen/Dense>
 
-#include "uvdar_core/pose_estimation/math.hpp"
+#include "uvdar_core/helpers/math.hpp"
 
 namespace uvdar_core::pose_estimation::geometric_solver {
 
@@ -284,9 +284,9 @@ public:
                 const Eigen::Vector3d Rpw = sol.R * Pw.col(i);
                 const Eigen::Vector3d pc = Rpw + sol.t;
 
-                const Eigen::Matrix3d S_pi = skew(pi_i);
-                const Eigen::Matrix3d S_pc = skew(pc);
-                const Eigen::Matrix3d S_Rpw = skew(Rpw);
+                const Eigen::Matrix3d S_pi = uvdar_core::helpers::skew(pi_i);
+                const Eigen::Matrix3d S_pc = uvdar_core::helpers::skew(pc);
+                const Eigen::Matrix3d S_Rpw = uvdar_core::helpers::skew(Rpw);
 
                 const int r0 = 3 * i;
                 const int c0 = 3 * i;
@@ -336,7 +336,7 @@ public:
         for (const auto& pj : pose_jacs) {
             BearingJacobian bj;
             bj.sol = pj.sol;
-            bj.dpi_dpose = dampedRightPseudoInverse(pj.dpose_dpi, std::max(damping, 1.0e-15));
+            bj.dpi_dpose = uvdar_core::helpers::dampedRightPseudoInverse(pj.dpose_dpi, std::max(damping, 1.0e-15));
 
             if (!bj.dpi_dpose.allFinite()) {
                 continue;

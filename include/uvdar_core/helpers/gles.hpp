@@ -6,7 +6,7 @@
 
 #include <GLES3/gl32.h>
 
-namespace uvdar_core::detection::fimd::GLES {
+namespace uvdar_core::helpers::gles {
 
 /// Structure of RGBA pixel containing 8-bit unsigned channels.
 struct rgba {
@@ -2210,6 +2210,6 @@ inline const char* get_glsl_data_type(GLenum type)
     }
 }
 
-}
+} // namespace uvdar_core::helpers::gles
 
 #endif

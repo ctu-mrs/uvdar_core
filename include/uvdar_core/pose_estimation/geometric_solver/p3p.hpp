@@ -11,8 +11,8 @@
 
 #include <Eigen/Dense>
 
-#include "uvdar_core/pose_estimation/geometric_solver/poly_quartic.hpp"
-#include "uvdar_core/pose_estimation/math.hpp"
+#include "uvdar_core/helpers/poly_quartic.hpp"
+#include "uvdar_core/helpers/math.hpp"
 
 namespace uvdar_core::pose_estimation::geometric_solver {
 
@@ -117,7 +117,7 @@ public:
         }
 
         std::vector<Solution> output;
-        const auto roots = poly_quartic::roots(coefficients);
+        const auto roots = uvdar_core::helpers::poly_quartic::roots(coefficients);
         for (const auto& root : roots) {
             if (std::abs(root.imag()) > 1.0e-8 * std::max(1.0, std::abs(root.real()))) {
                 continue;
@@ -179,19 +179,19 @@ public:
                 if (plus_solution.first && minus_solution.first) {
                     const double scale = 1.0 / (2.0 * eps);
                     pose_jacobian.dpose_dpi.block<3, 1>(0, parameter) =
-                        omegaFromRotationDerivative(base.R, (plus_solution.second.R - minus_solution.second.R) * scale);
+                        uvdar_core::helpers::omegaFromRotationDerivative(base.R, (plus_solution.second.R - minus_solution.second.R) * scale);
                     pose_jacobian.dpose_dpi.block<3, 1>(3, parameter) =
                         (plus_solution.second.t - minus_solution.second.t) * scale;
                 } else if (plus_solution.first) {
                     const double scale = 1.0 / eps;
                     pose_jacobian.dpose_dpi.block<3, 1>(0, parameter) =
-                        omegaFromRotationDerivative(base.R, (plus_solution.second.R - base.R) * scale);
+                        uvdar_core::helpers::omegaFromRotationDerivative(base.R, (plus_solution.second.R - base.R) * scale);
                     pose_jacobian.dpose_dpi.block<3, 1>(3, parameter) =
                         (plus_solution.second.t - base.t) * scale;
                 } else if (minus_solution.first) {
                     const double scale = 1.0 / eps;
                     pose_jacobian.dpose_dpi.block<3, 1>(0, parameter) =
-                        omegaFromRotationDerivative(base.R, (base.R - minus_solution.second.R) * scale);
+                        uvdar_core::helpers::omegaFromRotationDerivative(base.R, (base.R - minus_solution.second.R) * scale);
                     pose_jacobian.dpose_dpi.block<3, 1>(3, parameter) =
                         (base.t - minus_solution.second.t) * scale;
                 }
@@ -217,7 +217,7 @@ public:
         for (const PoseJacobian& pose_jacobian : pose_jacobians) {
             BearingJacobian bearing_jacobian;
             bearing_jacobian.sol = pose_jacobian.sol;
-            bearing_jacobian.dpi_dpose = dampedRightPseudoInverse(pose_jacobian.dpose_dpi);
+            bearing_jacobian.dpi_dpose = uvdar_core::helpers::dampedRightPseudoInverse(pose_jacobian.dpose_dpi);
             output.push_back(bearing_jacobian);
         }
         return output;

@@ -19,9 +19,9 @@
 #include <GLES3/gl32.h>
 #include <gbm.h>
 
-#include "uvdar_core/detection/fimd/gles.hpp"
+#include "uvdar_core/helpers/gles.hpp"
 
-namespace uvdar_core::detection::fimd::compute_shader {
+namespace uvdar_core::helpers::compute_shader {
 
 /**
  * @brief Error payload emitted from GL debug callback.
@@ -499,4 +499,4 @@ std::string loadShaderSource(
     const std::filesystem::path& shader_path,
     const std::vector<std::pair<std::string, std::string>>& replacements = { });
 
-} // namespace uvdar_core::detection::fimd::compute_shader
+} // namespace uvdar_core::helpers::compute_shader

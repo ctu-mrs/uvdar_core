@@ -1,8 +1,8 @@
-#include "uvdar_core/app/thread_pool.hpp"
+#include "uvdar_core/helpers/thread_pool.hpp"
 
 #include <stdexcept>
 
-namespace uvdar_core::app {
+namespace uvdar_core::helpers {
 
 /**
  * @brief Construct fixed-size worker pool.
@@ -72,4 +72,4 @@ void ThreadPool::runWorker()
     }
 }
 
-} // namespace uvdar_core::app
+} // namespace uvdar_core::helpers

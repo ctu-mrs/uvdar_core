@@ -1,6 +1,6 @@
 #include "uvdar_core/app/pose_estimator_node.hpp"
 
-#include "uvdar_core/app/frame_namespace.hpp"
+#include "uvdar_core/helpers/frame_namespace.hpp"
 
 #include <algorithm>
 #include <array>
@@ -20,7 +20,7 @@
 #include <tf2/time.h>
 #include <yaml-cpp/yaml.h>
 
-#include "uvdar_core/app/ros_conversions.hpp"
+#include "uvdar_core/helpers/ros_conversions.hpp"
 #include "uvdar_core/calibration/fisheye/equidistant_model.hpp"
 #include "uvdar_core/calibration/fisheye/ocam_model.hpp"
 #include "uvdar_core/calibration/fisheye/radial_model.hpp"
@@ -588,7 +588,7 @@ void PoseEstimatorNode::loadConfiguration(const std::string& config_path_string)
     }
     const std::string implementation = optionalScalar<std::string>(pose_node, "implementation", "particle_filter");
 
-    output_frame_ = resolveFrameName(optionalScalar<std::string>(pose_node, "output_frame", "local_origin"));
+    output_frame_ = uvdar_core::helpers::resolveFrameName(optionalScalar<std::string>(pose_node, "output_frame", "local_origin"));
     const std::string output_topic = optionalScalar<std::string>(pose_node, "output_topic", "measuredPoses");
     publish_constituents_ = optionalScalar<bool>(pose_node, "publish_constituents", false);
     publish_visualization_ = optionalScalar<bool>(pose_node, "publish_visualization", false);
@@ -620,7 +620,7 @@ void PoseEstimatorNode::loadConfiguration(const std::string& config_path_string)
         InputConfig input;
         input.name = optionalScalar<std::string>(input_node, "name", "camera_" + std::to_string(inputs_.size()));
         input.input_topic = requireString(input_node, "input_topic");
-        input.camera_frame = resolveFrameName(requireString(input_node, "camera_frame"));
+        input.camera_frame = uvdar_core::helpers::resolveFrameName(requireString(input_node, "camera_frame"));
         input.calib_file = resolvePath(config_path, optionalScalar<std::string>(input_node, "calib_file", std::string {}));
         inputs_.push_back(input);
 
@@ -783,7 +783,7 @@ void PoseEstimatorNode::onTrackerOutput(const uvdar_core::msg::TrackerOutput::Co
         points.push_back(point);
     }
     if (camera_index == 0U) {
-        latest_primary_input_stamp_ = toSeconds(msg->stamp);
+        latest_primary_input_stamp_ = uvdar_core::helpers::toSeconds(msg->stamp);
     }
 
     pose_estimator_->processFrame(
@@ -791,12 +791,12 @@ void PoseEstimatorNode::onTrackerOutput(const uvdar_core::msg::TrackerOutput::Co
         points,
         static_cast<int>(msg->image_width),
         static_cast<int>(msg->image_height),
-        toSeconds(msg->stamp),
-        toEigen(camera_to_output_msg),
-        toEigen(output_to_camera_msg));
+        uvdar_core::helpers::toSeconds(msg->stamp),
+        uvdar_core::helpers::toEigen(camera_to_output_msg),
+        uvdar_core::helpers::toEigen(output_to_camera_msg));
 
     if (publish_visualization_ && visualization_publisher_ && !particle_filter_implementation_ && camera_index == 0U) {
-        auto measurements = pose_estimator_->scatterAndMeasure(get_clock()->now().seconds(), toSeconds(msg->stamp));
+        auto measurements = pose_estimator_->scatterAndMeasure(get_clock()->now().seconds(), uvdar_core::helpers::toSeconds(msg->stamp));
         queueVisualization(std::move(measurements), msg->stamp);
     }
 }
@@ -812,7 +812,7 @@ void PoseEstimatorNode::onScatterTimer()
     auto measurements = pose_estimator_->scatterAndMeasure(now_sec, stamp_sec);
     publishMeasurements(measurements, measured_publisher_);
     if (publish_visualization_ && visualization_publisher_ && particle_filter_implementation_) {
-        queueVisualization(measurements, toRosTime(stamp_sec));
+        queueVisualization(measurements, uvdar_core::helpers::toRosTime(stamp_sec));
     }
 
     if (publish_constituents_) {
@@ -926,8 +926,8 @@ void PoseEstimatorNode::publishMeasurements(
     for (const auto& measurement : measurements.poses) {
         uvdar_core::msg::PoseWithCovarianceIdentified pose_msg;
         pose_msg.id = measurement.id;
-        pose_msg.pose = toMsg(measurement.pose);
-        pose_msg.covariance = covarianceToMsg(measurement.covariance);
+        pose_msg.pose = uvdar_core::helpers::toMsg(measurement.pose);
+        pose_msg.covariance = uvdar_core::helpers::covarianceToMsg(measurement.covariance);
         msg.poses.push_back(std::move(pose_msg));
     }
     publisher->publish(msg);

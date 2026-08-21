@@ -7,7 +7,7 @@
 #include <Eigen/Dense>
 #include <Eigen/Geometry>
 
-namespace uvdar_core::pose_estimation {
+namespace uvdar_core::helpers {
 
 /**
  * @brief Return x^2 without repeating value * value at call sites.
@@ -169,4 +169,4 @@ Eigen::Matrix<double, Cols, Rows> dampedRightPseudoInverse(
     return matrix.transpose() * normal.ldlt().solve(Eigen::Matrix<double, Rows, Rows>::Identity());
 }
 
-} // namespace uvdar_core::pose_estimation
+} // namespace uvdar_core::helpers

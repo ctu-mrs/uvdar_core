@@ -22,7 +22,7 @@ DetectorNode::DetectorNode(const rclcpp::NodeOptions& options)
 {
     loadConfig();
     startup_time_ = now();
-    thread_pool_  = std::make_unique<uvdar_core::app::ThreadPool>(config_.detector.thread_pool_size);
+    thread_pool_  = std::make_unique<uvdar_core::helpers::ThreadPool>(config_.detector.thread_pool_size);
     createInterfaces();
 
     RCLCPP_INFO(get_logger(), "UVDAR detector node initialized.");

@@ -12,7 +12,7 @@
 #include <limits>
 #include <Eigen/Dense>
 
-namespace uvdar_core::pose_estimation::geometric_solver {
+namespace uvdar_core::helpers::poly_quartic {
 
 /**
  * @brief Small algebraic helpers for quartic equations used by P3P/P4P.
@@ -20,7 +20,6 @@ namespace uvdar_core::pose_estimation::geometric_solver {
  * Coefficients are stored in ascending order, c0 + c1 x + ... + c4 x^4. The
  * root Jacobians follow implicit differentiation of f(root, coeffs) = 0.
  */
-namespace poly_quartic {
     /**
      * @brief Closed-form Ferrari roots of a quartic polynomial.
      */
@@ -112,9 +111,6 @@ namespace poly_quartic {
         }
         return J;
     }
-};
-
-
-} // namespace uvdar_core::pose_estimation::geometric_solver
+} // namespace uvdar_core::helpers::poly_quartic
 
 #endif // POLY_QUARTIC_HPP

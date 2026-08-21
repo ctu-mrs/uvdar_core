@@ -1,6 +1,8 @@
 #pragma once
 
 #include <array>
+#include <cstddef>
+#include <cstdint>
 #include <cmath>
 
 #include <Eigen/Dense>
@@ -9,9 +11,7 @@
 #include <geometry_msgs/msg/pose.hpp>
 #include <geometry_msgs/msg/transform_stamped.hpp>
 
-#include "uvdar_core/pose_estimation/types.hpp"
-
-namespace uvdar_core::app {
+namespace uvdar_core::helpers {
 
 /**
  * @brief Convert a ROS 2 timestamp to seconds for estimator internals.
@@ -55,9 +55,10 @@ inline Eigen::Isometry3d toEigen(const geometry_msgs::msg::TransformStamped& tra
 }
 
 /**
- * @brief Convert the internal pose representation to a ROS pose message.
+ * @brief Convert any position-and-orientation pose representation to a ROS pose message.
  */
-inline geometry_msgs::msg::Pose toMsg(const pose_estimation::Pose& pose)
+template <typename Pose>
+inline geometry_msgs::msg::Pose toMsg(const Pose& pose)
 {
     geometry_msgs::msg::Pose output;
     output.position.x = pose.position.x();
@@ -99,21 +100,6 @@ inline std::array<double, 36> covarianceToMsg(const Eigen::Matrix<double, 6, 6>&
 }
 
 /**
- * @brief Extract the published 6D covariance from a 6D or 9D filter state covariance.
- */
-inline std::array<double, 36> stateCovarianceToMsg(const Eigen::MatrixXd& input, bool velocity_state)
-{
-    Eigen::Matrix<double, 6, 6> covariance = Eigen::Matrix<double, 6, 6>::Zero();
-    if (velocity_state) {
-        covariance.topLeftCorner<3, 3>() = input.topLeftCorner<3, 3>();
-        covariance.bottomRightCorner<3, 3>() = input.bottomRightCorner<3, 3>();
-    } else {
-        covariance = input.topLeftCorner<6, 6>();
-    }
-    return covarianceToMsg(covariance);
-}
-
-/**
  * @brief Rotate the translational and angular 3x3 blocks of a 6D pose covariance.
  */
 inline Eigen::Matrix<double, 6, 6> rotatePoseCovariance(
@@ -128,4 +114,4 @@ inline Eigen::Matrix<double, 6, 6> rotatePoseCovariance(
     return output;
 }
 
-} // namespace uvdar_core::app
+} // namespace uvdar_core::helpers

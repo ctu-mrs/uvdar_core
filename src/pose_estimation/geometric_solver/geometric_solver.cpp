@@ -305,7 +305,7 @@ std::optional<GeometricSolver::CameraPose> GeometricSolver::solvePnP(const std::
 
             CameraPose perturbed = pose;
             if (parameter < 3) {
-                perturbed.rotation = expSO3(delta.head<3>()) * pose.rotation;
+                perturbed.rotation = uvdar_core::helpers::expSO3(delta.head<3>()) * pose.rotation;
             } else {
                 perturbed.translation(parameter - 3) += config_.pnp_finite_difference_eps;
             }
@@ -322,7 +322,7 @@ std::optional<GeometricSolver::CameraPose> GeometricSolver::solvePnP(const std::
         }
 
         // Left-multiplicative SO(3) update, additive translation update.
-        pose.rotation = expSO3(step.head<3>()) * pose.rotation;
+        pose.rotation = uvdar_core::helpers::expSO3(step.head<3>()) * pose.rotation;
         pose.translation += step.tail<3>();
     }
 
@@ -649,7 +649,7 @@ GeometricSolver::CameraPose GeometricSolver::refinePose(const CameraPose& seed, 
             break;
         }
         pose.translation += delta.head<3>();
-        pose.rotation = expSO3(delta.tail<3>()) * pose.rotation;
+        pose.rotation = uvdar_core::helpers::expSO3(delta.tail<3>()) * pose.rotation;
     }
     return pose;
 }
