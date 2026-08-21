@@ -5,6 +5,7 @@
 #include <cmath>
 #include <iomanip>
 #include <limits>
+#include <memory>
 #include <numbers>
 #include <numeric>
 #include <optional>
@@ -38,11 +39,46 @@ constexpr double kCvPlotMarginLeft = 40.0;
 constexpr double kCvPlotMarginRight = 10.0;
 constexpr double kCvPlotMarginTop = 26.0;
 constexpr double kCvPlotMarginBottom = 30.0;
+// CvPlot expands automatically fitted ranges by 10% on both axes.  Keep all
+// manually drawn overlays in that exact coordinate transform.
+constexpr double kCvPlotViewportScale = 1.1;
 
 enum class PosePlotPlane {
     XY,
     XZ,
     YZ,
+};
+
+// The top and YZ views use Y as their horizontal coordinate.  Mirror it in
+// the plotting transformation (rather than just mirroring the overlays) so
+// that the grid, tick labels, black origin cross, and pose annotations all
+// describe the same coordinate system.
+class MirroredHorizontalTransformation final : public CvPlot::Transformation {
+public:
+    cv::Point2d transform(const cv::Point2d& point) const override
+    {
+        return {-point.x, point.y};
+    }
+
+    cv::Point2d untransform(const cv::Point2d& point) const override
+    {
+        return {-point.x, point.y};
+    }
+
+    cv::Rect2d transformBoundingRect(const cv::Rect2d& rect) const override
+    {
+        return {-rect.x - rect.width, rect.y, rect.width, rect.height};
+    }
+
+    std::pair<double, double> transformXLim(std::pair<double, double> limits) const override
+    {
+        return {-limits.second, -limits.first};
+    }
+
+    std::pair<double, double> untransformXLim(std::pair<double, double> limits) const override
+    {
+        return {-limits.second, -limits.first};
+    }
 };
 
 struct PoseLayout {
@@ -160,12 +196,20 @@ std::string coordinateLabel(double value)
     return stream.str();
 }
 
-cv::Point cvPlotPixel(double x, double y, double range_x, double range_y, int width, int height)
+bool mirrorsHorizontalAxis(PosePlotPlane plane)
+{
+    return plane == PosePlotPlane::XY || plane == PosePlotPlane::YZ;
+}
+
+cv::Point cvPlotPixel(double x, double y, double range_x, double range_y, int width, int height, bool mirror_horizontal = false)
 {
     const double plot_width = std::max(1.0, static_cast<double>(width) - kCvPlotMarginLeft - kCvPlotMarginRight);
     const double plot_height = std::max(1.0, static_cast<double>(height) - kCvPlotMarginTop - kCvPlotMarginBottom);
-    const double scale_x = (plot_width / 2.0) / (std::max(0.001, range_x) * 1.05);
-    const double scale_y = (plot_height / 2.0) / (std::max(0.001, range_y) * 1.05);
+    const double scale_x = (plot_width / 2.0) / (std::max(0.001, range_x) * kCvPlotViewportScale);
+    const double scale_y = (plot_height / 2.0) / (std::max(0.001, range_y) * kCvPlotViewportScale);
+    if (mirror_horizontal) {
+        x = -x;
+    }
     return {
         static_cast<int>(std::lround(kCvPlotMarginLeft + plot_width * 0.5 + x * scale_x)),
         static_cast<int>(std::lround(kCvPlotMarginTop + plot_height * 0.5 - y * scale_y)),
@@ -195,7 +239,8 @@ void drawCvPlotCovarianceEllipse(
     const PoseVisualizationPose& pose,
     PosePlotPlane plane,
     double range_x,
-    double range_y)
+    double range_y,
+    bool mirror_horizontal)
 {
     const Eigen::Matrix2d plane_covariance = planeCovariance(pose.position_covariance, plane);
     const Eigen::Matrix2d covariance = 0.5 * (plane_covariance + plane_covariance.transpose());
@@ -214,9 +259,9 @@ void drawCvPlotCovarianceEllipse(
     const auto [x, y] = planePosition(pose, plane);
     const Eigen::Vector2d major = solver.eigenvectors().col(1) * standard_deviations[1] * kCovarianceScale;
     const Eigen::Vector2d minor = solver.eigenvectors().col(0) * standard_deviations[0] * kCovarianceScale;
-    const cv::Point center = cvPlotPixel(x, y, range_x, range_y, plot.cols, plot.rows);
-    const cv::Point major_end = cvPlotPixel(x + major.x(), y + major.y(), range_x, range_y, plot.cols, plot.rows);
-    const cv::Point minor_end = cvPlotPixel(x + minor.x(), y + minor.y(), range_x, range_y, plot.cols, plot.rows);
+    const cv::Point center = cvPlotPixel(x, y, range_x, range_y, plot.cols, plot.rows, mirror_horizontal);
+    const cv::Point major_end = cvPlotPixel(x + major.x(), y + major.y(), range_x, range_y, plot.cols, plot.rows, mirror_horizontal);
+    const cv::Point minor_end = cvPlotPixel(x + minor.x(), y + minor.y(), range_x, range_y, plot.cols, plot.rows, mirror_horizontal);
     const cv::Point2d major_delta = major_end - center;
     const cv::Point2d minor_delta = minor_end - center;
     const int major_radius = static_cast<int>(std::lround(cv::norm(major_delta)));
@@ -233,7 +278,8 @@ void drawCvPlotAxes(
     const PoseVisualizationPose& pose,
     PosePlotPlane plane,
     double range_x,
-    double range_y)
+    double range_y,
+    bool mirror_horizontal)
 {
     struct ProjectedAxis {
         Eigen::Vector2d direction;
@@ -252,7 +298,7 @@ void drawCvPlotAxes(
     });
 
     const auto [x, y] = planePosition(pose, plane);
-    const cv::Point origin = cvPlotPixel(x, y, range_x, range_y, plot.cols, plot.rows);
+    const cv::Point origin = cvPlotPixel(x, y, range_x, range_y, plot.cols, plot.rows, mirror_horizontal);
     const double axis_length = std::max(0.2, kAxisLengthFactor * std::min(range_x, range_y));
     for (const ProjectedAxis& axis : axes) {
         const cv::Point endpoint = cvPlotPixel(
@@ -261,9 +307,66 @@ void drawCvPlotAxes(
             range_x,
             range_y,
             plot.cols,
-            plot.rows);
+            plot.rows,
+            mirror_horizontal);
         cv::line(plot, origin, endpoint, kAxisColors[axis.color_index], 2, cv::LINE_AA);
     }
+}
+
+void drawOpenArrowhead(cv::Mat& plot, const cv::Point& tip, const cv::Point& origin)
+{
+    const cv::Point2d to_origin = origin - tip;
+    const double length = cv::norm(to_origin);
+    if (length < 1.0) {
+        return;
+    }
+
+    // Two one-pixel strokes form a compact, open arrowhead matching the
+    // existing black coordinate cross.
+    const cv::Point2d backwards = to_origin * (6.0 / length);
+    const cv::Point2d sideways {-backwards.y * 0.55, backwards.x * 0.55};
+    const auto to_pixel = [](const cv::Point2d& point) {
+        return cv::Point(static_cast<int>(std::lround(point.x)), static_cast<int>(std::lround(point.y)));
+    };
+    const cv::Point2d tip_as_double(tip.x, tip.y);
+    cv::line(plot, tip, to_pixel(tip_as_double + backwards + sideways), cv::Scalar(0, 0, 0), 1, cv::LINE_AA);
+    cv::line(plot, tip, to_pixel(tip_as_double + backwards - sideways), cv::Scalar(0, 0, 0), 1, cv::LINE_AA);
+}
+
+void drawCvPlotOriginArrows(cv::Mat& plot, PosePlotPlane plane, double range_x, double range_y, bool mirror_horizontal)
+{
+    const cv::Point origin = cvPlotPixel(0.0, 0.0, range_x, range_y, plot.cols, plot.rows, mirror_horizontal);
+    const cv::Point horizontal_positive = cvPlotPixel(range_x, 0.0, range_x, range_y, plot.cols, plot.rows, mirror_horizontal);
+    const cv::Point vertical_positive = cvPlotPixel(0.0, range_y, range_x, range_y, plot.cols, plot.rows, mirror_horizontal);
+
+    // CvPlot's non-square XY raster ends are slightly offset from the common
+    // overlay transform.  Compensate just the arrowheads; square XZ/YZ plots
+    // remain pixel-aligned without any adjustment.
+    const cv::Point horizontal_offset = plane == PosePlotPlane::XY ? cv::Point(-4, 0) : cv::Point();
+    const cv::Point vertical_offset = plane == PosePlotPlane::XY ? cv::Point(-2, 2) : cv::Point();
+    drawOpenArrowhead(plot, horizontal_positive + horizontal_offset, origin + horizontal_offset);
+    drawOpenArrowhead(plot, vertical_positive + vertical_offset, origin + vertical_offset);
+}
+
+void drawPlotUnitLabel(cv::Mat& plot, const std::string& label, const cv::Point& baseline)
+{
+    constexpr double font_scale = 0.5;
+    constexpr int font_thickness = 1;
+    // A one-pixel border makes the background only two pixels larger overall
+    // than the rendered text while still erasing an intersecting tick.
+    constexpr int padding = 1;
+    int text_baseline = 0;
+    const cv::Size text_size = cv::getTextSize(label, cv::FONT_HERSHEY_SIMPLEX, font_scale, font_thickness, &text_baseline);
+    cv::Rect background(
+        baseline.x - padding,
+        baseline.y - text_size.height - padding,
+        text_size.width + 2 * padding,
+        text_size.height + text_baseline + 2 * padding);
+    background &= cv::Rect(0, 0, plot.cols, plot.rows);
+    if (background.area() > 0) {
+        cv::rectangle(plot, background, kCanvasColor, cv::FILLED);
+    }
+    cv::putText(plot, label, baseline, cv::FONT_HERSHEY_SIMPLEX, font_scale, cv::Scalar(0, 0, 0), font_thickness, cv::LINE_AA);
 }
 
 cv::Mat renderCvPlot(
@@ -278,6 +381,10 @@ cv::Mat renderCvPlot(
     int height)
 {
     auto axes = CvPlot::makePlotAxes();
+    const bool mirror_horizontal = mirrorsHorizontalAxis(plane);
+    if (mirror_horizontal) {
+        axes.setTransformation(std::make_unique<MirroredHorizontalTransformation>());
+    }
     axes.setMargins(
         static_cast<int>(kCvPlotMarginLeft),
         static_cast<int>(kCvPlotMarginRight),
@@ -291,17 +398,26 @@ cv::Mat renderCvPlot(
     }
 
     cv::putText(plot, title, {static_cast<int>(kCvPlotMarginLeft) + 22, static_cast<int>(kCvPlotMarginTop) - 6}, cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 0, 0), 1, cv::LINE_AA);
-    cv::putText(plot, horizontal_label, {plot.cols - static_cast<int>(kCvPlotMarginRight) - 45, plot.rows - static_cast<int>(kCvPlotMarginBottom) / 2 + 5}, cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 0, 0), 1, cv::LINE_AA);
-    cv::putText(plot, vertical_label, {6, static_cast<int>(kCvPlotMarginTop) - 6}, cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 0, 0), 1, cv::LINE_AA);
+    int horizontal_label_baseline = 0;
+    const cv::Size horizontal_label_size = cv::getTextSize(horizontal_label, cv::FONT_HERSHEY_SIMPLEX, 0.5, 1, &horizontal_label_baseline);
+    const int horizontal_label_x = mirror_horizontal
+        ? static_cast<int>(kCvPlotMarginLeft) + 4
+        : plot.cols - static_cast<int>(kCvPlotMarginRight) - horizontal_label_size.width;
+    drawPlotUnitLabel(
+        plot,
+        horizontal_label,
+        {horizontal_label_x, plot.rows - static_cast<int>(kCvPlotMarginBottom) / 2 + 5});
+    drawPlotUnitLabel(plot, vertical_label, {6, static_cast<int>(kCvPlotMarginTop) - 6});
+    drawCvPlotOriginArrows(plot, plane, range_x, range_y, mirror_horizontal);
 
     for (const PoseVisualizationPose& pose : poses) {
         const auto [x, y] = planePosition(pose, plane);
-        const cv::Point position = cvPlotPixel(x, y, range_x, range_y, plot.cols, plot.rows);
+        const cv::Point position = cvPlotPixel(x, y, range_x, range_y, plot.cols, plot.rows, mirror_horizontal);
         if (position.x < 0 || position.y < 0 || position.x >= plot.cols || position.y >= plot.rows) {
             continue;
         }
-        drawCvPlotCovarianceEllipse(plot, pose, plane, range_x, range_y);
-        drawCvPlotAxes(plot, pose, plane, range_x, range_y);
+        drawCvPlotCovarianceEllipse(plot, pose, plane, range_x, range_y, mirror_horizontal);
+        drawCvPlotAxes(plot, pose, plane, range_x, range_y, mirror_horizontal);
         cv::putText(plot, "ID:" + std::to_string(pose.id), position + cv::Point(6, -6), cv::FONT_HERSHEY_SIMPLEX, 0.55, cv::Scalar(0, 0, 0), 1, cv::LINE_AA);
     }
     return plot;
