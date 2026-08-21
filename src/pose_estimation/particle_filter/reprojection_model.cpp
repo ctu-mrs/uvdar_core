@@ -15,16 +15,6 @@ constexpr double max_initial_velocity = 1.0;
 // Empirical LED brightness model: a + b / (range + c)^2, scaled by cos(view).
 constexpr double led_projection_coefs[3] = {1.3398, 31.4704, 0.0154};
 
-int cameraWidth(const CameraModel& camera)
-{
-    return camera.image_width > 0 ? camera.image_width : camera.lens->imageWidth();
-}
-
-int cameraHeight(const CameraModel& camera)
-{
-    return camera.image_height > 0 ? camera.image_height : camera.lens->imageHeight();
-}
-
 } // namespace
 
 ReprojectionModel::ReprojectionModel(std::vector<CameraModel> cameras, uvdar_core::pose_estimation::BodyModel body, Options options)
@@ -37,7 +27,7 @@ ReprojectionModel::ReprojectionModel(std::vector<CameraModel> cameras, uvdar_cor
 
 Eigen::Vector3d ReprojectionModel::directionFromImagePoint(const Eigen::Vector2d& point, std::size_t camera_index) const
 {
-    return cameras_.at(camera_index).lens->backProject(point);
+    return cameras_.at(camera_index).backProject(point);
 }
 
 double ReprojectionModel::hypothesisError(const Hypothesis& hypothesis, const ReprojectionContext& context) const
@@ -70,9 +60,16 @@ std::vector<Hypothesis> ReprojectionModel::extractHypotheses(
             directions.push_back(directionFromImagePoint(point.position.cast<double>(), camera_index));
         }
     }
+    Eigen::Vector2d cluster_center = Eigen::Vector2d::Zero();
+    for (const auto& point : points) {
+        cluster_center += point.position.cast<double>();
+    }
+    cluster_center /= static_cast<double>(points.size());
 
     Eigen::Vector3d furthest_position = Eigen::Vector3d::Zero();
-    if (points.size() == 1U || largestAngle(directions) < 0.01 || averageIsNearEdge(points, options_.edge_detection_margin, camera_index)) {
+    if (points.size() == 1U
+        || CameraModel::largestBearingAngle(directions) < 0.01
+        || !cameras_.at(camera_index).containsPixel(cluster_center, static_cast<double>(options_.edge_detection_margin))) {
         // With weak angular baseline, fall back to the far-range ray prior.
         furthest_position = directionFromImagePoint(points.front().position.cast<double>(), camera_index) * uvdarRange(camera_index);
     } else {
@@ -130,37 +127,37 @@ std::vector<Hypothesis> ReprojectionModel::extractHypotheses(
 
 double ReprojectionModel::reprojectionThresholdInitial(std::size_t camera_index) const
 {
-    return uvdar_core::helpers::squared(cameraWidth(cameras_.at(camera_index)) / 50.0);
+    return uvdar_core::helpers::squared(cameras_.at(camera_index).width() / 50.0);
 }
 
 double ReprojectionModel::reprojectionThresholdMutation1(std::size_t camera_index) const
 {
-    return uvdar_core::helpers::squared(cameraWidth(cameras_.at(camera_index)) / 75.0);
+    return uvdar_core::helpers::squared(cameras_.at(camera_index).width() / 75.0);
 }
 
 double ReprojectionModel::reprojectionThresholdMutation2(std::size_t camera_index) const
 {
-    return uvdar_core::helpers::squared(cameraWidth(cameras_.at(camera_index)) / 100.0);
+    return uvdar_core::helpers::squared(cameras_.at(camera_index).width() / 100.0);
 }
 
 double ReprojectionModel::reprojectionThresholdMutation3(std::size_t camera_index) const
 {
-    return uvdar_core::helpers::squared(cameraWidth(cameras_.at(camera_index)) / 150.0);
+    return uvdar_core::helpers::squared(cameras_.at(camera_index).width() / 150.0);
 }
 
 double ReprojectionModel::reprojectionThresholdVerified(std::size_t camera_index) const
 {
-    return uvdar_core::helpers::squared(cameraWidth(cameras_.at(camera_index)) / 150.0);
+    return uvdar_core::helpers::squared(cameras_.at(camera_index).width() / 150.0);
 }
 
 double ReprojectionModel::reprojectionThresholdUnfit(std::size_t camera_index) const
 {
-    return uvdar_core::helpers::squared(cameraWidth(cameras_.at(camera_index)) / 50.0);
+    return uvdar_core::helpers::squared(cameras_.at(camera_index).width() / 50.0);
 }
 
 double ReprojectionModel::uvdarRange(std::size_t camera_index) const
 {
-    return cameraWidth(cameras_.at(camera_index)) / 50.0;
+    return cameras_.at(camera_index).width() / 50.0;
 }
 
 double ReprojectionModel::modelError(const ReprojectionContext& context) const
@@ -169,34 +166,22 @@ double ReprojectionModel::modelError(const ReprojectionContext& context) const
     for (const auto& marker : context.body) {
         const auto [projected, distance, cos_view_angle] = projectGlobalMarker(marker, context.camera_index, context.output_to_camera);
         const auto& camera = cameras_.at(context.camera_index);
-        if (projected.position.x() > -0.5 && projected.position.y() > -0.5
-            && projected.position.x() < static_cast<double>(cameraWidth(camera)) + 0.5
-            && projected.position.y() < static_cast<double>(cameraHeight(camera)) + 0.5) {
+        if (camera.containsPixel(projected.position.cast<double>(), -0.5)) {
             projected_markers.push_back({projected.position.cast<double>(), marker.signal_id, cos_view_angle, distance});
         }
     }
 
-    std::vector<ProjectedMarker> selected_markers;
+    std::vector<BodyModel::ProjectedSignal> selected_markers;
     for (const auto& marker : projected_markers) {
         // Directional LEDs fade with viewing angle and inverse-square range.
         const double intensity = std::round(std::max(0.0, marker.cos_view_angle)
             * (led_projection_coefs[0] + led_projection_coefs[1] / uvdar_core::helpers::squared(marker.distance + led_projection_coefs[2])));
         if (intensity > 0.0) {
-            selected_markers.push_back(marker);
+            selected_markers.push_back({marker.position, marker.signal_id});
         }
     }
 
-    // Merge same-signal projections closer than about one LED blob.
-    for (std::size_t i = 0; i + 1 < selected_markers.size(); ++i) {
-        for (std::size_t j = i + 1; j < selected_markers.size(); ++j) {
-            if ((selected_markers[i].position - selected_markers[j].position).norm() < 3.0
-                && selected_markers[i].signal_id == selected_markers[j].signal_id) {
-                selected_markers[i].position = 0.5 * (selected_markers[i].position + selected_markers[j].position);
-                selected_markers.erase(selected_markers.begin() + static_cast<long>(j));
-                --j;
-            }
-        }
-    }
+    selected_markers = BodyModel::mergeProjectedSignalBlobs(selected_markers, 3.0);
 
     // Cost is nearest-neighbor squared pixel distance per expected signal, with
     // a fixed penalty for observed points not explained by any projected LED.
@@ -231,56 +216,28 @@ std::tuple<ImagePointIdentified, double, double> ReprojectionModel::projectGloba
     LEDMarker local = marker;
     local.pose = transformPose(marker.pose, output_to_camera);
     const Eigen::Vector2d position = projectCameraPoint(local.pose.position, camera_index);
-    const Eigen::Vector3d view_vector = -local.pose.position.normalized();
-    const Eigen::Vector3d led_vector = local.pose.orientation * Eigen::Vector3d::UnitX();
-    return {{local.signal_id, position.cast<int>()}, local.pose.position.norm(), view_vector.dot(led_vector)};
+    return {
+        {local.signal_id, position.cast<int>()},
+        local.pose.position.norm(),
+        BodyModel::ledViewCosine(local, Eigen::Vector3d::Zero()),
+    };
 }
 
 Eigen::Vector2d ReprojectionModel::projectCameraPoint(const Eigen::Vector3d& point, std::size_t camera_index) const
 {
-    return cameras_.at(camera_index).lens->project(point);
+    return cameras_.at(camera_index).project(point);
 }
 
 Eigen::Vector3d ReprojectionModel::roughInit(const std::vector<Eigen::Vector3d>& directions, std::size_t camera_index) const
 {
-    Eigen::Vector3d average = Eigen::Vector3d::Zero();
-    for (const auto& direction : directions) {
-        average += direction;
-    }
-    average.normalize();
+    const Eigen::Vector3d average = CameraModel::meanBearing(directions).value_or(Eigen::Vector3d::UnitZ());
 
     double max_length = uvdarRange(camera_index);
     if (directions.size() > 1U) {
         // Approximate the body as a diameter subtending the largest bearing angle.
-        max_length = (options_.max_diameter / 2.0) / std::tan(largestAngle(directions) / 2.0);
+        max_length = (options_.max_diameter / 2.0) / std::tan(CameraModel::largestBearingAngle(directions) / 2.0);
     }
     return average * max_length * 1.25;
-}
-
-double ReprojectionModel::largestAngle(const std::vector<Eigen::Vector3d>& directions) const
-{
-    double max_angle = 0.0;
-    for (std::size_t i = 0; i + 1 < directions.size(); ++i) {
-        for (std::size_t j = i + 1; j < directions.size(); ++j) {
-            const double dot = std::clamp(directions[i].normalized().dot(directions[j].normalized()), -1.0, 1.0);
-            max_angle = std::max(max_angle, std::acos(dot));
-        }
-    }
-    return max_angle;
-}
-
-bool ReprojectionModel::averageIsNearEdge(const std::vector<ImagePointIdentified>& points, int margin, std::size_t camera_index) const
-{
-    Eigen::Vector2d mean = Eigen::Vector2d::Zero();
-    for (const auto& point : points) {
-        mean += point.position.cast<double>();
-    }
-    mean /= static_cast<double>(points.size());
-
-    const auto& camera = cameras_.at(camera_index);
-    return mean.x() < margin || mean.y() < margin
-        || mean.x() > static_cast<double>(cameraWidth(camera) - margin)
-        || mean.y() > static_cast<double>(cameraHeight(camera) - margin);
 }
 
 std::pair<std::vector<Hypothesis>, std::vector<double>> ReprojectionModel::viableInitialHypotheses(

@@ -502,6 +502,7 @@ void PoseEstimatorNode::loadConfiguration(const std::string& config_path_string)
         geometric_config.output_frame = output_frame_;
         geometric_config.signal_ids = signal_ids;
         geometric_config.signals_per_target = signals_per_target;
+        geometric_config.enable_p2p = optionalScalarAny<bool>(geometric_node, pose_node, "enable_p2p", true);
         geometric_config.uncertainty_samples = optionalScalarAny<int>(geometric_node, pose_node, "uncertainty_samples", 5000);
         geometric_config.p4p_reprojection_threshold_rad = optionalScalarAny<double>(geometric_node, pose_node, "p4p_reprojection_threshold_rad", 0.01);
         geometric_config.covariance_regularization_px = optionalScalarAny<double>(geometric_node, pose_node, "covariance_regularization_px", 1.0e-6);

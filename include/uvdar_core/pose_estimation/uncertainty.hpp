@@ -20,6 +20,11 @@ using PoseCovariance = Eigen::Matrix<double, 6, 6>;
 PoseTangent relativePoseTangent(const CameraPose& base, const CameraPose& candidate);
 
 /**
+ * @brief Branch-association distance in translation-plus-rotation tangent space.
+ */
+double poseTangentDistance(const CameraPose& base, const CameraPose& candidate);
+
+/**
  * @brief Calculate covariance from tangent-space samples with caller-supplied scaling.
  */
 PoseCovariance covarianceFromPoseSamples(const std::vector<PoseTangent>& samples, double scale);

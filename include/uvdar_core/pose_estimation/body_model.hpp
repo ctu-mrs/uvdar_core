@@ -1,5 +1,7 @@
 #pragma once
 
+#include <limits>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -17,6 +19,27 @@ namespace uvdar_core::pose_estimation {
  */
 class BodyModel {
 public:
+    /**
+     * @brief Observability support for a camera pose hypothesis.
+     *
+     * Each physical group represents one detected blob.  Its view cosine is
+     * the best cosine among all of the group's LED emission axes.
+     */
+    struct VisibilityScore {
+        bool observed_leds_face_camera = false;
+        double observed_view_cosine_minimum = -std::numeric_limits<double>::infinity();
+        double observed_view_cosine_mean = -std::numeric_limits<double>::infinity();
+        double visibility_margin = -std::numeric_limits<double>::infinity();
+    };
+
+    /**
+     * @brief A projected blink signal before association with a detected blob.
+     */
+    struct ProjectedSignal {
+        Eigen::Vector2d position = Eigen::Vector2d::Zero();
+        int signal_id = -1;
+    };
+
     BodyModel() = default;
 
     /**
@@ -53,6 +76,53 @@ public:
     int maxSignalId() const;
 
     /**
+     * @brief Return the blended physical marker uniquely carrying a signal id.
+     *
+     * Close LEDs on one arm are represented by their group centroid because a
+     * distant camera normally detects them as a single blob.  An id occurring
+     * on multiple physical groups is ambiguous and therefore has no unique
+     * geometric correspondence.
+     */
+    std::optional<LEDMarker> markerForSignal(int signal_id) const;
+
+    /**
+     * @brief Derive the common planar body/gravity axis needed by P2P.
+     *
+     * Returns no axis for collinear pairs or a non-planar LED layout, where a
+     * two-point estimate would be geometrically unobservable.
+     */
+    std::optional<Eigen::Vector3d> expectedPlanarAxisForPair(
+        const Eigen::Vector3d& first,
+        const Eigen::Vector3d& second) const;
+
+    /**
+     * @brief Test whether three blended marker positions form an observable triangle.
+     */
+    static bool hasObservableTriangle(
+        const Eigen::Vector3d& first,
+        const Eigen::Vector3d& second,
+        const Eigen::Vector3d& third);
+
+    /**
+     * @brief Score a pose from LED orientation and the physical blobs observed in a frame.
+     */
+    VisibilityScore visibilityScore(
+        const CameraPose& pose,
+        const std::vector<Eigen::Vector3d>& observed_marker_positions) const;
+
+    /**
+     * @brief Cosine between an LED emission axis and the line toward a camera.
+     */
+    static double ledViewCosine(const LEDMarker& marker, const Eigen::Vector3d& camera_position);
+
+    /**
+     * @brief Merge same-signal projections that form one unresolved physical blob.
+     */
+    static std::vector<ProjectedSignal> mergeProjectedSignalBlobs(
+        const std::vector<ProjectedSignal>& projections,
+        double maximum_distance_px);
+
+    /**
      * @brief Number of LED entries, including colocated LEDs with different signals.
      */
     std::size_t size() const { return markers_.size(); }
@@ -76,6 +146,16 @@ private:
      * @brief Directional LED visibility test based on angular separation.
      */
     bool areSimultaneouslyVisible(const LEDMarker& a, const LEDMarker& b) const;
+
+    /**
+     * @brief Centroid of one physical LED group.
+     */
+    Eigen::Vector3d groupCenter(const std::vector<int>& group) const;
+
+    /**
+     * @brief Whether some LED orientation in each physical group can be jointly visible.
+     */
+    bool areGroupsSimultaneouslyVisible(const std::vector<int>& first, const std::vector<int>& second) const;
 
     std::vector<LEDMarker> markers_;
     std::vector<std::vector<int>> groups_;

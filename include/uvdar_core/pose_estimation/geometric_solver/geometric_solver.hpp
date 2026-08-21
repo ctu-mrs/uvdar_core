@@ -31,6 +31,7 @@ struct GeometricSolverConfig {
     std::string output_frame = "local_origin";
     std::vector<int> signal_ids;
     int signals_per_target = 1;
+    bool enable_p2p = true;
     double p4p_reprojection_threshold_rad = 0.01;
     double covariance_regularization_px = 1.0e-6;
     int refinement_iterations = 8;
@@ -130,6 +131,24 @@ private:
     std::vector<CameraPose> solveP3P(const std::vector<Observation>& observations) const;
 
     /**
+     * @brief Verify that every observed marker is in front of the candidate camera.
+     */
+    bool hasPositiveDepths(const CameraPose& pose, const std::vector<Observation>& observations) const;
+
+    /**
+     * @brief Select a pose by generic body-model observability and, if needed, continuity.
+     */
+    std::optional<std::size_t> selectObservabilityAwareCandidate(
+        const std::vector<ScoredCameraPose>& candidates,
+        const std::vector<Observation>& observations,
+        const std::optional<CameraPose>& previous_pose) const;
+
+    /**
+     * @brief Return the blended physical marker positions detected in this frame.
+     */
+    std::vector<Eigen::Vector3d> observedMarkerPositions(const std::vector<Observation>& observations) const;
+
+    /**
      * @brief Perspective-4-point algebraic solver with angular residual gating.
      */
     std::vector<CameraPose> solveP4P(const std::vector<Observation>& observations) const;
@@ -203,16 +222,12 @@ private:
      */
     PoseMeasurement toMeasurement(int target, const CameraPose& camera_pose, const Eigen::Isometry3d& camera_to_output, const Eigen::Matrix<double, 6, 6>& covariance) const;
 
-    /**
-     * @brief Find the body LED carrying a local signal id.
-     */
-    std::optional<LEDMarker> markerForSignal(int signal_id) const;
-
     GeometricSolverConfig config_;
     BodyModel body_;
     std::vector<CameraModel> cameras_;
     mutable std::mutex mutex_;
     TimedPoseMeasurements latest_measurements_;
+    std::map<std::pair<std::size_t, int>, CameraPose> latest_camera_poses_;
 };
 
 } // namespace uvdar_core::pose_estimation::geometric_solver

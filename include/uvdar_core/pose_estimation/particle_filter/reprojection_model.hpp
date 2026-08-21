@@ -148,16 +148,6 @@ private:
     Eigen::Vector3d roughInit(const std::vector<Eigen::Vector3d>& directions, std::size_t camera_index) const;
 
     /**
-     * @brief Largest pairwise angle between normalized image bearings.
-     */
-    double largestAngle(const std::vector<Eigen::Vector3d>& directions) const;
-
-    /**
-     * @brief Test whether the cluster centroid lies near the image boundary.
-     */
-    bool averageIsNearEdge(const std::vector<ImagePointIdentified>& points, int margin, std::size_t camera_index) const;
-
-    /**
      * @brief Randomly sample candidate poses inside the rough bearing cone.
      */
     std::pair<std::vector<Hypothesis>, std::vector<double>> viableInitialHypotheses(

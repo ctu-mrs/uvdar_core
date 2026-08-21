@@ -18,6 +18,12 @@ PoseTangent relativePoseTangent(const CameraPose& base, const CameraPose& candid
     return delta;
 }
 
+double poseTangentDistance(const CameraPose& base, const CameraPose& candidate)
+{
+    const PoseTangent delta = relativePoseTangent(base, candidate);
+    return delta.head<3>().norm() + delta.tail<3>().norm();
+}
+
 PoseCovariance covarianceFromPoseSamples(const std::vector<PoseTangent>& samples, const double scale)
 {
     if (samples.empty()) {
@@ -73,7 +79,7 @@ Eigen::Matrix<double, 2, 6> imageProjectionJacobian(
     const Eigen::Vector3d& world_point)
 {
     const Eigen::Vector3d camera_point = transformPoint(pose, world_point);
-    const Eigen::Matrix<double, 2, 3> project_jacobian = camera.lens->projectJacobian(camera_point);
+    const Eigen::Matrix<double, 2, 3> project_jacobian = camera.projectionJacobian(camera_point);
 
     // For a left-multiplied small rotation, d(RX+t)/dtheta = -[X_c]x.
     Eigen::Matrix<double, 2, 6> jacobian;
