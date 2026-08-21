@@ -9,10 +9,6 @@ namespace uvdar_core::app {
 
 namespace {
 
-constexpr int kMinImageRows = 100;
-constexpr int kMinImageCols = 100;
-constexpr int kLineThickness = 1;
-
 int publishedSignalId(int id, std::size_t sequence_count)
 {
     return (0 <= id && id <= static_cast<int>(sequence_count)) ? id : -2;
@@ -105,6 +101,7 @@ void TrackerNode::createInterfaces()
             pipeline->visualization_publisher = create_publisher<sensor_msgs::msg::Image>(
                 input_config.visualization_topic,
                 rclcpp::QoS(rclcpp::KeepLast(config_.tracking.queue_depth)).best_effort());
+            pipeline->visualization_worker = std::make_unique<uvdar_core::app::visualization::VisualizationWorker>();
         }
 
         const auto image_qos = rclcpp::QoS(rclcpp::KeepLast(config_.tracking.queue_depth)).best_effort();
@@ -358,7 +355,7 @@ void TrackerNode::publishOutput(InputPipeline& pipeline, const uvdar_core::msg::
 }
 
 /**
- * @brief Convert output into BGR image overlay and publish it.
+ * @brief Snapshot tracker output and render it on the dedicated visualization worker.
  */
 void TrackerNode::publishVisualization(InputPipeline& pipeline, const uvdar_core::msg::TrackerOutput& output)
 {
@@ -375,63 +372,38 @@ void TrackerNode::publishVisualization(InputPipeline& pipeline, const uvdar_core
             frame = pipeline.latest_image.clone();
         }
     }
-    if (frame.empty()) {
-        frame = cv::Mat(height, width, CV_8UC1, cv::Scalar(0));
-    }
-    if (frame.rows < kMinImageRows) {
-        cv::resize(frame, frame, cv::Size(std::max(frame.cols, kMinImageCols), std::max(frame.rows, kMinImageRows)));
-    }
-
-    if (frame.channels() == 1) {
-        cv::cvtColor(frame, frame, cv::COLOR_GRAY2BGR);
-    }
-
+    std::vector<uvdar_core::app::visualization::TrackingOverlayMarker> markers;
+    markers.reserve(output.blinkers.size());
     for (const auto& point : output.blinkers) {
-        const cv::Point2i center_int(std::lround(point.x), std::lround(point.y));
-        const cv::Scalar color = idColor(point.id);
-
-        cv::circle(frame, center_int, 4, color, 2);
-        cv::putText(frame, std::to_string(point.id), center_int + cv::Point(-6, -6), cv::FONT_HERSHEY_SIMPLEX, 0.4, color, kLineThickness, cv::LINE_AA);
-
-        if (point.poly_reg_computed) {
-            const cv::Point2i predicted(std::lround(point.predicted_x), std::lround(point.predicted_y));
-            cv::circle(frame, predicted, 3, cv::Scalar(255, 255, 0), 2);
-
-            if (point.confidence_x >= 0.0 && point.confidence_y >= 0.0) {
-                const int half_width = static_cast<int>(std::ceil(point.confidence_x));
-                const int half_height = static_cast<int>(std::ceil(point.confidence_y));
-                cv::rectangle(
-                    frame,
-                    predicted - cv::Point(half_width, half_height),
-                    predicted + cv::Point(half_width, half_height),
-                    cv::Scalar(255, 255, 0),
-                    kLineThickness);
+        markers.push_back({
+            {point.x, point.y},
+            point.id,
+            point.poly_reg_computed,
+            {point.predicted_x, point.predicted_y},
+            {point.confidence_x, point.confidence_y},
+            point.virtual_point,
+        });
+    }
+    if (!pipeline.visualization_worker || !pipeline.visualization_publisher) {
+        return;
+    }
+    std_msgs::msg::Header header;
+    header.stamp = output.stamp;
+    const auto publisher = pipeline.visualization_publisher;
+    const auto logger = get_logger();
+    pipeline.visualization_worker->submit([publisher, header, frame = std::move(frame), markers = std::move(markers), width, height, logger] {
+        try {
+            const cv::Mat visualization = uvdar_core::app::visualization::renderTrackingOverlay(
+                frame,
+                {width, height},
+                markers);
+            if (!visualization.empty()) {
+                publisher->publish(*cv_bridge::CvImage(header, "bgr8", visualization).toImageMsg());
             }
+        } catch (const std::exception& ex) {
+            RCLCPP_WARN(logger, "Tracker visualization failed: %s", ex.what());
         }
-
-        if (point.virtual_point) {
-            cv::circle(frame, center_int, 2, cv::Scalar(80, 80, 80), 2);
-        }
-    }
-
-    if (!pipeline.config.visualization_topic.empty() && pipeline.visualization_publisher) {
-        std_msgs::msg::Header header;
-        header.stamp = output.stamp;
-        auto image_msg = cv_bridge::CvImage(header, "bgr8", frame).toImageMsg();
-        pipeline.visualization_publisher->publish(*image_msg);
-    }
-}
-
-/**
- * @brief Deterministic HSV-like color map per blinker id.
- */
-cv::Scalar TrackerNode::idColor(int id)
-{
-    if (id < 0) {
-        return cv::Scalar(160, 160, 160);
-    }
-    const int hue = (id * 37 + 17) % 255;
-    return cv::Scalar(30 + hue % 226, 40 + hue / 2 % 215, 220 - hue / 3);
+    });
 }
 
 } // namespace uvdar_core::app

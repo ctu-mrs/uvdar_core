@@ -8,8 +8,9 @@
 #include <cv_bridge/cv_bridge.hpp>
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/imgproc.hpp>
-#include <opencv2/highgui.hpp>
 #include <sensor_msgs/image_encodings.hpp>
+
+#include "uvdar_core/app/visualization.hpp"
 
 namespace uvdar_core::app {
 
@@ -109,6 +110,9 @@ void DetectorNode::createInterfaces()
                 input_config.visualization_topic,
                 config_.detector.queue_depth);
         }
+        if (input_config.publish_visualization || config_.detector.gui) {
+            pipeline->visualization_worker = std::make_unique<uvdar_core::app::visualization::VisualizationWorker>();
+        }
 
         pipelines_.push_back(std::move(pipeline));
         const std::size_t index         = pipelines_.size() - 1;
@@ -187,7 +191,7 @@ void DetectorNode::processImage(const sensor_msgs::msg::Image::ConstSharedPtr& i
  * @brief Publish detected markers and optional sun points as custom message.
  */
 void DetectorNode::publishPoints(
-    const InputPipeline& pipeline,
+    InputPipeline& pipeline,
     const sensor_msgs::msg::Image::ConstSharedPtr& image_msg,
     const uvdar_core::detection::DetectorOutput& output,
     const cv::Mat& image)
@@ -221,36 +225,46 @@ void DetectorNode::publishPoints(
  * @brief Render and publish visualization when enabled.
  */
 void DetectorNode::publishVisualization(
-    const InputPipeline& pipeline,
+    InputPipeline& pipeline,
     const sensor_msgs::msg::Image::ConstSharedPtr& image_msg,
     const cv::Mat& image,
-    const uvdar_core::detection::DetectorOutput& output) const
+    const uvdar_core::detection::DetectorOutput& output)
 {
     if (!pipeline.config.publish_visualization && !config_.detector.gui) {
         return;
     }
 
-    cv::Mat visualization;
-    cv::cvtColor(image, visualization, cv::COLOR_GRAY2BGR);
-
+    uvdar_core::app::visualization::DetectionOverlay overlay;
+    overlay.detected_points.reserve(output.detected_points.size());
     for (const auto& point : output.detected_points) {
-        const cv::Point center(std::lround(point.point.x), std::lround(point.point.y));
-        cv::circle(visualization, center, 5, cv::Scalar(255, 255, 0), 1);
+        overlay.detected_points.emplace_back(point.point.x, point.point.y);
     }
+    overlay.sun_points.reserve(output.sun_points.size());
     for (const auto& point : output.sun_points) {
-        const cv::Point center(std::lround(point.point.x), std::lround(point.point.y));
-        cv::circle(visualization, center, 3, cv::Scalar(0, 255, 255), 2);
+        overlay.sun_points.emplace_back(point.point.x, point.point.y);
     }
-
-    if (pipeline.config.publish_visualization && pipeline.visualization_publisher) {
-        auto msg = cv_bridge::CvImage(image_msg->header, "bgr8", visualization).toImageMsg();
-        pipeline.visualization_publisher->publish(*msg);
+    if (!pipeline.visualization_worker) {
+        return;
     }
-
-    if (config_.detector.gui) {
-        cv::imshow("uvdar_detection_" + pipeline.config.name, visualization);
-        cv::waitKey(1);
-    }
+    const auto publisher = pipeline.visualization_publisher;
+    const auto header = image_msg->header;
+    const cv::Mat source = image.clone();
+    const bool show_gui = config_.detector.gui;
+    const std::string window_name = "uvdar_detection_" + pipeline.config.name;
+    const auto logger = get_logger();
+    pipeline.visualization_worker->submit([publisher, header, source, overlay = std::move(overlay), show_gui, window_name, logger] {
+        try {
+            const cv::Mat visualization = uvdar_core::app::visualization::renderDetectionOverlay(source, overlay);
+            if (publisher && !visualization.empty()) {
+                publisher->publish(*cv_bridge::CvImage(header, "bgr8", visualization).toImageMsg());
+            }
+            if (show_gui) {
+                uvdar_core::app::visualization::showFrame(window_name, visualization);
+            }
+        } catch (const std::exception& ex) {
+            RCLCPP_WARN(logger, "Detector visualization failed: %s", ex.what());
+        }
+    });
 }
 
 } // namespace uvdar_core::app

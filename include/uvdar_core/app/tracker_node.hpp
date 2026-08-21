@@ -16,6 +16,7 @@
 
 #include "uvdar_core/app/package_config.hpp"
 #include "uvdar_core/helpers/thread_pool.hpp"
+#include "uvdar_core/app/visualization.hpp"
 #include "uvdar_core/msg/image_points_with_covariances_stamped.hpp"
 #include "uvdar_core/msg/tracker_output.hpp"
 #include "uvdar_core/tracking/ami/ami.hpp"
@@ -54,6 +55,7 @@ private:
         rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr image_subscription;
         rclcpp::Publisher<uvdar_core::msg::TrackerOutput>::SharedPtr output_publisher;
         rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr visualization_publisher;
+        std::unique_ptr<uvdar_core::app::visualization::VisualizationWorker> visualization_worker;
         mutable std::mutex mutex;
     };
 
@@ -82,13 +84,9 @@ private:
      */
     void publishOutput(InputPipeline& pipeline, const uvdar_core::msg::TrackerOutput& output);
     /**
-     * @brief Build and publish tracker visualization frame.
+     * @brief Queue tracker visualization rendering on its standalone worker.
      */
     void publishVisualization(InputPipeline& pipeline, const uvdar_core::msg::TrackerOutput& output);
-    /**
-     * @brief Deterministic color mapping for blinker IDs.
-     */
-    static cv::Scalar idColor(int id);
     PackageConfig config_;
     TrackerImplementation tracker_implementation_ = TrackerImplementation::Ami;
     std::vector<std::unique_ptr<InputPipeline>> pipelines_;

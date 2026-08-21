@@ -12,6 +12,7 @@
 
 #include "uvdar_core/app/package_config.hpp"
 #include "uvdar_core/helpers/thread_pool.hpp"
+#include "uvdar_core/app/visualization.hpp"
 #include "uvdar_core/detection/fimd/cpu_detector.hpp"
 #include "uvdar_core/detection/fimd/gpu_detector.hpp"
 #include "uvdar_core/detection/i_detector.hpp"
@@ -45,6 +46,7 @@ private:
         rclcpp::Publisher<uvdar_core::msg::ImagePointsWithCovariancesStamped>::SharedPtr candidate_publisher;
         rclcpp::Publisher<uvdar_core::msg::ImagePointsWithCovariancesStamped>::SharedPtr sun_publisher;
         rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr visualization_publisher;
+        std::unique_ptr<uvdar_core::app::visualization::VisualizationWorker> visualization_worker;
         std::mutex mutex;
     };
 
@@ -72,7 +74,7 @@ private:
      * @brief Publish candidate and sun points with intensity metadata.
      */
     void publishPoints(
-        const InputPipeline& pipeline,
+        InputPipeline& pipeline,
         const sensor_msgs::msg::Image::ConstSharedPtr& image_msg,
         const uvdar_core::detection::DetectorOutput& output,
         const cv::Mat& image);
@@ -80,10 +82,10 @@ private:
      * @brief Publish marker visualization image when configured.
      */
     void publishVisualization(
-        const InputPipeline& pipeline,
+        InputPipeline& pipeline,
         const sensor_msgs::msg::Image::ConstSharedPtr& image_msg,
         const cv::Mat& image,
-        const uvdar_core::detection::DetectorOutput& output) const;
+        const uvdar_core::detection::DetectorOutput& output);
 
     PackageConfig config_;
     std::vector<std::unique_ptr<InputPipeline>> pipelines_;

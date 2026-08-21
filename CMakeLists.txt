@@ -14,12 +14,10 @@ FetchContent_Declare(
   GIT_REPOSITORY https://github.com/Profactor/cv-plot.git
   GIT_TAG v1.2.2
 )
-
 FetchContent_GetProperties(cvplot)
 if(NOT cvplot_POPULATED)
   FetchContent_Populate(cvplot)
 endif()
-
 add_library(cvplot INTERFACE)
 target_include_directories(cvplot INTERFACE "${cvplot_SOURCE_DIR}/CvPlot/inc")
 target_compile_definitions(cvplot INTERFACE CVPLOT_HEADER_ONLY)
@@ -87,6 +85,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
 set(SHARED_SOURCES
     src/app/package_config.cpp
     src/helpers/thread_pool.cpp
+    src/app/visualization.cpp
 )
 
 # Detector sources and GPU shader objects.
@@ -162,7 +161,10 @@ target_include_directories(${PROJECT_NAME}_pose_estimation PUBLIC
 )
 # Common support.
 target_link_libraries(${PROJECT_NAME}_common
+    cvplot
     yaml-cpp::yaml-cpp
+    ${OpenCV_LIBRARIES}
+    Eigen3::Eigen
 )
 
 target_link_libraries(${PROJECT_NAME}_calibration
@@ -234,9 +236,9 @@ target_link_libraries(tracker_node
     ${PROJECT_NAME}_tracker
 )
 target_link_libraries(pose_estimator_node
+    ${PROJECT_NAME}_common
     ${PROJECT_NAME}_pose_estimation
     ${PROJECT_NAME}_calibration
-    cvplot
     yaml-cpp::yaml-cpp
     ${OpenCV_LIBRARIES}
 )
