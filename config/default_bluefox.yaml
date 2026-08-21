@@ -104,10 +104,9 @@ pose_estimation:
   # "geometric_solver" for direct P2P/P3P/P4P/PnP pose estimation.
   implementation: geometric_solver 
   debug: false
-  # "local_origin" doesn't exist in the ROS2 MRS TF tree (ROS1 naming) --
-  # this is the observing robot's own body frame, uav_name/fcu. Hardcoded to
-  # uav1 for the same reason as camera_frame below; update per deployment.
-  output_frame: fcu
+  # $UAV_NAME is expanded from the process environment while loading YAML.
+  # The launch namespace does not modify TF frame IDs.
+  output_frame: $UAV_NAME/fcu
   output_topic: uvdar/pose_estimator/measured_poses
   publish_visualization: true
   visualization_topic: uvdar/pose_estimator/visualization
@@ -142,10 +141,8 @@ pose_estimation:
     pnp_step_tolerance: 1.0e-10
     pnp_residual_tolerance: 1.0e-10
   # camera_frame is a TF frame name, not a topic -- it's not namespace-pushed,
-  # so it must be the fully-qualified frame single_bluefox.launch.py actually
-  # publishes: $UAV_NAME/bluefox_<camera_name> (see its frame_id construction).
-  # Hardcoded to uav1 here for the same reason the two_drones_uvdar sim
-  # configs hardcode TF frames -- update if UAV_NAME differs.
+  # so it must match the fully-qualified frame published by
+  # single_bluefox.launch.py: $UAV_NAME/bluefox_<camera_name>.
   #
   # calib_file points at the generic ocam.yaml; per-device calibrations exist
   # at camera/bluefox_ocam_calib/bf_uv_25001879.yaml and bf_uv_25001954.yaml
@@ -154,19 +151,18 @@ pose_estimation:
   inputs:
     - name: left
       input_topic: uvdar/tracker/left/blinkers
-      camera_frame: bluefox_left
+      camera_frame: $UAV_NAME/bluefox_left
       calib_file: camera/bluefox_ocam_calib/bf_left.yaml
     - name: right
       input_topic: uvdar/tracker/right/blinkers
-      camera_frame: bluefox_right
+      camera_frame: $UAV_NAME/bluefox_right
       calib_file: camera/bluefox_ocam_calib/bf_right.yaml
 
 filtering:
   implementation: kf_pose
   debug: false
-  # World-fixed frame (ROS2 MRS's equivalent of ROS1's "local_origin");
-  # hardcoded to uav1 for the same reason as camera_frame above.
-  output_frame: fixed_origin
+  # World-fixed TF frame; $UAV_NAME is expanded by the YAML loader.
+  output_frame: $UAV_NAME/fixed_origin
   measured_poses_topics: [uvdar/pose_estimator/measured_poses]
   output_topic: uvdar/filter/filtered_poses
   tentative_output_topic: uvdar/filter/filtered_poses/tentative

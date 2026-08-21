@@ -1,4 +1,5 @@
 #include "uvdar_core/app/package_config.hpp"
+#include "uvdar_core/helpers/yaml.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -310,7 +311,7 @@ PackageConfig loadPackageConfig(const std::string& config_path_string)
         throw std::runtime_error("The config file '" + config_path_string + "' does not exist.");
     }
 
-    const YAML::Node root = YAML::LoadFile(config_path_string);
+    const YAML::Node root = uvdar_core::helpers::yaml::loadFile(config_path_string);
     const YAML::Node detector_node = requireNode(root, "detector");
     const YAML::Node inputs_node   = requireNode(detector_node, "inputs");
     const YAML::Node tracking_node = requireNode(root, "tracking");

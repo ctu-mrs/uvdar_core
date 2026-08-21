@@ -1,7 +1,7 @@
 #include "uvdar_core/app/filter_node.hpp"
 
-#include "uvdar_core/helpers/frame_namespace.hpp"
 #include "uvdar_core/helpers/math.hpp"
+#include "uvdar_core/helpers/yaml.hpp"
 
 #include <filesystem>
 
@@ -55,7 +55,7 @@ void FilterNode::loadConfiguration(const std::string& config_path)
     if (config_path.empty()) {
         throw std::runtime_error("filter_node requires parameter 'config_path'.");
     }
-    const YAML::Node root = YAML::LoadFile(config_path);
+    const YAML::Node root = uvdar_core::helpers::yaml::loadFile(config_path);
     const YAML::Node node = root["filtering"];
     if (!node) {
         throw std::runtime_error("Missing filtering config section.");
@@ -72,7 +72,7 @@ void FilterNode::loadConfiguration(const std::string& config_path)
     config.decay_age_unvalidated = optionalScalar<double>(node, "decay_age_unvalidated", 1.0);
     config.match_level_threshold_associate = optionalScalar<double>(node, "match_level_threshold_associate", 0.3);
     config.match_level_threshold_remove = optionalScalar<double>(node, "match_level_threshold_remove", 0.5);
-    output_frame_ = uvdar_core::helpers::resolveFrameName(optionalScalar<std::string>(node, "output_frame", std::string("local_origin")));
+    output_frame_ = optionalScalar<std::string>(node, "output_frame", std::string("local_origin"));
     config.output_frame = output_frame_;
     config.accepts_correction = [this](const Eigen::Vector3d& position, const std::string& camera_frame, double stamp) {
         if (camera_frame.empty()) {

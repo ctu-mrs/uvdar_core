@@ -1,7 +1,5 @@
 #include "uvdar_core/app/pose_estimator_node.hpp"
 
-#include "uvdar_core/helpers/frame_namespace.hpp"
-
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -21,6 +19,7 @@
 #include <yaml-cpp/yaml.h>
 
 #include "uvdar_core/helpers/ros_conversions.hpp"
+#include "uvdar_core/helpers/yaml.hpp"
 #include "uvdar_core/calibration/fisheye/equidistant_model.hpp"
 #include "uvdar_core/calibration/fisheye/ocam_model.hpp"
 #include "uvdar_core/calibration/fisheye/radial_model.hpp"
@@ -437,7 +436,7 @@ YAML::Node loadCameraConfigFile(const YAML::Node& input_node, const std::filesys
     if (path.extension() != ".yaml" && path.extension() != ".yml") {
         return {};
     }
-    return YAML::LoadFile(resolved);
+    return uvdar_core::helpers::yaml::loadFile(resolved);
 }
 
 uvdar_core::calibration::fisheye::OcamModel loadOcamYamlModel(const YAML::Node& camera_node)
@@ -581,14 +580,14 @@ void PoseEstimatorNode::loadConfiguration(const std::string& config_path_string)
     }
 
     const std::filesystem::path config_path(config_path_string);
-    const YAML::Node root = YAML::LoadFile(config_path_string);
+    const YAML::Node root = uvdar_core::helpers::yaml::loadFile(config_path_string);
     const YAML::Node pose_node = root["pose_estimation"];
     if (!pose_node) {
         throw std::runtime_error("Missing pose_estimation config section.");
     }
     const std::string implementation = optionalScalar<std::string>(pose_node, "implementation", "particle_filter");
 
-    output_frame_ = uvdar_core::helpers::resolveFrameName(optionalScalar<std::string>(pose_node, "output_frame", "local_origin"));
+    output_frame_ = optionalScalar<std::string>(pose_node, "output_frame", "local_origin");
     const std::string output_topic = optionalScalar<std::string>(pose_node, "output_topic", "measuredPoses");
     publish_constituents_ = optionalScalar<bool>(pose_node, "publish_constituents", false);
     publish_visualization_ = optionalScalar<bool>(pose_node, "publish_visualization", false);
@@ -620,7 +619,7 @@ void PoseEstimatorNode::loadConfiguration(const std::string& config_path_string)
         InputConfig input;
         input.name = optionalScalar<std::string>(input_node, "name", "camera_" + std::to_string(inputs_.size()));
         input.input_topic = requireString(input_node, "input_topic");
-        input.camera_frame = uvdar_core::helpers::resolveFrameName(requireString(input_node, "camera_frame"));
+        input.camera_frame = requireString(input_node, "camera_frame");
         input.calib_file = resolvePath(config_path, optionalScalar<std::string>(input_node, "calib_file", std::string {}));
         inputs_.push_back(input);
 
