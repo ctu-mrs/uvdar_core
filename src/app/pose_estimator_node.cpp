@@ -54,7 +54,8 @@ namespace {
             pose.position = source_pose.position;
             pose.rotation = source_pose.orientation.normalized().toRotationMatrix();
             pose.position_covariance = measurement.covariance.topLeftCorner<3, 3>();
-            if (!pose.rotation.allFinite() || !pose.position_covariance.allFinite()) {
+            pose.orientation_covariance = measurement.covariance.bottomRightCorner<3, 3>();
+            if (!pose.rotation.allFinite() || !pose.position_covariance.allFinite() || !pose.orientation_covariance.allFinite()) {
                 continue;
             }
             poses.push_back(std::move(pose));

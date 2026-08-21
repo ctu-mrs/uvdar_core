@@ -316,6 +316,80 @@ std::array<double, 3> rollPitchYawDegrees(const Eigen::Matrix3d& rotation)
     return {roll * radians_to_degrees, pitch * radians_to_degrees, yaw * radians_to_degrees};
 }
 
+std::array<double, 3> rollPitchYawStandardDeviationsDegrees(
+    const Eigen::Matrix3d& rotation,
+    const Eigen::Matrix3d& orientation_covariance)
+{
+    if (!orientation_covariance.allFinite()) {
+        return {0.0, 0.0, 0.0};
+    }
+
+    // The estimator covariance is a left-multiplied SO(3) tangent covariance.
+    // Differentiate the same RPY convention used for the table numerically, so
+    // the displayed one-sigma values remain correct away from and near gimbal
+    // lock without duplicating an error-prone analytic Euler Jacobian.
+    constexpr double perturbation_rad = 1.0e-6;
+    const auto nominal = rollPitchYawDegrees(rotation);
+    Eigen::Matrix3d jacobian;
+    for (int axis = 0; axis < 3; ++axis) {
+        const Eigen::Matrix3d perturbed = Eigen::AngleAxisd(
+            perturbation_rad,
+            Eigen::Vector3d::Unit(axis)).toRotationMatrix() * rotation;
+        const auto rpy = rollPitchYawDegrees(perturbed);
+        for (int component = 0; component < 3; ++component) {
+            jacobian(component, axis) = std::remainder(rpy[component] - nominal[component], 360.0) / perturbation_rad;
+        }
+    }
+    const Eigen::Matrix3d rpy_covariance = 0.5 * (
+        jacobian * orientation_covariance * jacobian.transpose()
+        + (jacobian * orientation_covariance * jacobian.transpose()).transpose());
+    const Eigen::Vector3d standard_deviation = rpy_covariance.diagonal().cwiseMax(0.0).cwiseSqrt();
+    if (!standard_deviation.allFinite()) {
+        return {0.0, 0.0, 0.0};
+    }
+    return {standard_deviation.x(), standard_deviation.y(), standard_deviation.z()};
+}
+
+std::string uncertaintyValueLabel(double standard_deviation)
+{
+    if (!std::isfinite(standard_deviation)) {
+        return "?";
+    }
+    if (standard_deviation < 5.0e-5) {
+        standard_deviation = 0.0;
+    }
+    const int precision = standard_deviation >= 100.0 ? 1 : standard_deviation >= 1.0 ? 2 : standard_deviation >= 0.1 ? 3 : 4;
+    std::ostringstream stream;
+    stream << std::fixed << std::setprecision(precision) << standard_deviation;
+    return stream.str();
+}
+
+void drawPlusMinusValue(
+    cv::Mat& canvas,
+    const std::string& value,
+    const cv::Rect& cell,
+    int baseline_y,
+    double font_scale)
+{
+    constexpr int thickness = 1;
+    const cv::Size value_size = cv::getTextSize(value, cv::FONT_HERSHEY_SIMPLEX, font_scale, thickness, nullptr);
+    const int symbol_width = std::max(9, static_cast<int>(std::lround(font_scale * 30.0)));
+    const int symbol_half_width = std::max(2, symbol_width / 3);
+    const int gap = 2;
+    const int total_width = symbol_width + gap + value_size.width;
+    const int start_x = cell.x + std::max(2, (cell.width - total_width) / 2);
+    const int top_y = baseline_y - value_size.height;
+    const int center_x = start_x + symbol_width / 2;
+    const int plus_y = top_y + 2;
+    const int minus_y = baseline_y - 1;
+
+    // A typographic plus-minus: plus on the upper half, minus beneath it.
+    cv::line(canvas, {center_x - symbol_half_width, plus_y}, {center_x + symbol_half_width, plus_y}, kTextColor, thickness, cv::LINE_AA);
+    cv::line(canvas, {center_x, plus_y - symbol_half_width}, {center_x, plus_y + symbol_half_width}, kTextColor, thickness, cv::LINE_AA);
+    cv::line(canvas, {center_x - symbol_half_width, minus_y}, {center_x + symbol_half_width, minus_y}, kTextColor, thickness, cv::LINE_AA);
+    cv::putText(canvas, value, {start_x + symbol_width + gap, baseline_y}, cv::FONT_HERSHEY_SIMPLEX, font_scale, kTextColor, thickness, cv::LINE_AA);
+}
+
 void drawPoseTable(cv::Mat& canvas, const cv::Rect& available_table, std::vector<PoseVisualizationPose> poses)
 {
     std::sort(poses.begin(), poses.end(), [](const PoseVisualizationPose& lhs, const PoseVisualizationPose& rhs) {
@@ -327,19 +401,25 @@ void drawPoseTable(cv::Mat& canvas, const cv::Rect& available_table, std::vector
     const double total_weight = std::accumulate(column_weights.begin(), column_weights.end(), 0.0);
     const int padding = std::max(6, available_table.width / 75);
     const int header_height = std::clamp(available_table.width / 15, 28, 34);
-    const int available_rows = std::max(1, std::min(24, static_cast<int>(poses.size())));
     const int row_height = std::clamp(available_table.width / 14, 24, 32);
-    const std::size_t display_count = std::min<std::size_t>(poses.size(), 24U);
+    const int entry_height = 2 * row_height;
+    const int maximum_entries = std::max(0, (available_table.height - header_height - 2) / entry_height);
+    std::size_t display_count = std::min<std::size_t>({poses.size(), 24U, static_cast<std::size_t>(maximum_entries)});
+    if (poses.size() > display_count) {
+        const int maximum_entries_with_summary = std::max(0, (available_table.height - header_height - row_height - 2) / entry_height);
+        display_count = std::min<std::size_t>({poses.size(), 24U, static_cast<std::size_t>(maximum_entries_with_summary)});
+    }
     const int summary_height = poses.size() > display_count ? row_height : 0;
-    const int desired_height = header_height + static_cast<int>(display_count) * row_height + summary_height + 2;
+    const int desired_height = header_height + static_cast<int>(display_count) * entry_height + summary_height + 2;
     const cv::Rect table {
         available_table.x,
         available_table.y,
         available_table.width,
         std::min(available_table.height, desired_height),
     };
-    const double font_scale = std::clamp(row_height / 72.0, 0.28, 0.42);
-    const int text_thickness = row_height >= 32 ? 1 : 1;
+    const double value_font_scale = std::clamp(row_height / 72.0, 0.28, 0.42);
+    const double uncertainty_font_scale = std::clamp(row_height / 92.0, 0.24, 0.34);
+    constexpr int text_thickness = 1;
 
     cv::rectangle(canvas, table, kPanelColor, cv::FILLED);
     cv::rectangle(canvas, table, kBorderColor, 1, cv::LINE_AA);
@@ -360,37 +440,65 @@ void drawPoseTable(cv::Mat& canvas, const cv::Rect& available_table, std::vector
     cv::line(canvas, {table.x, table.y + header_height}, {table.br().x, table.y + header_height}, kBorderColor, 1, cv::LINE_AA);
 
     for (std::size_t column = 0; column < headers.size(); ++column) {
-        const cv::Size text_size = cv::getTextSize(headers[column], cv::FONT_HERSHEY_SIMPLEX, font_scale, text_thickness, nullptr);
+        const cv::Size text_size = cv::getTextSize(headers[column], cv::FONT_HERSHEY_SIMPLEX, value_font_scale, text_thickness, nullptr);
         const int text_x = columns[column] + std::max(2, (columns[column + 1] - columns[column] - text_size.width) / 2);
         const int text_y = table.y + (header_height + text_size.height) / 2;
-        cv::putText(canvas, headers[column], {text_x, text_y}, cv::FONT_HERSHEY_SIMPLEX, font_scale, kTextColor, text_thickness, cv::LINE_AA);
+        cv::putText(canvas, headers[column], {text_x, text_y}, cv::FONT_HERSHEY_SIMPLEX, value_font_scale, kTextColor, text_thickness, cv::LINE_AA);
     }
 
-    for (std::size_t row = 0; row < display_count; ++row) {
-        const int top = table.y + header_height + static_cast<int>(row) * row_height;
-        const int bottom = std::min(table.br().y, top + row_height);
-        if (row % 2U == 1U) {
+    for (std::size_t entry = 0; entry < display_count; ++entry) {
+        const int top = table.y + header_height + static_cast<int>(entry) * entry_height;
+        const int bottom = std::min(table.br().y, top + entry_height);
+        if (entry % 2U == 1U) {
             cv::rectangle(canvas, {table.x + 1, top, table.width - 2, std::max(1, bottom - top)}, cv::Scalar(250, 250, 250), cv::FILLED);
         }
         cv::line(canvas, {table.x, bottom}, {table.br().x, bottom}, kGridColor, 1, cv::LINE_AA);
 
-        const auto rpy = rollPitchYawDegrees(poses[row].rotation);
-        const std::array<std::string, 7> values {
-            std::to_string(poses[row].id),
-            coordinateLabel(poses[row].position.x()), coordinateLabel(poses[row].position.y()), coordinateLabel(poses[row].position.z()),
+        const PoseVisualizationPose& pose = poses[entry];
+        const auto rpy = rollPitchYawDegrees(pose.rotation);
+        const auto rpy_standard_deviation = rollPitchYawStandardDeviationsDegrees(pose.rotation, pose.orientation_covariance);
+        const Eigen::Vector3d position_standard_deviation = pose.position_covariance.diagonal().cwiseMax(0.0).cwiseSqrt();
+        const std::array<std::string, 6> values {
+            coordinateLabel(pose.position.x()), coordinateLabel(pose.position.y()), coordinateLabel(pose.position.z()),
             coordinateLabel(rpy[0]), coordinateLabel(rpy[1]), coordinateLabel(rpy[2]),
         };
-        for (std::size_t column = 0; column < values.size(); ++column) {
-            const cv::Size text_size = cv::getTextSize(values[column], cv::FONT_HERSHEY_SIMPLEX, font_scale, text_thickness, nullptr);
-            const int text_x = columns[column] + std::max(2, (columns[column + 1] - columns[column] - text_size.width) / 2);
-            const int text_y = top + (row_height + text_size.height) / 2;
-            cv::putText(canvas, values[column], {text_x, text_y}, cv::FONT_HERSHEY_SIMPLEX, font_scale, kTextColor, text_thickness, cv::LINE_AA);
+        const std::array<std::string, 6> uncertainties {
+            uncertaintyValueLabel(position_standard_deviation.x()), uncertaintyValueLabel(position_standard_deviation.y()), uncertaintyValueLabel(position_standard_deviation.z()),
+            uncertaintyValueLabel(rpy_standard_deviation[0]), uncertaintyValueLabel(rpy_standard_deviation[1]), uncertaintyValueLabel(rpy_standard_deviation[2]),
+        };
+        const std::string id = std::to_string(pose.id);
+        const cv::Size id_size = cv::getTextSize(id, cv::FONT_HERSHEY_SIMPLEX, value_font_scale, text_thickness, nullptr);
+        cv::putText(
+            canvas,
+            id,
+            {columns[0] + std::max(2, (columns[1] - columns[0] - id_size.width) / 2), top + (entry_height + id_size.height) / 2},
+            cv::FONT_HERSHEY_SIMPLEX,
+            value_font_scale,
+            kTextColor,
+            text_thickness,
+            cv::LINE_AA);
+
+        for (std::size_t value = 0; value < values.size(); ++value) {
+            const std::size_t column = value + 1U;
+            const cv::Size value_size = cv::getTextSize(values[value], cv::FONT_HERSHEY_SIMPLEX, value_font_scale, text_thickness, nullptr);
+            const int value_x = columns[column] + std::max(2, (columns[column + 1] - columns[column] - value_size.width) / 2);
+            const int value_y = top + (row_height + value_size.height) / 2;
+            cv::putText(canvas, values[value], {value_x, value_y}, cv::FONT_HERSHEY_SIMPLEX, value_font_scale, kTextColor, text_thickness, cv::LINE_AA);
+
+            const cv::Size uncertainty_size = cv::getTextSize(uncertainties[value], cv::FONT_HERSHEY_SIMPLEX, uncertainty_font_scale, text_thickness, nullptr);
+            const int uncertainty_y = top + row_height + (row_height + uncertainty_size.height) / 2;
+            drawPlusMinusValue(
+                canvas,
+                uncertainties[value],
+                {columns[column], top + row_height, columns[column + 1] - columns[column], row_height},
+                uncertainty_y,
+                uncertainty_font_scale);
         }
     }
 
     if (poses.size() > display_count) {
         const std::string summary = "+" + std::to_string(poses.size() - display_count) + " more targets";
-        cv::putText(canvas, summary, {table.x + padding, table.br().y - padding}, cv::FONT_HERSHEY_SIMPLEX, font_scale, kTextColor, 1, cv::LINE_AA);
+        cv::putText(canvas, summary, {table.x + padding, table.br().y - padding}, cv::FONT_HERSHEY_SIMPLEX, uncertainty_font_scale, kTextColor, 1, cv::LINE_AA);
     }
 }
 

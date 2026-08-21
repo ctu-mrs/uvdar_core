@@ -81,6 +81,8 @@ struct PoseVisualizationPose {
     Eigen::Vector3d position = Eigen::Vector3d::Zero();
     Eigen::Matrix3d rotation = Eigen::Matrix3d::Identity();
     Eigen::Matrix3d position_covariance = Eigen::Matrix3d::Identity();
+    /** Small-angle covariance in radians squared, ordered around world X/Y/Z. */
+    Eigen::Matrix3d orientation_covariance = Eigen::Matrix3d::Identity();
 };
 
 /**
