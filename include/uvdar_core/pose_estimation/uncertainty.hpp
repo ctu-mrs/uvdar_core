@@ -6,19 +6,23 @@
 #include <Eigen/Geometry>
 
 #include "uvdar_core/pose_estimation/camera_model.hpp"
+#include "uvdar_core/pose_estimation/types.hpp"
 #include "uvdar_core/helpers/math.hpp"
 
 namespace uvdar_core::pose_estimation::uncertainty {
 
+using PoseTangent = Eigen::Matrix<double, 6, 1>;
+using PoseCovariance = Eigen::Matrix<double, 6, 6>;
+
 /**
- * @brief Body-to-camera pose used by local solver and uncertainty routines.
- *
- * It represents X_c = R X_b + t.
+ * @brief Express @p candidate relative to @p base in [translation, rotation] tangent order.
  */
-struct CameraPose {
-    Eigen::Matrix3d rotation = Eigen::Matrix3d::Identity();
-    Eigen::Vector3d translation = Eigen::Vector3d::Zero();
-};
+PoseTangent relativePoseTangent(const CameraPose& base, const CameraPose& candidate);
+
+/**
+ * @brief Calculate covariance from tangent-space samples with caller-supplied scaling.
+ */
+PoseCovariance covarianceFromPoseSamples(const std::vector<PoseTangent>& samples, double scale);
 
 /**
  * @brief Symmetrize and regularize a 2D covariance.
@@ -32,7 +36,7 @@ Eigen::Matrix2d regularizedCovariance(const Eigen::Matrix2d& covariance, double 
  *
  * Eigenvalues below tolerance are treated as unobservable pose directions.
  */
-Eigen::Matrix<double, 6, 6> covarianceFromInformation(const Eigen::Matrix<double, 6, 6>& information, double eps = 1.0e-12);
+PoseCovariance covarianceFromInformation(const PoseCovariance& information, double eps = 1.0e-12);
 
 /**
  * @brief Projection Jacobian d(pixel residual)/d([translation, rotation]).
@@ -51,7 +55,7 @@ Eigen::Matrix<double, 2, 6> imageProjectionJacobian(
  *
  * Linearizes all residuals and accumulates Lambda = sum(J_i^T R_i^-1 J_i).
  */
-Eigen::Matrix<double, 6, 6> poseInformationMatrixFromPixelsLinearized(
+PoseCovariance poseInformationMatrixFromPixelsLinearized(
     const CameraPose& pose,
     const std::vector<Eigen::Vector3d>& world_points,
     const std::vector<Eigen::Matrix2d>& pixel_covariances,
@@ -63,7 +67,7 @@ Eigen::Matrix<double, 6, 6> poseInformationMatrixFromPixelsLinearized(
  *
  * Computes the pseudo-inverse of the linearized information matrix.
  */
-Eigen::Matrix<double, 6, 6> poseCovarianceFromPixelsLinearized(
+PoseCovariance poseCovarianceFromPixelsLinearized(
     const CameraPose& pose,
     const std::vector<Eigen::Vector3d>& world_points,
     const std::vector<Eigen::Matrix2d>& pixel_covariances,

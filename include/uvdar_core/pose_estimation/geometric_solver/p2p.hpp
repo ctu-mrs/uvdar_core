@@ -10,6 +10,7 @@
 #include <Eigen/Dense>
 
 #include "uvdar_core/helpers/math.hpp"
+#include "uvdar_core/pose_estimation/geometric_solver/solver_types.hpp"
 
 namespace uvdar_core::pose_estimation::geometric_solver {
 
@@ -34,13 +35,7 @@ public:
 		Li = 1,
 	};
 
-	/**
-	 * @brief Body-to-camera rigid transform X_c = R X_w + t.
-	 */
-	struct Solution {
-		Eigen::Matrix3d R;
-		Eigen::Vector3d t;
-	};
+	using Solution = PoseSolution;
 
 	/**
 	 * @brief Pose sensitivity with respect to two input bearing vectors.

@@ -1,4 +1,5 @@
 #include "uvdar_core/pose_estimation/particle_filter/particle_filter.hpp"
+#include "uvdar_core/pose_estimation/particle_filter/sampling.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -104,7 +105,7 @@ TimedPoseMeasurements ParticleFilter::scatterAndMeasure(double now, double stamp
         // Diffusion step: grow the particle cloud around existing hypotheses,
         // then prune by age/count before publishing the hull.
         const int mutation_count = static_cast<int>(hypotheses.hypotheses.size() / 2U);
-        hypotheses.add(mutateHypotheses(hypotheses, mutation_count, now));
+        hypotheses.add(mutateHypotheses(hypotheses, mutation_count));
         removeExtraHypotheses(hypotheses, now);
     }
 
@@ -153,7 +154,7 @@ std::vector<ImageCluster> ParticleFilter::separateBySignals(const std::vector<Tr
 {
     std::vector<ImageCluster> separated;
     for (const auto& point : points) {
-        const int target = classifyMatch(point.id);
+        const int target = targetForSignal(signal_ids_, signals_per_target_, point.id);
         if (target < 0) {
             continue;
         }
@@ -209,14 +210,6 @@ std::vector<ImageCluster> ParticleFilter::separateBySignals(const std::vector<Tr
     }
 
     return separated;
-}
-
-int ParticleFilter::classifyMatch(int signal_id) const
-{
-    if (std::find(signal_ids_.begin(), signal_ids_.end(), signal_id) == signal_ids_.end()) {
-        return -1;
-    }
-    return signal_id / signals_per_target_;
 }
 
 void ParticleFilter::checkHypothesisFitness(
@@ -283,13 +276,13 @@ void ParticleFilter::removeExtraHypotheses(AssociatedHypotheses& hypotheses, dou
         }
 
         const int selected = std::min(
-            static_cast<int>(random01() * static_cast<double>(removable.size())),
+            static_cast<int>(randomUniform01(rng_) * static_cast<double>(removable.size())),
             static_cast<int>(removable.size()) - 1);
         hypotheses.erase(removable[static_cast<std::size_t>(selected)]);
     }
 }
 
-std::vector<Hypothesis> ParticleFilter::mutateHypotheses(const AssociatedHypotheses& hypotheses, int count, double now) const
+std::vector<Hypothesis> ParticleFilter::mutateHypotheses(const AssociatedHypotheses& hypotheses, int count) const
 {
     if (hypotheses.hypotheses.empty() || count <= 0) {
         return {};
@@ -297,70 +290,40 @@ std::vector<Hypothesis> ParticleFilter::mutateHypotheses(const AssociatedHypothe
 
     std::vector<Hypothesis> mutations;
     for (int i = 0; i < count; ++i) {
-        const int parent_index = static_cast<int>(random01() * static_cast<double>(hypotheses.hypotheses.size()));
+        const int parent_index = static_cast<int>(randomUniform01(rng_) * static_cast<double>(hypotheses.hypotheses.size()));
         auto selected = hypotheses.hypotheses.begin();
         std::advance(selected, std::min(parent_index, static_cast<int>(hypotheses.hypotheses.size()) - 1));
 
         if (selected->flag == HypothesisFlag::Verified) {
             // Verified particles receive both velocity and pose mutations to
             // track motion while preserving nearby pose alternatives.
-            auto velocity_mutations = generateVelocityMutations(*selected, 10, config_.mutation_velocity_max_step);
-            mutations.insert(mutations.end(), velocity_mutations.begin(), velocity_mutations.end());
-            auto pose_mutations = generateMutations(
+            auto velocity_mutations = generateVelocityMutations(
                 *selected,
                 10,
-                now,
+                config_.mutation_velocity_max_step,
+                rng_);
+            mutations.insert(mutations.end(), velocity_mutations.begin(), velocity_mutations.end());
+            auto pose_mutations = generatePoseMutations(
+                *selected,
+                10,
                 config_.mutation_position_max_step,
-                config_.mutation_orientation_max_step);
+                config_.mutation_orientation_max_step,
+                rng_);
             mutations.insert(mutations.end(), pose_mutations.begin(), pose_mutations.end());
         } else if (selected->flag == HypothesisFlag::Neutral) {
             // Tentative particles only receive a light pose mutation.
-            auto pose_mutations = generateMutations(
+            auto pose_mutations = generatePoseMutations(
                 *selected,
                 1,
-                now,
                 config_.mutation_position_max_step,
-                config_.mutation_orientation_max_step);
+                config_.mutation_orientation_max_step,
+                rng_);
             mutations.insert(mutations.end(), pose_mutations.begin(), pose_mutations.end());
         } else {
             --i;
         }
     }
     return mutations;
-}
-
-std::vector<Hypothesis> ParticleFilter::generateMutations(
-    const Hypothesis& source,
-    int count,
-    double,
-    double position_max_step,
-    double angle_max_step) const
-{
-    std::vector<Hypothesis> output;
-    output.reserve(static_cast<std::size_t>(count));
-    for (int i = 0; i < count; ++i) {
-        Hypothesis mutation = source;
-        mutation.unique_id = static_cast<int>(rng_());
-        mutation.flag = HypothesisFlag::Neutral;
-        mutation.pose.position += randomUnitVector() * random01() * position_max_step;
-        mutation.pose.orientation = Eigen::AngleAxisd(random01() * angle_max_step, randomUnitVector()) * source.pose.orientation;
-        output.push_back(mutation);
-    }
-    return output;
-}
-
-std::vector<Hypothesis> ParticleFilter::generateVelocityMutations(const Hypothesis& source, int count, double velocity_max_step) const
-{
-    std::vector<Hypothesis> output;
-    output.reserve(static_cast<std::size_t>(count));
-    for (int i = 0; i < count; ++i) {
-        Hypothesis mutation = source;
-        mutation.unique_id = static_cast<int>(rng_());
-        mutation.flag = HypothesisFlag::Neutral;
-        mutation.twist.linear += randomUnitVector() * random01() * velocity_max_step;
-        output.push_back(mutation);
-    }
-    return output;
 }
 
 void ParticleFilter::propagate(double now)
@@ -505,23 +468,6 @@ Eigen::Quaterniond ParticleFilter::averageOrientation(const std::vector<Hypothes
     svd.singularValues().maxCoeff(&index);
     const Eigen::Vector4d coeffs = svd.matrixU().col(index);
     return Eigen::Quaterniond(coeffs(3), coeffs(0), coeffs(1), coeffs(2)).normalized();
-}
-
-double ParticleFilter::random01() const
-{
-    return std::uniform_real_distribution<double>(0.0, 1.0)(rng_);
-}
-
-Eigen::Vector3d ParticleFilter::randomUnitVector() const
-{
-    Eigen::Vector3d vector;
-    do {
-        vector = Eigen::Vector3d(
-            std::uniform_real_distribution<double>(-1.0, 1.0)(rng_),
-            std::uniform_real_distribution<double>(-1.0, 1.0)(rng_),
-            std::uniform_real_distribution<double>(-1.0, 1.0)(rng_));
-    } while (vector.squaredNorm() < 1.0e-12);
-    return vector.normalized();
 }
 
 } // namespace uvdar_core::pose_estimation::particle_filter

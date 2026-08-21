@@ -182,26 +182,6 @@ private:
         double position_max_step,
         double angle_max_step,
         unsigned desired_count) const;
-    /**
-     * @brief Perturb particle position and orientation by bounded random steps.
-     */
-    std::vector<Hypothesis> generateMutations(const Hypothesis& source, int count, double position_max_step, double angle_max_step) const;
-
-    /**
-     * @brief Perturb particle linear velocity by bounded random steps.
-     */
-    std::vector<Hypothesis> generateVelocityMutations(const Hypothesis& source, int count, double velocity_max_step) const;
-
-    /**
-     * @brief Uniform random scalar in [0, 1].
-     */
-    double random01() const;
-
-    /**
-     * @brief Uniform-ish random unit vector from a normalized cube sample.
-     */
-    Eigen::Vector3d randomUnitVector() const;
-
     std::vector<CameraModel> cameras_;
     uvdar_core::pose_estimation::BodyModel body_;
     Options options_;

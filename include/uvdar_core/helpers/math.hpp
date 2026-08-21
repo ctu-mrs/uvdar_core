@@ -153,6 +153,19 @@ inline Eigen::Quaterniond rpyToQuaternion(const Eigen::Vector3d& rpy)
 }
 
 /**
+ * @brief Rotate all translation/orientation blocks of a 6D pose covariance.
+ */
+inline Eigen::Matrix<double, 6, 6> rotatePoseCovariance(
+    const Eigen::Matrix<double, 6, 6>& covariance,
+    const Eigen::Matrix3d& rotation)
+{
+    Eigen::Matrix<double, 6, 6> transform = Eigen::Matrix<double, 6, 6>::Zero();
+    transform.topLeftCorner<3, 3>() = rotation;
+    transform.bottomRightCorner<3, 3>() = rotation;
+    return transform * covariance * transform.transpose();
+}
+
+/**
  * @brief Damped right pseudo-inverse J^T (J J^T + lambda I)^-1.
  */
 template <int Rows, int Cols>

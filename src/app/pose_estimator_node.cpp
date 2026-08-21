@@ -20,10 +20,7 @@
 
 #include "uvdar_core/helpers/ros_conversions.hpp"
 #include "uvdar_core/helpers/yaml.hpp"
-#include "uvdar_core/calibration/fisheye/equidistant_model.hpp"
-#include "uvdar_core/calibration/fisheye/ocam_model.hpp"
-#include "uvdar_core/calibration/fisheye/radial_model.hpp"
-#include "uvdar_core/calibration/pinhole/pinhole_model.hpp"
+#include "uvdar_core/calibration/lens_model_loader.hpp"
 #include "uvdar_core/pose_estimation/body_model.hpp"
 #include "uvdar_core/pose_estimation/geometric_solver/geometric_solver.hpp"
 #include "uvdar_core/pose_estimation/particle_filter/particle_filter.hpp"
@@ -36,6 +33,12 @@ namespace gs = uvdar_core::pose_estimation::geometric_solver;
 namespace pf = uvdar_core::pose_estimation::particle_filter;
 
 namespace {
+    using uvdar_core::helpers::yaml::optionalScalar;
+    using uvdar_core::helpers::yaml::optionalScalarAny;
+    using uvdar_core::helpers::yaml::optionalSequence;
+    using uvdar_core::helpers::yaml::requireScalar;
+    using uvdar_core::helpers::yaml::resolvePath;
+
     constexpr int kVisualizationWidth = 1600;
     constexpr int kVisualizationHeight = 900;
     
@@ -365,198 +368,6 @@ namespace {
         return poses;
     }
 
-template <typename T>
-T optionalScalar(const YAML::Node& node, const std::string& key, T fallback)
-{
-    const YAML::Node value = node[key];
-    return value ? value.as<T>() : fallback;
-}
-
-std::string requireString(const YAML::Node& node, const std::string& key)
-{
-    const YAML::Node value = node[key];
-    if (!value) {
-        throw std::runtime_error("Missing required pose_estimation key '" + key + "'.");
-    }
-    return value.as<std::string>();
-}
-
-std::string resolvePath(const std::filesystem::path& config_path, const std::string& value)
-{
-    if (value.empty()) {
-        return {};
-    }
-    const std::filesystem::path path(value);
-    if (path.is_absolute()) {
-        return path.string();
-    }
-    return (config_path.parent_path() / path).lexically_normal().string();
-}
-
-std::vector<double> readVector(const YAML::Node& node, const std::string& key)
-{
-    std::vector<double> values;
-    const YAML::Node vector_node = node[key];
-    if (!vector_node || !vector_node.IsSequence()) {
-        return values;
-    }
-    for (const YAML::Node& value : vector_node) {
-        values.push_back(value.as<double>());
-    }
-    return values;
-}
-
-std::vector<double> readVectorAny(const YAML::Node& primary, const YAML::Node& fallback, const std::string& key)
-{
-    std::vector<double> values = readVector(primary, key);
-    if (!values.empty()) {
-        return values;
-    }
-    return readVector(fallback, key);
-}
-
-template <typename T>
-T optionalScalarAny(const YAML::Node& primary, const YAML::Node& fallback, const std::string& key, T default_value)
-{
-    if (primary && primary[key]) {
-        return primary[key].as<T>();
-    }
-    return optionalScalar<T>(fallback, key, default_value);
-}
-
-YAML::Node loadCameraConfigFile(const YAML::Node& input_node, const std::filesystem::path& config_path)
-{
-    const std::string calib_file = optionalScalar<std::string>(input_node, "calib_file", std::string {});
-    if (calib_file.empty()) {
-        return {};
-    }
-
-    const std::string resolved = resolvePath(config_path, calib_file);
-    const std::filesystem::path path(resolved);
-    if (path.extension() != ".yaml" && path.extension() != ".yml") {
-        return {};
-    }
-    return uvdar_core::helpers::yaml::loadFile(resolved);
-}
-
-uvdar_core::calibration::fisheye::OcamModel loadOcamYamlModel(const YAML::Node& camera_node)
-{
-    uvdar_core::calibration::fisheye::OcamModel model;
-    const std::vector<double> direct = readVector(camera_node, "direct_polynomial");
-    const std::vector<double> inverse = readVector(camera_node, "inverse_polynomial");
-    const std::vector<double> center = readVector(camera_node, "center");
-    const std::vector<double> affine = readVector(camera_node, "affine");
-    const std::vector<double> image_size = readVector(camera_node, "image_size");
-
-    if (direct.empty() || direct.size() > static_cast<std::size_t>(uvdar_core::calibration::fisheye::max_polynomial_length)) {
-        throw std::runtime_error("OCam YAML requires direct_polynomial with 1..64 coefficients.");
-    }
-    if (inverse.empty() || inverse.size() > static_cast<std::size_t>(uvdar_core::calibration::fisheye::max_polynomial_length)) {
-        throw std::runtime_error("OCam YAML requires inverse_polynomial with 1..64 coefficients.");
-    }
-    if (center.size() != 2U) {
-        throw std::runtime_error("OCam YAML requires center: [row, column].");
-    }
-    if (affine.size() != 3U) {
-        throw std::runtime_error("OCam YAML requires affine: [c, d, e].");
-    }
-    if (image_size.size() != 2U) {
-        throw std::runtime_error("OCam YAML requires image_size: [height, width].");
-    }
-
-    model.length_pol = static_cast<int>(direct.size());
-    std::copy(direct.begin(), direct.end(), model.pol.begin());
-    model.length_invpol = static_cast<int>(inverse.size());
-    std::copy(inverse.begin(), inverse.end(), model.invpol.begin());
-    model.xc = center[0];
-    model.yc = center[1];
-    model.c = affine[0];
-    model.d = affine[1];
-    model.e = affine[2];
-    model.height = static_cast<int>(std::llround(image_size[0]));
-    model.width = static_cast<int>(std::llround(image_size[1]));
-    return model;
-}
-
-uvdar_core::calibration::LensModelPtr loadLensModel(const YAML::Node& input_node, const std::filesystem::path& config_path)
-{
-    const YAML::Node camera_node = loadCameraConfigFile(input_node, config_path);
-    const std::string model_type = optionalScalarAny<std::string>(camera_node, input_node, "calibration_model", "ocamcalib");
-    if (model_type == "ocamcalib") {
-        if (camera_node) {
-            return std::make_shared<uvdar_core::calibration::fisheye::OcamModel>(loadOcamYamlModel(camera_node));
-        }
-        const std::string calib_file = resolvePath(config_path, requireString(input_node, "calib_file"));
-        return std::make_shared<uvdar_core::calibration::fisheye::OcamModel>(
-            uvdar_core::calibration::fisheye::loadModel(calib_file));
-    }
-
-    const auto intrinsics = readVectorAny(camera_node, input_node, "intrinsics");
-    const auto distortion = readVectorAny(camera_node, input_node, "distortion");
-    const int width = optionalScalarAny<int>(camera_node, input_node, "image_width", 0);
-    const int height = optionalScalarAny<int>(camera_node, input_node, "image_height", 0);
-    if (intrinsics.size() < 4U) {
-        throw std::runtime_error("Calibration model '" + model_type + "' requires intrinsics: [fx, fy, cx, cy].");
-    }
-
-    if (model_type == "pinhole") {
-        uvdar_core::calibration::pinhole::PinholeModel::Parameters parameters;
-        parameters.fx = intrinsics[0];
-        parameters.fy = intrinsics[1];
-        parameters.cx = intrinsics[2];
-        parameters.cy = intrinsics[3];
-        parameters.width = width;
-        parameters.height = height;
-        if (distortion.size() > 0U) parameters.k1 = distortion[0];
-        if (distortion.size() > 1U) parameters.k2 = distortion[1];
-        if (distortion.size() > 2U) parameters.p1 = distortion[2];
-        if (distortion.size() > 3U) parameters.p2 = distortion[3];
-        if (distortion.size() > 4U) parameters.k3 = distortion[4];
-        return std::make_shared<uvdar_core::calibration::pinhole::PinholeModel>(parameters);
-    }
-
-    if (model_type == "fisheye_equidistant" || model_type == "equidistant") {
-        uvdar_core::calibration::fisheye::EquidistantModel::Parameters parameters;
-        parameters.fx = intrinsics[0];
-        parameters.fy = intrinsics[1];
-        parameters.cx = intrinsics[2];
-        parameters.cy = intrinsics[3];
-        parameters.width = width;
-        parameters.height = height;
-        if (distortion.size() > 0U) parameters.k1 = distortion[0];
-        if (distortion.size() > 1U) parameters.k2 = distortion[1];
-        if (distortion.size() > 2U) parameters.k3 = distortion[2];
-        if (distortion.size() > 3U) parameters.k4 = distortion[3];
-        return std::make_shared<uvdar_core::calibration::fisheye::EquidistantModel>(parameters);
-    }
-
-    if (model_type == "fisheye_equisolid" || model_type == "equisolid" || model_type == "equisolid_angle"
-        || model_type == "fisheye_stereographic" || model_type == "stereographic"
-        || model_type == "fisheye_orthographic" || model_type == "orthographic") {
-        uvdar_core::calibration::fisheye::RadialModel::Parameters parameters;
-        if (model_type == "fisheye_stereographic" || model_type == "stereographic") {
-            parameters.projection = uvdar_core::calibration::fisheye::RadialModel::Projection::Stereographic;
-        } else if (model_type == "fisheye_orthographic" || model_type == "orthographic") {
-            parameters.projection = uvdar_core::calibration::fisheye::RadialModel::Projection::Orthographic;
-        } else {
-            parameters.projection = uvdar_core::calibration::fisheye::RadialModel::Projection::EquisolidAngle;
-        }
-        parameters.fx = intrinsics[0];
-        parameters.fy = intrinsics[1];
-        parameters.cx = intrinsics[2];
-        parameters.cy = intrinsics[3];
-        parameters.width = width;
-        parameters.height = height;
-        if (distortion.size() > 0U) parameters.k1 = distortion[0];
-        if (distortion.size() > 1U) parameters.k2 = distortion[1];
-        if (distortion.size() > 2U) parameters.k3 = distortion[2];
-        if (distortion.size() > 3U) parameters.k4 = distortion[3];
-        return std::make_shared<uvdar_core::calibration::fisheye::RadialModel>(parameters);
-    }
-
-    throw std::runtime_error("Unsupported calibration_model '" + model_type + "'.");
-}
-
 } // namespace
 
 PoseEstimatorNode::PoseEstimatorNode(const rclcpp::NodeOptions& options)
@@ -595,16 +406,13 @@ void PoseEstimatorNode::loadConfiguration(const std::string& config_path_string)
     const double visualization_fps = optionalScalar<double>(pose_node, "visualization_fps", 5.0);
     visualization_period_sec_ = (visualization_fps > 0.0) ? (1.0 / visualization_fps) : 0.2;
 
-    const std::string model_file = resolvePath(config_path, requireString(pose_node, "model_file"));
+    const std::string model_file = resolvePath(
+        config_path,
+        requireScalar<std::string>(pose_node, "model_file", "pose_estimation"));
     uvdar_core::pose_estimation::BodyModel body(model_file);
     const int signals_per_target = std::max(1, body.maxSignalId() + 1);
 
-    std::vector<int> signal_ids;
-    if (const YAML::Node signal_node = pose_node["signal_ids"]; signal_node && signal_node.IsSequence()) {
-        for (const YAML::Node& value : signal_node) {
-            signal_ids.push_back(value.as<int>());
-        }
-    }
+    std::vector<int> signal_ids = optionalSequence<int>(pose_node, "signal_ids");
     if (signal_ids.empty()) {
         signal_ids = {0, 1, 2, 3, 4, 5, 6, 7, 8};
     }
@@ -618,13 +426,13 @@ void PoseEstimatorNode::loadConfiguration(const std::string& config_path_string)
     for (const YAML::Node& input_node : inputs_node) {
         InputConfig input;
         input.name = optionalScalar<std::string>(input_node, "name", "camera_" + std::to_string(inputs_.size()));
-        input.input_topic = requireString(input_node, "input_topic");
-        input.camera_frame = requireString(input_node, "camera_frame");
+        input.input_topic = requireScalar<std::string>(input_node, "input_topic", "pose_estimation.inputs");
+        input.camera_frame = requireScalar<std::string>(input_node, "camera_frame", "pose_estimation.inputs");
         input.calib_file = resolvePath(config_path, optionalScalar<std::string>(input_node, "calib_file", std::string {}));
         inputs_.push_back(input);
 
         pe::CameraModel camera;
-        camera.lens = loadLensModel(input_node, config_path);
+        camera.lens = uvdar_core::calibration::loadLensModel(input_node, config_path);
         camera.image_width = camera.lens->imageWidth();
         camera.image_height = camera.lens->imageHeight();
         cameras.push_back(camera);

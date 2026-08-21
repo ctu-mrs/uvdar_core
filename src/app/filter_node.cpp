@@ -21,12 +21,8 @@ namespace {
 constexpr double kPi = 3.141592653589793238462643383279502884;
 constexpr double kUnobservableAngleVariance = 666.0 * 666.0;
 
-template <typename T>
-T optionalScalar(const YAML::Node& node, const std::string& key, T fallback)
-{
-    const YAML::Node value = node[key];
-    return value ? value.as<T>() : fallback;
-}
+using uvdar_core::helpers::yaml::optionalScalar;
+using uvdar_core::helpers::yaml::optionalSequence;
 
 std::array<double, 36> stateCovarianceToMsg(const Eigen::MatrixXd& input, bool velocity_state)
 {
@@ -94,12 +90,7 @@ void FilterNode::loadConfiguration(const std::string& config_path)
     };
     filter_ = std::make_unique<pe::KfPose>(config);
 
-    std::vector<std::string> input_topics;
-    if (const YAML::Node topics = node["measured_poses_topics"]; topics && topics.IsSequence()) {
-        for (const YAML::Node& topic : topics) {
-            input_topics.push_back(topic.as<std::string>());
-        }
-    }
+    std::vector<std::string> input_topics = optionalSequence<std::string>(node, "measured_poses_topics");
     if (input_topics.empty()) {
         input_topics.push_back("/pose_estimator/measured_poses");
     }

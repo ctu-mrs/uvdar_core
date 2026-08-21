@@ -107,6 +107,7 @@ set(TRACKER_SOURCES
 )
 
 set(CALIBRATION_SOURCES
+    src/calibration/lens_model_loader.cpp
     src/calibration/fisheye/ocam_model.cpp
     src/calibration/pinhole/pinhole_model.cpp
     src/calibration/fisheye/equidistant_model.cpp
@@ -119,6 +120,7 @@ set(POSE_ESTIMATION_SOURCES
     src/pose_estimation/geometric_solver/geometric_solver.cpp
     src/pose_estimation/particle_filter/reprojection_model.cpp
     src/pose_estimation/particle_filter/particle_filter.cpp
+    src/pose_estimation/particle_filter/sampling.cpp
     src/pose_estimation/kf_pose.cpp
 )
 
@@ -165,6 +167,7 @@ target_link_libraries(${PROJECT_NAME}_common
 
 target_link_libraries(${PROJECT_NAME}_calibration
     Eigen3::Eigen
+    yaml-cpp::yaml-cpp
 )
 
 target_link_libraries(${PROJECT_NAME}_detector

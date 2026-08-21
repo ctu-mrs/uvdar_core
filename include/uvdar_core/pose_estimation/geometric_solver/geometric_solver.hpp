@@ -81,9 +81,6 @@ public:
     std::vector<PoseMeasurement> tentativeHypotheses() const override;
 
 private:
-    using Tangent = Eigen::Matrix<double, 6, 1>;
-    using TangentCollection = std::vector<Tangent>;
-
     /**
      * @brief One 2D-3D correspondence after signal association.
      */
@@ -94,7 +91,15 @@ private:
         Eigen::Vector3d bearing = Eigen::Vector3d::UnitZ();
     };
 
-    using CameraPose = uvdar_core::pose_estimation::uncertainty::CameraPose;
+    using CameraPose = uvdar_core::pose_estimation::CameraPose;
+
+    /**
+     * @brief A candidate pose after pixel-space refinement and scoring.
+     */
+    struct ScoredCameraPose {
+        CameraPose pose;
+        double reprojection_error = 0.0;
+    };
 
     /**
      * @brief Convert a tracked point into a marker-bearing correspondence.
@@ -105,6 +110,14 @@ private:
      * @brief Dispatch to P2P, P3P, P4P, or iterative PnP by correspondence count.
      */
     std::vector<CameraPose> solveCameraPoses(const std::vector<Observation>& observations, const CameraModel& camera) const;
+
+    /**
+     * @brief Refine solver candidates and discard invalid pixel reprojections.
+     */
+    std::vector<ScoredCameraPose> refineCandidates(
+        const std::vector<CameraPose>& candidates,
+        const std::vector<Observation>& observations,
+        const CameraModel& camera) const;
 
     /**
      * @brief Two-point pose from two 3D points, two bearings, and a plane normal.
@@ -154,7 +167,6 @@ private:
      */
     Eigen::Matrix<double, 6, 6> poseCovarianceByMonteCarlo(
         const std::vector<CameraPose>& base_poses,
-        const std::vector<double>& base_errors,
         const std::vector<Observation>& observations,
         const CameraModel& camera,
         int selected_index) const;
@@ -164,20 +176,9 @@ private:
      */
     Eigen::Matrix<double, 6, 6> poseCovarianceByEllipseTransform(
         const std::vector<CameraPose>& base_poses,
-        const std::vector<double>& base_errors,
         const std::vector<Observation>& observations,
         const CameraModel& camera,
         int selected_index) const;
-
-    /**
-     * @brief Estimate pose uncertainty in output frame from a set of 6D tangent samples.
-     */
-    Eigen::Matrix<double, 6, 6> covarianceFromPoseSamples(const TangentCollection& samples, double covariance_scale) const;
-
-    /**
-     * @brief Convert pose to local tangent-space coordinate vector (x,y,z,rx,ry,rz).
-     */
-    Tangent poseTangent(const CameraPose& pose) const;
 
     /**
      * @brief Build 2N x 2N detector pixel covariance from observations.
@@ -198,26 +199,9 @@ private:
         const CameraModel& camera) const;
 
     /**
-     * @brief Compute relative tangent perturbation from base pose to candidate pose.
-     */
-    Tangent tangentFromBase(const CameraPose& base_pose, const CameraPose& candidate_pose) const;
-
-    /**
      * @brief Transform body-to-camera pose into the configured output frame.
      */
     PoseMeasurement toMeasurement(int target, const CameraPose& camera_pose, const Eigen::Isometry3d& camera_to_output, const Eigen::Matrix<double, 6, 6>& covariance) const;
-
-    /**
-     * @brief Rotate a local pose covariance to output frame.
-     */
-    Eigen::Matrix<double, 6, 6> rotateCovarianceToOutput(
-        const Eigen::Matrix<double, 6, 6>& covariance,
-        const Eigen::Matrix3d& camera_to_output_rotation) const;
-
-    /**
-     * @brief Map global signal id to target id, or reject unknown signals.
-     */
-    int classifyMatch(int signal_id) const;
 
     /**
      * @brief Find the body LED carrying a local signal id.

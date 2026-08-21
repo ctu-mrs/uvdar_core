@@ -3,9 +3,11 @@
 #include <algorithm>
 #include <cctype>
 #include <cstdlib>
+#include <filesystem>
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <vector>
 
 #include <yaml-cpp/yaml.h>
 
@@ -115,6 +117,102 @@ inline YAML::Node loadFile(const std::string& path)
     YAML::Node root = YAML::LoadFile(path);
     expandEnvironmentVariables(root);
     return root;
+}
+
+/**
+ * @brief Read an optional YAML scalar, returning @p fallback when absent.
+ */
+template <typename T>
+inline T optionalScalar(const YAML::Node& node, const std::string& key, T fallback)
+{
+    const YAML::Node value = node[key];
+    return value ? value.as<T>() : fallback;
+}
+
+/**
+ * @brief Read a required YAML scalar and identify its containing section on error.
+ */
+template <typename T>
+inline T requireScalar(const YAML::Node& node, const std::string& key, const std::string& section = "configuration")
+{
+    const YAML::Node value = node[key];
+    if (!value) {
+        throw std::runtime_error("Missing required " + section + " key '" + key + "'.");
+    }
+    return value.as<T>();
+}
+
+/**
+ * @brief Read a required YAML mapping or sequence node.
+ */
+inline YAML::Node requireNode(const YAML::Node& node, const std::string& key, const std::string& section = "configuration")
+{
+    const YAML::Node value = node[key];
+    if (!value) {
+        throw std::runtime_error("Missing required " + section + " section '" + key + "'.");
+    }
+    return value;
+}
+
+/**
+ * @brief Prefer a scalar from @p primary and otherwise read it from @p fallback.
+ */
+template <typename T>
+inline T optionalScalarAny(
+    const YAML::Node& primary,
+    const YAML::Node& fallback,
+    const std::string& key,
+    T default_value)
+{
+    if (primary && primary[key]) {
+        return primary[key].as<T>();
+    }
+    return optionalScalar<T>(fallback, key, default_value);
+}
+
+/**
+ * @brief Read an optional sequence of scalars; return an empty vector otherwise.
+ */
+template <typename T>
+inline std::vector<T> optionalSequence(const YAML::Node& node, const std::string& key)
+{
+    const YAML::Node sequence = node[key];
+    if (!sequence || !sequence.IsSequence()) {
+        return {};
+    }
+
+    std::vector<T> values;
+    values.reserve(sequence.size());
+    for (const YAML::Node& value : sequence) {
+        values.push_back(value.as<T>());
+    }
+    return values;
+}
+
+/**
+ * @brief Prefer a scalar sequence from @p primary and otherwise use @p fallback.
+ */
+template <typename T>
+inline std::vector<T> optionalSequenceAny(const YAML::Node& primary, const YAML::Node& fallback, const std::string& key)
+{
+    std::vector<T> values = optionalSequence<T>(primary, key);
+    return values.empty() ? optionalSequence<T>(fallback, key) : values;
+}
+
+/**
+ * @brief Resolve a non-empty configuration path relative to its containing file.
+ */
+inline std::string resolvePath(const std::filesystem::path& config_path, const std::string& value)
+{
+    if (value.empty()) {
+        return {};
+    }
+
+    const std::filesystem::path path(value);
+    if (path.is_absolute()) {
+        return path.string();
+    }
+    return (config_path.parent_path() / path).lexically_normal().string();
 }
 
 } // namespace uvdar_core::helpers::yaml

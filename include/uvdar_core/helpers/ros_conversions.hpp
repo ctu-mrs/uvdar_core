@@ -99,19 +99,4 @@ inline std::array<double, 36> covarianceToMsg(const Eigen::Matrix<double, 6, 6>&
     return output;
 }
 
-/**
- * @brief Rotate the translational and angular 3x3 blocks of a 6D pose covariance.
- */
-inline Eigen::Matrix<double, 6, 6> rotatePoseCovariance(
-    const Eigen::Matrix<double, 6, 6>& covariance,
-    const Eigen::Matrix3d& rotation)
-{
-    Eigen::Matrix<double, 6, 6> output = covariance;
-    output.topLeftCorner<3, 3>() = rotation * covariance.topLeftCorner<3, 3>() * rotation.transpose();
-    output.bottomRightCorner<3, 3>() = rotation * covariance.bottomRightCorner<3, 3>() * rotation.transpose();
-    output.topRightCorner<3, 3>() = rotation * covariance.topRightCorner<3, 3>() * rotation.transpose();
-    output.bottomLeftCorner<3, 3>() = rotation * covariance.bottomLeftCorner<3, 3>() * rotation.transpose();
-    return output;
-}
-
 } // namespace uvdar_core::helpers

@@ -13,6 +13,7 @@
 
 #include "uvdar_core/helpers/poly_quartic.hpp"
 #include "uvdar_core/helpers/math.hpp"
+#include "uvdar_core/pose_estimation/geometric_solver/solver_types.hpp"
 
 namespace uvdar_core::pose_estimation::geometric_solver {
 
@@ -29,13 +30,7 @@ class P3P {
 public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
-    /**
-     * @brief Body-to-camera rigid transform X_c = R X_w + t.
-     */
-    struct Solution {
-        Eigen::Matrix3d R = Eigen::Matrix3d::Identity();
-        Eigen::Vector3d t = Eigen::Vector3d::Zero();
-    };
+    using Solution = PoseSolution;
 
     /**
      * @brief Pose sensitivity with respect to three bearing vectors.

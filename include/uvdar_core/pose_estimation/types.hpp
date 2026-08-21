@@ -1,10 +1,13 @@
 #pragma once
 
+#include <algorithm>
 #include <string>
 #include <vector>
 
 #include <Eigen/Dense>
 #include <Eigen/Geometry>
+
+#include "uvdar_core/helpers/math.hpp"
 
 namespace uvdar_core::pose_estimation {
 
@@ -15,6 +18,38 @@ struct Pose {
     Eigen::Vector3d position = Eigen::Vector3d::Zero();
     Eigen::Quaterniond orientation = Eigen::Quaterniond::Identity();
 };
+
+/**
+ * @brief Rigid transform from a body/model frame to a camera frame.
+ *
+ * It represents X_c = R X_b + t and is shared by geometric solving,
+ * reprojection, and uncertainty propagation. It is deliberately not owned by
+ * the uncertainty module.
+ */
+struct CameraPose {
+    Eigen::Matrix3d rotation = Eigen::Matrix3d::Identity();
+    Eigen::Vector3d translation = Eigen::Vector3d::Zero();
+};
+
+/**
+ * @brief Transform a body/model point into the camera frame with CameraPose.
+ */
+inline Eigen::Vector3d transformPoint(const CameraPose& pose, const Eigen::Vector3d& body_point)
+{
+    return pose.rotation * body_point + pose.translation;
+}
+
+/**
+ * @brief Apply a translation and left-multiplied SO(3) camera-pose increment.
+ */
+inline void applyLeftCameraPoseIncrement(
+    CameraPose& pose,
+    const Eigen::Vector3d& translation_increment,
+    const Eigen::Vector3d& rotation_increment)
+{
+    pose.translation += translation_increment;
+    pose.rotation = uvdar_core::helpers::expSO3(rotation_increment) * pose.rotation;
+}
 
 /**
  * @brief Minimal velocity state used by the particle filter: linear part only.
@@ -50,6 +85,20 @@ struct TrackedPoint {
     Eigen::Vector2d predicted_position = Eigen::Vector2d::Zero();
     Eigen::Matrix2d prediction_covariance = Eigen::Matrix2d::Identity();
 };
+
+/**
+ * @brief Map an allowed global signal id to its target index.
+ */
+inline int targetForSignal(
+    const std::vector<int>& signal_ids,
+    const int signals_per_target,
+    const int signal_id)
+{
+    if (std::find(signal_ids.begin(), signal_ids.end(), signal_id) == signal_ids.end()) {
+        return -1;
+    }
+    return signal_id / std::max(1, signals_per_target);
+}
 
 /**
  * @brief Pose estimate with 6D covariance in [position, orientation] order.

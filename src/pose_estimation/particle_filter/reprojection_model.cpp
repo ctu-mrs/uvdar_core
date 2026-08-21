@@ -1,4 +1,5 @@
 #include "uvdar_core/pose_estimation/particle_filter/reprojection_model.hpp"
+#include "uvdar_core/pose_estimation/particle_filter/sampling.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -116,7 +117,11 @@ std::vector<Hypothesis> ReprojectionModel::extractHypotheses(
 
     const int static_count = static_cast<int>(refined.size());
     for (int i = 0; i < static_count; ++i) {
-        const auto mutations = generateVelocityMutations(refined[static_cast<std::size_t>(i)], 5, max_initial_velocity);
+        const auto mutations = generateVelocityMutations(
+            refined[static_cast<std::size_t>(i)],
+            5,
+            max_initial_velocity,
+            rng_);
         refined.insert(refined.end(), mutations.begin(), mutations.end());
     }
 
@@ -305,9 +310,9 @@ std::pair<std::vector<Hypothesis>, std::vector<double>> ReprojectionModel::viabl
     int iterations = 0;
     while (static_cast<int>(hypotheses.size()) < desired_count && iterations <= options_.max_init_iterations) {
         // Sample along the rough bearing ray, then side-step in its null space.
-        const double d = random01();
-        const double sidestep_direction = random01();
-        const double sidestep_distance = random01();
+        const double d = randomUniform01(rng_);
+        const double sidestep_direction = randomUniform01(rng_);
+        const double sidestep_distance = randomUniform01(rng_);
         const Eigen::Vector3d side_shift = Eigen::AngleAxisd(2.0 * M_PI * sidestep_direction, furthest_position.normalized())
             * side_shift_init * sidestep_distance;
         const Eigen::Vector3d camera_position = furthest_position * d + side_shift;
@@ -316,7 +321,9 @@ std::pair<std::vector<Hypothesis>, std::vector<double>> ReprojectionModel::viabl
         hypothesis.unique_id = static_cast<int>(rng_());
         hypothesis.index = target;
         hypothesis.pose.position = camera_to_output * camera_position;
-        hypothesis.pose.orientation = Eigen::AngleAxisd(random01() * 2.0 * M_PI, randomUnitVector());
+        hypothesis.pose.orientation = Eigen::AngleAxisd(
+            randomUniform01(rng_) * 2.0 * M_PI,
+            randomUnitVector(rng_));
         hypothesis.flag = HypothesisFlag::Neutral;
         hypothesis.observed = stamp;
         hypothesis.propagated = stamp;
@@ -366,7 +373,12 @@ std::vector<Hypothesis> ReprojectionModel::refineByMutation(
     while (output.size() < desired_count && iterations <= options_.max_mutation_refine_iterations) {
         // Rejection sampling around currently viable particles.
         for (const auto& hypothesis : hypotheses) {
-            for (auto mutation : generateMutations(hypothesis, 1, position_max_step, angle_max_step)) {
+            for (auto mutation : generatePoseMutations(
+                hypothesis,
+                1,
+                position_max_step,
+                angle_max_step,
+                rng_)) {
                 if (hypothesisError(mutation, context) < threshold) {
                     mutation.flag = HypothesisFlag::Neutral;
                     output.push_back(mutation);
@@ -380,56 +392,6 @@ std::vector<Hypothesis> ReprojectionModel::refineByMutation(
     }
 
     return output;
-}
-
-std::vector<Hypothesis> ReprojectionModel::generateMutations(
-    const Hypothesis& source,
-    int count,
-    double position_max_step,
-    double angle_max_step) const
-{
-    std::vector<Hypothesis> output;
-    output.reserve(static_cast<std::size_t>(count));
-    for (int i = 0; i < count; ++i) {
-        Hypothesis mutation = source;
-        mutation.unique_id = static_cast<int>(rng_());
-        mutation.flag = HypothesisFlag::Neutral;
-        mutation.pose.position += randomUnitVector() * random01() * position_max_step;
-        mutation.pose.orientation = Eigen::AngleAxisd(random01() * angle_max_step, randomUnitVector()) * source.pose.orientation;
-        output.push_back(mutation);
-    }
-    return output;
-}
-
-std::vector<Hypothesis> ReprojectionModel::generateVelocityMutations(const Hypothesis& source, int count, double velocity_max_step) const
-{
-    std::vector<Hypothesis> output;
-    output.reserve(static_cast<std::size_t>(count));
-    for (int i = 0; i < count; ++i) {
-        Hypothesis mutation = source;
-        mutation.unique_id = static_cast<int>(rng_());
-        mutation.flag = HypothesisFlag::Neutral;
-        mutation.twist.linear += randomUnitVector() * random01() * velocity_max_step;
-        output.push_back(mutation);
-    }
-    return output;
-}
-
-double ReprojectionModel::random01() const
-{
-    return std::uniform_real_distribution<double>(0.0, 1.0)(rng_);
-}
-
-Eigen::Vector3d ReprojectionModel::randomUnitVector() const
-{
-    Eigen::Vector3d vector;
-    do {
-        vector = Eigen::Vector3d(
-            std::uniform_real_distribution<double>(-1.0, 1.0)(rng_),
-            std::uniform_real_distribution<double>(-1.0, 1.0)(rng_),
-            std::uniform_real_distribution<double>(-1.0, 1.0)(rng_));
-    } while (vector.squaredNorm() < 1.0e-12);
-    return vector.normalized();
 }
 
 } // namespace uvdar_core::pose_estimation::particle_filter

@@ -5,6 +5,39 @@
 
 namespace uvdar_core::pose_estimation::uncertainty {
 
+PoseTangent relativePoseTangent(const CameraPose& base, const CameraPose& candidate)
+{
+    PoseTangent delta;
+    delta.head<3>() = candidate.translation - base.translation;
+    const Eigen::AngleAxisd angle_axis(candidate.rotation * base.rotation.transpose());
+    if (angle_axis.angle() < 1.0e-12) {
+        delta.tail<3>() = Eigen::Vector3d::Zero();
+    } else {
+        delta.tail<3>() = angle_axis.axis() * angle_axis.angle();
+    }
+    return delta;
+}
+
+PoseCovariance covarianceFromPoseSamples(const std::vector<PoseTangent>& samples, const double scale)
+{
+    if (samples.empty()) {
+        return PoseCovariance::Zero();
+    }
+
+    PoseTangent mean = PoseTangent::Zero();
+    for (const PoseTangent& sample : samples) {
+        mean += sample;
+    }
+    mean /= static_cast<double>(samples.size());
+
+    PoseCovariance covariance = PoseCovariance::Zero();
+    for (const PoseTangent& sample : samples) {
+        const PoseTangent difference = sample - mean;
+        covariance += difference * difference.transpose();
+    }
+    return scale * covariance;
+}
+
 Eigen::Matrix2d regularizedCovariance(const Eigen::Matrix2d& covariance, double regularization)
 {
     Eigen::Matrix2d output = 0.5 * (covariance + covariance.transpose());
@@ -15,13 +48,13 @@ Eigen::Matrix2d regularizedCovariance(const Eigen::Matrix2d& covariance, double 
     return output;
 }
 
-Eigen::Matrix<double, 6, 6> covarianceFromInformation(const Eigen::Matrix<double, 6, 6>& information, double eps)
+PoseCovariance covarianceFromInformation(const PoseCovariance& information, double eps)
 {
     // Use the symmetric eigensystem instead of a direct inverse so rank-deficient
     // point sets leave unobservable pose directions with large/zero information.
-    Eigen::SelfAdjointEigenSolver<Eigen::Matrix<double, 6, 6>> solver(0.5 * (information + information.transpose()) + eps * Eigen::Matrix<double, 6, 6>::Identity());
+    Eigen::SelfAdjointEigenSolver<PoseCovariance> solver(0.5 * (information + information.transpose()) + eps * PoseCovariance::Identity());
     if (solver.info() != Eigen::Success) {
-        return Eigen::Matrix<double, 6, 6>::Identity() * 1.0e6;
+        return PoseCovariance::Identity() * 1.0e6;
     }
 
     const double tolerance = std::max(eps, 1.0e-10 * solver.eigenvalues().cwiseAbs().maxCoeff());
@@ -39,7 +72,7 @@ Eigen::Matrix<double, 2, 6> imageProjectionJacobian(
     const CameraPose& pose,
     const Eigen::Vector3d& world_point)
 {
-    const Eigen::Vector3d camera_point = pose.rotation * world_point + pose.translation;
+    const Eigen::Vector3d camera_point = transformPoint(pose, world_point);
     const Eigen::Matrix<double, 2, 3> project_jacobian = camera.lens->projectJacobian(camera_point);
 
     // For a left-multiplied small rotation, d(RX+t)/dtheta = -[X_c]x.
@@ -48,14 +81,14 @@ Eigen::Matrix<double, 2, 6> imageProjectionJacobian(
     return jacobian;
 }
 
-Eigen::Matrix<double, 6, 6> poseInformationMatrixFromPixelsLinearized(
+PoseCovariance poseInformationMatrixFromPixelsLinearized(
     const CameraPose& pose,
     const std::vector<Eigen::Vector3d>& world_points,
     const std::vector<Eigen::Matrix2d>& pixel_covariances,
     const CameraModel& camera,
     double covariance_regularization)
 {
-    Eigen::Matrix<double, 6, 6> information = Eigen::Matrix<double, 6, 6>::Zero();
+    PoseCovariance information = PoseCovariance::Zero();
     const std::size_t count = std::min(world_points.size(), pixel_covariances.size());
     for (std::size_t i = 0; i < count; ++i) {
         const Eigen::Matrix<double, 2, 6> jacobian = imageProjectionJacobian(camera, pose, world_points[i]);
@@ -66,7 +99,7 @@ Eigen::Matrix<double, 6, 6> poseInformationMatrixFromPixelsLinearized(
     return information;
 }
 
-Eigen::Matrix<double, 6, 6> poseCovarianceFromPixelsLinearized(
+PoseCovariance poseCovarianceFromPixelsLinearized(
     const CameraPose& pose,
     const std::vector<Eigen::Vector3d>& world_points,
     const std::vector<Eigen::Matrix2d>& pixel_covariances,

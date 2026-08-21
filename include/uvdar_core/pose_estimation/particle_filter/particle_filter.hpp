@@ -68,11 +68,6 @@ private:
     std::vector<ImageCluster> separateBySignals(const std::vector<TrackedPoint>& points) const;
 
     /**
-     * @brief Map a global signal id to target index using signals_per_target.
-     */
-    int classifyMatch(int signal_id) const;
-
-    /**
      * @brief Update particle flags by comparing reprojection error to two gates.
      */
     void checkHypothesisFitness(
@@ -91,17 +86,7 @@ private:
     /**
      * @brief Draw parents and generate pose/velocity mutations.
      */
-    std::vector<Hypothesis> mutateHypotheses(const AssociatedHypotheses& hypotheses, int count, double now) const;
-
-    /**
-     * @brief Perturb pose with isotropic position and SO(3) angle-axis noise.
-     */
-    std::vector<Hypothesis> generateMutations(const Hypothesis& source, int count, double now, double position_max_step, double angle_max_step) const;
-
-    /**
-     * @brief Perturb linear velocity by bounded random vectors.
-     */
-    std::vector<Hypothesis> generateVelocityMutations(const Hypothesis& source, int count, double velocity_max_step) const;
+    std::vector<Hypothesis> mutateHypotheses(const AssociatedHypotheses& hypotheses, int count) const;
 
     /**
      * @brief Constant-velocity propagation p(t) = p0 + v dt.
@@ -125,16 +110,6 @@ private:
      * @brief Markley-style quaternion averaging via dominant eigenvector/SVD.
      */
     Eigen::Quaterniond averageOrientation(const std::vector<Hypothesis>& hypotheses) const;
-
-    /**
-     * @brief Uniform random scalar in [0, 1].
-     */
-    double random01() const;
-
-    /**
-     * @brief Uniform-ish random unit vector from a normalized cube sample.
-     */
-    Eigen::Vector3d randomUnitVector() const;
 
     ParticleFilterConfig config_;
     uvdar_core::pose_estimation::BodyModel body_;

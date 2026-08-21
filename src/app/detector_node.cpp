@@ -13,10 +13,6 @@
 
 namespace uvdar_core::app {
 
-namespace {
-
-} // namespace
-
 DetectorNode::DetectorNode(const rclcpp::NodeOptions& options)
     : rclcpp::Node("detector", options)
 {

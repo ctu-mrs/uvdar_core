@@ -15,59 +15,10 @@ namespace uvdar_core::app {
 
 namespace {
 
-/**
- * @brief Read optional scalar from YAML; return a fallback value if missing.
- */
-template <typename T>
-T optionalScalar(const YAML::Node& node, const std::string& key, T default_value)
-{
-    const YAML::Node value = node[key];
-    if (!value) {
-        return default_value;
-    }
-    return value.as<T>();
-}
-
-/**
- * @brief Read required scalar from YAML; throw when missing.
- */
-template <typename T>
-T requireScalar(const YAML::Node& node, const std::string& key)
-{
-    const YAML::Node value = node[key];
-    if (!value) {
-        throw std::runtime_error("Missing required config key '" + key + "'.");
-    }
-    return value.as<T>();
-}
-
-/**
- * @brief Read required subsection from YAML; throw when missing.
- */
-YAML::Node requireNode(const YAML::Node& node, const std::string& key)
-{
-    const YAML::Node value = node[key];
-    if (!value) {
-        throw std::runtime_error("Missing required config section '" + key + "'.");
-    }
-    return value;
-}
-
-/**
- * @brief Resolve sequence/config paths relative to the current config file.
- */
-std::string resolvePath(const std::filesystem::path& config_path, const std::string& value)
-{
-    if (value.empty()) {
-        return value;
-    }
-
-    const std::filesystem::path path_value(value);
-    if (path_value.is_absolute()) {
-        return path_value.string();
-    }
-    return (config_path.parent_path() / path_value).lexically_normal().string();
-}
+using uvdar_core::helpers::yaml::optionalScalar;
+using uvdar_core::helpers::yaml::requireNode;
+using uvdar_core::helpers::yaml::requireScalar;
+using uvdar_core::helpers::yaml::resolvePath;
 
 /**
  * @brief Parse detector backend string from YAML.
