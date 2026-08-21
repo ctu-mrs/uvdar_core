@@ -34,6 +34,26 @@ GeometricSolver::GeometricSolver(GeometricSolverConfig config, BodyModel body, s
     , cameras_(std::move(cameras))
 {
     latest_measurements_.frame_id = config_.output_frame;
+    camera_up_axes_.resize(cameras_.size());
+}
+
+void GeometricSolver::setCameraUpAxis(
+    const std::size_t camera_index,
+    std::optional<Eigen::Vector3d> camera_up_axis)
+{
+    if (camera_index >= camera_up_axes_.size()) {
+        return;
+    }
+    if (camera_up_axis
+        && (!camera_up_axis->allFinite() || camera_up_axis->squaredNorm() < epsilon)) {
+        camera_up_axis = std::nullopt;
+    }
+    if (camera_up_axis) {
+        camera_up_axis->normalize();
+    }
+
+    std::scoped_lock lock(mutex_);
+    camera_up_axes_[camera_index] = std::move(camera_up_axis);
 }
 
 void GeometricSolver::processFrame(
@@ -50,6 +70,11 @@ void GeometricSolver::processFrame(
     }
 
     const CameraModel& camera = cameras_[camera_index];
+    std::optional<Eigen::Vector3d> camera_up_axis;
+    {
+        std::scoped_lock lock(mutex_);
+        camera_up_axis = camera_up_axes_[camera_index];
+    }
     std::map<int, std::vector<Observation>> by_target;
     for (const TrackedPoint& point : points) {
         if (point.id < 0) {
@@ -78,7 +103,7 @@ void GeometricSolver::processFrame(
         // through refinement, then let the body model resolve branches from
         // configured LED visibility instead of numerical residual tie-breaks.
         const std::vector<ScoredCameraPose> refined_candidates = refineCandidates(
-            solveCameraPoses(observations, camera),
+            solveCameraPoses(observations, camera, camera_up_axis),
             observations,
             camera);
         if (refined_candidates.empty()) {
@@ -111,13 +136,19 @@ void GeometricSolver::processFrame(
                 covariance_camera = poseCovarianceByJacobianPropagation(best_pose, observations, camera);
                 break;
             case UncertaintySolver::MonteCarlo:
-                covariance_camera = poseCovarianceByMonteCarlo(base_poses, observations, camera, static_cast<int>(best_index));
+                covariance_camera = poseCovarianceByMonteCarlo(
+                    base_poses,
+                    observations,
+                    camera,
+                    camera_up_axis,
+                    static_cast<int>(best_index));
                 break;
             case UncertaintySolver::EllipseTransform:
                 covariance_camera = poseCovarianceByEllipseTransform(
                     base_poses,
                     observations,
                     camera,
+                    camera_up_axis,
                     static_cast<int>(best_index));
                 break;
         }
@@ -177,10 +208,13 @@ std::optional<GeometricSolver::Observation> GeometricSolver::makeObservation(con
     return observation;
 }
 
-std::vector<GeometricSolver::CameraPose> GeometricSolver::solveCameraPoses(const std::vector<Observation>& observations, const CameraModel& camera) const
+std::vector<GeometricSolver::CameraPose> GeometricSolver::solveCameraPoses(
+    const std::vector<Observation>& observations,
+    const CameraModel& camera,
+    const std::optional<Eigen::Vector3d>& camera_up_axis) const
 {
     if (observations.size() == 2U) {
-        return config_.enable_p2p ? solveP2P(observations, camera) : std::vector<CameraPose> {};
+        return config_.enable_p2p ? solveP2P(observations, camera_up_axis) : std::vector<CameraPose> {};
     }
     if (observations.size() == 3U) {
         return solveP3P(observations);
@@ -207,7 +241,10 @@ std::vector<GeometricSolver::ScoredCameraPose> GeometricSolver::refineCandidates
     std::vector<ScoredCameraPose> refined_candidates;
     refined_candidates.reserve(candidates.size());
     for (const CameraPose& candidate : candidates) {
-        CameraPose refined_pose = refinePose(candidate, observations, camera);
+        // Two image points provide only four constraints.  Refining their P2P
+        // solution with an unconstrained six-DOF optimizer would discard the
+        // navigation-derived up-axis constraint that made it observable.
+        CameraPose refined_pose = observations.size() == 2U ? candidate : refinePose(candidate, observations, camera);
         const double error = reprojectionError(refined_pose, observations, camera);
         if (std::isfinite(error)) {
             refined_candidates.push_back({std::move(refined_pose), error});
@@ -216,9 +253,11 @@ std::vector<GeometricSolver::ScoredCameraPose> GeometricSolver::refineCandidates
     return refined_candidates;
 }
 
-std::vector<GeometricSolver::CameraPose> GeometricSolver::solveP2P(const std::vector<Observation>& observations, const CameraModel&) const
+std::vector<GeometricSolver::CameraPose> GeometricSolver::solveP2P(
+    const std::vector<Observation>& observations,
+    const std::optional<Eigen::Vector3d>& camera_up_axis) const
 {
-    if (observations.size() != 2U) {
+    if (observations.size() != 2U || !camera_up_axis) {
         return {};
     }
 
@@ -229,25 +268,24 @@ std::vector<GeometricSolver::CameraPose> GeometricSolver::solveP2P(const std::ve
         pi.col(i) = observations[static_cast<std::size_t>(i)].bearing;
     }
 
-    // Two correspondences leave one rotational degree of freedom.  P2P is
-    // usable only for a planar LED layout whose third, unobserved physical LED
-    // establishes the body/gravity axis.  Do not substitute an arbitrary axis:
-    // that produces an apparently valid but physically unobservable solution.
-    const auto expected_gravity_axis = body_.expectedPlanarAxisForPair(pw.col(0), pw.col(1));
-    if (!expected_gravity_axis) {
+    // Two correspondences leave one rotational degree of freedom.  The target
+    // body-frame gravity axis and the navigation-derived camera gravity axis
+    // remove it, regardless of the positions of the two LEDs.
+    Eigen::Vector3d body_up_axis = config_.p2p_model_gravity_axis;
+    if (!body_up_axis.allFinite() || body_up_axis.squaredNorm() < 1.0e-18) {
         return {};
     }
+    body_up_axis.normalize();
 
-    Eigen::Vector3d v_cam = pi.col(0).cross(pi.col(1));
-    if (v_cam.squaredNorm() < 1.0e-18) {
+    Eigen::Vector3d v_cam = *camera_up_axis;
+    if (!v_cam.allFinite() || v_cam.squaredNorm() < 1.0e-18) {
         return {};
     }
     v_cam.normalize();
 
-    // Li accepts the physical ray-plane normal directly.  Keep it as the
-    // default P2P formulation: unlike the Sweeney variant, it needs no
-    // artificial axial perturbation of this geometrically meaningful normal.
-    const auto solutions = P2P::solve(pw, pi, v_cam, *expected_gravity_axis, P2P::Method::Li);
+    // Li takes the known body-up and camera-up directions directly.  The ray
+    // plane normal is not a gravity direction and must not be supplied here.
+    const auto solutions = P2P::solve(pw, pi, v_cam, body_up_axis, P2P::Method::Li);
     std::vector<CameraPose> candidates;
     candidates.reserve(solutions.size());
     for (const auto& solution : solutions) {
@@ -494,8 +532,9 @@ std::vector<GeometricSolver::Observation> GeometricSolver::observationsFromVecto
 Eigen::Matrix<double, 6, 6> GeometricSolver::poseCovarianceByEllipseTransform(
     const std::vector<CameraPose>& base_poses,
     const std::vector<Observation>& observations,
-        const CameraModel& camera,
-        int selected_index) const
+    const CameraModel& camera,
+    const std::optional<Eigen::Vector3d>& camera_up_axis,
+    int selected_index) const
 {
     if (base_poses.empty() || selected_index < 0 || static_cast<std::size_t>(selected_index) >= base_poses.size()) {
         return Eigen::Matrix<double, 6, 6>::Identity() * fallback_covariance;
@@ -531,7 +570,7 @@ Eigen::Matrix<double, 6, 6> GeometricSolver::poseCovarianceByEllipseTransform(
             }
 
             const std::vector<ScoredCameraPose> refined_candidates = refineCandidates(
-                solveCameraPoses(sample_observations, camera),
+                solveCameraPoses(sample_observations, camera, camera_up_axis),
                 sample_observations,
                 camera);
             if (refined_candidates.empty()) {
@@ -568,6 +607,7 @@ Eigen::Matrix<double, 6, 6> GeometricSolver::poseCovarianceByMonteCarlo(
     const std::vector<CameraPose>& base_poses,
     const std::vector<Observation>& observations,
     const CameraModel& camera,
+    const std::optional<Eigen::Vector3d>& camera_up_axis,
     int selected_index) const
 {
     if (base_poses.empty() || selected_index < 0 || static_cast<std::size_t>(selected_index) >= base_poses.size()) {
@@ -611,7 +651,7 @@ Eigen::Matrix<double, 6, 6> GeometricSolver::poseCovarianceByMonteCarlo(
         }
 
         const std::vector<ScoredCameraPose> refined_candidates = refineCandidates(
-            solveCameraPoses(sample_observations, camera),
+            solveCameraPoses(sample_observations, camera, camera_up_axis),
             sample_observations,
             camera);
         if (refined_candidates.empty()) {

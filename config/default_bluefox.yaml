@@ -132,7 +132,10 @@ pose_estimation:
   geometric_solver:
     uncertainty_solver: ellipse_transform # Options: jacobian_propagation, monte_carlo, ellipse_transform
     uncertainty_samples: 5000
-    enable_p2p: true # use only when the LED layout establishes its planar gravity axis
+    enable_p2p: false
+    p2p_odometry_topic: /$UAV_NAME/mavros/local_position/odom
+    p2p_odometry_maximum_age_sec: 0.5
+    p2p_model_gravity_axis: [0.0, 0.0, 1.0]
     p4p_reprojection_threshold_rad: 0.01
     covariance_regularization_px: 1.0e-6
     refinement_iterations: 8

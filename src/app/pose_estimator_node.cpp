@@ -35,6 +35,7 @@ namespace {
     using uvdar_core::helpers::yaml::optionalScalar;
     using uvdar_core::helpers::yaml::optionalScalarAny;
     using uvdar_core::helpers::yaml::optionalSequence;
+    using uvdar_core::helpers::yaml::optionalSequenceAny;
     using uvdar_core::helpers::yaml::requireScalar;
     using uvdar_core::helpers::yaml::resolvePath;
 
@@ -193,6 +194,47 @@ void PoseEstimatorNode::loadConfiguration(const std::string& config_path_string)
         geometric_config.signal_ids = signal_ids;
         geometric_config.signals_per_target = signals_per_target;
         geometric_config.enable_p2p = optionalScalarAny<bool>(geometric_node, pose_node, "enable_p2p", true);
+        p2p_odometry_topic_ = optionalScalarAny<std::string>(
+            geometric_node,
+            pose_node,
+            "p2p_odometry_topic",
+            "");
+        p2p_odometry_maximum_age_sec_ = optionalScalarAny<double>(
+            geometric_node,
+            pose_node,
+            "p2p_odometry_maximum_age_sec",
+            p2p_odometry_maximum_age_sec_);
+        if (geometric_config.enable_p2p && p2p_odometry_topic_.empty()) {
+            throw std::runtime_error(
+                "geometric_solver.enable_p2p requires geometric_solver.p2p_odometry_topic "
+                "(nav_msgs/msg/Odometry, normally /mavros/local_position/odom).");
+        }
+        if (p2p_odometry_maximum_age_sec_ < 0.0) {
+            throw std::runtime_error("geometric_solver.p2p_odometry_maximum_age_sec must be non-negative.");
+        }
+        const std::vector<double> p2p_model_gravity_axis = optionalSequenceAny<double>(
+            geometric_node,
+            pose_node,
+            "p2p_model_gravity_axis");
+        if (!p2p_model_gravity_axis.empty()) {
+            if (p2p_model_gravity_axis.size() != 3U) {
+                throw std::runtime_error("geometric_solver.p2p_model_gravity_axis must contain exactly three values.");
+            }
+            geometric_config.p2p_model_gravity_axis = Eigen::Vector3d(
+                p2p_model_gravity_axis[0],
+                p2p_model_gravity_axis[1],
+                p2p_model_gravity_axis[2]);
+            if (!geometric_config.p2p_model_gravity_axis.allFinite()
+                || geometric_config.p2p_model_gravity_axis.squaredNorm() <= std::numeric_limits<double>::epsilon()) {
+                throw std::runtime_error("geometric_solver.p2p_model_gravity_axis must be a finite non-zero vector.");
+            }
+            geometric_config.p2p_model_gravity_axis.normalize();
+        }
+        if (!geometric_config.enable_p2p) {
+            // Keep disabled configurations self-contained: no unused odometry
+            // subscription and no warning spam from the P2P input path.
+            p2p_odometry_topic_.clear();
+        }
         geometric_config.uncertainty_samples = optionalScalarAny<int>(geometric_node, pose_node, "uncertainty_samples", 5000);
         geometric_config.p4p_reprojection_threshold_rad = optionalScalarAny<double>(geometric_node, pose_node, "p4p_reprojection_threshold_rad", 0.01);
         geometric_config.covariance_regularization_px = optionalScalarAny<double>(geometric_node, pose_node, "covariance_regularization_px", 1.0e-6);
@@ -227,11 +269,37 @@ void PoseEstimatorNode::loadConfiguration(const std::string& config_path_string)
             rclcpp::SensorDataQoS(),
             [this, i](const uvdar_core::msg::TrackerOutput::ConstSharedPtr msg) { onTrackerOutput(msg, i); }));
     }
+    if (!p2p_odometry_topic_.empty()) {
+        p2p_odometry_subscription_ = create_subscription<nav_msgs::msg::Odometry>(
+            p2p_odometry_topic_,
+            rclcpp::SensorDataQoS(),
+            [this](const nav_msgs::msg::Odometry::ConstSharedPtr msg) { onP2POdometry(msg); });
+    }
 
     scatter_timer_ = create_wall_timer(
         std::chrono::duration<double>(std::max(0.001, publish_period_sec)),
         [this]() { onScatterTimer(); });
 
+}
+
+void PoseEstimatorNode::onP2POdometry(const nav_msgs::msg::Odometry::ConstSharedPtr& msg)
+{
+    if (!msg) {
+        return;
+    }
+    const auto& orientation = msg->pose.pose.orientation;
+    const Eigen::Quaterniond rotation(orientation.w, orientation.x, orientation.y, orientation.z);
+    if (!rotation.coeffs().allFinite() || rotation.squaredNorm() <= std::numeric_limits<double>::epsilon()) {
+        RCLCPP_WARN_THROTTLE(
+            get_logger(),
+            *get_clock(),
+            1000,
+            "Ignoring invalid orientation from geometric_solver.p2p_odometry_topic.");
+        return;
+    }
+
+    std::scoped_lock lock(p2p_odometry_mutex_);
+    latest_p2p_odometry_ = msg;
 }
 
 void PoseEstimatorNode::onTrackerOutput(const uvdar_core::msg::TrackerOutput::ConstSharedPtr& msg, std::size_t camera_index)
@@ -264,6 +332,72 @@ void PoseEstimatorNode::onTrackerOutput(const uvdar_core::msg::TrackerOutput::Co
     } catch (const tf2::TransformException& ex) {
         RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 1000, "Could not get pose-estimation transform: %s", ex.what());
         return;
+    }
+
+    if (auto* geometric_solver = dynamic_cast<gs::GeometricSolver*>(pose_estimator_.get())) {
+        nav_msgs::msg::Odometry::ConstSharedPtr odometry;
+        {
+            std::scoped_lock lock(p2p_odometry_mutex_);
+            odometry = latest_p2p_odometry_;
+        }
+
+        std::optional<Eigen::Vector3d> camera_up_axis;
+        if (odometry) {
+            const rclcpp::Time tracker_stamp(msg->stamp);
+            const rclcpp::Time odometry_stamp(odometry->header.stamp);
+            const double age = std::abs((tracker_stamp - odometry_stamp).seconds());
+            const auto& orientation = odometry->pose.pose.orientation;
+            const Eigen::Quaterniond navigation_to_body(
+                orientation.w,
+                orientation.x,
+                orientation.y,
+                orientation.z);
+            if (std::isfinite(age)
+                && (p2p_odometry_maximum_age_sec_ == 0.0 || age <= p2p_odometry_maximum_age_sec_)
+                && navigation_to_body.coeffs().allFinite()
+                && navigation_to_body.squaredNorm() > std::numeric_limits<double>::epsilon()) {
+                if (odometry->child_frame_id.empty()) {
+                    RCLCPP_WARN_THROTTLE(
+                        get_logger(),
+                        *get_clock(),
+                        1000,
+                        "P2P odometry must set child_frame_id to the observing UAV body frame.");
+                } else {
+                    try {
+                        // The odometry orientation maps its child/body frame
+                        // into a gravity-aligned navigation frame.  Use the
+                        // timestamped body-to-camera TF rather than assuming
+                        // output_frame is the observing vehicle body frame.
+                        const auto body_to_camera_msg = tf_buffer_.lookupTransform(
+                            inputs_[camera_index].camera_frame,
+                            odometry->child_frame_id,
+                            tracker_stamp,
+                            tf2::durationFromSec(0.005));
+                        camera_up_axis = uvdar_core::helpers::toEigen(body_to_camera_msg).rotation()
+                            * navigation_to_body.normalized().toRotationMatrix().transpose()
+                            * Eigen::Vector3d::UnitZ();
+                    } catch (const tf2::TransformException& ex) {
+                        RCLCPP_WARN_THROTTLE(
+                            get_logger(),
+                            *get_clock(),
+                            1000,
+                            "Could not transform P2P gravity axis from body frame '%s' to camera '%s': %s",
+                            odometry->child_frame_id.c_str(),
+                            inputs_[camera_index].camera_frame.c_str(),
+                            ex.what());
+                    }
+                }
+            }
+        }
+        if (!camera_up_axis && p2p_odometry_subscription_) {
+            RCLCPP_WARN_THROTTLE(
+                get_logger(),
+                *get_clock(),
+                1000,
+                "P2P needs recent odometry on '%s'; two-LED pose estimates are unavailable until it arrives.",
+                p2p_odometry_topic_.c_str());
+        }
+        geometric_solver->setCameraUpAxis(camera_index, camera_up_axis);
     }
 
     std::vector<pe::TrackedPoint> points;

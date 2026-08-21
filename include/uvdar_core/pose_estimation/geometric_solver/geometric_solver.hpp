@@ -32,6 +32,9 @@ struct GeometricSolverConfig {
     std::vector<int> signal_ids;
     int signals_per_target = 1;
     bool enable_p2p = true;
+    // Target model-frame direction opposite gravity. +Z is the UVDAR model
+    // convention; configure a different normalized direction when needed.
+    Eigen::Vector3d p2p_model_gravity_axis = Eigen::Vector3d::UnitZ();
     double p4p_reprojection_threshold_rad = 0.01;
     double covariance_regularization_px = 1.0e-6;
     int refinement_iterations = 8;
@@ -53,6 +56,15 @@ struct GeometricSolverConfig {
 class GeometricSolver final : public IPoseEstimator {
 public:
     GeometricSolver(GeometricSolverConfig config, BodyModel body, std::vector<CameraModel> cameras);
+
+    /**
+     * @brief Set the navigation-derived body-up direction expressed in a camera frame.
+     *
+     * P2P uses this as its additional orientation constraint.  Clearing the
+     * value disables only P2P for that camera; P3P and larger solvers remain
+     * unaffected.
+     */
+    void setCameraUpAxis(std::size_t camera_index, std::optional<Eigen::Vector3d> camera_up_axis);
 
     /**
      * @brief Solve poses for all targets visible in one camera frame.
@@ -110,7 +122,10 @@ private:
     /**
      * @brief Dispatch to P2P, P3P, P4P, or iterative PnP by correspondence count.
      */
-    std::vector<CameraPose> solveCameraPoses(const std::vector<Observation>& observations, const CameraModel& camera) const;
+    std::vector<CameraPose> solveCameraPoses(
+        const std::vector<Observation>& observations,
+        const CameraModel& camera,
+        const std::optional<Eigen::Vector3d>& camera_up_axis) const;
 
     /**
      * @brief Refine solver candidates and discard invalid pixel reprojections.
@@ -121,9 +136,11 @@ private:
         const CameraModel& camera) const;
 
     /**
-     * @brief Two-point pose from two 3D points, two bearings, and a plane normal.
+     * @brief Two-point pose from two 3D points, two bearings, and gravity axes.
      */
-    std::vector<CameraPose> solveP2P(const std::vector<Observation>& observations, const CameraModel& camera) const;
+    std::vector<CameraPose> solveP2P(
+        const std::vector<Observation>& observations,
+        const std::optional<Eigen::Vector3d>& camera_up_axis) const;
 
     /**
      * @brief Perspective-3-point solver using quartic depth constraints.
@@ -188,6 +205,7 @@ private:
         const std::vector<CameraPose>& base_poses,
         const std::vector<Observation>& observations,
         const CameraModel& camera,
+        const std::optional<Eigen::Vector3d>& camera_up_axis,
         int selected_index) const;
 
     /**
@@ -197,6 +215,7 @@ private:
         const std::vector<CameraPose>& base_poses,
         const std::vector<Observation>& observations,
         const CameraModel& camera,
+        const std::optional<Eigen::Vector3d>& camera_up_axis,
         int selected_index) const;
 
     /**
@@ -228,6 +247,7 @@ private:
     mutable std::mutex mutex_;
     TimedPoseMeasurements latest_measurements_;
     std::map<std::pair<std::size_t, int>, CameraPose> latest_camera_poses_;
+    std::vector<std::optional<Eigen::Vector3d>> camera_up_axes_;
 };
 
 } // namespace uvdar_core::pose_estimation::geometric_solver

@@ -30,6 +30,7 @@ find_package(builtin_interfaces REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
+find_package(nav_msgs REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(cv_bridge REQUIRED)
@@ -266,6 +267,7 @@ ament_target_dependencies(pose_estimator_node
     rclcpp
     builtin_interfaces
     geometry_msgs
+    nav_msgs
     std_msgs
     sensor_msgs
     cv_bridge
