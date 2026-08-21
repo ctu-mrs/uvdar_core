@@ -347,46 +347,21 @@ void PoseEstimatorNode::onTrackerOutput(const uvdar_core::msg::TrackerOutput::Co
             const rclcpp::Time odometry_stamp(odometry->header.stamp);
             const double age = std::abs((tracker_stamp - odometry_stamp).seconds());
             const auto& orientation = odometry->pose.pose.orientation;
-            const Eigen::Quaterniond navigation_to_body(
+            const Eigen::Quaterniond navigation_to_output(
                 orientation.w,
                 orientation.x,
                 orientation.y,
                 orientation.z);
             if (std::isfinite(age)
                 && (p2p_odometry_maximum_age_sec_ == 0.0 || age <= p2p_odometry_maximum_age_sec_)
-                && navigation_to_body.coeffs().allFinite()
-                && navigation_to_body.squaredNorm() > std::numeric_limits<double>::epsilon()) {
-                if (odometry->child_frame_id.empty()) {
-                    RCLCPP_WARN_THROTTLE(
-                        get_logger(),
-                        *get_clock(),
-                        1000,
-                        "P2P odometry must set child_frame_id to the observing UAV body frame.");
-                } else {
-                    try {
-                        // The odometry orientation maps its child/body frame
-                        // into a gravity-aligned navigation frame.  Use the
-                        // timestamped body-to-camera TF rather than assuming
-                        // output_frame is the observing vehicle body frame.
-                        const auto body_to_camera_msg = tf_buffer_.lookupTransform(
-                            inputs_[camera_index].camera_frame,
-                            odometry->child_frame_id,
-                            tracker_stamp,
-                            tf2::durationFromSec(0.005));
-                        camera_up_axis = uvdar_core::helpers::toEigen(body_to_camera_msg).rotation()
-                            * navigation_to_body.normalized().toRotationMatrix().transpose()
-                            * Eigen::Vector3d::UnitZ();
-                    } catch (const tf2::TransformException& ex) {
-                        RCLCPP_WARN_THROTTLE(
-                            get_logger(),
-                            *get_clock(),
-                            1000,
-                            "Could not transform P2P gravity axis from body frame '%s' to camera '%s': %s",
-                            odometry->child_frame_id.c_str(),
-                            inputs_[camera_index].camera_frame.c_str(),
-                            ex.what());
-                    }
-                }
+                && navigation_to_output.coeffs().allFinite()
+                && navigation_to_output.squaredNorm() > std::numeric_limits<double>::epsilon()) {
+                // output_to_camera is the already verified, timestamped TF
+                // from pose_estimation.output_frame to this camera. The
+                // odometry attitude is interpreted in that same output frame.
+                camera_up_axis = uvdar_core::helpers::toEigen(output_to_camera_msg).rotation()
+                    * navigation_to_output.normalized().toRotationMatrix().transpose()
+                    * Eigen::Vector3d::UnitZ();
             }
         }
         if (!camera_up_axis && p2p_odometry_subscription_) {

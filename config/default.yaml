@@ -98,9 +98,9 @@ pose_estimation:
     uncertainty_solver: ellipse_transform # Options: jacobian_propagation, monte_carlo, ellipse_transform
     uncertainty_samples: 5000 # for monte-carlo only
     enable_p2p: false
-    # Required with enable_p2p: Odometry in a gravity-aligned frame with its
-    # child_frame_id set to the observing UAV body. /mavros/local_position/odom
-    # is MAVROS' default; the camera-to-body TF is used at the tracker stamp.
+    # Required with enable_p2p: Odometry orientation of output_frame in a
+    # gravity-aligned frame. /mavros/local_position/odom is MAVROS' default;
+    # the output_frame-to-camera TF is used at the tracker stamp.
     p2p_odometry_topic: /mavros/local_position/odom
     p2p_odometry_maximum_age_sec: 0.5
     # Target model-frame direction opposite gravity. LED positions may
