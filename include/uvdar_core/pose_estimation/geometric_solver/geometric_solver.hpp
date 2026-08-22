@@ -171,16 +171,6 @@ private:
     std::vector<CameraPose> solveP4P(const std::vector<Observation>& observations) const;
 
     /**
-     * @brief General PnP by finite-difference Levenberg-Marquardt on bearings.
-     */
-    std::optional<CameraPose> solvePnP(const std::vector<Observation>& observations) const;
-
-    /**
-     * @brief Residual vector r_i = normalize(R X_i + t) - bearing_i.
-     */
-    std::optional<Eigen::VectorXd> bearingResidualVector(const std::vector<Observation>& observations, const CameraPose& pose) const;
-
-    /**
      * @brief Weighted Gauss-Newton refinement on pixel reprojection residuals.
      */
     CameraPose refinePose(const CameraPose& seed, const std::vector<Observation>& observations, const CameraModel& camera) const;

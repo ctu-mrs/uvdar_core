@@ -10,6 +10,7 @@
 #include "uvdar_core/pose_estimation/geometric_solver/p2p.hpp"
 #include "uvdar_core/pose_estimation/geometric_solver/p3p.hpp"
 #include "uvdar_core/pose_estimation/geometric_solver/p4p.hpp"
+#include "uvdar_core/pose_estimation/geometric_solver/pnp.hpp"
 #include "uvdar_core/pose_estimation/uncertainty.hpp"
 
 namespace uvdar_core::pose_estimation::geometric_solver {
@@ -227,10 +228,25 @@ std::vector<GeometricSolver::CameraPose> GeometricSolver::solveCameraPoses(
     }
     // General PnP handles five-or-more points, and is also a fallback when P4P
     // rejects all algebraic candidates.
-    if (auto pose = solvePnP(observations); pose) {
-        return {*pose};
+    PnP::PointMatrix pw(3, static_cast<Eigen::Index>(observations.size()));
+    PnP::PointMatrix pi(3, static_cast<Eigen::Index>(observations.size()));
+    for (std::size_t i = 0; i < observations.size(); ++i) {
+        pw.col(static_cast<Eigen::Index>(i)) = observations[i].marker.pose.position;
+        pi.col(static_cast<Eigen::Index>(i)) = observations[i].bearing;
     }
-    return {};
+    PnP::Options options;
+    options.max_iterations = config_.pnp_max_iterations;
+    options.damping = config_.pnp_damping;
+    options.finite_difference_epsilon = config_.pnp_finite_difference_eps;
+    options.step_tolerance = config_.pnp_step_tolerance;
+    options.residual_tolerance = config_.pnp_residual_tolerance;
+    options.p4p_reprojection_threshold_rad = config_.p4p_reprojection_threshold_rad;
+
+    std::vector<CameraPose> poses;
+    for (const PnP::Solution& solution : PnP::solve(pw, pi, options)) {
+        poses.push_back(toCameraPose(solution));
+    }
+    return poses;
 }
 
 std::vector<GeometricSolver::ScoredCameraPose> GeometricSolver::refineCandidates(
@@ -406,77 +422,6 @@ std::vector<GeometricSolver::CameraPose> GeometricSolver::solveP4P(const std::ve
         output.push_back(toCameraPose(solution));
     }
     return output;
-}
-
-std::optional<GeometricSolver::CameraPose> GeometricSolver::solvePnP(const std::vector<Observation>& observations) const
-{
-    if (observations.size() < 3U) {
-        return std::nullopt;
-    }
-
-    std::optional<CameraPose> seed;
-    if (observations.size() >= 3U) {
-        // seed iterative PnP from the deterministic first P3P triplet when possible.
-        const std::vector<Observation> first_triplet(observations.begin(), observations.begin() + 3);
-        const std::vector<CameraPose> candidates = solveP3P(first_triplet);
-        double best_cost = std::numeric_limits<double>::infinity();
-        for (const CameraPose& candidate : candidates) {
-            if (auto residual = bearingResidualVector(observations, candidate); residual) {
-                const double cost = residual->squaredNorm() / static_cast<double>(observations.size());
-                if (std::isfinite(cost) && cost < best_cost) {
-                    best_cost = cost;
-                    seed = candidate;
-                }
-            }
-        }
-    }
-
-    CameraPose pose;
-    if (seed) {
-        pose = *seed;
-    } else {
-        pose.rotation = Eigen::Matrix3d::Identity();
-        pose.translation = Eigen::Vector3d(0.0, 0.0, 3.0);
-    }
-
-    for (int iteration = 0; iteration < config_.pnp_max_iterations; ++iteration) {
-        const auto residual = bearingResidualVector(observations, pose);
-        if (!residual) {
-            break;
-        }
-        if (residual->norm() / static_cast<double>(observations.size()) < config_.pnp_residual_tolerance) {
-            break;
-        }
-
-        // Finite-difference LM on tangent [omega, translation]
-        Eigen::MatrixXd jacobian(residual->size(), 6);
-        for (int parameter = 0; parameter < 6; ++parameter) {
-            Eigen::Matrix<double, 6, 1> delta = Eigen::Matrix<double, 6, 1>::Zero();
-            delta(parameter) = config_.pnp_finite_difference_eps;
-
-            CameraPose perturbed = pose;
-            if (parameter < 3) {
-                applyLeftCameraPoseIncrement(perturbed, Eigen::Vector3d::Zero(), delta.head<3>());
-            } else {
-                applyLeftCameraPoseIncrement(perturbed, delta.tail<3>(), Eigen::Vector3d::Zero());
-            }
-
-            const auto perturbed_residual = bearingResidualVector(observations, perturbed);
-            jacobian.col(parameter) = ((perturbed_residual ? *perturbed_residual : *residual) - *residual) / config_.pnp_finite_difference_eps;
-        }
-
-        const Eigen::MatrixXd hessian = jacobian.transpose() * jacobian + config_.pnp_damping * Eigen::Matrix<double, 6, 6>::Identity();
-        const Eigen::VectorXd gradient = jacobian.transpose() * *residual;
-        const Eigen::VectorXd step = -hessian.ldlt().solve(gradient);
-        if (!step.allFinite() || step.norm() < config_.pnp_step_tolerance) {
-            break;
-        }
-
-        // Left-multiplicative SO(3) update, additive translation update.
-        applyLeftCameraPoseIncrement(pose, step.tail<3>(), step.head<3>());
-    }
-
-    return pose;
 }
 
 Eigen::VectorXd GeometricSolver::observationVector(const std::vector<Observation>& observations) const
@@ -683,23 +628,6 @@ Eigen::Matrix<double, 6, 6> GeometricSolver::poseCovarianceByMonteCarlo(
     }
     const double covariance_scale = monte_carlo_covariance_scale / static_cast<double>(selected_samples.size() - 1U);
     return unc::covarianceFromPoseSamples(selected_samples, covariance_scale);
-}
-
-std::optional<Eigen::VectorXd> GeometricSolver::bearingResidualVector(const std::vector<Observation>& observations, const CameraPose& pose) const
-{
-    Eigen::VectorXd residual(static_cast<int>(observations.size() * 3U));
-    for (std::size_t i = 0; i < observations.size(); ++i) {
-        const Eigen::Vector3d predicted_raw = transformPoint(pose, observations[i].marker.pose.position);
-        const double predicted_norm = predicted_raw.norm();
-        if (predicted_norm < epsilon) {
-            return std::nullopt;
-        }
-        const Eigen::Vector3d predicted = predicted_raw / predicted_norm;
-        const Eigen::Vector3d measured = observations[i].bearing.normalized();
-        // Bearing residual lives on the embedded unit sphere in R^3.
-        residual.segment<3>(static_cast<int>(3U * i)) = predicted - measured;
-    }
-    return residual;
 }
 
 GeometricSolver::CameraPose GeometricSolver::refinePose(const CameraPose& seed, const std::vector<Observation>& observations, const CameraModel& camera) const
