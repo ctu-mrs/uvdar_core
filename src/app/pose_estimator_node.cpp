@@ -52,6 +52,7 @@ namespace {
             }
             vis::PoseVisualizationPose pose;
             pose.id = measurement.id;
+            pose.method = measurement.method;
             pose.position = source_pose.position;
             pose.rotation = source_pose.orientation.normalized().toRotationMatrix();
             pose.position_covariance = measurement.covariance.topLeftCorner<3, 3>();

@@ -107,6 +107,8 @@ struct PoseMeasurement {
     int id = -1;
     Pose pose;
     Eigen::Matrix<double, 6, 6> covariance = Eigen::Matrix<double, 6, 6>::Identity();
+    /** Compact estimator/solver signature used by diagnostics and visualization. */
+    std::string method;
 };
 
 /**

@@ -171,7 +171,8 @@ private:
     std::vector<CameraPose> solveCameraPoses(
         const std::vector<Observation>& observations,
         const CameraModel& camera,
-        const std::optional<Eigen::Vector3d>& camera_up_axis) const;
+        const std::optional<Eigen::Vector3d>& camera_up_axis,
+        std::string* method = nullptr) const;
 
     /**
      * @brief Refine solver candidates and discard invalid pixel reprojections.
@@ -184,10 +185,22 @@ private:
     /** @brief Convert synchronized camera observations into output-frame rays. */
     std::vector<RigObservation> makeRigObservations(
         int target,
-        const std::vector<BufferedCameraFrame>& frames) const;
+        const std::vector<BufferedCameraFrame>& frames,
+        double reference_stamp) const;
 
     /** @brief Dispatch by ray count to GP3P, GP4_5P, GP6P, or GPnP. */
-    std::vector<CameraPose> solveRigPoses(const std::vector<RigObservation>& observations) const;
+    std::vector<CameraPose> solveRigPoses(
+        const std::vector<RigObservation>& observations,
+        std::string* method = nullptr) const;
+
+    /**
+     * @brief Require three distinct non-collinear physical body markers.
+     *
+     * Seeing the same two LEDs from many cameras improves triangulation but
+     * does not constrain rotation about their body-frame baseline.
+     */
+    bool hasObservableRigMarkerGeometry(
+        const std::vector<RigObservation>& observations) const;
 
     /** @brief Jointly refine generalized candidates in all cameras' pixel spaces. */
     std::vector<ScoredRigPose> refineRigCandidates(
@@ -277,7 +290,8 @@ private:
     Eigen::Matrix<double, 6, 6> poseCovarianceByJacobianPropagation(
         const CameraPose& pose,
         const std::vector<Observation>& observations,
-        const CameraModel& camera) const;
+        const CameraModel& camera,
+        const std::optional<Eigen::Vector3d>& camera_up_axis) const;
 
     /** @brief Joint Fisher-information covariance from every rig camera. */
     Eigen::Matrix<double, 6, 6> poseCovarianceByRigJacobianPropagation(
@@ -346,13 +360,19 @@ private:
     /**
      * @brief Transform body-to-camera pose into the configured output frame.
      */
-    PoseMeasurement toMeasurement(int target, const CameraPose& camera_pose, const Eigen::Isometry3d& camera_to_output, const Eigen::Matrix<double, 6, 6>& covariance) const;
+    PoseMeasurement toMeasurement(
+        int target,
+        const CameraPose& camera_pose,
+        const Eigen::Isometry3d& camera_to_output,
+        const Eigen::Matrix<double, 6, 6>& covariance,
+        const std::string& method) const;
 
     /** @brief Publish a body-to-output generalized pose without another transform. */
     PoseMeasurement toRigMeasurement(
         int target,
         const CameraPose& output_pose,
-        const Eigen::Matrix<double, 6, 6>& covariance) const;
+        const Eigen::Matrix<double, 6, 6>& covariance,
+        const std::string& method) const;
 
     GeometricSolverConfig config_;
     BodyModel body_;

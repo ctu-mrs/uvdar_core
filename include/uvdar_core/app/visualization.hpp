@@ -78,6 +78,7 @@ cv::Mat renderTrackingOverlay(
 /** @brief A world-frame target pose for the multi-view pose overview. */
 struct PoseVisualizationPose {
     int id = -1;
+    std::string method;
     Eigen::Vector3d position = Eigen::Vector3d::Zero();
     Eigen::Matrix3d rotation = Eigen::Matrix3d::Identity();
     Eigen::Matrix3d position_covariance = Eigen::Matrix3d::Identity();

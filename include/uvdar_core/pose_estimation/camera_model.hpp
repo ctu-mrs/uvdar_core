@@ -50,6 +50,14 @@ struct CameraModel {
         return lens ? lens->backProject(pixel) : Eigen::Vector3d::Zero();
     }
 
+    /** @brief Return d(unit camera bearing)/d(pixel) at an image point. */
+    Eigen::Matrix<double, 3, 2> backProjectionJacobian(
+        const Eigen::Vector2d& pixel) const
+    {
+        return lens ? lens->backProjectJacobian(pixel)
+                    : Eigen::Matrix<double, 3, 2>::Zero();
+    }
+
     /** @brief Back-project and normalize a finite pixel ray. */
     std::optional<Eigen::Vector3d> bearingForPixel(const Eigen::Vector2d& pixel) const
     {

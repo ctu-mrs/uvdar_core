@@ -512,7 +512,7 @@ void drawPoseTable(cv::Mat& canvas, const cv::Rect& available_table, std::vector
         return lhs.id < rhs.id;
     });
 
-    constexpr std::array<const char*, 7> headers {"ID", "x [m]", "y [m]", "z [m]", "r [deg]", "p [deg]", "y [deg]"};
+    constexpr std::array<const char*, 7> headers {"ID/m", "x [m]", "y [m]", "z [m]", "r [deg]", "p [deg]", "y [deg]"};
     constexpr std::array<double, 7> column_weights {0.55, 1.0, 1.0, 1.0, 1.1, 1.1, 1.1};
     const double total_weight = std::accumulate(column_weights.begin(), column_weights.end(), 0.0);
     const int padding = std::max(6, available_table.width / 75);
@@ -587,9 +587,29 @@ void drawPoseTable(cv::Mat& canvas, const cv::Rect& available_table, std::vector
         cv::putText(
             canvas,
             id,
-            {columns[0] + std::max(2, (columns[1] - columns[0] - id_size.width) / 2), top + (entry_height + id_size.height) / 2},
+            {columns[0] + std::max(2, (columns[1] - columns[0] - id_size.width) / 2), top + (row_height + id_size.height) / 2},
             cv::FONT_HERSHEY_SIMPLEX,
             value_font_scale,
+            kTextColor,
+            text_thickness,
+            cv::LINE_AA);
+        const std::string method = pose.method.empty() ? "?" : pose.method;
+        const cv::Size method_size = cv::getTextSize(
+            method,
+            cv::FONT_HERSHEY_SIMPLEX,
+            uncertainty_font_scale,
+            text_thickness,
+            nullptr);
+        cv::putText(
+            canvas,
+            method,
+            {
+                columns[0] + std::max(
+                    2, (columns[1] - columns[0] - method_size.width) / 2),
+                top + row_height + (row_height + method_size.height) / 2,
+            },
+            cv::FONT_HERSHEY_SIMPLEX,
+            uncertainty_font_scale,
             kTextColor,
             text_thickness,
             cv::LINE_AA);

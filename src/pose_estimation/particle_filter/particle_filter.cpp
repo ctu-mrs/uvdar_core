@@ -129,7 +129,7 @@ std::vector<PoseMeasurement> ParticleFilter::verifiedHypotheses() const
     for (const auto& set : hypothesis_buffer_) {
         for (const auto& hypothesis : set.hypotheses) {
             if (hypothesis.flag == HypothesisFlag::Verified) {
-                output.push_back({hypothesis.index, hypothesis.pose, Eigen::Matrix<double, 6, 6>::Identity() * 0.01});
+                output.push_back({hypothesis.index, hypothesis.pose, Eigen::Matrix<double, 6, 6>::Identity() * 0.01, "PF"});
             }
         }
     }
@@ -143,7 +143,7 @@ std::vector<PoseMeasurement> ParticleFilter::tentativeHypotheses() const
     for (const auto& set : hypothesis_buffer_) {
         for (const auto& hypothesis : set.hypotheses) {
             if (hypothesis.flag == HypothesisFlag::Neutral) {
-                output.push_back({hypothesis.index, hypothesis.pose, Eigen::Matrix<double, 6, 6>::Identity() * 0.01});
+                output.push_back({hypothesis.index, hypothesis.pose, Eigen::Matrix<double, 6, 6>::Identity() * 0.01, "PF"});
             }
         }
     }
@@ -345,7 +345,7 @@ std::optional<PoseMeasurement> ParticleFilter::measurementHull(const AssociatedH
     if (hypotheses.verified_count == 1) {
         for (const auto& hypothesis : hypotheses.hypotheses) {
             if (hypothesis.flag == HypothesisFlag::Verified) {
-                return PoseMeasurement {hypotheses.target, hypothesis.pose, singletonCovariance()};
+                return PoseMeasurement {hypotheses.target, hypothesis.pose, singletonCovariance(), "PF"};
             }
         }
     }
@@ -386,7 +386,7 @@ std::optional<PoseMeasurement> ParticleFilter::measurementHull(const AssociatedH
     Pose pose;
     pose.position = mean_position + position_hull.first;
     pose.orientation = mean_orientation * uvdar_core::helpers::rpyToQuaternion(orientation_hull.first);
-    return PoseMeasurement {hypotheses.target, pose, covariance};
+    return PoseMeasurement {hypotheses.target, pose, covariance, "PF"};
 }
 
 std::pair<Eigen::Vector3d, Eigen::Matrix3d> ParticleFilter::enclosingEllipsoid(const std::vector<Eigen::Vector3d>& points) const
