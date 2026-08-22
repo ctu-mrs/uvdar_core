@@ -575,7 +575,7 @@ std::vector<GeometricSolver::CameraPose> GeometricSolver::solveRigPoses(
             options);
 
         if (method != nullptr) {
-            *method = signatureForCount(observations.size()) + "+odom";
+            *method = signatureForCount(observations.size()) + "o";
         }
     } else {
         if (observations.size() < 3U

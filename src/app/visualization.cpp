@@ -557,7 +557,7 @@ void drawPoseTable(cv::Mat& canvas, const cv::Rect& available_table, std::vector
 
     for (std::size_t column = 0; column < headers.size(); ++column) {
         const cv::Size text_size = cv::getTextSize(headers[column], cv::FONT_HERSHEY_SIMPLEX, value_font_scale, text_thickness, nullptr);
-        const int text_x = columns[column] + std::max(2, (columns[column + 1] - columns[column] - text_size.width) / 2);
+        const int text_x = columns[column] + std::max(0, (columns[column + 1] - columns[column] - text_size.width) / 2);
         const int text_y = table.y + (header_height + text_size.height) / 2;
         cv::putText(canvas, headers[column], {text_x, text_y}, cv::FONT_HERSHEY_SIMPLEX, value_font_scale, kTextColor, text_thickness, cv::LINE_AA);
     }
