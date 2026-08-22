@@ -43,6 +43,20 @@ struct GeometricSolverConfig {
     double pnp_finite_difference_eps = 1.0e-6;
     double pnp_step_tolerance = 1.0e-10;
     double pnp_residual_tolerance = 1.0e-10;
+    // Combine approximately synchronized observations from rigidly connected
+    // cameras as non-central rays in output_frame. Disabled preserves the
+    // legacy independent per-camera behavior exactly.
+    bool multi_cam_rig_enable = false;
+    double multi_cam_sync_tolerance_sec = 0.03;
+    int multi_cam_min_cameras = 2;
+    double multi_cam_max_angular_error_rad = 0.05;
+    int multi_cam_refinement_iterations = 40;
+    double multi_cam_damping = 1.0e-8;
+    double multi_cam_step_tolerance = 1.0e-10;
+    double multi_cam_residual_tolerance = 1.0e-10;
+    int multi_cam_gp3p_depth_seed_levels = 7;
+    int multi_cam_gp3p_depth_iterations = 60;
+    double multi_cam_gp3p_root_tolerance = 1.0e-9;
 };
 
 /**
@@ -114,6 +128,38 @@ private:
         double reprojection_error = 0.0;
     };
 
+    /** @brief One observation expressed as a non-central ray in output_frame. */
+    struct RigObservation {
+        Observation observation;
+        std::size_t camera_index = 0U;
+        Eigen::Isometry3d camera_to_output = Eigen::Isometry3d::Identity();
+        Eigen::Isometry3d output_to_camera = Eigen::Isometry3d::Identity();
+        Eigen::Vector3d ray_origin = Eigen::Vector3d::Zero();
+        Eigen::Vector3d ray_direction = Eigen::Vector3d::UnitZ();
+    };
+
+    /** @brief Last timestamped observation map retained for one camera. */
+    struct BufferedCameraFrame {
+        bool valid = false;
+        std::size_t camera_index = 0U;
+        double stamp = 0.0;
+        Eigen::Isometry3d camera_to_output = Eigen::Isometry3d::Identity();
+        Eigen::Isometry3d output_to_camera = Eigen::Isometry3d::Identity();
+        std::map<int, std::vector<Observation>> observations_by_target;
+    };
+
+    /** @brief A body-to-output candidate refined against all rig cameras. */
+    struct ScoredRigPose {
+        CameraPose pose;
+        double reprojection_error = 0.0;
+    };
+
+    /** @brief Aggregate visibility score valid only when every rig camera agrees. */
+    struct RigVisibilityScore {
+        double visibility_margin = 0.0;
+        double observed_view_cosine_mean = 0.0;
+    };
+
     /**
      * @brief Convert a tracked point into a marker-bearing correspondence.
      */
@@ -134,6 +180,51 @@ private:
         const std::vector<CameraPose>& candidates,
         const std::vector<Observation>& observations,
         const CameraModel& camera) const;
+
+    /** @brief Convert synchronized camera observations into output-frame rays. */
+    std::vector<RigObservation> makeRigObservations(
+        int target,
+        const std::vector<BufferedCameraFrame>& frames) const;
+
+    /** @brief Dispatch by ray count to GP3P, GP4_5P, GP6P, or GPnP. */
+    std::vector<CameraPose> solveRigPoses(const std::vector<RigObservation>& observations) const;
+
+    /** @brief Jointly refine generalized candidates in all cameras' pixel spaces. */
+    std::vector<ScoredRigPose> refineRigCandidates(
+        const std::vector<CameraPose>& candidates,
+        const std::vector<RigObservation>& observations) const;
+
+    /** @brief Select a rig candidate using per-camera LED visibility and continuity. */
+    std::optional<std::size_t> selectRigCandidate(
+        const std::vector<ScoredRigPose>& candidates,
+        const std::vector<RigObservation>& observations,
+        const std::optional<CameraPose>& previous_pose) const;
+
+    /** @brief Weighted multi-camera pixel refinement of a body-to-output pose. */
+    CameraPose refineRigPose(
+        const CameraPose& seed,
+        const std::vector<RigObservation>& observations) const;
+
+    /** @brief Joint squared pixel reprojection error over all cameras. */
+    double rigReprojectionError(
+        const CameraPose& pose,
+        const std::vector<RigObservation>& observations) const;
+
+    /** @brief Verify positive camera-frame depth for every rig observation. */
+    bool hasPositiveRigDepths(
+        const CameraPose& pose,
+        const std::vector<RigObservation>& observations) const;
+
+    /**
+     * @brief Require every observed physical LED group to face its source camera.
+     *
+     * Generalized minimal solvers know only ray geometry.  This applies the
+     * directional LED constraints separately in every contributing camera,
+     * just as an independent central-camera branch selection would.
+     */
+    std::optional<RigVisibilityScore> rigVisibilityScore(
+        const CameraPose& pose,
+        const std::vector<RigObservation>& observations) const;
 
     /**
      * @brief Two-point pose from two 3D points, two bearings, and gravity axes.
@@ -188,6 +279,23 @@ private:
         const std::vector<Observation>& observations,
         const CameraModel& camera) const;
 
+    /** @brief Joint Fisher-information covariance from every rig camera. */
+    Eigen::Matrix<double, 6, 6> poseCovarianceByRigJacobianPropagation(
+        const CameraPose& pose,
+        const std::vector<RigObservation>& observations) const;
+
+    /** @brief Joint multi-camera Monte-Carlo uncertainty propagation. */
+    Eigen::Matrix<double, 6, 6> poseCovarianceByRigMonteCarlo(
+        const std::vector<CameraPose>& base_poses,
+        const std::vector<RigObservation>& observations,
+        int selected_index) const;
+
+    /** @brief Joint deterministic ellipse-transform uncertainty propagation. */
+    Eigen::Matrix<double, 6, 6> poseCovarianceByRigEllipseTransform(
+        const std::vector<CameraPose>& base_poses,
+        const std::vector<RigObservation>& observations,
+        int selected_index) const;
+
     /**
      * @brief Propagate detector uncertainty by Monte-Carlo sampling.
      */
@@ -226,17 +334,37 @@ private:
         const Eigen::VectorXd& sample,
         const CameraModel& camera) const;
 
+    /** @brief Stack all synchronized rig pixels and their block covariance. */
+    Eigen::VectorXd rigObservationVector(const std::vector<RigObservation>& observations) const;
+    Eigen::MatrixXd rigDetectorCovariance(const std::vector<RigObservation>& observations) const;
+
+    /** @brief Rebuild calibrated output-frame rays after pixel perturbation. */
+    std::vector<RigObservation> rigObservationsFromVector(
+        const std::vector<RigObservation>& base_observations,
+        const Eigen::VectorXd& sample) const;
+
     /**
      * @brief Transform body-to-camera pose into the configured output frame.
      */
     PoseMeasurement toMeasurement(int target, const CameraPose& camera_pose, const Eigen::Isometry3d& camera_to_output, const Eigen::Matrix<double, 6, 6>& covariance) const;
+
+    /** @brief Publish a body-to-output generalized pose without another transform. */
+    PoseMeasurement toRigMeasurement(
+        int target,
+        const CameraPose& output_pose,
+        const Eigen::Matrix<double, 6, 6>& covariance) const;
 
     GeometricSolverConfig config_;
     BodyModel body_;
     std::vector<CameraModel> cameras_;
     mutable std::mutex mutex_;
     TimedPoseMeasurements latest_measurements_;
+    // Each input owns its latest batch so an empty callback from one camera
+    // cannot erase a valid result produced by another camera.
+    std::vector<TimedPoseMeasurements> latest_input_measurements_;
     std::map<std::pair<std::size_t, int>, CameraPose> latest_camera_poses_;
+    std::map<int, CameraPose> latest_rig_poses_;
+    std::vector<BufferedCameraFrame> latest_camera_frames_;
     std::vector<std::optional<Eigen::Vector3d>> camera_up_axes_;
 };
 

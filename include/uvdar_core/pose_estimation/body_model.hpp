@@ -27,7 +27,9 @@ public:
      */
     struct VisibilityScore {
         bool observed_leds_face_camera = false;
-        double observed_view_cosine_minimum = -std::numeric_limits<double>::infinity();
+        // Accumulated with std::min(); start at the identity element so the
+        // first observed LED supplies the actual minimum.
+        double observed_view_cosine_minimum = std::numeric_limits<double>::infinity();
         double observed_view_cosine_mean = -std::numeric_limits<double>::infinity();
         double visibility_margin = -std::numeric_limits<double>::infinity();
     };

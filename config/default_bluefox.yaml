@@ -144,6 +144,19 @@ pose_estimation:
     pnp_finite_difference_eps: 1.0e-6
     pnp_step_tolerance: 1.0e-10
     pnp_residual_tolerance: 1.0e-10
+    # Set true to combine the last observations within the synchronization
+    # tolerance using the known camera TFs.
+    multi_cam_rig_enable: false
+    multi_cam_sync_tolerance_sec: 0.03
+    multi_cam_min_cameras: 2
+    multi_cam_max_angular_error_rad: 0.05
+    multi_cam_refinement_iterations: 40
+    multi_cam_damping: 1.0e-8
+    multi_cam_step_tolerance: 1.0e-10
+    multi_cam_residual_tolerance: 1.0e-10
+    multi_cam_gp3p_depth_seed_levels: 7
+    multi_cam_gp3p_depth_iterations: 60
+    multi_cam_gp3p_root_tolerance: 1.0e-9
   # camera_frame is a TF frame name, not a topic -- it's not namespace-pushed,
   # so it must match the fully-qualified frame published by
   # single_bluefox.launch.py: $UAV_NAME/bluefox_<camera_name>.

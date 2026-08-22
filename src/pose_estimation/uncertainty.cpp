@@ -79,11 +79,13 @@ Eigen::Matrix<double, 2, 6> imageProjectionJacobian(
     const Eigen::Vector3d& world_point)
 {
     const Eigen::Vector3d camera_point = transformPoint(pose, world_point);
+    const Eigen::Vector3d rotated_point = pose.rotation * world_point;
     const Eigen::Matrix<double, 2, 3> project_jacobian = camera.projectionJacobian(camera_point);
 
-    // For a left-multiplied small rotation, d(RX+t)/dtheta = -[X_c]x.
+    // applyLeftCameraPoseIncrement uses R' = Exp(theta)R and t' = t, hence
+    // d(RX+t)/dtheta = -[RX]x (not -[RX+t]x).
     Eigen::Matrix<double, 2, 6> jacobian;
-    jacobian << project_jacobian, -project_jacobian * uvdar_core::helpers::skew(camera_point);
+    jacobian << project_jacobian, -project_jacobian * uvdar_core::helpers::skew(rotated_point);
     return jacobian;
 }
 

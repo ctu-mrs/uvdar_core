@@ -48,7 +48,8 @@ PoseCovariance covarianceFromInformation(const PoseCovariance& information, doub
  *
  * The tangent order is position first, orientation second, matching the pose
  * covariance layout published by the particle-filter backend. The formula is
- * J = d pi(X_c)/d X_c * [I, -[X_c]x].
+ * J = d pi(X_c)/d X_c * [I, -[R X_b]x]. Translation is not rotated by
+ * applyLeftCameraPoseIncrement(), so it must not enter the rotation block.
  */
 Eigen::Matrix<double, 2, 6> imageProjectionJacobian(
     const CameraModel& camera,

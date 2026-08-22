@@ -244,6 +244,48 @@ void PoseEstimatorNode::loadConfiguration(const std::string& config_path_string)
         geometric_config.pnp_finite_difference_eps = optionalScalarAny<double>(geometric_node, pose_node, "pnp_finite_difference_eps", 1.0e-6);
         geometric_config.pnp_step_tolerance = optionalScalarAny<double>(geometric_node, pose_node, "pnp_step_tolerance", 1.0e-10);
         geometric_config.pnp_residual_tolerance = optionalScalarAny<double>(geometric_node, pose_node, "pnp_residual_tolerance", 1.0e-10);
+        geometric_config.multi_cam_rig_enable = optionalScalarAny<bool>(
+            geometric_node, pose_node, "multi_cam_rig_enable", false);
+        geometric_config.multi_cam_sync_tolerance_sec = optionalScalarAny<double>(
+            geometric_node, pose_node, "multi_cam_sync_tolerance_sec", 0.03);
+        geometric_config.multi_cam_min_cameras = optionalScalarAny<int>(
+            geometric_node, pose_node, "multi_cam_min_cameras", 2);
+        geometric_config.multi_cam_max_angular_error_rad = optionalScalarAny<double>(
+            geometric_node, pose_node, "multi_cam_max_angular_error_rad", 0.05);
+        geometric_config.multi_cam_refinement_iterations = optionalScalarAny<int>(
+            geometric_node, pose_node, "multi_cam_refinement_iterations", 40);
+        geometric_config.multi_cam_damping = optionalScalarAny<double>(
+            geometric_node, pose_node, "multi_cam_damping", 1.0e-8);
+        geometric_config.multi_cam_step_tolerance = optionalScalarAny<double>(
+            geometric_node, pose_node, "multi_cam_step_tolerance", 1.0e-10);
+        geometric_config.multi_cam_residual_tolerance = optionalScalarAny<double>(
+            geometric_node, pose_node, "multi_cam_residual_tolerance", 1.0e-10);
+        geometric_config.multi_cam_gp3p_depth_seed_levels = optionalScalarAny<int>(
+            geometric_node, pose_node, "multi_cam_gp3p_depth_seed_levels", 7);
+        geometric_config.multi_cam_gp3p_depth_iterations = optionalScalarAny<int>(
+            geometric_node, pose_node, "multi_cam_gp3p_depth_iterations", 60);
+        geometric_config.multi_cam_gp3p_root_tolerance = optionalScalarAny<double>(
+            geometric_node, pose_node, "multi_cam_gp3p_root_tolerance", 1.0e-9);
+        if (geometric_config.multi_cam_sync_tolerance_sec < 0.0) {
+            throw std::runtime_error(
+                "geometric_solver.multi_cam_sync_tolerance_sec must be non-negative.");
+        }
+        if (geometric_config.multi_cam_min_cameras < 2) {
+            throw std::runtime_error(
+                "geometric_solver.multi_cam_min_cameras must be at least two.");
+        }
+        if (geometric_config.multi_cam_max_angular_error_rad <= 0.0
+            || geometric_config.multi_cam_refinement_iterations < 0
+            || geometric_config.multi_cam_damping <= 0.0
+            || geometric_config.multi_cam_step_tolerance < 0.0
+            || geometric_config.multi_cam_residual_tolerance < 0.0
+            || geometric_config.multi_cam_gp3p_depth_seed_levels < 3
+            || geometric_config.multi_cam_gp3p_depth_iterations < 1
+            || geometric_config.multi_cam_gp3p_root_tolerance <= 0.0) {
+            throw std::runtime_error(
+                "geometric_solver multi-camera numerical parameters must be positive "
+                "(iteration counts non-negative as documented).");
+        }
         publish_period_sec = optionalScalarAny<double>(geometric_node, pose_node, "publish_period_sec", publish_period_sec);
         pose_estimator_ = std::make_unique<gs::GeometricSolver>(geometric_config, body, cameras);
     } else {
