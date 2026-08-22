@@ -34,7 +34,7 @@ private:
 
     void loadConfiguration(const std::string& config_path);
     void onTrackerOutput(const uvdar_core::msg::TrackerOutput::ConstSharedPtr& msg, std::size_t camera_index);
-    void onP2POdometry(const nav_msgs::msg::Odometry::ConstSharedPtr& msg);
+    void onOdometryReference(const nav_msgs::msg::Odometry::ConstSharedPtr& msg);
     void onScatterTimer();
     void publishMeasurements(
         const uvdar_core::pose_estimation::TimedPoseMeasurements& measurements,
@@ -46,7 +46,7 @@ private:
     std::vector<InputConfig> inputs_;
     std::vector<bool> tf_logged_once_;
     std::vector<rclcpp::Subscription<uvdar_core::msg::TrackerOutput>::SharedPtr> subscriptions_;
-    rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr p2p_odometry_subscription_;
+    rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odometry_ref_subscription_;
     rclcpp::Publisher<uvdar_core::msg::PoseWithCovarianceArrayStamped>::SharedPtr measured_publisher_;
     rclcpp::Publisher<uvdar_core::msg::PoseWithCovarianceArrayStamped>::SharedPtr hypotheses_publisher_;
     rclcpp::Publisher<uvdar_core::msg::PoseWithCovarianceArrayStamped>::SharedPtr tentative_hypotheses_publisher_;
@@ -57,10 +57,10 @@ private:
     tf2_ros::TransformListener tf_listener_;
     std::string output_frame_;
     double latest_primary_input_stamp_ = 0.0;
-    std::string p2p_odometry_topic_;
-    double p2p_odometry_maximum_age_sec_ = 0.5;
-    nav_msgs::msg::Odometry::ConstSharedPtr latest_p2p_odometry_;
-    std::mutex p2p_odometry_mutex_;
+    std::string odometry_ref_topic_;
+    double odometry_ref_maximum_age_sec_ = 0.5;
+    nav_msgs::msg::Odometry::ConstSharedPtr latest_odometry_ref_;
+    std::mutex odometry_ref_mutex_;
     bool publish_constituents_ = false;
     bool publish_visualization_ = false;
     std::string visualization_topic_;

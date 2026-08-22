@@ -17,11 +17,10 @@ namespace uvdar_core::pose_estimation::geometric_solver {
 /**
  * @brief Perspective-2-point solver with an additional normal constraint.
  *
- * Two 2D-3D correspondences leave a one-degree ambiguity. The supplied camera
- * and world normals close that ambiguity by constraining the plane spanned by
- * the two rays and the corresponding body-frame baseline. The implementation
- * exposes both Li-style and Sweeney-style variants plus finite analytic
- * Jacobian helpers used for future covariance propagation.
+ * Two 2D-3D correspondences leave a one-degree ambiguity. The supplied known
+ * camera and model axes close that ambiguity by imposing R v_world = v_cam.
+ * This class is deliberately central: both bearing rays originate at the same
+ * camera center. Non-central rig rays belong to GeneralizedKnownAxis.
  */
 class P2P {
 public:
@@ -36,6 +35,42 @@ public:
 	};
 
 	using Solution = PoseSolution;
+
+	/**
+	 * @brief Dimensionless conditioning of Li's known-axis yaw equation.
+	 *
+	 * Zero is the Li/Sweeney critical case (both rays and the marker baseline
+	 * lose their axis component); values near zero amplify pixel noise into
+	 * arbitrarily large branch changes.
+	 */
+	static double axisObservability(
+		const Eigen::Matrix<double, 3, 2>& Pw,
+		const Eigen::Matrix<double, 3, 2>& Pi,
+		const Eigen::Vector3d& v_cam,
+		const Eigen::Vector3d& v_world)
+	{
+		const auto prep = prealign(Pw, Pi, v_cam, v_world);
+		if (!prep.ok) {
+			return 0.0;
+		}
+		const Eigen::Vector3d delta = prep.Pw1 - prep.Pw2;
+		const Eigen::Vector3d cross = prep.p1.cross(prep.p2);
+		// Do not divide out the inter-ray angle: a small ray separation is
+		// itself a source of P2P depth/yaw ill-conditioning. The coefficient
+		// magnitude per unit marker baseline measures the usable polynomial
+		// signal while retaining that geometric leverage.
+		const double scale = delta.norm();
+		if (!std::isfinite(scale) || scale <= 1.0e-15) {
+			return 0.0;
+		}
+		const double a1 = -delta.x() * cross.x()
+			- delta.y() * cross.y() + delta.z() * cross.z();
+		const double a2 = 2.0 * delta.x() * cross.y()
+			- 2.0 * delta.y() * cross.x();
+		const double a3 = delta.x() * cross.x()
+			+ delta.y() * cross.y() + delta.z() * cross.z();
+		return Eigen::Vector3d(a1, a2, a3).norm() / scale;
+	}
 
 	/**
 	 * @brief Pose sensitivity with respect to two input bearing vectors.
@@ -56,15 +91,20 @@ public:
 	};
 
 	/**
-	 * @brief Solve P2P from world points, camera bearings, and plane normals.
+	 * @brief Solve central P2P from world points, bearings, and known axes.
 	 */
 	static std::vector<Solution> solve(
 		const Eigen::Matrix<double, 3, 2>& Pw,
 		const Eigen::Matrix<double, 3, 2>& Pi,
 		const Eigen::Vector3d& v_cam,
 		const Eigen::Vector3d& v_world,
-		Method method = Method::Li)
+		Method method = Method::Li,
+		double minimum_axis_observability = 0.0)
 	{
+		if (axisObservability(Pw, Pi, v_cam, v_world)
+			< std::max(0.0, minimum_axis_observability)) {
+			return {};
+		}
 		if (method == Method::Sweeney) {
 			return solveSweeney(Pw, Pi, v_cam, v_world);
 		}
@@ -123,43 +163,35 @@ public:
 			return sols;
 		}
 
-		const Eigen::Vector3d p1 = prep.p1;
-		const Eigen::Vector3d p2 = prep.p2;
-		const Eigen::Vector3d Pw1 = prep.Pw1;
-		const Eigen::Vector3d Pw2 = prep.Pw2;
+		Eigen::Vector3d p1 = prep.p1;
+		Eigen::Vector3d p2 = prep.p2;
+		Eigen::Vector3d Pw1 = prep.Pw1;
+		Eigen::Vector3d Pw2 = prep.Pw2;
+
+		// Equation (4) divides by p1.v. Swapping the two pairs is
+		// algebraically identical and avoids an unnecessary quasi-singularity.
+		if (std::abs(p2.z()) > std::abs(p1.z())) {
+			std::swap(p1, p2);
+			std::swap(Pw1, Pw2);
+		}
 		const Eigen::Vector3d dw_vec = Pw1 - Pw2;
 
 		const double D_sq = dw_vec.squaredNorm();
 		const double p1v = p1.z();
 		const double p2v = p2.z();
-		const double dw = dw_vec.z();
 
-		if (std::abs(p1v) < 1e-15) {
+		if (std::abs(p1v) < 1e-12) {
 			return sols;
 		}
 
-		const double m = dw / p1v;
+		const double m = dw_vec.z() / p1v;
 		const double n = p2v / p1v;
-		const double cos12 = p1.dot(p2);
-
-		const double A = n * n - 2.0 * n * cos12 + 1.0;
-		const double B = 2.0 * m * (n - cos12);
-		const double C = m * m - D_sq;
-
-		std::vector<double> lam2_vals;
-		if (std::abs(A) < 1e-15) {
-			if (std::abs(B) > 1e-15) {
-				lam2_vals.emplace_back(-C / B);
-			}
-		} else {
-			const double disc = B * B - 4.0 * A * C;
-			if (disc < -1e-10) {
-				return sols;
-			}
-			const double sd = std::sqrt(std::max(0.0, disc));
-			lam2_vals.emplace_back((-B + sd) / (2.0 * A));
-			lam2_vals.emplace_back((-B - sd) / (2.0 * A));
-		}
+		const Eigen::Vector3d constant = m * p1;
+		const Eigen::Vector3d slope = n * p1 - p2;
+		const double A = slope.squaredNorm();
+		const double B = 2.0 * constant.dot(slope);
+		const double C = constant.squaredNorm() - D_sq;
+		const std::vector<double> lam2_vals = realQuadraticRoots(A, B, C);
 
 		sols.reserve(lam2_vals.size());
 
@@ -223,21 +255,7 @@ public:
 		const double a1 = -dx * px - dy * py + dz * pz;
 		const double a2 = 2.0 * dx * py - 2.0 * dy * px;
 		const double a3 = dx * px + dy * py + dz * pz;
-
-		std::vector<double> s_vals;
-		if (std::abs(a1) < 1e-15) {
-			if (std::abs(a2) > 1e-15) {
-				s_vals.emplace_back(-a3 / a2);
-			}
-		} else {
-			const double disc = a2 * a2 - 4.0 * a1 * a3;
-			if (disc < -1e-10) {
-				return sols;
-			}
-			const double sd = std::sqrt(std::max(0.0, disc));
-			s_vals.emplace_back((-a2 + sd) / (2.0 * a1));
-			s_vals.emplace_back((-a2 - sd) / (2.0 * a1));
-		}
+		const std::vector<double> s_vals = realQuadraticRoots(a1, a2, a3);
 
 		sols.reserve(s_vals.size());
 		for (double s : s_vals) {
@@ -274,6 +292,51 @@ public:
 	}
 
 private:
+	static std::vector<double> realQuadraticRoots(
+		double quadratic, double linear, double constant)
+	{
+		const double scale = std::max({
+			std::abs(quadratic), std::abs(linear), std::abs(constant), 1.0});
+		const double tolerance = 64.0 * std::numeric_limits<double>::epsilon()
+			* scale;
+		if (std::abs(quadratic) <= tolerance) {
+			if (std::abs(linear) <= tolerance) {
+				return {};
+			}
+			return {-constant / linear};
+		}
+
+		double discriminant = linear * linear
+			- 4.0 * quadratic * constant;
+		const double discriminant_tolerance = 128.0
+			* std::numeric_limits<double>::epsilon()
+			* std::max({
+				linear * linear,
+				std::abs(4.0 * quadratic * constant),
+				1.0});
+		if (discriminant < -discriminant_tolerance) {
+			return {};
+		}
+		discriminant = std::max(0.0, discriminant);
+		const double square_root = std::sqrt(discriminant);
+		if (square_root <= tolerance) {
+			return {-linear / (2.0 * quadratic)};
+		}
+
+		const double stable_numerator = -0.5
+			* (linear + std::copysign(square_root, linear));
+		if (std::abs(stable_numerator) <= tolerance) {
+			return {
+				(-linear + square_root) / (2.0 * quadratic),
+				(-linear - square_root) / (2.0 * quadratic),
+			};
+		}
+		return {
+			stable_numerator / quadratic,
+			constant / stable_numerator,
+		};
+	}
+
 	struct PrealignData {
 		bool ok = false;
 		Eigen::Matrix3d Rc;
@@ -429,7 +492,10 @@ private:
 				const Eigen::Matrix3d dR = prep.Rc.transpose() * dRp * prep.Rw;
 				const Eigen::Vector3d dt = prep.Rc.transpose() * dtp;
 
-				const Eigen::Vector3d domega = uvdar_core::helpers::omegaFromRotationDerivative(R, dR);
+				// omegaFromRotationDerivative returns the right/body tangent;
+				// published pose increments use a left/camera-frame tangent.
+				const Eigen::Vector3d domega = R
+					* uvdar_core::helpers::omegaFromRotationDerivative(R, dR);
 				J.block<3, 1>(0, k) = domega;
 				J.block<3, 1>(3, k) = dt;
 			}
@@ -586,7 +652,8 @@ private:
 				const Eigen::Matrix3d dR = prep.Rc.transpose() * dRp * prep.Rw;
 				const Eigen::Vector3d dt = prep.Rc.transpose() * dtp;
 
-				const Eigen::Vector3d domega = uvdar_core::helpers::omegaFromRotationDerivative(R, dR);
+				const Eigen::Vector3d domega = R
+					* uvdar_core::helpers::omegaFromRotationDerivative(R, dR);
 				J.block<3, 1>(0, k) = domega;
 				J.block<3, 1>(3, k) = dt;
 			}

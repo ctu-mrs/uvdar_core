@@ -31,10 +31,12 @@ struct GeometricSolverConfig {
     std::string output_frame = "local_origin";
     std::vector<int> signal_ids;
     int signals_per_target = 1;
-    bool enable_p2p = true;
+    bool odometry_ref_enable = false;
     // Target model-frame direction opposite gravity. +Z is the UVDAR model
     // convention; configure a different normalized direction when needed.
-    Eigen::Vector3d p2p_model_gravity_axis = Eigen::Vector3d::UnitZ();
+    Eigen::Vector3d odometry_ref_model_gravity_axis = Eigen::Vector3d::UnitZ();
+    // Reject central P2P close to the Li/Sweeney critical configuration.
+    double odometry_ref_min_axis_observability = 3.0e-3;
     double p4p_reprojection_threshold_rad = 0.01;
     double covariance_regularization_px = 1.0e-6;
     int refinement_iterations = 8;
@@ -74,9 +76,9 @@ public:
     /**
      * @brief Set the navigation-derived body-up direction expressed in a camera frame.
      *
-     * P2P uses this as its additional orientation constraint.  Clearing the
-     * value disables only P2P for that camera; P3P and larger solvers remain
-     * unaffected.
+     * Central P2P uses this as its additional orientation constraint. An
+     * otherwise underconstrained multi-camera marker set may also use the same
+     * reference jointly. Observable P3P and larger visual solves are unchanged.
      */
     void setCameraUpAxis(std::size_t camera_index, std::optional<Eigen::Vector3d> camera_up_axis);
 
@@ -136,6 +138,7 @@ private:
         Eigen::Isometry3d output_to_camera = Eigen::Isometry3d::Identity();
         Eigen::Vector3d ray_origin = Eigen::Vector3d::Zero();
         Eigen::Vector3d ray_direction = Eigen::Vector3d::UnitZ();
+        std::optional<Eigen::Vector3d> output_up_axis;
     };
 
     /** @brief Last timestamped observation map retained for one camera. */
@@ -145,6 +148,7 @@ private:
         double stamp = 0.0;
         Eigen::Isometry3d camera_to_output = Eigen::Isometry3d::Identity();
         Eigen::Isometry3d output_to_camera = Eigen::Isometry3d::Identity();
+        std::optional<Eigen::Vector3d> camera_up_axis;
         std::map<int, std::vector<Observation>> observations_by_target;
     };
 
@@ -202,6 +206,14 @@ private:
     bool hasObservableRigMarkerGeometry(
         const std::vector<RigObservation>& observations) const;
 
+    /** @brief Require at least two distinct physical markers for known-axis pose. */
+    bool hasDistinctRigMarkerPair(
+        const std::vector<RigObservation>& observations) const;
+
+    /** @brief Consistent navigation up direction expressed in output_frame. */
+    std::optional<Eigen::Vector3d> rigOutputUpAxis(
+        const std::vector<RigObservation>& observations) const;
+
     /** @brief Jointly refine generalized candidates in all cameras' pixel spaces. */
     std::vector<ScoredRigPose> refineRigCandidates(
         const std::vector<CameraPose>& candidates,
@@ -217,6 +229,12 @@ private:
     CameraPose refineRigPose(
         const CameraPose& seed,
         const std::vector<RigObservation>& observations) const;
+
+    /** @brief Four-DOF rig refinement preserving the odometry axis constraint. */
+    CameraPose refineKnownAxisRigPose(
+        const CameraPose& seed,
+        const std::vector<RigObservation>& observations,
+        const Eigen::Vector3d& output_up_axis) const;
 
     /** @brief Joint squared pixel reprojection error over all cameras. */
     double rigReprojectionError(
