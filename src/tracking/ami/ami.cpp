@@ -7,6 +7,7 @@
 #include <stdexcept>
 #include <string>
 
+#include "uvdar_core/helpers/polynomial.hpp"
 #include "uvdar_core/tracking/sequence_buffer.hpp"
 #include "uvdar_core/tracking/time_weights.hpp"
 
@@ -300,9 +301,9 @@ PredictionStats AMI::selectStatisticsValues(const std::vector<double>& values, c
 
         const bool all_coeff_zero = std::all_of(coeff.begin(), coeff.end(), [](double coefficient) { return coefficient == 0.0; });
         if (!all_coeff_zero) {
-            for (int i = 0; i < static_cast<int>(coeff.size()); ++i) {
-                stats.predicted_coordinate += coeff[i] * std::pow(insert_time, i);
-            }
+            stats.predicted_coordinate =
+                uvdar_core::helpers::evaluatePolynomialAscending(
+                    coeff.begin(), coeff.end(), insert_time);
         }
         stats.confidence_interval = confidenceInterval(stats, time, values, calcNormalizedWeightVect(time), static_cast<int>(params_ami_.conf_probab_percent));
         stats.model_reg_computed = true;

@@ -1,7 +1,10 @@
 #include "uvdar_core/calibration/fisheye/radial_model.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
+
+#include "uvdar_core/helpers/polynomial.hpp"
 
 namespace uvdar_core::calibration::fisheye {
 
@@ -13,6 +16,15 @@ constexpr double pi = 3.14159265358979323846;
 double square(double value)
 {
     return value * value;
+}
+
+std::array<double, 10> distortionPolynomial(
+    const RadialModel::Parameters& parameters)
+{
+    return {{
+        0.0, 1.0, 0.0, parameters.k1, 0.0, parameters.k2,
+        0.0, parameters.k3, 0.0, parameters.k4,
+    }};
 }
 
 } // namespace
@@ -202,20 +214,17 @@ double RadialModel::radiusToThetaDerivative(double radius) const
 
 double RadialModel::distortRadius(double radius) const
 {
-    const double r2 = square(radius);
-    const double r4 = square(r2);
-    const double r6 = r4 * r2;
-    const double r8 = square(r4);
-    return radius * (1.0 + parameters_.k1 * r2 + parameters_.k2 * r4 + parameters_.k3 * r6 + parameters_.k4 * r8);
+    const auto coefficients = distortionPolynomial(parameters_);
+    return uvdar_core::helpers::evaluatePolynomialAscending(
+        coefficients.begin(), coefficients.end(), radius);
 }
 
 double RadialModel::distortRadiusDerivative(double radius) const
 {
-    const double r2 = square(radius);
-    const double r4 = square(r2);
-    const double r6 = r4 * r2;
-    const double r8 = square(r4);
-    return 1.0 + 3.0 * parameters_.k1 * r2 + 5.0 * parameters_.k2 * r4 + 7.0 * parameters_.k3 * r6 + 9.0 * parameters_.k4 * r8;
+    const auto coefficients = distortionPolynomial(parameters_);
+    return uvdar_core::helpers::
+        evaluatePolynomialAndDerivativeAscending(
+            coefficients.begin(), coefficients.end(), radius).second;
 }
 
 double RadialModel::undistortRadius(double distorted_radius) const
@@ -223,11 +232,7 @@ double RadialModel::undistortRadius(double distorted_radius) const
     double radius = distorted_radius;
     for (int i = 0; i < 8; ++i) {
         // Newton solve distortRadius(radius) = distorted_radius.
-        const double r2 = square(radius);
-        const double r4 = square(r2);
-        const double r6 = r4 * r2;
-        const double r8 = square(r4);
-        const double f = radius * (1.0 + parameters_.k1 * r2 + parameters_.k2 * r4 + parameters_.k3 * r6 + parameters_.k4 * r8) - distorted_radius;
+        const double f = distortRadius(radius) - distorted_radius;
         const double df = distortRadiusDerivative(radius);
         if (std::abs(df) < epsilon) {
             break;

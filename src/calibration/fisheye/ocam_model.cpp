@@ -8,6 +8,7 @@
 #include <string>
 
 #include "uvdar_core/helpers/math.hpp"
+#include "uvdar_core/helpers/polynomial.hpp"
 
 namespace uvdar_core::calibration::fisheye {
 
@@ -31,32 +32,6 @@ std::string nextDataLine(std::ifstream& input)
         return line.substr(first);
     }
     throw std::runtime_error("Unexpected end of OCamCalib file.");
-}
-
-double evalPolynomial(const std::array<double, max_polynomial_length>& coefficients, int length, double x)
-{
-    // Horner evaluation for OCamCalib polynomial coefficients.
-    double value = 0.0;
-    for (int i = length - 1; i >= 0; --i) {
-        value = value * x + coefficients[static_cast<std::size_t>(i)];
-    }
-    return value;
-}
-
-void evalPolynomialAndDerivative(
-    const std::array<double, max_polynomial_length>& coefficients,
-    int length,
-    double x,
-    double& value,
-    double& derivative)
-{
-    // Horner evaluation of f(x) and f'(x) in one pass.
-    value = 0.0;
-    derivative = 0.0;
-    for (int i = length - 1; i >= 0; --i) {
-        derivative = derivative * x + value;
-        value = value * x + coefficients[static_cast<std::size_t>(i)];
-    }
 }
 
 } // namespace
@@ -135,7 +110,8 @@ Eigen::Vector3d cam2world(const Eigen::Vector2d& point_2d, const OcamModel& mode
     const double yp = invdet * (-model.e * (point_2d.x() - model.xc) + model.c * (point_2d.y() - model.yc));
 
     const double r = std::sqrt(xp * xp + yp * yp);
-    const double zp = evalPolynomial(model.pol, model.length_pol, r);
+    const double zp = uvdar_core::helpers::evaluatePolynomialAscending(
+        model.pol.begin(), model.pol.begin() + model.length_pol, r);
 
     const double invnorm = 1.0 / std::sqrt(xp * xp + yp * yp + zp * zp);
     return {invnorm * xp, invnorm * yp, invnorm * zp};
@@ -150,7 +126,10 @@ Eigen::Vector2d world2cam(const Eigen::Vector3d& point_3d, const OcamModel& mode
 
     // Inverse polynomial maps elevation angle to image-plane radius rho.
     const double theta = std::atan(point_3d.z() / norm);
-    const double rho = evalPolynomial(model.invpol, model.length_invpol, theta);
+    const double rho = uvdar_core::helpers::evaluatePolynomialAscending(
+        model.invpol.begin(),
+        model.invpol.begin() + model.length_invpol,
+        theta);
 
     const double invnorm = 1.0 / norm;
     const double x = point_3d.x() * invnorm * rho;
@@ -192,9 +171,9 @@ Eigen::Matrix<double, 2, 3> OcamModel::projectJacobian(const Eigen::Vector3d& ca
 
     // Chain rule: point -> theta -> rho(theta) -> affine pixel.
     const double theta = std::atan2(z, r);
-    double rho = 0.0;
-    double drho_dtheta = 0.0;
-    evalPolynomialAndDerivative(invpol, length_invpol, theta, rho, drho_dtheta);
+    const auto [rho, drho_dtheta] =
+        uvdar_core::helpers::evaluatePolynomialAndDerivativeAscending(
+            invpol.begin(), invpol.begin() + length_invpol, theta);
 
     const double denom = z * z + r * r;
     const double dtheta_dr = -z / denom;
@@ -256,9 +235,10 @@ Eigen::Matrix<double, 3, 2> OcamModel::backProjectJacobian(const Eigen::Vector2d
     }
 
     // Direct polynomial gives z(r), then the ray is normalized.
-    double z = 0.0;
-    double dz_dr = 0.0;
-    evalPolynomialAndDerivative(pol, length_pol, std::max(r, epsilon), z, dz_dr);
+    const auto [z, dz_dr] =
+        uvdar_core::helpers::evaluatePolynomialAndDerivativeAscending(
+            pol.begin(), pol.begin() + length_pol,
+            std::max(r, epsilon));
     const double r_safe = std::max(r, epsilon);
     const double dz_dx = dz_dr * x / r_safe;
     const double dz_dy = dz_dr * y / r_safe;

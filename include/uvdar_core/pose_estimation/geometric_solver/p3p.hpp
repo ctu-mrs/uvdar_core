@@ -11,7 +11,7 @@
 
 #include <Eigen/Dense>
 
-#include "uvdar_core/helpers/poly_quartic.hpp"
+#include "uvdar_core/helpers/polynomial.hpp"
 #include "uvdar_core/helpers/math.hpp"
 #include "uvdar_core/pose_estimation/geometric_solver/solver_types.hpp"
 
@@ -112,7 +112,8 @@ public:
         }
 
         std::vector<Solution> output;
-        const auto roots = uvdar_core::helpers::poly_quartic::roots(coefficients);
+        const auto roots = uvdar_core::helpers::Polynomial::fromAscending(
+            coefficients.begin(), coefficients.end()).solveQuartic();
         for (const auto& root : roots) {
             if (std::abs(root.imag()) > 1.0e-8 * std::max(1.0, std::abs(root.real()))) {
                 continue;

@@ -11,6 +11,7 @@
 
 #include <Eigen/Dense>
 
+#include "uvdar_core/helpers/polynomial.hpp"
 #include "uvdar_core/pose_estimation/geometric_solver/generalized_solver_types.hpp"
 #include "uvdar_core/pose_estimation/geometric_solver/p3p.hpp"
 
@@ -140,7 +141,7 @@ public:
     }
 
 private:
-    using Polynomial = std::vector<double>; // ascending coefficient order
+    using Polynomial = uvdar_core::helpers::Polynomial;
 
     static bool hasObservableTriangle(const PointMatrix& points)
     {
@@ -177,66 +178,11 @@ private:
         return levels;
     }
 
-    static void trimPolynomial(Polynomial& polynomial)
+    static Polynomial ascending(
+        std::initializer_list<Polynomial::Complex> coefficients)
     {
-        double scale = 0.0;
-        for (double coefficient : polynomial) {
-            scale = std::max(scale, std::abs(coefficient));
-        }
-        const double tolerance = std::max(1.0e-14, 1.0e-12 * scale);
-        while (polynomial.size() > 1U
-            && std::abs(polynomial.back()) <= tolerance) {
-            polynomial.pop_back();
-        }
-    }
-
-    static Polynomial addPolynomial(
-        const Polynomial& first,
-        const Polynomial& second,
-        const double second_scale = 1.0)
-    {
-        Polynomial output(std::max(first.size(), second.size()), 0.0);
-        for (std::size_t i = 0U; i < first.size(); ++i) {
-            output[i] += first[i];
-        }
-        for (std::size_t i = 0U; i < second.size(); ++i) {
-            output[i] += second_scale * second[i];
-        }
-        trimPolynomial(output);
-        return output;
-    }
-
-    static Polynomial scalePolynomial(const Polynomial& polynomial, const double scale)
-    {
-        Polynomial output = polynomial;
-        for (double& coefficient : output) {
-            coefficient *= scale;
-        }
-        trimPolynomial(output);
-        return output;
-    }
-
-    static Polynomial multiplyPolynomial(
-        const Polynomial& first,
-        const Polynomial& second)
-    {
-        Polynomial output(first.size() + second.size() - 1U, 0.0);
-        for (std::size_t i = 0U; i < first.size(); ++i) {
-            for (std::size_t j = 0U; j < second.size(); ++j) {
-                output[i + j] += first[i] * second[j];
-            }
-        }
-        trimPolynomial(output);
-        return output;
-    }
-
-    static double evaluatePolynomial(const Polynomial& polynomial, const double value)
-    {
-        double output = 0.0;
-        for (auto coefficient = polynomial.rbegin(); coefficient != polynomial.rend(); ++coefficient) {
-            output = output * value + *coefficient;
-        }
-        return output;
+        return Polynomial::fromAscending(
+            coefficients.begin(), coefficients.end());
     }
 
     static int permutationSign(const std::array<int, 4>& permutation)
@@ -272,77 +218,33 @@ private:
         do {
             Polynomial term {1.0};
             for (int row = 0; row < 4; ++row) {
-                term = multiplyPolynomial(
-                    term,
+                term *=
                     sylvester[static_cast<std::size_t>(row)]
-                             [static_cast<std::size_t>(permutation[static_cast<std::size_t>(row)])]);
+                             [static_cast<std::size_t>(permutation[static_cast<std::size_t>(row)])];
             }
-            determinant = addPolynomial(
-                determinant, term, static_cast<double>(permutationSign(permutation)));
+            determinant += term * static_cast<double>(
+                permutationSign(permutation));
         } while (std::next_permutation(permutation.begin(), permutation.end()));
-        trimPolynomial(determinant);
         return determinant;
     }
 
-    static std::vector<double> realPolynomialRoots(Polynomial polynomial)
+    static std::vector<double> realPolynomialRoots(
+        const Polynomial& polynomial)
     {
-        trimPolynomial(polynomial);
-        if (polynomial.size() <= 1U) {
-            return {};
+        double scale = 0.0;
+        for (const Polynomial::Complex coefficient
+             : polynomial.coefficients()) {
+            scale = std::max(scale, std::abs(coefficient));
         }
-        if (polynomial.size() == 2U) {
-            return {-polynomial[0] / polynomial[1]};
-        }
-        const Eigen::Index degree = static_cast<Eigen::Index>(polynomial.size() - 1U);
-        const double leading = polynomial.back();
-        if (!std::isfinite(leading) || std::abs(leading) <= 1.0e-15) {
-            return {};
-        }
-        Eigen::MatrixXd companion = Eigen::MatrixXd::Zero(degree, degree);
-        for (Eigen::Index row = 1; row < degree; ++row) {
-            companion(row, row - 1) = 1.0;
-        }
-        for (Eigen::Index row = 0; row < degree; ++row) {
-            companion(row, degree - 1) =
-                -polynomial[static_cast<std::size_t>(row)] / leading;
-        }
-        Eigen::EigenSolver<Eigen::MatrixXd> eigen_solver(companion, false);
-        if (eigen_solver.info() != Eigen::Success) {
-            return {};
-        }
-        std::vector<double> roots;
-        for (const std::complex<double>& root : eigen_solver.eigenvalues()) {
-            if (std::abs(root.imag()) <= 1.0e-7 * (1.0 + std::abs(root.real()))
-                && std::isfinite(root.real())) {
-                roots.push_back(root.real());
-            }
-        }
-        std::sort(roots.begin(), roots.end());
-        roots.erase(
-            std::unique(roots.begin(), roots.end(), [](const double first, const double second) {
-                return std::abs(first - second)
-                    <= 1.0e-7 * (1.0 + std::max(std::abs(first), std::abs(second)));
-            }),
-            roots.end());
-        return roots;
+        return polynomial
+            .stripLeadingZeros(std::max(1.0e-14, 1.0e-12 * scale))
+            .realRoots(1.0e-7, true);
     }
 
     static std::vector<double> quadraticRoots(const double linear, const double constant)
     {
-        double discriminant = linear * linear - 4.0 * constant;
-        const double tolerance = 1.0e-10
-            * (1.0 + linear * linear + std::abs(constant));
-        if (discriminant < -tolerance) {
-            return {};
-        }
-        discriminant = std::max(0.0, discriminant);
-        const double square_root = std::sqrt(discriminant);
-        if (square_root <= 1.0e-14) {
-            return {-0.5 * linear};
-        }
-        const double first = -0.5 * (linear + std::copysign(square_root, linear));
-        const double second = constant / first;
-        return {first, second};
+        return uvdar_core::helpers::realQuadraticRoots(
+            1.0, linear, constant, 1.0e-10);
     }
 
     static std::vector<Eigen::Vector3d> algebraicDepthCandidates(
@@ -361,68 +263,52 @@ private:
             - (world_points.col(1) - world_points.col(2)).squaredNorm();
 
         // F01 = b^2 + p(a)b + q(a), F02 = c^2 + r(a)c + s(a).
-        const Polynomial p {
+        const Polynomial p = ascending({
             -2.0 * delta01.dot(directions.col(1)),
             -2.0 * directions.col(0).dot(directions.col(1)),
-        };
-        const Polynomial q {
+        });
+        const Polynomial q = ascending({
             k01,
             2.0 * delta01.dot(directions.col(0)),
             1.0,
-        };
-        const Polynomial r {
+        });
+        const Polynomial r = ascending({
             -2.0 * delta02.dot(directions.col(2)),
             -2.0 * directions.col(0).dot(directions.col(2)),
-        };
-        const Polynomial s {
+        });
+        const Polynomial s = ascending({
             k02,
             2.0 * delta02.dot(directions.col(0)),
             1.0,
-        };
+        });
 
         // Reduce F12 with F01/F02 to A*b*c + B*b + C*c + D = 0.
         const double a_coefficient = -2.0 * directions.col(1).dot(directions.col(2));
-        const Polynomial b = addPolynomial(
-            {2.0 * delta12.dot(directions.col(1))}, p, -1.0);
-        const Polynomial c = addPolynomial(
-            {-2.0 * delta12.dot(directions.col(2))}, r, -1.0);
-        const Polynomial d = addPolynomial(
-            addPolynomial({k12}, q, -1.0), s, -1.0);
+        const Polynomial b = ascending({
+            2.0 * delta12.dot(directions.col(1))}) - p;
+        const Polynomial c = ascending({
+            -2.0 * delta12.dot(directions.col(2))}) - r;
+        const Polynomial d = ascending({k12}) - q - s;
 
         // Eliminating c from its quadratic and (A*b+C)c+(B*b+D)=0
         // produces G = g2(a)b^2 + g1(a)b + g0(a).
-        const Polynomial g2 = addPolynomial(
-            addPolynomial(
-                multiplyPolynomial(b, b),
-                scalePolynomial(multiplyPolynomial(r, b), a_coefficient),
-                -1.0),
-            scalePolynomial(s, a_coefficient * a_coefficient));
-        const Polynomial g1 = addPolynomial(
-            addPolynomial(
-                scalePolynomial(multiplyPolynomial(b, d), 2.0),
-                multiplyPolynomial(
-                    r,
-                    addPolynomial(
-                        multiplyPolynomial(b, c),
-                        scalePolynomial(d, a_coefficient))),
-                -1.0),
-            scalePolynomial(multiplyPolynomial(s, c), 2.0 * a_coefficient));
-        const Polynomial g0 = addPolynomial(
-            addPolynomial(
-                multiplyPolynomial(d, d),
-                multiplyPolynomial(r, multiplyPolynomial(d, c)),
-                -1.0),
-            multiplyPolynomial(s, multiplyPolynomial(c, c)));
+        const Polynomial g2 = b * b
+            - r * b * a_coefficient
+            + s * (a_coefficient * a_coefficient);
+        const Polynomial g1 = b * d * 2.0
+            - r * (b * c + d * a_coefficient)
+            + s * c * (2.0 * a_coefficient);
+        const Polynomial g0 = d * d - r * d * c + s * c * c;
 
         const Polynomial resultant = quadraticResultant(p, q, g2, g1, g0);
         std::vector<Eigen::Vector3d> candidates;
         for (const double first_depth : realPolynomialRoots(resultant)) {
             const std::vector<double> second_depths = quadraticRoots(
-                evaluatePolynomial(p, first_depth),
-                evaluatePolynomial(q, first_depth));
+                p.evaluate(first_depth).real(),
+                q.evaluate(first_depth).real());
             const std::vector<double> third_depths = quadraticRoots(
-                evaluatePolynomial(r, first_depth),
-                evaluatePolynomial(s, first_depth));
+                r.evaluate(first_depth).real(),
+                s.evaluate(first_depth).real());
             for (const double second_depth : second_depths) {
                 for (const double third_depth : third_depths) {
                     const Eigen::Vector3d depths(

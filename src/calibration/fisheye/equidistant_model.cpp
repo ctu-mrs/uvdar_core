@@ -1,6 +1,9 @@
 #include "uvdar_core/calibration/fisheye/equidistant_model.hpp"
 
+#include <array>
 #include <cmath>
+
+#include "uvdar_core/helpers/polynomial.hpp"
 
 namespace uvdar_core::calibration::fisheye {
 
@@ -8,24 +11,37 @@ namespace {
 
 constexpr double epsilon = 1.0e-12;
 
-double thetaScaleDerivative(const EquidistantModel::Parameters& parameters, double theta)
+std::array<double, 10> distortionPolynomial(
+    const EquidistantModel::Parameters& parameters)
 {
-    // d/dtheta of theta * (1 + k1 theta^2 + ... + k4 theta^8).
-    const double t2 = theta * theta;
-    const double t4 = t2 * t2;
-    const double t6 = t4 * t2;
-    const double t8 = t4 * t4;
-    return 1.0 + 3.0 * parameters.k1 * t2 + 5.0 * parameters.k2 * t4 + 7.0 * parameters.k3 * t6 + 9.0 * parameters.k4 * t8;
+    return {{
+        0.0, 1.0, 0.0, parameters.k1, 0.0, parameters.k2,
+        0.0, parameters.k3, 0.0, parameters.k4,
+    }};
 }
 
-double distortTheta(const EquidistantModel::Parameters& parameters, double theta)
+std::pair<double, double> evaluateDistortion(
+    const EquidistantModel::Parameters& parameters,
+    double theta)
 {
-    // OpenCV fisheye angular distortion polynomial.
-    const double t2 = theta * theta;
-    const double t4 = t2 * t2;
-    const double t6 = t4 * t2;
-    const double t8 = t4 * t4;
-    return theta * (1.0 + parameters.k1 * t2 + parameters.k2 * t4 + parameters.k3 * t6 + parameters.k4 * t8);
+    const auto coefficients = distortionPolynomial(parameters);
+    return uvdar_core::helpers::
+        evaluatePolynomialAndDerivativeAscending(
+            coefficients.begin(), coefficients.end(), theta);
+}
+
+double thetaScaleDerivative(
+    const EquidistantModel::Parameters& parameters,
+    double theta)
+{
+    return evaluateDistortion(parameters, theta).second;
+}
+
+double distortTheta(
+    const EquidistantModel::Parameters& parameters,
+    double theta)
+{
+    return evaluateDistortion(parameters, theta).first;
 }
 
 } // namespace

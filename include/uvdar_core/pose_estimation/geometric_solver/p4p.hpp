@@ -12,6 +12,7 @@
 #include <Eigen/Dense>
 
 #include "uvdar_core/helpers/math.hpp"
+#include "uvdar_core/helpers/polynomial.hpp"
 #include "uvdar_core/pose_estimation/geometric_solver/solver_types.hpp"
 
 namespace uvdar_core::pose_estimation::geometric_solver {
@@ -899,21 +900,13 @@ private:
     // =====================================================================
     static int solveQuadratic(double c2, double c1, double c0, double roots[2]) {
         int count = 0;
-        if (std::abs(c2) < 1e-30) {
-            if (std::abs(c1) < 1e-30) return 0;
-            double r = -c0 / c1;
-            if (r >= -1e-12) { roots[count++] = std::max(r, 0.0); }
-            return count;
+        for (const double root :
+             uvdar_core::helpers::realQuadraticRoots(
+                 c2, c1, c0, 1.0e-12)) {
+            if (root >= -1.0e-12) {
+                roots[count++] = std::max(root, 0.0);
+            }
         }
-        double disc = c1 * c1 - 4.0 * c2 * c0;
-        double scale = std::abs(c1 * c1) + std::abs(4.0 * c2 * c0) + 1.0;
-        if (disc < -1e-12 * scale) return 0;
-        disc = std::max(disc, 0.0);
-        double sd = std::sqrt(disc);
-        double r0 = (-c1 + sd) / (2.0 * c2);
-        double r1 = (-c1 - sd) / (2.0 * c2);
-        if (r0 >= -1e-12) roots[count++] = std::max(r0, 0.0);
-        if (r1 >= -1e-12) roots[count++] = std::max(r1, 0.0);
         return count;
     }
 

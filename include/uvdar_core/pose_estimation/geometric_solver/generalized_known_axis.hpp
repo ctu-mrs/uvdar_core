@@ -11,6 +11,7 @@
 #include <Eigen/Dense>
 
 #include "uvdar_core/helpers/math.hpp"
+#include "uvdar_core/helpers/polynomial.hpp"
 #include "uvdar_core/pose_estimation/geometric_solver/generalized_solver_types.hpp"
 
 namespace uvdar_core::pose_estimation::geometric_solver {
@@ -428,40 +429,8 @@ private:
         const double linear,
         const double constant)
     {
-        const double scale = std::max({
-            std::abs(quadratic), std::abs(linear),
-            std::abs(constant), 1.0});
-        const double tolerance =
-            64.0 * std::numeric_limits<double>::epsilon() * scale;
-        if (std::abs(quadratic) <= tolerance) {
-            return std::abs(linear) <= tolerance
-                ? std::vector<double> {}
-                : std::vector<double> {-constant / linear};
-        }
-        double discriminant = linear * linear
-            - 4.0 * quadratic * constant;
-        const double discriminant_tolerance =
-            64.0 * std::numeric_limits<double>::epsilon()
-            * std::max({linear * linear,
-                std::abs(4.0 * quadratic * constant), 1.0});
-        if (discriminant < -discriminant_tolerance) {
-            return {};
-        }
-        discriminant = std::max(0.0, discriminant);
-        const double root = std::sqrt(discriminant);
-        const double q = -0.5 * (linear
-            + std::copysign(root, linear == 0.0 ? 1.0 : linear));
-        if (std::abs(q) <= tolerance) {
-            return {-linear / (2.0 * quadratic)};
-        }
-        const double first = q / quadratic;
-        const double second = constant / q;
-        if (std::abs(first - second)
-            <= 64.0 * std::numeric_limits<double>::epsilon()
-                * std::max({std::abs(first), std::abs(second), 1.0})) {
-            return {first};
-        }
-        return {first, second};
+        return uvdar_core::helpers::realQuadraticRoots(
+            quadratic, linear, constant);
     }
 
     static Solution fromAlignedPose(

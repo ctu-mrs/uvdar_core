@@ -10,6 +10,7 @@
 #include <Eigen/Dense>
 
 #include "uvdar_core/helpers/math.hpp"
+#include "uvdar_core/helpers/polynomial.hpp"
 #include "uvdar_core/pose_estimation/geometric_solver/solver_types.hpp"
 
 namespace uvdar_core::pose_estimation::geometric_solver {
@@ -295,46 +296,11 @@ private:
 	static std::vector<double> realQuadraticRoots(
 		double quadratic, double linear, double constant)
 	{
-		const double scale = std::max({
-			std::abs(quadratic), std::abs(linear), std::abs(constant), 1.0});
-		const double tolerance = 64.0 * std::numeric_limits<double>::epsilon()
-			* scale;
-		if (std::abs(quadratic) <= tolerance) {
-			if (std::abs(linear) <= tolerance) {
-				return {};
-			}
-			return {-constant / linear};
-		}
-
-		double discriminant = linear * linear
-			- 4.0 * quadratic * constant;
-		const double discriminant_tolerance = 128.0
-			* std::numeric_limits<double>::epsilon()
-			* std::max({
-				linear * linear,
-				std::abs(4.0 * quadratic * constant),
-				1.0});
-		if (discriminant < -discriminant_tolerance) {
-			return {};
-		}
-		discriminant = std::max(0.0, discriminant);
-		const double square_root = std::sqrt(discriminant);
-		if (square_root <= tolerance) {
-			return {-linear / (2.0 * quadratic)};
-		}
-
-		const double stable_numerator = -0.5
-			* (linear + std::copysign(square_root, linear));
-		if (std::abs(stable_numerator) <= tolerance) {
-			return {
-				(-linear + square_root) / (2.0 * quadratic),
-				(-linear - square_root) / (2.0 * quadratic),
-			};
-		}
-		return {
-			stable_numerator / quadratic,
-			constant / stable_numerator,
-		};
+		return uvdar_core::helpers::realQuadraticRoots(
+			quadratic,
+			linear,
+			constant,
+			128.0 * std::numeric_limits<double>::epsilon());
 	}
 
 	struct PrealignData {
@@ -397,20 +363,8 @@ private:
 		const double a2 =  2.0 * dx * p_cross.y() - 2.0 * dy * p_cross.x();
 		const double a3 =  dx * p_cross.x() + dy * p_cross.y() + dz * p_cross.z();
 
-		std::vector<double> s_vals;
-		if (std::abs(a1) < 1e-15) {
-			if (std::abs(a2) > 1e-15) {
-				s_vals.emplace_back(-a3 / a2);
-			}
-		} else {
-			const double disc = a2 * a2 - 4.0 * a1 * a3;
-			if (disc < -1e-10) {
-				return out;
-			}
-			const double sd = std::sqrt(std::max(0.0, disc));
-			s_vals.emplace_back((-a2 + sd) / (2.0 * a1));
-			s_vals.emplace_back((-a2 - sd) / (2.0 * a1));
-		}
+		const std::vector<double> s_vals =
+			realQuadraticRoots(a1, a2, a3);
 
 		const Eigen::Vector3d c1(-dx, -dy, dz);
 		const Eigen::Vector3d c2(-2.0 * dy, 2.0 * dx, 0.0);
@@ -544,20 +498,8 @@ private:
 		const double B = 2.0 * m * (n - cos12);
 		const double C = m * m - D_sq;
 
-		std::vector<double> lam2_vals;
-		if (std::abs(A) < 1e-15) {
-			if (std::abs(B) > 1e-15) {
-				lam2_vals.emplace_back(-C / B);
-			}
-		} else {
-			const double disc = B * B - 4.0 * A * C;
-			if (disc < -1e-10) {
-				return out;
-			}
-			const double sd = std::sqrt(std::max(0.0, disc));
-			lam2_vals.emplace_back((-B + sd) / (2.0 * A));
-			lam2_vals.emplace_back((-B - sd) / (2.0 * A));
-		}
+		const std::vector<double> lam2_vals =
+			realQuadraticRoots(A, B, C);
 
 		const double dw_pn = dw_proj.norm();
 
