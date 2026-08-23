@@ -114,6 +114,14 @@ set(CALIBRATION_SOURCES
     src/calibration/fisheye/radial_model.cpp
 )
 
+set(CALIBRATOR_SOURCES
+    src/calibration/calibrator.cpp
+    src/calibration/grid_extractor.cpp
+    src/calibration/pattern_detector.cpp
+    src/calibration/calibration_visualization.cpp
+    src/app/calibrator_node.cpp
+)
+
 set(POSE_ESTIMATION_SOURCES
     src/pose_estimation/body_model.cpp
     src/pose_estimation/uncertainty.cpp
@@ -126,6 +134,7 @@ set(POSE_ESTIMATION_SOURCES
 
 add_library(${PROJECT_NAME}_common STATIC ${SHARED_SOURCES})
 add_library(${PROJECT_NAME}_calibration STATIC ${CALIBRATION_SOURCES})
+add_library(${PROJECT_NAME}_calibrator STATIC ${CALIBRATOR_SOURCES})
 add_library(${PROJECT_NAME}_detector STATIC ${DETECTOR_SOURCES})
 add_library(${PROJECT_NAME}_tracker STATIC ${TRACKER_SOURCES})
 add_library(${PROJECT_NAME}_pose_estimation STATIC ${POSE_ESTIMATION_SOURCES})
@@ -145,6 +154,10 @@ target_include_directories(${PROJECT_NAME}_common PUBLIC
     $<INSTALL_INTERFACE:include>
 )
 target_include_directories(${PROJECT_NAME}_calibration PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>
+)
+target_include_directories(${PROJECT_NAME}_calibrator PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:include>
 )
@@ -173,6 +186,15 @@ target_link_libraries(${PROJECT_NAME}_calibration
     yaml-cpp::yaml-cpp
 )
 
+target_link_libraries(${PROJECT_NAME}_calibrator
+    ${PROJECT_NAME}_common
+    ${PROJECT_NAME}_calibration
+    ${PROJECT_NAME}_detector
+    ${OpenCV_LIBRARIES}
+    Eigen3::Eigen
+    yaml-cpp::yaml-cpp
+)
+
 target_link_libraries(${PROJECT_NAME}_detector
     ${PROJECT_NAME}_common
     ${EGL_LIBRARY}
@@ -196,6 +218,13 @@ ament_target_dependencies(${PROJECT_NAME}_detector
     builtin_interfaces
 )
 
+ament_target_dependencies(${PROJECT_NAME}_calibrator
+    rclcpp
+    sensor_msgs
+    std_msgs
+    cv_bridge
+)
+
 ament_target_dependencies(${PROJECT_NAME}_tracker
     rclcpp
     sensor_msgs
@@ -213,6 +242,9 @@ ament_export_dependencies(rosidl_default_runtime)
 # Executables.
 add_executable(detector_node
     src/app/main_detector_node.cpp
+)
+add_executable(calibrator_node
+    src/app/main_calibrator_node.cpp
 )
 add_executable(tracker_node
     src/app/main_tracker_node.cpp
@@ -232,6 +264,9 @@ add_executable(led_manager_node
 
 target_link_libraries(detector_node
     ${PROJECT_NAME}_detector
+)
+target_link_libraries(calibrator_node
+    ${PROJECT_NAME}_calibrator
 )
 target_link_libraries(tracker_node
     ${PROJECT_NAME}_tracker
@@ -257,6 +292,10 @@ target_include_directories(led_manager_node PUBLIC
 )
 
 ament_target_dependencies(detector_node
+    rclcpp
+)
+
+ament_target_dependencies(calibrator_node
     rclcpp
 )
 
@@ -288,13 +327,26 @@ ament_target_dependencies(led_manager_node
     mrs_modules_msgs
 )
 
+if(BUILD_TESTING)
+    enable_testing()
+    add_executable(calibrator_synthetic_test
+        test/calibrator_synthetic.cpp
+    )
+    target_link_libraries(calibrator_synthetic_test
+        ${PROJECT_NAME}_calibrator
+    )
+    add_test(NAME calibrator_synthetic_test COMMAND calibrator_synthetic_test)
+endif()
+
 install(TARGETS
     ${PROJECT_NAME}_common
     ${PROJECT_NAME}_calibration
+    ${PROJECT_NAME}_calibrator
     ${PROJECT_NAME}_detector
     ${PROJECT_NAME}_tracker
     ${PROJECT_NAME}_pose_estimation
     detector_node
+    calibrator_node
     tracker_node
     pose_estimator_node
     filter_node

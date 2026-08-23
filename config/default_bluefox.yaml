@@ -164,10 +164,8 @@ pose_estimation:
   # so it must match the fully-qualified frame published by
   # single_bluefox.launch.py: $UAV_NAME/bluefox_<camera_name>.
   #
-  # calib_file points at the generic ocam.yaml; per-device calibrations exist
-  # at camera/bluefox_ocam_calib/bf_uv_25001879.yaml and bf_uv_25001954.yaml
-  # -- swap in whichever matches BLUEFOX_LEFT_ID/BLUEFOX_RIGHT_ID once you
-  # know which serial is mounted on which side.
+  # Select each device-specific calibration according to the serial mounted on
+  # the corresponding side of the vehicle.
   inputs:
     - name: left
       input_topic: uvdar/tracker/left/blinkers

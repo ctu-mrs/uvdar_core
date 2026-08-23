@@ -45,9 +45,8 @@ struct GeometricSolverConfig {
     double pnp_finite_difference_eps = 1.0e-6;
     double pnp_step_tolerance = 1.0e-10;
     double pnp_residual_tolerance = 1.0e-10;
-    // Combine approximately synchronized observations from rigidly connected
-    // cameras as non-central rays in output_frame. Disabled preserves the
-    // legacy independent per-camera behavior exactly.
+    // When enabled, combine approximately synchronized observations from
+    // rigidly connected cameras as non-central rays in output_frame.
     bool multi_cam_rig_enable = false;
     double multi_cam_sync_tolerance_sec = 0.03;
     int multi_cam_min_cameras = 2;
@@ -66,7 +65,7 @@ struct GeometricSolverConfig {
  *
  * The solver first associates tracked signal ids to body LEDs, converts image
  * points to unit bearings, chooses a minimal solver by observation count, and
- * then refines the selected candidate by weighted Gauss-Newton reprojection
+ * then refines the selected candidate by weighted analytic LM reprojection
  * minimization.
  */
 class GeometricSolver final : public IPoseEstimator {
@@ -78,7 +77,7 @@ public:
      *
      * Central P2P uses this as its additional orientation constraint. An
      * otherwise underconstrained multi-camera marker set may also use the same
-     * reference jointly. Observable P3P and larger visual solves are unchanged.
+     * direction jointly. Observable P3P and larger visual solves are unchanged.
      */
     void setCameraUpAxis(std::size_t camera_index, std::optional<Eigen::Vector3d> camera_up_axis);
 
@@ -249,9 +248,8 @@ private:
     /**
      * @brief Require every observed physical LED group to face its source camera.
      *
-     * Generalized minimal solvers know only ray geometry.  This applies the
-     * directional LED constraints separately in every contributing camera,
-     * just as an independent central-camera branch selection would.
+     * Generalized minimal solvers know only ray geometry. This applies the
+     * directional LED constraints independently in every contributing camera.
      */
     std::optional<RigVisibilityScore> rigVisibilityScore(
         const CameraPose& pose,
@@ -293,7 +291,7 @@ private:
     std::vector<CameraPose> solveP4P(const std::vector<Observation>& observations) const;
 
     /**
-     * @brief Weighted Gauss-Newton refinement on pixel reprojection residuals.
+     * @brief Weighted analytic LM refinement on pixel reprojection residuals.
      */
     CameraPose refinePose(const CameraPose& seed, const std::vector<Observation>& observations, const CameraModel& camera) const;
 

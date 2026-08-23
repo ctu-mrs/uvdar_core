@@ -8,6 +8,7 @@
 
 #include <Eigen/Dense>
 
+#include "uvdar_core/helpers/levenberg_marquardt.hpp"
 #include "uvdar_core/helpers/math.hpp"
 #include "uvdar_core/pose_estimation/geometric_solver/p4p.hpp"
 #include "uvdar_core/pose_estimation/geometric_solver/solver_types.hpp"
@@ -19,7 +20,7 @@ namespace uvdar_core::pose_estimation::geometric_solver {
  *
  * PnP minimizes the difference between measured unit bearings and the bearings
  * induced by a body-to-camera pose. It seeds the optimization from the P4P
- * solution of the first four correspondences, then applies finite-difference
+ * solution of the first four correspondences, then applies analytic-Jacobian
  * Levenberg-Marquardt iterations over every correspondence.
  */
 class PnP {
@@ -85,7 +86,6 @@ public:
             return {};
         }
 
-        const double finite_difference_epsilon = sanePositive(options.finite_difference_epsilon, 1.0e-6);
         const double damping = saneNonNegative(options.damping, 1.0e-8);
         const double step_tolerance = saneNonNegative(options.step_tolerance, 1.0e-10);
         const double residual_tolerance = saneNonNegative(options.residual_tolerance, 1.0e-10);
@@ -111,45 +111,29 @@ public:
             pose.t = Eigen::Vector3d(0.0, 0.0, 3.0);
         }
 
-        const int max_iterations = std::max(0, options.max_iterations);
-        for (int iteration = 0; iteration < max_iterations; ++iteration) {
-            const auto residual = bearingResidualVector(Pw, Pi, pose);
-            if (!residual) {
-                return {};
-            }
-            if (residual->norm() / static_cast<double>(Pw.cols()) < residual_tolerance) {
-                break;
-            }
+        uvdar_core::helpers::LevenbergMarquardtOptions lm_options;
+        lm_options.max_iterations = std::max(0, options.max_iterations);
+        lm_options.initial_damping = damping;
+        lm_options.step_tolerance = step_tolerance;
+        lm_options.residual_tolerance = residual_tolerance;
+        const auto optimized = uvdar_core::helpers::levenbergMarquardt(
+            pose,
+            6,
+            [&](const Solution& state, const bool with_jacobian)
+                -> std::optional<uvdar_core::helpers::LeastSquaresLinearization> {
+                return bearingLinearization(Pw, Pi, state, with_jacobian);
+            },
+            [](const Solution& state, const Eigen::VectorXd& delta) {
+                Solution candidate = state;
+                applyLeftPoseIncrement(
+                    candidate, delta.tail<3>(), delta.head<3>());
+                return candidate;
+            },
+            lm_options);
 
-            Eigen::Matrix<double, Eigen::Dynamic, 6> jacobian(residual->size(), 6);
-            for (int parameter = 0; parameter < 6; ++parameter) {
-                Eigen::Matrix<double, 6, 1> delta = Eigen::Matrix<double, 6, 1>::Zero();
-                delta(parameter) = finite_difference_epsilon;
-
-                Solution perturbed = pose;
-                if (parameter < 3) {
-                    applyLeftPoseIncrement(perturbed, Eigen::Vector3d::Zero(), delta.head<3>());
-                } else {
-                    applyLeftPoseIncrement(perturbed, delta.tail<3>(), Eigen::Vector3d::Zero());
-                }
-
-                const auto perturbed_residual = bearingResidualVector(Pw, Pi, perturbed);
-                jacobian.col(parameter) = ((perturbed_residual ? *perturbed_residual : *residual) - *residual)
-                    / finite_difference_epsilon;
-            }
-
-            Eigen::Matrix<double, 6, 6> hessian = jacobian.transpose() * jacobian;
-            hessian.diagonal().array() += damping;
-            const Eigen::Matrix<double, 6, 1> gradient = jacobian.transpose() * *residual;
-            const Eigen::Matrix<double, 6, 1> step = -hessian.ldlt().solve(gradient);
-            if (!step.allFinite() || step.norm() < step_tolerance) {
-                break;
-            }
-
-            applyLeftPoseIncrement(pose, step.tail<3>(), step.head<3>());
-        }
-
-        return {{pose}};
+        return optimized.state.R.allFinite() && optimized.state.t.allFinite()
+            ? std::vector<Solution> {{optimized.state}}
+            : std::vector<Solution> {};
     }
 
     /**
@@ -295,6 +279,45 @@ private:
             residual.segment<3>(3 * i) = predicted_raw / predicted_norm - Pi.col(i).normalized();
         }
         return residual.allFinite() ? std::optional<Eigen::VectorXd> {std::move(residual)} : std::nullopt;
+    }
+
+    static std::optional<uvdar_core::helpers::LeastSquaresLinearization>
+    bearingLinearization(
+        const PointMatrix& Pw,
+        const PointMatrix& Pi,
+        const Solution& pose,
+        const bool with_jacobian)
+    {
+        uvdar_core::helpers::LeastSquaresLinearization output;
+        output.residual.resize(3 * Pw.cols());
+        if (with_jacobian) {
+            output.jacobian.resize(3 * Pw.cols(), 6);
+        }
+        for (Eigen::Index i = 0; i < Pw.cols(); ++i) {
+            const Eigen::Vector3d rotated = pose.R * Pw.col(i);
+            const Eigen::Vector3d predicted_raw = rotated + pose.t;
+            const double range = predicted_raw.norm();
+            if (!std::isfinite(range) || range < kEpsilon) {
+                return std::nullopt;
+            }
+            const Eigen::Vector3d predicted = predicted_raw / range;
+            output.residual.segment<3>(3 * i) =
+                predicted - Pi.col(i).normalized();
+            if (with_jacobian) {
+                const Eigen::Matrix3d normalization =
+                    (Eigen::Matrix3d::Identity()
+                        - predicted * predicted.transpose())
+                    / range;
+                output.jacobian.block<3, 3>(3 * i, 0) =
+                    normalization * (-uvdar_core::helpers::skew(rotated));
+                output.jacobian.block<3, 3>(3 * i, 3) = normalization;
+            }
+        }
+        return output.residual.allFinite()
+                && (!with_jacobian || output.jacobian.allFinite())
+            ? std::optional<uvdar_core::helpers::LeastSquaresLinearization>(
+                  std::move(output))
+            : std::nullopt;
     }
 
     static std::optional<Solution> firstSolution(const std::vector<Solution>& solutions)

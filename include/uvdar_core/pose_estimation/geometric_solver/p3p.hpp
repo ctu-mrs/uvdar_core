@@ -7,10 +7,13 @@
 #include <cmath>
 #include <complex>
 #include <limits>
+#include <optional>
+#include <utility>
 #include <vector>
 
 #include <Eigen/Dense>
 
+#include "uvdar_core/helpers/levenberg_marquardt.hpp"
 #include "uvdar_core/helpers/polynomial.hpp"
 #include "uvdar_core/helpers/math.hpp"
 #include "uvdar_core/pose_estimation/geometric_solver/solver_types.hpp"
@@ -23,7 +26,7 @@ namespace uvdar_core::pose_estimation::geometric_solver {
  * The implementation follows arXiv:2508.01312v4: normalize the three bearing
  * vectors, reindex them so m13 <= m12 <= m23, solve the compact quartic in
  * x=d1/d3, recover y=d2/d3 and d3 from the third cosine equation, optionally
- * refine the three depths by Gauss-Newton, then recover R,t from the
+ * refine the three depths with analytic LM, then recover R,t from the
  * depth-scaled bearing points.
  */
 class P3P {
@@ -307,7 +310,7 @@ private:
     }
 
     /**
-     * @brief Refine depths by Gauss-Newton on the three law-of-cosines residuals.
+     * @brief Refine depths with analytic LM on law-of-cosines residuals.
      */
     static void refineDepths(
         double s12,
@@ -319,41 +322,47 @@ private:
         int iterations,
         Eigen::Vector3d& depths)
     {
-        for (int iteration = 0; iteration < iterations; ++iteration) {
-            const double d1 = depths(0);
-            const double d2 = depths(1);
-            const double d3 = depths(2);
-
-            Eigen::Vector3d residual;
-            residual << d1*d1 + d2*d2 - 2.0*d1*d2*m12 - s12,
-                d1*d1 + d3*d3 - 2.0*d1*d3*m13 - s13,
-                d2*d2 + d3*d3 - 2.0*d2*d3*m23 - s23;
-
-            Eigen::Matrix3d jacobian = Eigen::Matrix3d::Zero();
-            jacobian(0, 0) = 2.0*d1 - 2.0*d2*m12;
-            jacobian(0, 1) = 2.0*d2 - 2.0*d1*m12;
-            jacobian(1, 0) = 2.0*d1 - 2.0*d3*m13;
-            jacobian(1, 2) = 2.0*d3 - 2.0*d1*m13;
-            jacobian(2, 1) = 2.0*d2 - 2.0*d3*m23;
-            jacobian(2, 2) = 2.0*d3 - 2.0*d2*m23;
-
-            const Eigen::Matrix3d normal = jacobian.transpose() * jacobian;
-            const Eigen::Vector3d gradient = jacobian.transpose() * residual;
-            const Eigen::Vector3d step = -normal.ldlt().solve(gradient);
-            if (!step.allFinite() || step.norm() < 1.0e-12) {
-                break;
-            }
-
-            double scale = 1.0;
-            Eigen::Vector3d candidate = depths + step;
-            while ((!candidate.allFinite() || !(candidate.array() > 0.0).all()) && scale > 1.0e-4) {
-                scale *= 0.5;
-                candidate = depths + scale * step;
-            }
-            if (!candidate.allFinite() || !(candidate.array() > 0.0).all()) {
-                break;
-            }
-            depths = candidate;
+        uvdar_core::helpers::LevenbergMarquardtOptions options;
+        options.max_iterations = std::max(0, iterations);
+        options.initial_damping = 1.0e-8;
+        options.step_tolerance = 1.0e-12;
+        options.residual_tolerance = 0.0;
+        const auto refined = uvdar_core::helpers::levenbergMarquardt(
+            depths,
+            Eigen::Index {3},
+            [&](const Eigen::Vector3d& candidate, const bool) {
+                if (!candidate.allFinite()
+                    || !(candidate.array() > kEpsilon).all()) {
+                    return std::optional<
+                        uvdar_core::helpers::LeastSquaresLinearization> {};
+                }
+                const double d1 = candidate(0);
+                const double d2 = candidate(1);
+                const double d3 = candidate(2);
+                uvdar_core::helpers::LeastSquaresLinearization output;
+                output.residual.resize(3);
+                output.residual <<
+                    d1*d1 + d2*d2 - 2.0*d1*d2*m12 - s12,
+                    d1*d1 + d3*d3 - 2.0*d1*d3*m13 - s13,
+                    d2*d2 + d3*d3 - 2.0*d2*d3*m23 - s23;
+                output.jacobian = Eigen::Matrix3d::Zero();
+                output.jacobian(0, 0) = 2.0*d1 - 2.0*d2*m12;
+                output.jacobian(0, 1) = 2.0*d2 - 2.0*d1*m12;
+                output.jacobian(1, 0) = 2.0*d1 - 2.0*d3*m13;
+                output.jacobian(1, 2) = 2.0*d3 - 2.0*d1*m13;
+                output.jacobian(2, 1) = 2.0*d2 - 2.0*d3*m23;
+                output.jacobian(2, 2) = 2.0*d3 - 2.0*d2*m23;
+                return std::optional<
+                    uvdar_core::helpers::LeastSquaresLinearization>(
+                        std::move(output));
+            },
+            [](const Eigen::Vector3d& state, const Eigen::VectorXd& step) {
+                return state + step.head<3>();
+            },
+            options);
+        if (refined.state.allFinite()
+            && (refined.state.array() > kEpsilon).all()) {
+            depths = refined.state;
         }
     }
 

@@ -14,8 +14,8 @@ constexpr int max_polynomial_length = 64;
 /**
  * @brief OCamCalib polynomial lens model.
  *
- * The stored coefficients follow Davide Scaramuzza's calibration text format,
- * while the public methods implement the common lens API used by pose solvers.
+ * Stored coefficients use the package's text/YAML layout, while public methods
+ * expose the x/y pixel convention shared by all lens models.
  */
 class OcamModel final : public uvdar_core::calibration::ILensModel {
 public:
@@ -51,12 +51,12 @@ public:
     Eigen::Vector2d project(const Eigen::Vector3d& camera_point) const override;
 
     /**
-     * @brief Analytic/finite-stable Jacobian d pixel / d camera point.
+     * @brief Analytic Jacobian d pixel / d camera point.
      */
     Eigen::Matrix<double, 2, 3> projectJacobian(const Eigen::Vector3d& camera_point) const override;
 
     /**
-     * @brief Analytic/finite-stable Jacobian d bearing / d pixel.
+     * @brief Analytic Jacobian d bearing / d pixel.
      */
     Eigen::Matrix<double, 3, 2> backProjectJacobian(const Eigen::Vector2d& image_point) const override;
     int imageWidth() const override { return width; }

@@ -24,7 +24,7 @@ namespace uvdar_core::pose_estimation::geometric_solver {
  * returned, ordered by residual, because application-level constraints such
  * as directional LED visibility can disambiguate exact algebraic branches
  * more reliably than a sub-pixel residual tie. This mirrors the hypothesize/
- * test use prescribed for gP3P without importing a generated UPnP template.
+ * test use prescribed for gP3P while keeping the minimal solver self-contained.
  */
 class GP4_5P {
 public:

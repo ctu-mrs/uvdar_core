@@ -1,6 +1,6 @@
 # OCamCalib camera model.
 #
-# Polynomial coefficient order follows the original OCamCalib export:
+# Polynomial coefficients use ascending powers of the radial variable:
 #   direct_polynomial maps image radius -> camera z for cam2world/backProject.
 #   inverse_polynomial maps elevation angle -> image radius for world2cam/project.
 # center is [row, column] in the OCamCalib convention, starting from zero.

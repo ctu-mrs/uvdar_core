@@ -19,10 +19,8 @@ namespace uvdar_core::app {
 /**
  * @brief Node that drives the UVDAR LED driver board over the Baca serial protocol.
  *
- * Ported from the ROS1 uvdar_core `led_manager` nodelet. Exposes the blinking
- * sequence, frequency and message-transmission control services and, when
- * running in simulation, mirrors the same requests to the Gazebo UVDAR LED
- * plugin services.
+ * Exposes blinking-sequence, frequency, mode, and message controls. In
+ * simulation, applicable requests are also sent to each Gazebo LED service.
  */
 class LedManagerNode : public rclcpp::Node {
 public:
@@ -85,9 +83,8 @@ private:
     std::vector<rclcpp::Client<mrs_msgs::srv::Float64Srv>::SharedPtr> clients_set_fr_gz_;
     std::vector<rclcpp::Client<mrs_msgs::srv::SetInt>::SharedPtr> clients_set_md_gz_;
     std::vector<rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr> clients_set_ac_gz_;
-    // NOTE: the Gazebo plugin's ledMessageSender service uses uvdar_gazebo_plugin's own
-    // SetLedMessage type, so it is intentionally not mirrored here to avoid a reverse
-    // (uvdar_core -> uvdar_gazebo_plugin) package dependency.
+    // Message transmission is not mirrored because the Gazebo service uses a
+    // package-local type that would create a circular package dependency.
 };
 
 } // namespace uvdar_core::app

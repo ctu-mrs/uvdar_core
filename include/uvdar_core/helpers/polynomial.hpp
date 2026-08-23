@@ -244,8 +244,8 @@ private:
 /**
  * General complex polynomial with coefficients ordered highest degree first.
  *
- * The interface follows the supplied reference while consolidating evaluation,
- * arithmetic, calculus, root solving, and root/coefficient Jacobians.
+ * The class provides evaluation, arithmetic, calculus, root solving, and
+ * root/coefficient Jacobians through one coefficient representation.
  */
 class Polynomial {
 public:
@@ -667,8 +667,8 @@ public:
     /**
      * Three-stage Jenkins-Traub single-root iteration.
      *
-     * A deterministic shift schedule replaces the reference's random shifts;
-     * the companion solver is used only if all shifted iterations fail.
+     * Deterministic shifts make repeated solves reproducible. The companion
+     * solver is used only when every shifted iteration fails.
      */
     Complex solveJenkinsTraubSingle(
         double tolerance = 1.0e-10,

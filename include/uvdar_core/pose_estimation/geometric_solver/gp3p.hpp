@@ -7,6 +7,8 @@
 #include <cmath>
 #include <complex>
 #include <limits>
+#include <optional>
+#include <utility>
 #include <vector>
 
 #include <Eigen/Dense>
@@ -25,7 +27,7 @@ namespace uvdar_core::pose_estimation::geometric_solver {
  * distance quadrics for the ray depths, then recover R,t by absolute
  * orientation. Two depth variables are eliminated with a quadratic resultant,
  * producing the paper's degree-eight polynomial without a generated Groebner
- * template. Real positive roots are polished against the original quadrics.
+ * template. Real positive roots are polished against all three quadrics.
  */
 class GP3P {
 public:
@@ -382,40 +384,37 @@ private:
         const double root_tolerance = std::max(options.gp3p_root_tolerance, 1.0e-12)
             * geometry_scale_squared;
 
-        for (int iteration = 0; iteration < std::max(1, options.gp3p_depth_iterations); ++iteration) {
-            const Eigen::Vector3d residual = depthResidual(
-                world_points, ray_origins, directions, depths);
-            if (!residual.allFinite()) {
-                return;
-            }
-            if (residual.norm() < root_tolerance) {
-                break;
-            }
-            const Eigen::Matrix3d jacobian = depthJacobian(ray_origins, directions, depths);
-            Eigen::Matrix3d normal = jacobian.transpose() * jacobian;
-            normal.diagonal().array() += std::max(options.damping, 1.0e-12);
-            const Eigen::Vector3d step = -normal.ldlt().solve(jacobian.transpose() * residual);
-            if (!step.allFinite()) {
-                return;
-            }
-
-            bool accepted = false;
-            double scale = 1.0;
-            for (int line_search = 0; line_search < 12; ++line_search) {
-                const Eigen::Vector3d candidate = depths + scale * step;
-                if ((candidate.array() > generalized_detail::kEpsilon).all()
-                    && depthResidual(world_points, ray_origins, directions, candidate).squaredNorm()
-                        < residual.squaredNorm()) {
-                    depths = candidate;
-                    accepted = true;
-                    break;
+        uvdar_core::helpers::LevenbergMarquardtOptions lm_options;
+        lm_options.max_iterations =
+            std::max(1, options.gp3p_depth_iterations);
+        lm_options.initial_damping = std::max(options.damping, 1.0e-12);
+        lm_options.step_tolerance =
+            std::max(options.step_tolerance, 1.0e-12);
+        lm_options.residual_tolerance = root_tolerance / std::sqrt(3.0);
+        const auto refined = uvdar_core::helpers::levenbergMarquardt(
+            depths,
+            Eigen::Index {3},
+            [&](const Eigen::Vector3d& candidate, const bool) {
+                if (!candidate.allFinite()
+                    || !(candidate.array()
+                            > generalized_detail::kEpsilon).all()) {
+                    return std::optional<
+                        uvdar_core::helpers::LeastSquaresLinearization> {};
                 }
-                scale *= 0.5;
-            }
-            if (!accepted || step.norm() * scale < std::max(options.step_tolerance, 1.0e-12)) {
-                break;
-            }
-        }
+                uvdar_core::helpers::LeastSquaresLinearization output;
+                output.residual = depthResidual(
+                    world_points, ray_origins, directions, candidate);
+                output.jacobian = depthJacobian(
+                    ray_origins, directions, candidate);
+                return std::optional<
+                    uvdar_core::helpers::LeastSquaresLinearization>(
+                        std::move(output));
+            },
+            [](const Eigen::Vector3d& state, const Eigen::VectorXd& step) {
+                return state + step.head<3>();
+            },
+            lm_options);
+        depths = refined.state;
 
         if (depthResidual(world_points, ray_origins, directions, depths).norm() >= root_tolerance
             || (depths.array() <= generalized_detail::kEpsilon).any()) {

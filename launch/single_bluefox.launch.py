@@ -15,8 +15,7 @@ from launch_ros.substitutions import FindPackageShare
 import subprocess
 
 def get_available_cameras():
-    # You could call your list_cameras executable here
-    # For now, this is a placeholder
+    # Query the driver utility so launch diagnostics can list connected cameras.
     try:
         result = subprocess.run(['ros2', 'run', 'bluefox2', 'bluefox2_list_cameras'], 
                               capture_output=True, text=True)
@@ -105,13 +104,9 @@ def generate_launch_description():
 
     declare_image = DeclareLaunchArgument('image', default_value='image_raw', description='Image topic for viewer')
 
-    # Per-camera namespace: uav_name/camera_name when a camera_name is given
-    # (the two_bluefox.launch.py case -- 'left'/'right' -- so each camera's
-    # image_raw/camera_info/etc. live under their own namespace instead of
-    # colliding), else just uav_name (single-camera case). All topic
-    # remappings below stay relative to this namespace, matching hw_api's
-    # convention of relative topics + namespace push instead of manually
-    # splicing uav_name/camera_name into remap targets.
+    # Add camera_name below uav_name when multiple cameras share one vehicle.
+    # Relative remappings then remain isolated without embedding namespaces in
+    # every topic string.
     camera_ns = IfElseSubstitution(
         condition=PythonExpression(['"', LaunchConfiguration('camera_name'), '" != ""']),
         if_value=PathJoinSubstitution([LaunchConfiguration('uav_name'), LaunchConfiguration('camera_name')]),

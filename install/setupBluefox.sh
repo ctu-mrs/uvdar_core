@@ -1,20 +1,17 @@
 #!/bin/bash
 #
-# configure_bluefox_cameras.sh
+# setupBluefox.sh
 #
-# ROS 2 port of the original ROS1 uvdar camera-configuration script.
-# Detects Bluefox camera serials one at a time (left/right), writes them
-# to ~/.bashrc as environment variables, then launches and tests both
-# cameras together via the two_bluefox.launch.py file.
+# Detect Bluefox camera serials one side at a time, persist their environment
+# variables in ~/.bashrc, then launch and test both cameras together.
 #
 # Assumes:
 #   - ros2 run bluefox2 bluefox2_list_cameras is on PATH and working
 #     (i.e. udev permissions already fixed - see fix_mvbluefox_permissions.sh)
 #   - uvdar_core package provides two_bluefox.launch.py accepting
 #     device_left / device_right / expose_us_left / expose_us_right
-#     (adjust ARG NAMES section below to match your actual launch args)
-#   - Image topics follow the /<uav_name>/<camera_name>/bluefox/image_raw
-#     convention already used in your launch files
+#     using the environment variables configured below
+#   - Image topics follow /<uav_name>/<camera_name>/bluefox/image_raw
 
 set -e
 
@@ -195,10 +192,8 @@ update_calib_symlinks
 write_ids_to_bashrc
 
 echo "Testing cameras. One moment please..."
-# two_bluefox.launch.py reads BLUEFOX_LEFT_ID / BLUEFOX_RIGHT_ID / EXPOSE_US_LEFT /
-# EXPOSE_US_RIGHT directly from the environment (not as launch arguments) - the
-# only declared launch argument on this file is uav_name. write_ids_to_bashrc()
-# already exported these vars into this script's own environment above.
+# The camera launch reads device IDs and exposure settings from the environment;
+# write_ids_to_bashrc() also exports them for this process before the test.
 ros2 launch "$LAUNCH_PACKAGE" "$LAUNCH_FILE" \
     uav_name:="$UAV_NAME" \
     &> "$tmp_file_cam_launch" &

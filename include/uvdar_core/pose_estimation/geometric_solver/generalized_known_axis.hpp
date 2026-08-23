@@ -201,63 +201,47 @@ public:
         const Eigen::Vector3d up = output_axis.normalized();
         const PointMatrix directions =
             generalized_detail::normalizedDirections(ray_directions);
-        Solution pose = projectRotationToAxisConstraint(
+        const Solution pose = projectRotationToAxisConstraint(
             seed, up, model_axis.normalized());
-        double damping = std::max(options.damping, 1.0e-15);
-
-        for (int iteration = 0;
-             iteration < std::max(0, options.max_iterations); ++iteration) {
-            const auto linearization = constrainedLinearization(
-                world_points, ray_origins, directions, pose, up);
-            if (!linearization) {
-                return std::nullopt;
-            }
-            if (linearization->residual.norm()
-                    / static_cast<double>(world_points.cols())
-                < std::max(0.0, options.residual_tolerance)) {
-                break;
-            }
-
-            Eigen::Matrix4d normal =
-                linearization->jacobian.transpose() * linearization->jacobian;
-            normal.diagonal().array() += damping;
-            const Eigen::Vector4d gradient =
-                linearization->jacobian.transpose() * linearization->residual;
-            const Eigen::Vector4d step = -normal.ldlt().solve(gradient);
-            if (!step.allFinite()
-                || step.norm() < std::max(0.0, options.step_tolerance)) {
-                break;
-            }
-
-            const double base_cost = linearization->residual.squaredNorm();
-            bool accepted = false;
-            double scale = 1.0;
-            for (int line_search = 0; line_search < 10; ++line_search) {
-                Solution candidate = pose;
-                candidate.t += scale * step.head<3>();
+        uvdar_core::helpers::LevenbergMarquardtOptions lm_options;
+        lm_options.max_iterations = std::max(0, options.max_iterations);
+        lm_options.initial_damping = std::max(options.damping, 1.0e-15);
+        lm_options.step_tolerance = std::max(0.0, options.step_tolerance);
+        lm_options.residual_tolerance =
+            std::max(0.0, options.residual_tolerance);
+        const auto optimized = uvdar_core::helpers::levenbergMarquardt(
+            pose,
+            4,
+            [&](const Solution& state, const bool with_jacobian)
+                -> std::optional<uvdar_core::helpers::LeastSquaresLinearization> {
+                const auto value = constrainedLinearization(
+                    world_points, ray_origins, directions, state, up);
+                if (!value) {
+                    return std::nullopt;
+                }
+                uvdar_core::helpers::LeastSquaresLinearization output;
+                output.residual = value->residual;
+                if (with_jacobian) {
+                    output.jacobian = value->jacobian;
+                }
+                return output;
+            },
+            [&up](const Solution& state, const Eigen::VectorXd& delta) {
+                Solution candidate = state;
+                candidate.t += delta.head<3>();
                 candidate.R = Eigen::AngleAxisd(
-                    scale * step(3), up).toRotationMatrix() * candidate.R;
-                const auto candidate_residual =
-                    generalized_detail::angularResidualVector(
-                        world_points, ray_origins, directions, candidate);
-                if (candidate_residual
-                    && candidate_residual->squaredNorm() < base_cost) {
-                    pose = candidate;
-                    damping = std::max(options.damping, 0.5 * damping);
-                    accepted = true;
-                    break;
-                }
-                scale *= 0.5;
-            }
-            if (!accepted) {
-                damping *= 10.0;
-                if (!std::isfinite(damping) || damping > 1.0e12) {
-                    break;
-                }
-            }
+                    delta(3), up).toRotationMatrix() * candidate.R;
+                return candidate;
+            },
+            lm_options);
+        if (optimized.status
+                == uvdar_core::helpers::LevenbergMarquardtStatus::InvalidLinearization
+            || optimized.status
+                == uvdar_core::helpers::LevenbergMarquardtStatus::NumericalFailure) {
+            return std::nullopt;
         }
-        return pose.R.allFinite() && pose.t.allFinite()
-            ? std::optional<Solution>(pose) : std::nullopt;
+        return optimized.state.R.allFinite() && optimized.state.t.allFinite()
+            ? std::optional<Solution>(optimized.state) : std::nullopt;
     }
 
     /** @brief Implicit analytic sensitivity of the constrained optimum. */

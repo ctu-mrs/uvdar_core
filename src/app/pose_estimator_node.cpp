@@ -244,8 +244,8 @@ void PoseEstimatorNode::loadConfiguration(const std::string& config_path_string)
                 "geometric_solver.odometry_ref_min_axis_observability must be finite and non-negative.");
         }
         if (!geometric_config.odometry_ref_enable) {
-            // Keep disabled configurations self-contained: no unused odometry
-            // subscription and no warning spam from the reference input path.
+            // Avoid creating an unused odometry subscription when the
+            // navigation-aided constraint is disabled.
             odometry_ref_topic_.clear();
         }
         geometric_config.uncertainty_samples = optionalScalarAny<int>(geometric_node, pose_node, "uncertainty_samples", 5000);

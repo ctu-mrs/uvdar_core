@@ -7,6 +7,7 @@
 #include <limits>
 #include <random>
 
+#include "uvdar_core/helpers/levenberg_marquardt.hpp"
 #include "uvdar_core/pose_estimation/geometric_solver/p2p.hpp"
 #include "uvdar_core/pose_estimation/geometric_solver/p3p.hpp"
 #include "uvdar_core/pose_estimation/geometric_solver/p4p.hpp"
@@ -206,9 +207,9 @@ void GeometricSolver::processFrame(
             }
         }
 
-        // A synchronized generalized solve is used only when at least two
-        // cameras contribute a valid observable ray set. Otherwise retain the
-        // legacy solve for the camera that triggered this callback.
+        // Use a synchronized generalized solve only when at least two cameras
+        // contribute observable ray sets. Otherwise solve the triggering
+        // camera independently.
         if (rig_solution_published || observations.size() < 2U) {
             continue;
         }
@@ -715,67 +716,68 @@ GeometricSolver::CameraPose GeometricSolver::refineRigPose(
     const CameraPose& seed,
     const std::vector<RigObservation>& observations) const
 {
-    CameraPose pose = seed;
-    double previous_error = rigReprojectionError(pose, observations);
-    for (int iteration = 0; iteration < std::max(0, config_.multi_cam_refinement_iterations); ++iteration) {
-        Eigen::Matrix<double, 6, 6> normal = Eigen::Matrix<double, 6, 6>::Zero();
-        Eigen::Matrix<double, 6, 1> rhs = Eigen::Matrix<double, 6, 1>::Zero();
-        for (const RigObservation& observation : observations) {
-            const CameraModel& camera = cameras_[observation.camera_index];
-            const Eigen::Vector3d rotated_output_point =
-                pose.rotation * observation.observation.marker.pose.position;
-            const Eigen::Vector3d output_point = rotated_output_point + pose.translation;
-            const Eigen::Vector3d camera_point = observation.output_to_camera * output_point;
-            if (camera_point.z() <= epsilon) {
-                continue;
+    uvdar_core::helpers::LevenbergMarquardtOptions options;
+    options.max_iterations = std::max(0, config_.multi_cam_refinement_iterations);
+    options.initial_damping = std::max(config_.multi_cam_damping, 1.0e-15);
+    options.step_tolerance = std::max(0.0, config_.multi_cam_step_tolerance);
+    options.residual_tolerance = std::max(0.0, config_.multi_cam_residual_tolerance);
+    const auto optimized = uvdar_core::helpers::levenbergMarquardt(
+        seed,
+        6,
+        [&](const CameraPose& pose, const bool with_jacobian)
+            -> std::optional<uvdar_core::helpers::LeastSquaresLinearization> {
+            uvdar_core::helpers::LeastSquaresLinearization output;
+            output.residual.resize(2 * observations.size());
+            if (with_jacobian) {
+                output.jacobian.resize(2 * observations.size(), 6);
             }
-            const Eigen::Vector2d residual =
-                observation.observation.image_point - camera.project(camera_point);
-            const Eigen::Matrix<double, 2, 3> projection_jacobian =
-                camera.projectionJacobian(camera_point);
-            Eigen::Matrix<double, 2, 6> jacobian;
-            jacobian.leftCols<3>() = projection_jacobian * observation.output_to_camera.rotation();
-            jacobian.rightCols<3>() = projection_jacobian
-                * observation.output_to_camera.rotation()
-                * (-uvdar_core::helpers::skew(rotated_output_point));
-            const Eigen::Matrix2d covariance = unc::regularizedCovariance(
-                observation.observation.point.has_prediction
-                    ? observation.observation.point.prediction_covariance
-                    : observation.observation.point.covariance,
-                config_.covariance_regularization_px);
-            const Eigen::Matrix2d information = covariance.inverse();
-            normal += jacobian.transpose() * information * jacobian;
-            rhs += jacobian.transpose() * information * residual;
-        }
-        normal.diagonal().array() += std::max(config_.multi_cam_damping, 1.0e-15);
-        const Eigen::Matrix<double, 6, 1> delta = normal.ldlt().solve(rhs);
-        if (!delta.allFinite()
-            || delta.norm() < std::max(0.0, config_.multi_cam_step_tolerance)) {
-            break;
-        }
-
-        bool accepted = false;
-        double scale = 1.0;
-        for (int line_search = 0; line_search < 10; ++line_search) {
+            for (std::size_t index = 0U; index < observations.size(); ++index) {
+                const RigObservation& observation = observations[index];
+                if (observation.camera_index >= cameras_.size()) {
+                    return std::nullopt;
+                }
+                const CameraModel& camera = cameras_[observation.camera_index];
+                const Eigen::Vector3d rotated = pose.rotation
+                    * observation.observation.marker.pose.position;
+                const Eigen::Vector3d camera_point = observation.output_to_camera
+                    * (rotated + pose.translation);
+                if (camera_point.z() <= epsilon) {
+                    return std::nullopt;
+                }
+                const Eigen::Matrix2d covariance = unc::regularizedCovariance(
+                    observation.observation.point.has_prediction
+                        ? observation.observation.point.prediction_covariance
+                        : observation.observation.point.covariance,
+                    config_.covariance_regularization_px);
+                Eigen::LLT<Eigen::Matrix2d> llt(covariance);
+                if (llt.info() != Eigen::Success) {
+                    return std::nullopt;
+                }
+                const Eigen::Matrix2d whitening = llt.matrixL().solve(
+                    Eigen::Matrix2d::Identity());
+                output.residual.segment<2>(2 * index) = whitening
+                    * (camera.project(camera_point)
+                        - observation.observation.image_point);
+                if (with_jacobian) {
+                    const Eigen::Matrix<double, 2, 3> projection =
+                        camera.projectionJacobian(camera_point)
+                        * observation.output_to_camera.rotation();
+                    output.jacobian.block<2, 3>(2 * index, 0) =
+                        whitening * projection;
+                    output.jacobian.block<2, 3>(2 * index, 3) = whitening
+                        * projection * (-uvdar_core::helpers::skew(rotated));
+                }
+            }
+            return output;
+        },
+        [](const CameraPose& pose, const Eigen::VectorXd& delta) {
             CameraPose candidate = pose;
             applyLeftCameraPoseIncrement(
-                candidate,
-                scale * delta.head<3>(),
-                scale * delta.tail<3>());
-            const double candidate_error = rigReprojectionError(candidate, observations);
-            if (std::isfinite(candidate_error) && candidate_error < previous_error) {
-                pose = candidate;
-                previous_error = candidate_error;
-                accepted = true;
-                break;
-            }
-            scale *= 0.5;
-        }
-        if (!accepted) {
-            break;
-        }
-    }
-    return pose;
+                candidate, delta.head<3>(), delta.tail<3>());
+            return candidate;
+        },
+        options);
+    return optimized.state;
 }
 
 GeometricSolver::CameraPose GeometricSolver::refineKnownAxisRigPose(
@@ -793,8 +795,8 @@ GeometricSolver::CameraPose GeometricSolver::refineKnownAxisRigPose(
     output_up.normalize();
     model_up.normalize();
 
-    // Remove the two rotational components that contradict the hard odometry
-    // reference while retaining the seed's yaw about gravity.
+    // Align roll and pitch with the odometry up direction while retaining the
+    // seed's yaw about gravity.
     const Eigen::Matrix3d output_to_aligned =
         uvdar_core::helpers::rotationBetween(
             output_up, Eigen::Vector3d::UnitZ());
@@ -811,75 +813,70 @@ GeometricSolver::CameraPose GeometricSolver::refineKnownAxisRigPose(
     pose.rotation = output_to_aligned.transpose()
         * uvdar_core::helpers::rotationZ(initial_yaw)
         * model_to_aligned;
-    double previous_error = rigReprojectionError(pose, observations);
-    for (int iteration = 0;
-         iteration < std::max(0, config_.multi_cam_refinement_iterations);
-         ++iteration) {
-        Eigen::Matrix4d normal = Eigen::Matrix4d::Zero();
-        Eigen::Vector4d rhs = Eigen::Vector4d::Zero();
-        for (const RigObservation& observation : observations) {
-            if (observation.camera_index >= cameras_.size()) {
-                continue;
+    uvdar_core::helpers::LevenbergMarquardtOptions options;
+    options.max_iterations = std::max(0, config_.multi_cam_refinement_iterations);
+    options.initial_damping = std::max(config_.multi_cam_damping, 1.0e-15);
+    options.step_tolerance = std::max(0.0, config_.multi_cam_step_tolerance);
+    options.residual_tolerance = std::max(0.0, config_.multi_cam_residual_tolerance);
+    const auto optimized = uvdar_core::helpers::levenbergMarquardt(
+        pose,
+        4,
+        [&](const CameraPose& state, const bool with_jacobian)
+            -> std::optional<uvdar_core::helpers::LeastSquaresLinearization> {
+            uvdar_core::helpers::LeastSquaresLinearization output;
+            output.residual.resize(2 * observations.size());
+            if (with_jacobian) {
+                output.jacobian.resize(2 * observations.size(), 4);
             }
-            const CameraModel& camera = cameras_[observation.camera_index];
-            const Eigen::Vector3d rotated_output_point =
-                pose.rotation * observation.observation.marker.pose.position;
-            const Eigen::Vector3d camera_point = observation.output_to_camera
-                * (rotated_output_point + pose.translation);
-            if (camera_point.z() <= epsilon) {
-                continue;
+            for (std::size_t index = 0U; index < observations.size(); ++index) {
+                const RigObservation& observation = observations[index];
+                if (observation.camera_index >= cameras_.size()) {
+                    return std::nullopt;
+                }
+                const CameraModel& camera = cameras_[observation.camera_index];
+                const Eigen::Vector3d rotated = state.rotation
+                    * observation.observation.marker.pose.position;
+                const Eigen::Vector3d camera_point = observation.output_to_camera
+                    * (rotated + state.translation);
+                if (camera_point.z() <= epsilon) {
+                    return std::nullopt;
+                }
+                const Eigen::Matrix2d covariance = unc::regularizedCovariance(
+                    observation.observation.point.has_prediction
+                        ? observation.observation.point.prediction_covariance
+                        : observation.observation.point.covariance,
+                    config_.covariance_regularization_px);
+                Eigen::LLT<Eigen::Matrix2d> llt(covariance);
+                if (llt.info() != Eigen::Success) {
+                    return std::nullopt;
+                }
+                const Eigen::Matrix2d whitening = llt.matrixL().solve(
+                    Eigen::Matrix2d::Identity());
+                output.residual.segment<2>(2 * index) = whitening
+                    * (camera.project(camera_point)
+                        - observation.observation.image_point);
+                if (with_jacobian) {
+                    const Eigen::Matrix<double, 2, 3> projection =
+                        camera.projectionJacobian(camera_point)
+                        * observation.output_to_camera.rotation();
+                    output.jacobian.block<2, 3>(2 * index, 0) =
+                        whitening * projection;
+                    output.jacobian.block<2, 1>(2 * index, 3) = whitening
+                        * projection * output_up.cross(rotated);
+                }
             }
-            const Eigen::Vector2d residual =
-                observation.observation.image_point - camera.project(camera_point);
-            const Eigen::Matrix<double, 2, 3> projection_jacobian =
-                camera.projectionJacobian(camera_point);
-            Eigen::Matrix<double, 2, 4> jacobian;
-            jacobian.leftCols<3>() = projection_jacobian
-                * observation.output_to_camera.rotation();
-            jacobian.col(3) = projection_jacobian
-                * observation.output_to_camera.rotation()
-                * output_up.cross(rotated_output_point);
-            const Eigen::Matrix2d covariance = unc::regularizedCovariance(
-                observation.observation.point.has_prediction
-                    ? observation.observation.point.prediction_covariance
-                    : observation.observation.point.covariance,
-                config_.covariance_regularization_px);
-            const Eigen::Matrix2d information = covariance.inverse();
-            normal += jacobian.transpose() * information * jacobian;
-            rhs += jacobian.transpose() * information * residual;
-        }
-        normal.diagonal().array() +=
-            std::max(config_.multi_cam_damping, 1.0e-15);
-        const Eigen::Vector4d delta = normal.ldlt().solve(rhs);
-        if (!delta.allFinite()
-            || delta.norm() < std::max(0.0, config_.multi_cam_step_tolerance)) {
-            break;
-        }
-
-        bool accepted = false;
-        double scale = 1.0;
-        for (int line_search = 0; line_search < 10; ++line_search) {
-            CameraPose candidate = pose;
-            candidate.translation += scale * delta.head<3>();
+            return output;
+        },
+        [&output_up](const CameraPose& state, const Eigen::VectorXd& delta) {
+            CameraPose candidate = state;
+            candidate.translation += delta.head<3>();
             candidate.rotation = Eigen::AngleAxisd(
-                scale * delta(3), output_up).toRotationMatrix()
+                delta(3), output_up).toRotationMatrix()
                 * candidate.rotation;
-            const double candidate_error =
-                rigReprojectionError(candidate, observations);
-            if (std::isfinite(candidate_error)
-                && candidate_error < previous_error) {
-                pose = candidate;
-                previous_error = candidate_error;
-                accepted = true;
-                break;
-            }
-            scale *= 0.5;
-        }
-        if (!accepted) {
-            break;
-        }
-    }
-    return pose;
+            return candidate;
+        },
+        options);
+    return optimized.state;
 }
 
 double GeometricSolver::rigReprojectionError(
@@ -1684,31 +1681,57 @@ Eigen::Matrix<double, 6, 6> GeometricSolver::poseCovarianceByMonteCarlo(
 
 GeometricSolver::CameraPose GeometricSolver::refinePose(const CameraPose& seed, const std::vector<Observation>& observations, const CameraModel& camera) const
 {
-    CameraPose pose = seed;
-    for (int iteration = 0; iteration < config_.refinement_iterations; ++iteration) {
-        // Weighted Gauss-Newton normal equations:
-        // (sum J^T R^-1 J) delta = sum J^T R^-1 r.
-        Eigen::MatrixXd normal = Eigen::MatrixXd::Zero(6, 6);
-        Eigen::VectorXd rhs = Eigen::VectorXd::Zero(6);
-        for (const Observation& observation : observations) {
-            const Eigen::Vector3d camera_point = transformPoint(pose, observation.marker.pose.position);
-            const Eigen::Vector2d residual = observation.image_point - camera.project(camera_point);
-            const Eigen::Matrix<double, 2, 6> jacobian = unc::imageProjectionJacobian(camera, pose, observation.marker.pose.position);
-            const Eigen::Matrix2d covariance = unc::regularizedCovariance(
-                observation.point.has_prediction ? observation.point.prediction_covariance : observation.point.covariance,
-                config_.covariance_regularization_px);
-            const Eigen::Matrix2d information = covariance.inverse();
-            normal += jacobian.transpose() * information * jacobian;
-            rhs += jacobian.transpose() * information * residual;
-        }
-
-        const Eigen::VectorXd delta = normal.ldlt().solve(rhs);
-        if (!delta.allFinite() || delta.norm() < 1.0e-10) {
-            break;
-        }
-        applyLeftCameraPoseIncrement(pose, delta.head<3>(), delta.tail<3>());
-    }
-    return pose;
+    uvdar_core::helpers::LevenbergMarquardtOptions options;
+    options.max_iterations = std::max(0, config_.refinement_iterations);
+    options.initial_damping = std::max(config_.pnp_damping, 1.0e-15);
+    options.step_tolerance = std::max(0.0, config_.pnp_step_tolerance);
+    options.residual_tolerance = std::max(0.0, config_.pnp_residual_tolerance);
+    const auto optimized = uvdar_core::helpers::levenbergMarquardt(
+        seed,
+        6,
+        [&](const CameraPose& pose, const bool with_jacobian)
+            -> std::optional<uvdar_core::helpers::LeastSquaresLinearization> {
+            uvdar_core::helpers::LeastSquaresLinearization output;
+            output.residual.resize(2 * observations.size());
+            if (with_jacobian) {
+                output.jacobian.resize(2 * observations.size(), 6);
+            }
+            for (std::size_t index = 0U; index < observations.size(); ++index) {
+                const Observation& observation = observations[index];
+                const Eigen::Vector3d camera_point = transformPoint(
+                    pose, observation.marker.pose.position);
+                if (camera_point.z() <= epsilon) {
+                    return std::nullopt;
+                }
+                const Eigen::Matrix2d covariance = unc::regularizedCovariance(
+                    observation.point.has_prediction
+                        ? observation.point.prediction_covariance
+                        : observation.point.covariance,
+                    config_.covariance_regularization_px);
+                Eigen::LLT<Eigen::Matrix2d> llt(covariance);
+                if (llt.info() != Eigen::Success) {
+                    return std::nullopt;
+                }
+                const Eigen::Matrix2d whitening = llt.matrixL().solve(
+                    Eigen::Matrix2d::Identity());
+                output.residual.segment<2>(2 * index) = whitening
+                    * (camera.project(camera_point) - observation.image_point);
+                if (with_jacobian) {
+                    output.jacobian.block<2, 6>(2 * index, 0) = whitening
+                        * unc::imageProjectionJacobian(
+                            camera, pose, observation.marker.pose.position);
+                }
+            }
+            return output;
+        },
+        [](const CameraPose& pose, const Eigen::VectorXd& delta) {
+            CameraPose candidate = pose;
+            applyLeftCameraPoseIncrement(
+                candidate, delta.head<3>(), delta.tail<3>());
+            return candidate;
+        },
+        options);
+    return optimized.state;
 }
 
 double GeometricSolver::reprojectionError(const CameraPose& pose, const std::vector<Observation>& observations, const CameraModel& camera) const

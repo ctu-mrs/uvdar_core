@@ -8,6 +8,7 @@
 
 #include <Eigen/Dense>
 
+#include "uvdar_core/helpers/levenberg_marquardt.hpp"
 #include "uvdar_core/helpers/math.hpp"
 #include "uvdar_core/pose_estimation/geometric_solver/solver_types.hpp"
 
@@ -201,51 +202,50 @@ inline std::optional<PoseSolution> refinePose(
     if (!validInput(world_points, ray_origins, ray_directions, 3)) {
         return std::nullopt;
     }
-    PoseSolution pose = seed;
-    double damping = std::max(options.damping, 1.0e-15);
-    for (int iteration = 0; iteration < std::max(0, options.max_iterations); ++iteration) {
-        const auto residual = angularResidualVector(world_points, ray_origins, ray_directions, pose);
-        const auto jacobian = angularResidualJacobianWrtPose(world_points, ray_origins, ray_directions, pose);
-        if (!residual || !jacobian) {
-            return std::nullopt;
-        }
-        if (residual->norm() / static_cast<double>(world_points.cols())
-            < std::max(0.0, options.residual_tolerance)) {
-            break;
-        }
-
-        Eigen::Matrix<double, 6, 6> normal = jacobian->transpose() * *jacobian;
-        normal.diagonal().array() += damping;
-        const Eigen::Matrix<double, 6, 1> gradient = jacobian->transpose() * *residual;
-        const Eigen::Matrix<double, 6, 1> step = -normal.ldlt().solve(gradient);
-        if (!step.allFinite() || step.norm() < std::max(0.0, options.step_tolerance)) {
-            break;
-        }
-
-        const double base_cost = residual->squaredNorm();
-        bool accepted = false;
-        double scale = 1.0;
-        for (int line_search = 0; line_search < 10; ++line_search) {
+    uvdar_core::helpers::LevenbergMarquardtOptions lm_options;
+    lm_options.max_iterations = std::max(0, options.max_iterations);
+    lm_options.initial_damping = std::max(options.damping, 1.0e-15);
+    lm_options.step_tolerance = std::max(0.0, options.step_tolerance);
+    lm_options.residual_tolerance =
+        std::max(0.0, options.residual_tolerance);
+    const auto result = uvdar_core::helpers::levenbergMarquardt(
+        seed,
+        6,
+        [&](const PoseSolution& pose, const bool with_jacobian)
+            -> std::optional<uvdar_core::helpers::LeastSquaresLinearization> {
+            const auto residual = angularResidualVector(
+                world_points, ray_origins, ray_directions, pose);
+            if (!residual) {
+                return std::nullopt;
+            }
+            uvdar_core::helpers::LeastSquaresLinearization output;
+            output.residual = *residual;
+            if (with_jacobian) {
+                const auto jacobian = angularResidualJacobianWrtPose(
+                    world_points, ray_origins, ray_directions, pose);
+                if (!jacobian) {
+                    return std::nullopt;
+                }
+                output.jacobian = *jacobian;
+            }
+            return output;
+        },
+        [](const PoseSolution& pose, const Eigen::VectorXd& delta) {
             PoseSolution candidate = pose;
-            applyLeftPoseIncrement(candidate, scale * step.head<3>(), scale * step.tail<3>());
-            const auto candidate_residual = angularResidualVector(
-                world_points, ray_origins, ray_directions, candidate);
-            if (candidate_residual && candidate_residual->squaredNorm() < base_cost) {
-                pose = candidate;
-                damping = std::max(options.damping, 0.5 * damping);
-                accepted = true;
-                break;
-            }
-            scale *= 0.5;
-        }
-        if (!accepted) {
-            damping *= 10.0;
-            if (!std::isfinite(damping) || damping > 1.0e12) {
-                break;
-            }
-        }
+            applyLeftPoseIncrement(
+                candidate, delta.head<3>(), delta.tail<3>());
+            return candidate;
+        },
+        lm_options);
+    if (result.status
+            == uvdar_core::helpers::LevenbergMarquardtStatus::InvalidLinearization
+        || result.status
+            == uvdar_core::helpers::LevenbergMarquardtStatus::NumericalFailure) {
+        return std::nullopt;
     }
-    return pose.R.allFinite() && pose.t.allFinite() ? std::optional<PoseSolution>(pose) : std::nullopt;
+    return result.state.R.allFinite() && result.state.t.allFinite()
+        ? std::optional<PoseSolution>(result.state)
+        : std::nullopt;
 }
 
 inline std::optional<PoseSolution> absoluteOrientation(

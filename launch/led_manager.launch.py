@@ -10,8 +10,7 @@ def generate_launch_description():
     sequence_file = LaunchConfiguration("sequence_file")
     namespace = LaunchConfiguration("namespace")
     use_sim_time = LaunchConfiguration("use_sim_time")
-    # Points at the serial driver's inbound topic for the UVDAR LED board
-    # (mirrors the ROS1 remap of ~baca_protocol_out to serial_uvdar/send_message).
+    # The manager publishes board commands to the serial driver's input topic.
     serial_send_topic = LaunchConfiguration("serial_send_topic")
     led_serial_port = LaunchConfiguration("led_serial_port")
 
@@ -41,10 +40,8 @@ def generate_launch_description():
             default_value="/dev/MRS_MODULE1",
             description="Serial port the UVDAR LED board is connected to",
         ),
-        # The LED manager only publishes BacaProtocol commands - this is the
-        # driver that actually writes them out over UART to the LED board
-        # (mirrors the ROS1 launch file, which started serial_uvdar alongside
-        # uvdar_led_manager_node).
+        # Start the serial bridge that writes BacaProtocol commands to the
+        # physical LED board over UART.
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource([
                 PathJoinSubstitution([

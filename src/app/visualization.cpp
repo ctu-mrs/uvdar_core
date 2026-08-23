@@ -50,7 +50,7 @@ enum class PosePlotPlane {
 };
 
 // The top and YZ views use Y as their horizontal coordinate.  Mirror it in
-// the plotting transformation (rather than just mirroring the overlays) so
+// the plotting transformation, including every overlay, so
 // that the grid, tick labels, black origin cross, and pose annotations all
 // describe the same coordinate system.
 class MirroredHorizontalTransformation final : public CvPlot::Transformation {
@@ -340,7 +340,7 @@ void drawCvPlotOriginArrows(cv::Mat& plot, PosePlotPlane plane, double range_x, 
     const cv::Point vertical_positive = cvPlotPixel(0.0, range_y, range_x, range_y, plot.cols, plot.rows, mirror_horizontal);
 
     // CvPlot's non-square XY raster ends are slightly offset from the common
-    // overlay transform.  Compensate just the arrowheads; square XZ/YZ plots
+    // overlay transform.  Compensate the arrowheads; square XZ/YZ plots
     // remain pixel-aligned without any adjustment.
     const cv::Point horizontal_offset = plane == PosePlotPlane::XY ? cv::Point(-4, 0) : cv::Point();
     const cv::Point vertical_offset = plane == PosePlotPlane::XY ? cv::Point(-2, 2) : cv::Point();
