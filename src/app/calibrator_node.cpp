@@ -287,6 +287,7 @@ void CalibratorNode::loadParameters()
 
     calibrator_options_.model =
         calibration::calibrationModelFromString(model_name_);
+    model_name_ = calibration::toString(calibrator_options_.model);
     calibrator_options_.minimum_views = requireScalar<int>(
         config, "minimum_valid_views", "calibrator");
     calibrator_options_.max_iterations = requireScalar<int>(

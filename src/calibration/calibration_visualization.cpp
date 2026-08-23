@@ -5,6 +5,8 @@
 #include <cmath>
 #include <filesystem>
 #include <iomanip>
+#include <limits>
+#include <optional>
 #include <sstream>
 
 #include <opencv2/imgproc.hpp>
@@ -433,6 +435,144 @@ void drawResultParameters(
     }
 }
 
+double cross2d(const cv::Point2f& first, const cv::Point2f& second)
+{
+    return static_cast<double>(first.x) * second.y
+        - static_cast<double>(first.y) * second.x;
+}
+
+struct RingLabelPlacement {
+    cv::Point2f position;
+    cv::Point2f tangent;
+};
+
+std::optional<RingLabelPlacement> findRingLabelPlacement(
+    const AngularProjectionRing& ring,
+    const cv::Point2f& center,
+    const cv::Point2f& direction,
+    const cv::Rect& bounds)
+{
+    double best_distance = std::numeric_limits<double>::infinity();
+    std::optional<RingLabelPlacement> best;
+    for (std::size_t index = 1U; index < ring.points.size(); ++index) {
+        const cv::Point2f first = ring.points[index - 1U];
+        const cv::Point2f second = ring.points[index];
+        if (!std::isfinite(first.x) || !std::isfinite(first.y)
+            || !std::isfinite(second.x) || !std::isfinite(second.y)) {
+            continue;
+        }
+        const cv::Point2f segment = second - first;
+        const double denominator = cross2d(direction, segment);
+        if (std::abs(denominator) < 1.0e-9) {
+            continue;
+        }
+        const cv::Point2f center_to_segment = first - center;
+        const double ray_distance =
+            cross2d(center_to_segment, segment) / denominator;
+        const double segment_fraction =
+            cross2d(center_to_segment, direction) / denominator;
+        if (ray_distance < 0.0 || segment_fraction < 0.0
+            || segment_fraction > 1.0 || ray_distance >= best_distance) {
+            continue;
+        }
+        const cv::Point2f intersection = center
+            + static_cast<float>(ray_distance) * direction;
+        const cv::Point rounded(
+            static_cast<int>(std::lround(intersection.x)),
+            static_cast<int>(std::lround(intersection.y)));
+        if (!bounds.contains(rounded) || rounded.y <= 84) {
+            continue;
+        }
+        best_distance = ray_distance;
+        best = RingLabelPlacement {intersection, segment};
+    }
+    return best;
+}
+
+void applyTextMask(
+    cv::Mat& image,
+    const cv::Mat& mask,
+    const cv::Point2f& center,
+    const cv::Scalar& color)
+{
+    const cv::Point top_left(
+        static_cast<int>(std::lround(center.x - 0.5F * mask.cols)),
+        static_cast<int>(std::lround(center.y - 0.5F * mask.rows)));
+    const cv::Rect destination = cv::Rect(
+        top_left.x, top_left.y, mask.cols, mask.rows)
+        & cv::Rect(0, 0, image.cols, image.rows);
+    if (destination.empty()) {
+        return;
+    }
+    const cv::Rect source(
+        destination.x - top_left.x,
+        destination.y - top_left.y,
+        destination.width,
+        destination.height);
+    image(destination).setTo(color, mask(source));
+}
+
+void rotatedText(
+    cv::Mat& image,
+    const std::string& value,
+    const cv::Point2f& center,
+    cv::Point2f tangent,
+    const cv::Scalar& color)
+{
+    constexpr double scale = 0.36;
+    constexpr int supersampling = 3;
+    constexpr int foreground_thickness = supersampling;
+    constexpr int outline_thickness = 3 * supersampling;
+    int baseline = 0;
+    const cv::Size text_size = cv::getTextSize(
+        value,
+        cv::FONT_HERSHEY_SIMPLEX,
+        scale * supersampling,
+        foreground_thickness,
+        &baseline);
+    const int render_side = std::max(
+        24 * supersampling,
+        static_cast<int>(std::ceil(std::hypot(
+            text_size.width + 10.0 * supersampling,
+            text_size.height + baseline + 10.0 * supersampling))));
+    const cv::Point origin(
+        (render_side - text_size.width) / 2,
+        (render_side + text_size.height - baseline) / 2);
+    cv::Mat outline = cv::Mat::zeros(
+        render_side, render_side, CV_8UC1);
+    cv::Mat foreground = cv::Mat::zeros(
+        render_side, render_side, CV_8UC1);
+    cv::putText(outline, value, origin, cv::FONT_HERSHEY_SIMPLEX,
+        scale * supersampling, cv::Scalar(255), outline_thickness, cv::LINE_AA);
+    cv::putText(foreground, value, origin, cv::FONT_HERSHEY_SIMPLEX,
+        scale * supersampling, cv::Scalar(255), foreground_thickness, cv::LINE_AA);
+
+    if (tangent.x < 0.0F
+        || (std::abs(tangent.x) < 1.0e-6F && tangent.y < 0.0F)) {
+        tangent *= -1.0F;
+    }
+    const double image_angle = std::atan2(tangent.y, tangent.x)
+        * 180.0 / M_PI;
+    const cv::Point2f patch_center(
+        0.5F * static_cast<float>(render_side - 1),
+        0.5F * static_cast<float>(render_side - 1));
+    const cv::Mat rotation = cv::getRotationMatrix2D(
+        patch_center, -image_angle, 1.0);
+    cv::Mat rotated_outline;
+    cv::Mat rotated_foreground;
+    cv::warpAffine(outline, rotated_outline, rotation, outline.size(),
+        cv::INTER_LINEAR, cv::BORDER_CONSTANT, cv::Scalar(0));
+    cv::warpAffine(foreground, rotated_foreground, rotation, foreground.size(),
+        cv::INTER_LINEAR, cv::BORDER_CONSTANT, cv::Scalar(0));
+    const int output_side = std::max(24, render_side / supersampling);
+    cv::resize(rotated_outline, rotated_outline,
+        cv::Size(output_side, output_side), 0.0, 0.0, cv::INTER_AREA);
+    cv::resize(rotated_foreground, rotated_foreground,
+        cv::Size(output_side, output_side), 0.0, 0.0, cv::INTER_AREA);
+    applyTextMask(image, rotated_outline, center, cv::Scalar(15, 18, 23));
+    applyTextMask(image, rotated_foreground, center, color);
+}
+
 void drawCalibratedFieldOfView(
     cv::Mat& camera,
     const CalibrationVisualizationState& state)
@@ -441,11 +581,24 @@ void drawCalibratedFieldOfView(
         return;
     }
     const cv::Rect bounds(0, 0, camera.cols, camera.rows);
+    const cv::Point2f center =
+        std::isfinite(state.calibrated_center.x)
+            && std::isfinite(state.calibrated_center.y)
+        ? state.calibrated_center
+        : cv::Point2f(0.5F * camera.cols, 0.5F * camera.rows);
+    cv::Point2f diagonal(
+        static_cast<float>(camera.cols - 1) - center.x,
+        -center.y);
+    const float diagonal_norm = std::hypot(diagonal.x, diagonal.y);
+    if (diagonal_norm > 1.0e-6F) {
+        diagonal *= 1.0F / diagonal_norm;
+    } else {
+        diagonal = cv::Point2f(1.0F, -1.0F) * static_cast<float>(M_SQRT1_2);
+    }
+
     for (const AngularProjectionRing& ring : state.angular_projection_rings) {
         const cv::Scalar color = ring.limit ? orange : cyan;
         const int thickness = ring.limit ? 3 : 1;
-        cv::Point label_point;
-        bool have_label = false;
         for (std::size_t index = 1U; index < ring.points.size(); ++index) {
             const cv::Point2f& first_float = ring.points[index - 1U];
             const cv::Point2f& second_float = ring.points[index];
@@ -466,22 +619,23 @@ void drawCalibratedFieldOfView(
                 cv::line(camera, clipped_first, clipped_second,
                     color, thickness, cv::LINE_AA);
             }
-            if (bounds.contains(second)
-                && second.y > 84 && second.x < camera.cols - 65
-                && (!have_label || second.x > label_point.x)) {
-                label_point = second;
-                have_label = true;
-            }
         }
-        if (have_label) {
-            const std::string label = compactNumber(ring.angle_degrees, 1)
-                + (ring.limit ? " deg limit" : " deg");
-            const cv::Point origin(
-                std::clamp(label_point.x + 5, 4, camera.cols - 100),
-                std::clamp(label_point.y - 5, 90, camera.rows - 5));
-            text(camera, label, origin, 0.36, cv::Scalar(15, 18, 23), 3);
-            text(camera, label, origin, 0.36, color, 1);
+    }
+
+    for (const AngularProjectionRing& ring : state.angular_projection_rings) {
+        const std::optional<RingLabelPlacement> placement =
+            findRingLabelPlacement(ring, center, diagonal, bounds);
+        if (!placement) {
+            continue;
         }
+        const std::string label = compactNumber(ring.angle_degrees, 1)
+            + (ring.limit ? " deg limit" : " deg");
+        rotatedText(
+            camera,
+            label,
+            placement->position - 3.0F * diagonal,
+            placement->tangent,
+            ring.limit ? orange : cyan);
     }
 
     if (std::isfinite(state.calibrated_center.x)
