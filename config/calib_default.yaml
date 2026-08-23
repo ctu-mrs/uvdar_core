@@ -1,0 +1,78 @@
+# Complete camera-calibrator configuration. Pass this file through the
+# calibrator.launch.py config_file argument; every key below is required.
+calibrator:
+  # ROS image topic carrying mono8-compatible frames; non-empty string, default /camera/image_raw.
+  image_topic: /camera/image_raw
+  # Destination YAML path; absolute or relative to this file, with $VARIABLE
+  # expansion; default ${HOME}/.ros/uvdar/camera_calibration.yaml.
+  output_calibration_file: ${HOME}/.ros/uvdar/camera_calibration.yaml
+
+  # Lens family; options: ocamcalib, pinhole, fisheye_equidistant,
+  # fisheye_equisolid, fisheye_stereographic, fisheye_orthographic; default ocamcalib.
+  calibration_model: ocamcalib
+  # Target detector; options: checkerboard or led_grid; default checkerboard.
+  pattern_type: checkerboard
+  # Ordered target rows; integer >= 2, default 6.
+  pattern_rows: 6
+  # Ordered target columns; integer >= 2, default 8.
+  pattern_columns: 8
+  # Adjacent target-point distance in any consistent physical unit; positive number, default 0.04.
+  pattern_spacing: 0.04
+
+  # Diverse complete observations collected before solving; integer >= 3, default 20.
+  required_pattern_frames: 20
+  # Views that must survive rejection; integer from 3 through required_pattern_frames, default 10.
+  minimum_valid_views: 10
+  # Minimum wall time between accepted observations in seconds; non-negative, default 0.35.
+  minimum_frame_interval_sec: 0.35
+  # Minimum normalized center/scale/orientation descriptor distance; non-negative, default 0.07.
+  minimum_frame_diversity: 0.07
+
+  # Maximum bright-point candidates accepted in an LED frame; integer >= rows*columns, default 200.
+  maximum_detection_candidates: 200
+  # Minimum FIMD center intensity in the 8-bit image; integer 0..255, default 120.
+  fimd_threshold: 120
+  # Minimum center-to-boundary intensity contrast; integer 0..255, default 60.
+  fimd_threshold_diff: 60
+  # Maximum candidates retained internally by FIMD; positive integer, default 300.
+  fimd_max_markers: 300
+  # FIMD isolation radii in pixels; non-empty list of positive integers, default [3, 5].
+  fimd_radii: [3, 5]
+  # Largest inward turn used by the concave hull in radians; value in (0, pi), default pi/4.
+  hull_maximum_concave_angle: 0.7853981633974483
+  # Angular tie tolerance used by the hull walk in radians; value in (0, pi), default pi/9.
+  hull_similar_angle: 0.3490658503988659
+
+  # Maximum initial analytic LM trials; positive integer, default 100.
+  maximum_optimization_iterations: 100
+  # Maximum analytic LM trials after rejecting bad views; non-negative integer, default 50; zero disables refinement.
+  outlier_refinement_iterations: 50
+  # Initial diagonal-scaled LM damping coefficient; positive number, default 1e-4.
+  initial_lm_damping: 1.0e-4
+  # Huber robust-residual transition in pixels; positive number, default 3.0.
+  huber_delta_px: 3.0
+  # View rejection threshold as a multiple of median per-view RMS; positive number, default 2.5.
+  view_outlier_factor: 2.5
+  # Largest final reprojection RMS that may be saved, in pixels; positive number, default 3.0.
+  maximum_final_rms_px: 3.0
+  # OCam world-to-image inverse-polynomial order; integer >= 1, default 9; ignored by other models.
+  ocam_inverse_polynomial_order: 9
+  # OCam image-to-ray direct-polynomial order; integer >= 2, default 4; ignored by other models.
+  ocam_direct_polynomial_order: 4
+  # LM local-step norm convergence tolerance; non-negative number, default 1e-9.
+  optimization_step_tolerance: 1.0e-9
+  # LM infinity-norm gradient convergence tolerance; non-negative number, default 1e-8.
+  optimization_gradient_tolerance: 1.0e-8
+  # LM relative cost-change convergence tolerance; non-negative number, default 1e-10.
+  optimization_relative_cost_tolerance: 1.0e-10
+
+  # Fixed-rate sensor_msgs/Image diagnostic output; non-empty ROS topic, default calibrator/visualization.
+  visualization_topic: calibrator/visualization
+  # Transient-local std_msgs/String progress output; non-empty ROS topic, default calibrator/status.
+  status_topic: calibrator/status
+  # Diagnostic image publication rate in hertz; positive number, default 5.0.
+  visualization_fps: 5.0
+  # Time to display the terminal state before shutdown in seconds; non-negative, default 2.0.
+  completion_display_sec: 2.0
+  # Shutdown after a terminal failure as well as success; boolean true/false, default true.
+  terminate_on_failure: true

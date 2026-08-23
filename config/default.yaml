@@ -1,156 +1,296 @@
+# Default runtime configuration for detector, tracker, pose estimator, and
+# pose filter nodes. Relative file paths are resolved from this file; $NAME and
+# ${NAME} references are expanded from the process environment.
+
 detector:
+  # Enable additional diagnostic logging; boolean true/false, default false.
   debug: false
+  # Enable detector GUI windows when a display is available; boolean, default false.
   gui: false
+  # Delay processing after node startup in seconds; non-negative number, default 0.0.
   initial_delay_sec: 0.0
+  # ROS subscription and publisher history depth; positive integer, default 10.
   queue_depth: 10
+  # Concurrent detector worker count; positive integer, default 3.
   thread_pool_size: 3
+  # Maximum detections copied into one output message; positive integer, default 100.
   max_points_per_image: 100
+  # Camera pipelines; non-empty list, default one camera_0 entry.
   inputs:
+    # Unique pipeline label used in logs and internal lookup; non-empty string, default camera_0.
     - name: camera_0
+      # Source sensor_msgs/Image topic; valid ROS topic string, default /my_camera/pylon_ros2_camera_node/image_raw.
       input_topic: /my_camera/pylon_ros2_camera_node/image_raw
+      # Detected-point output topic; valid ROS topic string, default /detector/camera_0/points_seen.
       output_topic: /detector/camera_0/points_seen
+      # Run the separate saturated-sun candidate pass; boolean, default true.
       detect_sun_points: true
+      # Publish candidates from the sun pass; boolean, default true.
       publish_sun_points: true
+      # Sun-candidate output topic; valid ROS topic string, default /detector/camera_0/points_seen/sun.
       sun_output_topic: /detector/camera_0/points_seen/sun
+      # Publish an annotated detection image; boolean, default true.
       publish_visualization: true
+      # Annotated sensor_msgs/Image topic; valid ROS topic string, default /detector/camera_0/detection_visualization.
       visualization_topic: /detector/camera_0/detection_visualization
+      # Optional grayscale exclusion-mask path; empty disables masking, default empty.
       mask_file: ""
+      # FIMD execution backend; options: cpu or gpu, default gpu.
       backend: gpu
+      # Minimum 8-bit marker-center intensity; integer 0..255, default 120.
       threshold: 120
+      # Minimum center-to-boundary intensity contrast; integer 0..255, default 60.
       threshold_diff: 60
+      # Minimum 8-bit saturated-sun intensity; integer 0..255, default 240.
       threshold_sun: 240
+      # Minimum regular-marker separation from sun points in pixels; non-negative integer, default 20.
       min_sun_marker_distance: 20
+      # Maximum regular candidates retained per frame; positive integer, default 300.
       max_markers_count: 300
+      # Maximum sun candidates retained per frame; positive integer, default 72000.
       max_sun_points_count: 72000
+      # FIMD isolation radii in pixels; non-empty positive-integer list, default [3, 5].
       radii: [3, 5]
 
+# Blinking-signal tracking defaults; consumed by tracker_node.
 tracking:
-  # Select "ami" for the AMI tracker or "generalized" for covariance-aware tracking.
+  # Permit tracker-node startup; boolean, default true.
+  enabled: true
+  # Tracking algorithm; options: ami or generalized, default ami.
   implementation: ami
+  # Enable additional diagnostic logging; boolean, default false.
   debug: false
+  # Enable tracker GUI windows when a display is available; boolean, default false.
   gui: false
+  # Delay processing after node startup in seconds; non-negative number, default 0.0.
   initial_delay_sec: 0.0
+  # ROS subscription and publisher history depth; positive integer, default 10.
   queue_depth: 10
+  # Concurrent tracking worker count; positive integer, default 2.
   thread_pool_size: 2
+  # Maximum detected points consumed from one frame; positive integer, default 100.
   max_points_per_image: 100
+  # Largest horizontal association displacement per frame in pixels; non-negative integer, default 3.
   max_px_shift_x: 3
+  # Largest vertical association displacement per frame in pixels; non-negative integer, default 3.
   max_px_shift_y: 3
+  # Missing frames tolerated before a track is dropped; non-negative integer, default 10.
   max_zeros_consecutive: 10
+  # Stored signal-history length as a sequence-length multiple; positive integer, default 20.
   stored_seq_len_factor: 20
+  # Absolute maximum samples retained per signal buffer; positive integer, default 5000.
   max_buffer_length: 5000
+  # Polynomial order used for signal fitting; non-negative integer, default 4.
   poly_order: 4
+  # Exponential history-decay coefficient; non-negative number, default 0.1.
   decay_factor: 0.1
+  # Detection confidence percentile; number in (0, 100), default 95.0.
   confidence_probability: 95.0
-  # Generalized tracker only: Mahalanobis gate width in standard deviations.
+  # Generalized tracker Mahalanobis gate in standard deviations; positive number, default 3.0.
   association_gate_sigma: 3.0
-  # Generalized tracker only: fallback variance for invalid or missing detector covariance.
+  # Generalized tracker fallback detector variance in px^2; positive number, default 1.0.
   default_measurement_variance: 1.0
-  # Generalized tracker only: isotropic per-frame prediction noise added in px^2.
+  # Generalized tracker prediction noise added per frame in px^2; non-negative number, default 1.0.
   process_noise_variance: 1.0
+  # Bit errors allowed when matching one identifier sequence; non-negative integer, default 0.
   allowed_BER_per_seq: 0
+  # Manchester-encode configured sequences before matching; boolean, default false.
   manchester_code: false
-  # If set, sequence_file replaces the inline library below. All loaded
-  # sequences must be non-empty and have equal length.
+  # Optional sequence-library path replacing sequences below; empty disables it, default empty.
   sequence_file: ""
+  # Equal-length binary identifiers; strings, bit lists, or length:hex entries, default four 9-bit strings.
   sequences:
     - "111001011"
     - "110011010"
     - "101100111"
     - "100111010"
+  # Detection streams processed independently; non-empty list, default one camera_0 entry.
   inputs:
+    # Unique pipeline label; non-empty string, default camera_0.
     - name: camera_0
+      # ImagePointsWithCovariancesStamped source topic; valid ROS topic, default /detector/camera_0/points_seen.
       input_topic: /detector/camera_0/points_seen
+      # Optional source image used for visualization; valid topic or empty,
+      # default /my_camera/pylon_ros2_camera_node/image_raw.
       input_image_topic: /my_camera/pylon_ros2_camera_node/image_raw
+      # TrackerOutput destination topic; valid ROS topic, default /tracker/camera_0/blinkers.
       output_topic: /tracker/camera_0/blinkers
+      # Publish an annotated tracking image; boolean, default true.
       publish_visualization: true
+      # Annotated sensor_msgs/Image topic; valid ROS topic, default /tracker/camera_0/visualization.
       visualization_topic: /tracker/camera_0/visualization
 
+# Relative-pose estimation defaults; consumed by pose_estimator_node.
 pose_estimation:
-  # Select "particle_filter" for stochastic hypothesis filtering or
-  # "geometric_solver" for direct P2P/P3P/P4P/PnP pose estimation.
+  # Module state used by full-pipeline launchers; boolean, default true.
+  enabled: true
+  # Pose algorithm; options: particle_filter or geometric_solver, default particle_filter.
   implementation: particle_filter
+  # Enable estimator diagnostics; boolean, default false.
   debug: false
+  # TF frame in which poses are published; non-empty frame ID, default local_origin.
   output_frame: local_origin
+  # PoseWithCovarianceArrayStamped output topic; valid ROS topic, default /pose_estimator/measured_poses.
   output_topic: /pose_estimator/measured_poses
+  # Publish the estimator overview image; boolean, default true.
   publish_visualization: true
+  # Estimator overview sensor_msgs/Image topic; valid ROS topic, default /pose_estimator/visualization.
   visualization_topic: /pose_estimator/visualization
+  # Overview publication rate in hertz; positive number, default 5.0.
   visualization_fps: 5.0
+  # Publish individual estimator hypotheses on auxiliary topics; boolean, default false.
   publish_constituents: false
+  # Target LED geometry path, absolute or relative to this file; existing file, default models/quadrotor.txt.
   model_file: models/quadrotor.txt
+  # Signal identifiers accepted from the target; integer list, default 0 through 8.
   signal_ids: [0, 1, 2, 3, 4, 5, 6, 7, 8]
-  # Used by non-filtered implementations that do not own a natural scatter step.
+  # Geometric/non-filtered result publication period in seconds; positive number, default 0.1.
   publish_period_sec: 0.1
+
+  # Particle-filter-specific controls; used when implementation is particle_filter.
   particle_filter:
+    # Split equal-ID image points into spatial clusters; boolean, default true.
     separate_by_distance: true
+    # Maximum within-cluster image distance in pixels; positive number, default 100.0.
     max_cluster_distance: 100.0
+    # Particle propagation and publication period in seconds; positive number, default 0.1.
     scatter_time_step: 0.1
+    # Largest position mutation per refinement step in model units; positive number, default 1.0.
     mutation_position_max_step: 1.0
+    # Largest orientation mutation per refinement step in radians; positive number, default 1.0.
     mutation_orientation_max_step: 1.0
+    # Largest velocity mutation per refinement step in model units/s; positive number, default 1.0.
     mutation_velocity_max_step: 1.0
+    # Maximum live particle count per target; positive integer, default 1000.
     max_hypothesis_count: 1000
+    # Maximum particle age without confirmation in seconds; positive number, default 1.5.
     max_hypothesis_age: 1.5
+    # Image-border exclusion margin in pixels; non-negative integer, default 10.
     edge_detection_margin: 10
+    # Coarse pose hypotheses sampled during initialization; positive integer, default 200.
     initial_rough_hypothesis_count: 200
+    # Refined hypotheses retained after initialization; positive integer, default 10.
     initial_hypothesis_count: 10
+    # Maximum coarse initialization sampling attempts; positive integer, default 10000.
     max_init_iterations: 10000
+    # Maximum mutation attempts during initialization refinement; positive integer, default 1000.
     max_mutation_refine_iterations: 1000
+
+  # Direct geometric-solver controls; used when implementation is geometric_solver.
   geometric_solver:
-    uncertainty_solver: ellipse_transform # Options: jacobian_propagation, monte_carlo, ellipse_transform
-    uncertainty_samples: 5000 # for monte-carlo only
+    # Covariance method; options: jacobian_propagation, monte_carlo, ellipse_transform; default ellipse_transform.
+    uncertainty_solver: ellipse_transform
+    # Samples used only by monte_carlo uncertainty; positive integer, default 5000.
+    uncertainty_samples: 5000
+    # Constrain otherwise unobservable target axes from odometry orientation; boolean, default false.
     odometry_ref_enable: false
-    # Required with odometry_ref_enable: Odometry orientation of output_frame in a
-    # gravity-aligned frame. /mavros/local_position/odom is MAVROS' default;
-    # the output_frame-to-camera TF is used at the tracker stamp.
+    # nav_msgs/Odometry orientation topic required when enabled; valid topic,
+    # default /mavros/local_position/odom.
     odometry_ref_topic: /mavros/local_position/odom
+    # Largest accepted odometry age at the tracker stamp in seconds; non-negative number, default 0.5.
     odometry_ref_maximum_age_sec: 0.5
-    # Target model-frame direction opposite gravity. Used by central P2P and
-    # only by rig geometries that pure visual generalized pose cannot solve.
+    # Target-model direction opposite gravity; finite non-zero XYZ vector, default [0, 0, 1].
     odometry_ref_model_gravity_axis: [0.0, 0.0, 1.0]
-    # Dimensionless Li/Sweeney yaw-equation conditioning. Central P2P is not
-    # published below this value; a joint generalized rig solve remains usable.
+    # Minimum dimensionless known-axis yaw observability; non-negative number, default 3e-3.
     odometry_ref_min_axis_observability: 3.0e-3
+    # Maximum P4P angular reprojection residual in radians; positive number, default 0.01.
     p4p_reprojection_threshold_rad: 0.01
+    # Positive diagonal regularizer added to pixel covariance; default 1e-6.
     covariance_regularization_px: 1.0e-6
+    # Analytic pose-refinement iteration limit; non-negative integer, default 8.
     refinement_iterations: 8
+    # PnP analytic LM iteration limit; positive integer, default 40.
     pnp_max_iterations: 40
+    # PnP LM damping coefficient; positive number, default 1e-8.
     pnp_damping: 1.0e-8
+    # Perturbation used only for pose-to-bearing sensitivity covariance, not
+    # optimization; positive number, default 1e-6.
     pnp_finite_difference_eps: 1.0e-6
+    # PnP local-step convergence tolerance; non-negative number, default 1e-10.
     pnp_step_tolerance: 1.0e-10
+    # PnP residual convergence tolerance; non-negative number, default 1e-10.
     pnp_residual_tolerance: 1.0e-10
-    # Fuse approximately synchronized observations from rigid cameras using
-    # their camera_frame <-> output_frame TFs. Falls back to the current
-    # single-camera solver unless at least multi_cam_min_cameras contribute.
+    # Fuse synchronized observations from a rigid multi-camera rig; boolean, default false.
     multi_cam_rig_enable: false
+    # Largest timestamp difference combined into one rig solve in seconds; non-negative number, default 0.03.
     multi_cam_sync_tolerance_sec: 0.03
+    # Cameras required for a generalized rig solve; integer >= 2, default 2.
     multi_cam_min_cameras: 2
+    # Largest accepted rig angular residual in radians; positive number, default 0.05.
     multi_cam_max_angular_error_rad: 0.05
+    # Rig analytic LM iteration limit; non-negative integer, default 40.
     multi_cam_refinement_iterations: 40
+    # Rig LM damping coefficient; positive number, default 1e-8.
     multi_cam_damping: 1.0e-8
+    # Rig local-step convergence tolerance; non-negative number, default 1e-10.
     multi_cam_step_tolerance: 1.0e-10
+    # Rig residual convergence tolerance; non-negative number, default 1e-10.
     multi_cam_residual_tolerance: 1.0e-10
+    # Log-depth seed levels evaluated by GP3P; integer >= 3, default 7.
     multi_cam_gp3p_depth_seed_levels: 7
+    # GP3P analytic depth-refinement iteration limit; positive integer, default 60.
     multi_cam_gp3p_depth_iterations: 60
+    # GP3P polynomial-root acceptance tolerance; positive number, default 1e-9.
     multi_cam_gp3p_root_tolerance: 1.0e-9
+
+  # Tracker/camera inputs; non-empty list, default one camera_0 entry.
   inputs:
+    # Unique camera label; non-empty string, default camera_0.
     - name: camera_0
+      # TrackerOutput source topic; valid ROS topic, default /tracker/camera_0/blinkers.
       input_topic: /tracker/camera_0/blinkers
+      # Optical TF frame associated with the image points; non-empty frame ID, default camera_0_optical_frame.
       camera_frame: camera_0_optical_frame
+      # Lens calibration YAML path, absolute or relative to this file; existing file, default camera/ocam.yaml.
       calib_file: camera/ocam.yaml
 
+# Relative-pose filter defaults; consumed by filter_node.
 filtering:
+  # Module state used by full-pipeline launchers; boolean, default true.
+  enabled: true
+  # Pose filter implementation; supported option: kf_pose, default kf_pose.
   implementation: kf_pose
+  # Enable filter diagnostics; boolean, default false.
   debug: false
+  # TF frame in which filtered poses are published; non-empty frame ID, default local_origin.
   output_frame: local_origin
+  # Pose measurement input topics; non-empty string list, default [/pose_estimator/measured_poses].
   measured_poses_topics: [/pose_estimator/measured_poses]
+  # Validated PoseWithCovarianceArrayStamped output topic; valid ROS topic, default /filter/filtered_poses.
   output_topic: /filter/filtered_poses
+  # Tentative-track output topic; valid ROS topic, default /filter/filtered_poses/tentative.
   tentative_output_topic: /filter/filtered_poses/tentative
+  # Filter prediction/publication rate in hertz; positive number, default 20.0.
   output_framerate: 20.0
+  # Associate measurements geometrically instead of by signal ID; boolean, default false.
   anonymous_measurements: false
+  # Use lower process noise tuned for indoor motion; boolean, default false.
   indoor: false
+  # Use nominal position noise when vehicle odometry is available; boolean, default true.
   odometry_available: true
+  # Add a constant-velocity state for identified targets; boolean, default false.
   use_velocity: false
+  # Corrections required before a track becomes validated; positive integer, default 10.
   min_measurements_to_validation: 10
+  # Validated-track timeout without measurements in seconds; positive number, default 3.0.
   decay_age_normal: 3.0
+  # Tentative-track timeout without measurements in seconds; positive number, default 1.0.
   decay_age_unvalidated: 1.0
+  # Minimum Gaussian-overlap score for anonymous association; non-negative number, default 0.3.
   match_level_threshold_associate: 0.3
+  # Minimum overlap score that triggers duplicate-track removal; non-negative number, default 0.5.
   match_level_threshold_remove: 0.5
+
+# Optional pipeline calibration-module selection; disabled by default.
+calibration:
+  # Module flag reserved for full-pipeline orchestration; boolean, default false.
+  enabled: false
+  # Full-pipeline calibration implementation selector; supported disabled value: none, default none.
+  implementation: none
+
+# Optional pipeline simulation-module selection; disabled by default.
+simulation:
+  # Module flag reserved for full-pipeline orchestration; boolean, default false.
+  enabled: false
+  # Full-pipeline simulation implementation selector; supported disabled value: none, default none.
+  implementation: none

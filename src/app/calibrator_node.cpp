@@ -12,6 +12,8 @@
 #include <cv_bridge/cv_bridge.hpp>
 #include <sensor_msgs/image_encodings.hpp>
 
+#include "uvdar_core/helpers/yaml.hpp"
+
 namespace uvdar_core::app {
 
 namespace calibration = uvdar_core::calibration;
@@ -42,92 +44,121 @@ CalibratorNode::~CalibratorNode()
 
 void CalibratorNode::loadParameters()
 {
-    image_topic_ = declare_parameter<std::string>(
-        "image_topic", "/camera/image_raw");
-    visualization_topic_ = declare_parameter<std::string>(
-        "visualization_topic", "~/visualization");
-    status_topic_ = declare_parameter<std::string>(
-        "status_topic", "~/status");
-    output_file_ = declare_parameter<std::string>(
-        "output_calibration_file", "/tmp/uvdar_camera_calibration.yaml");
-    model_name_ = declare_parameter<std::string>(
-        "calibration_model", "ocamcalib");
-    pattern_name_ = declare_parameter<std::string>(
-        "pattern_type", "checkerboard");
-    required_frames_ = declare_parameter<int>("required_pattern_frames", 20);
-    minimum_frame_interval_sec_ = declare_parameter<double>(
-        "minimum_frame_interval_sec", 0.35);
-    minimum_frame_diversity_ = declare_parameter<double>(
-        "minimum_frame_diversity", 0.07);
-    visualization_fps_ = declare_parameter<double>("visualization_fps", 5.0);
-    completion_display_sec_ = declare_parameter<double>(
-        "completion_display_sec", 2.0);
-    terminate_on_failure_ = declare_parameter<bool>(
-        "terminate_on_failure", true);
+    using uvdar_core::helpers::yaml::requireNode;
+    using uvdar_core::helpers::yaml::requireScalar;
+    using uvdar_core::helpers::yaml::resolvePath;
+
+    const std::string config_path_string =
+        declare_parameter<std::string>("config_path", "");
+    if (config_path_string.empty()) {
+        throw std::runtime_error(
+            "calibrator_node requires parameter 'config_path'.");
+    }
+    const std::filesystem::path config_path(config_path_string);
+    const YAML::Node root =
+        uvdar_core::helpers::yaml::loadFile(config_path_string);
+    const YAML::Node config = requireNode(root, "calibrator");
+
+    image_topic_ = requireScalar<std::string>(
+        config, "image_topic", "calibrator");
+    visualization_topic_ = requireScalar<std::string>(
+        config, "visualization_topic", "calibrator");
+    status_topic_ = requireScalar<std::string>(
+        config, "status_topic", "calibrator");
+    output_file_ = resolvePath(config_path, requireScalar<std::string>(
+        config, "output_calibration_file", "calibrator"));
+    model_name_ = requireScalar<std::string>(
+        config, "calibration_model", "calibrator");
+    pattern_name_ = requireScalar<std::string>(
+        config, "pattern_type", "calibrator");
+    required_frames_ = requireScalar<int>(
+        config, "required_pattern_frames", "calibrator");
+    minimum_frame_interval_sec_ = requireScalar<double>(
+        config, "minimum_frame_interval_sec", "calibrator");
+    minimum_frame_diversity_ = requireScalar<double>(
+        config, "minimum_frame_diversity", "calibrator");
+    visualization_fps_ = requireScalar<double>(
+        config, "visualization_fps", "calibrator");
+    completion_display_sec_ = requireScalar<double>(
+        config, "completion_display_sec", "calibrator");
+    terminate_on_failure_ = requireScalar<bool>(
+        config, "terminate_on_failure", "calibrator");
 
     detector_options_.pattern =
         calibration::calibrationPatternFromString(pattern_name_);
-    detector_options_.rows = declare_parameter<int>("pattern_rows", 6);
-    detector_options_.columns = declare_parameter<int>("pattern_columns", 8);
-    detector_options_.spacing = declare_parameter<double>(
-        "pattern_spacing", 0.04);
-    detector_options_.maximum_candidates = declare_parameter<int>(
-        "maximum_detection_candidates", 200);
-    detector_options_.fimd_threshold = declare_parameter<int>(
-        "fimd_threshold", 120);
-    detector_options_.fimd_threshold_diff = declare_parameter<int>(
-        "fimd_threshold_diff", 60);
-    detector_options_.fimd_max_markers = static_cast<unsigned>(std::max<int64_t>(
-        1,
-        declare_parameter<int64_t>("fimd_max_markers", 300)));
-    const std::vector<int64_t> radii =
-        declare_parameter<std::vector<int64_t>>(
-            "fimd_radii", std::vector<int64_t> {3, 5});
+    detector_options_.rows = requireScalar<int>(
+        config, "pattern_rows", "calibrator");
+    detector_options_.columns = requireScalar<int>(
+        config, "pattern_columns", "calibrator");
+    detector_options_.spacing = requireScalar<double>(
+        config, "pattern_spacing", "calibrator");
+    detector_options_.maximum_candidates = requireScalar<int>(
+        config, "maximum_detection_candidates", "calibrator");
+    detector_options_.fimd_threshold = requireScalar<int>(
+        config, "fimd_threshold", "calibrator");
+    detector_options_.fimd_threshold_diff = requireScalar<int>(
+        config, "fimd_threshold_diff", "calibrator");
+    const int fimd_max_markers = requireScalar<int>(
+        config, "fimd_max_markers", "calibrator");
+    if (fimd_max_markers <= 0) {
+        throw std::invalid_argument("fimd_max_markers must be positive.");
+    }
+    detector_options_.fimd_max_markers =
+        static_cast<unsigned>(fimd_max_markers);
+    const YAML::Node radii = requireNode(config, "fimd_radii", "calibrator");
+    if (!radii.IsSequence()) {
+        throw std::invalid_argument("fimd_radii must be a sequence.");
+    }
     detector_options_.fimd_radii.clear();
-    for (const int64_t radius : radii) {
+    for (const YAML::Node& radius_node : radii) {
+        const int radius = radius_node.as<int>();
         if (radius > 0) {
             detector_options_.fimd_radii.push_back(
                 static_cast<unsigned>(radius));
+        } else {
+            throw std::invalid_argument(
+                "fimd_radii must contain only positive radii.");
         }
     }
     if (detector_options_.fimd_radii.empty()) {
         throw std::invalid_argument("fimd_radii must contain a positive radius.");
     }
-    detector_options_.hull_maximum_concave_angle = declare_parameter<double>(
-        "hull_maximum_concave_angle", M_PI / 4.0);
-    detector_options_.hull_similar_angle = declare_parameter<double>(
-        "hull_similar_angle", M_PI / 9.0);
+    detector_options_.hull_maximum_concave_angle = requireScalar<double>(
+        config, "hull_maximum_concave_angle", "calibrator");
+    detector_options_.hull_similar_angle = requireScalar<double>(
+        config, "hull_similar_angle", "calibrator");
 
     calibrator_options_.model =
         calibration::calibrationModelFromString(model_name_);
-    calibrator_options_.minimum_views = declare_parameter<int>(
-        "minimum_valid_views", std::min(10, required_frames_));
-    calibrator_options_.max_iterations = declare_parameter<int>(
-        "maximum_optimization_iterations", 100);
-    calibrator_options_.outlier_refinement_iterations = declare_parameter<int>(
-        "outlier_refinement_iterations", 50);
-    calibrator_options_.initial_damping = declare_parameter<double>(
-        "initial_lm_damping", 1.0e-4);
-    calibrator_options_.huber_delta_px = declare_parameter<double>(
-        "huber_delta_px", 3.0);
-    calibrator_options_.view_outlier_factor = declare_parameter<double>(
-        "view_outlier_factor", 2.5);
-    calibrator_options_.maximum_rms_px = declare_parameter<double>(
-        "maximum_final_rms_px", 3.0);
-    calibrator_options_.ocam_inverse_polynomial_order = declare_parameter<int>(
-        "ocam_inverse_polynomial_order", 9);
-    calibrator_options_.ocam_direct_polynomial_order = declare_parameter<int>(
-        "ocam_direct_polynomial_order", 4);
-    calibrator_options_.step_tolerance = declare_parameter<double>(
-        "optimization_step_tolerance", 1.0e-9);
-    calibrator_options_.gradient_tolerance = declare_parameter<double>(
-        "optimization_gradient_tolerance", 1.0e-8);
-    calibrator_options_.relative_cost_tolerance = declare_parameter<double>(
-        "optimization_relative_cost_tolerance", 1.0e-10);
+    calibrator_options_.minimum_views = requireScalar<int>(
+        config, "minimum_valid_views", "calibrator");
+    calibrator_options_.max_iterations = requireScalar<int>(
+        config, "maximum_optimization_iterations", "calibrator");
+    calibrator_options_.outlier_refinement_iterations = requireScalar<int>(
+        config, "outlier_refinement_iterations", "calibrator");
+    calibrator_options_.initial_damping = requireScalar<double>(
+        config, "initial_lm_damping", "calibrator");
+    calibrator_options_.huber_delta_px = requireScalar<double>(
+        config, "huber_delta_px", "calibrator");
+    calibrator_options_.view_outlier_factor = requireScalar<double>(
+        config, "view_outlier_factor", "calibrator");
+    calibrator_options_.maximum_rms_px = requireScalar<double>(
+        config, "maximum_final_rms_px", "calibrator");
+    calibrator_options_.ocam_inverse_polynomial_order = requireScalar<int>(
+        config, "ocam_inverse_polynomial_order", "calibrator");
+    calibrator_options_.ocam_direct_polynomial_order = requireScalar<int>(
+        config, "ocam_direct_polynomial_order", "calibrator");
+    calibrator_options_.step_tolerance = requireScalar<double>(
+        config, "optimization_step_tolerance", "calibrator");
+    calibrator_options_.gradient_tolerance = requireScalar<double>(
+        config, "optimization_gradient_tolerance", "calibrator");
+    calibrator_options_.relative_cost_tolerance = requireScalar<double>(
+        config, "optimization_relative_cost_tolerance", "calibrator");
 
-    if (image_topic_.empty() || output_file_.empty()) {
+    if (image_topic_.empty() || visualization_topic_.empty()
+        || status_topic_.empty() || output_file_.empty()) {
         throw std::invalid_argument(
-            "image_topic and output_calibration_file must not be empty.");
+            "Calibrator topics and output_calibration_file must not be empty.");
     }
     if (required_frames_ < 3
         || calibrator_options_.minimum_views < 3
@@ -135,8 +166,45 @@ void CalibratorNode::loadParameters()
         throw std::invalid_argument(
             "Require 3 <= minimum_valid_views <= required_pattern_frames.");
     }
+    if (detector_options_.rows < 2 || detector_options_.columns < 2
+        || detector_options_.spacing <= 0.0
+        || detector_options_.maximum_candidates
+            < detector_options_.rows * detector_options_.columns) {
+        throw std::invalid_argument(
+            "Pattern dimensions and spacing must be positive, and "
+            "maximum_detection_candidates must fit the complete pattern.");
+    }
+    if (detector_options_.fimd_threshold < 0
+        || detector_options_.fimd_threshold > 255
+        || detector_options_.fimd_threshold_diff < 0
+        || detector_options_.fimd_threshold_diff > 255) {
+        throw std::invalid_argument(
+            "FIMD thresholds must be in the inclusive range [0, 255].");
+    }
+    if (detector_options_.hull_maximum_concave_angle <= 0.0
+        || detector_options_.hull_maximum_concave_angle >= M_PI
+        || detector_options_.hull_similar_angle <= 0.0
+        || detector_options_.hull_similar_angle >= M_PI) {
+        throw std::invalid_argument(
+            "Hull angles must be strictly between zero and pi radians.");
+    }
+    if (calibrator_options_.max_iterations <= 0
+        || calibrator_options_.outlier_refinement_iterations < 0
+        || calibrator_options_.initial_damping <= 0.0
+        || calibrator_options_.huber_delta_px <= 0.0
+        || calibrator_options_.view_outlier_factor <= 0.0
+        || calibrator_options_.maximum_rms_px <= 0.0
+        || calibrator_options_.ocam_inverse_polynomial_order < 1
+        || calibrator_options_.ocam_direct_polynomial_order < 2
+        || calibrator_options_.step_tolerance < 0.0
+        || calibrator_options_.gradient_tolerance < 0.0
+        || calibrator_options_.relative_cost_tolerance < 0.0) {
+        throw std::invalid_argument(
+            "Calibration iteration counts, model orders, damping, robust "
+            "limits, and convergence tolerances are outside valid ranges.");
+    }
     if (visualization_fps_ <= 0.0 || minimum_frame_interval_sec_ < 0.0
-        || minimum_frame_diversity_ < 0.0) {
+        || minimum_frame_diversity_ < 0.0 || completion_display_sec_ < 0.0) {
         throw std::invalid_argument(
             "Visualization FPS must be positive and collection limits non-negative.");
     }
