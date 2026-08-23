@@ -1,6 +1,7 @@
 #pragma once
 
 #include <chrono>
+#include <cstdint>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -41,6 +42,7 @@ private:
     void loadParameters();
     void createInterfaces();
     void onImage(const sensor_msgs::msg::Image::ConstSharedPtr& message);
+    void processLatestImage();
     void startCalibration();
     void runCalibration(
         std::vector<uvdar_core::calibration::CalibrationObservation> observations,
@@ -64,8 +66,9 @@ private:
     int required_frames_ = 20;
     double minimum_frame_interval_sec_ = 0.35;
     double minimum_frame_diversity_ = 0.07;
+    double image_processing_fps_ = 2.0;
     double visualization_fps_ = 5.0;
-    double completion_display_sec_ = 2.0;
+    double completion_display_sec_ = 5.0;
     bool terminate_on_failure_ = true;
 
     uvdar_core::calibration::PatternDetectorOptions detector_options_;
@@ -76,24 +79,35 @@ private:
     rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr image_subscription_;
     rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr visualization_publisher_;
     rclcpp::Publisher<std_msgs::msg::String>::SharedPtr status_publisher_;
+    rclcpp::CallbackGroup::SharedPtr image_callback_group_;
+    rclcpp::CallbackGroup::SharedPtr processing_callback_group_;
+    rclcpp::CallbackGroup::SharedPtr visualization_callback_group_;
+    rclcpp::TimerBase::SharedPtr processing_timer_;
     rclcpp::TimerBase::SharedPtr visualization_timer_;
     rclcpp::TimerBase::SharedPtr finish_timer_;
 
     mutable std::mutex mutex_;
     Stage stage_ = Stage::Collecting;
     std::string detail_ = "Waiting for calibration pattern";
-    cv::Mat latest_image_;
-    std_msgs::msg::Header latest_header_;
+    sensor_msgs::msg::Image::ConstSharedPtr latest_image_message_;
+    std::uint64_t latest_image_sequence_ = 0U;
+    std::uint64_t processed_image_sequence_ = 0U;
+    cv::Mat latest_processed_image_;
+    std_msgs::msg::Header latest_processed_header_;
     cv::Size image_size_;
     uvdar_core::calibration::PatternDetection latest_detection_;
     std::vector<uvdar_core::calibration::CalibrationObservation> observations_;
+    std::vector<cv::Mat> observation_images_;
+    std::vector<std_msgs::msg::Header> observation_headers_;
     std::vector<Eigen::Vector4d> descriptors_;
     std::vector<cv::Point2f> accepted_centers_normalized_;
     uvdar_core::calibration::CalibrationProgress progress_;
     std::vector<double> cost_history_;
+    std::vector<cv::Point2f> model_projection_curve_;
     std::optional<uvdar_core::calibration::CalibrationResult> result_;
     std::chrono::steady_clock::time_point last_accepted_time_ {};
     std::optional<std::chrono::steady_clock::time_point> finished_time_;
+    int terminal_visualizations_published_ = 0;
     bool worker_started_ = false;
     std::thread worker_;
 };

@@ -30,6 +30,9 @@ calibrator:
   minimum_frame_interval_sec: 0.35
   # Minimum normalized center/scale/orientation descriptor distance; non-negative, default 0.07.
   minimum_frame_diversity: 0.07
+  # Maximum rate for expensive pattern detection in hertz; positive number, default 2.0.
+  # Incoming frames are still sampled continuously, and each processing tick uses the newest frame.
+  image_processing_fps: 2.0
 
   # Maximum bright-point candidates accepted in an LED frame; integer >= rows*columns, default 200.
   maximum_detection_candidates: 200
@@ -75,7 +78,7 @@ calibrator:
   status_topic: calibrator/status
   # Diagnostic image publication rate in hertz; positive number, default 5.0.
   visualization_fps: 5.0
-  # Time to display the terminal state before shutdown in seconds; non-negative, default 2.0.
-  completion_display_sec: 2.0
+  # Time to publish the final result dashboard before shutdown in seconds; non-negative, default 5.0.
+  completion_display_sec: 5.0
   # Shutdown after a terminal failure as well as success; boolean true/false, default true.
   terminate_on_failure: true

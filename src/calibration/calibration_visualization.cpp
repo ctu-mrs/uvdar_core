@@ -13,7 +13,7 @@ namespace uvdar_core::calibration {
 
 namespace {
 
-constexpr int panel_width = 390;
+constexpr int panel_width = 520;
 const cv::Scalar white(242, 245, 248);
 const cv::Scalar muted(155, 164, 178);
 const cv::Scalar cyan(235, 190, 45);
@@ -239,6 +239,223 @@ void drawCostPlot(
     }
 }
 
+void drawRmsPlot(
+    cv::Mat& image,
+    const cv::Rect& area,
+    const CalibrationVisualizationState& state)
+{
+    cv::rectangle(image, area, cv::Scalar(38, 42, 50), -1);
+    if (state.per_view_rms_px.empty()) {
+        text(image, "no per-view errors", area.tl() + cv::Point(8, 22),
+            0.4, muted);
+        return;
+    }
+
+    double maximum_rms = std::max(1.0e-6, state.rms_px);
+    for (const double rms : state.per_view_rms_px) {
+        if (std::isfinite(rms)) {
+            maximum_rms = std::max(maximum_rms, rms);
+        }
+    }
+    maximum_rms *= 1.12;
+    const int count = static_cast<int>(state.per_view_rms_px.size());
+    const int baseline = area.y + area.height - 18;
+    const double column_width = static_cast<double>(area.width - 10)
+        / std::max(1, count);
+    for (int index = 0; index < count; ++index) {
+        const double rms = state.per_view_rms_px[static_cast<std::size_t>(index)];
+        if (!std::isfinite(rms) || rms < 0.0) {
+            continue;
+        }
+        const bool retained = index >= static_cast<int>(
+            state.retained_view_mask.size())
+            || state.retained_view_mask[static_cast<std::size_t>(index)];
+        const int bar_height = static_cast<int>(std::round(
+            rms / maximum_rms * (area.height - 29)));
+        const int left = area.x + 5
+            + static_cast<int>(std::floor(index * column_width));
+        const int right = area.x + 5
+            + static_cast<int>(std::floor((index + 1) * column_width));
+        cv::rectangle(
+            image,
+            cv::Rect(left, baseline - bar_height,
+                std::max(1, right - left - 1), bar_height),
+            retained ? cyan : red,
+            -1,
+            cv::LINE_AA);
+    }
+
+    const int global_y = baseline - static_cast<int>(std::round(
+        state.rms_px / maximum_rms * (area.height - 29)));
+    cv::line(image,
+        cv::Point(area.x + 4, global_y),
+        cv::Point(area.x + area.width - 4, global_y),
+        green, 1, cv::LINE_AA);
+    text(image,
+        "global " + compactNumber(state.rms_px) + " px",
+        area.tl() + cv::Point(7, 15), 0.36, green);
+    text(image, "view 1", cv::Point(area.x + 5, area.y + area.height - 4),
+        0.3, muted);
+    text(image, "view " + std::to_string(count),
+        cv::Point(area.x + area.width - 58, area.y + area.height - 4),
+        0.3, muted);
+}
+
+void drawProjectionPlot(
+    cv::Mat& image,
+    const cv::Rect& area,
+    const std::vector<cv::Point2f>& curve)
+{
+    cv::rectangle(image, area, cv::Scalar(38, 42, 50), -1);
+    if (curve.size() < 2U) {
+        text(image, "projection samples unavailable",
+            area.tl() + cv::Point(8, 22), 0.4, muted);
+        return;
+    }
+
+    double maximum_angle = 1.0;
+    double maximum_radius = 1.0;
+    for (const cv::Point2f& point : curve) {
+        maximum_angle = std::max(maximum_angle, static_cast<double>(point.x));
+        maximum_radius = std::max(maximum_radius, static_cast<double>(point.y));
+    }
+    const cv::Rect graph(
+        area.x + 8, area.y + 7, area.width - 16, area.height - 24);
+    cv::Point previous;
+    bool have_previous = false;
+    for (const cv::Point2f& sample : curve) {
+        const cv::Point current(
+            graph.x + static_cast<int>(std::round(
+                sample.x / maximum_angle * graph.width)),
+            graph.y + graph.height - static_cast<int>(std::round(
+                sample.y / maximum_radius * graph.height)));
+        if (have_previous) {
+            cv::line(image, previous, current, orange, 2, cv::LINE_AA);
+        }
+        previous = current;
+        have_previous = true;
+    }
+    text(image, "0 deg", cv::Point(area.x + 5, area.y + area.height - 4),
+        0.3, muted);
+    text(image, compactNumber(maximum_angle, 1) + " deg",
+        cv::Point(area.x + area.width - 66, area.y + area.height - 4),
+        0.3, muted);
+    text(image, compactNumber(maximum_radius, 1) + " px",
+        area.tl() + cv::Point(7, 15), 0.34, orange);
+}
+
+std::string parameterNumber(const double value)
+{
+    std::ostringstream stream;
+    const double magnitude = std::abs(value);
+    if (magnitude > 0.0 && (magnitude < 1.0e-3 || magnitude >= 1.0e4)) {
+        stream << std::scientific << std::setprecision(2) << value;
+    } else {
+        stream << std::fixed << std::setprecision(4) << value;
+    }
+    return stream.str();
+}
+
+std::string shortenedFromLeft(
+    const std::string& value,
+    const std::size_t maximum_characters)
+{
+    if (value.size() <= maximum_characters) {
+        return value;
+    }
+    return "..." + value.substr(value.size() - maximum_characters + 3U);
+}
+
+std::vector<std::string> parameterLines(
+    const std::string& label,
+    const std::vector<double>& values,
+    const std::size_t values_per_line = 4U)
+{
+    std::vector<std::string> lines;
+    for (std::size_t first = 0U; first < values.size();
+         first += values_per_line) {
+        std::ostringstream line;
+        line << (first == 0U ? label + " [" : "  ");
+        const std::size_t last = std::min(
+            values.size(), first + values_per_line);
+        for (std::size_t index = first; index < last; ++index) {
+            if (index > first) {
+                line << ", ";
+            }
+            line << parameterNumber(values[index]);
+        }
+        line << (last == values.size() ? "]" : ",");
+        lines.push_back(line.str());
+    }
+    return lines;
+}
+
+void drawResultParameters(
+    cv::Mat& image,
+    const int x,
+    int& y,
+    const int bottom,
+    const CalibrationVisualizationState& state)
+{
+    text(image, "MODEL PARAMETERS", cv::Point(x, y), 0.42, muted, 1);
+    y += 18;
+    std::vector<std::string> lines;
+    if (!state.intrinsics.empty()) {
+        const auto intrinsics = parameterLines(
+            "K(fx,fy,cx,cy)", state.intrinsics);
+        const auto distortion = parameterLines(
+            state.model == "pinhole" ? "D(k1,k2,p1,p2,k3)"
+                                      : "D(k1,k2,k3,k4)",
+            state.distortion);
+        lines.insert(lines.end(), intrinsics.begin(), intrinsics.end());
+        lines.insert(lines.end(), distortion.begin(), distortion.end());
+    } else {
+        lines.push_back(
+            "center(x,y) [" + parameterNumber(state.center.x) + ", "
+            + parameterNumber(state.center.y) + "]");
+        lines.push_back(
+            "affine [" + parameterNumber(state.affine[0]) + ", "
+            + parameterNumber(state.affine[1]) + ", "
+            + parameterNumber(state.affine[2]) + "]");
+        const auto direct = parameterLines("direct", state.direct_polynomial);
+        const auto inverse = parameterLines("inverse", state.inverse_polynomial);
+        lines.insert(lines.end(), direct.begin(), direct.end());
+        lines.insert(lines.end(), inverse.begin(), inverse.end());
+    }
+    for (const std::string& line : lines) {
+        if (y > bottom) {
+            break;
+        }
+        text(image, line, cv::Point(x, y), 0.34, white);
+        y += 17;
+    }
+}
+
+void drawReprojectionLegend(
+    cv::Mat& camera,
+    const CalibrationVisualizationState& state)
+{
+    if ((!state.successful && !state.failed)
+        || state.displayed_view < 0 || camera.rows < 130) {
+        return;
+    }
+    const cv::Rect area(
+        18, camera.rows - 88, std::min(620, camera.cols - 36), 68);
+    cv::Mat shade = camera(area).clone();
+    cv::rectangle(shade, cv::Rect(0, 0, shade.cols, shade.rows),
+        cv::Scalar(15, 18, 23), -1);
+    cv::addWeighted(shade, 0.78, camera(area), 0.22, 0.0, camera(area));
+    text(camera,
+        "REPROJECTION - retained view "
+            + std::to_string(state.displayed_view + 1)
+            + " - RMS " + compactNumber(state.displayed_view_rms_px)
+            + " px",
+        cv::Point(area.x + 12, area.y + 25), 0.48, white, 1);
+    text(camera,
+        "green: measured   magenta: model   red: residual",
+        cv::Point(area.x + 12, area.y + 50), 0.4, muted, 1);
+}
+
 } // namespace
 
 cv::Mat renderCalibrationVisualization(
@@ -246,12 +463,15 @@ cv::Mat renderCalibrationVisualization(
     const CalibrationVisualizationState& state)
 {
     const cv::Mat camera = toBgr(image);
-    cv::Mat output(camera.rows, camera.cols + panel_width, CV_8UC3,
+    const bool terminal = state.successful || state.failed;
+    const int output_rows = terminal ? std::max(camera.rows, 900) : camera.rows;
+    cv::Mat output(output_rows, camera.cols + panel_width, CV_8UC3,
         cv::Scalar(29, 32, 38));
     camera.copyTo(output(cv::Rect(0, 0, camera.cols, camera.rows)));
     cv::Mat camera_area = output(cv::Rect(0, 0, camera.cols, camera.rows));
     drawPattern(camera_area, state);
     drawReprojection(camera_area, state);
+    drawReprojectionLegend(camera_area, state);
 
     cv::Mat shade = camera_area.clone();
     cv::rectangle(shade, cv::Rect(0, 0, camera.cols, 72),
@@ -277,12 +497,17 @@ cv::Mat renderCalibrationVisualization(
     for (int index = 0; index < static_cast<int>(stages.size()); ++index) {
         const bool done = index < state.stage_index;
         const bool active = index == state.stage_index;
+        const cv::Scalar stage_color = done || (active && state.successful)
+            ? green
+            : active && state.failed ? red
+            : active ? cyan : cv::Scalar(75, 80, 90);
         cv::circle(output, cv::Point(x + 7, y - 4), 5,
-            done ? green : active ? cyan : cv::Scalar(75, 80, 90), -1,
-            cv::LINE_AA);
+            stage_color, -1, cv::LINE_AA);
         text(output, stages[static_cast<std::size_t>(index)],
             cv::Point(x + 22, y), 0.43,
-            active ? white : done ? green : muted,
+            done || (active && state.successful) ? green
+                : active && state.failed ? red
+                : active ? white : muted,
             active ? 2 : 1);
         y += 20;
     }
@@ -299,6 +524,65 @@ cv::Mat renderCalibrationVisualization(
     drawProgressBar(output, cv::Rect(x, y, panel_width - 44, 8),
         fraction, state.failed ? red : green);
     y += 20;
+
+    if (terminal) {
+        text(output,
+            state.result_message.empty() ? state.detail : state.result_message,
+            cv::Point(x, y), 0.46,
+            state.successful ? green : red, 1);
+        y += 22;
+        text(output,
+            "RMS " + compactNumber(state.rms_px, 4) + " px   views "
+                + std::to_string(state.retained_views) + "/"
+                + std::to_string(state.total_views),
+            cv::Point(x, y), 0.48, white, 1);
+        y += 20;
+        text(output,
+            "image " + std::to_string(state.image_width) + "x"
+                + std::to_string(state.image_height) + "   iterations "
+                + std::to_string(state.result_iterations),
+            cv::Point(x, y), 0.4, muted, 1);
+        y += 18;
+        text(output,
+            "total " + compactNumber(state.elapsed_seconds, 3)
+                + " s   initialize "
+                + compactNumber(state.initialization_seconds, 3) + " s",
+            cv::Point(x, y), 0.38, muted, 1);
+        y += 18;
+        text(output,
+            "optimize " + compactNumber(state.optimization_seconds, 3)
+                + " s   refine "
+                + compactNumber(state.refinement_seconds, 3)
+                + " s   validate "
+                + compactNumber(state.validation_seconds, 3) + " s",
+            cv::Point(x, y), 0.35, muted, 1);
+        y += 23;
+
+        text(output, "PER-VIEW RMS ERROR", cv::Point(x, y), 0.42, muted, 1);
+        y += 7;
+        drawRmsPlot(output, cv::Rect(x, y, panel_width - 44, 92), state);
+        y += 111;
+        text(output, "MODEL RADIAL PROJECTION", cv::Point(x, y),
+            0.42, muted, 1);
+        y += 7;
+        drawProjectionPlot(output,
+            cv::Rect(x, y, panel_width - 44, 92),
+            state.model_projection_curve);
+        y += 111;
+        text(output, "OPTIMIZATION COST (log)", cv::Point(x, y),
+            0.42, muted, 1);
+        y += 7;
+        drawCostPlot(output,
+            cv::Rect(x, y, panel_width - 44, 82),
+            state.cost_history);
+        y += 103;
+        drawResultParameters(output, x, y, output.rows - 48, state);
+
+        text(output,
+            "output: " + shortenedFromLeft(state.output_path, 72U),
+            cv::Point(x, output.rows - 22), 0.32, muted);
+        return output;
+    }
 
     if (collecting) {
         text(output,
