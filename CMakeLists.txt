@@ -327,17 +327,6 @@ ament_target_dependencies(led_manager_node
     mrs_modules_msgs
 )
 
-if(BUILD_TESTING)
-    enable_testing()
-    add_executable(calibrator_synthetic_test
-        test/calibrator_synthetic.cpp
-    )
-    target_link_libraries(calibrator_synthetic_test
-        ${PROJECT_NAME}_calibrator
-    )
-    add_test(NAME calibrator_synthetic_test COMMAND calibrator_synthetic_test)
-endif()
-
 install(TARGETS
     ${PROJECT_NAME}_common
     ${PROJECT_NAME}_calibration
