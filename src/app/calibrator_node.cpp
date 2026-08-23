@@ -46,6 +46,7 @@ void CalibratorNode::loadParameters()
 {
     using uvdar_core::helpers::yaml::requireNode;
     using uvdar_core::helpers::yaml::requireScalar;
+    using uvdar_core::helpers::yaml::optionalScalar;
     using uvdar_core::helpers::yaml::resolvePath;
 
     const std::string config_path_string =
@@ -92,6 +93,8 @@ void CalibratorNode::loadParameters()
         config, "pattern_columns", "calibrator");
     detector_options_.spacing = requireScalar<double>(
         config, "pattern_spacing", "calibrator");
+    detector_options_.checkerboard_max_detection_height = optionalScalar<int>(
+        config, "checkerboard_max_detection_height", 520);
     detector_options_.maximum_candidates = requireScalar<int>(
         config, "maximum_detection_candidates", "calibrator");
     detector_options_.fimd_threshold = requireScalar<int>(
@@ -168,10 +171,12 @@ void CalibratorNode::loadParameters()
     }
     if (detector_options_.rows < 2 || detector_options_.columns < 2
         || detector_options_.spacing <= 0.0
+        || detector_options_.checkerboard_max_detection_height < 64
         || detector_options_.maximum_candidates
             < detector_options_.rows * detector_options_.columns) {
         throw std::invalid_argument(
-            "Pattern dimensions and spacing must be positive, and "
+            "Pattern dimensions and spacing must be positive, checkerboard "
+            "detection height must be at least 64 pixels, and "
             "maximum_detection_candidates must fit the complete pattern.");
     }
     if (detector_options_.fimd_threshold < 0

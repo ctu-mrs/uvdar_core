@@ -22,6 +22,7 @@ struct PatternDetectorOptions {
     int rows = 6;
     int columns = 8;
     double spacing = 0.04;
+    int checkerboard_max_detection_height = 520;
     int maximum_candidates = 200;
     int fimd_threshold = 120;
     int fimd_threshold_diff = 60;

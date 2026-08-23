@@ -18,6 +18,9 @@ calibrator:
   pattern_columns: 8
   # Adjacent target-point distance in any consistent physical unit; positive number, default 0.04.
   pattern_spacing: 0.04
+  # Maximum image height used while searching for checkerboard corners; integer >= 64, default 520.
+  # Smaller values detect faster, while larger values preserve very small or distant checkerboards.
+  checkerboard_max_detection_height: 520
 
   # Diverse complete observations collected before solving; integer >= 3, default 20.
   required_pattern_frames: 20
