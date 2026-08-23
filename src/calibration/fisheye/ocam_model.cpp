@@ -16,9 +16,9 @@ namespace {
 
 constexpr double epsilon = 1.0e-12;
 
-double affineDeterminant(const OcamModel& model)
+double stretchDeterminant(const OcamModel& model)
 {
-    return model.c - model.d * model.e;
+    return model.stretchMatrix().determinant();
 }
 
 std::string nextDataLine(std::ifstream& input)
@@ -88,8 +88,8 @@ OcamModel loadModel(const std::string& filename)
     if (model.width <= 0 || model.height <= 0) {
         throw std::runtime_error("Invalid dimensions in '" + filename + "'.");
     }
-    if (std::abs(affineDeterminant(model)) < epsilon) {
-        throw std::runtime_error("Invalid affine matrix in '" + filename + "': c - d*e is singular.");
+    if (std::abs(stretchDeterminant(model)) < epsilon) {
+        throw std::runtime_error("Invalid stretch matrix in '" + filename + "': c - d*e is singular.");
     }
 
     if (!input.good() && !input.eof()) {
@@ -100,10 +100,10 @@ OcamModel loadModel(const std::string& filename)
 
 Eigen::Vector3d cam2world(const Eigen::Vector2d& point_2d, const OcamModel& model)
 {
-    // Invert the OCamCalib affine image transform before evaluating z = pol(r).
-    const double det = affineDeterminant(model);
+    // Remove the sensor stretch before evaluating z = pol(r).
+    const double det = stretchDeterminant(model);
     if (std::abs(det) < epsilon) {
-        throw std::runtime_error("Invalid OCamCalib affine transform (singular determinant).");
+        throw std::runtime_error("Invalid OCam stretch matrix (singular determinant).");
     }
     const double invdet = 1.0 / det;
     const double xp = invdet * ((point_2d.x() - model.xc) - model.d * (point_2d.y() - model.yc));
@@ -156,9 +156,9 @@ Eigen::Matrix<double, 2, 3> OcamModel::projectJacobian(const Eigen::Vector3d& ca
     const double x = raw_point.x();
     const double y = raw_point.y();
     const double z = raw_point.z();
-    const double det = affineDeterminant(*this);
+    const double det = stretchDeterminant(*this);
     if (std::abs(det) < epsilon) {
-        throw std::runtime_error("Invalid OCamCalib affine transform (singular determinant).");
+        throw std::runtime_error("Invalid OCam stretch matrix (singular determinant).");
     }
     const double r = std::hypot(x, y);
     if (r < epsilon || length_invpol <= 0) {
@@ -169,7 +169,7 @@ Eigen::Matrix<double, 2, 3> OcamModel::projectJacobian(const Eigen::Vector3d& ca
         return jacobian;
     }
 
-    // Chain rule: point -> theta -> rho(theta) -> affine pixel.
+    // Chain rule: point -> theta -> rho(theta) -> stretched pixel.
     const double theta = std::atan2(z, r);
     const auto [rho, drho_dtheta] =
         uvdar_core::helpers::evaluatePolynomialAndDerivativeAscending(
@@ -197,10 +197,8 @@ Eigen::Matrix<double, 2, 3> OcamModel::projectJacobian(const Eigen::Vector3d& ca
     dv_draw << dax_dx * rho + ax * drho_dx, dax_dy * rho + ax * drho_dy, ax * drho_dz,
         day_dx * rho + ay * drho_dx, day_dy * rho + ay * drho_dy, ay * drho_dz;
 
-    Eigen::Matrix2d affine;
-    affine << c, d,
-        e, 1.0;
-    const Eigen::Matrix<double, 2, 3> draw_uv_draw_point = affine * dv_draw;
+    const Eigen::Matrix<double, 2, 3> draw_uv_draw_point =
+        stretchMatrix() * dv_draw;
 
     Eigen::Matrix<double, 3, 3> draw_point_dcamera = Eigen::Matrix3d::Zero();
     draw_point_dcamera(0, 1) = 1.0;
@@ -216,17 +214,17 @@ Eigen::Matrix<double, 3, 2> OcamModel::backProjectJacobian(const Eigen::Vector2d
 {
     // Public pixels are x,y; OCamCalib stores rows,columns.
     const Eigen::Vector2d raw_image(image_point.y(), image_point.x());
-    const double det = affineDeterminant(*this);
+    const double det = stretchDeterminant(*this);
     if (std::abs(det) < epsilon) {
-        throw std::runtime_error("Invalid OCamCalib affine transform (singular determinant).");
+        throw std::runtime_error("Invalid OCam stretch matrix (singular determinant).");
     }
     const double safe_invdet = 1.0 / det;
-    Eigen::Matrix2d affine_inverse;
-    affine_inverse << safe_invdet, -d * safe_invdet,
+    Eigen::Matrix2d stretch_inverse;
+    stretch_inverse << safe_invdet, -d * safe_invdet,
         -e * safe_invdet, c * safe_invdet;
 
     const Eigen::Vector2d centered(raw_image.x() - xc, raw_image.y() - yc);
-    const Eigen::Vector2d xy = affine_inverse * centered;
+    const Eigen::Vector2d xy = stretch_inverse * centered;
     const double x = xy.x();
     const double y = xy.y();
     const double r = std::hypot(x, y);
@@ -249,7 +247,7 @@ Eigen::Matrix<double, 3, 2> OcamModel::backProjectJacobian(const Eigen::Vector2d
         dz_dx, dz_dy;
     const Eigen::Vector3d raw_vector(x, y, z);
     const Eigen::Matrix<double, 3, 2> draw_draw_image =
-        uvdar_core::helpers::normalizedVectorJacobian(raw_vector, epsilon) * draw_dxy * affine_inverse;
+        uvdar_core::helpers::normalizedVectorJacobian(raw_vector, epsilon) * draw_dxy * stretch_inverse;
 
     Eigen::Matrix3d public_axis = Eigen::Matrix3d::Zero();
     public_axis(0, 1) = 1.0;

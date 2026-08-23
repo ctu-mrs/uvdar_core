@@ -414,9 +414,11 @@ void drawResultParameters(
             "center(x,y) [" + parameterNumber(state.center.x) + ", "
             + parameterNumber(state.center.y) + "]");
         lines.push_back(
-            "affine [" + parameterNumber(state.affine[0]) + ", "
-            + parameterNumber(state.affine[1]) + ", "
-            + parameterNumber(state.affine[2]) + "]");
+            "stretch [[" + parameterNumber(state.stretch_matrix(0, 0)) + ", "
+            + parameterNumber(state.stretch_matrix(0, 1)) + "],");
+        lines.push_back(
+            "         [" + parameterNumber(state.stretch_matrix(1, 0)) + ", "
+            + parameterNumber(state.stretch_matrix(1, 1)) + "]]");
         const auto direct = parameterLines("direct", state.direct_polynomial);
         const auto inverse = parameterLines("inverse", state.inverse_polynomial);
         lines.insert(lines.end(), direct.begin(), direct.end());
@@ -431,32 +433,91 @@ void drawResultParameters(
     }
 }
 
-void drawReprojectionLegend(
+void drawCalibratedFieldOfView(
     cv::Mat& camera,
     const CalibrationVisualizationState& state)
 {
-    if ((!state.successful && !state.failed)
-        || state.displayed_view < 0 || camera.rows < 130) {
+    if (camera.empty() || state.angular_projection_rings.empty()) {
         return;
     }
-    const cv::Rect area(
-        18, camera.rows - 88, std::min(620, camera.cols - 36), 68);
-    cv::Mat shade = camera(area).clone();
-    cv::rectangle(shade, cv::Rect(0, 0, shade.cols, shade.rows),
-        cv::Scalar(15, 18, 23), -1);
-    cv::addWeighted(shade, 0.78, camera(area), 0.22, 0.0, camera(area));
-    text(camera,
-        "REPROJECTION - retained view "
-            + std::to_string(state.displayed_view + 1)
-            + " - RMS " + compactNumber(state.displayed_view_rms_px)
-            + " px",
-        cv::Point(area.x + 12, area.y + 25), 0.48, white, 1);
-    text(camera,
-        "green: measured   magenta: model   red: residual",
-        cv::Point(area.x + 12, area.y + 50), 0.4, muted, 1);
+    const cv::Rect bounds(0, 0, camera.cols, camera.rows);
+    for (const AngularProjectionRing& ring : state.angular_projection_rings) {
+        const cv::Scalar color = ring.limit ? orange : cyan;
+        const int thickness = ring.limit ? 3 : 1;
+        cv::Point label_point;
+        bool have_label = false;
+        for (std::size_t index = 1U; index < ring.points.size(); ++index) {
+            const cv::Point2f& first_float = ring.points[index - 1U];
+            const cv::Point2f& second_float = ring.points[index];
+            if (!std::isfinite(first_float.x) || !std::isfinite(first_float.y)
+                || !std::isfinite(second_float.x)
+                || !std::isfinite(second_float.y)) {
+                continue;
+            }
+            cv::Point first(
+                static_cast<int>(std::lround(first_float.x)),
+                static_cast<int>(std::lround(first_float.y)));
+            cv::Point second(
+                static_cast<int>(std::lround(second_float.x)),
+                static_cast<int>(std::lround(second_float.y)));
+            cv::Point clipped_first = first;
+            cv::Point clipped_second = second;
+            if (cv::clipLine(bounds, clipped_first, clipped_second)) {
+                cv::line(camera, clipped_first, clipped_second,
+                    color, thickness, cv::LINE_AA);
+            }
+            if (bounds.contains(second)
+                && second.y > 84 && second.x < camera.cols - 65
+                && (!have_label || second.x > label_point.x)) {
+                label_point = second;
+                have_label = true;
+            }
+        }
+        if (have_label) {
+            const std::string label = compactNumber(ring.angle_degrees, 1)
+                + (ring.limit ? " deg limit" : " deg");
+            const cv::Point origin(
+                std::clamp(label_point.x + 5, 4, camera.cols - 100),
+                std::clamp(label_point.y - 5, 90, camera.rows - 5));
+            text(camera, label, origin, 0.36, cv::Scalar(15, 18, 23), 3);
+            text(camera, label, origin, 0.36, color, 1);
+        }
+    }
+
+    if (std::isfinite(state.calibrated_center.x)
+        && std::isfinite(state.calibrated_center.y)) {
+        const cv::Point center(
+            static_cast<int>(std::lround(state.calibrated_center.x)),
+            static_cast<int>(std::lround(state.calibrated_center.y)));
+        if (bounds.contains(center)) {
+            cv::drawMarker(camera, center, cv::Scalar(15, 18, 23),
+                cv::MARKER_CROSS, 31, 5, cv::LINE_AA);
+            cv::drawMarker(camera, center, green,
+                cv::MARKER_CROSS, 31, 2, cv::LINE_AA);
+            cv::circle(camera, center, 5, green, 2, cv::LINE_AA);
+            const std::string center_label = "calibrated center  "
+                + compactNumber(state.calibrated_center.x, 1) + ", "
+                + compactNumber(state.calibrated_center.y, 1);
+            const cv::Point origin(
+                std::clamp(center.x + 12, 4, camera.cols - 250),
+                std::clamp(center.y - 12, 90, camera.rows - 5));
+            text(camera, center_label, origin, 0.4,
+                cv::Scalar(15, 18, 23), 3);
+            text(camera, center_label, origin, 0.4, green, 1);
+        }
+    }
 }
 
 } // namespace
+
+cv::Mat renderCalibrationDetectionOverlay(
+    const cv::Mat& image,
+    const CalibrationVisualizationState& state)
+{
+    cv::Mat output = toBgr(image);
+    drawPattern(output, state);
+    return output;
+}
 
 cv::Mat renderCalibrationVisualization(
     const cv::Mat& image,
@@ -464,14 +525,17 @@ cv::Mat renderCalibrationVisualization(
 {
     const cv::Mat camera = toBgr(image);
     const bool terminal = state.successful || state.failed;
-    const int output_rows = terminal ? std::max(camera.rows, 900) : camera.rows;
+    const int output_rows = terminal ? std::max(camera.rows, 940) : camera.rows;
     cv::Mat output(output_rows, camera.cols + panel_width, CV_8UC3,
         cv::Scalar(29, 32, 38));
     camera.copyTo(output(cv::Rect(0, 0, camera.cols, camera.rows)));
     cv::Mat camera_area = output(cv::Rect(0, 0, camera.cols, camera.rows));
-    drawPattern(camera_area, state);
-    drawReprojection(camera_area, state);
-    drawReprojectionLegend(camera_area, state);
+    if (terminal) {
+        drawCalibratedFieldOfView(camera_area, state);
+    } else {
+        drawPattern(camera_area, state);
+        drawReprojection(camera_area, state);
+    }
 
     cv::Mat shade = camera_area.clone();
     cv::rectangle(shade, cv::Rect(0, 0, camera.cols, 72),
@@ -542,6 +606,20 @@ cv::Mat renderCalibrationVisualization(
                 + std::to_string(state.image_height) + "   iterations "
                 + std::to_string(state.result_iterations),
             cv::Point(x, y), 0.4, muted, 1);
+        y += 18;
+        text(output,
+            "detected FoV " + compactNumber(state.detected_fov_degrees, 1)
+                + " deg   expected "
+                + (state.expected_fov_degrees > 0.0
+                    ? compactNumber(state.expected_fov_degrees, 1) + " deg"
+                    : std::string("automatic")),
+            cv::Point(x, y), 0.38, muted, 1);
+        y += 18;
+        text(output,
+            "outer ring "
+                + compactNumber(0.5 * state.visualized_fov_degrees, 1)
+                + " deg off-axis",
+            cv::Point(x, y), 0.38, orange, 1);
         y += 18;
         text(output,
             "total " + compactNumber(state.elapsed_seconds, 3)

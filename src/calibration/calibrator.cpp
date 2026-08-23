@@ -93,7 +93,7 @@ int cameraParameterCount(
         case CalibrationModelType::FisheyeOrthographic:
             return 8;
         case CalibrationModelType::OcamCalib:
-            return 4 + std::max(2, options.ocam_inverse_polynomial_order + 1);
+            return 5 + std::max(2, options.ocam_inverse_polynomial_order + 1);
     }
     throw std::runtime_error("Unknown calibration model.");
 }
@@ -223,12 +223,15 @@ CalibrationState makeInitialState(
             initial.cx, initial.cy;
     } else {
         // The polynomial angle is measured from the image plane. An
-        // equidistant initial model is therefore rho=f*(theta+pi/2).
-        // A symmetric affine matrix removes the unobservable in-plane
-        // rotation shared by the lens transform and every target pose.
-        state.camera.head<4>() << initial.cx, initial.cy, 1.0, 0.0;
-        state.camera(4) = 0.5 * pi * 0.5 * (initial.fx + initial.fy);
-        state.camera(5) = 0.5 * (initial.fx + initial.fy);
+        // equidistant initial model is therefore rho=f*(theta+pi/2). The
+        // three independent stretch entries start at the identity matrix;
+        // fixing the lower-right entry to one establishes the scale gauge.
+        state.camera.head<5>() << initial.cx, initial.cy,
+            options.initial_stretch_matrix(0, 0),
+            options.initial_stretch_matrix(0, 1),
+            options.initial_stretch_matrix(1, 0);
+        state.camera(5) = 0.5 * pi * 0.5 * (initial.fx + initial.fy);
+        state.camera(6) = 0.5 * (initial.fx + initial.fy);
     }
     return state;
 }
@@ -367,10 +370,10 @@ fisheye::OcamModel makeOcamModel(const Eigen::VectorXd& camera)
     model.yc = camera(0); // native column center = public x
     model.c = camera(2);
     model.d = camera(3);
-    model.e = camera(3);
-    model.length_invpol = static_cast<int>(camera.size()) - 4;
+    model.e = camera(4);
+    model.length_invpol = static_cast<int>(camera.size()) - 5;
     for (int index = 0; index < model.length_invpol; ++index) {
-        model.invpol[static_cast<std::size_t>(index)] = camera(4 + index);
+        model.invpol[static_cast<std::size_t>(index)] = camera(5 + index);
     }
     model.length_pol = 1;
     model.pol[0] = -1.0;
@@ -405,15 +408,15 @@ ProjectionLinearization ocamProjection(
     const double qx = point.x() / radius * rho;
     const double qy = point.y() / radius * rho;
     output.camera_jacobian(1, 2) = qy;
-    output.camera_jacobian(0, 3) = qy;
     output.camera_jacobian(1, 3) = qx;
+    output.camera_jacobian(0, 4) = qy;
 
     double theta_power = 1.0;
     for (int coefficient = 0; coefficient < model.length_invpol;
          ++coefficient) {
-        output.camera_jacobian(0, 4 + coefficient) = theta_power
+        output.camera_jacobian(0, 5 + coefficient) = theta_power
             * (point.x() + model.e * point.y()) / radius;
-        output.camera_jacobian(1, 4 + coefficient) = theta_power
+        output.camera_jacobian(1, 5 + coefficient) = theta_power
             * (model.d * point.x() + model.c * point.y()) / radius;
         theta_power *= theta;
     }
@@ -464,7 +467,7 @@ bool validState(
     }
     if (model == CalibrationModelType::OcamCalib
         && std::abs(state.camera(2)
-               - state.camera(3) * state.camera(3))
+               - state.camera(3) * state.camera(4))
             < 1.0e-3) {
         return false;
     }
@@ -665,7 +668,7 @@ std::vector<double> fitOcamDirectPolynomial(
         const double theta = -0.5 * pi + 1.0e-3
             + fraction * (maximum_theta + 0.5 * pi - 1.0e-3);
         const double rho = uvdar_core::helpers::evaluatePolynomialAscending(
-            camera.data() + 4, camera.data() + camera.size(), theta);
+            camera.data() + 5, camera.data() + camera.size(), theta);
         const double z = rho * std::tan(theta);
         if (std::isfinite(rho) && std::isfinite(z) && rho >= 0.0) {
             radii.push_back(rho);
@@ -673,7 +676,7 @@ std::vector<double> fitOcamDirectPolynomial(
         }
     }
     if (radii.size() < static_cast<std::size_t>(order + 1)) {
-        return {-std::abs(camera(5)), 0.0};
+        return {-std::abs(camera(6)), 0.0};
     }
     const double radius_scale = std::max(
         1.0, *std::max_element(radii.begin(), radii.end()));
@@ -721,10 +724,10 @@ void fillResultParameters(
             state.camera.data() + 4, state.camera.data() + state.camera.size());
     } else {
         result.center = state.camera.head<2>();
-        result.affine = Eigen::Vector3d(
-            state.camera(2), state.camera(3), state.camera(3));
+        result.stretch_matrix << state.camera(2), state.camera(3),
+            state.camera(4), 1.0;
         result.inverse_polynomial.assign(
-            state.camera.data() + 4, state.camera.data() + state.camera.size());
+            state.camera.data() + 5, state.camera.data() + state.camera.size());
         result.direct_polynomial = fitOcamDirectPolynomial(
             state.camera,
             observations,
@@ -808,6 +811,15 @@ std::string toString(const CalibrationModelType model)
 CameraCalibrator::CameraCalibrator(CalibratorOptions options)
     : options_(std::move(options))
 {
+    const double stretch_determinant =
+        options_.initial_stretch_matrix.determinant();
+    if (!options_.initial_stretch_matrix.allFinite()
+        || std::abs(options_.initial_stretch_matrix(1, 1) - 1.0) > 1.0e-12
+        || std::abs(stretch_determinant) < 1.0e-6) {
+        throw std::invalid_argument(
+            "The initial OCam stretch matrix must be finite, nonsingular, "
+            "and have a lower-right entry of one.");
+    }
 }
 
 CalibrationResult CameraCalibrator::calibrate(
@@ -1050,8 +1062,15 @@ void writeCalibrationYaml(
         root["inverse_polynomial"] = result.inverse_polynomial;
         root["center"] = std::vector<double> {
             result.center.y(), result.center.x()};
+        YAML::Node stretch_matrix;
+        stretch_matrix.push_back(std::vector<double> {
+            result.stretch_matrix(0, 0), result.stretch_matrix(0, 1)});
+        stretch_matrix.push_back(std::vector<double> {
+            result.stretch_matrix(1, 0), result.stretch_matrix(1, 1)});
+        root["stretch_matrix"] = stretch_matrix;
         root["affine"] = std::vector<double> {
-            result.affine.x(), result.affine.y(), result.affine.z()};
+            result.stretch_matrix(0, 0), result.stretch_matrix(0, 1),
+            result.stretch_matrix(1, 0)};
         root["image_size"] = std::vector<int> {
             result.image_height, result.image_width};
     } else {

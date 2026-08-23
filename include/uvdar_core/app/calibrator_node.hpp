@@ -40,6 +40,7 @@ private:
     };
 
     void loadParameters();
+    void loadIntermediateResults();
     void createInterfaces();
     void onImage(const sensor_msgs::msg::Image::ConstSharedPtr& message);
     void processLatestImage();
@@ -61,8 +62,10 @@ private:
     std::string visualization_topic_;
     std::string status_topic_;
     std::string output_file_;
+    std::string intermediate_results_path_;
     std::string model_name_;
     std::string pattern_name_;
+    double expected_lens_fov_deg_ = 0.0;
     int required_frames_ = 20;
     double minimum_frame_interval_sec_ = 0.35;
     double minimum_frame_diversity_ = 0.07;
@@ -70,6 +73,8 @@ private:
     double visualization_fps_ = 5.0;
     double completion_display_sec_ = 5.0;
     bool terminate_on_failure_ = true;
+    bool store_intermediate_results_ = false;
+    bool load_intermediate_results_ = false;
 
     uvdar_core::calibration::PatternDetectorOptions detector_options_;
     uvdar_core::calibration::CalibratorOptions calibrator_options_;
@@ -104,6 +109,11 @@ private:
     uvdar_core::calibration::CalibrationProgress progress_;
     std::vector<double> cost_history_;
     std::vector<cv::Point2f> model_projection_curve_;
+    cv::Point2f calibrated_center_;
+    std::vector<uvdar_core::calibration::AngularProjectionRing>
+        angular_projection_rings_;
+    double detected_fov_degrees_ = 0.0;
+    double visualized_fov_degrees_ = 0.0;
     std::optional<uvdar_core::calibration::CalibrationResult> result_;
     std::chrono::steady_clock::time_point last_accepted_time_ {};
     std::optional<std::chrono::steady_clock::time_point> finished_time_;

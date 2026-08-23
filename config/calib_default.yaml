@@ -1,15 +1,27 @@
 # Complete camera-calibrator configuration. Pass this file through the
-# calibrator.launch.py config_file argument; every key below is required.
+# calibrator.launch.py config_file argument; every key is documented below.
 calibrator:
   # ROS image topic carrying mono8-compatible frames; non-empty string, default /camera/image_raw.
   image_topic: /camera/image_raw
   # Destination YAML path; absolute or relative to this file, with $VARIABLE
   # expansion; default ${HOME}/.ros/uvdar/camera_calibration.yaml.
   output_calibration_file: ${HOME}/.ros/uvdar/camera_calibration.yaml
+  # Save each accepted source image, detection overlay, and correspondence YAML;
+  # boolean true/false, default false.
+  store_intermediate_results: false
+  # Load saved correspondences and skip image subscription and pattern detection;
+  # boolean true/false, default false; cannot be enabled together with storing.
+  load_intermediate_results: false
+  # Dataset directory used by both intermediate modes; absolute or relative to
+  # this file, with $VARIABLE expansion; default ${HOME}/.ros/uvdar/calibration_frames.
+  intermediate_results_path: ${HOME}/.ros/uvdar/calibration_frames
 
   # Lens family; options: ocamcalib, pinhole, fisheye_equidistant,
   # fisheye_equisolid, fisheye_stereographic, fisheye_orthographic; default ocamcalib.
   calibration_model: ocamcalib
+  # Expected full symmetric lens field of view in degrees; 0 selects observation-only estimation.
+  # The terminal overlay uses the larger of half this value and the largest observed ray angle; default 0.0.
+  expected_lens_fov_deg: 0.0
   # Target detector; options: checkerboard or led_grid; default checkerboard.
   pattern_type: checkerboard
   # Ordered target rows; integer >= 2, default 6.
@@ -65,6 +77,10 @@ calibrator:
   ocam_inverse_polynomial_order: 9
   # OCam image-to-ray direct-polynomial order; integer >= 2, default 4; ignored by other models.
   ocam_direct_polynomial_order: 4
+  # Initial OCam stretch matrix [c, d, e, 1] in row-major order; four finite
+  # values forming a nonsingular matrix, default identity [1, 0, 0, 1].
+  # Calibration solves c, d, and e analytically; the final entry fixes the scale gauge.
+  initial_stretch_matrix: [1.0, 0.0, 0.0, 1.0]
   # LM local-step norm convergence tolerance; non-negative number, default 1e-9.
   optimization_step_tolerance: 1.0e-9
   # LM infinity-norm gradient convergence tolerance; non-negative number, default 1e-8.

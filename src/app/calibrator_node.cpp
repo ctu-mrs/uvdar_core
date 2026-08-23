@@ -11,7 +11,9 @@
 
 #include <cv_bridge/cv_bridge.hpp>
 #include <sensor_msgs/image_encodings.hpp>
+#include <std_msgs/msg/header.hpp>
 
+#include "uvdar_core/calibration/intermediate_dataset.hpp"
 #include "uvdar_core/calibration/lens_model_loader.hpp"
 #include "uvdar_core/helpers/yaml.hpp"
 
@@ -21,9 +23,19 @@ namespace calibration = uvdar_core::calibration;
 
 namespace {
 
-std::vector<cv::Point2f> sampleModelProjection(
+struct FinalModelVisualization {
+    cv::Point2f center;
+    std::vector<cv::Point2f> radial_curve;
+    std::vector<calibration::AngularProjectionRing> angular_rings;
+    double detected_fov_degrees = 0.0;
+    double visualized_fov_degrees = 0.0;
+};
+
+FinalModelVisualization prepareFinalModelVisualization(
     const std::filesystem::path& calibration_file,
-    const calibration::CalibrationResult& result)
+    const calibration::CalibrationResult& result,
+    const std::vector<calibration::CalibrationObservation>& observations,
+    const double expected_fov_degrees)
 {
     YAML::Node input;
     input["calib_file"] = calibration_file.string();
@@ -31,19 +43,45 @@ std::vector<cv::Point2f> sampleModelProjection(
         input, calibration_file);
     const Eigen::Vector2d optical_center = model->project(
         Eigen::Vector3d(0.0, 0.0, 1.0));
+    FinalModelVisualization output;
     if (!optical_center.allFinite()) {
-        return {};
+        return output;
     }
+    output.center = cv::Point2f(
+        static_cast<float>(optical_center.x()),
+        static_cast<float>(optical_center.y()));
+
+    double detected_half_angle = 0.0;
+    for (const calibration::CalibrationObservation& observation : observations) {
+        for (const cv::Point2f& image_point : observation.image_points) {
+            const Eigen::Vector3d bearing = model->backProject(
+                Eigen::Vector2d(image_point.x, image_point.y));
+            if (!bearing.allFinite() || bearing.norm() < 1.0e-12) {
+                continue;
+            }
+            detected_half_angle = std::max(
+                detected_half_angle,
+                std::acos(std::clamp(
+                    bearing.normalized().z(), -1.0, 1.0)));
+        }
+    }
+    const double expected_half_angle = 0.5 * expected_fov_degrees
+        * M_PI / 180.0;
+    const double visualized_half_angle = std::clamp(
+        std::max(detected_half_angle, expected_half_angle),
+        0.0,
+        M_PI - 1.0e-3);
+    output.detected_fov_degrees = 2.0 * detected_half_angle * 180.0 / M_PI;
+    output.visualized_fov_degrees = 2.0 * visualized_half_angle * 180.0 / M_PI;
 
     const double maximum_useful_radius = 1.25 * std::hypot(
         static_cast<double>(result.image_width),
         static_cast<double>(result.image_height));
     constexpr int sample_count = 181;
-    constexpr double maximum_angle = 0.5 * M_PI - 1.0e-3;
-    std::vector<cv::Point2f> curve;
-    curve.reserve(sample_count);
+    output.radial_curve.reserve(sample_count);
     for (int sample = 0; sample < sample_count; ++sample) {
-        const double angle = maximum_angle * sample / (sample_count - 1);
+        const double angle = visualized_half_angle
+            * sample / (sample_count - 1);
         const Eigen::Vector2d pixel = model->project(Eigen::Vector3d(
             std::sin(angle), 0.0, std::cos(angle)));
         if (!pixel.allFinite()) {
@@ -53,11 +91,52 @@ std::vector<cv::Point2f> sampleModelProjection(
         if (!std::isfinite(radius) || radius > maximum_useful_radius) {
             continue;
         }
-        curve.emplace_back(
+        output.radial_curve.emplace_back(
             static_cast<float>(angle * 180.0 / M_PI),
             static_cast<float>(radius));
     }
-    return curve;
+
+    const double limit_degrees = visualized_half_angle * 180.0 / M_PI;
+    std::vector<double> ring_angles;
+    for (double angle = 15.0; angle + 1.0e-6 < limit_degrees;
+         angle += 15.0) {
+        ring_angles.push_back(angle);
+    }
+    if (limit_degrees > 1.0e-6) {
+        ring_angles.push_back(limit_degrees);
+    }
+
+    constexpr int azimuth_samples = 181;
+    const float invalid = std::numeric_limits<float>::quiet_NaN();
+    output.angular_rings.reserve(ring_angles.size());
+    for (std::size_t ring_index = 0U;
+         ring_index < ring_angles.size(); ++ring_index) {
+        calibration::AngularProjectionRing ring;
+        ring.angle_degrees = ring_angles[ring_index];
+        ring.limit = ring_index + 1U == ring_angles.size();
+        ring.points.reserve(azimuth_samples);
+        const double angle = ring.angle_degrees * M_PI / 180.0;
+        for (int sample = 0; sample < azimuth_samples; ++sample) {
+            const double azimuth = 2.0 * M_PI * sample
+                / static_cast<double>(azimuth_samples - 1);
+            const double radial = std::sin(angle);
+            const Eigen::Vector2d pixel = model->project(Eigen::Vector3d(
+                radial * std::cos(azimuth),
+                radial * std::sin(azimuth),
+                std::cos(angle)));
+            if (!pixel.allFinite()
+                || std::abs(pixel.x()) > 1.0e6
+                || std::abs(pixel.y()) > 1.0e6) {
+                ring.points.emplace_back(invalid, invalid);
+            } else {
+                ring.points.emplace_back(
+                    static_cast<float>(pixel.x()),
+                    static_cast<float>(pixel.y()));
+            }
+        }
+        output.angular_rings.push_back(std::move(ring));
+    }
+    return output;
 }
 
 } // namespace
@@ -66,22 +145,35 @@ CalibratorNode::CalibratorNode(const rclcpp::NodeOptions& options)
     : rclcpp::Node("calibrator", options)
 {
     loadParameters();
-    pattern_detector_ =
-        std::make_unique<calibration::CalibrationPatternDetector>(
-            detector_options_);
+    if (!load_intermediate_results_) {
+        pattern_detector_ =
+            std::make_unique<calibration::CalibrationPatternDetector>(
+                detector_options_);
+    }
     createInterfaces();
+    if (load_intermediate_results_) {
+        loadIntermediateResults();
+    }
     RCLCPP_INFO(
         get_logger(),
-        "Calibrating '%s' from %s patterns on %s; output: %s",
+        "Calibrating '%s' from %s patterns using %s; output: %s",
         model_name_.c_str(),
         pattern_name_.c_str(),
-        image_topic_.c_str(),
+        load_intermediate_results_
+            ? intermediate_results_path_.c_str() : image_topic_.c_str(),
         output_file_.c_str());
-    RCLCPP_INFO(
-        get_logger(),
-        "Processing calibration images at %.2f Hz; visualization at %.2f Hz",
-        image_processing_fps_,
-        visualization_fps_);
+    if (load_intermediate_results_) {
+        RCLCPP_INFO(
+            get_logger(),
+            "Saved detections loaded directly; visualization at %.2f Hz",
+            visualization_fps_);
+    } else {
+        RCLCPP_INFO(
+            get_logger(),
+            "Processing calibration images at %.2f Hz; visualization at %.2f Hz",
+            image_processing_fps_,
+            visualization_fps_);
+    }
 }
 
 CalibratorNode::~CalibratorNode()
@@ -96,6 +188,7 @@ void CalibratorNode::loadParameters()
     using uvdar_core::helpers::yaml::requireNode;
     using uvdar_core::helpers::yaml::requireScalar;
     using uvdar_core::helpers::yaml::optionalScalar;
+    using uvdar_core::helpers::yaml::optionalSequence;
     using uvdar_core::helpers::yaml::resolvePath;
 
     const std::string config_path_string =
@@ -117,8 +210,18 @@ void CalibratorNode::loadParameters()
         config, "status_topic", "calibrator");
     output_file_ = resolvePath(config_path, requireScalar<std::string>(
         config, "output_calibration_file", "calibrator"));
+    store_intermediate_results_ = optionalScalar<bool>(
+        config, "store_intermediate_results", false);
+    load_intermediate_results_ = optionalScalar<bool>(
+        config, "load_intermediate_results", false);
+    intermediate_results_path_ = resolvePath(
+        config_path,
+        optionalScalar<std::string>(
+            config, "intermediate_results_path", std::string {}));
     model_name_ = requireScalar<std::string>(
         config, "calibration_model", "calibrator");
+    expected_lens_fov_deg_ = optionalScalar<double>(
+        config, "expected_lens_fov_deg", 0.0);
     pattern_name_ = requireScalar<std::string>(
         config, "pattern_type", "calibrator");
     required_frames_ = requireScalar<int>(
@@ -202,6 +305,22 @@ void CalibratorNode::loadParameters()
         config, "ocam_inverse_polynomial_order", "calibrator");
     calibrator_options_.ocam_direct_polynomial_order = requireScalar<int>(
         config, "ocam_direct_polynomial_order", "calibrator");
+    const YAML::Node initial_stretch_node = config["initial_stretch_matrix"];
+    if (initial_stretch_node) {
+        if (!initial_stretch_node.IsSequence()) {
+            throw std::invalid_argument(
+                "initial_stretch_matrix must be a row-major sequence.");
+        }
+        const std::vector<double> initial_stretch = optionalSequence<double>(
+            config, "initial_stretch_matrix");
+        if (initial_stretch.size() != 4U) {
+            throw std::invalid_argument(
+                "initial_stretch_matrix must contain four row-major values.");
+        }
+        calibrator_options_.initial_stretch_matrix <<
+            initial_stretch[0], initial_stretch[1],
+            initial_stretch[2], initial_stretch[3];
+    }
     calibrator_options_.step_tolerance = requireScalar<double>(
         config, "optimization_step_tolerance", "calibrator");
     calibrator_options_.gradient_tolerance = requireScalar<double>(
@@ -209,10 +328,27 @@ void CalibratorNode::loadParameters()
     calibrator_options_.relative_cost_tolerance = requireScalar<double>(
         config, "optimization_relative_cost_tolerance", "calibrator");
 
-    if (image_topic_.empty() || visualization_topic_.empty()
+    if ((!load_intermediate_results_ && image_topic_.empty())
+        || visualization_topic_.empty()
         || status_topic_.empty() || output_file_.empty()) {
         throw std::invalid_argument(
-            "Calibrator topics and output_calibration_file must not be empty.");
+            "Live input topic, output topics, and output_calibration_file "
+            "must not be empty in their applicable modes.");
+    }
+    if (store_intermediate_results_ && load_intermediate_results_) {
+        throw std::invalid_argument(
+            "store_intermediate_results and load_intermediate_results cannot both be enabled.");
+    }
+    if ((store_intermediate_results_ || load_intermediate_results_)
+        && intermediate_results_path_.empty()) {
+        throw std::invalid_argument(
+            "intermediate_results_path must not be empty when an intermediate mode is enabled.");
+    }
+    if (!std::isfinite(expected_lens_fov_deg_)
+        || expected_lens_fov_deg_ < 0.0
+        || expected_lens_fov_deg_ >= 360.0) {
+        throw std::invalid_argument(
+            "expected_lens_fov_deg must be zero or a finite value below 360 degrees.");
     }
     if (required_frames_ < 3
         || calibrator_options_.minimum_views < 3
@@ -252,6 +388,11 @@ void CalibratorNode::loadParameters()
         || calibrator_options_.maximum_rms_px <= 0.0
         || calibrator_options_.ocam_inverse_polynomial_order < 1
         || calibrator_options_.ocam_direct_polynomial_order < 2
+        || !calibrator_options_.initial_stretch_matrix.allFinite()
+        || std::abs(calibrator_options_.initial_stretch_matrix(1, 1) - 1.0)
+            > 1.0e-12
+        || std::abs(calibrator_options_.initial_stretch_matrix.determinant())
+            < 1.0e-6
         || calibrator_options_.step_tolerance < 0.0
         || calibrator_options_.gradient_tolerance < 0.0
         || calibrator_options_.relative_cost_tolerance < 0.0) {
@@ -281,18 +422,20 @@ void CalibratorNode::createInterfaces()
         visualization_topic_, rclcpp::QoS(1).reliable());
     status_publisher_ = create_publisher<std_msgs::msg::String>(
         status_topic_, rclcpp::QoS(1).reliable().transient_local());
-    rclcpp::SubscriptionOptions subscription_options;
-    subscription_options.callback_group = image_callback_group_;
-    image_subscription_ = create_subscription<sensor_msgs::msg::Image>(
-        image_topic_,
-        rclcpp::SensorDataQoS().keep_last(1),
-        std::bind(&CalibratorNode::onImage, this, std::placeholders::_1),
-        subscription_options);
+    if (!load_intermediate_results_) {
+        rclcpp::SubscriptionOptions subscription_options;
+        subscription_options.callback_group = image_callback_group_;
+        image_subscription_ = create_subscription<sensor_msgs::msg::Image>(
+            image_topic_,
+            rclcpp::SensorDataQoS().keep_last(1),
+            std::bind(&CalibratorNode::onImage, this, std::placeholders::_1),
+            subscription_options);
 
-    processing_timer_ = create_wall_timer(
-        std::chrono::duration<double>(1.0 / image_processing_fps_),
-        std::bind(&CalibratorNode::processLatestImage, this),
-        processing_callback_group_);
+        processing_timer_ = create_wall_timer(
+            std::chrono::duration<double>(1.0 / image_processing_fps_),
+            std::bind(&CalibratorNode::processLatestImage, this),
+            processing_callback_group_);
+    }
     visualization_timer_ = create_wall_timer(
         std::chrono::duration<double>(1.0 / visualization_fps_),
         std::bind(&CalibratorNode::publishVisualization, this),
@@ -301,6 +444,49 @@ void CalibratorNode::createInterfaces()
         std::chrono::milliseconds(100),
         std::bind(&CalibratorNode::finishIfReady, this),
         visualization_callback_group_);
+}
+
+void CalibratorNode::loadIntermediateResults()
+{
+    calibration::IntermediateCalibrationDataset dataset =
+        calibration::loadIntermediateCalibrationDataset(
+            intermediate_results_path_, detector_options_);
+    if (dataset.observations.size()
+        < static_cast<std::size_t>(calibrator_options_.minimum_views)) {
+        throw std::runtime_error(
+            "The intermediate dataset contains fewer views than minimum_valid_views.");
+    }
+    {
+        std::scoped_lock lock(mutex_);
+        observations_ = std::move(dataset.observations);
+        observation_images_ = std::move(dataset.images);
+        image_size_ = dataset.image_size;
+        observation_headers_.resize(observations_.size());
+        descriptors_.reserve(observations_.size());
+        accepted_centers_normalized_.reserve(observations_.size());
+        for (const calibration::CalibrationObservation& observation : observations_) {
+            const Eigen::Vector4d descriptor = patternDescriptor(
+                observation.image_points, image_size_);
+            descriptors_.push_back(descriptor);
+            accepted_centers_normalized_.emplace_back(
+                static_cast<float>(descriptor.x()),
+                static_cast<float>(descriptor.y()));
+        }
+        required_frames_ = static_cast<int>(observations_.size());
+        if (!observation_images_.empty()) {
+            latest_processed_image_ = observation_images_.back();
+        }
+        if (!dataset.detections.empty()) {
+            latest_detection_ = std::move(dataset.detections.back());
+        }
+        detail_ = "Loaded saved detections; starting calibration";
+    }
+    RCLCPP_INFO(
+        get_logger(),
+        "Loaded %zu calibration views from %s; image detection is disabled",
+        observations_.size(),
+        intermediate_results_path_.c_str());
+    startCalibration();
 }
 
 Eigen::Vector4d CalibratorNode::patternDescriptor(
@@ -398,7 +584,9 @@ void CalibratorNode::processLatestImage()
         return;
     }
 
+    bool accepted = false;
     bool should_start = false;
+    std::size_t accepted_index = 0U;
     {
         std::scoped_lock lock(mutex_);
         if (stage_ != Stage::Collecting) {
@@ -435,6 +623,8 @@ void CalibratorNode::processLatestImage()
         observations_.push_back(std::move(observation));
         observation_images_.push_back(image);
         observation_headers_.push_back(header);
+        accepted_index = observations_.size() - 1U;
+        accepted = true;
         descriptors_.push_back(descriptor);
         accepted_centers_normalized_.emplace_back(
             static_cast<float>(descriptor.x()),
@@ -446,6 +636,29 @@ void CalibratorNode::processLatestImage()
             observations_.size(), required_frames_);
         should_start = observations_.size()
             >= static_cast<std::size_t>(required_frames_);
+    }
+    if (accepted && store_intermediate_results_) {
+        try {
+            calibration::storeIntermediateCalibrationFrame(
+                intermediate_results_path_,
+                accepted_index,
+                image,
+                detection,
+                detector_options_);
+        } catch (const std::exception& exception) {
+            {
+                std::scoped_lock lock(mutex_);
+                stage_ = Stage::Failed;
+                detail_ = std::string("Could not store accepted frame: ")
+                    + exception.what();
+                finished_time_ = std::chrono::steady_clock::now();
+                terminal_visualizations_published_ = 0;
+            }
+            RCLCPP_ERROR(
+                get_logger(), "Could not store accepted frame: %s",
+                exception.what());
+            return;
+        }
     }
     if (should_start) {
         startCalibration();
@@ -505,9 +718,10 @@ void CalibratorNode::runCalibration(
             detail_ = "Writing calibration YAML atomically";
         }
         calibration::writeCalibrationYaml(result, output_file_);
-        std::vector<cv::Point2f> projection_curve;
+        FinalModelVisualization final_visualization;
         try {
-            projection_curve = sampleModelProjection(output_file_, result);
+            final_visualization = prepareFinalModelVisualization(
+                output_file_, result, observations, expected_lens_fov_deg_);
         } catch (const std::exception& exception) {
             RCLCPP_WARN(
                 get_logger(),
@@ -519,7 +733,15 @@ void CalibratorNode::runCalibration(
         {
             std::scoped_lock lock(mutex_);
             result_ = std::move(result);
-            model_projection_curve_ = std::move(projection_curve);
+            model_projection_curve_ = std::move(
+                final_visualization.radial_curve);
+            calibrated_center_ = final_visualization.center;
+            angular_projection_rings_ = std::move(
+                final_visualization.angular_rings);
+            detected_fov_degrees_ =
+                final_visualization.detected_fov_degrees;
+            visualized_fov_degrees_ =
+                final_visualization.visualized_fov_degrees;
             stage_ = Stage::Complete;
             detail_ = "Calibration saved successfully";
             finished_time_ = std::chrono::steady_clock::now();
@@ -614,6 +836,7 @@ void CalibratorNode::publishVisualization()
             latest_detection_.candidates.size());
         snapshot.pattern_rows = detector_options_.rows;
         snapshot.pattern_columns = detector_options_.columns;
+        snapshot.expected_fov_degrees = expected_lens_fov_deg_;
         snapshot.image_width = image_size_.width;
         snapshot.image_height = image_size_.height;
         snapshot.iteration = progress_.iteration;
@@ -653,45 +876,26 @@ void CalibratorNode::publishVisualization()
             snapshot.per_view_rms_px = result_->per_view_rms_px;
             snapshot.retained_view_mask = result_->retained_views;
             snapshot.model_projection_curve = model_projection_curve_;
+            snapshot.calibrated_center = calibrated_center_;
+            snapshot.angular_projection_rings = angular_projection_rings_;
+            snapshot.detected_fov_degrees = detected_fov_degrees_;
+            snapshot.visualized_fov_degrees = visualized_fov_degrees_;
             snapshot.intrinsics = result_->intrinsics;
             snapshot.distortion = result_->distortion;
             snapshot.direct_polynomial = result_->direct_polynomial;
             snapshot.inverse_polynomial = result_->inverse_polynomial;
             snapshot.center = cv::Point2d(
                 result_->center.x(), result_->center.y());
-            snapshot.affine = cv::Vec3d(
-                result_->affine.x(),
-                result_->affine.y(),
-                result_->affine.z());
+            snapshot.stretch_matrix = cv::Matx22d(
+                result_->stretch_matrix(0, 0), result_->stretch_matrix(0, 1),
+                result_->stretch_matrix(1, 0), result_->stretch_matrix(1, 1));
             snapshot.result_message = result_->message;
 
-            std::size_t displayed_view = result_->projected_points.size();
-            double largest_rms = -1.0;
-            for (std::size_t index = 0U;
-                 index < result_->projected_points.size(); ++index) {
-                if (result_->projected_points[index].empty()
-                    || index >= observations_.size()
-                    || index >= observation_images_.size()) {
-                    continue;
+            if (!observation_images_.empty()) {
+                image = observation_images_.back().clone();
+                if (!observation_headers_.empty()) {
+                    header = observation_headers_.back();
                 }
-                const double view_rms = index < result_->per_view_rms_px.size()
-                    ? result_->per_view_rms_px[index] : 0.0;
-                if (view_rms > largest_rms) {
-                    largest_rms = view_rms;
-                    displayed_view = index;
-                }
-            }
-            if (displayed_view < result_->projected_points.size()) {
-                image = observation_images_[displayed_view].clone();
-                if (displayed_view < observation_headers_.size()) {
-                    header = observation_headers_[displayed_view];
-                }
-                snapshot.displayed_view = static_cast<int>(displayed_view);
-                snapshot.displayed_view_rms_px = largest_rms;
-                snapshot.measured_points =
-                    observations_[displayed_view].image_points;
-                snapshot.projected_points =
-                    result_->projected_points[displayed_view];
             }
         }
     }

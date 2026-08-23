@@ -1,6 +1,7 @@
 #include "uvdar_core/calibration/lens_model_loader.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <memory>
 #include <stdexcept>
@@ -34,13 +35,57 @@ YAML::Node loadCameraConfigFile(const YAML::Node& input_node, const std::filesys
     return yaml::loadFile(resolved_path);
 }
 
+std::array<double, 4> loadStretchMatrix(const YAML::Node& camera_node)
+{
+    const YAML::Node stretch = camera_node["stretch_matrix"];
+    std::array<double, 4> values {1.0, 0.0, 0.0, 1.0};
+    if (stretch) {
+        if (!stretch.IsSequence()) {
+            throw std::runtime_error("OCam stretch_matrix must be a sequence.");
+        }
+        if (stretch.size() == 4U
+            && stretch[0].IsScalar() && stretch[1].IsScalar()
+            && stretch[2].IsScalar() && stretch[3].IsScalar()) {
+            for (std::size_t index = 0U; index < values.size(); ++index) {
+                values[index] = stretch[index].as<double>();
+            }
+        } else if (stretch.size() == 2U
+            && stretch[0].IsSequence() && stretch[0].size() == 2U
+            && stretch[1].IsSequence() && stretch[1].size() == 2U) {
+            values = {
+                stretch[0][0].as<double>(), stretch[0][1].as<double>(),
+                stretch[1][0].as<double>(), stretch[1][1].as<double>()};
+        } else {
+            throw std::runtime_error(
+                "OCam stretch_matrix must be [[c, d], [e, 1]] or [c, d, e, 1].");
+        }
+    } else {
+        const std::vector<double> affine =
+            yaml::optionalSequence<double>(camera_node, "affine");
+        if (!affine.empty()) {
+            if (affine.size() != 3U) {
+                throw std::runtime_error("OCam affine must contain [c, d, e].");
+            }
+            values = {affine[0], affine[1], affine[2], 1.0};
+        }
+    }
+    if (!std::all_of(values.begin(), values.end(), [](const double value) {
+            return std::isfinite(value);
+        })
+        || std::abs(values[3] - 1.0) > 1.0e-12
+        || std::abs(values[0] - values[1] * values[2]) < 1.0e-12) {
+        throw std::runtime_error(
+            "OCam stretch_matrix must be finite, nonsingular, and have a lower-right entry of one.");
+    }
+    return values;
+}
+
 fisheye::OcamModel loadOcamYamlModel(const YAML::Node& camera_node)
 {
     fisheye::OcamModel model;
     const std::vector<double> direct = yaml::optionalSequence<double>(camera_node, "direct_polynomial");
     const std::vector<double> inverse = yaml::optionalSequence<double>(camera_node, "inverse_polynomial");
     const std::vector<double> center = yaml::optionalSequence<double>(camera_node, "center");
-    const std::vector<double> affine = yaml::optionalSequence<double>(camera_node, "affine");
     const std::vector<double> image_size = yaml::optionalSequence<double>(camera_node, "image_size");
 
     if (direct.empty() || direct.size() > static_cast<std::size_t>(fisheye::max_polynomial_length)) {
@@ -52,9 +97,6 @@ fisheye::OcamModel loadOcamYamlModel(const YAML::Node& camera_node)
     if (center.size() != 2U) {
         throw std::runtime_error("OCam YAML requires center: [row, column].");
     }
-    if (affine.size() != 3U) {
-        throw std::runtime_error("OCam YAML requires affine: [c, d, e].");
-    }
     if (image_size.size() != 2U) {
         throw std::runtime_error("OCam YAML requires image_size: [height, width].");
     }
@@ -65,9 +107,10 @@ fisheye::OcamModel loadOcamYamlModel(const YAML::Node& camera_node)
     std::copy(inverse.begin(), inverse.end(), model.invpol.begin());
     model.xc = center[0];
     model.yc = center[1];
-    model.c = affine[0];
-    model.d = affine[1];
-    model.e = affine[2];
+    const std::array<double, 4> stretch = loadStretchMatrix(camera_node);
+    model.c = stretch[0];
+    model.d = stretch[1];
+    model.e = stretch[2];
     model.height = static_cast<int>(std::llround(image_size[0]));
     model.width = static_cast<int>(std::llround(image_size[1]));
     return model;

@@ -29,9 +29,7 @@ public:
      */
     std::array<double, max_polynomial_length> invpol {};
     int length_invpol = 0;
-    /**
-     * @brief OCamCalib affine image transform parameters.
-     */
+    /** @brief Independent entries of the stretch matrix [[c,d],[e,1]]. */
     double xc = 0.0;
     double yc = 0.0;
     double c = 1.0;
@@ -40,9 +38,7 @@ public:
     int width = 0;
     int height = 0;
 
-    /**
-     * @brief Back-project [row, col] by the direct OCamCalib polynomial.
-     */
+    /** @brief Back-project a public [x/column, y/row] image point. */
     Eigen::Vector3d backProject(const Eigen::Vector2d& image_point) const override;
 
     /**
@@ -59,6 +55,13 @@ public:
      * @brief Analytic Jacobian d bearing / d pixel.
      */
     Eigen::Matrix<double, 3, 2> backProjectJacobian(const Eigen::Vector2d& image_point) const override;
+    /** @brief Return the complete stretch matrix with its fixed scale entry. */
+    Eigen::Matrix2d stretchMatrix() const
+    {
+        Eigen::Matrix2d matrix;
+        matrix << c, d, e, 1.0;
+        return matrix;
+    }
     int imageWidth() const override { return width; }
     int imageHeight() const override { return height; }
     std::string modelName() const override { return "ocamcalib"; }

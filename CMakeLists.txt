@@ -118,6 +118,7 @@ set(CALIBRATOR_SOURCES
     src/calibration/calibrator.cpp
     src/calibration/grid_extractor.cpp
     src/calibration/pattern_detector.cpp
+    src/calibration/intermediate_dataset.cpp
     src/calibration/calibration_visualization.cpp
     src/app/calibrator_node.cpp
 )

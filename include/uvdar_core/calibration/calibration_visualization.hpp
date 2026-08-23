@@ -7,6 +7,13 @@
 
 namespace uvdar_core::calibration {
 
+/** @brief Projection of a constant ray-angle circle through the fitted lens. */
+struct AngularProjectionRing {
+    double angle_degrees = 0.0;
+    bool limit = false;
+    std::vector<cv::Point2f> points;
+};
+
 /** @brief Immutable data needed to render one calibrator status frame. */
 struct CalibrationVisualizationState {
     std::string stage;
@@ -36,6 +43,9 @@ struct CalibrationVisualizationState {
     double optimization_seconds = 0.0;
     double refinement_seconds = 0.0;
     double validation_seconds = 0.0;
+    double expected_fov_degrees = 0.0;
+    double detected_fov_degrees = 0.0;
+    double visualized_fov_degrees = 0.0;
     bool pattern_found = false;
     bool pattern_column_major = false;
     bool successful = false;
@@ -55,12 +65,19 @@ struct CalibrationVisualizationState {
     std::vector<double> direct_polynomial;
     std::vector<double> inverse_polynomial;
     cv::Point2d center;
-    cv::Vec3d affine {1.0, 0.0, 0.0};
+    cv::Matx22d stretch_matrix = cv::Matx22d::eye();
+    cv::Point2f calibrated_center;
+    std::vector<AngularProjectionRing> angular_projection_rings;
     std::string result_message;
 };
 
 /** @brief Render the image overlay, coverage, pipeline, and optimizer plot. */
 cv::Mat renderCalibrationVisualization(
+    const cv::Mat& image,
+    const CalibrationVisualizationState& state);
+
+/** @brief Render only the reusable candidate, hull, and ordered-grid overlay. */
+cv::Mat renderCalibrationDetectionOverlay(
     const cv::Mat& image,
     const CalibrationVisualizationState& state);
 

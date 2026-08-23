@@ -43,6 +43,8 @@ struct CalibratorOptions {
     int outlier_refinement_iterations = 50;
     int ocam_inverse_polynomial_order = 9;
     int ocam_direct_polynomial_order = 4;
+    /** @brief OCam initialization [[c,d],[e,1]]; identity is used by default. */
+    Eigen::Matrix2d initial_stretch_matrix = Eigen::Matrix2d::Identity();
     double initial_damping = 1.0e-4;
     double huber_delta_px = 3.0;
     double view_outlier_factor = 2.5;
@@ -88,10 +90,10 @@ struct CalibrationResult {
     std::vector<double> distortion;
     std::vector<double> direct_polynomial;
     std::vector<double> inverse_polynomial;
-    // Public pixel order [x/column, y/row].  The YAML writer swaps this for
-    // OCamCalib's native [row, column] center convention.
+    // Public pixel order [x/column, y/row]. The YAML writer swaps this for the
+    // polynomial model's native [row, column] center convention.
     Eigen::Vector2d center = Eigen::Vector2d::Zero();
-    Eigen::Vector3d affine = Eigen::Vector3d(1.0, 0.0, 0.0);
+    Eigen::Matrix2d stretch_matrix = Eigen::Matrix2d::Identity();
     std::vector<CalibrationPose> poses;
     std::vector<bool> retained_views;
     std::vector<double> per_view_rms_px;
