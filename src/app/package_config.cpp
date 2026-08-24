@@ -46,6 +46,21 @@ ModuleConfig parseModuleConfig(const YAML::Node& node)
 }
 
 /**
+ * @brief Parse an optional package module used only by full-stack configs.
+ *
+ * Detector/tracker-only endpoints intentionally omit unrelated module
+ * sections, so absence means disabled rather than malformed.
+ */
+ModuleConfig parseOptionalModuleConfig(const YAML::Node& root, const std::string& name)
+{
+    const YAML::Node node = root[name];
+    if (!node || node.IsNull()) {
+        return ModuleConfig {false, "none"};
+    }
+    return parseModuleConfig(node);
+}
+
+/**
  * @brief Trim whitespace from both ends of a string.
  */
 std::string trim(const std::string& value)
@@ -360,10 +375,10 @@ PackageConfig loadPackageConfig(const std::string& config_path_string)
         }
     }
 
-    config.pose_estimation = parseModuleConfig(requireNode(root, "pose_estimation"));
-    config.filtering = parseModuleConfig(requireNode(root, "filtering"));
-    config.calibration = parseModuleConfig(requireNode(root, "calibration"));
-    config.simulation = parseModuleConfig(requireNode(root, "simulation"));
+    config.pose_estimation = parseOptionalModuleConfig(root, "pose_estimation");
+    config.filtering = parseOptionalModuleConfig(root, "filtering");
+    config.calibration = parseOptionalModuleConfig(root, "calibration");
+    config.simulation = parseOptionalModuleConfig(root, "simulation");
 
     return config;
 }

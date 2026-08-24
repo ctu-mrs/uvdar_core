@@ -1,0 +1,86 @@
+# Standalone detector -> tracker -> bearing endpoint configuration. This file
+# deliberately contains no pose-estimator or pose-filter parameters.
+
+detector:
+  debug: false
+  gui: false
+  initial_delay_sec: 0.0
+  queue_depth: 10
+  thread_pool_size: 3
+  max_points_per_image: 100
+  inputs:
+    - name: camera_0
+      input_topic: /my_camera/pylon_ros2_camera_node/image_raw
+      output_topic: bearing/detector/camera_0/points_seen
+      detect_sun_points: true
+      publish_sun_points: true
+      sun_output_topic: bearing/detector/camera_0/points_seen/sun
+      publish_visualization: true
+      visualization_topic: bearing/detector/camera_0/visualization
+      mask_file: ""
+      backend: gpu
+      threshold: 120
+      threshold_diff: 60
+      threshold_sun: 240
+      min_sun_marker_distance: 20
+      max_markers_count: 300
+      max_sun_points_count: 72000
+      radii: [3, 5]
+
+tracking:
+  enabled: true
+  # The generalized backend preserves detector covariance and propagates
+  # prediction covariance through missed LED frames.
+  implementation: generalized
+  debug: false
+  gui: false
+  initial_delay_sec: 0.0
+  queue_depth: 10
+  thread_pool_size: 2
+  max_points_per_image: 100
+  max_px_shift_x: 3
+  max_px_shift_y: 3
+  max_zeros_consecutive: 10
+  stored_seq_len_factor: 20
+  max_buffer_length: 5000
+  poly_order: 4
+  decay_factor: 0.1
+  confidence_probability: 95.0
+  association_gate_sigma: 3.0
+  default_measurement_variance: 1.0
+  process_noise_variance: 1.0
+  allowed_BER_per_seq: 0
+  manchester_code: false
+  sequence_file: ""
+  sequences:
+    - "111001011"
+    - "110011010"
+    - "101100111"
+    - "100111010"
+  inputs:
+    - name: camera_0
+      input_topic: bearing/detector/camera_0/points_seen
+      input_image_topic: /my_camera/pylon_ros2_camera_node/image_raw
+      output_topic: bearing/tracker/camera_0/blinkers
+      publish_visualization: true
+      visualization_topic: bearing/tracker/camera_0/visualization
+
+bearing:
+  queue_depth: 10
+  # Keep tracks alive through expected OFF portions of their blink pattern.
+  # Predictions are marked in each BearingObservation.
+  publish_predictions: true
+  # Preserve every active tracker entry. Before its signal is decoded, id is
+  # negative and track_id provides the stable tracker-local identity.
+  publish_unidentified: true
+  # Pixel-covariance eigenvalue floor and invalid-covariance fallback, in px^2.
+  covariance_floor_px2: 1.0e-6
+  fallback_pixel_variance_px2: 1.0
+  inputs:
+    - name: camera_0
+      input_topic: bearing/tracker/camera_0/blinkers
+      output_topic: bearing/camera_0/observations
+      # Bearings and their covariance are expressed in this frame.
+      camera_frame: camera_0_optical_frame
+      # Absolute paths are also accepted. Relative paths resolve from this file.
+      calib_file: camera/ocam.yaml

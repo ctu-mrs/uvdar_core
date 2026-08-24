@@ -50,6 +50,8 @@ set(msg_files
     "msg/ImagePointsWithCovariancesStamped.msg"
     "msg/TrackedBlinker.msg"
     "msg/TrackerOutput.msg"
+    "msg/BearingObservation.msg"
+    "msg/BearingObservationArrayStamped.msg"
     "msg/PoseWithCovarianceIdentified.msg"
     "msg/PoseWithCovarianceArrayStamped.msg"
 )
@@ -75,7 +77,7 @@ foreach(SHADER_FILE_PATH ${SHADER_FILES_PATHS})
     list(APPEND SHADER_OBJECTS ${SHADER_OBJ})
 endforeach()
 
-# Message and service interfaces for points, tracker outputs and LED manager control.
+# Message and service interfaces for detections, tracks, bearings, poses, and LED control.
 rosidl_generate_interfaces(${PROJECT_NAME}
     ${msg_files}
     ${srv_files}
@@ -124,6 +126,7 @@ set(CALIBRATOR_SOURCES
 )
 
 set(POSE_ESTIMATION_SOURCES
+    src/pose_estimation/bearing.cpp
     src/pose_estimation/body_model.cpp
     src/pose_estimation/uncertainty.cpp
     src/pose_estimation/geometric_solver/geometric_solver.cpp
@@ -254,6 +257,10 @@ add_executable(pose_estimator_node
     src/app/main_pose_estimator_node.cpp
     src/app/pose_estimator_node.cpp
 )
+add_executable(bearing_node
+    src/app/main_bearing_node.cpp
+    src/app/bearing_node.cpp
+)
 add_executable(filter_node
     src/app/main_filter_node.cpp
     src/app/filter_node.cpp
@@ -279,11 +286,17 @@ target_link_libraries(pose_estimator_node
     yaml-cpp::yaml-cpp
     ${OpenCV_LIBRARIES}
 )
+target_link_libraries(bearing_node
+    ${PROJECT_NAME}_pose_estimation
+    ${PROJECT_NAME}_calibration
+    yaml-cpp::yaml-cpp
+)
 target_link_libraries(filter_node
     ${PROJECT_NAME}_pose_estimation
     yaml-cpp::yaml-cpp
 )
 target_link_libraries(pose_estimator_node ${cpp_typesupport_target})
+target_link_libraries(bearing_node ${cpp_typesupport_target})
 target_link_libraries(filter_node ${cpp_typesupport_target})
 target_link_libraries(led_manager_node ${cpp_typesupport_target})
 
@@ -314,6 +327,12 @@ ament_target_dependencies(pose_estimator_node
     tf2
     tf2_ros
 )
+ament_target_dependencies(bearing_node
+    rclcpp
+    builtin_interfaces
+    geometry_msgs
+    std_msgs
+)
 ament_target_dependencies(filter_node
     rclcpp
     builtin_interfaces
@@ -339,6 +358,7 @@ install(TARGETS
     calibrator_node
     tracker_node
     pose_estimator_node
+    bearing_node
     filter_node
     led_manager_node
     DESTINATION lib/${PROJECT_NAME}
