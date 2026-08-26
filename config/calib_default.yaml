@@ -1,7 +1,8 @@
 # Complete camera-calibrator configuration. Pass this file through the
 # calibrator.launch.py config_file argument; every key is documented below.
 calibrator:
-  # ROS image topic carrying mono8-compatible frames; non-empty string, default /camera/image_raw.
+  # ROS sensor_msgs/Image or sensor_msgs/CompressedImage topic; input is converted to mono8.
+  # Non-empty string, default /camera/image_raw.
   image_topic: /camera/image_raw
   # Destination YAML path; absolute or relative to this file, with $VARIABLE
   # expansion; default ${HOME}/.ros/uvdar/camera_calibration.yaml.

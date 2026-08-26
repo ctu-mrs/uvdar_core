@@ -431,6 +431,15 @@ void CalibratorNode::createInterfaces()
             rclcpp::SensorDataQoS().keep_last(1),
             std::bind(&CalibratorNode::onImage, this, std::placeholders::_1),
             subscription_options);
+        compressed_image_subscription_ =
+            create_subscription<sensor_msgs::msg::CompressedImage>(
+                image_topic_,
+                rclcpp::SensorDataQoS().keep_last(1),
+                std::bind(
+                    &CalibratorNode::onCompressedImage,
+                    this,
+                    std::placeholders::_1),
+                subscription_options);
 
         processing_timer_ = create_wall_timer(
             std::chrono::duration<double>(1.0 / image_processing_fps_),
@@ -549,9 +558,20 @@ void CalibratorNode::onImage(
     ++latest_image_sequence_;
 }
 
+void CalibratorNode::onCompressedImage(
+    const sensor_msgs::msg::CompressedImage::ConstSharedPtr& message)
+{
+    std::scoped_lock lock(mutex_);
+    if (stage_ != Stage::Collecting) {
+        return;
+    }
+    latest_image_message_ = message;
+    ++latest_image_sequence_;
+}
+
 void CalibratorNode::processLatestImage()
 {
-    sensor_msgs::msg::Image::ConstSharedPtr message;
+    std::optional<ImageMessage> message;
     {
         std::scoped_lock lock(mutex_);
         if (stage_ != Stage::Collecting || !latest_image_message_
@@ -564,8 +584,12 @@ void CalibratorNode::processLatestImage()
 
     cv_bridge::CvImagePtr converted;
     try {
-        converted = cv_bridge::toCvCopy(
-            message, sensor_msgs::image_encodings::MONO8);
+        converted = std::visit(
+            [](const auto& image_message) {
+                return cv_bridge::toCvCopy(
+                    image_message, sensor_msgs::image_encodings::MONO8);
+            },
+            *message);
     } catch (const cv_bridge::Exception& exception) {
         RCLCPP_WARN_THROTTLE(
             get_logger(), *get_clock(), 2000,
@@ -573,7 +597,9 @@ void CalibratorNode::processLatestImage()
         return;
     }
     const cv::Mat image = converted->image;
-    const std_msgs::msg::Header header = message->header;
+    const std_msgs::msg::Header header = std::visit(
+        [](const auto& image_message) { return image_message->header; },
+        *message);
 
     calibration::PatternDetection detection;
     try {
