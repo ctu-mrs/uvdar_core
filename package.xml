@@ -27,6 +27,7 @@
 
 	<depend>launch</depend>
 	<depend>launch_ros</depend>
+	<exec_depend>glslang-tools</exec_depend>
 	<exec_depend>mrs_serial</exec_depend>
 
 	<exec_depend>rosidl_default_runtime</exec_depend>
