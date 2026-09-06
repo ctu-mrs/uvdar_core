@@ -35,7 +35,6 @@ namespace {
     using uvdar_core::helpers::yaml::optionalScalar;
     using uvdar_core::helpers::yaml::optionalScalarAny;
     using uvdar_core::helpers::yaml::optionalSequence;
-    using uvdar_core::helpers::yaml::optionalSequenceAny;
     using uvdar_core::helpers::yaml::requireScalar;
     using uvdar_core::helpers::yaml::resolvePath;
 
@@ -194,59 +193,48 @@ void PoseEstimatorNode::loadConfiguration(const std::string& config_path_string)
         geometric_config.output_frame = output_frame_;
         geometric_config.signal_ids = signal_ids;
         geometric_config.signals_per_target = signals_per_target;
-        geometric_config.odometry_ref_enable = optionalScalarAny<bool>(
-            geometric_node, pose_node, "odometry_ref_enable", false);
-        odometry_ref_topic_ = optionalScalarAny<std::string>(
-            geometric_node,
-            pose_node,
-            "odometry_ref_topic",
-            "");
-        odometry_ref_maximum_age_sec_ = optionalScalarAny<double>(
-            geometric_node,
-            pose_node,
-            "odometry_ref_maximum_age_sec",
-            odometry_ref_maximum_age_sec_);
-        if (geometric_config.odometry_ref_enable && odometry_ref_topic_.empty()) {
-            throw std::runtime_error(
-                "geometric_solver.odometry_ref_enable requires geometric_solver.odometry_ref_topic "
-                "(nav_msgs/msg/Odometry, normally /mavros/local_position/odom).");
-        }
-        if (odometry_ref_maximum_age_sec_ < 0.0) {
-            throw std::runtime_error("geometric_solver.odometry_ref_maximum_age_sec must be non-negative.");
-        }
-        const std::vector<double> odometry_ref_model_gravity_axis = optionalSequenceAny<double>(
-            geometric_node,
-            pose_node,
-            "odometry_ref_model_gravity_axis");
-        if (!odometry_ref_model_gravity_axis.empty()) {
-            if (odometry_ref_model_gravity_axis.size() != 3U) {
-                throw std::runtime_error("geometric_solver.odometry_ref_model_gravity_axis must contain exactly three values.");
-            }
-            geometric_config.odometry_ref_model_gravity_axis = Eigen::Vector3d(
-                odometry_ref_model_gravity_axis[0],
-                odometry_ref_model_gravity_axis[1],
-                odometry_ref_model_gravity_axis[2]);
-            if (!geometric_config.odometry_ref_model_gravity_axis.allFinite()
-                || geometric_config.odometry_ref_model_gravity_axis.squaredNorm() <= std::numeric_limits<double>::epsilon()) {
-                throw std::runtime_error("geometric_solver.odometry_ref_model_gravity_axis must be a finite non-zero vector.");
-            }
-            geometric_config.odometry_ref_model_gravity_axis.normalize();
-        }
-        geometric_config.odometry_ref_min_axis_observability =
+        geometric_config.visibility_pose.visibility_half_angle_rad =
             optionalScalarAny<double>(
                 geometric_node,
                 pose_node,
-                "odometry_ref_min_axis_observability",
-                geometric_config.odometry_ref_min_axis_observability);
-        if (!std::isfinite(geometric_config.odometry_ref_min_axis_observability)
-            || geometric_config.odometry_ref_min_axis_observability < 0.0) {
+                "visibility_half_angle_rad",
+                geometric_config.visibility_pose.visibility_half_angle_rad);
+        geometric_config.visibility_pose.minimum_bearing_separation_rad =
+            optionalScalarAny<double>(
+                geometric_node,
+                pose_node,
+                "visibility_minimum_bearing_separation_rad",
+                geometric_config.visibility_pose.minimum_bearing_separation_rad);
+        geometric_config.visibility_pose.mode_gap_rad = optionalScalarAny<double>(
+            geometric_node,
+            pose_node,
+            "visibility_mode_gap_rad",
+            geometric_config.visibility_pose.mode_gap_rad);
+        geometric_config.visibility_pose.depth_quadrature_order =
+            optionalScalarAny<int>(
+                geometric_node,
+                pose_node,
+                "visibility_depth_quadrature_order",
+                geometric_config.visibility_pose.depth_quadrature_order);
+        geometric_config.visibility_pose.spin_quadrature_order =
+            optionalScalarAny<int>(
+                geometric_node,
+                pose_node,
+                "visibility_spin_quadrature_order",
+                geometric_config.visibility_pose.spin_quadrature_order);
+        if (!std::isfinite(geometric_config.visibility_pose.visibility_half_angle_rad)
+            || geometric_config.visibility_pose.visibility_half_angle_rad <= 0.0
+            || geometric_config.visibility_pose.visibility_half_angle_rad >= M_PI
+            || !std::isfinite(geometric_config.visibility_pose.minimum_bearing_separation_rad)
+            || geometric_config.visibility_pose.minimum_bearing_separation_rad <= 0.0
+            || !std::isfinite(geometric_config.visibility_pose.mode_gap_rad)
+            || geometric_config.visibility_pose.mode_gap_rad <= 0.0
+            || geometric_config.visibility_pose.mode_gap_rad > M_PI
+            || geometric_config.visibility_pose.depth_quadrature_order < 2
+            || geometric_config.visibility_pose.spin_quadrature_order < 2) {
             throw std::runtime_error(
-                "geometric_solver.odometry_ref_min_axis_observability must be finite and non-negative.");
-        }
-        if (!geometric_config.odometry_ref_enable) {
-            // Avoid creating an unused odometry subscription when the
-            // navigation-aided constraint is disabled.
-            odometry_ref_topic_.clear();
+                "geometric_solver visibility angles must be valid radians and "
+                "quadrature orders must be at least two.");
         }
         geometric_config.uncertainty_samples = optionalScalarAny<int>(geometric_node, pose_node, "uncertainty_samples", 5000);
         geometric_config.p4p_reprojection_threshold_rad = optionalScalarAny<double>(geometric_node, pose_node, "p4p_reprojection_threshold_rad", 0.01);
@@ -324,37 +312,10 @@ void PoseEstimatorNode::loadConfiguration(const std::string& config_path_string)
             rclcpp::SensorDataQoS(),
             [this, i](const uvdar_core::msg::TrackerOutput::ConstSharedPtr msg) { onTrackerOutput(msg, i); }));
     }
-    if (!odometry_ref_topic_.empty()) {
-        odometry_ref_subscription_ = create_subscription<nav_msgs::msg::Odometry>(
-            odometry_ref_topic_,
-            rclcpp::SensorDataQoS(),
-            [this](const nav_msgs::msg::Odometry::ConstSharedPtr msg) { onOdometryReference(msg); });
-    }
-
     scatter_timer_ = create_wall_timer(
         std::chrono::duration<double>(std::max(0.001, publish_period_sec)),
         [this]() { onScatterTimer(); });
 
-}
-
-void PoseEstimatorNode::onOdometryReference(const nav_msgs::msg::Odometry::ConstSharedPtr& msg)
-{
-    if (!msg) {
-        return;
-    }
-    const auto& orientation = msg->pose.pose.orientation;
-    const Eigen::Quaterniond rotation(orientation.w, orientation.x, orientation.y, orientation.z);
-    if (!rotation.coeffs().allFinite() || rotation.squaredNorm() <= std::numeric_limits<double>::epsilon()) {
-        RCLCPP_WARN_THROTTLE(
-            get_logger(),
-            *get_clock(),
-            1000,
-            "Ignoring invalid orientation from geometric_solver.odometry_ref_topic.");
-        return;
-    }
-
-    std::scoped_lock lock(odometry_ref_mutex_);
-    latest_odometry_ref_ = msg;
 }
 
 void PoseEstimatorNode::onTrackerOutput(const uvdar_core::msg::TrackerOutput::ConstSharedPtr& msg, std::size_t camera_index)
@@ -387,47 +348,6 @@ void PoseEstimatorNode::onTrackerOutput(const uvdar_core::msg::TrackerOutput::Co
     } catch (const tf2::TransformException& ex) {
         RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 1000, "Could not get pose-estimation transform: %s", ex.what());
         return;
-    }
-
-    if (auto* geometric_solver = dynamic_cast<gs::GeometricSolver*>(pose_estimator_.get())) {
-        nav_msgs::msg::Odometry::ConstSharedPtr odometry;
-        {
-            std::scoped_lock lock(odometry_ref_mutex_);
-            odometry = latest_odometry_ref_;
-        }
-
-        std::optional<Eigen::Vector3d> camera_up_axis;
-        if (odometry) {
-            const rclcpp::Time tracker_stamp(msg->stamp);
-            const rclcpp::Time odometry_stamp(odometry->header.stamp);
-            const double age = std::abs((tracker_stamp - odometry_stamp).seconds());
-            const auto& orientation = odometry->pose.pose.orientation;
-            const Eigen::Quaterniond navigation_to_output(
-                orientation.w,
-                orientation.x,
-                orientation.y,
-                orientation.z);
-            if (std::isfinite(age)
-                && (odometry_ref_maximum_age_sec_ == 0.0 || age <= odometry_ref_maximum_age_sec_)
-                && navigation_to_output.coeffs().allFinite()
-                && navigation_to_output.squaredNorm() > std::numeric_limits<double>::epsilon()) {
-                // output_to_camera is the already verified, timestamped TF
-                // from pose_estimation.output_frame to this camera. The
-                // odometry attitude is interpreted in that same output frame.
-                camera_up_axis = uvdar_core::helpers::toEigen(output_to_camera_msg).rotation()
-                    * navigation_to_output.normalized().toRotationMatrix().transpose()
-                    * Eigen::Vector3d::UnitZ();
-            }
-        }
-        if (!camera_up_axis && odometry_ref_subscription_) {
-            RCLCPP_WARN_THROTTLE(
-                get_logger(),
-                *get_clock(),
-                1000,
-                "Geometric solving needs recent odometry reference on '%s'; gravity-constrained estimates are unavailable until it arrives.",
-                odometry_ref_topic_.c_str());
-        }
-        geometric_solver->setCameraUpAxis(camera_index, camera_up_axis);
     }
 
     std::vector<pe::TrackedPoint> points;

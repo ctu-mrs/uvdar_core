@@ -182,17 +182,15 @@ pose_estimation:
     uncertainty_solver: ellipse_transform
     # Samples used only by monte_carlo uncertainty; positive integer, default 5000.
     uncertainty_samples: 5000
-    # Constrain otherwise unobservable target axes from odometry orientation; boolean, default false.
-    odometry_ref_enable: false
-    # nav_msgs/Odometry orientation topic required when enabled; valid topic,
-    # default /mavros/local_position/odom.
-    odometry_ref_topic: /mavros/local_position/odom
-    # Largest accepted odometry age at the tracker stamp in seconds; non-negative number, default 0.5.
-    odometry_ref_maximum_age_sec: 0.5
-    # Target-model direction opposite gravity; finite non-zero XYZ vector, default [0, 0, 1].
-    odometry_ref_model_gravity_axis: [0.0, 0.0, 1.0]
-    # Minimum dimensionless known-axis yaw observability; non-negative number, default 3e-3.
-    odometry_ref_min_axis_observability: 3.0e-3
+    # Directional LED visibility cone half-angle in radians; (0, pi), default 40 degrees.
+    visibility_half_angle_rad: 0.6981317007977318
+    # Reject nearly parallel/antiparallel bearing pairs below this angular separation; positive radians.
+    visibility_minimum_bearing_separation_rad: 0.0001
+    # Circular gap separating visibility modes; (0, pi] radians, default 45 degrees.
+    visibility_mode_gap_rad: 0.7853981633974483
+    # Gauss-Legendre orders for the depth curve and visible spin arcs; integers >= 2.
+    visibility_depth_quadrature_order: 64
+    visibility_spin_quadrature_order: 12
     # Maximum P4P angular reprojection residual in radians; positive number, default 0.01.
     p4p_reprojection_threshold_rad: 0.01
     # Positive diagonal regularizer added to pixel covariance; default 1e-6.
@@ -266,8 +264,6 @@ filtering:
   anonymous_measurements: false
   # Use lower process noise tuned for indoor motion; boolean, default false.
   indoor: false
-  # Use nominal position noise when vehicle odometry is available; boolean, default true.
-  odometry_available: true
   # Add a constant-velocity state for identified targets; boolean, default false.
   use_velocity: false
   # Corrections required before a track becomes validated; positive integer, default 10.

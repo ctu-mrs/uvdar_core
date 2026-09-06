@@ -61,7 +61,6 @@ void FilterNode::loadConfiguration(const std::string& config_path)
     config.debug = optionalScalar<bool>(node, "debug", false);
     config.anonymous_measurements = optionalScalar<bool>(node, "anonymous_measurements", false);
     config.indoor = optionalScalar<bool>(node, "indoor", false);
-    config.odometry_available = optionalScalar<bool>(node, "odometry_available", true);
     config.use_velocity = optionalScalar<bool>(node, "use_velocity", false);
     config.min_measurements_to_validation = optionalScalar<int>(node, "min_measurements_to_validation", 10);
     config.decay_age_normal = optionalScalar<double>(node, "decay_age_normal", 3.0);

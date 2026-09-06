@@ -7,6 +7,7 @@
 
 #include "uvdar_core/pose_estimation/body_model.hpp"
 #include "uvdar_core/pose_estimation/camera_model.hpp"
+#include "uvdar_core/pose_estimation/geometric_solver/visibility_pose.hpp"
 #include "uvdar_core/pose_estimation/i_pose_estimator.hpp"
 #include "uvdar_core/pose_estimation/uncertainty.hpp"
 
@@ -31,12 +32,7 @@ struct GeometricSolverConfig {
     std::string output_frame = "local_origin";
     std::vector<int> signal_ids;
     int signals_per_target = 1;
-    bool odometry_ref_enable = false;
-    // Target model-frame direction opposite gravity. +Z is the UVDAR model
-    // convention; configure a different normalized direction when needed.
-    Eigen::Vector3d odometry_ref_model_gravity_axis = Eigen::Vector3d::UnitZ();
-    // Reject central P2P close to the Li/Sweeney critical configuration.
-    double odometry_ref_min_axis_observability = 3.0e-3;
+    VisibilityPoseConfig visibility_pose;
     double p4p_reprojection_threshold_rad = 0.01;
     double covariance_regularization_px = 1.0e-6;
     int refinement_iterations = 8;
@@ -61,25 +57,16 @@ struct GeometricSolverConfig {
 };
 
 /**
- * @brief Direct geometric pose estimator using P2P/P3P/P4P/PnP by marker count.
+ * @brief Direct geometric pose estimator using visibility/P3P/P4P/PnP by marker count.
  *
  * The solver first associates tracked signal ids to body LEDs, converts image
- * points to unit bearings, chooses a minimal solver by observation count, and
- * then refines the selected candidate by weighted analytic LM reprojection
- * minimization.
+ * points to unit bearings, chooses a solver by observation count, refines all
+ * admissible algebraic candidates by weighted analytic LM reprojection, and
+ * moment-matches any remaining pose ambiguity.
  */
 class GeometricSolver final : public IPoseEstimator {
 public:
     GeometricSolver(GeometricSolverConfig config, BodyModel body, std::vector<CameraModel> cameras);
-
-    /**
-     * @brief Set the navigation-derived body-up direction expressed in a camera frame.
-     *
-     * Central P2P uses this as its additional orientation constraint. An
-     * otherwise underconstrained multi-camera marker set may also use the same
-     * direction jointly. Observable P3P and larger visual solves are unchanged.
-     */
-    void setCameraUpAxis(std::size_t camera_index, std::optional<Eigen::Vector3d> camera_up_axis);
 
     /**
      * @brief Solve poses for all targets visible in one camera frame.
@@ -127,6 +114,8 @@ private:
     struct ScoredCameraPose {
         CameraPose pose;
         double reprojection_error = 0.0;
+        std::optional<Eigen::Matrix<double, 6, 6>> visibility_covariance;
+        double distribution_weight = 1.0;
     };
 
     /** @brief One observation expressed as a non-central ray in output_frame. */
@@ -137,7 +126,6 @@ private:
         Eigen::Isometry3d output_to_camera = Eigen::Isometry3d::Identity();
         Eigen::Vector3d ray_origin = Eigen::Vector3d::Zero();
         Eigen::Vector3d ray_direction = Eigen::Vector3d::UnitZ();
-        std::optional<Eigen::Vector3d> output_up_axis;
     };
 
     /** @brief Last timestamped observation map retained for one camera. */
@@ -147,7 +135,6 @@ private:
         double stamp = 0.0;
         Eigen::Isometry3d camera_to_output = Eigen::Isometry3d::Identity();
         Eigen::Isometry3d output_to_camera = Eigen::Isometry3d::Identity();
-        std::optional<Eigen::Vector3d> camera_up_axis;
         std::map<int, std::vector<Observation>> observations_by_target;
     };
 
@@ -169,12 +156,11 @@ private:
     std::optional<Observation> makeObservation(const TrackedPoint& point, const CameraModel& camera) const;
 
     /**
-     * @brief Dispatch to P2P, P3P, P4P, or iterative PnP by correspondence count.
+     * @brief Dispatch to P3P, P4P, or iterative PnP by correspondence count.
      */
     std::vector<CameraPose> solveCameraPoses(
         const std::vector<Observation>& observations,
         const CameraModel& camera,
-        const std::optional<Eigen::Vector3d>& camera_up_axis,
         std::string* method = nullptr) const;
 
     /**
@@ -205,35 +191,15 @@ private:
     bool hasObservableRigMarkerGeometry(
         const std::vector<RigObservation>& observations) const;
 
-    /** @brief Require at least two distinct physical markers for known-axis pose. */
-    bool hasDistinctRigMarkerPair(
-        const std::vector<RigObservation>& observations) const;
-
-    /** @brief Consistent navigation up direction expressed in output_frame. */
-    std::optional<Eigen::Vector3d> rigOutputUpAxis(
-        const std::vector<RigObservation>& observations) const;
-
     /** @brief Jointly refine generalized candidates in all cameras' pixel spaces. */
     std::vector<ScoredRigPose> refineRigCandidates(
         const std::vector<CameraPose>& candidates,
         const std::vector<RigObservation>& observations) const;
 
-    /** @brief Select a rig candidate using per-camera LED visibility and continuity. */
-    std::optional<std::size_t> selectRigCandidate(
-        const std::vector<ScoredRigPose>& candidates,
-        const std::vector<RigObservation>& observations,
-        const std::optional<CameraPose>& previous_pose) const;
-
     /** @brief Weighted multi-camera pixel refinement of a body-to-output pose. */
     CameraPose refineRigPose(
         const CameraPose& seed,
         const std::vector<RigObservation>& observations) const;
-
-    /** @brief Four-DOF rig refinement preserving the odometry axis constraint. */
-    CameraPose refineKnownAxisRigPose(
-        const CameraPose& seed,
-        const std::vector<RigObservation>& observations,
-        const Eigen::Vector3d& output_up_axis) const;
 
     /** @brief Joint squared pixel reprojection error over all cameras. */
     double rigReprojectionError(
@@ -256,11 +222,10 @@ private:
         const std::vector<RigObservation>& observations) const;
 
     /**
-     * @brief Two-point pose from two 3D points, two bearings, and gravity axes.
+     * @brief Visibility-constrained distribution from two markers and bearings.
      */
-    std::vector<CameraPose> solveP2P(
-        const std::vector<Observation>& observations,
-        const std::optional<Eigen::Vector3d>& camera_up_axis) const;
+    std::vector<VisibilityPoseEstimate> solveVisibilityPoses(
+        const std::vector<Observation>& observations) const;
 
     /**
      * @brief Perspective-3-point solver using quartic depth constraints.
@@ -271,14 +236,6 @@ private:
      * @brief Verify that every observed marker is in front of the candidate camera.
      */
     bool hasPositiveDepths(const CameraPose& pose, const std::vector<Observation>& observations) const;
-
-    /**
-     * @brief Select a pose by generic body-model observability and, if needed, continuity.
-     */
-    std::optional<std::size_t> selectObservabilityAwareCandidate(
-        const std::vector<ScoredCameraPose>& candidates,
-        const std::vector<Observation>& observations,
-        const std::optional<CameraPose>& previous_pose) const;
 
     /**
      * @brief Return the blended physical marker positions detected in this frame.
@@ -306,8 +263,7 @@ private:
     Eigen::Matrix<double, 6, 6> poseCovarianceByJacobianPropagation(
         const CameraPose& pose,
         const std::vector<Observation>& observations,
-        const CameraModel& camera,
-        const std::optional<Eigen::Vector3d>& camera_up_axis) const;
+        const CameraModel& camera) const;
 
     /** @brief Joint Fisher-information covariance from every rig camera. */
     Eigen::Matrix<double, 6, 6> poseCovarianceByRigJacobianPropagation(
@@ -333,7 +289,6 @@ private:
         const std::vector<CameraPose>& base_poses,
         const std::vector<Observation>& observations,
         const CameraModel& camera,
-        const std::optional<Eigen::Vector3d>& camera_up_axis,
         int selected_index) const;
 
     /**
@@ -343,7 +298,6 @@ private:
         const std::vector<CameraPose>& base_poses,
         const std::vector<Observation>& observations,
         const CameraModel& camera,
-        const std::optional<Eigen::Vector3d>& camera_up_axis,
         int selected_index) const;
 
     /**
@@ -398,10 +352,7 @@ private:
     // Each input owns its latest batch so an empty callback from one camera
     // cannot erase a valid result produced by another camera.
     std::vector<TimedPoseMeasurements> latest_input_measurements_;
-    std::map<std::pair<std::size_t, int>, CameraPose> latest_camera_poses_;
-    std::map<int, CameraPose> latest_rig_poses_;
     std::vector<BufferedCameraFrame> latest_camera_frames_;
-    std::vector<std::optional<Eigen::Vector3d>> camera_up_axes_;
 };
 
 } // namespace uvdar_core::pose_estimation::geometric_solver

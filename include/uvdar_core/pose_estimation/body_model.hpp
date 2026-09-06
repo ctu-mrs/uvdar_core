@@ -88,16 +88,6 @@ public:
     std::optional<LEDMarker> markerForSignal(int signal_id) const;
 
     /**
-     * @brief Derive the common planar body/gravity axis needed by P2P.
-     *
-     * Returns no axis for collinear pairs or a non-planar LED layout, where a
-     * two-point estimate would be geometrically unobservable.
-     */
-    std::optional<Eigen::Vector3d> expectedPlanarAxisForPair(
-        const Eigen::Vector3d& first,
-        const Eigen::Vector3d& second) const;
-
-    /**
      * @brief Test whether three blended marker positions form an observable triangle.
      */
     static bool hasObservableTriangle(

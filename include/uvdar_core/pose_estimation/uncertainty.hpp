@@ -1,5 +1,6 @@
 #pragma once
 
+#include <optional>
 #include <vector>
 
 #include <Eigen/Dense>
@@ -13,6 +14,30 @@ namespace uvdar_core::pose_estimation::uncertainty {
 
 using PoseTangent = Eigen::Matrix<double, 6, 1>;
 using PoseCovariance = Eigen::Matrix<double, 6, 6>;
+
+/** One component of a pose distribution in a common camera/output frame. */
+struct PoseDistributionComponent {
+    CameraPose pose;
+    PoseCovariance covariance = PoseCovariance::Zero();
+    double weight = 1.0;
+};
+
+/** Intrinsic mean and total covariance of a pose distribution. */
+struct PoseDistributionMoments {
+    CameraPose pose;
+    PoseCovariance covariance = PoseCovariance::Zero();
+};
+
+/**
+ * @brief Moment-match a weighted pose mixture in a left SO(3) tangent.
+ *
+ * Translation uses its exact weighted mean. Rotation uses a Markley quaternion
+ * seed followed by an intrinsic Karcher iteration. Total covariance applies
+ * the law of total covariance, adding each component covariance to the
+ * between-component pose dispersion.
+ */
+std::optional<PoseDistributionMoments> momentMatchPoseDistribution(
+    const std::vector<PoseDistributionComponent>& components);
 
 /**
  * @brief Express @p candidate relative to @p base in [translation, rotation] tangent order.

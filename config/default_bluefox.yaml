@@ -101,7 +101,7 @@ tracking:
 
 pose_estimation:
   # Select "particle_filter" for stochastic hypothesis filtering or
-  # "geometric_solver" for direct P2P/P3P/P4P/PnP pose estimation.
+  # "geometric_solver" for direct visibility/P3P/P4P/PnP pose estimation.
   implementation: geometric_solver 
   debug: false
   # $UAV_NAME is expanded from the process environment while loading YAML.
@@ -132,13 +132,11 @@ pose_estimation:
   geometric_solver:
     uncertainty_solver: ellipse_transform # Options: jacobian_propagation, monte_carlo, ellipse_transform
     uncertainty_samples: 5000
-    odometry_ref_enable: false
-    odometry_ref_topic: /$UAV_NAME/mavros/local_position/odom
-    odometry_ref_maximum_age_sec: 0.5
-    # Used by central P2P and otherwise underconstrained rig marker geometry;
-    # observable generalized pose remains purely visual.
-    odometry_ref_model_gravity_axis: [0.0, 0.0, 1.0]
-    odometry_ref_min_axis_observability: 3.0e-3
+    visibility_half_angle_rad: 0.6981317007977318
+    visibility_minimum_bearing_separation_rad: 0.0001
+    visibility_mode_gap_rad: 0.7853981633974483
+    visibility_depth_quadrature_order: 64
+    visibility_spin_quadrature_order: 12
     p4p_reprojection_threshold_rad: 0.01
     covariance_regularization_px: 1.0e-6
     refinement_iterations: 8
@@ -187,7 +185,6 @@ filtering:
   output_framerate: 20.0
   anonymous_measurements: false
   indoor: false
-  odometry_available: true
   use_velocity: false
   min_measurements_to_validation: 10
   decay_age_normal: 3.0

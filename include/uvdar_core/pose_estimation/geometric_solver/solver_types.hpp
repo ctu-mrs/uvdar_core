@@ -9,7 +9,7 @@ namespace uvdar_core::pose_estimation::geometric_solver {
 /**
  * @brief Body-to-camera solution returned by all geometric pose solvers.
  *
- * The algebraic P2P/P3P/P4P and iterative PnP implementations retain R/t
+ * The algebraic P3P/P4P and iterative PnP implementations retain R/t
  * notation used in their derivations; the application-facing representation is
  * CameraPose.
  */

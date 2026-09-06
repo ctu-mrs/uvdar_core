@@ -18,14 +18,11 @@ bool hasNan(const Eigen::MatrixXd& matrix)
 KfPose::KfPose(KfPoseConfig config)
     : config_(std::move(config))
 {
-    // Use lower process noise for indoor motion and larger position noise when
-    // odometry is unavailable.
+    // Indoor operation uses lower target-motion process noise; position noise
+    // remains conservative for the visual-only model.
     if (config_.indoor) {
         vl_ = 1.0;
         vv_ = 0.5;
-    }
-    if (!config_.odometry_available) {
-        sn_ = 4.0;
     }
 }
 

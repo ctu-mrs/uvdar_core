@@ -50,7 +50,6 @@ struct KfPoseConfig {
     bool debug = false;
     bool anonymous_measurements = false;
     bool indoor = false;
-    bool odometry_available = true;
     bool use_velocity = false;
     int min_measurements_to_validation = 10;
     double decay_age_normal = 3.0;
@@ -165,7 +164,7 @@ private:
     KfPoseConfig config_;
     double vl_ = 2.0;
     double vv_ = 1.0;
-    double sn_ = 2.0;
+    double sn_ = 4.0;
     int next_id_ = 0;
     std::vector<FilterData> states_;
 };
