@@ -356,6 +356,8 @@ GLuint Instance::gl_errors_count()
  */
 std::tuple<unsigned, unsigned, unsigned> Instance::get_local_sizes(unsigned image_width, unsigned image_height)
 {
+    (void)image_width;
+    (void)image_height;
     GLint max_invocations  = 256;
     GLint max_local_size_x = 32;
     GLint max_local_size_y = 32;
@@ -365,14 +367,19 @@ std::tuple<unsigned, unsigned, unsigned> Instance::get_local_sizes(unsigned imag
     glGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_SIZE, 1, &max_local_size_y);
     glGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_SIZE, 2, &max_local_size_z);
 
-    unsigned local_x = static_cast<unsigned>(max_local_size_x);
-    while (local_x > 1 && image_width % local_x != 0) {
-        local_x /= 2;
-    }
-    unsigned local_y = static_cast<unsigned>(max_invocations) / std::max(1u, local_x);
-    while (local_y > 1 && image_height % local_y != 0) {
-        local_y /= 2;
-    }
+    // A balanced two-dimensional group keeps neighboring image accesses in
+    // the same group and avoids the poorly occupied 128x2 shape that results
+    // from selecting dimensions only for exact divisibility. Dispatch already
+    // rounds up and the shaders bounds-check edge invocations.
+    const unsigned local_x = std::max(
+        1U,
+        std::min(16U, static_cast<unsigned>(max_local_size_x)));
+    const unsigned local_y = std::max(
+        1U,
+        std::min({
+            16U,
+            static_cast<unsigned>(max_local_size_y),
+            static_cast<unsigned>(max_invocations) / local_x}));
     return { std::max(1u, local_x), std::max(1u, local_y), 1u };
 }
 

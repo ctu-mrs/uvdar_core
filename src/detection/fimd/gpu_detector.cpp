@@ -4,6 +4,7 @@
 #include <array>
 #include <cstdio>
 #include <cstdint>
+#include <cstring>
 #include <vector>
 #include <mutex>
 #include <numeric>
@@ -18,6 +19,8 @@ extern const unsigned char _binary_shaders_fimd_masked_no_sun_comp_start[];
 extern const unsigned char _binary_shaders_fimd_masked_no_sun_comp_end[];
 extern const unsigned char _binary_shaders_fimd_masked_with_sun_comp_start[];
 extern const unsigned char _binary_shaders_fimd_masked_with_sun_comp_end[];
+extern const unsigned char _binary_shaders_fimd_filter_sun_mask_comp_start[];
+extern const unsigned char _binary_shaders_fimd_filter_sun_mask_comp_end[];
 }
 
 namespace uvdar_core::detection::fimd {
@@ -136,12 +139,20 @@ namespace uvdar_core::detection::fimd {
     void packImageToUint32(const std::uint8_t* source, std::size_t pixel_count, std::vector<std::uint32_t>& destination)
     {
         const std::size_t packed_count = (pixel_count + 3U) >> 2;
-        destination.assign(packed_count, 0U);
+        destination.resize(packed_count);
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+        if ((pixel_count & 3U) != 0U) {
+            destination.back() = 0U;
+        }
+        std::memcpy(destination.data(), source, pixel_count);
+#else
+        std::fill(destination.begin(), destination.end(), 0U);
         for (std::size_t index = 0; index < pixel_count; ++index) {
             const std::size_t dword_index = index >> 2;
             const unsigned bit_offset     = static_cast<unsigned>((index & 3U) << 3);
             destination[dword_index] |= static_cast<std::uint32_t>(source[index]) << bit_offset;
         }
+#endif
     }
 
     /**
@@ -253,6 +264,10 @@ struct GpuDetector::Impl {
         if (!initBuffer(mask_buffer, 1, packed_pixels, "mask")) {
             return false;
         }
+        if (!writeBuffer(mask_buffer, packed_mask_buffer_.data(), packed_mask_buffer_.size(), "mask")) {
+            return false;
+        }
+        uploaded_mask_id_ = -1;
 
         const auto [local_x, local_y, local_z] = context.getLocalSizes(width, height);
 
@@ -267,7 +282,7 @@ struct GpuDetector::Impl {
             if (!initBuffer(marker_counter, 4, 1, "markers_count")) {
                 return false;
             }
-            if (!initBuffer(config_buffer, 5, 8 + config.radii.size(), "configuration_buffer")) {
+            if (!initBuffer(config_buffer, 5, 9 + config.radii.size(), "configuration_buffer")) {
                 return false;
             }
             if (!initBuffer(marker_buffer, 6, config.max_markers_count, "markers_buffer")) {
@@ -276,11 +291,22 @@ struct GpuDetector::Impl {
             if (!initBuffer(sun_buffer, 7, config.max_sun_points_count, "sun_pts_buffer")) {
                 return false;
             }
+            const std::size_t packed_sun_mask_words = (image_pixels + 31U) >> 5U;
+            if (!initBuffer(sun_mask_buffer, 8, packed_sun_mask_words, "sun_mask_buffer")) {
+                return false;
+            }
+            if (!initBuffer(filtered_marker_buffer, 9, config.max_markers_count, "filtered_markers_buffer")) {
+                return false;
+            }
+            if (!initBuffer(filtered_marker_counter, 10, 1, "filtered_markers_count")) {
+                return false;
+            }
+            packed_sun_mask_buffer_.assign(packed_sun_mask_words, 0U);
         } else {
             if (!initBuffer(marker_counter, 3, 1, "markers_count")) {
                 return false;
             }
-            if (!initBuffer(config_buffer, 4, 8 + config.radii.size(), "configuration_buffer")) {
+            if (!initBuffer(config_buffer, 4, 9 + config.radii.size(), "configuration_buffer")) {
                 return false;
             }
             if (!initBuffer(marker_buffer, 5, config.max_markers_count, "markers_buffer")) {
@@ -288,6 +314,10 @@ struct GpuDetector::Impl {
             }
             sun_counter.destroy();
             sun_buffer.destroy();
+            sun_mask_buffer.destroy();
+            filtered_marker_buffer.destroy();
+            filtered_marker_counter.destroy();
+            filter_program.destroy(false);
             if (!program.init(context, shaderSourceFromEmbedded(_binary_shaders_fimd_masked_no_sun_comp_start, _binary_shaders_fimd_masked_no_sun_comp_end), local_x, local_y, local_z)) {
                 reportGlErrors("Failed to init no-sun program", context);
                 return false;
@@ -298,6 +328,17 @@ struct GpuDetector::Impl {
 
         if (!program.init(context, shaderSourceFromEmbedded(_binary_shaders_fimd_masked_with_sun_comp_start, _binary_shaders_fimd_masked_with_sun_comp_end), local_x, local_y, local_z)) {
             reportGlErrors("Failed to init with-sun program", context);
+            return false;
+        }
+        if (!filter_program.init(
+                context,
+                shaderSourceFromEmbedded(
+                    _binary_shaders_fimd_filter_sun_mask_comp_start,
+                    _binary_shaders_fimd_filter_sun_mask_comp_end),
+                16U,
+                1U,
+                1U)) {
+            reportGlErrors("Failed to init sun-mask marker filter program", context);
             return false;
         }
 
@@ -311,7 +352,7 @@ struct GpuDetector::Impl {
     std::vector<std::uint32_t> makeConfig() const
     {
         std::vector<std::uint32_t> values;
-        values.reserve(8 + config.radii.size());
+        values.reserve(9 + config.radii.size());
         values.push_back(width);
         values.push_back(height);
         values.push_back(static_cast<std::uint32_t>(config.threshold));
@@ -320,6 +361,7 @@ struct GpuDetector::Impl {
         values.push_back(config.max_markers_count);
         values.push_back(config.max_sun_points_count);
         values.push_back(static_cast<std::uint32_t>(config.radii.size()));
+        values.push_back(static_cast<std::uint32_t>(config.min_sun_marker_distance));
         for (unsigned radius : config.radii) {
             values.push_back(static_cast<std::uint32_t>(radius));
         }
@@ -348,7 +390,7 @@ struct GpuDetector::Impl {
             return false;
         }
         const auto packed_config = makeConfig();
-        if (mask_id >= 0) {
+        if (mask_id >= 0 && mask_id != uploaded_mask_id_) {
             if (static_cast<std::size_t>(mask_id) >= config.masks.size()) {
                 std::fprintf(stderr, "[gpu_detector] Mask index %d is out of range.\n", mask_id);
                 return false;
@@ -362,19 +404,32 @@ struct GpuDetector::Impl {
                 reportGlErrors("Failed to write image 'mask'", context);
                 return false;
             }
-        } else {
-            if (packed_mask_buffer_.empty() || packed_mask_buffer_.size() * 4U < pixel_count) {
-                packed_mask_buffer_.clear();
-                packImageToUint32(full_mask_.data(), pixel_count, packed_mask_buffer_);
-            }
+            uploaded_mask_id_ = mask_id;
+        } else if (mask_id < 0 && uploaded_mask_id_ != -1) {
+            packImageToUint32(full_mask_.data(), pixel_count, packed_mask_buffer_);
             if (!writeBuffer(mask_buffer, packed_mask_buffer_.data(), packed_mask_buffer_.size(), "mask")) {
                 reportGlErrors("Failed to write image 'mask'", context);
                 return false;
             }
+            uploaded_mask_id_ = -1;
         }
         if (!writeBuffer(config_buffer, packed_config.data(), packed_config.size(), "configuration_buffer")) {
             reportGlErrors("Failed to write buffer 'configuration_buffer'", context);
             return false;
+        }
+        if (config.detect_sun_points) {
+            std::fill(
+                packed_sun_mask_buffer_.begin(),
+                packed_sun_mask_buffer_.end(),
+                0U);
+            if (!writeBuffer(
+                    sun_mask_buffer,
+                    packed_sun_mask_buffer_.data(),
+                    packed_sun_mask_buffer_.size(),
+                    "sun_mask_buffer")) {
+                reportGlErrors("Failed to clear sun mask", context);
+                return false;
+            }
         }
 
         if (!writeCounter(marker_counter, 0U, "markers_count")) {
@@ -399,7 +454,30 @@ struct GpuDetector::Impl {
         }
         marker_count = std::min(marker_count, static_cast<GLuint>(config.max_markers_count));
         std::vector<std::uint32_t> raw_markers(config.max_markers_count, 0U);
-        if (marker_count > 0) {
+        if (config.detect_sun_points && marker_count > 0U) {
+            if (!writeCounter(filtered_marker_counter, 0U, "filtered_markers_count")) {
+                reportGlErrors("Failed to reset filtered marker counter", context);
+                return false;
+            }
+            if (!filter_program.dispatch(marker_count, 1U, 1U)) {
+                return false;
+            }
+            GLuint filtered_marker_count = 0U;
+            if (filtered_marker_counter.read_uint_val(&filtered_marker_count) != GL_NO_ERROR) {
+                std::fprintf(stderr, "[gpu_detector] Failed to read filtered marker count.\n");
+                return false;
+            }
+            marker_count = std::min(
+                filtered_marker_count,
+                static_cast<GLuint>(config.max_markers_count));
+            if (marker_count > 0U &&
+                filtered_marker_buffer.read(
+                    raw_markers.data(),
+                    static_cast<GLint>(marker_count)) != GL_NO_ERROR) {
+                std::fprintf(stderr, "[gpu_detector] Failed to read filtered markers buffer.\n");
+                return false;
+            }
+        } else if (marker_count > 0U) {
             if (marker_buffer.read(raw_markers.data(), static_cast<GLint>(marker_count)) != GL_NO_ERROR) {
                 std::fprintf(stderr, "[gpu_detector] Failed to read markers buffer.\n");
                 return false;
@@ -409,8 +487,8 @@ struct GpuDetector::Impl {
 
         output.sun_points.clear();
         std::vector<WeightedPoint> raw_sun_points;
+        GLuint sun_count = 0;
         if (config.detect_sun_points) {
-            GLuint sun_count = 0;
             if (sun_counter.read_uint_val(&sun_count) != GL_NO_ERROR) {
                 std::fprintf(stderr, "[gpu_detector] Failed to read sun points count.\n");
                 return false;
@@ -424,12 +502,8 @@ struct GpuDetector::Impl {
                 }
             }
             raw_sun_points = decodePackedPoints(raw_sun, sun_count, width);
-            filterRawMarkersNearSunPoints(
-                raw_marker_points,
-                raw_sun_points,
-                config.min_sun_marker_distance,
-                width,
-                height);
+        }
+        if (config.detect_sun_points) {
             output.sun_points = makeDetectorPoints(raw_sun_points);
         }
 
@@ -446,6 +520,7 @@ struct GpuDetector::Impl {
     unsigned height  = 0;
     uvdar_core::helpers::compute_shader::Context context;
     uvdar_core::helpers::compute_shader::Program program;
+    uvdar_core::helpers::compute_shader::Program filter_program;
     uvdar_core::helpers::compute_shader::SSBO image_buffer { "image_in", GL_UNSIGNED_INT, GL_DYNAMIC_DRAW };
     uvdar_core::helpers::compute_shader::SSBO mask_buffer { "mask", GL_UNSIGNED_INT, GL_DYNAMIC_DRAW };
     uvdar_core::helpers::compute_shader::ACBO marker_counter { "markers_count", GL_UNSIGNED_INT, GL_DYNAMIC_DRAW };
@@ -453,9 +528,14 @@ struct GpuDetector::Impl {
     uvdar_core::helpers::compute_shader::SSBO config_buffer { "configuration_buffer", GL_UNSIGNED_INT, GL_DYNAMIC_DRAW };
     uvdar_core::helpers::compute_shader::SSBO marker_buffer { "markers_buffer", GL_UNSIGNED_INT, GL_DYNAMIC_DRAW };
     uvdar_core::helpers::compute_shader::SSBO sun_buffer { "sun_pts_buffer", GL_UNSIGNED_INT, GL_DYNAMIC_DRAW };
+    uvdar_core::helpers::compute_shader::SSBO sun_mask_buffer { "sun_mask_buffer", GL_UNSIGNED_INT, GL_DYNAMIC_DRAW };
+    uvdar_core::helpers::compute_shader::SSBO filtered_marker_buffer { "filtered_markers_buffer", GL_UNSIGNED_INT, GL_DYNAMIC_DRAW };
+    uvdar_core::helpers::compute_shader::ACBO filtered_marker_counter { "filtered_markers_count", GL_UNSIGNED_INT, GL_DYNAMIC_DRAW };
     std::vector<unsigned char> full_mask_;
     std::vector<std::uint32_t> packed_image_buffer_;
     std::vector<std::uint32_t> packed_mask_buffer_;
+    std::vector<std::uint32_t> packed_sun_mask_buffer_;
+    int uploaded_mask_id_ = -2;
     std::mutex context_mutex_;
 };
 

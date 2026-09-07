@@ -85,6 +85,7 @@ struct CpuDetector::Impl {
     unsigned image_height = 0;
     std::unordered_map<std::uint64_t, std::shared_ptr<const RuntimeFimdRadiusModule>> modules;
     std::vector<std::unique_ptr<GeneratedFimdCpuKernel>> kernels;
+    std::vector<std::uint64_t> packed_sun_mask;
 };
 
 /**
@@ -132,6 +133,14 @@ bool CpuDetector::processImage(const cv::Mat& image, DetectorOutput& output, int
     output.sun_points.clear();
     output.detected_points.reserve(100);
     output.sun_points.reserve(100);
+    if (impl_->config.detect_sun_points) {
+        impl_->packed_sun_mask.assign(
+            packedSunMaskWordsPerRow(impl_->image_width) *
+                static_cast<std::size_t>(impl_->image_height),
+            0U);
+    } else {
+        impl_->packed_sun_mask.clear();
+    }
 
     for (auto& kernel : impl_->kernels) {
         std::vector<std::uint32_t> raw_markers(kernel->get_max_markers_count());
@@ -154,7 +163,10 @@ bool CpuDetector::processImage(const cv::Mat& image, DetectorOutput& output, int
             &raw_markers_count,
             sun_points,
             sun_points_count,
-            true);
+            true,
+            impl_->packed_sun_mask.empty()
+                ? nullptr
+                : impl_->packed_sun_mask.data());
 
         for (unsigned index = 0; index < raw_markers_count; ++index) {
             const std::uint32_t raw_marker = raw_markers[index];
@@ -179,9 +191,9 @@ bool CpuDetector::processImage(const cv::Mat& image, DetectorOutput& output, int
     }
 
     if (impl_->config.detect_sun_points) {
-        filterRawMarkersNearSunPoints(
+        filterRawMarkersNearPackedSunMask(
             raw_marker_points,
-            raw_sun_points,
+            impl_->packed_sun_mask,
             impl_->config.min_sun_marker_distance,
             impl_->image_width,
             impl_->image_height);

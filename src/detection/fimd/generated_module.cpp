@@ -26,7 +26,7 @@ namespace {
     /**
      * @brief Function signature produced by generated shared object.
      */
-    using GeneratedDetectFn = unsigned char* (*)(unsigned char*, std::uint32_t*, std::uint32_t*, std::uint32_t*, std::uint32_t*);
+    using GeneratedDetectFn = unsigned char* (*)(unsigned char*, std::uint32_t*, std::uint32_t*, std::uint32_t*, std::uint32_t*, std::uint64_t*);
 
     /**
      * @brief Return OS cache directory for generated kernels.
@@ -91,7 +91,7 @@ namespace {
         std::ostringstream source;
         source << "#include <stdint.h>\n"
                << "#include <stddef.h>\n"
-               << "uint8_t* uvdar_generated_detect(uint8_t* img_ptr, uint32_t* markers, uint32_t* markers_num, uint32_t* sun_pts, uint32_t* sun_pts_num) {\n"
+               << "uint8_t* uvdar_generated_detect(uint8_t* img_ptr, uint32_t* markers, uint32_t* markers_num, uint32_t* sun_pts, uint32_t* sun_pts_num, uint64_t* packed_sun_mask) {\n"
                << "  const uint32_t IM_WIDTH = " << module.image_width() << ";\n"
                << "  const uint32_t IM_HEIGHT = " << module.image_height() << ";\n"
                << "  const uint8_t FIMD_THRESHOLD_CENTER = " << static_cast<unsigned>(threshold_center) << ";\n"
@@ -101,6 +101,7 @@ namespace {
                << "  const uint32_t FIMD_MAX_SUN_PTS_COUNT = " << max_sun_points_count << ";\n"
                << "  const uint16_t FIMD_TERM_SEQ = 0x00FF;\n"
                << "  const uint32_t FIMD_OFFSET = " << module.offset() << ";\n"
+               << "  const uint32_t SUN_MASK_WORDS_PER_ROW = (IM_WIDTH + 63U) / 64U;\n"
                << "  *((uint16_t*) (img_ptr + (IM_WIDTH * IM_HEIGHT) - 2)) = FIMD_TERM_SEQ;\n"
                << "  img_ptr = img_ptr + (FIMD_OFFSET - 1);\n"
                << "  uint8_t* image_start = img_ptr - (FIMD_OFFSET - 1);\n"
@@ -121,7 +122,7 @@ namespace {
                    << "  }\n"
                    << "  goto LOOP;\n"
                    << "SUN_TEST:\n"
-                   << "  if (*sun_pts_num == FIMD_MAX_SUN_PTS_COUNT) { *((uint16_t*) (img_ptr + FIMD_OFFSET)) = FIMD_TERM_SEQ; goto LOOP; }\n";
+                   << "  if (*sun_pts_num == FIMD_MAX_SUN_PTS_COUNT && packed_sun_mask == NULL) { *((uint16_t*) (img_ptr + FIMD_OFFSET)) = FIMD_TERM_SEQ; goto LOOP; }\n";
 
             for (std::size_t index = 1; index < boundary_offsets.size(); ++index) {
                 source << "  if (pix_val - *((uint8_t*) (img_ptr + " << boundary_offsets[index] << ")) > FIMD_THRESHOLD_DIFF) goto LOOP;\n";
@@ -131,10 +132,9 @@ namespace {
             }
             source << "  linear_pos = (uint32_t)(img_ptr - image_start);\n"
                    << "  if (linear_pos > 0x00FFFFFFu) { *((uint16_t*) (img_ptr + FIMD_OFFSET)) = FIMD_TERM_SEQ; goto LOOP; }\n"
-                   << "  if (*sun_pts_num >= FIMD_MAX_SUN_PTS_COUNT) { *((uint16_t*) (img_ptr + FIMD_OFFSET)) = FIMD_TERM_SEQ; goto LOOP; }\n"
-                   << "  sun_pts[*sun_pts_num] = (linear_pos << 8u) | (uint32_t)pix_val;\n"
-                   << "  (*sun_pts_num)++;\n"
-                   << "  if (*sun_pts_num == FIMD_MAX_SUN_PTS_COUNT) { *((uint16_t*) (img_ptr + FIMD_OFFSET)) = FIMD_TERM_SEQ; }\n"
+                   << "  if (packed_sun_mask != NULL) { const uint32_t sun_x = linear_pos % IM_WIDTH; packed_sun_mask[(linear_pos / IM_WIDTH) * SUN_MASK_WORDS_PER_ROW + (sun_x >> 6U)] |= UINT64_C(1) << (sun_x & 63U); }\n"
+                   << "  if (*sun_pts_num < FIMD_MAX_SUN_PTS_COUNT) { sun_pts[*sun_pts_num] = (linear_pos << 8u) | (uint32_t)pix_val; (*sun_pts_num)++; }\n"
+                   << "  if (*sun_pts_num == FIMD_MAX_SUN_PTS_COUNT && packed_sun_mask == NULL) { *((uint16_t*) (img_ptr + FIMD_OFFSET)) = FIMD_TERM_SEQ; }\n"
                    << "  goto LOOP;\n"
                    << "MARKER_TEST:\n";
         } else {
@@ -147,10 +147,8 @@ namespace {
 
         source << "  linear_pos = (uint32_t)(img_ptr - image_start);\n"
                << "  if (linear_pos > 0x00FFFFFFu) { *((uint16_t*) (img_ptr + FIMD_OFFSET)) = FIMD_TERM_SEQ; goto LOOP; }\n"
-               << "  if (*markers_num >= FIMD_MAX_MARKERS_COUNT) { *((uint16_t*) (img_ptr + FIMD_OFFSET)) = FIMD_TERM_SEQ; goto LOOP; }\n"
-               << "  markers[*markers_num] = (linear_pos << 8u) | (uint32_t)pix_val;\n"
-               << "  (*markers_num)++;\n"
-               << "  if (*markers_num == FIMD_MAX_MARKERS_COUNT) *((uint16_t*) (img_ptr + FIMD_OFFSET)) = FIMD_TERM_SEQ;\n"
+               << "  if (*markers_num < FIMD_MAX_MARKERS_COUNT) { markers[*markers_num] = (linear_pos << 8u) | (uint32_t)pix_val; (*markers_num)++; }\n"
+               << "  if (*markers_num == FIMD_MAX_MARKERS_COUNT && packed_sun_mask == NULL) *((uint16_t*) (img_ptr + FIMD_OFFSET)) = FIMD_TERM_SEQ;\n"
                << "  goto LOOP;\n"
                << "}\n";
 
@@ -251,10 +249,18 @@ namespace {
         unsigned* markers_count,
         std::uint32_t* sun_points,
         unsigned* sun_points_count,
-        bool make_copy)
+        bool make_copy,
+        std::uint64_t* packed_sun_mask)
     {
         if (!generated_ready) {
-            return fallback.detectRaw(image, markers, markers_count, sun_points, sun_points_count, make_copy);
+            return fallback.detectRaw(
+                image,
+                markers,
+                markers_count,
+                sun_points,
+                sun_points_count,
+                make_copy,
+                packed_sun_mask);
         }
 
         const std::size_t total_pixels = static_cast<std::size_t>(module->image_width()) * static_cast<std::size_t>(module->image_height());
@@ -276,7 +282,13 @@ namespace {
 
         std::uint32_t raw_markers_count    = 0;
         std::uint32_t raw_sun_points_count = 0;
-        generated_detect(working_image, marker_ptrs.data(), &raw_markers_count, detect_sun_points ? sun_ptrs.data() : nullptr, &raw_sun_points_count);
+        generated_detect(
+            working_image,
+            marker_ptrs.data(),
+            &raw_markers_count,
+            detect_sun_points ? sun_ptrs.data() : nullptr,
+            &raw_sun_points_count,
+            packed_sun_mask);
 
         if (markers_count != nullptr) {
             *markers_count = std::min(raw_markers_count, static_cast<std::uint32_t>(max_markers_count));
@@ -349,9 +361,17 @@ unsigned GeneratedFimdCpuKernel::detectRaw(
     unsigned* markers_count,
     std::uint32_t* sun_points,
     unsigned* sun_points_count,
-    bool make_copy)
+    bool make_copy,
+    std::uint64_t* packed_sun_mask)
 {
-    return impl_->detectRaw(image, markers, markers_count, sun_points, sun_points_count, make_copy);
+    return impl_->detectRaw(
+        image,
+        markers,
+        markers_count,
+        sun_points,
+        sun_points_count,
+        make_copy,
+        packed_sun_mask);
 }
 
 /**

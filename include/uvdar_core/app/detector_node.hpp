@@ -41,8 +41,6 @@ private:
         std::vector<cv::Mat> masks;
         std::unique_ptr<uvdar_core::detection::IDetector> detector;
         bool detector_initialized = false;
-        cv::Mat latest_image;
-        uvdar_core::detection::DetectorOutput latest_output;
         rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr subscription;
         rclcpp::Publisher<uvdar_core::msg::ImagePointsWithCovariancesStamped>::SharedPtr candidate_publisher;
         rclcpp::Publisher<uvdar_core::msg::ImagePointsWithCovariancesStamped>::SharedPtr sun_publisher;

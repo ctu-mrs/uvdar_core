@@ -16,6 +16,7 @@ layout(binding = 4, offset = 0) uniform atomic_uint markers_count;
 layout(std430, binding = 5) readonly buffer configuration_buffer { uint configuration[]; };
 layout(std430, binding = 6) buffer markers_buffer { uint markers[]; };
 layout(std430, binding = 7) buffer sun_pts_buffer { uint sun_pts[]; };
+layout(std430, binding = 8) buffer sun_mask_buffer { uint sun_mask[]; };
 
 uint config_threshold = 0U;
 uint config_threshold_diff = 0U;
@@ -192,10 +193,6 @@ void main()
     config_max_sun_pts_count = configuration[6];
     config_radii_count = configuration[7];
 
-    if (atomicCounter(markers_count) >= uint(config_max_markers_count) || atomicCounter(sun_pts_count) >= uint(config_max_sun_pts_count)) {
-        return;
-    }
-
     center_pos = ivec2(gl_GlobalInvocationID.xy);
     if (center_pos.x < 0 || center_pos.x >= image_size.x || center_pos.y < 0 || center_pos.y >= image_size.y) {
         return;
@@ -205,14 +202,10 @@ void main()
 
     if (center_val >= int(config_threshold)) {
         for (int i = 0; i < int(config_radii_count); i++) {
-            int radius = int(configuration[8 + i]);
+            int radius = int(configuration[9 + i]);
             if (center_pos.x < radius || center_pos.x >= (image_size.x - radius) || center_pos.y < radius || center_pos.y >= (image_size.y - radius)) {
                 return;
             }
-            if (atomicCounter(markers_count) >= uint(config_max_markers_count) || atomicCounter(sun_pts_count) >= uint(config_max_sun_pts_count)) {
-                return;
-            }
-
             switch (run_fimd(radius)) {
                 case FIMD_RESULT_MARKER: {
                     uint index = atomicCounterIncrement(markers_count);
@@ -224,11 +217,12 @@ void main()
                     return;
                 }
                 case FIMD_RESULT_SUN: {
+                    uint linear_pos = (uint(center_pos.y) * uint(image_size.x)) + uint(center_pos.x);
+                    atomicOr(sun_mask[linear_pos >> 5u], 1u << (linear_pos & 31u));
                     uint index = atomicCounterIncrement(sun_pts_count);
                     if (index >= uint(config_max_sun_pts_count)) {
                         return;
                     }
-                    uint linear_pos = (uint(center_pos.y) * uint(image_size.x)) + uint(center_pos.x);
                     sun_pts[index] = (linear_pos << 8u) | (uint(center_val) & 0xFFu);
                     return;
                 }

@@ -205,7 +205,8 @@ public:
         unsigned* markers_count,
         std::uint32_t* sun_points,
         unsigned* sun_points_count,
-        bool make_copy = true)
+        bool make_copy = true,
+        std::uint64_t* packed_sun_mask = nullptr)
     {
         if (module_->image_width() < (2 * module_->radius() + 1) || module_->image_height() < (2 * module_->radius() + 1)) {
             if (markers_count != nullptr)
@@ -259,17 +260,29 @@ public:
                     }
 
                     clearInterior(cursor, interior_offsets);
+                    if (packed_sun_mask != nullptr) {
+                        const std::size_t x = point_position % module_->image_width();
+                        const std::size_t y = point_position / module_->image_width();
+                        const std::size_t words_per_row =
+                            (static_cast<std::size_t>(module_->image_width()) + 63U) / 64U;
+                        packed_sun_mask[y * words_per_row + x / 64U] |=
+                            std::uint64_t {1U} << (x % 64U);
+                    }
                     if (sun_points != nullptr) {
                         if (sun_count < sun_limit_) {
                             sun_points[sun_count] = (static_cast<std::uint32_t>(point_position) << 8u) | static_cast<std::uint32_t>(pixel_value);
                         }
                     }
-                    ++sun_count;
+                    if (sun_count < sun_limit_) {
+                        ++sun_count;
+                    }
                     if (sun_points_count != nullptr)
-                        *sun_points_count = std::min(sun_count, sun_limit_);
-                if (sun_count >= sun_limit_) {
-                    writeTermination(cursor + offset - termination_.size());
-                }
+                        *sun_points_count = sun_count;
+                    // A coordinate list is bounded, but the binary mask must
+                    // cover every classified sun pixel for correct filtering.
+                    if (sun_count >= sun_limit_ && packed_sun_mask == nullptr) {
+                        writeTermination(cursor + offset - termination_.size());
+                    }
             }
             continue;
         }
@@ -283,10 +296,12 @@ public:
                 markers[marker_count] = (static_cast<std::uint32_t>(point_position) << 8u) | static_cast<std::uint32_t>(pixel_value);
             }
         }
-        ++marker_count;
+        if (marker_count < marker_limit_) {
+            ++marker_count;
+        }
         if (markers_count != nullptr)
-            *markers_count = std::min(marker_count, marker_limit_);
-        if (marker_count >= marker_limit_) {
+            *markers_count = marker_count;
+        if (marker_count >= marker_limit_ && packed_sun_mask == nullptr) {
             writeTermination(cursor + offset - termination_.size());
         }
     }

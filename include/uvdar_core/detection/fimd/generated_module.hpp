@@ -40,7 +40,8 @@ public:
         unsigned* markers_count,
         std::uint32_t* sun_points,
         unsigned* sun_points_count,
-        bool make_copy = true);
+        bool make_copy = true,
+        std::uint64_t* packed_sun_mask = nullptr);
 
     /**
      * @brief Whether dynamic code generation succeeded.

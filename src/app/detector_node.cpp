@@ -238,8 +238,6 @@ void DetectorNode::processImage(const sensor_msgs::msg::Image::ConstSharedPtr& i
             return;
         }
 
-        pipeline->latest_image  = cv_image->image.clone();
-        pipeline->latest_output = output;
     }
 
     if (output.detected_points.size() > config_.detector.max_points_per_image) {
