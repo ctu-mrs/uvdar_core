@@ -45,6 +45,7 @@ struct DetectorConfig {
     double initial_delay_sec;
     std::size_t queue_depth;
     std::size_t thread_pool_size;
+    bool latest_frame_only;
     std::size_t max_points_per_image;
     std::vector<DetectorInputConfig> inputs;
 };

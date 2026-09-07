@@ -13,6 +13,10 @@ detector:
   queue_depth: 10
   # Concurrent detector worker count; positive integer, default 3.
   thread_pool_size: 3
+  # Keep at most one pending image per input and replace it with the newest
+  # while detection is busy. This bounds memory and latency for live streams;
+  # false preserves the legacy process-every-frame queue.
+  latest_frame_only: false
   # Maximum detections copied into one output message; positive integer, default 100.
   max_points_per_image: 100
   # Camera pipelines; non-empty list, default one camera_0 entry.

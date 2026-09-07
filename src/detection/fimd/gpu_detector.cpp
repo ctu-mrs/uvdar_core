@@ -43,16 +43,14 @@ namespace uvdar_core::detection::fimd {
         return points;
     }
 
-    std::vector<uvdar_core::detection::DetectorPoint> decodeSunPoints(const std::vector<std::uint32_t>& raw_points, std::size_t count, unsigned width)
+    std::vector<uvdar_core::detection::DetectorPoint> makeDetectorPoints(
+        const std::vector<WeightedPoint>& raw_points)
     {
         std::vector<uvdar_core::detection::DetectorPoint> points;
-        points.reserve(count);
-        for (std::size_t index = 0; index < count; ++index) {
-            const auto linear_pos = static_cast<std::uint32_t>(raw_points[index] >> 8u);
-            const auto y = linear_pos / width;
-            const auto x = linear_pos - y * width;
+        points.reserve(raw_points.size());
+        for (const auto& raw_point : raw_points) {
             points.push_back(uvdar_core::detection::DetectorPoint {
-                cv::Point2f(static_cast<float>(x), static_cast<float>(y)),
+                raw_point.point,
                 1.0F / 12.0F,
                 0.0F,
                 0.0F,
@@ -407,10 +405,10 @@ struct GpuDetector::Impl {
                 return false;
             }
         }
-        const auto collapsed_markers = decodePackedPoints(raw_markers, marker_count, width);
-        output.detected_points = collapseRawPoints(collapsed_markers, 5);
+        auto raw_marker_points = decodePackedPoints(raw_markers, marker_count, width);
 
         output.sun_points.clear();
+        std::vector<WeightedPoint> raw_sun_points;
         if (config.detect_sun_points) {
             GLuint sun_count = 0;
             if (sun_counter.read_uint_val(&sun_count) != GL_NO_ERROR) {
@@ -425,14 +423,17 @@ struct GpuDetector::Impl {
                     return false;
                 }
             }
-            output.sun_points = decodeSunPoints(raw_sun, sun_count, width);
+            raw_sun_points = decodePackedPoints(raw_sun, sun_count, width);
+            filterRawMarkersNearSunPoints(
+                raw_marker_points,
+                raw_sun_points,
+                config.min_sun_marker_distance,
+                width,
+                height);
+            output.sun_points = makeDetectorPoints(raw_sun_points);
         }
 
-        filterMarkersNearSunPoints(
-            output,
-            config.min_sun_marker_distance,
-            width,
-            height);
+        output.detected_points = collapseRawPoints(raw_marker_points, 5);
 
         return true;
     }

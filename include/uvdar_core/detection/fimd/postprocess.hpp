@@ -219,7 +219,6 @@ inline std::vector<uvdar_core::detection::DetectorPoint> collapseRawPointsIntern
 struct SunMaskWorkspace {
     unsigned dilation_distance = 0U;
     std::vector<int> dilation_half_widths;
-    cv::Mat sun_points;
     cv::Mat dilated_sun_points;
 };
 
@@ -260,19 +259,26 @@ inline std::vector<int> strictDiskHalfWidths(unsigned distance)
 }
 
 /**
- * @brief Remove markers selected by a morphologically dilated boolean sun mask.
- * @param output Detection output to filter in-place.
+ * @brief Remove raw marker samples selected by a dilated boolean sun mask.
+ *
+ * Filtering before collapse prevents rejected sun-adjacent samples from moving
+ * a surviving cluster centroid or inflating its covariance. It also avoids
+ * spending clustering work on samples that cannot appear in the result.
+ *
+ * @param raw_markers Raw marker samples to filter in-place.
+ * @param raw_sun_points Raw sun samples used to construct the exclusion mask.
  * @param min_sun_marker_distance Minimum Euclidean distance in pixels.
  * @param image_width Width of the source image in pixels.
  * @param image_height Height of the source image in pixels.
  */
-inline void filterMarkersNearSunPoints(
-    uvdar_core::detection::DetectorOutput& output,
+inline void filterRawMarkersNearSunPoints(
+    std::vector<WeightedPoint>& raw_markers,
+    const std::vector<WeightedPoint>& raw_sun_points,
     unsigned min_sun_marker_distance,
     unsigned image_width,
     unsigned image_height)
 {
-    if (min_sun_marker_distance == 0U || output.sun_points.empty() || output.detected_points.empty()) {
+    if (min_sun_marker_distance == 0U || raw_sun_points.empty() || raw_markers.empty()) {
         return;
     }
     if (image_width == 0U || image_height == 0U ||
@@ -282,19 +288,18 @@ inline void filterMarkersNearSunPoints(
     }
 
     SunMaskWorkspace& workspace = sunMaskWorkspace();
-    workspace.sun_points.create(
+    workspace.dilated_sun_points.create(
         static_cast<int>(image_height),
         static_cast<int>(image_width),
         CV_8UC1);
-    workspace.sun_points.setTo(0U);
-    for (const auto& sun : output.sun_points) {
+    workspace.dilated_sun_points.setTo(0U);
+    for (const auto& sun : raw_sun_points) {
         const int x = static_cast<int>(sun.point.x);
         const int y = static_cast<int>(sun.point.y);
-        if (x < 0 || x >= workspace.sun_points.cols ||
-            y < 0 || y >= workspace.sun_points.rows) {
+        if (x < 0 || x >= workspace.dilated_sun_points.cols ||
+            y < 0 || y >= workspace.dilated_sun_points.rows) {
             throw std::out_of_range("sun result lies outside the input image");
         }
-        workspace.sun_points.ptr<std::uint8_t>(y)[x] = 1U;
     }
 
     const std::uint64_t maximum_dx = image_width - 1U;
@@ -304,7 +309,7 @@ inline void filterMarkersNearSunPoints(
     const std::uint64_t minimum_distance_squared =
         static_cast<std::uint64_t>(min_sun_marker_distance) * min_sun_marker_distance;
     if (minimum_distance_squared > maximum_image_distance_squared) {
-        output.detected_points.clear();
+        raw_markers.clear();
         return;
     }
 
@@ -313,16 +318,10 @@ inline void filterMarkersNearSunPoints(
             strictDiskHalfWidths(min_sun_marker_distance);
         workspace.dilation_distance = min_sun_marker_distance;
     }
-    workspace.dilated_sun_points.create(
-        workspace.sun_points.rows,
-        workspace.sun_points.cols,
-        CV_8UC1);
-    workspace.dilated_sun_points.setTo(0U);
-
     // Sparse binary morphology: paint the cached spans of an exact disk around
     // each sun pixel instead of repeatedly measuring every marker/sun pair.
     const int center = static_cast<int>(min_sun_marker_distance - 1U);
-    for (const auto& sun : output.sun_points) {
+    for (const auto& sun : raw_sun_points) {
         const int sun_x = static_cast<int>(sun.point.x);
         const int sun_y = static_cast<int>(sun.point.y);
         for (std::size_t row_index = 0;
@@ -344,10 +343,10 @@ inline void filterMarkersNearSunPoints(
         }
     }
 
-    output.detected_points.erase(
+    raw_markers.erase(
         std::remove_if(
-            output.detected_points.begin(),
-            output.detected_points.end(),
+            raw_markers.begin(),
+            raw_markers.end(),
             [&](const auto& marker) {
                 const int x = std::clamp(
                     static_cast<int>(std::lround(marker.point.x)),
@@ -359,7 +358,7 @@ inline void filterMarkersNearSunPoints(
                     workspace.dilated_sun_points.rows - 1);
                 return workspace.dilated_sun_points.ptr<std::uint8_t>(y)[x] != 0U;
             }),
-        output.detected_points.end());
+        raw_markers.end());
 }
 
 } // namespace uvdar_core::detection::fimd

@@ -178,6 +178,15 @@ bool CpuDetector::processImage(const cv::Mat& image, DetectorOutput& output, int
         }
     }
 
+    if (impl_->config.detect_sun_points) {
+        filterRawMarkersNearSunPoints(
+            raw_marker_points,
+            raw_sun_points,
+            impl_->config.min_sun_marker_distance,
+            impl_->image_width,
+            impl_->image_height);
+    }
+
     output.detected_points = collapseRawPoints(raw_marker_points, 5);
     if (impl_->config.detect_sun_points) {
         output.sun_points.reserve(raw_sun_points.size());
@@ -191,14 +200,6 @@ bool CpuDetector::processImage(const cv::Mat& image, DetectorOutput& output, int
                 1,
             });
         }
-    }
-
-    if (impl_->config.detect_sun_points) {
-        filterMarkersNearSunPoints(
-            output,
-            impl_->config.min_sun_marker_distance,
-            impl_->image_width,
-            impl_->image_height);
     }
 
     return true;

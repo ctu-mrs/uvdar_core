@@ -2,6 +2,7 @@
 
 #include <opencv2/core.hpp>
 
+#include <cstdint>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -48,6 +49,10 @@ private:
         rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr visualization_publisher;
         std::unique_ptr<uvdar_core::app::visualization::VisualizationWorker> visualization_worker;
         std::mutex mutex;
+        std::mutex scheduling_mutex;
+        sensor_msgs::msg::Image::ConstSharedPtr pending_image;
+        bool worker_active = false;
+        std::uint64_t dropped_pending_frames = 0;
     };
 
     /**
@@ -66,6 +71,10 @@ private:
      * @brief ROS image callback.
      */
     void onImage(const sensor_msgs::msg::Image::ConstSharedPtr& image_msg, std::size_t image_index);
+    /**
+     * @brief Process the newest pending image until the bounded slot is empty.
+     */
+    void processLatestImages(std::size_t image_index);
     /**
      * @brief Run detector on one image and publish all outputs.
      */

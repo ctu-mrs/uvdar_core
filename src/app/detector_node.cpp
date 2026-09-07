@@ -140,9 +140,73 @@ void DetectorNode::onImage(const sensor_msgs::msg::Image::ConstSharedPtr& image_
         return;
     }
 
-    thread_pool_->enqueue([this, image_msg, image_index]() {
+    if (!config_.detector.latest_frame_only) {
+        thread_pool_->enqueue([this, image_msg, image_index]() {
+            processImage(image_msg, image_index);
+        });
+        return;
+    }
+
+    if (image_index >= pipelines_.size()) {
+        return;
+    }
+
+    auto& pipeline = pipelines_[image_index];
+    bool enqueue_worker = false;
+    std::uint64_t dropped_pending_frames = 0;
+    {
+        std::scoped_lock lock(pipeline->scheduling_mutex);
+        if (pipeline->pending_image) {
+            ++pipeline->dropped_pending_frames;
+        }
+        pipeline->pending_image = image_msg;
+        dropped_pending_frames = pipeline->dropped_pending_frames;
+        if (!pipeline->worker_active) {
+            pipeline->worker_active = true;
+            enqueue_worker = true;
+        }
+    }
+
+    if (dropped_pending_frames > 0) {
+        RCLCPP_WARN_THROTTLE(
+            get_logger(), *get_clock(), 5000,
+            "Detector input '%s' is faster than processing; replaced %zu stale pending frame(s).",
+            pipeline->config.name.c_str(), static_cast<std::size_t>(dropped_pending_frames));
+    }
+
+    if (enqueue_worker) {
+        thread_pool_->enqueue([this, image_index]() {
+            processLatestImages(image_index);
+        });
+    }
+}
+
+/**
+ * @brief Drain a one-element latest-image slot without building a frame backlog.
+ */
+void DetectorNode::processLatestImages(std::size_t image_index)
+{
+    if (image_index >= pipelines_.size()) {
+        return;
+    }
+    auto& pipeline = pipelines_[image_index];
+
+    while (rclcpp::ok()) {
+        sensor_msgs::msg::Image::ConstSharedPtr image_msg;
+        {
+            std::scoped_lock lock(pipeline->scheduling_mutex);
+            if (!pipeline->pending_image) {
+                pipeline->worker_active = false;
+                return;
+            }
+            image_msg = std::move(pipeline->pending_image);
+        }
         processImage(image_msg, image_index);
-    });
+    }
+
+    std::scoped_lock lock(pipeline->scheduling_mutex);
+    pipeline->pending_image.reset();
+    pipeline->worker_active = false;
 }
 
 /**
