@@ -51,7 +51,8 @@ detector:
       min_sun_marker_distance: 20
       # Maximum regular candidates retained per frame; positive integer, default 300.
       max_markers_count: 300
-      # Maximum sun candidates retained per frame; positive integer, default 72000.
+      # Maximum sun candidates retained per frame for publication/visualization;
+      # the complete packed sun mask is still generated when those outputs are disabled.
       max_sun_points_count: 72000
       # FIMD isolation radii in pixels; non-empty positive-integer list, default [3, 5].
       radii: [3, 5]

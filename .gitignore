@@ -3,6 +3,9 @@
 __pycache__/
 .vscode/
 test*/
+build/
+install/
+log/
 
 *.swp
 *.swo

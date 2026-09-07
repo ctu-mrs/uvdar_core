@@ -13,24 +13,6 @@
 
 namespace uvdar_core::detection::fimd {
 
-namespace {
-
-    /**
-     * @brief Apply binary mask when requested and return raw byte vector.
-     */
-    std::vector<unsigned char> applyMask(const cv::Mat& image, const std::vector<cv::Mat>& masks, int mask_id)
-    {
-        if (mask_id < 0 || mask_id >= static_cast<int>(masks.size())) {
-            return std::vector<unsigned char>(image.data, image.data + image.total());
-        }
-
-        cv::Mat masked;
-        cv::bitwise_and(image, masks[mask_id], masked);
-        return std::vector<unsigned char>(masked.data, masked.data + masked.total());
-    }
-
-} // namespace
-
 struct CpuDetector::Impl {
     /**
      * @brief Store detector runtime state and kernels.
@@ -125,10 +107,33 @@ bool CpuDetector::processImage(const cv::Mat& image, DetectorOutput& output, int
         return false;
     }
 
-    const std::vector<unsigned char> prepared = applyMask(image, impl_->config.masks, mask_id);
+    // The generated FIMD scan writes its termination sentinel and suppresses
+    // pixels in its working image. Never modify the shared ROS image, but also
+    // avoid the previous prepare-copy followed by a second kernel-copy.
+    cv::Mat prepared;
+    const cv::Mat* scan_source = &image;
+    if (mask_id >= 0 && mask_id < static_cast<int>(impl_->config.masks.size())) {
+        cv::bitwise_and(image, impl_->config.masks[mask_id], prepared);
+        scan_source = &prepared;
+    } else if (!image.isContinuous()) {
+        image.copyTo(prepared);
+        scan_source = &prepared;
+    }
+    const bool scan_source_is_mutable = !prepared.empty();
     const auto image_width = static_cast<std::uint32_t>(image.cols);
     std::vector<WeightedPoint> raw_marker_points;
     std::vector<WeightedPoint> raw_sun_points;
+    if (impl_->config.max_markers_count > 0U) {
+        raw_marker_points.reserve(
+            static_cast<std::size_t>(impl_->config.max_markers_count) *
+            impl_->kernels.size());
+    }
+    if (impl_->config.detect_sun_points &&
+        impl_->config.max_sun_points_count > 0U) {
+        raw_sun_points.reserve(
+            static_cast<std::size_t>(impl_->config.max_sun_points_count) *
+            impl_->kernels.size());
+    }
     output.detected_points.clear();
     output.sun_points.clear();
     output.detected_points.reserve(100);
@@ -142,7 +147,8 @@ bool CpuDetector::processImage(const cv::Mat& image, DetectorOutput& output, int
         impl_->packed_sun_mask.clear();
     }
 
-    for (auto& kernel : impl_->kernels) {
+    for (std::size_t kernel_index = 0; kernel_index < impl_->kernels.size(); ++kernel_index) {
+        auto& kernel = impl_->kernels[kernel_index];
         std::vector<std::uint32_t> raw_markers(kernel->get_max_markers_count());
         unsigned raw_markers_count = 0;
 
@@ -158,12 +164,14 @@ bool CpuDetector::processImage(const cv::Mat& image, DetectorOutput& output, int
         }
 
         kernel->detectRaw(
-            prepared.data(),
+            scan_source->data,
             raw_markers.data(),
             &raw_markers_count,
             sun_points,
             sun_points_count,
-            true,
+            // A locally prepared image can be consumed directly by the last
+            // radius. Earlier radii still need an independent mutable copy.
+            !(scan_source_is_mutable && kernel_index + 1U == impl_->kernels.size()),
             impl_->packed_sun_mask.empty()
                 ? nullptr
                 : impl_->packed_sun_mask.data());

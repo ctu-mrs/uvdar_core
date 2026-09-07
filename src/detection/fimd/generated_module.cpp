@@ -273,20 +273,28 @@ namespace {
             working_image = frame;
         }
 
-        if (marker_ptrs.size() != max_markers_count) {
-            marker_ptrs.resize(max_markers_count);
+        std::uint32_t* marker_output = markers;
+        if (marker_output == nullptr) {
+            if (marker_scratch.size() != max_markers_count) {
+                marker_scratch.resize(max_markers_count);
+            }
+            marker_output = marker_scratch.data();
         }
-        if (detect_sun_points && sun_ptrs.size() != max_sun_points_count) {
-            sun_ptrs.resize(max_sun_points_count);
+        std::uint32_t* sun_output = sun_points;
+        if (detect_sun_points && sun_output == nullptr) {
+            if (sun_scratch.size() != max_sun_points_count) {
+                sun_scratch.resize(max_sun_points_count);
+            }
+            sun_output = sun_scratch.data();
         }
 
         std::uint32_t raw_markers_count    = 0;
         std::uint32_t raw_sun_points_count = 0;
         generated_detect(
             working_image,
-            marker_ptrs.data(),
+            marker_output,
             &raw_markers_count,
-            detect_sun_points ? sun_ptrs.data() : nullptr,
+            detect_sun_points ? sun_output : nullptr,
             &raw_sun_points_count,
             packed_sun_mask);
 
@@ -295,19 +303,6 @@ namespace {
         }
         if (sun_points_count != nullptr) {
             *sun_points_count = detect_sun_points ? std::min(raw_sun_points_count, static_cast<std::uint32_t>(max_sun_points_count)) : 0;
-        }
-
-        if (markers != nullptr) {
-            const std::uint32_t max_markers_to_copy = std::min(raw_markers_count, static_cast<std::uint32_t>(max_markers_count));
-            for (std::uint32_t index = 0; index < max_markers_to_copy; ++index) {
-                markers[index] = marker_ptrs[index];
-            }
-        }
-        if (detect_sun_points && sun_points != nullptr) {
-            const std::uint32_t max_sun_to_copy = std::min(raw_sun_points_count, static_cast<std::uint32_t>(max_sun_points_count));
-            for (std::uint32_t index = 0; index < max_sun_to_copy; ++index) {
-                sun_points[index] = sun_ptrs[index];
-            }
         }
 
         const std::uint32_t clamped_markers = std::min(raw_markers_count, static_cast<std::uint32_t>(max_markers_count));
@@ -330,8 +325,8 @@ namespace {
     GeneratedDetectFn generated_detect = nullptr;
     bool generated_ready               = false;
     unsigned char* frame               = nullptr;
-    std::vector<std::uint32_t> marker_ptrs;
-    std::vector<std::uint32_t> sun_ptrs;
+    std::vector<std::uint32_t> marker_scratch;
+    std::vector<std::uint32_t> sun_scratch;
 };
 
 GeneratedFimdCpuKernel::GeneratedFimdCpuKernel(

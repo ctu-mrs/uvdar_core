@@ -68,6 +68,16 @@ void DetectorNode::createInterfaces()
         auto pipeline    = std::make_unique<InputPipeline>();
         pipeline->config = input_config;
         pipeline->masks  = loadMasks(input_config);
+        // Sun samples are needed to build the exact packed exclusion mask, but
+        // their coordinates only need to be materialized when somebody will
+        // consume them. Keep one slot otherwise: the CPU and GPU scans still
+        // paint every sun pixel into their masks, while avoiding a large raw
+        // point buffer plus decode/output vectors on every frame.
+        const bool retain_sun_points = input_config.publish_sun_points ||
+            input_config.publish_visualization || config_.detector.gui;
+        const unsigned retained_sun_point_limit = retain_sun_points
+            ? input_config.max_sun_points_count
+            : 1U;
         if (input_config.backend == DetectorBackend::Cpu) {
             pipeline->detector = std::make_unique<uvdar_core::detection::fimd::CpuDetector>(uvdar_core::detection::fimd::CpuDetectorConfig {
                 config_.detector.debug,
@@ -77,7 +87,7 @@ void DetectorNode::createInterfaces()
                 input_config.threshold_sun,
                 input_config.min_sun_marker_distance,
                 input_config.max_markers_count,
-                input_config.max_sun_points_count,
+                retained_sun_point_limit,
                 input_config.radii,
                 pipeline->masks,
             });
@@ -90,7 +100,7 @@ void DetectorNode::createInterfaces()
                 input_config.threshold_sun,
                 input_config.min_sun_marker_distance,
                 input_config.max_markers_count,
-                input_config.max_sun_points_count,
+                retained_sun_point_limit,
                 input_config.radii,
                 pipeline->masks,
             });

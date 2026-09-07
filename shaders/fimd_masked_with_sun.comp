@@ -172,6 +172,9 @@ int run_fimd(int radius)
         if (sun_candidate && (center_val - val > int(config_threshold_diff))) {
             sun_candidate = false;
         }
+        if (!marker_candidate && !sun_candidate) {
+            return FIMD_RESULT_NONE;
+        }
     }
 
     if (sun_candidate) {
