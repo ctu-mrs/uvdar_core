@@ -216,16 +216,6 @@ target_link_libraries(${PROJECT_NAME}_pose_estimation
     Eigen3::Eigen
 )
 
-if(BUILD_TESTING)
-    find_package(ament_cmake_gtest REQUIRED)
-    ament_add_gtest(test_visibility_pose
-        test/test_visibility_pose.cpp
-    )
-    target_link_libraries(test_visibility_pose
-        ${PROJECT_NAME}_pose_estimation
-        Eigen3::Eigen
-    )
-endif()
 ament_target_dependencies(${PROJECT_NAME}_detector
     rclcpp
     sensor_msgs

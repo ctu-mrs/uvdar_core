@@ -194,7 +194,11 @@ bool CpuDetector::processImage(const cv::Mat& image, DetectorOutput& output, int
     }
 
     if (impl_->config.detect_sun_points) {
-        filterMarkersNearSunPoints(output, impl_->config.min_sun_marker_distance);
+        filterMarkersNearSunPoints(
+            output,
+            impl_->config.min_sun_marker_distance,
+            impl_->image_width,
+            impl_->image_height);
     }
 
     return true;

@@ -1,7 +1,10 @@
 #pragma once
 
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
+#include <limits>
+#include <stdexcept>
 #include <vector>
 
 #include <opencv2/core.hpp>
@@ -213,39 +216,150 @@ inline std::vector<uvdar_core::detection::DetectorPoint> collapseRawPointsIntern
     return collapsed;
 }
 
+struct SunMaskWorkspace {
+    unsigned dilation_distance = 0U;
+    std::vector<int> dilation_half_widths;
+    cv::Mat sun_points;
+    cv::Mat dilated_sun_points;
+};
+
+inline SunMaskWorkspace& sunMaskWorkspace()
+{
+    thread_local SunMaskWorkspace workspace;
+    return workspace;
+}
+
 /**
- * @brief Remove detected markers that are too close to sun points.
+ * @brief Return row half-widths for an integer disk matching strict distance.
+ */
+inline std::vector<int> strictDiskHalfWidths(unsigned distance)
+{
+    const std::uint64_t diameter_64 =
+        2U * static_cast<std::uint64_t>(distance) - 1U;
+    if (diameter_64 > static_cast<std::uint64_t>(std::numeric_limits<int>::max())) {
+        throw std::length_error("minimum sun-marker distance is too large to rasterize");
+    }
+
+    const int diameter = static_cast<int>(diameter_64);
+    const int center = static_cast<int>(distance - 1U);
+    const std::uint64_t distance_squared =
+        static_cast<std::uint64_t>(distance) * distance;
+    std::vector<int> half_widths(static_cast<std::size_t>(diameter));
+    for (int y = 0; y < diameter; ++y) {
+        const std::int64_t dy = static_cast<std::int64_t>(y) - center;
+        int half_width = center;
+        while (half_width > 0 &&
+               static_cast<std::uint64_t>(
+                   static_cast<std::int64_t>(half_width) * half_width + dy * dy) >=
+                   distance_squared) {
+            --half_width;
+        }
+        half_widths[static_cast<std::size_t>(y)] = half_width;
+    }
+    return half_widths;
+}
+
+/**
+ * @brief Remove markers selected by a morphologically dilated boolean sun mask.
  * @param output Detection output to filter in-place.
  * @param min_sun_marker_distance Minimum Euclidean distance in pixels.
+ * @param image_width Width of the source image in pixels.
+ * @param image_height Height of the source image in pixels.
  */
-inline void filterMarkersNearSunPoints(uvdar_core::detection::DetectorOutput& output, unsigned min_sun_marker_distance)
+inline void filterMarkersNearSunPoints(
+    uvdar_core::detection::DetectorOutput& output,
+    unsigned min_sun_marker_distance,
+    unsigned image_width,
+    unsigned image_height)
 {
-    if (min_sun_marker_distance == 0 || output.sun_points.empty() || output.detected_points.empty()) {
+    if (min_sun_marker_distance == 0U || output.sun_points.empty() || output.detected_points.empty()) {
+        return;
+    }
+    if (image_width == 0U || image_height == 0U ||
+        image_width > static_cast<unsigned>(std::numeric_limits<int>::max()) ||
+        image_height > static_cast<unsigned>(std::numeric_limits<int>::max())) {
+        throw std::invalid_argument("sun mask requires valid input image dimensions");
+    }
+
+    SunMaskWorkspace& workspace = sunMaskWorkspace();
+    workspace.sun_points.create(
+        static_cast<int>(image_height),
+        static_cast<int>(image_width),
+        CV_8UC1);
+    workspace.sun_points.setTo(0U);
+    for (const auto& sun : output.sun_points) {
+        const int x = static_cast<int>(sun.point.x);
+        const int y = static_cast<int>(sun.point.y);
+        if (x < 0 || x >= workspace.sun_points.cols ||
+            y < 0 || y >= workspace.sun_points.rows) {
+            throw std::out_of_range("sun result lies outside the input image");
+        }
+        workspace.sun_points.ptr<std::uint8_t>(y)[x] = 1U;
+    }
+
+    const std::uint64_t maximum_dx = image_width - 1U;
+    const std::uint64_t maximum_dy = image_height - 1U;
+    const std::uint64_t maximum_image_distance_squared =
+        maximum_dx * maximum_dx + maximum_dy * maximum_dy;
+    const std::uint64_t minimum_distance_squared =
+        static_cast<std::uint64_t>(min_sun_marker_distance) * min_sun_marker_distance;
+    if (minimum_distance_squared > maximum_image_distance_squared) {
+        output.detected_points.clear();
         return;
     }
 
-    const double minimum_distance_squared = static_cast<double>(min_sun_marker_distance) * static_cast<double>(min_sun_marker_distance);
+    if (workspace.dilation_distance != min_sun_marker_distance) {
+        workspace.dilation_half_widths =
+            strictDiskHalfWidths(min_sun_marker_distance);
+        workspace.dilation_distance = min_sun_marker_distance;
+    }
+    workspace.dilated_sun_points.create(
+        workspace.sun_points.rows,
+        workspace.sun_points.cols,
+        CV_8UC1);
+    workspace.dilated_sun_points.setTo(0U);
 
-    std::vector<uvdar_core::detection::DetectorPoint> filtered_markers;
-    filtered_markers.reserve(output.detected_points.size());
-
-    for (const auto& marker : output.detected_points) {
-        bool keep_marker = true;
-        for (const auto& sun_point : output.sun_points) {
-            const double dx = static_cast<double>(marker.point.x) - static_cast<double>(sun_point.point.x);
-            const double dy = static_cast<double>(marker.point.y) - static_cast<double>(sun_point.point.y);
-            if ((dx * dx + dy * dy) < minimum_distance_squared) {
-                keep_marker = false;
-                break;
+    // Sparse binary morphology: paint the cached spans of an exact disk around
+    // each sun pixel instead of repeatedly measuring every marker/sun pair.
+    const int center = static_cast<int>(min_sun_marker_distance - 1U);
+    for (const auto& sun : output.sun_points) {
+        const int sun_x = static_cast<int>(sun.point.x);
+        const int sun_y = static_cast<int>(sun.point.y);
+        for (std::size_t row_index = 0;
+             row_index < workspace.dilation_half_widths.size();
+             ++row_index) {
+            const int y = sun_y + static_cast<int>(row_index) - center;
+            if (y < 0 || y >= workspace.dilated_sun_points.rows) {
+                continue;
             }
-        }
 
-        if (keep_marker) {
-            filtered_markers.push_back(marker);
+            const int half_width = workspace.dilation_half_widths[row_index];
+            const int begin_x = std::max(0, sun_x - half_width);
+            const int end_x = std::min(
+                workspace.dilated_sun_points.cols - 1,
+                sun_x + half_width);
+            std::uint8_t* const row =
+                workspace.dilated_sun_points.ptr<std::uint8_t>(y);
+            std::fill(row + begin_x, row + end_x + 1, 1U);
         }
     }
 
-    output.detected_points = std::move(filtered_markers);
+    output.detected_points.erase(
+        std::remove_if(
+            output.detected_points.begin(),
+            output.detected_points.end(),
+            [&](const auto& marker) {
+                const int x = std::clamp(
+                    static_cast<int>(std::lround(marker.point.x)),
+                    0,
+                    workspace.dilated_sun_points.cols - 1);
+                const int y = std::clamp(
+                    static_cast<int>(std::lround(marker.point.y)),
+                    0,
+                    workspace.dilated_sun_points.rows - 1);
+                return workspace.dilated_sun_points.ptr<std::uint8_t>(y)[x] != 0U;
+            }),
+        output.detected_points.end());
 }
 
 } // namespace uvdar_core::detection::fimd

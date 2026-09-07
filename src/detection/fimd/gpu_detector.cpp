@@ -428,7 +428,11 @@ struct GpuDetector::Impl {
             output.sun_points = decodeSunPoints(raw_sun, sun_count, width);
         }
 
-        filterMarkersNearSunPoints(output, config.min_sun_marker_distance);
+        filterMarkersNearSunPoints(
+            output,
+            config.min_sun_marker_distance,
+            width,
+            height);
 
         return true;
     }
