@@ -1,1 +1,1 @@
-sequences/manchesterPropeties.txt
+sequences/onlyFirstFourManchesterPropeties.txt

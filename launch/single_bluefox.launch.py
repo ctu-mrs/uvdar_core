@@ -75,9 +75,9 @@ def generate_launch_description():
     declare_fps = DeclareLaunchArgument('fps', default_value='60', description='Frame rate')
     declare_aec = DeclareLaunchArgument('aec', default_value='false', description='Auto exposure control')
     declare_des_grey_value = DeclareLaunchArgument('des_grey_value', default_value='128', description='Desired brightness 0-255 (only when aec == true)')
-    declare_expose_upper_limit_us = DeclareLaunchArgument('expose_upper_limit_us', default_value='100000', description='Upper limit of exposure time (only when aec == true)')
-    declare_max_expose_jump = DeclareLaunchArgument('max_expose_jump', default_value='1000000', description='Maximal change of exposure time in one step (only when aec == true)')
-    declare_acs = DeclareLaunchArgument('acs', default_value='2', description='Auto exposure control speed (0 - slow, 1 - medium, 2 - fast)')
+    declare_expose_upper_limit_us = DeclareLaunchArgument('expose_upper_limit_us', default_value='5000', description='Upper limit of exposure time (only when aec == true)')
+    declare_max_expose_jump = DeclareLaunchArgument('max_expose_jump', default_value='1000', description='Maximal change of exposure time in one step (only when aec == true)')
+    declare_acs = DeclareLaunchArgument('acs', default_value='0', description='Auto exposure control speed (0 - slow, 1 - medium, 2 - fast)')
     declare_expose_us = DeclareLaunchArgument('expose_us', default_value='2000', description='Exposure time in microseconds (only when aec == false)')
     declare_agc = DeclareLaunchArgument('agc', default_value='false', description='Auto gain control')
     declare_gain_db = DeclareLaunchArgument('gain_db', default_value='0.0', description='Gain (only when agc == false)')
@@ -127,8 +127,11 @@ def generate_launch_description():
         
         camera_name = LaunchConfiguration('camera_name').perform(context)
 
+        # TF frame convention: <uav_name>/bluefox for single-camera, or
+        # <uav_name>/bluefox_<camera_name> (e.g. uav4/bluefox_left) for the
+        # two-camera case. This must match the child-frame-id used by the
+        # static_transform_publisher nodes in two_bluefox.launch.py.
         frame_id = EnvironmentVariable('UAV_NAME').perform(context) + '/bluefox'
-
 
         if camera_name != '':
            frame_id += '_' + camera_name 
@@ -173,7 +176,7 @@ def generate_launch_description():
         camera_node = ComposableNode(
             package='bluefox2',
             plugin='bluefox2::BluefoxSingleComponent',  # Assuming the nodelet is converted to a regular node
-            name=['bluefox_', camera_name] if camera_name != '' else "bluefox",
+            name='bluefox',
             namespace=camera_ns,
             parameters=parameters,
             extra_arguments=[{'use_intra_process_comms': True}],
@@ -183,12 +186,13 @@ def generate_launch_description():
             ],
         )
 
-        # Relative to camera_ns, so this subscribes to exactly what
-        # camera_node published (<camera_ns>/image_raw, <camera_ns>/camera_info)
-        # without needing to know uav_name/camera_name itself.
+        # Relative to camera_ns. camera_node's image_raw/camera_info are
+        # PRIVATE topics resolved as <camera_ns>/bluefox/image_raw (see the
+        # camera_ns note above), so the remap targets need the 'bluefox/'
+        # prefix explicitly -- they are not simply 'image_raw'.
         rectify_remappings=[
-            ('image', 'image_raw'),
-            ('camera_info', 'camera_info'),
+            ('image', 'bluefox/image_raw'),
+            ('camera_info', 'bluefox/camera_info'),
         ]
 
         rectify_node = ComposableNode(

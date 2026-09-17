@@ -18,16 +18,16 @@ detector:
   max_points_per_image: 100
   inputs:
     - name: left
-      input_topic: left/bluefox_left/image_raw
-      output_topic: detector/left/points_seen
-      detect_sun_points: true
-      publish_sun_points: true
-      sun_output_topic: uvdar/detector/left/points_seen/sun
-      publish_visualization: true
-      visualization_topic: uvdar/detector/left/detection_visualization
+      input_topic: left/bluefox/image_raw
+      output_topic: uvdar/left/detector/points_seen
+      detect_sun_points: false
+      publish_sun_points: false
+      sun_output_topic: uvdar/left/detector/points_seen/sun
+      publish_visualization: false
+      visualization_topic: uvdar/left/detector/detection_visualization
       mask_file: ""
-      backend: gpu
-      threshold: 120
+      backend: cpu
+      threshold: 140
       threshold_diff: 60
       threshold_sun: 240
       min_sun_marker_distance: 20
@@ -35,16 +35,16 @@ detector:
       max_sun_points_count: 72000
       radii: [3, 5]
     - name: right
-      input_topic: right/bluefox_right/image_raw
-      output_topic: uvdar/detector/right/points_seen
-      detect_sun_points: true
-      publish_sun_points: true
-      sun_output_topic: uvdar/detector/right/points_seen/sun
-      publish_visualization: true
-      visualization_topic: uvdar/detector/right/detection_visualization
+      input_topic: right/bluefox/image_raw
+      output_topic: uvdar/right/detector/points_seen
+      detect_sun_points: false
+      publish_sun_points: false
+      sun_output_topic: uvdar/right/detector/points_seen/sun
+      publish_visualization: false
+      visualization_topic: uvdar/right/detector/detection_visualization
       mask_file: ""
-      backend: gpu
-      threshold: 120
+      backend: cpu
+      threshold: 140
       threshold_diff: 60
       threshold_sun: 240
       min_sun_marker_distance: 20
@@ -64,7 +64,7 @@ tracking:
   max_px_shift_x: 3
   max_px_shift_y: 3
   max_zeros_consecutive: 10
-  stored_seq_len_factor: 20
+  stored_seq_len_factor: 5
   max_buffer_length: 5000
   poly_order: 4
   decay_factor: 0.1
@@ -75,46 +75,47 @@ tracking:
   default_measurement_variance: 1.0
   # Generalized tracker only: isotropic per-frame prediction noise added in px^2.
   process_noise_variance: 1.0
-  allowed_BER_per_seq: 0
+  allowed_BER_per_seq: 1
   manchester_code: false
   # If set, sequence_file replaces the inline library below. All loaded
   # sequences must be non-empty and have equal length.
   sequence_file: "./selected.txt"
   sequences:
-    - "111001011"
-    - "110011010"
-    - "101100111"
-    - "100111010"
+    - "0011101101"
+    - "0010110101"
+    - "0101010111"
+    - "0010011011"
+    - "0001100111"
   inputs:
     - name: left
-      input_topic: uvdar/detector/left/points_seen
-      input_image_topic: left/bluefox_left/image_raw
-      output_topic: uvdar/tracker/left/blinkers
-      publish_visualization: true
-      visualization_topic: uvdar/tracker/left/visualization
+      input_topic: uvdar/left/detector/points_seen
+      input_image_topic: left/bluefox/image_raw
+      output_topic: uvdar/left/tracker/blinkers
+      publish_visualization: false
+      visualization_topic: uvdar/left/tracker/visualization
     - name: right
-      input_topic: uvdar/detector/right/points_seen
-      input_image_topic: right/bluefox_left/image_raw
-      output_topic: uvdar/tracker/right/blinkers
-      publish_visualization: true
-      visualization_topic: uvdar/tracker/right/visualization
+      input_topic: uvdar/right/detector/points_seen
+      input_image_topic: right/bluefox/image_raw
+      output_topic: uvdar/right/tracker/blinkers
+      publish_visualization: false
+      visualization_topic: uvdar/right/tracker/visualization
 
 pose_estimation:
   # Select "particle_filter" for stochastic hypothesis filtering or
   # "geometric_solver" for direct P2P/P3P/P4P/PnP pose estimation.
-  implementation: geometric_solver 
+  implementation: geometric_solver
   debug: false
   # $UAV_NAME is expanded from the process environment while loading YAML.
   # The launch namespace does not modify TF frame IDs.
   output_frame: $UAV_NAME/fcu
   output_topic: uvdar/pose_estimator/measured_poses
-  publish_visualization: true
+  publish_visualization: false
   visualization_topic: uvdar/pose_estimator/visualization
   publish_constituents: false
   model_file: models/quadrotor_foursided_px4_motor_aligned_charlotte.txt
-  signal_ids: [0, 1, 2, 3, 4, 5, 6, 7, 8]
+  signal_ids: [0, 1, 2, 3]
   # Used by non-filtered implementations that do not own a natural scatter step.
-  publish_period_sec: 0.1
+  publish_period_sec: 0.025
   particle_filter:
     separate_by_distance: true
     max_cluster_distance: 100.0
@@ -131,9 +132,9 @@ pose_estimation:
     max_mutation_refine_iterations: 1000
   geometric_solver:
     uncertainty_solver: ellipse_transform # Options: jacobian_propagation, monte_carlo, ellipse_transform
-    uncertainty_samples: 5000
+    uncertainty_samples: 3000
     odometry_ref_enable: false
-    odometry_ref_topic: /$UAV_NAME/mavros/local_position/odom
+    odometry_ref_topic: /$UAV_NAME/estimation_manager/odom_main
     odometry_ref_maximum_age_sec: 0.5
     # Used by central P2P and otherwise underconstrained rig marker geometry;
     # observable generalized pose remains purely visual.
@@ -141,7 +142,7 @@ pose_estimation:
     odometry_ref_min_axis_observability: 3.0e-3
     p4p_reprojection_threshold_rad: 0.01
     covariance_regularization_px: 1.0e-6
-    refinement_iterations: 8
+    refinement_iterations: 4
     pnp_max_iterations: 40
     pnp_damping: 1.0e-8
     pnp_finite_difference_eps: 1.0e-6
@@ -149,7 +150,7 @@ pose_estimation:
     pnp_residual_tolerance: 1.0e-10
     # Set true to combine the last observations within the synchronization
     # tolerance using the known camera TFs.
-    multi_cam_rig_enable: false
+    multi_cam_rig_enable: true
     multi_cam_sync_tolerance_sec: 0.03
     multi_cam_min_cameras: 2
     multi_cam_max_angular_error_rad: 0.05
@@ -168,12 +169,19 @@ pose_estimation:
   # the corresponding side of the vehicle.
   inputs:
     - name: left
-      input_topic: uvdar/tracker/left/blinkers
+      input_topic: uvdar/left/tracker/blinkers
       camera_frame: $UAV_NAME/bluefox_left
       calib_file: camera/bluefox_ocam_calib/bf_left.yaml
     - name: right
-      input_topic: uvdar/tracker/right/blinkers
+      input_topic: uvdar/right/tracker/blinkers
       camera_frame: $UAV_NAME/bluefox_right
+      #=======
+      #      input_topic: uvdar/left/tracker/blinkers
+      #      camera_frame: bluefox_left
+      #      calib_file: camera/bluefox_ocam_calib/bf_left.yaml
+      #    - name: right
+      #      input_topic: uvdar/right/tracker/blinkers
+      #      camera_frame: bluefox_right
       calib_file: camera/bluefox_ocam_calib/bf_right.yaml
 
 filtering:
@@ -184,7 +192,7 @@ filtering:
   measured_poses_topics: [uvdar/pose_estimator/measured_poses]
   output_topic: uvdar/filter/filtered_poses
   tentative_output_topic: uvdar/filter/filtered_poses/tentative
-  output_framerate: 20.0
+  output_framerate: 0.0
   anonymous_measurements: false
   indoor: false
   odometry_available: true

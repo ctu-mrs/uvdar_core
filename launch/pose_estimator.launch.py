@@ -16,7 +16,7 @@ def generate_launch_description():
             default_value=PathJoinSubstitution([
                 FindPackageShare("uvdar_core"),
                 "config",
-                "default.yaml",
+                "default_bluefox.yaml",
             ]),
         ),
         DeclareLaunchArgument(
