@@ -30,6 +30,7 @@ find_package(builtin_interfaces REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
+find_package(visualization_msgs REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(cv_bridge REQUIRED)
@@ -293,10 +294,8 @@ target_link_libraries(bearing_node
     yaml-cpp::yaml-cpp
 )
 target_link_libraries(filter_node
-    ${PROJECT_NAME}_common
     ${PROJECT_NAME}_pose_estimation
     yaml-cpp::yaml-cpp
-    ${OpenCV_LIBRARIES}
 )
 target_link_libraries(pose_estimator_node ${cpp_typesupport_target})
 target_link_libraries(bearing_node ${cpp_typesupport_target})
@@ -339,9 +338,7 @@ ament_target_dependencies(filter_node
     rclcpp
     builtin_interfaces
     geometry_msgs
-    sensor_msgs
-    std_msgs
-    cv_bridge
+    visualization_msgs
     tf2
     tf2_ros
 )

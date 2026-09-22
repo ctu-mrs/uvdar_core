@@ -18,11 +18,12 @@ bool hasNan(const Eigen::MatrixXd& matrix)
 KfPose::KfPose(KfPoseConfig config)
     : config_(std::move(config))
 {
-    // Indoor operation uses lower target-motion process noise; position noise
-    // remains conservative for the visual-only model.
+    // Indoor targets normally accelerate less aggressively. Explicit process
+    // noise still remains configurable before constructing the filter.
     if (config_.indoor) {
-        vl_ = 1.0;
-        vv_ = 0.5;
+        config_.process_acceleration_std_horizontal *= 0.5;
+        config_.process_acceleration_std_vertical *= 0.5;
+        config_.process_angular_velocity_std *= 0.5;
     }
 }
 
@@ -111,16 +112,22 @@ void KfPose::initiateNew(const KfPoseMeasurement& measurement, int id)
 
     KfPoseState state;
     state.id = id < 0 ? next_id_++ : id;
-    state.covariance = local.covariance;
-    state.covariance.topRightCorner(3, 3).setZero();
-    state.covariance.bottomLeftCorner(3, 3).setZero();
-
     if (config_.use_velocity && !config_.anonymous_measurements) {
-        // Velocity matrices are available, but velocity states cannot be
-        // initialized from pose-only measurements.
-        return;
+        state.x = Eigen::VectorXd::Zero(9);
+        state.x.head<3>() = local.x.head<3>();
+        state.x.tail<3>() = local.x.tail<3>();
+        state.covariance = Eigen::MatrixXd::Zero(9, 9);
+        state.covariance.topLeftCorner<3, 3>() = local.covariance.topLeftCorner<3, 3>();
+        state.covariance.block<3, 3>(6, 6) = local.covariance.bottomRightCorner<3, 3>();
+        state.covariance.block<3, 3>(0, 6) = local.covariance.topRightCorner<3, 3>();
+        state.covariance.block<3, 3>(6, 0) = local.covariance.bottomLeftCorner<3, 3>();
+        state.covariance.block<3, 3>(3, 3) = Eigen::Matrix3d::Identity()
+            * config_.initial_velocity_std * config_.initial_velocity_std;
+    } else {
+        state.x = local.x;
+        state.covariance = local.covariance;
     }
-    state.x = local.x;
+    state.update_count = 1;
 
     states_.push_back({state, local.stamp, local.stamp});
 }
@@ -217,7 +224,7 @@ void KfPose::applyMeasurementsWithIdentity(const std::vector<KfPoseMeasurement>&
 
 KfPoseState KfPose::predictTillTime(FilterData& data, double target_time, bool apply_update)
 {
-    const double dt = std::max(0.0, std::min(target_time - data.latest_update, target_time - data.latest_measurement));
+    const double dt = std::max(0.0, target_time - data.latest_update);
     const Eigen::MatrixXd a = aDt(dt);
     KfPoseState predicted = data.state;
     // Linear Gaussian prediction: x'=A x, P'=A P A^T + Q.
@@ -256,7 +263,7 @@ KfPoseState KfPose::correctWithMeasurement(FilterData& data, const KfPoseMeasure
         r = Eigen::MatrixXd::Identity(6, 6) * 10000.0;
     } else {
         // Inflate position covariance by inverse positional overlap before
-        // correction, then apply the eigenvalue padding below.
+        // correction so weakly matching measurements have less influence.
         r.topLeftCorner(3, 3) *= 1.0 / match_level;
     }
 
@@ -265,10 +272,11 @@ KfPoseState KfPose::correctWithMeasurement(FilterData& data, const KfPoseMeasure
     const Eigen::MatrixXd s = h_matrix * local.state.covariance * h_matrix.transpose() + r;
     const Eigen::MatrixXd k = local.state.covariance * h_matrix.transpose() * s.inverse();
     local.state.x = local.state.x + k * (measurement.x - h_matrix * local.state.x);
-    local.state.covariance = (Eigen::MatrixXd::Identity(local.state.x.size(), local.state.x.size()) - k * h_matrix) * local.state.covariance;
-
-    const auto eigens = local.state.covariance.topLeftCorner<3, 3>().eigenvalues().real();
-    local.state.covariance.topLeftCorner<3, 3>() += Eigen::Matrix3d::Identity() * (eigens.minCoeff() * match_level);
+    const Eigen::MatrixXd identity = Eigen::MatrixXd::Identity(local.state.x.size(), local.state.x.size());
+    const Eigen::MatrixXd residual_projection = identity - k * h_matrix;
+    local.state.covariance = residual_projection * local.state.covariance * residual_projection.transpose()
+        + k * r * k.transpose();
+    local.state.covariance = 0.5 * (local.state.covariance + local.state.covariance.transpose());
 
     local.state.x[angle_offset + 0] = fixAngle(local.state.x[angle_offset + 0], 0.0);
     local.state.x[angle_offset + 1] = fixAngle(local.state.x[angle_offset + 1], 0.0);
@@ -276,8 +284,8 @@ KfPoseState KfPose::correctWithMeasurement(FilterData& data, const KfPoseMeasure
     const bool accepted = !config_.accepts_correction
         || config_.accepts_correction(local.state.x.head<3>(), measurement.camera_frame, measurement.stamp);
     if (accepted) {
-        local.latest_update = measurement.stamp;
-        local.latest_measurement = measurement.stamp;
+        local.latest_update = std::max(local.latest_update, measurement.stamp);
+        local.latest_measurement = std::max(local.latest_measurement, measurement.stamp);
         ++local.state.update_count;
     }
 
@@ -369,32 +377,42 @@ Eigen::MatrixXd KfPose::h() const
 
 Eigen::MatrixXd KfPose::qDt(double dt) const
 {
-    if (config_.anonymous_measurements) {
-        // Anonymous mode uses direct pose random-walk process noise.
-        Eigen::MatrixXd q(6, 6);
-        q << vl_, 0, 0, 0, 0, 0,
-            0, vl_, 0, 0, 0, 0,
-            0, 0, vv_, 0, 0, 0,
-            0, 0, 0, 1, 0, 0,
-            0, 0, 0, 0, 1, 0,
-            0, 0, 0, 0, 0, 1;
-        return q;
-    }
-    if (config_.use_velocity) {
-        // Identified velocity mode has independent process noise on p, v, rpy.
+    const double safe_dt = std::max(0.0, dt);
+    const double horizontal_variance = config_.process_acceleration_std_horizontal
+        * config_.process_acceleration_std_horizontal;
+    const double vertical_variance = config_.process_acceleration_std_vertical
+        * config_.process_acceleration_std_vertical;
+    const double angular_variance = config_.process_angular_velocity_std
+        * config_.process_angular_velocity_std;
+
+    if (config_.use_velocity && !config_.anonymous_measurements) {
+        // Exact discretization of independent continuous white acceleration
+        // for [position, velocity], plus angular random walk for RPY.
         Eigen::MatrixXd q = Eigen::MatrixXd::Zero(9, 9);
-        q.diagonal() << sn_ * sn_, sn_ * sn_, sn_ * sn_, vl_, vl_, vv_, 1.0, 1.0, 1.0;
+        const double dt2 = safe_dt * safe_dt;
+        const double dt3 = dt2 * safe_dt;
+        for (int axis = 0; axis < 3; ++axis) {
+            const double acceleration_variance = axis < 2 ? horizontal_variance : vertical_variance;
+            q(axis, axis) = acceleration_variance * dt3 / 3.0;
+            q(axis, axis + 3) = acceleration_variance * dt2 / 2.0;
+            q(axis + 3, axis) = q(axis, axis + 3);
+            q(axis + 3, axis + 3) = acceleration_variance * safe_dt;
+            q(axis + 6, axis + 6) = angular_variance * safe_dt;
+        }
         return q;
     }
 
-    // Non-velocity mode uses the integrated position-noise heuristic.
-    Eigen::MatrixXd q(6, 6);
-    q << 0.5 * sn_ * sn_ + 0.16667 * vl_ * vl_ * dt * dt, 0, 0, 0, 0, 0,
-        0, 0.5 * sn_ * sn_ + 0.16667 * vl_ * vl_ * dt * dt, 0, 0, 0, 0,
-        0, 0, 0.5 * sn_ * sn_ + 0.16667 * vv_ * vv_ * dt * dt, 0, 0, 0,
-        0, 0, 0, 0.5, 0, 0,
-        0, 0, 0, 0, 0.5, 0,
-        0, 0, 0, 0, 0, 0.5;
+    // Pose-only tracks marginalize the integrated acceleration and retain an
+    // angular random walk. Crucially, Q(0)=0 and uncertainty no longer depends
+    // on how often the publication timer happens to run.
+    Eigen::MatrixXd q = Eigen::MatrixXd::Zero(6, 6);
+    const double dt3 = safe_dt * safe_dt * safe_dt;
+    q(0, 0) = horizontal_variance * dt3 / 3.0;
+    q(1, 1) = horizontal_variance * dt3 / 3.0;
+    q(2, 2) = vertical_variance * dt3 / 3.0;
+    q(3, 3) = angular_variance * safe_dt;
+    q(4, 4) = angular_variance * safe_dt;
+    q(5, 5) = angular_variance * safe_dt;
     return q;
 }
 

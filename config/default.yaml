@@ -187,8 +187,8 @@ pose_estimation:
     uncertainty_solver: ellipse_transform
     # Samples used only by monte_carlo uncertainty; positive integer, default 5000.
     uncertainty_samples: 5000
-    # Directional LED visibility cone half-angle in radians; (0, pi), default 40 degrees.
-    visibility_half_angle_rad: 0.6981317007977318
+    # Directional LED visibility cone half-angle in radians; (0, pi), default 90 degrees.
+    visibility_half_angle_rad: 1.5707963267948966
     # Reject nearly parallel/antiparallel bearing pairs below this angular separation; positive radians.
     visibility_minimum_bearing_separation_rad: 0.0001
     # Circular gap separating visibility modes; (0, pi] radians, default 45 degrees.
@@ -263,12 +263,12 @@ filtering:
   output_topic: /filter/filtered_poses
   # Tentative-track output topic; valid ROS topic, default /filter/filtered_poses/tentative.
   tentative_output_topic: /filter/filtered_poses/tentative
-  # Publish an annotated image of validated and tentative filter states; boolean, default false.
+  # Publish validated/tentative poses, uncertainty, and velocity as RViz markers; boolean, default false.
   publish_visualization: false
-  # Filter overview sensor_msgs/Image topic; valid ROS topic, default /filter/visualization.
+  # Filter visualization_msgs/MarkerArray topic; valid ROS topic, default /filter/visualization.
   visualization_topic: /filter/visualization
-  # Maximum filter visualization rate in hertz; positive number, default 5.0.
-  visualization_fps: 5.0
+  # Seconds of motion represented by each velocity-arrow length; positive number, default 1.0.
+  velocity_arrow_scale_sec: 1.0
   # Filter prediction/publication rate in hertz; positive number, default 20.0.
   output_framerate: 20.0
   # Associate measurements geometrically instead of by signal ID; boolean, default false.
@@ -277,6 +277,14 @@ filtering:
   indoor: false
   # Add a constant-velocity state for identified targets; boolean, default false.
   use_velocity: false
+  # Horizontal white-acceleration standard deviation in m/s^2; non-negative, default 1.0.
+  process_acceleration_std_horizontal: 1.0
+  # Vertical white-acceleration standard deviation in m/s^2; non-negative, default 0.5.
+  process_acceleration_std_vertical: 0.5
+  # RPY random-walk standard deviation in rad/sqrt(s); non-negative, default 0.35.
+  process_angular_velocity_std: 0.35
+  # Initial standard deviation of an unobserved velocity in m/s; positive, default 1.0.
+  initial_velocity_std: 1.0
   # Corrections required before a track becomes validated; positive integer, default 10.
   min_measurements_to_validation: 10
   # Validated-track timeout without measurements in seconds; positive number, default 3.0.

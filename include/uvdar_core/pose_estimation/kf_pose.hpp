@@ -51,6 +51,10 @@ struct KfPoseConfig {
     bool anonymous_measurements = false;
     bool indoor = false;
     bool use_velocity = false;
+    double process_acceleration_std_horizontal = 1.0;
+    double process_acceleration_std_vertical = 0.5;
+    double process_angular_velocity_std = 0.35;
+    double initial_velocity_std = 1.0;
     int min_measurements_to_validation = 10;
     double decay_age_normal = 3.0;
     double decay_age_unvalidated = 1.0;
@@ -63,9 +67,9 @@ struct KfPoseConfig {
 /**
  * @brief Kalman filter for UVDAR relative poses.
  *
- * Measurements already contain full pose covariance, position overlap gates
- * association, and process noise is a fixed heuristic rather than a full target
- * dynamics model.
+ * Measurements already contain full pose covariance and position overlap gates
+ * association. Identified velocity tracks use a continuous white-acceleration
+ * model discretized for the actual prediction interval.
  */
 class KfPose {
 public:
@@ -162,9 +166,6 @@ private:
     double fixAngle(double original, double measurement) const;
 
     KfPoseConfig config_;
-    double vl_ = 2.0;
-    double vv_ = 1.0;
-    double sn_ = 4.0;
     int next_id_ = 0;
     std::vector<FilterData> states_;
 };
