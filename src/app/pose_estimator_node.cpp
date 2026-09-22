@@ -133,8 +133,6 @@ void PoseEstimatorNode::loadConfiguration(const std::string& config_path_string)
     const YAML::Node particle_node = pose_node["particle_filter"];
     const YAML::Node geometric_node = pose_node["geometric_solver"];
     double publish_period_sec = optionalScalar<double>(pose_node, "publish_period_sec", 0.1);
-    particle_filter_implementation_ = (implementation == "particle_filter");
-
     if (implementation == "particle_filter") {
         const auto [max_diameter, min_diameter] = body.maxMinVisibleDiameter();
         (void)min_diameter;
@@ -380,10 +378,6 @@ void PoseEstimatorNode::onTrackerOutput(const uvdar_core::msg::TrackerOutput::Co
         uvdar_core::helpers::toEigen(camera_to_output_msg),
         uvdar_core::helpers::toEigen(output_to_camera_msg));
 
-    if (publish_visualization_ && visualization_publisher_ && !particle_filter_implementation_ && camera_index == 0U) {
-        auto measurements = pose_estimator_->scatterAndMeasure(get_clock()->now().seconds(), uvdar_core::helpers::toSeconds(msg->stamp));
-        queueVisualization(std::move(measurements), msg->stamp);
-    }
 }
 
 void PoseEstimatorNode::onScatterTimer()
@@ -396,7 +390,7 @@ void PoseEstimatorNode::onScatterTimer()
     const double stamp_sec = latest_primary_input_stamp_ > 0.0 ? latest_primary_input_stamp_ : now_sec;
     auto measurements = pose_estimator_->scatterAndMeasure(now_sec, stamp_sec);
     publishMeasurements(measurements, measured_publisher_);
-    if (publish_visualization_ && visualization_publisher_ && particle_filter_implementation_) {
+    if (publish_visualization_ && visualization_publisher_) {
         queueVisualization(measurements, uvdar_core::helpers::toRosTime(stamp_sec));
     }
 

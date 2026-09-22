@@ -59,7 +59,6 @@ private:
     rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr visualization_publisher_;
     std::unique_ptr<uvdar_core::app::visualization::VisualizationWorker> visualization_worker_;
     std::shared_ptr<uvdar_core::app::visualization::PoseOverviewRenderer> pose_visualization_renderer_;
-    bool particle_filter_implementation_ = false;
     double visualization_period_sec_ = 0.2;
 };
 

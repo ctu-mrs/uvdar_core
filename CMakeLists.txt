@@ -293,8 +293,10 @@ target_link_libraries(bearing_node
     yaml-cpp::yaml-cpp
 )
 target_link_libraries(filter_node
+    ${PROJECT_NAME}_common
     ${PROJECT_NAME}_pose_estimation
     yaml-cpp::yaml-cpp
+    ${OpenCV_LIBRARIES}
 )
 target_link_libraries(pose_estimator_node ${cpp_typesupport_target})
 target_link_libraries(bearing_node ${cpp_typesupport_target})
@@ -337,6 +339,9 @@ ament_target_dependencies(filter_node
     rclcpp
     builtin_interfaces
     geometry_msgs
+    sensor_msgs
+    std_msgs
+    cv_bridge
     tf2
     tf2_ros
 )

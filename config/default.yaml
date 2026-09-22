@@ -263,6 +263,12 @@ filtering:
   output_topic: /filter/filtered_poses
   # Tentative-track output topic; valid ROS topic, default /filter/filtered_poses/tentative.
   tentative_output_topic: /filter/filtered_poses/tentative
+  # Publish an annotated image of validated and tentative filter states; boolean, default false.
+  publish_visualization: false
+  # Filter overview sensor_msgs/Image topic; valid ROS topic, default /filter/visualization.
+  visualization_topic: /filter/visualization
+  # Maximum filter visualization rate in hertz; positive number, default 5.0.
+  visualization_fps: 5.0
   # Filter prediction/publication rate in hertz; positive number, default 20.0.
   output_framerate: 20.0
   # Associate measurements geometrically instead of by signal ID; boolean, default false.

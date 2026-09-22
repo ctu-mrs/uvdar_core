@@ -1,11 +1,17 @@
 #include "uvdar_core/app/filter_node.hpp"
 
+#include "uvdar_core/app/visualization.hpp"
 #include "uvdar_core/helpers/math.hpp"
 #include "uvdar_core/helpers/yaml.hpp"
 
+#include <algorithm>
+#include <chrono>
+#include <cmath>
 #include <filesystem>
 
+#include <cv_bridge/cv_bridge.hpp>
 #include <geometry_msgs/msg/transform_stamped.hpp>
+#include <std_msgs/msg/header.hpp>
 #include <tf2/exceptions.h>
 #include <tf2/time.h>
 #include <yaml-cpp/yaml.h>
@@ -15,6 +21,7 @@
 namespace uvdar_core::app {
 
 namespace pe = uvdar_core::pose_estimation;
+namespace vis = uvdar_core::app::visualization;
 
 namespace {
 
@@ -106,6 +113,18 @@ void FilterNode::loadConfiguration(const std::string& config_path)
     tentative_publisher_ = create_publisher<uvdar_core::msg::PoseWithCovarianceArrayStamped>(
         optionalScalar<std::string>(node, "tentative_output_topic", "filtered_poses/tentative"), 10);
 
+    publish_visualization_ = optionalScalar<bool>(node, "publish_visualization", false);
+    const std::string visualization_topic = optionalScalar<std::string>(
+        node, "visualization_topic", "/filter/visualization");
+    const double visualization_fps = optionalScalar<double>(node, "visualization_fps", 5.0);
+    if (publish_visualization_ && !visualization_topic.empty()) {
+        visualization_publisher_ = create_publisher<sensor_msgs::msg::Image>(visualization_topic, 10);
+        visualization_renderer_ = std::make_shared<vis::PoseOverviewRenderer>();
+        const auto interval = std::chrono::milliseconds(
+            std::max(1, static_cast<int>(std::lround(1000.0 / std::max(0.1, visualization_fps)))));
+        visualization_worker_ = std::make_unique<vis::VisualizationWorker>(interval);
+    }
+
     const double output_framerate = optionalScalar<double>(node, "output_framerate", 20.0);
     timer_ = create_wall_timer(std::chrono::duration<double>(1.0 / std::max(1.0, output_framerate)), [this]() { onTimer(); });
 }
@@ -170,8 +189,63 @@ void FilterNode::onTimer()
         return;
     }
     filter_->spin(get_clock()->now().seconds());
-    publishStates(filter_->validatedStates(), filtered_publisher_);
-    publishStates(filter_->tentativeStates(), tentative_publisher_);
+    const auto validated_states = filter_->validatedStates();
+    const auto tentative_states = filter_->tentativeStates();
+    publishStates(validated_states, filtered_publisher_);
+    publishStates(tentative_states, tentative_publisher_);
+    queueVisualization(validated_states, tentative_states);
+}
+
+void FilterNode::queueVisualization(
+    const std::vector<pe::KfPoseState>& validated_states,
+    const std::vector<pe::KfPoseState>& tentative_states)
+{
+    if (!publish_visualization_ || !visualization_publisher_ || !visualization_renderer_ || !visualization_worker_) {
+        return;
+    }
+
+    std::vector<vis::PoseVisualizationPose> poses;
+    poses.reserve(validated_states.size() + tentative_states.size());
+    const auto append_states = [&poses](const std::vector<pe::KfPoseState>& states, const std::string& method) {
+        for (const auto& state : states) {
+            const int angle_offset = state.x.size() == 9 ? 6 : 3;
+            if (state.x.size() < angle_offset + 3
+                || state.covariance.rows() < angle_offset + 3
+                || state.covariance.cols() < angle_offset + 3
+                || !state.x.allFinite()
+                || !state.covariance.allFinite()) {
+                continue;
+            }
+            vis::PoseVisualizationPose pose;
+            pose.id = state.id;
+            pose.method = method;
+            pose.position = state.x.head<3>();
+            pose.rotation = uvdar_core::helpers::rpyToQuaternion(
+                state.x.segment<3>(angle_offset)).toRotationMatrix();
+            pose.position_covariance = state.covariance.topLeftCorner<3, 3>();
+            pose.orientation_covariance = state.covariance.block<3, 3>(angle_offset, angle_offset);
+            poses.push_back(std::move(pose));
+        }
+    };
+    append_states(validated_states, "KF");
+    append_states(tentative_states, "KF tentative");
+
+    std_msgs::msg::Header header;
+    header.stamp = get_clock()->now();
+    header.frame_id = output_frame_;
+    const auto publisher = visualization_publisher_;
+    const auto renderer = visualization_renderer_;
+    const auto logger = get_logger();
+    visualization_worker_->submit([publisher, renderer, header, poses = std::move(poses), logger] {
+        try {
+            const cv::Mat frame = renderer->render(poses);
+            if (!frame.empty()) {
+                publisher->publish(*cv_bridge::CvImage(header, "bgr8", frame).toImageMsg());
+            }
+        } catch (const std::exception& ex) {
+            RCLCPP_WARN(logger, "Filter visualization failed: %s", ex.what());
+        }
+    });
 }
 
 void FilterNode::publishStates(
