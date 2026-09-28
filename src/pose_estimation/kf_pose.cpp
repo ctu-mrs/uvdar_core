@@ -50,7 +50,7 @@ void KfPose::spin(double now)
 
     for (std::size_t i = 0; i < states_.size();) {
         const double age = now - states_[i].latest_measurement;
-        const double decay_age = states_[i].state.update_count > config_.min_measurements_to_validation
+        const double decay_age = states_[i].state.update_count >= config_.min_measurements_to_validation
             ? config_.decay_age_normal
             : config_.decay_age_unvalidated;
         if (age > decay_age) {
@@ -209,7 +209,9 @@ void KfPose::applyMeasurementsAnonymous(const std::vector<KfPoseMeasurement>& me
 void KfPose::applyMeasurementsWithIdentity(const std::vector<KfPoseMeasurement>& measurements)
 {
     for (const auto& measurement : measurements) {
-        const int id = measurement.id % 1000;
+        // Pose-estimator output IDs already identify physical targets. Preserve
+        // the full ID so tentative and validated states remain independent.
+        const int id = measurement.id;
         auto target = std::find_if(states_.begin(), states_.end(), [&](const FilterData& state) {
             return state.state.id == id;
         });

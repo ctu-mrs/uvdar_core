@@ -9,6 +9,10 @@ uint32 track_id
 # Unit bearing expressed in BearingObservationArrayStamped.header.frame_id.
 geometry_msgs/Vector3 bearing
 
+# Origin of this bearing ray, expressed in the same output frame. Keeping the
+# origin makes observations from an offset multi-camera rig geometrically exact.
+geometry_msgs/Point origin
+
 # Row-major 3x3 covariance of the unit-bearing components. This is a
 # tangent-plane covariance and is therefore normally rank two.
 float64[9] covariance
@@ -16,4 +20,3 @@ float64[9] covariance
 # True when the bearing was generated from a tracker prediction because no
 # detector measurement was associated in this frame.
 bool predicted
-

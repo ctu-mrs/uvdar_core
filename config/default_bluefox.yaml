@@ -19,7 +19,7 @@ detector:
   inputs:
     - name: left
       input_topic: left/bluefox_left/image_raw
-      output_topic: detector/left/points_seen
+      output_topic: uvdar/detector/left/points_seen
       detect_sun_points: true
       publish_sun_points: true
       sun_output_topic: uvdar/detector/left/points_seen/sun
@@ -94,10 +94,30 @@ tracking:
       visualization_topic: uvdar/tracker/left/visualization
     - name: right
       input_topic: uvdar/detector/right/points_seen
-      input_image_topic: right/bluefox_left/image_raw
+      input_image_topic: right/bluefox_right/image_raw
       output_topic: uvdar/tracker/right/blinkers
       publish_visualization: true
       visualization_topic: uvdar/tracker/right/visualization
+
+bearing:
+  queue_depth: 10
+  publish_predictions: true
+  publish_unidentified: true
+  covariance_floor_px2: 1.0e-6
+  fallback_pixel_variance_px2: 1.0
+  # Match pose_estimation.output_frame: all optical-camera rays are rotated into
+  # the aircraft body frame and retain their camera origins in that frame.
+  output_frame: $UAV_NAME/fcu
+  output_topic: uvdar/bearing/observations
+  inputs:
+    - name: left
+      input_topic: uvdar/tracker/left/blinkers
+      camera_frame: $UAV_NAME/bluefox_left
+      calib_file: camera/bluefox_ocam_calib/bf_left.yaml
+    - name: right
+      input_topic: uvdar/tracker/right/blinkers
+      camera_frame: $UAV_NAME/bluefox_right
+      calib_file: camera/bluefox_ocam_calib/bf_right.yaml
 
 pose_estimation:
   # Select "particle_filter" for stochastic hypothesis filtering or

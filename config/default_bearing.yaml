@@ -67,6 +67,11 @@ tracking:
 
 bearing:
   queue_depth: 10
+  # Every camera ray is transformed from its optical frame into this rigid-body
+  # frame before publication. The camera origin is preserved in each message.
+  output_frame: $UAV_NAME/fcu
+  # One common endpoint for all cameras on the rig.
+  output_topic: uvdar/bearing/observations
   # Keep tracks alive through expected OFF portions of their blink pattern.
   # Predictions are marked in each BearingObservation.
   publish_predictions: true
@@ -79,8 +84,7 @@ bearing:
   inputs:
     - name: camera_0
       input_topic: bearing/tracker/camera_0/blinkers
-      output_topic: bearing/camera_0/observations
-      # Bearings and their covariance are expressed in this frame.
+      # Optical camera frame used for calibration and the TF lookup above.
       camera_frame: camera_0_optical_frame
       # Absolute paths are also accepted. Relative paths resolve from this file.
       calib_file: camera/ocam.yaml

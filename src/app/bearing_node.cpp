@@ -8,8 +8,12 @@
 
 #include <Eigen/Dense>
 #include <yaml-cpp/yaml.h>
+#include <geometry_msgs/msg/transform_stamped.hpp>
+#include <tf2/exceptions.h>
+#include <tf2/time.h>
 
 #include "uvdar_core/calibration/lens_model_loader.hpp"
+#include "uvdar_core/helpers/ros_conversions.hpp"
 #include "uvdar_core/helpers/yaml.hpp"
 #include "uvdar_core/msg/bearing_observation.hpp"
 #include "uvdar_core/msg/tracked_blinker.hpp"
@@ -48,7 +52,10 @@ Eigen::Matrix2d predictionCovariance(const uvdar_core::msg::TrackedBlinker& blin
 
 } // namespace
 
-BearingNode::BearingNode(const rclcpp::NodeOptions& options) : Node("bearing", options)
+BearingNode::BearingNode(const rclcpp::NodeOptions& options)
+    : Node("bearing", options)
+    , tf_buffer_(get_clock())
+    , tf_listener_(tf_buffer_)
 {
     const std::string config_path = declare_parameter<std::string>("config_path", "");
     loadConfiguration(config_path);
@@ -75,6 +82,8 @@ void BearingNode::loadConfiguration(const std::string& config_path_string)
     covariance_floor_px2_ = optionalScalar<double>(bearing_node, "covariance_floor_px2", covariance_floor_px2_);
     fallback_pixel_variance_px2_ =
         optionalScalar<double>(bearing_node, "fallback_pixel_variance_px2", fallback_pixel_variance_px2_);
+    output_frame_ = requireScalar<std::string>(bearing_node, "output_frame", "bearing");
+    output_topic_ = requireScalar<std::string>(bearing_node, "output_topic", "bearing");
 
     if (queue_depth_ == 0U) {
         throw std::runtime_error("bearing.queue_depth must be positive.");
@@ -96,7 +105,6 @@ void BearingNode::loadConfiguration(const std::string& config_path_string)
         InputPipeline input;
         input.name = optionalScalar<std::string>(input_node, "name", "camera_" + std::to_string(inputs_.size()));
         input.input_topic = requireScalar<std::string>(input_node, "input_topic", "bearing.inputs");
-        input.output_topic = requireScalar<std::string>(input_node, "output_topic", "bearing.inputs");
         input.camera_frame = requireScalar<std::string>(input_node, "camera_frame", "bearing.inputs");
         input.lens = calibration::loadLensModel(input_node, config_path);
         if (!input.lens) {
@@ -112,10 +120,9 @@ void BearingNode::createInterfaces()
     // reliably so both reliable and best-effort consumers can subscribe.
     const auto input_qos = rclcpp::QoS(rclcpp::KeepLast(queue_depth_)).best_effort();
     const auto output_qos = rclcpp::QoS(rclcpp::KeepLast(queue_depth_)).reliable();
+    publisher_ = create_publisher<uvdar_core::msg::BearingObservationArrayStamped>(output_topic_, output_qos);
     for (std::size_t index = 0U; index < inputs_.size(); ++index) {
         InputPipeline& input = inputs_[index];
-        input.publisher =
-            create_publisher<uvdar_core::msg::BearingObservationArrayStamped>(input.output_topic, output_qos);
         input.subscription = create_subscription<uvdar_core::msg::TrackerOutput>(
             input.input_topic, input_qos,
             [this, index](const uvdar_core::msg::TrackerOutput::ConstSharedPtr& msg) { onTrackerOutput(msg, index); });
@@ -130,9 +137,25 @@ void BearingNode::onTrackerOutput(const uvdar_core::msg::TrackerOutput::ConstSha
     }
 
     InputPipeline& input = inputs_[input_index];
+    Eigen::Isometry3d camera_to_output = Eigen::Isometry3d::Identity();
+    if (input.camera_frame != output_frame_) {
+        try {
+            const auto transform = tf_buffer_.lookupTransform(
+                output_frame_, input.camera_frame, msg->stamp, tf2::durationFromSec(0.005));
+            camera_to_output = uvdar_core::helpers::toEigen(transform);
+        } catch (const tf2::TransformException& exception) {
+            RCLCPP_WARN_THROTTLE(
+                get_logger(), *get_clock(), 1000,
+                "Could not transform bearing input '%s' from '%s' to '%s': %s",
+                input.name.c_str(), input.camera_frame.c_str(), output_frame_.c_str(), exception.what());
+            return;
+        }
+    }
+    const Eigen::Matrix3d camera_rotation = camera_to_output.rotation();
+
     uvdar_core::msg::BearingObservationArrayStamped output;
     output.header.stamp = msg->stamp;
-    output.header.frame_id = input.camera_frame;
+    output.header.frame_id = output_frame_;
     output.observations.reserve(msg->blinkers.size());
 
     for (const auto& blinker : msg->blinkers) {
@@ -173,20 +196,29 @@ void BearingNode::onTrackerOutput(const uvdar_core::msg::TrackerOutput::ConstSha
         uvdar_core::msg::BearingObservation observation;
         observation.id = blinker.id;
         observation.track_id = blinker.track_id;
-        observation.bearing.x = measurement->vector.x();
-        observation.bearing.y = measurement->vector.y();
-        observation.bearing.z = measurement->vector.z();
+        const Eigen::Vector3d bearing = camera_rotation * measurement->vector;
+        const Eigen::Matrix3d covariance =
+            camera_rotation * measurement->covariance * camera_rotation.transpose();
+        observation.bearing.x = bearing.x();
+        observation.bearing.y = bearing.y();
+        observation.bearing.z = bearing.z();
+        observation.origin.x = camera_to_output.translation().x();
+        observation.origin.y = camera_to_output.translation().y();
+        observation.origin.z = camera_to_output.translation().z();
         observation.predicted = predicted;
         for (int row = 0; row < 3; ++row) {
             for (int column = 0; column < 3; ++column) {
                 observation.covariance[static_cast<std::size_t>(3 * row + column)] =
-                    measurement->covariance(row, column);
+                    covariance(row, column);
             }
         }
         output.observations.push_back(std::move(observation));
     }
 
-    input.publisher->publish(std::move(output));
+    // All cameras publish on one endpoint in one body frame. If two cameras
+    // see the same decoded ID, consumers receive two independent rays with
+    // their respective camera origins and may update the target twice.
+    publisher_->publish(std::move(output));
 }
 
 } // namespace uvdar_core::app
