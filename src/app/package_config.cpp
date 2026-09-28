@@ -291,6 +291,7 @@ PackageConfig loadPackageConfig(const std::string& config_path_string)
     config.detector.initial_delay_sec = requireScalar<double>(detector_node, "initial_delay_sec");
     config.detector.queue_depth = requireScalar<std::size_t>(detector_node, "queue_depth");
     config.detector.thread_pool_size = requireScalar<std::size_t>(detector_node, "thread_pool_size");
+    config.detector.latest_frame_only = optionalScalar<bool>(detector_node, "latest_frame_only", false);
     config.detector.max_points_per_image = requireScalar<std::size_t>(detector_node, "max_points_per_image");
 
     for (const YAML::Node& input_node : inputs_node) {

@@ -8,7 +8,6 @@
 #include <random>
 
 #include "uvdar_core/helpers/levenberg_marquardt.hpp"
-#include "uvdar_core/pose_estimation/geometric_solver/p2p.hpp"
 #include "uvdar_core/pose_estimation/geometric_solver/p3p.hpp"
 #include "uvdar_core/pose_estimation/geometric_solver/p4p.hpp"
 #include "uvdar_core/pose_estimation/geometric_solver/pnp.hpp"
@@ -16,8 +15,6 @@
 #include "uvdar_core/pose_estimation/geometric_solver/gp4_5p.hpp"
 #include "uvdar_core/pose_estimation/geometric_solver/gp6p.hpp"
 #include "uvdar_core/pose_estimation/geometric_solver/gpnp.hpp"
-// Known-axis equations are isolated from the central P2P implementation.
-#include "uvdar_core/pose_estimation/geometric_solver/generalized_known_axis.hpp"
 #include "uvdar_core/pose_estimation/uncertainty.hpp"
 
 namespace uvdar_core::pose_estimation::geometric_solver {
@@ -32,7 +29,7 @@ constexpr double monte_carlo_branch_distance_threshold = 2.5;
 constexpr double ellipse_transform_scale = 0.5;
 constexpr double fallback_covariance = 1.0e-6;
 constexpr double monte_carlo_covariance_scale = 1.0;
-constexpr double observability_score_tolerance = 1.0e-6;
+constexpr double duplicate_pose_threshold = 1.0e-5;
 
 } // namespace
 
@@ -42,31 +39,11 @@ GeometricSolver::GeometricSolver(GeometricSolverConfig config, BodyModel body, s
     , cameras_(std::move(cameras))
 {
     latest_measurements_.frame_id = config_.output_frame;
-    camera_up_axes_.resize(cameras_.size());
     latest_camera_frames_.resize(cameras_.size());
     latest_input_measurements_.resize(cameras_.size());
     for (TimedPoseMeasurements& measurements : latest_input_measurements_) {
         measurements.frame_id = config_.output_frame;
     }
-}
-
-void GeometricSolver::setCameraUpAxis(
-    const std::size_t camera_index,
-    std::optional<Eigen::Vector3d> camera_up_axis)
-{
-    if (camera_index >= camera_up_axes_.size()) {
-        return;
-    }
-    if (camera_up_axis
-        && (!camera_up_axis->allFinite() || camera_up_axis->squaredNorm() < epsilon)) {
-        camera_up_axis = std::nullopt;
-    }
-    if (camera_up_axis) {
-        camera_up_axis->normalize();
-    }
-
-    std::scoped_lock lock(mutex_);
-    camera_up_axes_[camera_index] = std::move(camera_up_axis);
 }
 
 void GeometricSolver::processFrame(
@@ -83,11 +60,6 @@ void GeometricSolver::processFrame(
     }
 
     const CameraModel& camera = cameras_[camera_index];
-    std::optional<Eigen::Vector3d> camera_up_axis;
-    {
-        std::scoped_lock lock(mutex_);
-        camera_up_axis = camera_up_axes_[camera_index];
-    }
     std::map<int, std::vector<Observation>> by_target;
     for (const TrackedPoint& point : points) {
         if (point.id < 0) {
@@ -105,8 +77,6 @@ void GeometricSolver::processFrame(
     TimedPoseMeasurements measurements;
     measurements.stamp = stamp;
     measurements.frame_id = config_.output_frame;
-    std::map<std::pair<std::size_t, int>, CameraPose> updated_camera_poses;
-    std::map<int, CameraPose> updated_rig_poses;
 
     std::vector<BufferedCameraFrame> rig_candidate_frames;
     if (config_.multi_cam_rig_enable) {
@@ -116,7 +86,6 @@ void GeometricSolver::processFrame(
         current_frame.stamp = stamp;
         current_frame.camera_to_output = camera_to_output;
         current_frame.output_to_camera = output_to_camera;
-        current_frame.camera_up_axis = camera_up_axis;
         current_frame.observations_by_target = by_target;
 
         std::scoped_lock lock(mutex_);
@@ -148,61 +117,58 @@ void GeometricSolver::processFrame(
 
             const bool standard_rig_geometry = rig_observations.size() >= 3U
                 && hasObservableRigMarkerGeometry(rig_observations);
-            const bool known_axis_rig_geometry = !standard_rig_geometry
-                && config_.odometry_ref_enable
-                && rig_observations.size() >= 2U
-                && hasDistinctRigMarkerPair(rig_observations)
-                && rigOutputUpAxis(rig_observations).has_value();
             if (represented_camera_count >= static_cast<std::size_t>(config_.multi_cam_min_cameras)
-                && (standard_rig_geometry || known_axis_rig_geometry)) {
+                && standard_rig_geometry) {
                 std::string rig_method;
                 const std::vector<ScoredRigPose> refined_rig_candidates = refineRigCandidates(
                     solveRigPoses(rig_observations, &rig_method), rig_observations);
-                std::optional<CameraPose> previous_rig_pose;
-                {
-                    std::scoped_lock lock(mutex_);
-                    if (const auto previous = latest_rig_poses_.find(target);
-                        previous != latest_rig_poses_.end()) {
-                        previous_rig_pose = previous->second;
-                    }
-                }
-                const auto selected_rig_index = selectRigCandidate(
-                    refined_rig_candidates, rig_observations, previous_rig_pose);
-                if (selected_rig_index) {
-                    const CameraPose best_pose = refined_rig_candidates[*selected_rig_index].pose;
+                if (!refined_rig_candidates.empty()) {
                     std::vector<CameraPose> base_poses;
                     base_poses.reserve(refined_rig_candidates.size());
                     for (const ScoredRigPose& candidate : refined_rig_candidates) {
                         base_poses.push_back(candidate.pose);
                     }
 
-                    Eigen::Matrix<double, 6, 6> covariance =
-                        Eigen::Matrix<double, 6, 6>::Identity() * fallback_covariance;
-                    switch (config_.uncertainty_solver) {
-                        case UncertaintySolver::JacobianPropagation:
-                            covariance = poseCovarianceByRigJacobianPropagation(
-                                best_pose, rig_observations);
-                            break;
-                        case UncertaintySolver::MonteCarlo:
-                            covariance = poseCovarianceByRigMonteCarlo(
-                                base_poses,
-                                rig_observations,
-                                static_cast<int>(*selected_rig_index));
-                            break;
-                        case UncertaintySolver::EllipseTransform:
-                            covariance = poseCovarianceByRigEllipseTransform(
-                                base_poses,
-                                rig_observations,
-                                static_cast<int>(*selected_rig_index));
-                            break;
+                    std::vector<unc::PoseDistributionComponent> components;
+                    components.reserve(refined_rig_candidates.size());
+                    for (std::size_t index = 0U;
+                         index < refined_rig_candidates.size(); ++index) {
+                        Eigen::Matrix<double, 6, 6> branch_covariance =
+                            Eigen::Matrix<double, 6, 6>::Identity()
+                            * fallback_covariance;
+                        switch (config_.uncertainty_solver) {
+                            case UncertaintySolver::JacobianPropagation:
+                                branch_covariance = poseCovarianceByRigJacobianPropagation(
+                                    refined_rig_candidates[index].pose,
+                                    rig_observations);
+                                break;
+                            case UncertaintySolver::MonteCarlo:
+                                branch_covariance = poseCovarianceByRigMonteCarlo(
+                                    base_poses,
+                                    rig_observations,
+                                    static_cast<int>(index));
+                                break;
+                            case UncertaintySolver::EllipseTransform:
+                                branch_covariance = poseCovarianceByRigEllipseTransform(
+                                    base_poses,
+                                    rig_observations,
+                                    static_cast<int>(index));
+                                break;
+                        }
+                        components.push_back({
+                            refined_rig_candidates[index].pose,
+                            branch_covariance,
+                            1.0});
                     }
-                    measurements.poses.push_back(toRigMeasurement(
-                        target,
-                        best_pose,
-                        covariance,
-                        rig_method));
-                    updated_rig_poses.emplace(target, best_pose);
-                    rig_solution_published = true;
+                    const auto moments = unc::momentMatchPoseDistribution(components);
+                    if (moments) {
+                        measurements.poses.push_back(toRigMeasurement(
+                            target,
+                            moments->pose,
+                            moments->covariance,
+                            rig_method));
+                        rig_solution_published = true;
+                    }
                 }
             }
         }
@@ -214,68 +180,89 @@ void GeometricSolver::processFrame(
             continue;
         }
 
-        // Minimal solvers can return multiple algebraic candidates.  Keep them
-        // through refinement, then let the body model resolve branches from
-        // configured LED visibility instead of numerical residual tie-breaks.
+        // Minimal solvers can return multiple algebraic candidates. Retain all
+        // visibility-admissible branches and moment-match them below; no
+        // residual or temporal tie-break is allowed to hide ambiguity.
         std::string method;
-        const std::vector<ScoredCameraPose> refined_candidates = refineCandidates(
-            solveCameraPoses(observations, camera, camera_up_axis, &method),
-            observations,
-            camera);
+        std::vector<ScoredCameraPose> refined_candidates;
+        if (observations.size() == 2U) {
+            method = "V2";
+            for (VisibilityPoseEstimate& estimate : solveVisibilityPoses(observations)) {
+                if (estimate.pose.translation.allFinite()
+                    && estimate.pose.rotation.allFinite()
+                    && estimate.covariance.allFinite()
+                    && std::isfinite(estimate.probability)
+                    && estimate.probability > 0.0) {
+                    refined_candidates.push_back({
+                        std::move(estimate.pose),
+                        0.0,
+                        std::move(estimate.covariance),
+                        estimate.probability});
+                }
+            }
+        } else {
+            refined_candidates = refineCandidates(
+                solveCameraPoses(observations, camera, &method),
+                observations,
+                camera);
+        }
         if (refined_candidates.empty()) {
             continue;
         }
 
-        const std::pair<std::size_t, int> pose_key{camera_index, target};
-        std::optional<CameraPose> previous_pose;
-        {
-            std::scoped_lock lock(mutex_);
-            if (const auto previous = latest_camera_poses_.find(pose_key); previous != latest_camera_poses_.end()) {
-                previous_pose = previous->second;
-            }
-        }
-        const auto selected_index = selectObservabilityAwareCandidate(refined_candidates, observations, previous_pose);
-        if (!selected_index) {
-            continue;
-        }
-        const std::size_t best_index = *selected_index;
-        const CameraPose best_pose = refined_candidates[best_index].pose;
         std::vector<CameraPose> base_poses;
         base_poses.reserve(refined_candidates.size());
         for (const ScoredCameraPose& candidate : refined_candidates) {
             base_poses.push_back(candidate.pose);
         }
 
-        Eigen::Matrix<double, 6, 6> covariance_camera = Eigen::Matrix<double, 6, 6>::Identity() * fallback_covariance;
-        switch (config_.uncertainty_solver) {
-            case UncertaintySolver::JacobianPropagation:
-                covariance_camera = poseCovarianceByJacobianPropagation(
-                    best_pose, observations, camera, camera_up_axis);
-                break;
-            case UncertaintySolver::MonteCarlo:
-                covariance_camera = poseCovarianceByMonteCarlo(
-                    base_poses,
-                    observations,
-                    camera,
-                    camera_up_axis,
-                    static_cast<int>(best_index));
-                break;
-            case UncertaintySolver::EllipseTransform:
-                covariance_camera = poseCovarianceByEllipseTransform(
-                    base_poses,
-                    observations,
-                    camera,
-                    camera_up_axis,
-                    static_cast<int>(best_index));
-                break;
+        std::vector<unc::PoseDistributionComponent> components;
+        components.reserve(refined_candidates.size());
+        for (std::size_t index = 0U; index < refined_candidates.size(); ++index) {
+            Eigen::Matrix<double, 6, 6> branch_covariance =
+                Eigen::Matrix<double, 6, 6>::Identity() * fallback_covariance;
+            if (refined_candidates[index].visibility_covariance) {
+                branch_covariance = *refined_candidates[index].visibility_covariance;
+            } else {
+                switch (config_.uncertainty_solver) {
+                    case UncertaintySolver::JacobianPropagation:
+                        branch_covariance = poseCovarianceByJacobianPropagation(
+                            refined_candidates[index].pose, observations, camera);
+                        break;
+                    case UncertaintySolver::MonteCarlo:
+                        branch_covariance = poseCovarianceByMonteCarlo(
+                            base_poses,
+                            observations,
+                            camera,
+                            static_cast<int>(index));
+                        break;
+                    case UncertaintySolver::EllipseTransform:
+                        branch_covariance = poseCovarianceByEllipseTransform(
+                            base_poses,
+                            observations,
+                            camera,
+                            static_cast<int>(index));
+                        break;
+                }
+            }
+            // Visibility is a feasibility test, not a calibrated likelihood,
+            // so discrete algebraic branches receive equal prior weight. V2
+            // supplies its continuous feasible-measure weight explicitly.
+            components.push_back({
+                refined_candidates[index].pose,
+                branch_covariance,
+                refined_candidates[index].distribution_weight});
+        }
+        const auto moments = unc::momentMatchPoseDistribution(components);
+        if (!moments) {
+            continue;
         }
 
         const Eigen::Matrix<double, 6, 6> covariance = uvdar_core::helpers::rotatePoseCovariance(
-            covariance_camera,
+            moments->covariance,
             camera_to_output.rotation());
         measurements.poses.push_back(toMeasurement(
-            target, best_pose, camera_to_output, covariance, method));
-        updated_camera_poses.emplace(pose_key, best_pose);
+            target, moments->pose, camera_to_output, covariance, method));
     }
 
     std::scoped_lock lock(mutex_);
@@ -306,12 +293,6 @@ void GeometricSolver::processFrame(
         merged_measurements.poses.push_back(stamped_measurement.second);
     }
     latest_measurements_ = std::move(merged_measurements);
-    for (const auto& [key, pose] : updated_camera_poses) {
-        latest_camera_poses_[key] = pose;
-    }
-    for (const auto& [target, pose] : updated_rig_poses) {
-        latest_rig_poses_[target] = pose;
-    }
 }
 
 TimedPoseMeasurements GeometricSolver::scatterAndMeasure(double, double stamp)
@@ -358,15 +339,8 @@ std::optional<GeometricSolver::Observation> GeometricSolver::makeObservation(con
 std::vector<GeometricSolver::CameraPose> GeometricSolver::solveCameraPoses(
     const std::vector<Observation>& observations,
     const CameraModel& camera,
-    const std::optional<Eigen::Vector3d>& camera_up_axis,
     std::string* method) const
 {
-    if (observations.size() == 2U) {
-        if (method != nullptr) {
-            *method = "P2P";
-        }
-        return config_.odometry_ref_enable ? solveP2P(observations, camera_up_axis) : std::vector<CameraPose> {};
-    }
     if (observations.size() == 3U) {
         if (method != nullptr) {
             *method = "P3P";
@@ -415,14 +389,34 @@ std::vector<GeometricSolver::ScoredCameraPose> GeometricSolver::refineCandidates
 {
     std::vector<ScoredCameraPose> refined_candidates;
     refined_candidates.reserve(candidates.size());
+    const std::vector<Eigen::Vector3d> observed_positions =
+        observedMarkerPositions(observations);
+    const double minimum_view_cosine =
+        std::cos(config_.visibility_pose.visibility_half_angle_rad);
     for (const CameraPose& candidate : candidates) {
-        // Two image points provide only four constraints.  Refining their P2P
-        // solution with an unconstrained six-DOF optimizer would discard the
-        // navigation-derived up-axis constraint that made it observable.
-        CameraPose refined_pose = observations.size() == 2U ? candidate : refinePose(candidate, observations, camera);
+        CameraPose refined_pose = refinePose(candidate, observations, camera);
         const double error = reprojectionError(refined_pose, observations, camera);
-        if (std::isfinite(error)) {
+        const BodyModel::VisibilityScore visibility = body_.visibilityScore(
+            refined_pose, observed_positions);
+        if (!std::isfinite(error)
+            || !hasPositiveDepths(refined_pose, observations)
+            || !std::isfinite(visibility.observed_view_cosine_minimum)
+            || visibility.observed_view_cosine_minimum
+                < minimum_view_cosine) {
+            continue;
+        }
+        const auto duplicate = std::find_if(
+            refined_candidates.begin(),
+            refined_candidates.end(),
+            [&](const ScoredCameraPose& existing) {
+                return unc::poseTangentDistance(existing.pose, refined_pose)
+                    <= duplicate_pose_threshold;
+            });
+        if (duplicate == refined_candidates.end()) {
             refined_candidates.push_back({std::move(refined_pose), error});
+        } else if (error < duplicate->reprojection_error) {
+            duplicate->pose = std::move(refined_pose);
+            duplicate->reprojection_error = error;
         }
     }
     return refined_candidates;
@@ -460,16 +454,6 @@ std::vector<GeometricSolver::RigObservation> GeometricSolver::makeRigObservation
             rig_observation.ray_origin = frame.camera_to_output.translation();
             rig_observation.ray_direction =
                 frame.camera_to_output.rotation() * observation.bearing;
-            if (frame.camera_up_axis) {
-                rig_observation.output_up_axis =
-                    frame.camera_to_output.rotation() * *frame.camera_up_axis;
-                if (!rig_observation.output_up_axis->allFinite()
-                    || rig_observation.output_up_axis->squaredNorm() <= epsilon) {
-                    rig_observation.output_up_axis = std::nullopt;
-                } else {
-                    rig_observation.output_up_axis->normalize();
-                }
-            }
             if (rig_observation.ray_origin.allFinite()
                 && rig_observation.ray_direction.allFinite()
                 && rig_observation.ray_direction.squaredNorm() > epsilon) {
@@ -485,7 +469,8 @@ std::vector<GeometricSolver::CameraPose> GeometricSolver::solveRigPoses(
     const std::vector<RigObservation>& observations,
     std::string* method) const
 {
-    if (observations.size() < 2U) {
+    if (observations.size() < 3U
+        || !hasObservableRigMarkerGeometry(observations)) {
         return {};
     }
     GeneralizedPointMatrix world_points(3, static_cast<Eigen::Index>(observations.size()));
@@ -509,9 +494,6 @@ std::vector<GeometricSolver::CameraPose> GeometricSolver::solveRigPoses(
     options.gp3p_root_tolerance = config_.multi_cam_gp3p_root_tolerance;
 
     auto signatureForCount = [](const std::size_t count) {
-        if (count == 2U) {
-            return std::string("gP2P");
-        }
         if (count == 3U) {
             return std::string("gP3P");
         }
@@ -553,41 +535,10 @@ std::vector<GeometricSolver::CameraPose> GeometricSolver::solveRigPoses(
         return output;
     };
 
-    const std::optional<Eigen::Vector3d> output_up_axis =
-        config_.odometry_ref_enable
-        ? rigOutputUpAxis(observations) : std::nullopt;
-    const bool use_known_axis = output_up_axis
-        && !hasObservableRigMarkerGeometry(observations)
-        && hasDistinctRigMarkerPair(observations);
-    std::vector<PoseSolution> solutions;
-    if (use_known_axis) {
-        Eigen::Vector3d model_axis =
-            config_.odometry_ref_model_gravity_axis;
-        if (!model_axis.allFinite() || model_axis.squaredNorm() <= epsilon) {
-            return {};
-        }
-        model_axis.normalize();
-        solutions = GeneralizedKnownAxis::solve(
-            world_points,
-            ray_origins,
-            ray_directions,
-            *output_up_axis,
-            model_axis,
-            options);
-
-        if (method != nullptr) {
-            *method = signatureForCount(observations.size()) + "o";
-        }
-    } else {
-        if (observations.size() < 3U
-            || !hasObservableRigMarkerGeometry(observations)) {
-            return {};
-        }
-        solutions = solveUnconstrained();
-        if (method != nullptr) {
-            *method = used_gpnp_fallback
-                ? "gPnP" : signatureForCount(observations.size());
-        }
+    std::vector<PoseSolution> solutions = solveUnconstrained();
+    if (method != nullptr) {
+        *method = used_gpnp_fallback
+            ? "gPnP" : signatureForCount(observations.size());
     }
 
     std::vector<CameraPose> output;
@@ -640,73 +591,30 @@ bool GeometricSolver::hasObservableRigMarkerGeometry(
     return false;
 }
 
-bool GeometricSolver::hasDistinctRigMarkerPair(
-    const std::vector<RigObservation>& observations) const
-{
-    constexpr double same_marker_position_tolerance = 1.0e-9;
-    for (std::size_t first = 0U; first + 1U < observations.size(); ++first) {
-        for (std::size_t second = first + 1U;
-             second < observations.size(); ++second) {
-            if ((observations[first].observation.marker.pose.position
-                    - observations[second].observation.marker.pose.position).norm()
-                > same_marker_position_tolerance) {
-                return true;
-            }
-        }
-    }
-    return false;
-}
-
-std::optional<Eigen::Vector3d> GeometricSolver::rigOutputUpAxis(
-    const std::vector<RigObservation>& observations) const
-{
-    Eigen::Vector3d sum = Eigen::Vector3d::Zero();
-    std::optional<Eigen::Vector3d> reference;
-    for (const RigObservation& observation : observations) {
-        if (!observation.output_up_axis
-            || !observation.output_up_axis->allFinite()
-            || observation.output_up_axis->squaredNorm() <= epsilon) {
-            continue;
-        }
-        const Eigen::Vector3d axis = observation.output_up_axis->normalized();
-        if (!reference) {
-            reference = axis;
-        } else if (reference->dot(axis) < 0.99) {
-            // The same odometry direction transformed through known rigid TFs
-            // must agree across an arbitrary-N rig. Do not silently fuse stale
-            // or inconsistent transforms as a hard orientation constraint.
-            return std::nullopt;
-        }
-        sum += axis;
-    }
-    if (!reference || !sum.allFinite() || sum.squaredNorm() <= epsilon) {
-        return std::nullopt;
-    }
-    return sum.normalized();
-}
-
 std::vector<GeometricSolver::ScoredRigPose> GeometricSolver::refineRigCandidates(
     const std::vector<CameraPose>& candidates,
     const std::vector<RigObservation>& observations) const
 {
     std::vector<ScoredRigPose> output;
     output.reserve(candidates.size());
-    const std::optional<Eigen::Vector3d> output_up_axis =
-        config_.odometry_ref_enable
-        ? rigOutputUpAxis(observations) : std::nullopt;
-    const bool use_known_axis = output_up_axis
-        && !hasObservableRigMarkerGeometry(observations)
-        && hasDistinctRigMarkerPair(observations);
     for (const CameraPose& candidate : candidates) {
-        CameraPose refined = use_known_axis
-            ? refineKnownAxisRigPose(
-                candidate, observations, *output_up_axis)
-            : refineRigPose(candidate, observations);
+        CameraPose refined = refineRigPose(candidate, observations);
         const double error = rigReprojectionError(refined, observations);
         if (std::isfinite(error)
             && hasPositiveRigDepths(refined, observations)
             && rigVisibilityScore(refined, observations)) {
-            output.push_back({std::move(refined), error});
+            const auto duplicate = std::find_if(
+                output.begin(), output.end(),
+                [&](const ScoredRigPose& existing) {
+                    return unc::poseTangentDistance(existing.pose, refined)
+                        <= duplicate_pose_threshold;
+                });
+            if (duplicate == output.end()) {
+                output.push_back({std::move(refined), error});
+            } else if (error < duplicate->reprojection_error) {
+                duplicate->pose = std::move(refined);
+                duplicate->reprojection_error = error;
+            }
         }
     }
     return output;
@@ -774,105 +682,6 @@ GeometricSolver::CameraPose GeometricSolver::refineRigPose(
             CameraPose candidate = pose;
             applyLeftCameraPoseIncrement(
                 candidate, delta.head<3>(), delta.tail<3>());
-            return candidate;
-        },
-        options);
-    return optimized.state;
-}
-
-GeometricSolver::CameraPose GeometricSolver::refineKnownAxisRigPose(
-    const CameraPose& seed,
-    const std::vector<RigObservation>& observations,
-    const Eigen::Vector3d& output_up_axis) const
-{
-    Eigen::Vector3d output_up = output_up_axis;
-    Eigen::Vector3d model_up = config_.odometry_ref_model_gravity_axis;
-    if (!output_up.allFinite() || !model_up.allFinite()
-        || output_up.squaredNorm() <= epsilon
-        || model_up.squaredNorm() <= epsilon) {
-        return seed;
-    }
-    output_up.normalize();
-    model_up.normalize();
-
-    // Align roll and pitch with the odometry up direction while retaining the
-    // seed's yaw about gravity.
-    const Eigen::Matrix3d output_to_aligned =
-        uvdar_core::helpers::rotationBetween(
-            output_up, Eigen::Vector3d::UnitZ());
-    const Eigen::Matrix3d model_to_aligned =
-        uvdar_core::helpers::rotationBetween(
-            model_up, Eigen::Vector3d::UnitZ());
-    const Eigen::Matrix3d aligned = output_to_aligned * seed.rotation
-        * model_to_aligned.transpose();
-    const double initial_yaw = std::atan2(
-        aligned(1, 0) - aligned(0, 1),
-        aligned(0, 0) + aligned(1, 1));
-
-    CameraPose pose = seed;
-    pose.rotation = output_to_aligned.transpose()
-        * uvdar_core::helpers::rotationZ(initial_yaw)
-        * model_to_aligned;
-    uvdar_core::helpers::LevenbergMarquardtOptions options;
-    options.max_iterations = std::max(0, config_.multi_cam_refinement_iterations);
-    options.initial_damping = std::max(config_.multi_cam_damping, 1.0e-15);
-    options.step_tolerance = std::max(0.0, config_.multi_cam_step_tolerance);
-    options.residual_tolerance = std::max(0.0, config_.multi_cam_residual_tolerance);
-    const auto optimized = uvdar_core::helpers::levenbergMarquardt(
-        pose,
-        4,
-        [&](const CameraPose& state, const bool with_jacobian)
-            -> std::optional<uvdar_core::helpers::LeastSquaresLinearization> {
-            uvdar_core::helpers::LeastSquaresLinearization output;
-            output.residual.resize(2 * observations.size());
-            if (with_jacobian) {
-                output.jacobian.resize(2 * observations.size(), 4);
-            }
-            for (std::size_t index = 0U; index < observations.size(); ++index) {
-                const RigObservation& observation = observations[index];
-                if (observation.camera_index >= cameras_.size()) {
-                    return std::nullopt;
-                }
-                const CameraModel& camera = cameras_[observation.camera_index];
-                const Eigen::Vector3d rotated = state.rotation
-                    * observation.observation.marker.pose.position;
-                const Eigen::Vector3d camera_point = observation.output_to_camera
-                    * (rotated + state.translation);
-                if (camera_point.z() <= epsilon) {
-                    return std::nullopt;
-                }
-                const Eigen::Matrix2d covariance = unc::regularizedCovariance(
-                    observation.observation.point.has_prediction
-                        ? observation.observation.point.prediction_covariance
-                        : observation.observation.point.covariance,
-                    config_.covariance_regularization_px);
-                Eigen::LLT<Eigen::Matrix2d> llt(covariance);
-                if (llt.info() != Eigen::Success) {
-                    return std::nullopt;
-                }
-                const Eigen::Matrix2d whitening = llt.matrixL().solve(
-                    Eigen::Matrix2d::Identity());
-                output.residual.segment<2>(2 * index) = whitening
-                    * (camera.project(camera_point)
-                        - observation.observation.image_point);
-                if (with_jacobian) {
-                    const Eigen::Matrix<double, 2, 3> projection =
-                        camera.projectionJacobian(camera_point)
-                        * observation.output_to_camera.rotation();
-                    output.jacobian.block<2, 3>(2 * index, 0) =
-                        whitening * projection;
-                    output.jacobian.block<2, 1>(2 * index, 3) = whitening
-                        * projection * output_up.cross(rotated);
-                }
-            }
-            return output;
-        },
-        [&output_up](const CameraPose& state, const Eigen::VectorXd& delta) {
-            CameraPose candidate = state;
-            candidate.translation += delta.head<3>();
-            candidate.rotation = Eigen::AngleAxisd(
-                delta(3), output_up).toRotationMatrix()
-                * candidate.rotation;
             return candidate;
         },
         options);
@@ -948,7 +757,9 @@ std::optional<GeometricSolver::RigVisibilityScore> GeometricSolver::rigVisibilit
         // every blob observed by this camera has at least one colocated LED
         // whose emission axis points toward this camera.  Do not compensate a
         // violation in one camera with a high visibility score in another.
-        if (!visibility.observed_leds_face_camera
+        if (!std::isfinite(visibility.observed_view_cosine_minimum)
+            || visibility.observed_view_cosine_minimum
+                < std::cos(config_.visibility_pose.visibility_half_angle_rad)
             || !std::isfinite(visibility.visibility_margin)
             || !std::isfinite(visibility.observed_view_cosine_mean)) {
             return std::nullopt;
@@ -967,101 +778,22 @@ std::optional<GeometricSolver::RigVisibilityScore> GeometricSolver::rigVisibilit
     return aggregate;
 }
 
-std::optional<std::size_t> GeometricSolver::selectRigCandidate(
-    const std::vector<ScoredRigPose>& candidates,
-    const std::vector<RigObservation>& observations,
-    const std::optional<CameraPose>& previous_pose) const
+std::vector<VisibilityPoseEstimate> GeometricSolver::solveVisibilityPoses(
+    const std::vector<Observation>& observations) const
 {
-    std::optional<std::size_t> best_index;
-    double best_margin = -std::numeric_limits<double>::infinity();
-    double best_view_cosine = -std::numeric_limits<double>::infinity();
-    double best_continuity = std::numeric_limits<double>::infinity();
-
-    for (std::size_t candidate_index = 0U; candidate_index < candidates.size(); ++candidate_index) {
-        const ScoredRigPose& candidate = candidates[candidate_index];
-        if (!hasPositiveRigDepths(candidate.pose, observations)) {
-            continue;
-        }
-
-        const std::optional<RigVisibilityScore> visibility =
-            rigVisibilityScore(candidate.pose, observations);
-        if (!visibility) {
-            continue;
-        }
-        const double margin = visibility->visibility_margin;
-        const double view_cosine = visibility->observed_view_cosine_mean;
-        const double continuity = previous_pose
-            ? unc::poseTangentDistance(*previous_pose, candidate.pose)
-            : std::numeric_limits<double>::infinity();
-
-        const bool same_margin = std::abs(margin - best_margin) <= observability_score_tolerance;
-        const bool same_view = std::abs(view_cosine - best_view_cosine) <= observability_score_tolerance;
-        const bool better = !best_index
-            || margin > best_margin + observability_score_tolerance
-            || (same_margin
-                && view_cosine > best_view_cosine + observability_score_tolerance)
-            || (same_margin && same_view && previous_pose
-                && continuity < best_continuity - observability_score_tolerance)
-            || (same_margin && same_view
-                && (!previous_pose
-                    || std::abs(continuity - best_continuity) <= observability_score_tolerance)
-                && candidate.reprojection_error < candidates[*best_index].reprojection_error);
-        if (better) {
-            best_index = candidate_index;
-            best_margin = margin;
-            best_view_cosine = view_cosine;
-            best_continuity = continuity;
-        }
-    }
-    return best_index;
-}
-
-std::vector<GeometricSolver::CameraPose> GeometricSolver::solveP2P(
-    const std::vector<Observation>& observations,
-    const std::optional<Eigen::Vector3d>& camera_up_axis) const
-{
-    if (observations.size() != 2U || !camera_up_axis) {
+    if (observations.size() != 2U) {
         return {};
     }
-
-    Eigen::Matrix<double, 3, 2> pw;
-    Eigen::Matrix<double, 3, 2> pi;
-    for (int i = 0; i < 2; ++i) {
-        pw.col(i) = observations[static_cast<std::size_t>(i)].marker.pose.position;
-        pi.col(i) = observations[static_cast<std::size_t>(i)].bearing;
-    }
-
-    // Two correspondences leave one rotational degree of freedom.  The target
-    // body-frame gravity axis and the navigation-derived camera gravity axis
-    // remove it, regardless of the positions of the two LEDs.
-    Eigen::Vector3d body_up_axis = config_.odometry_ref_model_gravity_axis;
-    if (!body_up_axis.allFinite() || body_up_axis.squaredNorm() < 1.0e-18) {
-        return {};
-    }
-    body_up_axis.normalize();
-
-    Eigen::Vector3d v_cam = *camera_up_axis;
-    if (!v_cam.allFinite() || v_cam.squaredNorm() < 1.0e-18) {
-        return {};
-    }
-    v_cam.normalize();
-
-    // Li takes the known body-up and camera-up directions directly.  The ray
-    // plane normal is not a gravity direction and must not be supplied here.
-    const auto solutions = P2P::solve(
-        pw,
-        pi,
-        v_cam,
-        body_up_axis,
-        P2P::Method::Li,
-        config_.odometry_ref_min_axis_observability);
-    std::vector<CameraPose> candidates;
-    candidates.reserve(solutions.size());
-    for (const auto& solution : solutions) {
-        candidates.push_back(toCameraPose(solution));
-    }
-
-    return candidates;
+    const Observation& first = observations[0];
+    const Observation& second = observations[1];
+    return VisibilityPoseSolver::solve(
+        first.marker.pose.position,
+        second.marker.pose.position,
+        first.marker.pose.orientation * Eigen::Vector3d::UnitX(),
+        second.marker.pose.orientation * Eigen::Vector3d::UnitX(),
+        first.bearing,
+        second.bearing,
+        config_.visibility_pose);
 }
 
 std::vector<GeometricSolver::CameraPose> GeometricSolver::solveP3P(const std::vector<Observation>& observations) const
@@ -1103,76 +835,6 @@ std::vector<Eigen::Vector3d> GeometricSolver::observedMarkerPositions(const std:
         positions.push_back(observation.marker.pose.position);
     }
     return positions;
-}
-
-std::optional<std::size_t> GeometricSolver::selectObservabilityAwareCandidate(
-    const std::vector<ScoredCameraPose>& candidates,
-    const std::vector<Observation>& observations,
-    const std::optional<CameraPose>& previous_pose) const
-{
-    const std::vector<Eigen::Vector3d> observed_positions = observedMarkerPositions(observations);
-    std::optional<std::size_t> best_index;
-    BodyModel::VisibilityScore best_visibility;
-    double best_continuity_distance = std::numeric_limits<double>::infinity();
-
-    for (std::size_t index = 0U; index < candidates.size(); ++index) {
-        const ScoredCameraPose& candidate = candidates[index];
-        if (!hasPositiveDepths(candidate.pose, observations)) {
-            continue;
-        }
-
-        const BodyModel::VisibilityScore visibility = body_.visibilityScore(candidate.pose, observed_positions);
-        if (!visibility.observed_leds_face_camera) {
-            continue;
-        }
-        const double continuity_distance = previous_pose
-            ? unc::poseTangentDistance(*previous_pose, candidate.pose)
-            : std::numeric_limits<double>::infinity();
-        if (!best_index) {
-            best_index = index;
-            best_visibility = visibility;
-            best_continuity_distance = continuity_distance;
-            continue;
-        }
-
-        const ScoredCameraPose& best = candidates[*best_index];
-        const bool same_visibility_support = visibility.observed_leds_face_camera == best_visibility.observed_leds_face_camera;
-        const bool equivalent_observability = same_visibility_support
-            && std::abs(visibility.visibility_margin - best_visibility.visibility_margin) <= observability_score_tolerance
-            && std::abs(visibility.observed_view_cosine_mean - best_visibility.observed_view_cosine_mean) <= observability_score_tolerance;
-        // Once a physically visible P2P branch has been established, temporal
-        // continuity is the meaningful tie-breaker. Tiny visibility-margin
-        // changes near a branch boundary must not flip the pose each frame.
-        const bool p2p_continuity_better = observations.size() == 2U
-            && previous_pose
-            && continuity_distance
-                < best_continuity_distance - observability_score_tolerance;
-        const bool p2p_continuity_worse_or_equal = observations.size() == 2U
-            && previous_pose
-            && !p2p_continuity_better;
-        const bool better = p2p_continuity_better
-            || (!p2p_continuity_worse_or_equal
-                && same_visibility_support
-                && visibility.visibility_margin > best_visibility.visibility_margin + observability_score_tolerance)
-            || (!p2p_continuity_worse_or_equal && same_visibility_support
-                && std::abs(visibility.visibility_margin - best_visibility.visibility_margin) <= observability_score_tolerance
-                && visibility.observed_view_cosine_mean > best_visibility.observed_view_cosine_mean + observability_score_tolerance)
-            // When the model says the branches are equally observable, retain
-            // the existing physical branch rather than alternating because of
-            // sub-pixel reprojection noise.
-            || (!p2p_continuity_worse_or_equal && equivalent_observability && previous_pose
-                && continuity_distance < best_continuity_distance - observability_score_tolerance)
-            || (!p2p_continuity_worse_or_equal && equivalent_observability
-                && (!previous_pose
-                    || std::abs(continuity_distance - best_continuity_distance) <= observability_score_tolerance)
-                && candidate.reprojection_error < best.reprojection_error);
-        if (better) {
-            best_index = index;
-            best_visibility = visibility;
-            best_continuity_distance = continuity_distance;
-        }
-    }
-    return best_index;
 }
 
 std::vector<GeometricSolver::CameraPose> GeometricSolver::solveP4P(const std::vector<Observation>& observations) const
@@ -1304,73 +966,6 @@ Eigen::Matrix<double, 6, 6> GeometricSolver::poseCovarianceByRigJacobianPropagat
     const CameraPose& pose,
     const std::vector<RigObservation>& observations) const
 {
-    const std::optional<Eigen::Vector3d> constrained_up =
-        config_.odometry_ref_enable
-        && hasDistinctRigMarkerPair(observations)
-        && !hasObservableRigMarkerGeometry(observations)
-        ? rigOutputUpAxis(observations) : std::nullopt;
-    if (constrained_up) {
-        const Eigen::Vector3d output_up = constrained_up->normalized();
-        Eigen::Matrix4d information = Eigen::Matrix4d::Zero();
-        for (const RigObservation& observation : observations) {
-            if (observation.camera_index >= cameras_.size()) {
-                continue;
-            }
-            const CameraModel& camera = cameras_[observation.camera_index];
-            const Eigen::Vector3d rotated_output_point =
-                pose.rotation * observation.observation.marker.pose.position;
-            const Eigen::Vector3d camera_point = observation.output_to_camera
-                * (rotated_output_point + pose.translation);
-            if (!camera_point.allFinite() || camera_point.z() <= epsilon) {
-                continue;
-            }
-            const Eigen::Matrix<double, 2, 3> projection_jacobian =
-                camera.projectionJacobian(camera_point);
-            Eigen::Matrix<double, 2, 4> jacobian;
-            jacobian.leftCols<3>() = projection_jacobian
-                * observation.output_to_camera.rotation();
-            jacobian.col(3) = projection_jacobian
-                * observation.output_to_camera.rotation()
-                * output_up.cross(rotated_output_point);
-            const Eigen::Matrix2d covariance = unc::regularizedCovariance(
-                observation.observation.point.has_prediction
-                    ? observation.observation.point.prediction_covariance
-                    : observation.observation.point.covariance,
-                config_.covariance_regularization_px);
-            information += jacobian.transpose()
-                * covariance.inverse() * jacobian;
-        }
-
-        Eigen::SelfAdjointEigenSolver<Eigen::Matrix4d> eigensolver(
-            0.5 * (information + information.transpose()));
-        if (eigensolver.info() == Eigen::Success
-            && eigensolver.eigenvalues().maxCoeff() > epsilon) {
-            const double floor = std::max(
-                epsilon,
-                1.0e-12 * eigensolver.eigenvalues().maxCoeff());
-            const Eigen::Vector4d inverse_eigenvalues =
-                eigensolver.eigenvalues().unaryExpr(
-                    [&](const double value) {
-                        return 1.0 / std::max(value, floor);
-                    });
-            const Eigen::Matrix4d state_covariance =
-                eigensolver.eigenvectors()
-                * inverse_eigenvalues.asDiagonal()
-                * eigensolver.eigenvectors().transpose();
-            // Published tangent order is [translation, rotation]. The known
-            // axis is deterministic here; only yaw about it is estimated.
-            Eigen::Matrix<double, 6, 4> lift =
-                Eigen::Matrix<double, 6, 4>::Zero();
-            lift.topLeftCorner<3, 3>() = Eigen::Matrix3d::Identity();
-            lift.block<3, 1>(3, 3) = output_up;
-            const Eigen::Matrix<double, 6, 6> covariance =
-                lift * state_covariance * lift.transpose();
-            if (covariance.allFinite()) {
-                return 0.5 * (covariance + covariance.transpose());
-            }
-        }
-    }
-
     Eigen::Matrix<double, 6, 6> information = Eigen::Matrix<double, 6, 6>::Zero();
     for (const RigObservation& observation : observations) {
         if (observation.camera_index >= cameras_.size()) {
@@ -1527,7 +1122,6 @@ Eigen::Matrix<double, 6, 6> GeometricSolver::poseCovarianceByEllipseTransform(
     const std::vector<CameraPose>& base_poses,
     const std::vector<Observation>& observations,
     const CameraModel& camera,
-    const std::optional<Eigen::Vector3d>& camera_up_axis,
     int selected_index) const
 {
     if (base_poses.empty() || selected_index < 0 || static_cast<std::size_t>(selected_index) >= base_poses.size()) {
@@ -1564,7 +1158,7 @@ Eigen::Matrix<double, 6, 6> GeometricSolver::poseCovarianceByEllipseTransform(
             }
 
             const std::vector<ScoredCameraPose> refined_candidates = refineCandidates(
-                solveCameraPoses(sample_observations, camera, camera_up_axis),
+                solveCameraPoses(sample_observations, camera),
                 sample_observations,
                 camera);
             if (refined_candidates.empty()) {
@@ -1601,7 +1195,6 @@ Eigen::Matrix<double, 6, 6> GeometricSolver::poseCovarianceByMonteCarlo(
     const std::vector<CameraPose>& base_poses,
     const std::vector<Observation>& observations,
     const CameraModel& camera,
-    const std::optional<Eigen::Vector3d>& camera_up_axis,
     int selected_index) const
 {
     if (base_poses.empty() || selected_index < 0 || static_cast<std::size_t>(selected_index) >= base_poses.size()) {
@@ -1645,7 +1238,7 @@ Eigen::Matrix<double, 6, 6> GeometricSolver::poseCovarianceByMonteCarlo(
         }
 
         const std::vector<ScoredCameraPose> refined_candidates = refineCandidates(
-            solveCameraPoses(sample_observations, camera, camera_up_axis),
+            solveCameraPoses(sample_observations, camera),
             sample_observations,
             camera);
         if (refined_candidates.empty()) {
@@ -1750,82 +1343,8 @@ double GeometricSolver::reprojectionError(const CameraPose& pose, const std::vec
 Eigen::Matrix<double, 6, 6> GeometricSolver::poseCovarianceByJacobianPropagation(
     const CameraPose& pose,
     const std::vector<Observation>& observations,
-    const CameraModel& camera,
-    const std::optional<Eigen::Vector3d>& camera_up_axis) const
+    const CameraModel& camera) const
 {
-    if (observations.size() == 2U && camera_up_axis) {
-        Eigen::Matrix<double, 3, 2> world_points;
-        Eigen::Matrix<double, 3, 2> bearings;
-        Eigen::Matrix<double, 6, 6> bearing_covariance =
-            Eigen::Matrix<double, 6, 6>::Zero();
-        for (int index = 0; index < 2; ++index) {
-            const Observation& observation =
-                observations[static_cast<std::size_t>(index)];
-            world_points.col(index) = observation.marker.pose.position;
-            bearings.col(index) = observation.bearing;
-            const Eigen::Matrix2d pixel_covariance =
-                unc::regularizedCovariance(
-                    observation.point.has_prediction
-                        ? observation.point.prediction_covariance
-                        : observation.point.covariance,
-                    config_.covariance_regularization_px);
-            const Eigen::Matrix<double, 3, 2> bearing_jacobian =
-                camera.backProjectionJacobian(observation.image_point);
-            bearing_covariance.block<3, 3>(3 * index, 3 * index) =
-                bearing_jacobian * pixel_covariance
-                * bearing_jacobian.transpose();
-        }
-
-        Eigen::Vector3d body_up_axis = config_.odometry_ref_model_gravity_axis;
-        Eigen::Vector3d camera_axis = *camera_up_axis;
-        if (body_up_axis.allFinite() && camera_axis.allFinite()
-            && body_up_axis.squaredNorm() > epsilon
-            && camera_axis.squaredNorm() > epsilon) {
-            body_up_axis.normalize();
-            camera_axis.normalize();
-            const std::vector<P2P::PoseJacobian> jacobians =
-                P2P::jacobianPoseWrtBearings(
-                    world_points,
-                    bearings,
-                    camera_axis,
-                    body_up_axis,
-                    P2P::Method::Li);
-            const auto closest = std::min_element(
-                jacobians.begin(),
-                jacobians.end(),
-                [&](const P2P::PoseJacobian& first,
-                    const P2P::PoseJacobian& second) {
-                    return unc::poseTangentDistance(
-                               pose, toCameraPose(first.sol))
-                        < unc::poseTangentDistance(
-                               pose, toCameraPose(second.sol));
-                });
-            if (closest != jacobians.end()
-                && closest->dpose_dpi.allFinite()
-                && bearing_covariance.allFinite()) {
-                // P2P uses [rotation, translation], while published pose
-                // covariance is [translation, rotation]. The up/gravity
-                // constraint is treated as known; detector and tracker
-                // uncertainty enters through the two bearing Jacobians.
-                const Eigen::Matrix<double, 6, 6> solver_covariance =
-                    closest->dpose_dpi * bearing_covariance
-                    * closest->dpose_dpi.transpose();
-                Eigen::Matrix<double, 6, 6> covariance;
-                covariance.topLeftCorner<3, 3>() =
-                    solver_covariance.bottomRightCorner<3, 3>();
-                covariance.topRightCorner<3, 3>() =
-                    solver_covariance.bottomLeftCorner<3, 3>();
-                covariance.bottomLeftCorner<3, 3>() =
-                    solver_covariance.topRightCorner<3, 3>();
-                covariance.bottomRightCorner<3, 3>() =
-                    solver_covariance.topLeftCorner<3, 3>();
-                if (covariance.allFinite()) {
-                    return 0.5 * (covariance + covariance.transpose());
-                }
-            }
-        }
-    }
-
     std::vector<Eigen::Vector3d> world_points;
     std::vector<Eigen::Matrix2d> pixel_covariances;
     world_points.reserve(observations.size());

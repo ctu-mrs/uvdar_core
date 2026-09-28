@@ -1,0 +1,92 @@
+#version 310 es
+
+layout(local_size_x = {{LOCAL_SIZE_X}}, local_size_y = {{LOCAL_SIZE_Y}}, local_size_z = {{LOCAL_SIZE_Z}}) in;
+
+layout(binding = 4, offset = 0) uniform atomic_uint markers_count;
+layout(binding = 3, offset = 0) uniform atomic_uint sun_pts_count;
+layout(binding = 10, offset = 0) uniform atomic_uint filtered_markers_count;
+
+layout(std430, binding = 5) readonly buffer configuration_buffer { uint configuration[]; };
+layout(std430, binding = 6) readonly buffer markers_buffer { uint markers[]; };
+layout(std430, binding = 8) readonly buffer sun_mask_buffer { uint sun_mask[]; };
+layout(std430, binding = 9) buffer filtered_markers_buffer { uint filtered_markers[]; };
+
+bool interval_has_sun(uint begin_linear, uint end_linear)
+{
+    uint first_word = begin_linear >> 5u;
+    uint last_word = end_linear >> 5u;
+    uint first_mask = 0xFFFFFFFFu << (begin_linear & 31u);
+    uint last_bit = end_linear & 31u;
+    uint last_mask = last_bit == 31u
+        ? 0xFFFFFFFFu
+        : (1u << (last_bit + 1u)) - 1u;
+
+    if (first_word == last_word) {
+        return (sun_mask[first_word] & first_mask & last_mask) != 0u;
+    }
+    if ((sun_mask[first_word] & first_mask) != 0u ||
+        (sun_mask[last_word] & last_mask) != 0u) {
+        return true;
+    }
+    for (uint word = first_word + 1u; word < last_word; ++word) {
+        if (sun_mask[word] != 0u) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool marker_is_near_sun(uint linear_pos)
+{
+    int width = int(configuration[0]);
+    int height = int(configuration[1]);
+    uint configured_distance = configuration[8];
+    if (configured_distance == 0u || atomicCounter(sun_pts_count) == 0u) {
+        return false;
+    }
+
+    int marker_x = int(linear_pos % uint(width));
+    int marker_y = int(linear_pos / uint(width));
+    float distance_squared = float(configured_distance) * float(configured_distance);
+    float maximum_dx = float(width - 1);
+    float maximum_dy = float(height - 1);
+    if (distance_squared >
+        maximum_dx * maximum_dx + maximum_dy * maximum_dy) {
+        return true;
+    }
+    int distance = int(configured_distance);
+    for (int dy = -(distance - 1); dy < distance; ++dy) {
+        int y = marker_y + dy;
+        if (y < 0 || y >= height) {
+            continue;
+        }
+        float remaining = distance_squared - 1.0 - float(dy) * float(dy);
+        int half_width = int(floor(sqrt(remaining)));
+        int begin_x = max(0, marker_x - half_width);
+        int end_x = min(width - 1, marker_x + half_width);
+        uint begin_linear = uint(y * width + begin_x);
+        uint end_linear = uint(y * width + end_x);
+        if (interval_has_sun(begin_linear, end_linear)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+void main()
+{
+    uint index = gl_GlobalInvocationID.x;
+    uint count = min(atomicCounter(markers_count), configuration[5]);
+    if (gl_GlobalInvocationID.y != 0u || index >= count) {
+        return;
+    }
+
+    uint marker = markers[index];
+    uint linear_pos = marker >> 8u;
+    if (!marker_is_near_sun(linear_pos)) {
+        uint output_index = atomicCounterIncrement(filtered_markers_count);
+        if (output_index < configuration[5]) {
+            filtered_markers[output_index] = marker;
+        }
+    }
+}

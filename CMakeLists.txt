@@ -30,7 +30,7 @@ find_package(builtin_interfaces REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
-find_package(nav_msgs REQUIRED)
+find_package(visualization_msgs REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(cv_bridge REQUIRED)
@@ -130,6 +130,7 @@ set(POSE_ESTIMATION_SOURCES
     src/pose_estimation/body_model.cpp
     src/pose_estimation/uncertainty.cpp
     src/pose_estimation/geometric_solver/geometric_solver.cpp
+    src/pose_estimation/geometric_solver/visibility_pose.cpp
     src/pose_estimation/particle_filter/reprojection_model.cpp
     src/pose_estimation/particle_filter/particle_filter.cpp
     src/pose_estimation/particle_filter/sampling.cpp
@@ -215,6 +216,7 @@ target_link_libraries(${PROJECT_NAME}_tracker
 target_link_libraries(${PROJECT_NAME}_pose_estimation
     Eigen3::Eigen
 )
+
 ament_target_dependencies(${PROJECT_NAME}_detector
     rclcpp
     sensor_msgs
@@ -320,7 +322,6 @@ ament_target_dependencies(pose_estimator_node
     rclcpp
     builtin_interfaces
     geometry_msgs
-    nav_msgs
     std_msgs
     sensor_msgs
     cv_bridge
@@ -337,6 +338,7 @@ ament_target_dependencies(filter_node
     rclcpp
     builtin_interfaces
     geometry_msgs
+    visualization_msgs
     tf2
     tf2_ros
 )

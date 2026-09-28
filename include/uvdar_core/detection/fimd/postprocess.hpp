@@ -1,7 +1,10 @@
 #pragma once
 
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
+#include <limits>
+#include <stdexcept>
 #include <vector>
 
 #include <opencv2/core.hpp>
@@ -213,39 +216,270 @@ inline std::vector<uvdar_core::detection::DetectorPoint> collapseRawPointsIntern
     return collapsed;
 }
 
-/**
- * @brief Remove detected markers that are too close to sun points.
- * @param output Detection output to filter in-place.
- * @param min_sun_marker_distance Minimum Euclidean distance in pixels.
- */
-inline void filterMarkersNearSunPoints(uvdar_core::detection::DetectorOutput& output, unsigned min_sun_marker_distance)
+struct SunMaskWorkspace {
+    unsigned dilation_distance = 0U;
+    std::vector<int> dilation_half_widths;
+    std::vector<std::vector<int>> dilation_row_offsets;
+    std::vector<std::uint64_t> raw_sun_bits;
+    std::vector<std::uint64_t> dilated_sun_bits;
+    std::vector<std::uint64_t> row_bits_a;
+    std::vector<std::uint64_t> row_bits_b;
+};
+
+inline SunMaskWorkspace& sunMaskWorkspace()
 {
-    if (min_sun_marker_distance == 0 || output.sun_points.empty() || output.detected_points.empty()) {
-        return;
+    thread_local SunMaskWorkspace workspace;
+    return workspace;
+}
+
+/**
+ * @brief Return row half-widths for an integer disk matching strict distance.
+ */
+inline std::vector<int> strictDiskHalfWidths(unsigned distance)
+{
+    const std::uint64_t diameter_64 =
+        2U * static_cast<std::uint64_t>(distance) - 1U;
+    if (diameter_64 > static_cast<std::uint64_t>(std::numeric_limits<int>::max())) {
+        throw std::length_error("minimum sun-marker distance is too large to rasterize");
     }
 
-    const double minimum_distance_squared = static_cast<double>(min_sun_marker_distance) * static_cast<double>(min_sun_marker_distance);
+    const int diameter = static_cast<int>(diameter_64);
+    const int center = static_cast<int>(distance - 1U);
+    const std::uint64_t distance_squared =
+        static_cast<std::uint64_t>(distance) * distance;
+    std::vector<int> half_widths(static_cast<std::size_t>(diameter));
+    for (int y = 0; y < diameter; ++y) {
+        const std::int64_t dy = static_cast<std::int64_t>(y) - center;
+        int half_width = center;
+        while (half_width > 0 &&
+               static_cast<std::uint64_t>(
+                   static_cast<std::int64_t>(half_width) * half_width + dy * dy) >=
+                   distance_squared) {
+            --half_width;
+        }
+        half_widths[static_cast<std::size_t>(y)] = half_width;
+    }
+    return half_widths;
+}
 
-    std::vector<uvdar_core::detection::DetectorPoint> filtered_markers;
-    filtered_markers.reserve(output.detected_points.size());
+inline std::size_t packedSunMaskWordsPerRow(unsigned image_width)
+{
+    return (static_cast<std::size_t>(image_width) + 63U) / 64U;
+}
 
-    for (const auto& marker : output.detected_points) {
-        bool keep_marker = true;
-        for (const auto& sun_point : output.sun_points) {
-            const double dx = static_cast<double>(marker.point.x) - static_cast<double>(sun_point.point.x);
-            const double dy = static_cast<double>(marker.point.y) - static_cast<double>(sun_point.point.y);
-            if ((dx * dx + dy * dy) < minimum_distance_squared) {
-                keep_marker = false;
+/** Grow a packed row by one pixel without allowing bits to wrap across rows. */
+inline void expandPackedSunRowOnePixel(
+    const std::vector<std::uint64_t>& source,
+    std::size_t words_per_row,
+    std::uint64_t last_word_mask,
+    std::vector<std::uint64_t>& destination)
+{
+    destination.resize(words_per_row);
+    for (std::size_t word = 0; word < words_per_row; ++word) {
+        std::uint64_t expanded = source[word] |
+            (source[word] << 1U) | (source[word] >> 1U);
+        if (word > 0U) {
+            expanded |= source[word - 1U] >> 63U;
+        }
+        if (word + 1U < words_per_row) {
+            expanded |= source[word + 1U] << 63U;
+        }
+        destination[word] = expanded;
+    }
+    destination.back() &= last_word_mask;
+}
+
+/**
+ * @brief Dilate a row-packed binary sun mask with an exact integer disk.
+ */
+inline const std::vector<std::uint64_t>& dilatePackedSunMask(
+    const std::vector<std::uint64_t>& raw_sun_bits,
+    unsigned min_sun_marker_distance,
+    unsigned image_width,
+    unsigned image_height)
+{
+    SunMaskWorkspace& workspace = sunMaskWorkspace();
+    const std::size_t words_per_row = packedSunMaskWordsPerRow(image_width);
+    const std::size_t expected_words =
+        words_per_row * static_cast<std::size_t>(image_height);
+    if (raw_sun_bits.size() != expected_words) {
+        throw std::invalid_argument("packed sun mask dimensions do not match input image");
+    }
+
+    workspace.dilated_sun_bits.assign(expected_words, 0U);
+    if (workspace.dilation_distance != min_sun_marker_distance) {
+        workspace.dilation_half_widths =
+            strictDiskHalfWidths(min_sun_marker_distance);
+        const int center = static_cast<int>(min_sun_marker_distance - 1U);
+        const int maximum_half_width = *std::max_element(
+            workspace.dilation_half_widths.begin(),
+            workspace.dilation_half_widths.end());
+        workspace.dilation_row_offsets.assign(
+            static_cast<std::size_t>(maximum_half_width) + 1U, {});
+        for (std::size_t disk_row = 0;
+             disk_row < workspace.dilation_half_widths.size();
+             ++disk_row) {
+            const auto half_width = static_cast<std::size_t>(
+                workspace.dilation_half_widths[disk_row]);
+            workspace.dilation_row_offsets[half_width].push_back(
+                static_cast<int>(disk_row) - center);
+        }
+        workspace.dilation_distance = min_sun_marker_distance;
+    }
+
+    const unsigned valid_tail_bits = image_width % 64U;
+    const std::uint64_t last_word_mask = valid_tail_bits == 0U
+        ? std::numeric_limits<std::uint64_t>::max()
+        : (std::uint64_t {1U} << valid_tail_bits) - 1U;
+    for (unsigned source_y = 0U; source_y < image_height; ++source_y) {
+        const std::uint64_t* const source_row =
+            raw_sun_bits.data() + static_cast<std::size_t>(source_y) * words_per_row;
+        bool row_has_sun = false;
+        for (std::size_t word = 0; word < words_per_row; ++word) {
+            if (source_row[word] != 0U) {
+                row_has_sun = true;
                 break;
             }
         }
+        if (!row_has_sun) {
+            continue;
+        }
 
-        if (keep_marker) {
-            filtered_markers.push_back(marker);
+        workspace.row_bits_a.assign(source_row, source_row + words_per_row);
+        workspace.row_bits_a.back() &= last_word_mask;
+        for (std::size_t half_width = 0;
+             half_width < workspace.dilation_row_offsets.size();
+             ++half_width) {
+            if (half_width > 0U) {
+                expandPackedSunRowOnePixel(
+                    workspace.row_bits_a,
+                    words_per_row,
+                    last_word_mask,
+                    workspace.row_bits_b);
+                workspace.row_bits_a.swap(workspace.row_bits_b);
+            }
+            for (const int row_offset : workspace.dilation_row_offsets[half_width]) {
+                const int target_y = static_cast<int>(source_y) + row_offset;
+                if (target_y < 0 || target_y >= static_cast<int>(image_height)) {
+                    continue;
+                }
+                std::uint64_t* const target_row =
+                    workspace.dilated_sun_bits.data() +
+                    static_cast<std::size_t>(target_y) * words_per_row;
+                for (std::size_t word = 0; word < words_per_row; ++word) {
+                    target_row[word] |= workspace.row_bits_a[word];
+                }
+            }
         }
     }
 
-    output.detected_points = std::move(filtered_markers);
+    return workspace.dilated_sun_bits;
+}
+
+/**
+ * @brief Filter raw markers using an already row-packed binary sun mask.
+ */
+inline void filterRawMarkersNearPackedSunMask(
+    std::vector<WeightedPoint>& raw_markers,
+    const std::vector<std::uint64_t>& raw_sun_bits,
+    unsigned min_sun_marker_distance,
+    unsigned image_width,
+    unsigned image_height)
+{
+    if (min_sun_marker_distance == 0U || raw_markers.empty()) {
+        return;
+    }
+    if (image_width == 0U || image_height == 0U) {
+        throw std::invalid_argument("sun mask requires valid input image dimensions");
+    }
+
+    const std::uint64_t maximum_dx = image_width - 1U;
+    const std::uint64_t maximum_dy = image_height - 1U;
+    const std::uint64_t maximum_image_distance_squared =
+        maximum_dx * maximum_dx + maximum_dy * maximum_dy;
+    const std::uint64_t minimum_distance_squared =
+        static_cast<std::uint64_t>(min_sun_marker_distance) * min_sun_marker_distance;
+    if (minimum_distance_squared > maximum_image_distance_squared) {
+        raw_markers.clear();
+        return;
+    }
+
+    const auto& dilated = dilatePackedSunMask(
+        raw_sun_bits,
+        min_sun_marker_distance,
+        image_width,
+        image_height);
+    const std::size_t words_per_row = packedSunMaskWordsPerRow(image_width);
+    raw_markers.erase(
+        std::remove_if(
+            raw_markers.begin(),
+            raw_markers.end(),
+            [&](const auto& marker) {
+                const unsigned x = static_cast<unsigned>(std::clamp(
+                    static_cast<int>(std::lround(marker.point.x)),
+                    0,
+                    static_cast<int>(image_width) - 1));
+                const unsigned y = static_cast<unsigned>(std::clamp(
+                    static_cast<int>(std::lround(marker.point.y)),
+                    0,
+                    static_cast<int>(image_height) - 1));
+                const std::size_t word = static_cast<std::size_t>(y) * words_per_row + x / 64U;
+                return (dilated[word] & (std::uint64_t {1U} << (x % 64U))) != 0U;
+            }),
+        raw_markers.end());
+}
+
+/**
+ * @brief Remove raw marker samples selected by a dilated boolean sun mask.
+ *
+ * Filtering before collapse prevents rejected sun-adjacent samples from moving
+ * a surviving cluster centroid or inflating its covariance. It also avoids
+ * spending clustering work on samples that cannot appear in the result.
+ *
+ * @param raw_markers Raw marker samples to filter in-place.
+ * @param raw_sun_points Raw sun samples used to construct the exclusion mask.
+ * @param min_sun_marker_distance Minimum Euclidean distance in pixels.
+ * @param image_width Width of the source image in pixels.
+ * @param image_height Height of the source image in pixels.
+ */
+inline void filterRawMarkersNearSunPoints(
+    std::vector<WeightedPoint>& raw_markers,
+    const std::vector<WeightedPoint>& raw_sun_points,
+    unsigned min_sun_marker_distance,
+    unsigned image_width,
+    unsigned image_height)
+{
+    if (min_sun_marker_distance == 0U || raw_sun_points.empty() || raw_markers.empty()) {
+        return;
+    }
+    if (image_width == 0U || image_height == 0U ||
+        image_width > static_cast<unsigned>(std::numeric_limits<int>::max()) ||
+        image_height > static_cast<unsigned>(std::numeric_limits<int>::max())) {
+        throw std::invalid_argument("sun mask requires valid input image dimensions");
+    }
+
+    SunMaskWorkspace& workspace = sunMaskWorkspace();
+    const std::size_t words_per_row = packedSunMaskWordsPerRow(image_width);
+    workspace.raw_sun_bits.assign(
+        words_per_row * static_cast<std::size_t>(image_height), 0U);
+    for (const auto& sun : raw_sun_points) {
+        const int x = static_cast<int>(sun.point.x);
+        const int y = static_cast<int>(sun.point.y);
+        if (x < 0 || x >= static_cast<int>(image_width) ||
+            y < 0 || y >= static_cast<int>(image_height)) {
+            throw std::out_of_range("sun result lies outside the input image");
+        }
+        const std::size_t word = static_cast<std::size_t>(y) * words_per_row +
+            static_cast<unsigned>(x) / 64U;
+        workspace.raw_sun_bits[word] |=
+            std::uint64_t {1U} << (static_cast<unsigned>(x) % 64U);
+    }
+    filterRawMarkersNearPackedSunMask(
+        raw_markers,
+        workspace.raw_sun_bits,
+        min_sun_marker_distance,
+        image_width,
+        image_height);
 }
 
 } // namespace uvdar_core::detection::fimd

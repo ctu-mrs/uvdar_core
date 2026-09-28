@@ -2,6 +2,7 @@
 
 #include <opencv2/core.hpp>
 
+#include <cstdint>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -40,14 +41,16 @@ private:
         std::vector<cv::Mat> masks;
         std::unique_ptr<uvdar_core::detection::IDetector> detector;
         bool detector_initialized = false;
-        cv::Mat latest_image;
-        uvdar_core::detection::DetectorOutput latest_output;
         rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr subscription;
         rclcpp::Publisher<uvdar_core::msg::ImagePointsWithCovariancesStamped>::SharedPtr candidate_publisher;
         rclcpp::Publisher<uvdar_core::msg::ImagePointsWithCovariancesStamped>::SharedPtr sun_publisher;
         rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr visualization_publisher;
         std::unique_ptr<uvdar_core::app::visualization::VisualizationWorker> visualization_worker;
         std::mutex mutex;
+        std::mutex scheduling_mutex;
+        sensor_msgs::msg::Image::ConstSharedPtr pending_image;
+        bool worker_active = false;
+        std::uint64_t dropped_pending_frames = 0;
     };
 
     /**
@@ -66,6 +69,10 @@ private:
      * @brief ROS image callback.
      */
     void onImage(const sensor_msgs::msg::Image::ConstSharedPtr& image_msg, std::size_t image_index);
+    /**
+     * @brief Process the newest pending image until the bounded slot is empty.
+     */
+    void processLatestImages(std::size_t image_index);
     /**
      * @brief Run detector on one image and publish all outputs.
      */

@@ -148,8 +148,6 @@ void main()
     config_max_markers_count = configuration[5];
     config_radii_count = configuration[7];
 
-    if (atomicCounter(markers_count) >= uint(config_max_markers_count)) { return; }
-
     center_pos = ivec2(gl_GlobalInvocationID.xy);
     if (center_pos.x < 0 || center_pos.x >= image_size.x || center_pos.y < 0 || center_pos.y >= image_size.y) { return; }
 
@@ -157,11 +155,10 @@ void main()
 
     if (center_val >= int(config_threshold)) {
         for (int i = 0; i < int(config_radii_count); i++) {
-            int radius = int(configuration[8 + i]);
+            int radius = int(configuration[9 + i]);
             if (center_pos.x < radius || center_pos.x >= (image_size.x - radius) || center_pos.y < radius || center_pos.y >= (image_size.y - radius)) {
                 return;
             }
-            if (atomicCounter(markers_count) >= uint(config_max_markers_count)) { return; }
             if (marker_passes(radius)) {
                 uint index = atomicCounterIncrement(markers_count);
                 if (index >= uint(config_max_markers_count)) { return; }

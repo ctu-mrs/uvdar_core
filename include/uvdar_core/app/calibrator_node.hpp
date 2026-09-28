@@ -7,11 +7,13 @@
 #include <optional>
 #include <string>
 #include <thread>
+#include <variant>
 #include <vector>
 
 #include <Eigen/Dense>
 #include <opencv2/core.hpp>
 #include <rclcpp/rclcpp.hpp>
+#include <sensor_msgs/msg/compressed_image.hpp>
 #include <sensor_msgs/msg/image.hpp>
 #include <std_msgs/msg/string.hpp>
 
@@ -43,6 +45,8 @@ private:
     void loadIntermediateResults();
     void createInterfaces();
     void onImage(const sensor_msgs::msg::Image::ConstSharedPtr& message);
+    void onCompressedImage(
+        const sensor_msgs::msg::CompressedImage::ConstSharedPtr& message);
     void processLatestImage();
     void startCalibration();
     void runCalibration(
@@ -81,7 +85,10 @@ private:
     std::unique_ptr<uvdar_core::calibration::CalibrationPatternDetector>
         pattern_detector_;
 
-    rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr image_subscription_;
+    rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr
+        image_subscription_;
+    rclcpp::Subscription<sensor_msgs::msg::CompressedImage>::SharedPtr
+        compressed_image_subscription_;
     rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr visualization_publisher_;
     rclcpp::Publisher<std_msgs::msg::String>::SharedPtr status_publisher_;
     rclcpp::CallbackGroup::SharedPtr image_callback_group_;
@@ -94,7 +101,10 @@ private:
     mutable std::mutex mutex_;
     Stage stage_ = Stage::Collecting;
     std::string detail_ = "Waiting for calibration pattern";
-    sensor_msgs::msg::Image::ConstSharedPtr latest_image_message_;
+    using ImageMessage = std::variant<
+        sensor_msgs::msg::Image::ConstSharedPtr,
+        sensor_msgs::msg::CompressedImage::ConstSharedPtr>;
+    std::optional<ImageMessage> latest_image_message_;
     std::uint64_t latest_image_sequence_ = 0U;
     std::uint64_t processed_image_sequence_ = 0U;
     cv::Mat latest_processed_image_;

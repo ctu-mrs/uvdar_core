@@ -16,7 +16,6 @@ constexpr double directional_led_view_angle = 120.0 * M_PI / 180.0;
 // LEDs mounted at almost the same physical position form one diameter group.
 constexpr double led_group_distance = 0.03;
 constexpr double minimum_relative_triangle_area = 1.0e-4;
-constexpr double planar_axis_relative_tolerance = 1.0e-3;
 
 } // namespace
 
@@ -111,53 +110,6 @@ std::optional<LEDMarker> BodyModel::markerForSignal(int signal_id) const
     LEDMarker marker = *matching_marker;
     marker.pose.position = groupCenter(*matching_group);
     return marker;
-}
-
-std::optional<Eigen::Vector3d> BodyModel::expectedPlanarAxisForPair(
-    const Eigen::Vector3d& first,
-    const Eigen::Vector3d& second) const
-{
-    const Eigen::Vector3d baseline = second - first;
-    const double baseline_length = baseline.norm();
-    if (!std::isfinite(baseline_length) || baseline_length < std::numeric_limits<double>::epsilon()) {
-        return std::nullopt;
-    }
-
-    Eigen::Vector3d reference = Eigen::Vector3d::Zero();
-    double largest_triangle_area = 0.0;
-    double body_scale = baseline_length;
-    for (const std::vector<int>& group : groups_) {
-        const Eigen::Vector3d center = groupCenter(group);
-        const Eigen::Vector3d offset = center - first;
-        body_scale = std::max(body_scale, offset.norm());
-        const double triangle_area = baseline.cross(offset).norm();
-        if (triangle_area > largest_triangle_area) {
-            largest_triangle_area = triangle_area;
-            reference = center;
-        }
-    }
-
-    if (!std::isfinite(largest_triangle_area)
-        || largest_triangle_area <= minimum_relative_triangle_area * baseline_length * body_scale) {
-        return std::nullopt;
-    }
-
-    Eigen::Vector3d axis = -baseline.cross(reference - first);
-    if (!axis.allFinite() || axis.squaredNorm() < std::numeric_limits<double>::epsilon()) {
-        return std::nullopt;
-    }
-    axis.normalize();
-
-    // P2P's additional constraint only has physical meaning if the model has
-    // a common marker-plane normal.  Test all blended marker centers, not the
-    // individual LEDs in a pair.
-    for (const std::vector<int>& group : groups_) {
-        const double plane_offset = std::abs((groupCenter(group) - first).dot(axis));
-        if (plane_offset > planar_axis_relative_tolerance * body_scale) {
-            return std::nullopt;
-        }
-    }
-    return axis;
 }
 
 bool BodyModel::hasObservableTriangle(
