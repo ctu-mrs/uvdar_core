@@ -26,7 +26,7 @@ detector:
       publish_visualization: false
       visualization_topic: uvdar/left/detector/detection_visualization
       mask_file: ""
-      backend: cpu
+      backend: gpu
       threshold: 140
       threshold_diff: 60
       threshold_sun: 240
@@ -43,7 +43,7 @@ detector:
       publish_visualization: false
       visualization_topic: uvdar/right/detector/detection_visualization
       mask_file: ""
-      backend: cpu
+      backend: gpu
       threshold: 140
       threshold_diff: 60
       threshold_sun: 240
@@ -75,7 +75,7 @@ tracking:
   default_measurement_variance: 1.0
   # Generalized tracker only: isotropic per-frame prediction noise added in px^2.
   process_noise_variance: 1.0
-  allowed_BER_per_seq: 1
+  allowed_BER_per_seq: 0
   manchester_code: false
   # If set, sequence_file replaces the inline library below. All loaded
   # sequences must be non-empty and have equal length.
@@ -91,13 +91,13 @@ tracking:
       input_topic: uvdar/left/detector/points_seen
       input_image_topic: left/bluefox/image_raw
       output_topic: uvdar/left/tracker/blinkers
-      publish_visualization: false
+      publish_visualization: true
       visualization_topic: uvdar/left/tracker/visualization
     - name: right
       input_topic: uvdar/right/detector/points_seen
       input_image_topic: right/bluefox/image_raw
       output_topic: uvdar/right/tracker/blinkers
-      publish_visualization: false
+      publish_visualization: true
       visualization_topic: uvdar/right/tracker/visualization
 
 pose_estimation:
@@ -109,10 +109,10 @@ pose_estimation:
   # The launch namespace does not modify TF frame IDs.
   output_frame: $UAV_NAME/fcu
   output_topic: uvdar/pose_estimator/measured_poses
-  publish_visualization: false
+  publish_visualization: true
   visualization_topic: uvdar/pose_estimator/visualization
   publish_constituents: false
-  model_file: models/quadrotor_foursided_px4_motor_aligned_charlotte.txt
+  model_file: models/quadrotor_foursided_BEACON_px4_motor_aligned.txt
   signal_ids: [0, 1, 2, 3]
   # Used by non-filtered implementations that do not own a natural scatter step.
   publish_period_sec: 0.025

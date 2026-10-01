@@ -1,1 +1,1 @@
-sequences/onlyFirstFourManchesterPropeties.txt
+sequences/TBS-L10-P0.500000-HD3-NO3-NZ3-Na5.txt
