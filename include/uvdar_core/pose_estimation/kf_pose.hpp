@@ -79,7 +79,7 @@ public:
      * @brief Associate and correct tracks with new pose measurements.
      *
      * Anonymous mode uses Gaussian overlap matching; identified mode uses the
-     * measurement id modulo 1000.
+     * exact measurement id.
      */
     void applyMeasurements(const std::vector<KfPoseMeasurement>& measurements);
 

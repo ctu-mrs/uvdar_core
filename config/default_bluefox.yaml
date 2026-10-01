@@ -100,6 +100,26 @@ tracking:
       publish_visualization: true
       visualization_topic: uvdar/right/tracker/visualization
 
+#bearing:
+#  queue_depth: 10
+#  publish_predictions: true
+#  publish_unidentified: true
+#  covariance_floor_px2: 1.0e-6
+#  fallback_pixel_variance_px2: 1.0
+#  # Match pose_estimation.output_frame: all optical-camera rays are rotated into
+#  # the aircraft body frame and retain their camera origins in that frame.
+#  output_frame: $UAV_NAME/fcu
+#  output_topic: uvdar/bearing/observations
+#  inputs:
+#    - name: left
+#      input_topic: uvdar/tracker/left/blinkers
+#      camera_frame: $UAV_NAME/bluefox_left
+#      calib_file: camera/bluefox_ocam_calib/bf_left.yaml
+#    - name: right
+#      input_topic: uvdar/tracker/right/blinkers
+#      camera_frame: $UAV_NAME/bluefox_right
+#      calib_file: camera/bluefox_ocam_calib/bf_right.yaml
+
 pose_estimation:
   # Select "particle_filter" for stochastic hypothesis filtering or
   # "geometric_solver" for direct visibility/P3P/P4P/PnP pose estimation.
@@ -113,7 +133,7 @@ pose_estimation:
   visualization_topic: uvdar/pose_estimator/visualization
   publish_constituents: false
   model_file: models/quadrotor_foursided_BEACON_px4_motor_aligned.txt
-  signal_ids: [0, 1, 2, 3]
+  signal_ids: [0, 1, 2, 3, 4]
   # Used by non-filtered implementations that do not own a natural scatter step.
   publish_period_sec: 0.025
   particle_filter:

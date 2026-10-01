@@ -112,4 +112,3 @@ bearing:
       output_topic: /uav4/uvdar/bearing/right/observations
       camera_frame: $UAV_NAME/bluefox_right
       calib_file: camera/bluefox_ocam_calib/bf_right.yaml
-
