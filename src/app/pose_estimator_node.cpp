@@ -104,6 +104,10 @@ void PoseEstimatorNode::loadConfiguration(const std::string& config_path_string)
     const int signals_per_target = std::max(1, body.maxSignalId() + 1);
 
     std::vector<int> signal_ids = optionalSequence<int>(pose_node, "signal_ids");
+    reject_pose_above = optionalScalar<double>(pose_node, "reject_pose_above", -1.0);
+    std::cout << "REJECT POSE ABOVE IS SET TO:\t" << reject_pose_above << "\n";
+
+
     if (signal_ids.empty()) {
         signal_ids = {0, 1, 2, 3, 4, 5, 6, 7, 8};
     }
@@ -450,6 +454,9 @@ void PoseEstimatorNode::publishMeasurements(
     msg.header.stamp.nanosec = static_cast<uint32_t>(stamp_nanoseconds % 1000000000LL);
     msg.poses.reserve(measurements.poses.size());
     for (const auto& measurement : measurements.poses) {
+	    if (reject_pose_above > 0.0 && measurement.pose.position.norm() > reject_pose_above) {
+		    continue; 
+	    }
         uvdar_core::msg::PoseWithCovarianceIdentified pose_msg;
         pose_msg.id = measurement.id;
         pose_msg.pose = uvdar_core::helpers::toMsg(measurement.pose);

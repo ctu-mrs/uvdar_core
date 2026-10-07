@@ -61,12 +61,12 @@ tracking:
   queue_depth: 10
   thread_pool_size: 2
   max_points_per_image: 100
-  max_px_shift_x: 3
-  max_px_shift_y: 3
+  max_px_shift_x: 15
+  max_px_shift_y: 15
   max_zeros_consecutive: 10
   stored_seq_len_factor: 5
   max_buffer_length: 5000
-  poly_order: 4
+  poly_order: 3
   decay_factor: 0.1
   confidence_probability: 95.0
   # Generalized tracker only: Mahalanobis gate width in standard deviations.
@@ -75,7 +75,7 @@ tracking:
   default_measurement_variance: 1.0
   # Generalized tracker only: isotropic per-frame prediction noise added in px^2.
   process_noise_variance: 1.0
-  allowed_BER_per_seq: 0
+  allowed_BER_per_seq: 1
   manchester_code: false
   # If set, sequence_file replaces the inline library below. All loaded
   # sequences must be non-empty and have equal length.
@@ -91,34 +91,34 @@ tracking:
       input_topic: uvdar/left/detector/points_seen
       input_image_topic: left/bluefox/image_raw
       output_topic: uvdar/left/tracker/blinkers
-      publish_visualization: true
+      publish_visualization: false
       visualization_topic: uvdar/left/tracker/visualization
     - name: right
       input_topic: uvdar/right/detector/points_seen
       input_image_topic: right/bluefox/image_raw
       output_topic: uvdar/right/tracker/blinkers
-      publish_visualization: true
+      publish_visualization: false
       visualization_topic: uvdar/right/tracker/visualization
 
-#bearing:
-#  queue_depth: 10
-#  publish_predictions: true
-#  publish_unidentified: true
-#  covariance_floor_px2: 1.0e-6
-#  fallback_pixel_variance_px2: 1.0
-#  # Match pose_estimation.output_frame: all optical-camera rays are rotated into
-#  # the aircraft body frame and retain their camera origins in that frame.
-#  output_frame: $UAV_NAME/fcu
-#  output_topic: uvdar/bearing/observations
-#  inputs:
-#    - name: left
-#      input_topic: uvdar/tracker/left/blinkers
-#      camera_frame: $UAV_NAME/bluefox_left
-#      calib_file: camera/bluefox_ocam_calib/bf_left.yaml
-#    - name: right
-#      input_topic: uvdar/tracker/right/blinkers
-#      camera_frame: $UAV_NAME/bluefox_right
-#      calib_file: camera/bluefox_ocam_calib/bf_right.yaml
+bearing:
+  queue_depth: 10
+  output_frame: uav4/fcu
+  output_topic: /uav4/uvdar/bearing/observations
+  publish_predictions: true
+  publish_unidentified: true
+  covariance_floor_px2: 1.0e-6
+  fallback_pixel_variance_px2: 1.0
+  inputs:
+    - name: left
+      input_topic: uvdar/left/tracker/blinkers 
+      output_topic: /uav4/uvdar/bearing/left/observations
+      camera_frame: $UAV_NAME/bluefox_left
+      calib_file: camera/bluefox_ocam_calib/bf_left.yaml
+    - name: right 
+      input_topic: uvdar/right/tracker/blinkers 
+      output_topic: /uav4/uvdar/bearing/right/observations
+      camera_frame: $UAV_NAME/bluefox_right
+      calib_file: camera/bluefox_ocam_calib/bf_right.yaml
 
 pose_estimation:
   # Select "particle_filter" for stochastic hypothesis filtering or
@@ -129,13 +129,14 @@ pose_estimation:
   # The launch namespace does not modify TF frame IDs.
   output_frame: $UAV_NAME/fcu
   output_topic: uvdar/pose_estimator/measured_poses
-  publish_visualization: true
+  publish_visualization: false
   visualization_topic: uvdar/pose_estimator/visualization
   publish_constituents: false
   model_file: models/quadrotor_foursided_BEACON_px4_motor_aligned.txt
   signal_ids: [0, 1, 2, 3, 4]
+  reject_pose_above: 30.0 #[m]
   # Used by non-filtered implementations that do not own a natural scatter step.
-  publish_period_sec: 0.025
+  publish_period_sec: 0.05
   particle_filter:
     separate_by_distance: true
     max_cluster_distance: 100.0
@@ -151,7 +152,7 @@ pose_estimation:
     max_init_iterations: 10000
     max_mutation_refine_iterations: 1000
   geometric_solver:
-    uncertainty_solver: ellipse_transform # Options: jacobian_propagation, monte_carlo, ellipse_transform
+    uncertainty_solver: jacobian_propagation # Options: jacobian_propagation, monte_carlo, ellipse_transform
     uncertainty_samples: 5000
     visibility_half_angle_rad: 1.5707963267948966
     visibility_minimum_bearing_separation_rad: 0.0001
@@ -168,7 +169,7 @@ pose_estimation:
     pnp_residual_tolerance: 1.0e-10
     # Set true to combine the last observations within the synchronization
     # tolerance using the known camera TFs.
-    multi_cam_rig_enable: true
+    multi_cam_rig_enable: false
     multi_cam_sync_tolerance_sec: 0.03
     multi_cam_min_cameras: 2
     multi_cam_max_angular_error_rad: 0.05

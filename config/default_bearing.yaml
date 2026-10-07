@@ -54,8 +54,8 @@ tracking:
   queue_depth: 10 
   thread_pool_size: 2 
   max_points_per_image: 100 
-  max_px_shift_x: 3 
-  max_px_shift_y: 3 
+  max_px_shift_x: 4
+  max_px_shift_y: 4
   max_zeros_consecutive: 10 
   stored_seq_len_factor: 5 
   max_buffer_length: 5000 
@@ -68,7 +68,7 @@ tracking:
   default_measurement_variance: 1.0 
   # Generalized tracker only: isotropic per-frame prediction noise added in px^2. 
   process_noise_variance: 1.0 
-  allowed_BER_per_seq: 0 
+  allowed_BER_per_seq: 0
   manchester_code: false 
   # If set, sequence_file replaces the inline library below. All loaded 
   # sequences must be non-empty and have equal length. 
@@ -84,13 +84,13 @@ tracking:
       input_topic: uvdar/left/detector/points_seen 
       input_image_topic: left/bluefox/image_raw 
       output_topic: uvdar/left/tracker/blinkers 
-      publish_visualization: true 
+      publish_visualization: false
       visualization_topic: uvdar/left/tracker/visualization 
     - name: right 
       input_topic: uvdar/right/detector/points_seen 
       input_image_topic: right/bluefox/image_raw 
       output_topic: uvdar/right/tracker/blinkers 
-      publish_visualization: true 
+      publish_visualization: false
       visualization_topic: uvdar/right/tracker/visualization 
 
 bearing:
@@ -112,3 +112,54 @@ bearing:
       output_topic: /uav4/uvdar/bearing/right/observations
       camera_frame: $UAV_NAME/bluefox_right
       calib_file: camera/bluefox_ocam_calib/bf_right.yaml
+
+pose_estimation:
+  # Select "particle_filter" for stochastic hypothesis filtering or
+  # "geometric_solver" for direct visibility/P3P/P4P/PnP pose estimation.
+  implementation: geometric_solver 
+  debug: false
+  # $UAV_NAME is expanded from the process environment while loading YAML.
+  # The launch namespace does not modify TF frame IDs.
+  output_frame: $UAV_NAME/fcu
+  output_topic: uvdar/pose_estimator/measured_poses
+  publish_visualization: false
+  visualization_topic: uvdar/pose_estimator/visualization
+  publish_constituents: false
+  model_file: models/quadrotor_foursided_BEACON_px4_motor_aligned.txt
+  signal_ids: [0, 1, 2, 3, 4]
+  reject_pose_above: 30.0 #[m]
+  # Used by non-filtered implementations that do not own a natural scatter step.
+  publish_period_sec: 0.01
+  particle_filter:
+    separate_by_distance: true
+    max_cluster_distance: 100.0
+    scatter_time_step: 0.1
+    mutation_position_max_step: 1.0
+    mutation_orientation_max_step: 1.0
+    mutation_velocity_max_step: 1.0
+    max_hypothesis_count: 1000
+    max_hypothesis_age: 1.5
+    edge_detection_margin: 10
+    initial_rough_hypothesis_count: 200
+    initial_hypothesis_count: 10
+    max_init_iterations: 10000
+    max_mutation_refine_iterations: 1000
+  geometric_solver:
+    uncertainty_solver: jacobian_propagation # Options: jacobian_propagation, monte_carlo, ellipse_transform
+    uncertainty_samples: 5000
+    visibility_half_angle_rad: 1.5707963267948966
+    visibility_minimum_bearing_separation_rad: 0.0001
+    visibility_mode_gap_rad: 0.7853981633974483
+    visibility_depth_quadrature_order: 64
+    visibility_spin_quadrature_order: 12
+    p4p_reprojection_threshold_rad: 0.01
+    covariance_regularization_px: 1.0e-6
+    refinement_iterations: 4
+    pnp_max_iterations: 40
+    pnp_damping: 1.0e-8
+    pnp_finite_difference_eps: 1.0e-6
+    pnp_step_tolerance: 1.0e-10
+    pnp_residual_tolerance: 1.0e-10
+    # Set true to combine the last observations within the synchronization
+    # tolerance using the known camera TFs.
+    multi_cam_rig_enable: false

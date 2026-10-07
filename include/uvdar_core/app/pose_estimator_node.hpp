@@ -60,6 +60,7 @@ private:
     std::unique_ptr<uvdar_core::app::visualization::VisualizationWorker> visualization_worker_;
     std::shared_ptr<uvdar_core::app::visualization::PoseOverviewRenderer> pose_visualization_renderer_;
     double visualization_period_sec_ = 0.2;
+    double reject_pose_above = -1.0;
 };
 
 } // namespace uvdar_core::app
