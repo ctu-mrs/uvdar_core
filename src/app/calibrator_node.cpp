@@ -15,6 +15,7 @@
 
 #include "uvdar_core/calibration/intermediate_dataset.hpp"
 #include "uvdar_core/calibration/lens_model_loader.hpp"
+#include "uvdar_core/app/config_logging.hpp"
 #include "uvdar_core/helpers/yaml.hpp"
 
 namespace uvdar_core::app {
@@ -201,6 +202,7 @@ void CalibratorNode::loadParameters()
     const YAML::Node root =
         uvdar_core::helpers::yaml::loadFile(config_path_string);
     const YAML::Node config = requireNode(root, "calibrator");
+    logConfigSection(get_logger(), config_path_string, root, "calibrator");
 
     image_topic_ = requireScalar<std::string>(
         config, "image_topic", "calibrator");

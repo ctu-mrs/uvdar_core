@@ -3,6 +3,7 @@
 #include <cmath>
 #include <sensor_msgs/image_encodings.hpp>
 
+#include "uvdar_core/app/config_logging.hpp"
 #include "uvdar_core/helpers/ros_conversions.hpp"
 
 namespace uvdar_core::app {
@@ -34,6 +35,7 @@ void TrackerNode::loadConfig()
 {
     config_path_ = declare_parameter<std::string>("config_path", std::string { });
     config_ = loadPackageConfig(config_path_);
+    logConfigSection(get_logger(), config_path_, "tracking");
     if (!config_.tracking.module.enabled) {
         throw std::runtime_error("tracking module is disabled in config.");
     }

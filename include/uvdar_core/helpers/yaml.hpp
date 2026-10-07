@@ -120,6 +120,49 @@ inline YAML::Node loadFile(const std::string& path)
 }
 
 /**
+ * @brief Flatten a YAML subtree into "dotted.key: value" lines.
+ *
+ * Mappings extend the key with ".name", sequences of scalars are printed
+ * inline as "[a, b]", and other sequences extend the key with "[index]".
+ */
+inline void flatten(const YAML::Node& node, const std::string& prefix, std::vector<std::string>& lines)
+{
+    if (!node || node.IsNull()) {
+        lines.push_back(prefix + ": ~");
+        return;
+    }
+    if (node.IsScalar()) {
+        lines.push_back(prefix + ": " + node.as<std::string>());
+        return;
+    }
+    if (node.IsMap()) {
+        for (auto iterator = node.begin(); iterator != node.end(); ++iterator) {
+            flatten(iterator->second, prefix + "." + iterator->first.as<std::string>(), lines);
+        }
+        return;
+    }
+    if (std::all_of(node.begin(), node.end(), [](const YAML::Node& child) { return child.IsScalar(); })) {
+        std::string value = "[";
+        for (const YAML::Node& child : node) {
+            value += (value.size() > 1 ? ", " : "") + child.as<std::string>();
+        }
+        lines.push_back(prefix + ": " + value + "]");
+        return;
+    }
+    std::size_t index = 0;
+    for (const YAML::Node& child : node) {
+        flatten(child, prefix + "[" + std::to_string(index++) + "]", lines);
+    }
+}
+
+inline std::vector<std::string> flatten(const YAML::Node& node, const std::string& prefix)
+{
+    std::vector<std::string> lines;
+    flatten(node, prefix, lines);
+    return lines;
+}
+
+/**
  * @brief Read an optional YAML scalar, returning @p fallback when absent.
  */
 template <typename T>

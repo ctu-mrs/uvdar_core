@@ -10,6 +10,7 @@
 #include <opencv2/imgproc.hpp>
 #include <sensor_msgs/image_encodings.hpp>
 
+#include "uvdar_core/app/config_logging.hpp"
 #include "uvdar_core/app/visualization.hpp"
 
 namespace uvdar_core::app {
@@ -32,6 +33,7 @@ void DetectorNode::loadConfig()
 {
     config_path_ = declare_parameter<std::string>("config_path", std::string { });
     config_      = loadPackageConfig(config_path_);
+    logConfigSection(get_logger(), config_path_, "detector");
 }
 
 /**

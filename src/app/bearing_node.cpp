@@ -14,6 +14,7 @@
 
 #include "uvdar_core/calibration/lens_model_loader.hpp"
 #include "uvdar_core/helpers/ros_conversions.hpp"
+#include "uvdar_core/app/config_logging.hpp"
 #include "uvdar_core/helpers/yaml.hpp"
 #include "uvdar_core/msg/bearing_observation.hpp"
 #include "uvdar_core/msg/tracked_blinker.hpp"
@@ -75,6 +76,7 @@ void BearingNode::loadConfiguration(const std::string& config_path_string)
     if (!bearing_node || !bearing_node.IsMap()) {
         throw std::runtime_error("Missing bearing config section.");
     }
+    logConfigSection(get_logger(), config_path_string, root, "bearing");
 
     queue_depth_ = optionalScalar<std::size_t>(bearing_node, "queue_depth", queue_depth_);
     publish_predictions_ = optionalScalar<bool>(bearing_node, "publish_predictions", publish_predictions_);

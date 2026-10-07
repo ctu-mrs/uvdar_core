@@ -1,5 +1,6 @@
 #include "uvdar_core/app/filter_node.hpp"
 
+#include "uvdar_core/app/config_logging.hpp"
 #include "uvdar_core/helpers/math.hpp"
 #include "uvdar_core/helpers/yaml.hpp"
 
@@ -63,6 +64,7 @@ void FilterNode::loadConfiguration(const std::string& config_path)
     if (!node) {
         throw std::runtime_error("Missing filtering config section.");
     }
+    logConfigSection(get_logger(), config_path, root, "filtering");
 
     pe::KfPoseConfig config;
     config.debug = optionalScalar<bool>(node, "debug", false);

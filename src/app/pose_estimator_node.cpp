@@ -15,6 +15,7 @@
 #include <tf2/time.h>
 #include <yaml-cpp/yaml.h>
 
+#include "uvdar_core/app/config_logging.hpp"
 #include "uvdar_core/helpers/ros_conversions.hpp"
 #include "uvdar_core/app/visualization.hpp"
 #include "uvdar_core/helpers/yaml.hpp"
@@ -87,6 +88,7 @@ void PoseEstimatorNode::loadConfiguration(const std::string& config_path_string)
     if (!pose_node) {
         throw std::runtime_error("Missing pose_estimation config section.");
     }
+    logConfigSection(get_logger(), config_path_string, root, "pose_estimation");
     const std::string implementation = optionalScalar<std::string>(pose_node, "implementation", "particle_filter");
 
     output_frame_ = optionalScalar<std::string>(pose_node, "output_frame", "local_origin");
