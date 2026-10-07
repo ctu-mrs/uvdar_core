@@ -36,6 +36,15 @@ public:
         const Eigen::Isometry3d& output_to_camera) = 0;
 
     /**
+     * @brief Discard everything retained from one camera input.
+     *
+     * Called when an input stops delivering frames (e.g. a detached camera) so
+     * its last result is not reported as current. Backends whose state already
+     * expires by age need not override this.
+     */
+    virtual void clearInput(std::size_t /*camera_index*/) {}
+
+    /**
      * @brief Advance estimator state and return the current pose measurements.
      *
      * Stateful filters may diffuse/propagate hypotheses here. Stateless solvers

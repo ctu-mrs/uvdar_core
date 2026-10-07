@@ -81,6 +81,11 @@ public:
         const Eigen::Isometry3d& output_to_camera) override;
 
     /**
+     * @brief Drop the buffered frame and solution batch of a silent camera.
+     */
+    void clearInput(std::size_t camera_index) override;
+
+    /**
      * @brief Return the latest deterministic solution batch.
      */
     TimedPoseMeasurements scatterAndMeasure(double now, double stamp) override;
@@ -343,6 +348,9 @@ private:
         const CameraPose& output_pose,
         const Eigen::Matrix<double, 6, 6>& covariance,
         const std::string& method) const;
+
+    /** @brief Merge the per-input batches into latest_measurements_; mutex_ must be held. */
+    void mergeInputMeasurements();
 
     GeometricSolverConfig config_;
     BodyModel body_;

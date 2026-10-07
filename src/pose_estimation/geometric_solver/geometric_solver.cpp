@@ -267,7 +267,23 @@ void GeometricSolver::processFrame(
 
     std::scoped_lock lock(mutex_);
     latest_input_measurements_[camera_index] = std::move(measurements);
+    mergeInputMeasurements();
+}
 
+void GeometricSolver::clearInput(std::size_t camera_index)
+{
+    std::scoped_lock lock(mutex_);
+    if (camera_index >= latest_input_measurements_.size()) {
+        return;
+    }
+    latest_input_measurements_[camera_index].poses.clear();
+    latest_input_measurements_[camera_index].stamp = 0.0;
+    latest_camera_frames_[camera_index] = BufferedCameraFrame {};
+    mergeInputMeasurements();
+}
+
+void GeometricSolver::mergeInputMeasurements()
+{
     // Merge independent input batches without publishing duplicate body IDs.
     // A camera clears only its own previous batch.  For each body, the newest
     // valid input wins until that input supplies its next frame, eliminating
@@ -298,10 +314,11 @@ void GeometricSolver::processFrame(
 TimedPoseMeasurements GeometricSolver::scatterAndMeasure(double, double stamp)
 {
     std::scoped_lock lock(mutex_);
-    if (latest_measurements_.stamp <= 0.0) {
-        latest_measurements_.stamp = stamp;
+    TimedPoseMeasurements output = latest_measurements_;
+    if (output.stamp <= 0.0) {
+        output.stamp = stamp;
     }
-    return latest_measurements_;
+    return output;
 }
 
 std::vector<PoseMeasurement> GeometricSolver::verifiedHypotheses() const

@@ -42,6 +42,11 @@ private:
 
     std::vector<InputConfig> inputs_;
     std::vector<bool> tf_logged_once_;
+    // Node-clock receipt time and message stamp of the last frame handed to
+    // the estimator per input; zero while the input is silent.
+    std::vector<double> input_receipt_sec_;
+    std::vector<double> input_stamp_sec_;
+    double input_timeout_sec_ = 0.5;
     std::vector<rclcpp::Subscription<uvdar_core::msg::TrackerOutput>::SharedPtr> subscriptions_;
     rclcpp::Publisher<uvdar_core::msg::PoseWithCovarianceArrayStamped>::SharedPtr measured_publisher_;
     rclcpp::Publisher<uvdar_core::msg::PoseWithCovarianceArrayStamped>::SharedPtr hypotheses_publisher_;
@@ -52,7 +57,6 @@ private:
     tf2_ros::Buffer tf_buffer_;
     tf2_ros::TransformListener tf_listener_;
     std::string output_frame_;
-    double latest_primary_input_stamp_ = 0.0;
     bool publish_constituents_ = false;
     bool publish_visualization_ = false;
     std::string visualization_topic_;

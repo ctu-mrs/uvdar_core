@@ -172,6 +172,8 @@ pose_estimation:
   signal_ids: [0, 1, 2, 3, 4, 5, 6, 7, 8]
   # Geometric/non-filtered result publication period in seconds; positive number, default 0.1.
   publish_period_sec: 0.1
+  # Drop an input's retained data when it delivers no usable tracker output for this long in seconds; <= 0 disables, default 0.5.
+  input_timeout_sec: 0.5
 
   # Particle-filter-specific controls; used when implementation is particle_filter.
   particle_filter:

@@ -133,6 +133,9 @@ void PoseEstimatorNode::loadConfiguration(const std::string& config_path_string)
         cameras.push_back(camera);
     }
     tf_logged_once_.resize(inputs_.size(), false);
+    input_receipt_sec_.assign(inputs_.size(), 0.0);
+    input_stamp_sec_.assign(inputs_.size(), 0.0);
+    input_timeout_sec_ = optionalScalar<double>(pose_node, "input_timeout_sec", input_timeout_sec_);
 
     const YAML::Node particle_node = pose_node["particle_filter"];
     const YAML::Node geometric_node = pose_node["geometric_solver"];
@@ -369,9 +372,8 @@ void PoseEstimatorNode::onTrackerOutput(const uvdar_core::msg::TrackerOutput::Co
             blinker.prediction_covariance_10, blinker.prediction_covariance_11;
         points.push_back(point);
     }
-    if (camera_index == 0U) {
-        latest_primary_input_stamp_ = uvdar_core::helpers::toSeconds(msg->stamp);
-    }
+    input_receipt_sec_[camera_index] = get_clock()->now().seconds();
+    input_stamp_sec_[camera_index] = uvdar_core::helpers::toSeconds(msg->stamp);
 
     pose_estimator_->processFrame(
         camera_index,
@@ -391,7 +393,23 @@ void PoseEstimatorNode::onScatterTimer()
     }
 
     const double now_sec = get_clock()->now().seconds();
-    const double stamp_sec = latest_primary_input_stamp_ > 0.0 ? latest_primary_input_stamp_ : now_sec;
+    // An input that went silent (detached camera, lost TF) must not keep its
+    // last result alive in the published batch.
+    for (std::size_t i = 0; i < inputs_.size(); ++i) {
+        if (input_timeout_sec_ > 0.0 && input_receipt_sec_[i] > 0.0
+            && now_sec - input_receipt_sec_[i] > input_timeout_sec_) {
+            RCLCPP_WARN(get_logger(),
+                "No usable tracker output on '%s' for %.2f s; dropping its pose-estimation data.",
+                inputs_[i].input_topic.c_str(), now_sec - input_receipt_sec_[i]);
+            pose_estimator_->clearInput(i);
+            input_receipt_sec_[i] = 0.0;
+            input_stamp_sec_[i] = 0.0;
+        }
+    }
+    const double latest_input_stamp = input_stamp_sec_.empty()
+        ? 0.0
+        : *std::max_element(input_stamp_sec_.begin(), input_stamp_sec_.end());
+    const double stamp_sec = latest_input_stamp > 0.0 ? latest_input_stamp : now_sec;
     auto measurements = pose_estimator_->scatterAndMeasure(now_sec, stamp_sec);
     publishMeasurements(measurements, measured_publisher_);
     if (publish_visualization_ && visualization_publisher_) {

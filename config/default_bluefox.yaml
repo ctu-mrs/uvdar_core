@@ -136,7 +136,9 @@ pose_estimation:
   signal_ids: [0, 1, 2, 3, 4]
   reject_pose_above: 30.0 #[m]
   # Used by non-filtered implementations that do not own a natural scatter step.
-  publish_period_sec: 0.05
+  publish_period_sec: 0.025
+  # Drop a camera's retained data after this long without tracker output (e.g. detached camera).
+  input_timeout_sec: 0.5
   particle_filter:
     separate_by_distance: true
     max_cluster_distance: 100.0
