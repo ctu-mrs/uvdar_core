@@ -7,20 +7,6 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 include(GNUInstallDirs)
-include(FetchContent)
-
-FetchContent_Declare(
-  cvplot
-  GIT_REPOSITORY https://github.com/Profactor/cv-plot.git
-  GIT_TAG v1.2.2
-)
-FetchContent_GetProperties(cvplot)
-if(NOT cvplot_POPULATED)
-  FetchContent_Populate(cvplot)
-endif()
-add_library(cvplot INTERFACE)
-target_include_directories(cvplot INTERFACE "${cvplot_SOURCE_DIR}/CvPlot/inc")
-target_compile_definitions(cvplot INTERFACE CVPLOT_HEADER_ONLY)
 
 find_package(ament_cmake REQUIRED)
 find_package(Eigen3 REQUIRED)
@@ -180,7 +166,6 @@ target_include_directories(${PROJECT_NAME}_pose_estimation PUBLIC
 )
 # Common support.
 target_link_libraries(${PROJECT_NAME}_common
-    cvplot
     yaml-cpp::yaml-cpp
     ${OpenCV_LIBRARIES}
     Eigen3::Eigen
